@@ -1,0 +1,112 @@
+[
+  {
+    "prospectionOrigins": [
+      "INSTAGRAM",
+      "De Passage",
+      "WEB_MARKETING",
+      "SITE WEB",
+      "PROSPECTION EXTERNE",
+      "Bouche à Oreille",
+      "PRESSE",
+      "PARRAINAGE / FIDÉLITÉ",
+      "IMPORT BD",
+      "CONVENTION",
+      "RECOMMENDATION",
+      "FACEBOOK",
+      "AGENZ",
+      "MARKETING DIRECT",
+      "EVENTS",
+      "LINKEDIN TWL",
+      "HELLO LEADS",
+      "CONTACT GROUPE"
+    ],
+    "prospectionKinds": [
+      "A RAPPELER PAR LE COMMERCIAL",
+      "2 EN COURS DE TRAITEMENT",
+      "5 AVANT CONCRETISATION",
+      "4 APRES VISITES",
+      "1 A TRAITER",
+      "3 QUALIFIÉ",
+      "AFFAIRES  A SUIVRE"
+    ],
+    "prospectionClosingReasons": [
+      "CLAUSES CONTRAT NON ACCEPTÉES",
+      "PRIX ÉLEVÉS",
+      "PROSPECT A DÉJÀ RÉSERVÉ",
+      "HORS BUDGET",
+      "NE DISPOSE PAS D’ACOMPTE (0 AVANCE)",
+      "NON INTÉRESSÉ",
+      "VEUT VILLA",
+      "ATTEND APPARTEMENT TEMOIN",
+      "FAUX NUMÉRO",
+      "VEUT LOGEMENT ECONOMIQUE",
+      "VEUT UNE AUTRE VILLE",
+      "VEUT UN LOT DE TERRAIN",
+      "VEUT APPARTEMENT TITRÉ",
+      "PROSPECTION EN DOUBLE",
+      "A DÉJÀ ACHETÉ AILLEURS",
+      "INJOIGNABLE",
+      "PAS DE DISPONIBILITÉ (EMPLACEMENT SOUHAITÉ)",
+      "SOUHAITE SUPERFICIES PLUS GRANDES",
+      "AUTRE"
+    ],
+    "trancheStandings": [
+      "Très Haut Standing",
+      "Touristique Haut Standing",
+      "Touristique Standing",
+      "Moyen standing",
+      "Haut standing",
+      "Social"
+    ],
+    "actionMessageTypes": [
+      "Note",
+      "Message sortant",
+      "Message entrant",
+      "WEB",
+      "Téléphone entrant",
+      "Mail entrant",
+      "Instruction",
+      "Visite",
+      "Mail Sortant",
+      "Téléphone Sortant"
+    ],
+    "paymentMethods": [
+      "Non défini",
+      "Tempérament",
+      "Crédit",
+      "Comptant"
+    ],
+    "gifts": [
+      {
+        "code": "Lave-vaisselle",
+        "description": "Lave-vaisselle",
+        "price": 0.0
+      },
+      {
+        "code": "Offre Mazagan",
+        "description": "Offre Mazagan 1 Week End - 1 Nuit pour 2 pension Complète",
+        "price": 0.0
+      },
+      {
+        "code": "Réfrigérateur",
+        "description": "Réfrigérateur,",
+        "price": 5000.0
+      },
+      {
+        "code": "Lave-linge",
+        "description": "Lave-linge",
+        "price": 2000.0
+      },
+      {
+        "code": "Ecran télé",
+        "description": "Ecran télé",
+        "price": 0.0
+      },
+      {
+        "code": "Tablette",
+        "description": "Tablette",
+        "price": 0.0
+      }
+    ]
+  }
+]
