@@ -35,6 +35,16 @@ export interface StoreValue {
   assignCommercial: (kind: 'prospection' | 'dossier', id: string, commercial: string) => void;
   setProspectContact: (prospectionId: string, person: Person) => void;
   qualifyProspection: (prospectionId: string) => void;
+  /** Sets `nature` directly — mirrors the plain editable dropdown on the real
+   * Omran screen (the commercial moves the funnel-depth stage manually, e.g.
+   * after a visit or a sent offer; there's no automatic advancement beyond
+   * the one-time 1→2 kick in qualifyProspection). Accepts any of the 5
+   * pipeline stages or the 2 side-track values from lookups.prospectionKinds. */
+  setProspectionNature: (prospectionId: string, nature: string) => void;
+  /** Generic field patch for the Qualification tab (budget/superficie/apport/
+   * origine…). Auto-advances `nature` to "3 QUALIFIÉ" the moment the edited
+   * record crosses the isQualificationDataComplete bar — see lib/store.tsx. */
+  updateProspectionField: <K extends keyof Prospection>(prospectionId: string, field: K, value: Prospection[K]) => void;
   addInteraction: (target: { prospectionId?: string; folderId?: string }, input: NewInteractionInput, user: string) => void;
   /** Creates a dossier from a prospection using the full wizard payload
    * (Acheteur → Lot(s) → Prix/remise → Plan de financement steps). Returns

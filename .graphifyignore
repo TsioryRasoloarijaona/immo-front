@@ -1,0 +1,6 @@
+# Brand/marketing image assets — no code or business-logic content, not
+# worth a semantic-extraction subagent each. See graphify --update session.
+public/LOGO - Copie/
+public/brand/
+.agents/skills/shadcn/assets/
+.claude/skills/shadcn/assets/

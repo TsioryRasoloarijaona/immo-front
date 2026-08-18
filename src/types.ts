@@ -24,6 +24,15 @@ export interface Person {
   nbrChildren: number;
   fatherName: string;
   motherName: string;
+  /** Titre (Monsieur/Madame/Mademoiselle), Sexe and Nationalité — present on
+   * the real Omran fiche Prospect/Client but absent from every record in
+   * this 50-row export (not even for the sample's existing people), so
+   * these are optional and only ever get a value when a commercial actually
+   * fills them in via CreateProspectForm / StepAcheteur. Never backfilled
+   * for existing records — see CLAUDE.md "Data honesty note". */
+  title?: string;
+  gender?: string;
+  nationality?: string;
   _isMock?: boolean;
 }
 

@@ -8,9 +8,16 @@ export interface ClientRow {
   id: string;
   code: string;
   displayName: string;
+  title?: string;
+  gender?: string;
   mobile: string;
   phone: string;
   email: string;
+  city: string;
+  address: string;
+  nationality?: string;
+  idNumber: string;
+  profession: string;
   age: number | null;
   dossiers: Dossier[];
   totalDue: number;
@@ -50,9 +57,16 @@ export function buildClientRows(dossiers: Dossier[], settlements: Settlement[]):
         id: client.id,
         code: client.code,
         displayName: client.name,
+        title: client.title,
+        gender: client.gender,
         mobile: client.mobile,
         phone: client.phone,
         email: client.email,
+        city: client.city,
+        address: client.address,
+        nationality: client.nationality,
+        idNumber: client.idNumber,
+        profession: client.profession,
         age: computeAge(client.birthDate),
         dossiers: [],
         totalDue: 0,

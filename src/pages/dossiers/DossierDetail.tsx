@@ -1,51 +1,31 @@
 import { useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Calendar, Check, Eye, Receipt, Upload, X } from 'lucide-react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { AlertTriangle, ArrowLeft, ArrowUpRight, Calendar, Check, Coins, Eye, Receipt, TrendingUp, Upload, Wallet, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, Chip, ErrorState, Field, FieldGrid, LoadingState, TogglePill } from '../../components/ui';
+import { Badge, Card, Chip, ErrorState, Field, FieldGrid, LoadingState, StatCard, TogglePill } from '../../components/ui';
 import InteractionForm from '../../components/InteractionForm';
 import DossierStatusStepper from '../../components/DossierStatusStepper';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { usePreview } from '../../lib/previewContext';
 import { useStore } from '../../lib/storeContext';
 import { useData } from '../../lib/useData';
 import { cn } from '../../lib/utils';
 import { formatCurrency, formatDate, formatPercent, isPastOrToday, todayISO } from '../../lib/format';
-import { communicationIcon, resolveArticleTitleNumber, articleTypology } from '../../lib/domain';
+import { communicationIcon, resolveArticleTitleNumber, articleTypology, isPreProspection, prospectionDisplayName } from '../../lib/domain';
 import { categoryTotals, financingCategoryLabel, lineRemaining, lineSettled, netAPayer } from '../../lib/financing';
 import type { Dossier } from '../../types';
-
-// The full legal/administrative timeline Omran tracks per dossier — shown as
-// present (with date) or pending (greyed) rather than filtered down to only
-// reached milestones, so the page reflects everything the real system tracks.
-// finalTitleDate/finalTitleNumber are shown separately under "Légal", not here.
-const MILESTONES: { key: keyof Dossier; label: string }[] = [
-  { key: 'reservationDate', label: 'Réservation' },
-  { key: 'advanceDate', label: 'Avance versée' },
-  { key: 'contractPrintDate', label: 'Impression du contrat' },
-  { key: 'agreementDatePrevisionel', label: 'Concrétisation prévisionnelle' },
-  { key: 'agreementDate', label: 'Concrétisation' },
-  { key: 'agreementSavingDate', label: 'Compromis' },
-  { key: 'insuranceDate', label: 'Assurance' },
-  { key: 'creditApprovalDate', label: 'Crédit en cours' },
-  { key: 'bankRecordDate', label: 'Dossier bancaire' },
-  { key: 'creditPossessionDate', label: 'Crédit débloqué' },
-  { key: 'precisionActDate', label: 'Envoi au notaire' },
-  { key: 'ownershipCertificateDate', label: 'Certificat de propriété' },
-  { key: 'interventionDate', label: 'Intervention technique' },
-  { key: 'receptionDate', label: 'Réception' },
-  { key: 'deliveryDateReal', label: 'Remise des clés' },
-];
 
 // Pièces & documents du dossier — Omran's export has no dedicated document/
 // attachment table (no file storage, no PDF generation in this prototype —
 // out of scope per CLAUDE.md), so "fourni" here means the real underlying
 // field it stands for is populated, not that a file was uploaded. Each item
 // maps to an actual field already in the data model (several overlap with
-// MILESTONES above — expected: a document checklist and a progress timeline
-// are two legitimate views over the same underlying dates).
+// key-date fields elsewhere — expected: a document checklist and a progress
+// timeline are two legitimate views over the same underlying dates).
 const DOCUMENTS: { label: string; present: (d: Dossier) => boolean; date: (d: Dossier) => string | null }[] = [
   { label: 'CIN du client', present: (d) => Boolean(d.client?.idNumber), date: (d) => d.client?.idDate ?? null },
   { label: 'Dossier de réservation', present: (d) => Boolean(d.reservationDate), date: (d) => d.reservationDate },
@@ -57,6 +37,11 @@ const DOCUMENTS: { label: string; present: (d: Dossier) => boolean; date: (d: Do
   { label: 'Certificat de propriété', present: (d) => Boolean(d.ownershipCertificateDate), date: (d) => d.ownershipCertificateDate },
   { label: 'Titre foncier définitif', present: (d) => Boolean(d.finalTitleDate || d.finalTitleNumber), date: (d) => d.finalTitleDate },
 ];
+
+// The 5 detail tabs below the always-visible header/stats/stepper. Keeping
+// this list as data (rather than JSX-only) lets the tab trigger badges and
+// the content panels share one source of truth for ordering.
+type DossierTab = 'apercu' | 'financier' | 'suivi' | 'documents' | 'admin';
 
 function TimelineList({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-col">{children}</div>;
@@ -111,7 +96,8 @@ export default function DossierDetail() {
   const navigate = useNavigate();
   const [toast, setToast] = useState<string | null>(null);
   const [showInteractionForm, setShowInteractionForm] = useState(false);
-  const [showAllMilestones, setShowAllMilestones] = useState(false);
+  const { previewProspection, previewProspect } = usePreview();
+  const [tab, setTab] = useState<DossierTab>('apercu');
   // Uploaded files, session-only (never persisted, matches the rest of this
   // prototype's mock-state approach — see lib/store.tsx). Keyed by document
   // label since DOCUMENTS has no id and is per-page, not per-record.
@@ -196,16 +182,16 @@ export default function DossierDetail() {
     { label: 'Première relance titre foncier', value: d.revival1, validity: d.revival1ValidityDate },
     { label: 'Deuxième relance titre foncier', value: d.revival2, validity: d.revival2ValidityDate },
   ];
+  const pendingRevivals = revivals.filter((r) => r.validity && !r.value);
+  const overdueRevivals = pendingRevivals.filter((r) => isPastOrToday(r.validity!));
+  const nextRevival = [...pendingRevivals].sort((a, b) => (a.validity! < b.validity! ? -1 : 1))[0];
 
-  // Jalons clés: 15 real milestones, most "En attente" for any given dossier
-  // — showing all of them at once makes the card mostly grey noise. Collapse
-  // to what's reached plus the next one up by default; the rest stay one
-  // click away rather than disappearing, since the point of this list is to
-  // reflect everything the real system tracks (see MILESTONES comment above).
-  const lastReachedIdx = MILESTONES.reduce((acc, m, i) => (d[m.key] ? i : acc), -1);
-  const collapsedCount = Math.min(MILESTONES.length, Math.max(lastReachedIdx + 2, 1));
-  const visibleMilestones = showAllMilestones ? MILESTONES : MILESTONES.slice(0, collapsedCount);
-  const hiddenMilestonesCount = MILESTONES.length - visibleMilestones.length;
+  // Reste à payer surfaced up front: net à payer from the échéancier when one
+  // exists, else the flat totalToPay field — same figure the "Montants" tab
+  // details further down.
+  const reste = d.echeancier && d.echeancier.length > 0 ? netAPayer(d.echeancier) : d.totalToPay;
+
+  const documentsPresentCount = DOCUMENTS.filter((doc) => doc.present(d) || uploadedDocs[doc.label]).length;
 
   return (
     <PageShell
@@ -216,6 +202,9 @@ export default function DossierDetail() {
         <ArrowLeft data-icon="inline-start" /> Retour à la liste
       </Button>
 
+      {/* Always-visible summary — identity, the 4 numbers that matter most,
+          and the status pipeline. Everything else lives in tabs below so a
+          given screen only ever shows one topic at a time. */}
       <div className="mb-5.5 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-3">
@@ -226,6 +215,12 @@ export default function DossierDetail() {
               <Chip>
                 <Calendar />
                 Prochain RDV : {formatDate(upcomingRdv.appointmentDate)}{upcomingRdv.appointmentLabel ? ` — ${upcomingRdv.appointmentLabel}` : ''}
+              </Chip>
+            )}
+            {overdueRevivals.length > 0 && (
+              <Chip warning>
+                <AlertTriangle />
+                {overdueRevivals.length > 1 ? 'Relances titre foncier en retard' : `${overdueRevivals[0].label} en retard`}
               </Chip>
             )}
           </div>
@@ -250,14 +245,37 @@ export default function DossierDetail() {
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2.5">
-          <div className="min-w-[150px] rounded-xl border border-border bg-card px-4 py-2.5 shadow-sm">
-            <div className="text-[12.5px] font-medium text-muted-foreground">Prix</div>
-            <div className="text-[19px] font-semibold tracking-tight text-foreground">{formatCurrency(d.price)}</div>
-          </div>
           <Button variant="outline" size="sm" onClick={() => setShowInteractionForm(true)}>
             Ajouter un appel / une visite
           </Button>
         </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-3.5">
+        <StatCard
+          icon={<Coins />}
+          label="Prix retenu"
+          value={formatCurrency(d.price)}
+          sub={d.discount ? `Remise ${formatPercent(d.discount, 2)}` : undefined}
+        />
+        <StatCard
+          icon={<Wallet />}
+          label="Reste à payer"
+          value={formatCurrency(reste)}
+          sub={d.echeancier && d.echeancier.length > 0 ? 'Net à payer (échéancier)' : 'Total à payer'}
+        />
+        <StatCard
+          icon={<TrendingUp />}
+          label="Probabilité de finalisation"
+          value={formatPercent(d.probabilityOfFinalisation)}
+          sub={status.label}
+        />
+        <StatCard
+          icon={<AlertTriangle />}
+          label="Relance titre foncier"
+          value={overdueRevivals.length > 0 ? `${overdueRevivals.length} en retard` : nextRevival ? formatDate(nextRevival.validity) : 'Aucune'}
+          sub={overdueRevivals.length > 0 ? overdueRevivals[0].label : nextRevival ? nextRevival.label : 'Non planifiée ou déjà effectuée'}
+        />
       </div>
 
       <div className="mb-4">
@@ -270,272 +288,341 @@ export default function DossierDetail() {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <div className="flex flex-col gap-4">
-          <Card title="Client">
-            {d.client ? (
-              <FieldGrid>
-                <Field label="Nom" value={d.client.name} />
-                <Field label="Téléphone" value={d.client.phone} />
-                <Field label="Mobile" value={d.client.mobile} />
-                <Field label="Email" value={d.client.email} />
-                <Field label="Ville" value={d.client.city} />
-                <Field label="Adresse" value={d.client.address} />
-                <Field label="Pièce d'identité" value={d.client.idNumber} />
-                <Field label="Profession" value={d.client.profession} />
-              </FieldGrid>
-            ) : (
-              <p className="text-[13px] text-muted-foreground">Aucun client résolu pour ce dossier.</p>
-            )}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as DossierTab)} className="gap-4">
+        <TabsList>
+          <TabsTrigger value="apercu">Aperçu</TabsTrigger>
+          <TabsTrigger value="financier">Financier</TabsTrigger>
+          <TabsTrigger value="suivi">
+            Suivi
+            {dossierComms.length > 0 && <Badge tone="neutral" className="ml-1.5">{dossierComms.length}</Badge>}
+            {overdueRevivals.length > 0 && <span aria-hidden className="ml-1.5 size-1.5 shrink-0 rounded-full bg-[var(--warning)]" />}
+          </TabsTrigger>
+          <TabsTrigger value="documents">
+            Documents <Badge tone="neutral" className="ml-1.5">{documentsPresentCount}/{DOCUMENTS.length}</Badge>
+          </TabsTrigger>
+          <TabsTrigger value="admin">Administratif</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="apercu">
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <Card title="Client">
+                {d.client ? (
+                  <FieldGrid>
+                    <Field label="Titre" value={d.client.title} />
+                    <Field label="Sexe" value={d.client.gender} />
+                    <Field label="Nom" value={d.client.name} />
+                    <Field label="Téléphone" value={d.client.phone} />
+                    <Field label="Mobile" value={d.client.mobile} />
+                    <Field label="Email" value={d.client.email} />
+                    <Field label="Ville" value={d.client.city} />
+                    <Field label="Adresse" value={d.client.address} />
+                    <Field label="Nationalité" value={d.client.nationality} />
+                    <Field label="Pièce d'identité" value={d.client.idNumber} />
+                    <Field label="Profession" value={d.client.profession} />
+                  </FieldGrid>
+                ) : (
+                  <p className="text-[13px] text-muted-foreground">Aucun client résolu pour ce dossier.</p>
+                )}
+              </Card>
+
+              <Card title="Article réservé">
+                {d.article ? (
+                  <FieldGrid>
+                    <Field label="Code" value={d.article.code} />
+                    <Field label="Description" value={d.article.description} />
+                    <Field label="Type" value={d.article.type} />
+                    <Field label="Catégorie" value={d.article.category} />
+                    <Field label="Typologie" value={articleTypology(d.article)} />
+                    <Field label="Titre foncier" value={resolveArticleTitleNumber(d.article, data.articles)} />
+                    <Field label="Superficie" value={`${d.area || d.article.area} m²`} />
+                    <Field label="Superficie globale" value={d.globalArea ? `${d.globalArea} m²` : undefined} />
+                  </FieldGrid>
+                ) : (
+                  <p className="text-[13px] text-muted-foreground">Aucun article lié.</p>
+                )}
+              </Card>
+            </div>
+
             {prospection && (
-              <div className="mt-3.5 border-t border-border pt-3.5">
-                <Link to={`/prospections/${prospection.id}`} className="text-[12.5px] font-semibold text-primary hover:underline">
-                  Voir la prospection d'origine →
-                </Link>
-              </div>
+              <Card title="Origine du dossier">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  D'où vient ce dossier — cliquez une source pour voir son détail sans quitter cette page.
+                </p>
+                <div className="flex flex-col gap-2">
+                  {prospection.prospect && (
+                    <button
+                      type="button"
+                      onClick={() => previewProspect(prospection.prospect!, prospection.id)}
+                      className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-left text-[13px] hover:bg-muted"
+                    >
+                      <span>
+                        <span className="font-semibold text-foreground">Prospect</span>
+                        <span className="ml-1.5 text-muted-foreground">{prospection.prospect.name}</span>
+                      </span>
+                      <ArrowUpRight className="size-3 shrink-0 text-muted-foreground" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => previewProspection(prospection.id)}
+                    className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-left text-[13px] hover:bg-muted"
+                  >
+                    <span>
+                      <span className="font-semibold text-foreground">
+                        {isPreProspection(prospection) ? 'Pré-prospection' : 'Prospection'}
+                      </span>
+                      <span className="ml-1.5 text-muted-foreground">
+                        {prospection.code || prospectionDisplayName(prospection)}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      {isPreProspection(prospection) && <Badge tone="amber">Non qualifiée</Badge>}
+                      <ArrowUpRight className="size-3 text-muted-foreground" />
+                    </span>
+                  </button>
+                </div>
+              </Card>
             )}
-          </Card>
 
-          <Card title="Article réservé">
-            {d.article ? (
+            {d.notes && (
+              <Card title="Notes">
+                <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground">
+                  {d.notes}
+                </div>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="financier">
+          <div className="flex flex-col gap-4">
+            <Card title="Montants">
               <FieldGrid>
-                <Field label="Code" value={d.article.code} />
-                <Field label="Description" value={d.article.description} />
-                <Field label="Type" value={d.article.type} />
-                <Field label="Catégorie" value={d.article.category} />
-                <Field label="Typologie" value={articleTypology(d.article)} />
-                <Field label="Titre foncier" value={resolveArticleTitleNumber(d.article, data.articles)} />
-                <Field label="Superficie" value={`${d.area || d.article.area} m²`} />
-                <Field label="Superficie globale" value={d.globalArea ? `${d.globalArea} m²` : undefined} />
+                <Field label="Prix contractuel" value={d.contractualPrice != null ? formatCurrency(d.contractualPrice) : undefined} />
+                <div className="min-w-0">
+                  <div className="mb-0.5 text-[11.5px] font-medium text-muted-foreground">Mode de paiement</div>
+                  {/* No confirmed référentiel for this select's values yet — free
+                      text until a real dropdown capture is available. See
+                      instructions/FIX-dossier-vente-corrections.md §1. */}
+                  <Input
+                    className="h-7 text-[13.5px]"
+                    value={d.paymentMethod}
+                    onChange={(e) => updateDossierField(d.id, 'paymentMethod', e.target.value)}
+                  />
+                </div>
               </FieldGrid>
-            ) : (
-              <p className="text-[13px] text-muted-foreground">Aucun article lié.</p>
-            )}
-          </Card>
 
-          <Card title="Détail du prix">
-            <FieldGrid>
-              <Field label="Coût unitaire (au m²)" value={d.unitCost ? formatCurrency(d.unitCost) : undefined} />
-              <Field label="Prix bien principal" value={d.itemPrice ? formatCurrency(d.itemPrice) : undefined} />
-              <Field label="Prix biens annexes" value={d.underItemsPrice ? formatCurrency(d.underItemsPrice) : undefined} />
-              <Field label="Prix avant remise" value={formatCurrency(d.priceBeforeDiscount)} />
-              <Field label="Remise" value={`${formatPercent(d.discount, 2)} (${formatCurrency(d.discountAmount)})`} />
-              <Field label="Prix après remise" value={formatCurrency(d.priceAfterDiscount)} />
-              <Field label="Prix retenu" value={formatCurrency(d.price)} />
-              <Field label="TVA" value={formatPercent(d.vatRatio)} />
-              <Field label="Prix HT" value={formatCurrency(d.priceHT)} />
-              <Field label="Total à payer" value={formatCurrency(d.totalToPay)} />
-              <Field label="Taux de commission" value={d.commissionRate ? formatPercent(d.commissionRate) : undefined} />
-            </FieldGrid>
-          </Card>
-
-          <Card title="Montants">
-            <FieldGrid>
-              <Field label="Prix contractuel" value={d.contractualPrice != null ? formatCurrency(d.contractualPrice) : undefined} />
-              <div className="min-w-0">
-                <div className="mb-0.5 text-[11.5px] font-medium text-muted-foreground">Mode de paiement</div>
-                {/* No confirmed référentiel for this select's values yet — free
-                    text until a real dropdown capture is available. See
-                    instructions/FIX-dossier-vente-corrections.md §1. */}
-                <Input
-                  className="h-7 text-[13.5px]"
-                  value={d.paymentMethod}
-                  onChange={(e) => updateDossierField(d.id, 'paymentMethod', e.target.value)}
-                />
-              </div>
-            </FieldGrid>
-
-            {d.echeancier && d.echeancier.length > 0 ? (
-              <div className="mt-4 overflow-x-auto border-t border-border pt-4">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead>Catégorie</TableHead>
-                      <TableHead className="text-right">Montant</TableHead>
-                      <TableHead className="text-right">Réglé</TableHead>
-                      <TableHead className="text-right">Reste</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {categoryTotals(d.echeancier).map((row) => (
-                      <TableRow key={row.code} className="hover:bg-transparent">
-                        <TableCell className="font-medium text-foreground">{row.label}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCurrency(row.montant)}</TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">{formatCurrency(row.regle)}</TableCell>
-                        <TableCell className={cn('text-right tabular-nums font-medium', row.reste > 0 ? 'text-foreground' : 'text-[var(--success)]')}>
-                          {formatCurrency(row.reste)}
+              {d.echeancier && d.echeancier.length > 0 ? (
+                <div className="mt-4 overflow-x-auto border-t border-border pt-4">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead>Catégorie</TableHead>
+                        <TableHead className="text-right">Montant</TableHead>
+                        <TableHead className="text-right">Réglé</TableHead>
+                        <TableHead className="text-right">Reste</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {categoryTotals(d.echeancier).map((row) => (
+                        <TableRow key={row.code} className="hover:bg-transparent">
+                          <TableCell className="font-medium text-foreground">{row.label}</TableCell>
+                          <TableCell className="text-right tabular-nums">{formatCurrency(row.montant)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">{formatCurrency(row.regle)}</TableCell>
+                          <TableCell className={cn('text-right tabular-nums font-medium', row.reste > 0 ? 'text-foreground' : 'text-[var(--success)]')}>
+                            {formatCurrency(row.reste)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell className="font-semibold text-foreground">Net à payer</TableCell>
+                        <TableCell />
+                        <TableCell />
+                        <TableCell className="text-right text-[14px] font-semibold tabular-nums text-foreground">
+                          {formatCurrency(netAPayer(d.echeancier))}
                         </TableCell>
                       </TableRow>
-                    ))}
-                    <TableRow className="hover:bg-transparent">
-                      <TableCell className="font-semibold text-foreground">Net à payer</TableCell>
-                      <TableCell />
-                      <TableCell />
-                      <TableCell className="text-right text-[14px] font-semibold tabular-nums text-foreground">
-                        {formatCurrency(netAPayer(d.echeancier))}
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="mt-4 border-t border-border pt-4 text-[13px] text-muted-foreground">Aucune ligne d'échéancier pour ce dossier.</p>
+              )}
+
+              <div className="mt-4 border-t border-border pt-4">
+                <div className="mb-1.5 flex items-center justify-between gap-3">
+                  <div className="text-[11.5px] font-medium text-muted-foreground">Probabilité de finalisation</div>
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-[13px] font-semibold text-foreground">{formatPercent(d.probabilityOfFinalisation)}</span>
+                    <Button type="button" size="sm" variant="outline" disabled title="Facturation hors scope Vente/Patrimoine pour ce prototype">
+                      <Receipt data-icon="inline-start" /> Facturer la vente
+                    </Button>
+                  </div>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-[var(--neutral-bg)]">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.max(0, Math.min(1, d.probabilityOfFinalisation)) * 100}%`,
+                      background: d.probabilityOfFinalisation < 0.34 ? 'var(--warning)' : d.probabilityOfFinalisation < 0.67 ? 'var(--amber)' : 'var(--brand)',
+                    }}
+                  />
+                </div>
               </div>
-            ) : (
-              <p className="mt-4 border-t border-border pt-4 text-[13px] text-muted-foreground">Aucune ligne d'échéancier pour ce dossier.</p>
+            </Card>
+
+            <Card title="Détail du prix">
+              <FieldGrid>
+                <Field label="Coût unitaire (au m²)" value={d.unitCost ? formatCurrency(d.unitCost) : undefined} />
+                <Field label="Prix bien principal" value={d.itemPrice ? formatCurrency(d.itemPrice) : undefined} />
+                <Field label="Prix biens annexes" value={d.underItemsPrice ? formatCurrency(d.underItemsPrice) : undefined} />
+                <Field label="Prix avant remise" value={formatCurrency(d.priceBeforeDiscount)} />
+                <Field label="Remise" value={`${formatPercent(d.discount, 2)} (${formatCurrency(d.discountAmount)})`} />
+                <Field label="Prix après remise" value={formatCurrency(d.priceAfterDiscount)} />
+                <Field label="Prix retenu" value={formatCurrency(d.price)} />
+                <Field label="TVA" value={formatPercent(d.vatRatio)} />
+                <Field label="Prix HT" value={formatCurrency(d.priceHT)} />
+                <Field label="Total à payer" value={formatCurrency(d.totalToPay)} />
+                <Field label="Taux de commission" value={d.commissionRate ? formatPercent(d.commissionRate) : undefined} />
+              </FieldGrid>
+            </Card>
+
+            {d.echeancier && d.echeancier.length > 0 && (
+              <Card title="Échéancier">
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Lignes de financement avec suivi de règlement — alimente le panneau Montants ci-dessus.
+                </p>
+                <div className="flex flex-col gap-2">
+                  {d.echeancier.map((l) => (
+                    <div key={l.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-[13px]">
+                      <span className="font-medium text-foreground">{financingCategoryLabel(l.categorie)}</span>
+                      <span className="text-muted-foreground">{formatDate(l.date)}</span>
+                      {l.invoiceRef && <span className="text-muted-foreground">Facture {l.invoiceRef}</span>}
+                      <span className="text-muted-foreground">Réglé {formatCurrency(lineSettled(l))} · Reste {formatCurrency(lineRemaining(l))}</span>
+                      <span className="font-medium tabular-nums text-foreground">{formatCurrency(l.montant)}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
             )}
 
-            <div className="mt-4 border-t border-border pt-4">
-              <div className="mb-1.5 flex items-center justify-between gap-3">
-                <div className="text-[11.5px] font-medium text-muted-foreground">Probabilité de finalisation</div>
-                <div className="flex items-center gap-2.5">
-                  <span className="text-[13px] font-semibold text-foreground">{formatPercent(d.probabilityOfFinalisation)}</span>
-                  <Button type="button" size="sm" variant="outline" disabled title="Facturation hors scope Vente/Patrimoine pour ce prototype">
-                    <Receipt data-icon="inline-start" /> Facturer la vente
-                  </Button>
-                </div>
-              </div>
-              <div className="h-2 overflow-hidden rounded-full bg-[var(--neutral-bg)]">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${Math.max(0, Math.min(1, d.probabilityOfFinalisation)) * 100}%`,
-                    background: d.probabilityOfFinalisation < 0.34 ? 'var(--warning)' : d.probabilityOfFinalisation < 0.67 ? 'var(--amber)' : 'var(--brand)',
-                  }}
-                />
-              </div>
-            </div>
-          </Card>
-
-          {d.echeancier && d.echeancier.length > 0 && (
-            <Card title="Échéancier">
-              <p className="mb-3 text-xs text-muted-foreground">
-                Lignes de financement avec suivi de règlement — alimente le panneau Montants ci-dessus.
-              </p>
-              <div className="flex flex-col gap-2">
-                {d.echeancier.map((l) => (
-                  <div key={l.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-[13px]">
-                    <span className="font-medium text-foreground">{financingCategoryLabel(l.categorie)}</span>
-                    <span className="text-muted-foreground">{formatDate(l.date)}</span>
-                    {l.invoiceRef && <span className="text-muted-foreground">Facture {l.invoiceRef}</span>}
-                    <span className="text-muted-foreground">Réglé {formatCurrency(lineSettled(l))} · Reste {formatCurrency(lineRemaining(l))}</span>
-                    <span className="font-medium tabular-nums text-foreground">{formatCurrency(l.montant)}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {d.additionalLots && d.additionalLots.length > 0 && (
-            <Card title="Lots additionnels">
-              <div className="flex flex-col gap-2">
-                {d.additionalLots.map((l) => (
-                  <div key={l.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-[13px]">
-                    <span className="font-medium text-foreground">{l.code}</span>
-                    <span className="text-muted-foreground">{l.description}</span>
-                    <span className="font-medium tabular-nums text-foreground">{formatCurrency(l.salePrice)}</span>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          <Card title="Relances titre foncier">
-            <div className="flex flex-col gap-3">
-              {revivals.map((r) => {
-                const overdue = r.validity && isPastOrToday(r.validity) && !r.value;
-                const done = Boolean(r.value);
-                return (
-                  <div
-                    key={r.label}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg border px-3 py-2.5',
-                      overdue ? 'border-[var(--warning-border)] bg-[var(--warning-bg)]' : 'border-border bg-background'
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        'flex size-[22px] shrink-0 items-center justify-center rounded-full border-2 text-[10.5px] font-bold',
-                        done
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : overdue
-                            ? 'border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]'
-                            : 'border-border bg-[var(--neutral-bg)] text-muted-foreground'
-                      )}
-                    >
-                      {done ? <Check className="size-3" /> : overdue ? <AlertTriangle className="size-[11px]" /> : ''}
+            {d.additionalLots && d.additionalLots.length > 0 && (
+              <Card title="Lots additionnels">
+                <div className="flex flex-col gap-2">
+                  {d.additionalLots.map((l) => (
+                    <div key={l.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-[13px]">
+                      <span className="font-medium text-foreground">{l.code}</span>
+                      <span className="text-muted-foreground">{l.description}</span>
+                      <span className="font-medium tabular-nums text-foreground">{formatCurrency(l.salePrice)}</span>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-semibold text-foreground">{r.label}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {done ? `Effectuée le ${formatDate(r.value)}` : r.validity ? `Échéance ${formatDate(r.validity)}${overdue ? ' — en retard' : ''}` : 'Non planifiée'}
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="suivi">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.2fr]">
+            <div className="flex flex-col gap-4">
+              <Card title="Relances titre foncier">
+                <div className="flex flex-col gap-3">
+                  {revivals.map((r) => {
+                    const overdue = r.validity && isPastOrToday(r.validity) && !r.value;
+                    const done = Boolean(r.value);
+                    return (
+                      <div
+                        key={r.label}
+                        className={cn(
+                          'flex items-center gap-3 rounded-lg border px-3 py-2.5',
+                          overdue ? 'border-[var(--warning-border)] bg-[var(--warning-bg)]' : 'border-border bg-background'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'flex size-[22px] shrink-0 items-center justify-center rounded-full border-2 text-[10.5px] font-bold',
+                            done
+                              ? 'border-primary bg-primary text-primary-foreground'
+                              : overdue
+                                ? 'border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]'
+                                : 'border-border bg-[var(--neutral-bg)] text-muted-foreground'
+                          )}
+                        >
+                          {done ? <Check className="size-3" /> : overdue ? <AlertTriangle className="size-[11px]" /> : ''}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[13px] font-semibold text-foreground">{r.label}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {done ? `Effectuée le ${formatDate(r.value)}` : r.validity ? `Échéance ${formatDate(r.validity)}${overdue ? ' — en retard' : ''}` : 'Non planifiée'}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-
-          {d.notes && (
-            <Card title="Notes">
-              <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground">
-                {d.notes}
-              </div>
-            </Card>
-          )}
-
-          {hasLegalTitle && (
-            <Card title="Légal — titre foncier définitif">
-              <FieldGrid>
-                <Field label="Numéro de titre foncier" value={d.finalTitleNumber} />
-                <Field label="Date de formalisation" value={formatDate(d.finalTitleDate)} />
-              </FieldGrid>
-            </Card>
-          )}
-
-          {isCancelled && (
-            <Card title="Annulation">
-              <FieldGrid>
-                <Field label="Date d'annulation" value={formatDate(d.cancelDate)} />
-              </FieldGrid>
-              {d.cancelDescription && (
-                <div className="mt-3 whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground">
-                  {d.cancelDescription}
+                    );
+                  })}
                 </div>
+              </Card>
+
+              {hasLegalTitle && (
+                <Card title="Légal — titre foncier définitif">
+                  <FieldGrid>
+                    <Field label="Numéro de titre foncier" value={d.finalTitleNumber} />
+                    <Field label="Date de formalisation" value={formatDate(d.finalTitleDate)} />
+                  </FieldGrid>
+                </Card>
+              )}
+            </div>
+
+            <Card title={`Communications (${dossierComms.length})`}>
+              {dossierComms.length === 0 ? (
+                <p className="text-[13px] text-muted-foreground">Aucune interaction enregistrée pour ce dossier.</p>
+              ) : (
+                <TimelineList>
+                  {dossierComms.map((c, i) => {
+                    const alertOverdue = c.alertDate && isPastOrToday(c.alertDate);
+                    return (
+                      <TimelineItem
+                        key={c.id}
+                        done
+                        system={c.isSystem}
+                        last={i === dossierComms.length - 1}
+                        title={
+                          <span className="flex items-center gap-1.5">
+                            {!c.isSystem && <span className="inline-flex text-[var(--brand)]">{communicationIcon(c.actionType)}</span>}
+                            {c.actionType}
+                          </span>
+                        }
+                        meta={
+                          <>
+                            {formatDate(c.date)} · {c.user || 'Système'}
+                            {c.report && <div className="mt-1 text-[12.5px] text-foreground">{c.report}</div>}
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {c.alertDate && (
+                                <Chip warning={!!alertOverdue}>
+                                  {alertOverdue && <AlertTriangle />}
+                                  Relance prévue le {formatDate(c.alertDate)}
+                                </Chip>
+                              )}
+                              {c.appointmentDate && (
+                                <Chip>
+                                  <Calendar />
+                                  RDV {formatDate(c.appointmentDate)}{c.appointmentLabel ? ` — ${c.appointmentLabel}` : ''}
+                                </Chip>
+                              )}
+                            </div>
+                          </>
+                        }
+                      />
+                    );
+                  })}
+                </TimelineList>
               )}
             </Card>
-          )}
-        </div>
+          </div>
+        </TabsContent>
 
-        <div className="flex flex-col gap-4">
-          <Card title="Jalons clés">
-            <TimelineList>
-              {visibleMilestones.map((m, i) => {
-                const value = d[m.key] as string | null;
-                const done = Boolean(value);
-                return (
-                  <TimelineItem
-                    key={m.key}
-                    done={done}
-                    last={i === visibleMilestones.length - 1 && hiddenMilestonesCount === 0}
-                    title={m.label}
-                    meta={done ? formatDate(value) : 'En attente'}
-                  />
-                );
-              })}
-            </TimelineList>
-            {MILESTONES.length > collapsedCount && (
-              <button
-                type="button"
-                onClick={() => setShowAllMilestones((v) => !v)}
-                className="mt-2 text-[12px] font-semibold text-primary hover:underline"
-              >
-                {showAllMilestones ? 'Réduire' : `+ ${hiddenMilestonesCount} autre${hiddenMilestonesCount > 1 ? 's' : ''} jalon${hiddenMilestonesCount > 1 ? 's' : ''}`}
-              </button>
-            )}
-          </Card>
-
-          <Card
-            title={`Pièces & documents (${DOCUMENTS.filter((doc) => doc.present(d) || uploadedDocs[doc.label]).length}/${DOCUMENTS.length})`}
-          >
+        <TabsContent value="documents">
+          <Card title={`Pièces & documents (${documentsPresentCount}/${DOCUMENTS.length})`}>
             <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelected} />
             <p className="mb-3 text-xs text-muted-foreground">
               « Fourni » sans fichier joint reflète une donnée déjà présente dans le dossier — utilisez « Joindre »
@@ -590,69 +677,40 @@ export default function DossierDetail() {
               })}
             </div>
           </Card>
+        </TabsContent>
 
-          <Card title={`Communications (${dossierComms.length})`}>
-            {dossierComms.length === 0 ? (
-              <p className="text-[13px] text-muted-foreground">Aucune interaction enregistrée pour ce dossier.</p>
-            ) : (
-              <TimelineList>
-                {dossierComms.map((c, i) => {
-                  const alertOverdue = c.alertDate && isPastOrToday(c.alertDate);
-                  return (
-                    <TimelineItem
-                      key={c.id}
-                      done
-                      system={c.isSystem}
-                      last={i === dossierComms.length - 1}
-                      title={
-                        <span className="flex items-center gap-1.5">
-                          {!c.isSystem && <span className="inline-flex text-[var(--brand)]">{communicationIcon(c.actionType)}</span>}
-                          {c.actionType}
-                        </span>
-                      }
-                      meta={
-                        <>
-                          {formatDate(c.date)} · {c.user || 'Système'}
-                          {c.report && <div className="mt-1 text-[12.5px] text-foreground">{c.report}</div>}
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {c.alertDate && (
-                              <Chip warning={!!alertOverdue}>
-                                {alertOverdue && <AlertTriangle />}
-                                Relance prévue le {formatDate(c.alertDate)}
-                              </Chip>
-                            )}
-                            {c.appointmentDate && (
-                              <Chip>
-                                <Calendar />
-                                RDV {formatDate(c.appointmentDate)}{c.appointmentLabel ? ` — ${c.appointmentLabel}` : ''}
-                              </Chip>
-                            )}
-                          </div>
-                        </>
-                      }
-                    />
-                  );
-                })}
-              </TimelineList>
+        <TabsContent value="admin">
+          <div className="flex flex-col gap-4">
+            <Card title="Suivi administratif">
+              <div className="mb-4 flex flex-wrap gap-2">
+                <TogglePill on={d.isAccounted} onLabel="Comptabilisé" offLabel="Non comptabilisé" />
+                <TogglePill on={d.isOldCustomer} onLabel="Ancien client" offLabel="Nouveau client" />
+                <TogglePill on={d.isPenaltyDisabled} onLabel="Pénalité désactivée" offLabel="Pénalité active" />
+                <TogglePill on={d.isConfirmedAgreementDate} onLabel="Date confirmée" offLabel="Date non confirmée" />
+              </div>
+              <FieldGrid>
+                <Field label="Enregistré par" value={d.createdBy} />
+                <Field label="Enregistré le" value={formatDate(d.createdAt)} />
+                <Field label="Modifié par" value={d.updatedBy} />
+                <Field label="Modifié le" value={formatDate(d.updatedAt)} />
+              </FieldGrid>
+            </Card>
+
+            {isCancelled && (
+              <Card title="Annulation">
+                <FieldGrid>
+                  <Field label="Date d'annulation" value={formatDate(d.cancelDate)} />
+                </FieldGrid>
+                {d.cancelDescription && (
+                  <div className="mt-3 whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground">
+                    {d.cancelDescription}
+                  </div>
+                )}
+              </Card>
             )}
-          </Card>
-
-          <Card title="Suivi administratif">
-            <div className="mb-4 flex flex-wrap gap-2">
-              <TogglePill on={d.isAccounted} onLabel="Comptabilisé" offLabel="Non comptabilisé" />
-              <TogglePill on={d.isOldCustomer} onLabel="Ancien client" offLabel="Nouveau client" />
-              <TogglePill on={d.isPenaltyDisabled} onLabel="Pénalité désactivée" offLabel="Pénalité active" />
-              <TogglePill on={d.isConfirmedAgreementDate} onLabel="Date confirmée" offLabel="Date non confirmée" />
-            </div>
-            <FieldGrid>
-              <Field label="Enregistré par" value={d.createdBy} />
-              <Field label="Enregistré le" value={formatDate(d.createdAt)} />
-              <Field label="Modifié par" value={d.updatedBy} />
-              <Field label="Modifié le" value={formatDate(d.updatedAt)} />
-            </FieldGrid>
-          </Card>
-        </div>
-      </div>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {showInteractionForm && (
         <InteractionForm

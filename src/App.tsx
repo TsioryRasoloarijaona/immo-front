@@ -1,10 +1,12 @@
 import { Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import { ConfirmProvider } from './components/ConfirmModal';
+import { PreviewProvider } from './components/PreviewProvider';
 import { StoreProvider } from './lib/store';
 import Dashboard from './pages/Dashboard';
 import ProspectionsList from './pages/prospections/ProspectionsList';
 import ProspectionDetail from './pages/prospections/ProspectionDetail';
+import ProspectsList from './pages/prospects/ProspectsList';
 import NewDossierWizard from './pages/dossiers/wizard/NewDossierWizard';
 import RendezVous from './pages/RendezVous';
 import DossiersList from './pages/dossiers/DossiersList';
@@ -21,24 +23,27 @@ function App() {
   return (
     <StoreProvider>
       <ConfirmProvider>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/prospections" element={<ProspectionsList />} />
-            <Route path="/prospections/:id" element={<ProspectionDetail />} />
-            <Route path="/prospections/:id/nouveau-dossier" element={<NewDossierWizard />} />
-            <Route path="/clients" element={<ClientsList />} />
-            <Route path="/clients/:id" element={<ClientDetail />} />
-            <Route path="/dossiers" element={<DossiersList />} />
-            <Route path="/dossiers/:id" element={<DossierDetail />} />
-            <Route path="/rendez-vous" element={<RendezVous />} />
-            <Route path="/tranches" element={<TranchesList />} />
-            <Route path="/tranches/:id" element={<TrancheDetail />} />
-            <Route path="/articles" element={<ArticlesList />} />
-            <Route path="/bientot/:module" element={<ComingSoon />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Layout>
+        <PreviewProvider>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/prospections" element={<ProspectionsList />} />
+              <Route path="/prospections/:id" element={<ProspectionDetail />} />
+              <Route path="/prospections/:id/nouveau-dossier" element={<NewDossierWizard />} />
+              <Route path="/prospects" element={<ProspectsList />} />
+              <Route path="/clients" element={<ClientsList />} />
+              <Route path="/clients/:id" element={<ClientDetail />} />
+              <Route path="/dossiers" element={<DossiersList />} />
+              <Route path="/dossiers/:id" element={<DossierDetail />} />
+              <Route path="/rendez-vous" element={<RendezVous />} />
+              <Route path="/tranches" element={<TranchesList />} />
+              <Route path="/tranches/:id" element={<TrancheDetail />} />
+              <Route path="/articles" element={<ArticlesList />} />
+              <Route path="/bientot/:module" element={<ComingSoon />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Layout>
+        </PreviewProvider>
       </ConfirmProvider>
     </StoreProvider>
   );

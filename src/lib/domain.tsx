@@ -45,6 +45,13 @@ export function natureBadgeTone(nature: string, isClosed: boolean): BadgeTone {
   return 'success';
 }
 
+// Not part of any lookups.json referential (the real export has no
+// title/gender field at all — see the Person.title/gender doc comment in
+// types.ts) — these are the exact option labels visible on the real Omran
+// fiche (Titre: Madame / Sexe: Féminin…), just not sourced from sample data.
+export const PERSON_TITLE_OPTIONS = ['Monsieur', 'Madame', 'Mademoiselle'];
+export const PERSON_GENDER_OPTIONS = ['Masculin', 'Féminin'];
+
 export type ProspectionStage = 'pre' | 'qualified';
 
 // Omran's real pipeline has two gates before a sale file can exist: a raw,
@@ -67,6 +74,20 @@ export function missingQualificationFields(p: Pick<Prospection, 'prospect' | 'co
   if (!p.prospect) missing.push('un contact lié (fiche prospect)');
   if (!p.commercial) missing.push('un commercial assigné');
   return missing;
+}
+
+/** Whether the "Qualification" tab's data (budget, superficie, origine) is
+ * filled in enough to call this lead assessed — the trigger that
+ * auto-advances the Nature gauge to "3 QUALIFIÉ" (see updateProspectionField
+ * in lib/store.tsx). Distinct from missingQualificationFields above, which
+ * gates the separate Pré-Prospection→Prospection transformation. */
+export function isQualificationDataComplete(
+  p: Pick<Prospection, 'budgetMin' | 'budgetMax' | 'areaMin' | 'areaMax' | 'origin'>,
+): boolean {
+  const hasBudget = (p.budgetMin ?? 0) > 0 || (p.budgetMax ?? 0) > 0;
+  const hasArea = (p.areaMin ?? 0) > 0 || (p.areaMax ?? 0) > 0;
+  const hasOrigin = Boolean(p.origin && p.origin.trim());
+  return hasBudget && hasArea && hasOrigin;
 }
 
 const ACTION_ICONS: Record<string, (props: { className?: string }) => ReactNode> = {

@@ -28,6 +28,7 @@ export interface AppModule {
 export function moduleForPath(pathname: string): string | null {
   if (
     pathname.startsWith('/prospections') ||
+    pathname.startsWith('/prospects') ||
     pathname.startsWith('/clients') ||
     pathname.startsWith('/dossiers') ||
     pathname.startsWith('/rendez-vous')

@@ -69,9 +69,16 @@ export default function ClientDetail() {
       <div className="flex flex-col gap-4">
         <Card title="Coordonnées">
           <FieldGrid>
+            <Field label="Titre" value={c.title} />
+            <Field label="Sexe" value={c.gender} />
             <Field label="Mobile" value={c.mobile} />
             <Field label="Téléphone" value={c.phone} />
             <Field label="Email" value={c.email} />
+            <Field label="Ville" value={c.city} />
+            <Field label="Adresse" value={c.address} />
+            <Field label="Nationalité" value={c.nationality} />
+            <Field label="Pièce d'identité" value={c.idNumber} />
+            <Field label="Profession" value={c.profession} />
             <Field label="Âge" value={c.age ? `${c.age} ans` : undefined} />
           </FieldGrid>
         </Card>

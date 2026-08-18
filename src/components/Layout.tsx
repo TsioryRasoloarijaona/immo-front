@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Building2, CalendarClock, Folder, IdCard, LayoutDashboard, LayoutGrid, Users } from 'lucide-react';
+import { Building2, CalendarClock, Contact, Folder, IdCard, LayoutDashboard, LayoutGrid, Users } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -71,6 +71,12 @@ export default function Layout({ children }: { children: ReactNode }) {
                   <SidebarMenuButton render={<NavLink to="/prospections" />} isActive={location.pathname.startsWith('/prospections')} tooltip="Prospections">
                     <Users />
                     Prospections
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton render={<NavLink to="/prospects" />} isActive={location.pathname.startsWith('/prospects')} tooltip="Prospects">
+                    <Contact />
+                    Prospects
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>

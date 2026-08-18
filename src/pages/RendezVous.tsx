@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { CalendarClock, ChevronLeft, ChevronRight } from 'lucide-react';
 import PageShell from '../components/PageShell';
 import { Card, EmptyState } from '../components/ui';
 import { Button } from '../components/ui/button';
+import { usePreview } from '../lib/previewContext';
 import { useStore } from '../lib/storeContext';
 import { communicationIcon, prospectionDisplayName } from '../lib/domain';
 import { todayISO } from '../lib/format';
@@ -33,6 +33,7 @@ interface AppointmentEntry {
 
 export default function RendezVous() {
   const { communications, prospections, dossiers, loading } = useStore();
+  const { previewProspection, previewDossier } = usePreview();
   const today = todayISO();
   const [cursor, setCursor] = useState(() => {
     const [y, m] = today.split('-').map(Number);
@@ -95,9 +96,9 @@ export default function RendezVous() {
     return sum + (appointmentsByDate.get(ymd(date))?.length ?? 0);
   }, 0);
 
-  function targetHref(target: AppointmentEntry['target']): string | null {
+  function openTarget(target: AppointmentEntry['target']): (() => void) | null {
     if (!target) return null;
-    return target.type === 'dossier' ? `/dossiers/${target.id}` : `/prospections/${target.id}`;
+    return target.type === 'dossier' ? () => previewDossier(target.id) : () => previewProspection(target.id);
   }
 
   return (
@@ -163,13 +164,13 @@ export default function RendezVous() {
                   </div>
                   <div className="flex flex-col gap-1">
                     {visible.map((entry) => {
-                      const href = targetHref(entry.target);
+                      const onOpen = openTarget(entry.target);
                       const chip = (
                         <div
                           className={cn(
                             'flex items-center gap-1 truncate rounded px-1.5 py-0.5 text-[10.5px] font-medium',
                             'bg-[var(--brand-bg)] text-[var(--brand)]',
-                            href && 'hover:bg-[var(--brand-border)]',
+                            onOpen && 'hover:bg-[var(--brand-border)]',
                           )}
                           title={`${entry.time ? entry.time + ' — ' : ''}${entry.communication.appointmentLabel || entry.communication.actionType} · ${entry.personName}`}
                         >
@@ -180,8 +181,8 @@ export default function RendezVous() {
                           </span>
                         </div>
                       );
-                      return href ? (
-                        <Link key={entry.communication.id} to={href} className="no-underline">{chip}</Link>
+                      return onOpen ? (
+                        <button type="button" key={entry.communication.id} onClick={onOpen} className="block w-full text-left">{chip}</button>
                       ) : (
                         <div key={entry.communication.id}>{chip}</div>
                       );
@@ -205,7 +206,7 @@ export default function RendezVous() {
           ) : (
             <div className="flex flex-col">
               {upcoming.map((entry) => {
-                const href = targetHref(entry.target);
+                const onOpen = openTarget(entry.target);
                 const body = (
                   <>
                     <div className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-[var(--brand-bg)] text-[var(--brand)] [&_svg]:size-[15px]">
@@ -223,10 +224,15 @@ export default function RendezVous() {
                     </div>
                   </>
                 );
-                return href ? (
-                  <Link key={entry.communication.id} to={href} className="flex items-center gap-3 border-b border-border py-2.5 text-inherit no-underline last:border-b-0">
+                return onOpen ? (
+                  <button
+                    type="button"
+                    key={entry.communication.id}
+                    onClick={onOpen}
+                    className="flex w-full items-center gap-3 border-b border-border py-2.5 text-left text-inherit last:border-b-0"
+                  >
                     {body}
-                  </Link>
+                  </button>
                 ) : (
                   <div key={entry.communication.id} className="flex items-center gap-3 border-b border-border py-2.5 last:border-b-0">
                     {body}

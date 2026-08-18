@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowUpRight, Clock, Coins, Folder, TrendingUp, Users } 
 import PageShell from '../components/PageShell';
 import { Card, EmptyState, ErrorState, LoadingState, StatCard } from '../components/ui';
 import { communicationIcon, prospectionDisplayName } from '../lib/domain';
+import { usePreview } from '../lib/previewContext';
 import { useStore } from '../lib/storeContext';
 import { useData } from '../lib/useData';
 import { formatCurrency, formatDate, isPastOrToday, todayISO } from '../lib/format';
@@ -12,6 +13,7 @@ import { DOSSIER_STATUS_PIPELINE, isExitStatus } from '../lib/dossierStatus';
 export default function Dashboard() {
   const { prospections, dossiers, communications, getDossierStatus, loading, error } = useStore();
   const { data: portfolio } = useData();
+  const { previewProspection, previewDossier } = usePreview();
 
   const stats = useMemo(() => {
     if (loading) return null;
@@ -159,9 +161,10 @@ export default function Dashboard() {
             ) : (
               <div>
                 {stats.followUpsToday.slice(0, 8).map((p) => (
-                  <Link
-                    to={`/prospections/${p.id}`}
-                    className="flex items-center gap-3 border-b border-border py-2.5 no-underline last:border-b-0"
+                  <button
+                    type="button"
+                    onClick={() => previewProspection(p.id)}
+                    className="flex w-full items-center gap-3 border-b border-border py-2.5 text-left last:border-b-0"
                     key={p.id}
                   >
                     <span className="size-2 shrink-0 rounded-full bg-[var(--warning)]" />
@@ -170,7 +173,7 @@ export default function Dashboard() {
                       <div className="truncate text-xs text-muted-foreground">{p.alertMessage || 'Relance planifiée'}</div>
                     </div>
                     <div className="shrink-0 text-[11.5px] font-semibold text-[var(--warning)]">{formatDate(p.alertValidityDate)}</div>
-                  </Link>
+                  </button>
                 ))}
               </div>
             )}
@@ -186,10 +189,10 @@ export default function Dashboard() {
           ) : (
             <div>
               {stats.recentActivity.map((c) => {
-                const target = c.prospectionId
-                  ? `/prospections/${c.prospectionId}`
+                const onOpen = c.prospectionId
+                  ? () => previewProspection(c.prospectionId!)
                   : c.folderId
-                    ? `/dossiers/${c.folderId}`
+                    ? () => previewDossier(c.folderId!)
                     : null;
                 const body = (
                   <>
@@ -203,13 +206,18 @@ export default function Dashboard() {
                       <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(c.date)}</div>
                       {c.report && <div className="mt-1 text-[12.5px] text-foreground">{c.report}</div>}
                     </div>
-                    {target && <ArrowUpRight className="mt-1.5 size-3.5 shrink-0 text-muted-foreground" />}
+                    {onOpen && <ArrowUpRight className="mt-1.5 size-3.5 shrink-0 text-muted-foreground" />}
                   </>
                 );
-                return target ? (
-                  <Link to={target} key={c.id} className="flex gap-3 border-b border-border py-2.5 text-inherit no-underline last:border-b-0">
+                return onOpen ? (
+                  <button
+                    type="button"
+                    onClick={onOpen}
+                    key={c.id}
+                    className="flex w-full gap-3 border-b border-border py-2.5 text-left text-inherit last:border-b-0"
+                  >
                     {body}
-                  </Link>
+                  </button>
                 ) : (
                   <div className="flex gap-3 border-b border-border py-2.5 last:border-b-0" key={c.id}>
                     {body}

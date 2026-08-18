@@ -3,7 +3,7 @@ import { useData, type DataBundle } from './useData';
 import { MILESTONE_FIELD_BY_STATUS, deriveInitialDossierStatus, toneForStatus, validTransitionsFrom } from './dossierStatus';
 import { todayISO } from './format';
 import { StoreContext, type NewInteractionInput, type StoreValue, type WizardDossierInput } from './storeContext';
-import { isPreProspection } from './domain';
+import { isPreProspection, isQualificationDataComplete, isSideTrackNature, pipelineStageIndex } from './domain';
 import type { Communication, DerivedDossierStatus, Dossier, Person, Prospection } from '../types';
 
 // Mock/local mutation layer over the static JSON dataset. Nothing here
@@ -83,6 +83,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       prev.map((p) => (p.id === prospectionId && p.nature === '1 A TRAITER' ? { ...p, nature: '2 EN COURS DE TRAITEMENT' } : p)),
     );
     setQualifiedIds((prev) => ({ ...prev, [prospectionId]: true }));
+  }, []);
+
+  // Nature (the "1 A TRAITER" .. "5 AVANT CONCRETISATION" funnel depth, plus
+  // the two side-track values) is a plain editable dropdown on the real
+  // Omran screen — the commercial sets it directly as the lead progresses
+  // (visite faite, offre envoyée…), it's never auto-advanced by another
+  // action. "Transformer en prospection" only bumps 1→2 as a one-time kick
+  // (see qualifyProspection above); every other move happens here.
+  const setProspectionNature = useCallback((prospectionId: string, nature: string) => {
+    setProspections((prev) => prev.map((p) => (p.id === prospectionId ? { ...p, nature } : p)));
+  }, []);
+
+  // Generic field patch for the Qualification tab (budget/superficie/apport/
+  // origine…) — mirrors updateDossierField below. Filling in enough of that
+  // data (budget + superficie + origine — see isQualificationDataComplete)
+  // auto-advances the Nature gauge to "3 QUALIFIÉ" the moment the record
+  // crosses that bar, exactly what was asked: remplir la qualification fait
+  // avancer la jauge toute seule. Never regresses an already-further-along
+  // record, and never touches a closed or side-track (hors-piste) one.
+  const updateProspectionField = useCallback(<K extends keyof Prospection>(prospectionId: string, field: K, value: Prospection[K]) => {
+    const today = todayISO();
+    setProspections((prev) =>
+      prev.map((p) => {
+        if (p.id !== prospectionId) return p;
+        const updated: Prospection = { ...p, [field]: value, updatedAt: today, updatedBy: 'Vous (démo)' };
+        if (
+          !updated.isClosed &&
+          !isSideTrackNature(updated.nature) &&
+          pipelineStageIndex(updated.nature) < pipelineStageIndex('3 QUALIFIÉ') &&
+          isQualificationDataComplete(updated)
+        ) {
+          updated.nature = '3 QUALIFIÉ';
+        }
+        return updated;
+      }),
+    );
   }, []);
 
   const addInteraction = useCallback(
@@ -249,6 +285,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       assignCommercial,
       setProspectContact,
       qualifyProspection,
+      setProspectionNature,
+      updateProspectionField,
       addInteraction,
       createDossierFromWizard,
       setDossierStatus,
@@ -267,6 +305,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       assignCommercial,
       setProspectContact,
       qualifyProspection,
+      setProspectionNature,
+      updateProspectionField,
       addInteraction,
       createDossierFromWizard,
       setDossierStatus,
