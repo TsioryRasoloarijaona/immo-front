@@ -1,51 +1,42 @@
+import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
 import Modal from './Modal';
-import { Field, FieldGrid } from './ui';
+import { Field, FieldGrid, LoadingState, ErrorState } from './ui';
 import { Button } from './ui/button';
-import { usePreview } from '../lib/previewContext';
-import type { Person } from '../types';
+import { getProspect } from '../lib/api';
+import { useApi } from '../lib/useApi';
+import { personDisplayName } from '../lib/domain';
+import { formatDate } from '../lib/format';
 
-// Fiche Prospect (contact) — the innermost link of the origin chain shown
-// from DossierDetail/ProspectionDetail. A contact has no route of its own
-// (it only exists embedded on a Prospection/Dossier — see
-// instructions/FEATURE-transformation-prospect.md §5), so there's no
-// "Ouvrir la fiche complète" here; "Voir la prospection" is offered instead
-// when the caller knows which prospection this contact came from.
-export default function ProspectPreviewDialog({
-  person,
-  prospectionId,
-  onClose,
-}: {
-  person: Person;
-  prospectionId?: string;
-  onClose: () => void;
-}) {
-  const { previewProspection } = usePreview();
+// Fiche Prospect (contact) preview — fetched by id from /api/prospects/{id}.
+export default function ProspectPreviewDialog({ id, onClose }: { id: string; onClose: () => void }) {
+  const { data: person, loading, error } = useApi(() => getProspect(id), [id]);
+
   return (
-    <Modal title={person.name || 'Fiche prospect'} onClose={onClose} width={460}>
-      <div className="flex flex-col gap-4">
-        <FieldGrid>
-          <Field label="Titre" value={person.title} />
-          <Field label="Sexe" value={person.gender} />
-          <Field label="Téléphone" value={person.phone} />
-          <Field label="Mobile" value={person.mobile} />
-          <Field label="Email" value={person.email} />
-          <Field label="Ville" value={person.city} />
-          <Field label="Adresse" value={person.address} />
-          <Field label="Nationalité" value={person.nationality} />
-          <Field label="Pièce d'identité" value={person.idNumber} />
-          <Field label="Profession" value={person.profession} />
-          <Field label="Enfants" value={person.nbrChildren ? String(person.nbrChildren) : undefined} />
-        </FieldGrid>
-        <div className="flex justify-end gap-2 border-t border-border pt-3.5">
-          <Button variant="outline" onClick={onClose}>Fermer</Button>
-          {prospectionId && (
-            <Button onClick={() => previewProspection(prospectionId)}>
-              Voir la prospection <ArrowUpRight data-icon="inline-end" />
+    <Modal title={person ? personDisplayName(person) : 'Fiche prospect'} onClose={onClose} width={460}>
+      {loading && <LoadingState />}
+      {error && <ErrorState message={error} />}
+      {person && (
+        <div className="flex flex-col gap-3">
+          <FieldGrid>
+            <Field label="Code" value={person.code} />
+            <Field label="Téléphone" value={person.telephone} />
+            <Field label="Mobile" value={person.mobile} />
+            <Field label="Email" value={person.email} />
+            <Field label="Ville" value={person.ville} />
+            <Field label="Adresse" value={person.adresse} />
+            <Field label="Profession" value={person.profession} />
+            <Field label="Date de naissance" value={person.dateNaissance ? formatDate(person.dateNaissance) : undefined} />
+            <Field label="Enfants" value={person.nombreEnfants ? String(person.nombreEnfants) : undefined} />
+          </FieldGrid>
+          <div className="flex justify-end gap-2 border-t border-border pt-3.5">
+            <Button variant="outline" onClick={onClose}>Fermer</Button>
+            <Button render={<Link to={`/prospects/${person.id}`} />}>
+              Ouvrir la fiche complète <ArrowUpRight data-icon="inline-end" />
             </Button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </Modal>
   );
 }

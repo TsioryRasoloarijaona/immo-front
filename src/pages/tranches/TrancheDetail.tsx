@@ -1,19 +1,21 @@
-import { useMemo, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, Calendar, Coins, Gift, Scale } from 'lucide-react';
+import { ArrowLeft, Building2, Calendar, Coins, Scale } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Card, ErrorState, Field, FieldGrid, LoadingState, TogglePill } from '../../components/ui';
+import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, TogglePill } from '../../components/ui';
 import { Button } from '../../components/ui/button';
-import { useData } from '../../lib/useData';
-import { cn } from '../../lib/utils';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import Pagination from '../../components/Pagination';
+import { getTranche, listTrancheArticles } from '../../lib/api';
+import { useApi } from '../../lib/useApi';
 import { formatCurrency, formatDate, formatPercent } from '../../lib/format';
-import { standingClass } from '../../lib/domain';
-import type { Tranche, TrancheRules } from '../../types';
+import type { ArticleStatut, TrancheDetailDto } from '../../types';
 
-type FieldFmt = 'percent' | 'currency' | 'days' | 'hours' | 'months' | 'number' | 'text' | 'toggle';
+type FieldFmt = 'percent' | 'currency' | 'days' | 'hours' | 'number' | 'toggle';
 
 interface RuleFieldDef {
-  key: keyof TrancheRules;
+  key: keyof TrancheDetailDto;
   label: string;
   fmt: FieldFmt;
 }
@@ -28,22 +30,15 @@ interface RuleSection {
 const SECTIONS: RuleSection[] = [
   {
     title: 'Seuils financiers',
-    desc: 'Acomptes, plafonds de crédit et charges de copropriété configurés pour cette tranche.',
+    desc: 'Acomptes et plafonds de crédit configurés pour cette tranche.',
     icon: <Coins />,
     fields: [
       { key: 'advancePercent', label: "Taux d'avance", fmt: 'percent' },
       { key: 'concretisationPercent', label: 'Taux de concrétisation', fmt: 'percent' },
-      { key: 'beforeReservationAmount', label: 'Montant avant réservation', fmt: 'currency' },
-      { key: 'defaultExpenseAmount', label: 'Frais par défaut', fmt: 'currency' },
       { key: 'isWithVerifCredit', label: 'Vérification crédit', fmt: 'toggle' },
       { key: 'creditPercent', label: 'Taux de crédit max', fmt: 'percent' },
-      { key: 'isWithVerifMaxEcheanceDelai', label: 'Vérification délai échéance max', fmt: 'toggle' },
-      { key: 'maxEcheanceDelai', label: 'Délai échéance max', fmt: 'days' },
-      { key: 'syndicAmount', label: 'Charges de syndic', fmt: 'currency' },
-      { key: 'syndicPeriod', label: 'Durée des charges', fmt: 'months' },
-      { key: 'paymentBalanceDelay', label: 'Délai solde de paiement', fmt: 'days' },
-      { key: 'warrantyDelay', label: 'Délai de garantie', fmt: 'days' },
-      { key: 'warrantyDelayAdded', label: 'Délai de garantie additionnel', fmt: 'days' },
+      { key: 'delaiMaxEcheance', label: 'Délai échéance max', fmt: 'days' },
+      { key: 'delaiSoldePaiement', label: 'Délai solde de paiement', fmt: 'days' },
     ],
   },
   {
@@ -51,13 +46,13 @@ const SECTIONS: RuleSection[] = [
     desc: "Pénalités appliquées en cas d'annulation ou de transfert du dossier.",
     icon: <Scale />,
     fields: [
-      { key: 'cancellationPenalityPercent', label: "Pénalité d'annulation", fmt: 'percent' },
-      { key: 'cancellationPenalityBasedOnItemPrice', label: 'Basée sur le prix du bien', fmt: 'toggle' },
-      { key: 'articleTransferPenality', label: "Pénalité transfert d'article", fmt: 'currency' },
-      { key: 'sliceTransferPenality', label: 'Pénalité transfert de tranche', fmt: 'currency' },
-      { key: 'customerTransferPenality', label: 'Pénalité transfert de client', fmt: 'currency' },
-      { key: 'agreementFirstPenaltyPercent', label: 'Pénalité 1ère relance', fmt: 'percent' },
-      { key: 'agreementSecondPenaltyPercent', label: 'Pénalité 2ème relance', fmt: 'percent' },
+      { key: 'tauxPenaliteAnnulation', label: "Pénalité d'annulation", fmt: 'percent' },
+      { key: 'tauxPenaliteAnnulationRemise', label: "Pénalité d'annulation (remisée)", fmt: 'percent' },
+      { key: 'penaliteTransfertArticle', label: "Pénalité transfert d'article", fmt: 'currency' },
+      { key: 'penaliteTransfertTranche', label: 'Pénalité transfert de tranche', fmt: 'currency' },
+      { key: 'penaliteTransfertClient', label: 'Pénalité transfert de client', fmt: 'currency' },
+      { key: 'tauxPenalitePremierEngagement', label: '1er engagement', fmt: 'percent' },
+      { key: 'tauxPenaliteDeuxiemeEngagement', label: '2ème engagement', fmt: 'percent' },
     ],
   },
   {
@@ -65,133 +60,95 @@ const SECTIONS: RuleSection[] = [
     desc: 'Délais réglementaires et contraintes de visite technique.',
     icon: <Building2 />,
     fields: [
-      { key: 'withdrawalDelay', label: 'Délai de rétractation', fmt: 'hours' },
-      { key: 'agreementFirstDelay', label: '1ère relance titre foncier', fmt: 'days' },
-      { key: 'agreementSecondDelay', label: '2ème relance titre foncier', fmt: 'days' },
-      { key: 'interventionMinimumDelai', label: 'Délai minimum intervention', fmt: 'days' },
+      { key: 'delaiRetractation', label: 'Délai de rétractation', fmt: 'hours' },
+      { key: 'delaiPremierEngagement', label: '1er engagement (délai)', fmt: 'days' },
+      { key: 'delaiDeuxiemeEngagement', label: '2ème engagement (délai)', fmt: 'days' },
+      { key: 'delaiMinimumIntervention', label: 'Délai minimum intervention', fmt: 'days' },
+      { key: 'delaiGarantie', label: 'Délai de garantie', fmt: 'days' },
+      { key: 'delaiGarantieSupplement', label: 'Délai de garantie additionnel', fmt: 'days' },
+      { key: 'delaiNotaireMinutes', label: 'Délai notaire (minute)', fmt: 'days' },
+      { key: 'delaiToutSoldeMinutes', label: 'Délai tout-soldé (minute)', fmt: 'days' },
       { key: 'maxVisitNumber', label: 'Nombre de visites max', fmt: 'number' },
-      { key: 'commerceTribunal', label: 'Tribunal de commerce', fmt: 'text' },
-      { key: 'cancellationRightCode', label: "Code droit d'annulation", fmt: 'text' },
-    ],
-  },
-  {
-    title: 'Cadeaux & fidélité',
-    desc: 'Programmes de cadeaux liés au parrainage, à la fidélité ou à l\'origine de la prospection.',
-    icon: <Gift />,
-    fields: [
-      { key: 'isWithGiftForProposer', label: 'Cadeau parrain', fmt: 'toggle' },
-      { key: 'isWithGiftForOldCustomer', label: 'Cadeau ancien client', fmt: 'toggle' },
-      { key: 'isWithGiftForProspectionOrigin', label: "Cadeau selon l'origine", fmt: 'toggle' },
-      { key: 'accumulatedGifts', label: 'Cadeaux cumulables', fmt: 'toggle' },
     ],
   },
 ];
 
-function renderValue(fmt: FieldFmt, value: TrancheRules[keyof TrancheRules]) {
+function renderValue(fmt: FieldFmt, value: unknown) {
   const empty = <span className="font-normal text-muted-foreground">—</span>;
   switch (fmt) {
     case 'percent':
-      return formatPercent(value as number, 2);
+      return typeof value === 'number' && value ? formatPercent(value, 2) : empty;
     case 'currency':
-      return (value as number) > 0 ? formatCurrency(value as number) : <span className="font-normal text-muted-foreground">Non défini</span>;
+      return typeof value === 'number' && value > 0 ? formatCurrency(value) : <span className="font-normal text-muted-foreground">Non défini</span>;
     case 'days':
-      return (value as number) > 0 ? `${value} jours` : empty;
+      return typeof value === 'number' && value > 0 ? `${value} jours` : empty;
     case 'hours':
-      return (value as number) > 0 ? `${value} h` : empty;
-    case 'months':
-      return (value as number) > 0 ? `${value} mois` : empty;
+      return typeof value === 'number' && value > 0 ? `${value} h` : empty;
     case 'number':
-      return (value as number) > 0 ? String(value) : empty;
+      return typeof value === 'number' && value > 0 ? String(value) : empty;
     case 'toggle':
       return <TogglePill on={Boolean(value)} />;
-    case 'text':
     default:
-      return (value as string) || empty;
+      return empty;
   }
 }
 
-const MODULE_FLAGS: { key: 'isForSale' | 'isForRent' | 'isForProject' | 'isForBuy' | 'isForSav'; label: string }[] = [
-  { key: 'isForSale', label: 'Vente' },
-  { key: 'isForRent', label: 'Location' },
-  { key: 'isForProject', label: 'Projet' },
-  { key: 'isForBuy', label: 'Achat' },
-  { key: 'isForSav', label: 'SAV' },
+const ARTICLE_STATUT_ITEMS: { label: string; value: ArticleStatut | 'all' }[] = [
+  { label: 'Tous les statuts', value: 'all' },
+  { label: 'Disponible', value: 'DISPONIBLE' },
+  { label: 'Occupé', value: 'OCCUPE' },
 ];
 
 export default function TrancheDetail() {
   const { id } = useParams();
-  const { data, loading, error } = useData();
+  const { data: t, loading, error } = useApi(() => getTranche(id!), [id]);
+  const [statut, setStatut] = useState<ArticleStatut | 'all'>('all');
+  const [articlesPage, setArticlesPage] = useState(0);
+  const articles = useApi(
+    () => listTrancheArticles(id!, { statut: statut !== 'all' ? statut : undefined }, { page: articlesPage, size: 20 }),
+    [id, statut, articlesPage],
+  );
   const navigate = useNavigate();
-
-  const tranche = useMemo(() => data?.tranches.find((t) => t.id === id), [data, id]);
 
   if (loading) return <PageShell title="Tranche"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Tranche"><ErrorState message={error} /></PageShell>;
-  if (!data) return null;
-  if (!tranche) {
+  if (!t) {
     return (
       <PageShell title="Tranche introuvable" crumbs={[{ label: 'Tranches', to: '/tranches' }]}>
-        <p>Cette tranche n'existe pas dans l'échantillon.</p>
+        <p>Cette tranche n'existe pas.</p>
       </PageShell>
     );
   }
 
-  const t: Tranche = tranche;
-
   return (
-    <PageShell
-      title={t.description}
-      crumbs={[{ label: 'Tranches', to: '/tranches' }, { label: t.code }]}
-    >
-      <Button variant="outline" size="sm" className="mb-4" onClick={() => navigate('/tranches')}>
+    <PageShell title={t.description || t.code || 'Tranche'} crumbs={[{ label: 'Tranches', to: '/tranches' }, { label: t.code || '' }]}>
+      <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate('/tranches')}>
         <ArrowLeft data-icon="inline-start" /> Retour à la liste
       </Button>
 
-      <div className="mb-5.5 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-[21px] font-semibold tracking-tight text-foreground">{t.description}</h1>
-            {t.standing && (
-              <span className={cn('whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-bold', standingClass(t.standing))}>
-                {t.standing}
-              </span>
-            )}
-          </div>
-          <div className="mt-1 text-[13px] text-muted-foreground">
-            {t.code} · {t.programme} · {t.city ? <span className="capitalize">{t.city}</span> : 'Ville non renseignée'}
-          </div>
+      <div className="mb-3">
+        <h1 className="text-[21px] font-semibold tracking-tight text-foreground">{t.description}</h1>
+        <div className="mt-1 text-[13px] text-muted-foreground">
+          {t.code} · {t.ville ? <span className="capitalize">{t.ville}</span> : 'Ville non renseignée'}
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {MODULE_FLAGS.map((m) => (
-            <span
-              key={m.key}
-              className={cn(
-                'rounded px-1.5 py-0.5 text-[10.5px] font-semibold',
-                t[m.key] ? 'bg-[var(--brand-bg)] text-[var(--brand)]' : 'bg-[var(--neutral-bg)] text-muted-foreground'
-              )}
-            >
-              {m.label}
-            </span>
-          ))}
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {t.estEnVente && <Badge tone="info">Vente</Badge>}
+          {t.estEnLocation && <Badge tone="info">Location</Badge>}
         </div>
       </div>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <Card title="Aperçu du projet">
           <FieldGrid>
-            <Field label="Adresse" value={t.address} />
-            <Field label="Ville" value={t.city ? <span className="capitalize">{t.city}</span> : undefined} />
-            <Field label="Surface plancher couverte" value={t.coveredFloorArea ? `${t.coveredFloorArea} m²` : undefined} />
-            <Field label="Début des travaux" value={formatDate(t.workStartDate)} />
-            <Field label="Fin des travaux" value={formatDate(t.workEndDate)} />
-            <Field label="Début commercialisation" value={formatDate(t.marketingStartDate)} />
-            <Field label="Fin commercialisation" value={formatDate(t.marketingEndDate)} />
-            <Field label="Permis d'habiter" value={formatDate(t.occupancyPermitsDate)} />
-            <Field label="Livraison" value={formatDate(t.deliveryDate)} />
-            <Field label="Réception" value={formatDate(t.receptionDate)} />
-            <Field label="Fin de concrétisation" value={formatDate(t.endDateConcretisation)} />
-            <Field label="Début de finalisation" value={formatDate(t.startDateFinalisation)} />
-            <Field label="1ère relance titre foncier" value={formatDate(t.revival1Date)} />
+            <Field label="Adresse" value={t.adresse} />
+            <Field label="Ville" value={t.ville ? <span className="capitalize">{t.ville}</span> : undefined} />
+            <Field label="Téléphone" value={t.telephone} />
+            <Field label="Email" value={t.email} />
+            <Field label="Début des travaux" value={formatDate(t.dateDebutTravaux)} />
+            <Field label="Fin des travaux" value={formatDate(t.dateFinTravaux)} />
+            <Field label="Début commercialisation" value={formatDate(t.dateDebutCommercialisation)} />
+            <Field label="Fin commercialisation" value={formatDate(t.dateFinCommercialisation)} />
+            <Field label="Livraison" value={formatDate(t.dateLivraison)} />
           </FieldGrid>
         </Card>
 
@@ -211,15 +168,93 @@ export default function TrancheDetail() {
               </div>
               <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-px bg-border">
                 {section.fields.map((f) => (
-                  <div className="bg-card px-5 py-3.5" key={f.key}>
+                  <div className="bg-card px-5 py-3.5" key={String(f.key)}>
                     <div className="mb-1 text-xs text-muted-foreground">{f.label}</div>
-                    <div className="flex items-center gap-1.5 text-[15px] font-semibold text-foreground">{renderValue(f.fmt, t.rules[f.key])}</div>
+                    <div className="flex items-center gap-1.5 text-[15px] font-semibold text-foreground">{renderValue(f.fmt, t[f.key])}</div>
                   </div>
                 ))}
               </div>
             </div>
           ))}
         </div>
+
+        <Card
+          title={`Articles (${articles.data?.totalElements ?? 0})`}
+          action={
+            <Select
+              items={ARTICLE_STATUT_ITEMS}
+              value={statut}
+              onValueChange={(v) => {
+                setArticlesPage(0);
+                setStatut(v as ArticleStatut | 'all');
+              }}
+            >
+              <SelectTrigger size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {ARTICLE_STATUT_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          }
+        >
+          {articles.loading && <LoadingState />}
+          {articles.error && <ErrorState message={articles.error} />}
+          {articles.data && articles.data.content.length === 0 && <EmptyState title="Aucun article" />}
+          {articles.data && articles.data.content.length > 0 && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Code</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Catégorie</TableHead>
+                    <TableHead className="text-right">Superficie</TableHead>
+                    <TableHead className="text-right">Prix de vente</TableHead>
+                    <TableHead>Statut</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {articles.data.content.map((a) => (
+                    <TableRow
+                      key={a.id}
+                      tabIndex={0}
+                      role="link"
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/articles/${a.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') navigate(`/articles/${a.id}`);
+                      }}
+                    >
+                      <TableCell className="font-medium text-foreground">{a.code}</TableCell>
+                      <TableCell className="text-muted-foreground">{a.description || '—'}</TableCell>
+                      <TableCell className="text-muted-foreground">{a.type}</TableCell>
+                      <TableCell className="text-muted-foreground">{a.categorie}</TableCell>
+                      <TableCell className="text-right tabular-nums">{a.area ? `${a.area} m²` : '—'}</TableCell>
+                      <TableCell className="text-right tabular-nums">{a.salePrice ? formatCurrency(a.salePrice) : '—'}</TableCell>
+                      <TableCell>
+                        <Badge tone={a.statut === 'DISPONIBLE' ? 'success' : 'neutral'}>{a.statut === 'DISPONIBLE' ? 'Disponible' : 'Occupé'}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+          {articles.data && (
+            <Pagination
+              page={articles.data.page}
+              totalPages={articles.data.totalPages}
+              totalElements={articles.data.totalElements}
+              onPageChange={setArticlesPage}
+            />
+          )}
+        </Card>
       </div>
     </PageShell>
   );

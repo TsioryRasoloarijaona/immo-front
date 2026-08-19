@@ -35,8 +35,18 @@ export function formatDateTime(value: string | null | undefined): string {
   return formatDate(value);
 }
 
+// Date `<input type="date">` fields give plain "YYYY-MM-DD" strings, but
+// some request DTOs (e.g. ChangerStatutRequest.date) are typed
+// `format: date-time` and reject a date-only string with a 400 — pad it out
+// to midnight ISO so it deserializes as a LocalDateTime/OffsetDateTime.
+export function toApiDateTime(dateOnly: string | null | undefined): string | undefined {
+  if (!dateOnly) return undefined;
+  return `${dateOnly}T00:00:00`;
+}
+
 export function todayISO(): string {
-  return '2026-08-12';
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export function isPastOrToday(dateStr: string | null | undefined): boolean {

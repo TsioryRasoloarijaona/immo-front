@@ -1,362 +1,779 @@
-// Shapes mirror the JSON export in /public/data (see json/*.json), which in turn
-// mirrors the legacy Omran Estate SQL Server schema. Fields kept close to source
-// naming so the eventual Spring Boot API can slot in without a remap.
+// Shapes mirror the real backend's OpenAPI contract — docs/api-docsV0.json
+// (Spring Boot API, base url configured via VITE_API_BASE_URL). Field names
+// are kept exactly as the DTOs define them (French, camelCase) so the app
+// never needs a translation layer between what the wire sends and what the
+// UI reads.
 
-export interface Person {
-  id: string;
-  code: string;
-  name: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-  mobile: string;
-  email: string;
-  address: string;
-  city: string;
-  idNumber: string;
-  idPlace: string;
-  idDate: string | null;
-  birthDate: string | null;
-  birthPlace: string;
-  profession: string;
-  isProspect: boolean;
-  isOldCustomer: boolean;
-  nbrChildren: number;
-  fatherName: string;
-  motherName: string;
-  /** Titre (Monsieur/Madame/Mademoiselle), Sexe and Nationalité — present on
-   * the real Omran fiche Prospect/Client but absent from every record in
-   * this 50-row export (not even for the sample's existing people), so
-   * these are optional and only ever get a value when a commercial actually
-   * fills them in via CreateProspectForm / StepAcheteur. Never backfilled
-   * for existing records — see CLAUDE.md "Data honesty note". */
-  title?: string;
-  gender?: string;
-  nationality?: string;
-  _isMock?: boolean;
+export type UUID = string;
+
+// ---------------------------------------------------------------------------
+// Prospect (fiche contact)
+// ---------------------------------------------------------------------------
+
+export interface ProspectListItemDto {
+  id: UUID;
+  code?: string;
+  prenom?: string;
+  nom?: string;
+  raisonSociale?: string;
+  telephone?: string;
+  mobile?: string;
+  email?: string;
+  ville?: string;
+  type?: string;
 }
 
-export interface ArticleRef {
-  id: string;
-  code: string;
-  description: string;
-  area: number;
-  salePrice: number;
-  type: string;
-  category: string;
-  isUnderItem: boolean;
-  /** Titre foncier number (e.g. "70075/64"). Real when cross-resolved against
-   * the full Article record by id (rare in this 50-row sample — see
-   * resolveArticleTitleNumber in lib/domain.tsx); otherwise a deterministic
-   * placeholder so the field isn't left blank. See
-   * instructions/FIX-dossier-vente-corrections.md §2. */
-  titleNumber?: string;
-  /** Chambre-count descriptor (e.g. "1 CHAMBRES+") — distinct from `type`
-   * (APPARTEMENT/VILLA/…). Not present in the Omran export at all for this
-   * sample; derived client-side, see articleTypology in lib/domain.tsx. */
-  typology?: string;
-  _isMock?: boolean;
+// A "client" isn't a tier-type — it's anyone who is the clientId of at
+// least one dossier de vente. GET /api/clients (V4) aggregates that
+// server-side (nbDossiers/totalAPayer/totalRegle/totalReste), which no
+// front-end computation could do honestly without one call per row.
+export interface ClientListItemDto {
+  id: UUID;
+  code?: string;
+  nomAffiche?: string;
+  mobile?: string;
+  telephone?: string;
+  email?: string;
+  ville?: string;
+  nbDossiers?: number;
+  totalAPayer?: number;
+  totalRegle?: number;
+  totalReste?: number;
 }
 
-export interface Prospection {
-  id: string;
-  code: string;
-  date: string | null;
-  displayName: string;
-  phone: string;
-  email: string;
-  prospect: Person | null;
-  trancheId: string | null;
-  articleId: string | null;
-  article: ArticleRef | null;
-  budgetMin: number;
-  budgetMax: number;
-  areaMin: number;
-  areaMax: number;
-  fundingOwnBase: number;
-  fundingCredit: number;
-  fundingOther: number;
-  notes: string;
-  nature: string;
-  origin: string;
-  support: string;
-  isClosed: boolean;
-  closingDate: string | null;
-  closingReason: string;
-  closingReasonText: string;
-  isOldCustomer: boolean;
-  alertValidityDate: string | null;
-  alertMessage: string;
-  commercialId: string;
-  commercial: string | null;
-  createdBy: string;
-  createdAt: string | null;
-  updatedBy: string;
-  updatedAt: string | null;
+export interface PieceIdentiteRequest {
+  typeId?: UUID;
+  numero?: string;
+  delivreeLe?: string | null;
+  lieuDelivrance?: string;
+  valideJusquau?: string | null;
+  lieuValidite?: string;
 }
 
-export interface Dossier {
-  id: string;
-  code: string;
-  date: string | null;
-  description: string;
-  client: Person | null;
-  commercial: string;
-  articleId: string | null;
-  article: ArticleRef | null;
-  area: number;
-  globalArea: number;
-  unitCost: number;
-  itemPrice: number;
-  underItemsPrice: number;
-  priceBeforeDiscount: number;
-  discount: number;
-  discountAmount: number;
-  priceAfterDiscount: number;
-  price: number;
-  vatRatio: number;
-  priceHT: number;
-  totalToPay: number;
-  /** "prix_contractuel" — a separate figure from `price` (prix retenu TTC),
-   * even when the two coincide, as observed on the real screen. Never
-   * derive this from `price`. See
-   * instructions/FIX-dossier-vente-corrections.md §1. */
-  contractualPrice: number | null;
-  probabilityOfFinalisation: number;
-  paymentMethod: string;
-  commissionRate: number;
-  reservationDate: string | null;
-  agreementDate: string | null;
-  agreementSavingDate: string | null;
-  agreementDatePrevisionel: string | null;
-  ownershipCertificateDate: string | null;
-  receptionDate: string | null;
-  creditApprovalDate: string | null;
-  creditPossessionDate: string | null;
-  advanceDate: string | null;
-  insuranceDate: string | null;
-  bankRecordDate: string | null;
-  interventionDate: string | null;
-  revival1: string | null;
-  revival2: string | null;
-  revival1ValidityDate: string | null;
-  revival2ValidityDate: string | null;
-  deliveryDateReal: string | null;
-  precisionActDate: string | null;
-  contractPrintDate: string | null;
-  cancelDate: string | null;
-  cancelDescription: string;
-  finalTitleNumber: string;
-  finalTitleDate: string | null;
-  isAccounted: boolean;
-  isOldCustomer: boolean;
-  isPenaltyDisabled: boolean;
-  isConfirmedAgreementDate: boolean;
-  prospectionId: string | null;
-  notes: string;
-  createdBy: string;
-  createdAt: string | null;
-  updatedBy: string;
-  updatedAt: string | null;
-  statusIdRaw?: string;
-  /** Demo-only: this dossier's client was deliberately reassigned to share an
-   * existing client across dossiers so the Clients page can demonstrate
-   * multi-dossier aggregation — the source sample generates one unique mock
-   * client per dossier otherwise. See instructions/FIX-clients-and-module-switcher.md. */
-  _demoSharedClient?: boolean;
-  /** Set when this dossier was created through the multi-step creation
-   * wizard's "Échéancier" step. Prototype-only field — see EcheancierLine. */
-  echeancier?: EcheancierLine[];
-  /** Additional lots reserved together with `article` in the same dossier
-   * (the wizard supports selecting several lots, but the schema — mirroring
-   * Omran's — only has one primary `article`/`articleId` per dossier).
-   * Prototype-only. */
-  additionalLots?: ArticleRef[];
+export interface PieceIdentiteDto {
+  typeId?: UUID;
+  type?: string;
+  numero?: string;
+  delivreeLe?: string | null;
+  lieuDelivrance?: string;
+  valideJusquau?: string | null;
+  lieuValidite?: string;
 }
 
-export interface TrancheRules {
-  advancePercent: number;
-  concretisationPercent: number;
-  beforeReservationAmount: number;
-  defaultExpenseAmount: number;
-  cancellationPenalityPercent: number;
-  cancellationPenalityBasedOnItemPrice: boolean;
-  articleTransferPenality: number;
-  sliceTransferPenality: number;
-  customerTransferPenality: number;
-  syndicAmount: number;
-  syndicPeriod: number;
-  warrantyDelay: number;
-  warrantyDelayAdded: number;
-  agreementFirstDelay: number;
-  agreementSecondDelay: number;
-  agreementFirstPenaltyPercent: number;
-  agreementSecondPenaltyPercent: number;
-  paymentBalanceDelay: number;
-  withdrawalDelay: number;
-  interventionMinimumDelai: number;
-  maxVisitNumber: number;
-  isWithGiftForProposer: boolean;
-  isWithGiftForOldCustomer: boolean;
-  isWithGiftForProspectionOrigin: boolean;
-  accumulatedGifts: boolean;
-  isWithVerifMaxEcheanceDelai: boolean;
-  maxEcheanceDelai: number;
-  isWithVerifCredit: boolean;
-  creditPercent: number;
-  commerceTribunal: string;
-  cancellationRightCode: string;
+export interface ProspectDetailDto {
+  id: UUID;
+  code?: string;
+  prenom?: string;
+  nom?: string;
+  raisonSociale?: string;
+  telephone?: string;
+  telephone1?: string;
+  telephone2?: string;
+  mobile?: string;
+  fax?: string;
+  email?: string;
+  siteWeb?: string;
+  adresse?: string;
+  adresse2?: string;
+  adresse3?: string;
+  codePostal?: string;
+  ville?: string;
+  dateNaissance?: string | null;
+  lieuNaissance?: string;
+  nombreEnfants?: number;
+  profession?: string;
+  notes?: string;
+  ice?: string;
+  estAncienClient?: boolean;
+  typeId?: UUID;
+  type?: string;
+  kindId?: UUID;
+  kind?: string;
+  commercialId?: UUID;
+  commercialNom?: string;
+  titreId?: UUID;
+  titre?: string;
+  sexeId?: UUID;
+  sexe?: string;
+  paysResidenceId?: UUID;
+  paysResidence?: string;
+  paysId?: UUID;
+  pays?: string;
+  nationaliteId?: UUID;
+  nationalite?: string;
+  situationFamilialeId?: UUID;
+  situationFamiliale?: string;
+  typeResidenceId?: UUID;
+  typeResidence?: string;
+  regimeMatrimonialId?: UUID;
+  regimeMatrimonial?: string;
+  professionId?: UUID;
+  salaireId?: UUID;
+  salaire?: string;
+  employeur?: string;
+  anciennete?: number;
+  filsDe?: string;
+  etDe?: string;
+  pieceIdentite?: PieceIdentiteDto;
 }
 
-export interface Tranche {
-  id: string;
-  code: string;
-  description: string;
-  programme: string;
-  standing: string;
-  address: string;
-  city: string;
-  coveredFloorArea: number;
-  workStartDate: string | null;
-  workEndDate: string | null;
-  marketingStartDate: string | null;
-  marketingEndDate: string | null;
-  occupancyPermitsDate: string | null;
-  deliveryDate: string | null;
-  receptionDate: string | null;
-  endDateConcretisation: string | null;
-  startDateFinalisation: string | null;
-  revival1Date: string | null;
-  isForSale: boolean;
-  isForRent: boolean;
-  isForProject: boolean;
-  isForBuy: boolean;
-  isForSav: boolean;
-  rules: TrancheRules;
-  createdBy: string;
-  createdAt: string | null;
+export interface CreerProspectRequest {
+  prenom?: string;
+  nom?: string;
+  raisonSociale?: string;
+  telephone?: string;
+  mobile?: string;
+  email?: string;
+  adresse?: string;
+  ville?: string;
+  codePostal?: string;
+  dateNaissance?: string | null;
+  lieuNaissance?: string;
+  nombreEnfants?: number;
+  typeId?: UUID;
+  kindId?: UUID;
+  commercialId?: UUID;
+  titreId?: UUID;
+  sexeId?: UUID;
+  paysResidenceId?: UUID;
+  paysId?: UUID;
+  nationaliteId?: UUID;
+  situationFamilialeId?: UUID;
+  typeResidenceId?: UUID;
+  regimeMatrimonialId?: UUID;
+  professionId?: UUID;
+  salaireId?: UUID;
+  employeur?: string;
+  anciennete?: number;
+  filsDe?: string;
+  etDe?: string;
+  adresse2?: string;
+  adresse3?: string;
+  pieceIdentite?: PieceIdentiteRequest;
 }
 
-export interface Article {
-  id: string;
-  code: string;
-  description: string;
-  address: string;
-  area: number;
-  notes: string;
-  salePrice: number;
-  salePriceHT: number;
-  purchaseCost: number;
-  type: string;
-  category: string;
-  isUnderItem: boolean;
-  titleNumber: string;
-  titleDate: string | null;
-  isTitled: boolean;
-  deliveryDate: string | null;
-  reservationDate: string | null;
-  folderId: string | null;
-  vat: number;
-  createdAt: string | null;
+export type ModifierProspectRequest = CreerProspectRequest;
+
+// A prospect's own contact book (contacts personnels — e.g. spouse, agent) —
+// each entry links to another Prospect record by id, tagged with a relation
+// type (référentiel types-relation-contact).
+export interface CreerContactProspectRequest {
+  contactProspectId: UUID;
+  relationTypeId?: UUID;
 }
 
-/** A single instalment paid against an EcheancierLine — the expandable
- * "sous-lignes de paiement" seen on the real screen. */
-export interface EcheancierPayment {
-  id: string;
-  date: string | null;
-  montant: number;
+export interface ContactProspectDto {
+  id: UUID;
+  contactProspectId?: UUID;
+  nomContact?: string;
+  telephoneContact?: string;
+  relationTypeId?: UUID;
+  relationType?: string;
+}
+
+export interface ReglementProspectDto {
+  id: UUID;
+  code?: string;
+  dateDocument?: string | null;
+  dateReglement?: string | null;
+  montant?: number;
+  type?: string;
+  dossierId?: UUID;
+  dossierCode?: string;
+}
+
+export interface HistoriqueDto {
+  id: UUID;
+  date?: string | null;
+  description?: string;
+  utilisateur?: string;
+  workflowDescription?: string;
+  statutDescription?: string;
+}
+
+// One traceability event on a dossier's timeline, from GET
+// /api/dossiers/{id}/historique (V4) — unlike HistoriqueDto above (prospects)
+// it carries no id, just a `type` label (e.g. changement de statut) and a
+// free-text `description`.
+export interface HistoriqueEvenementDto {
+  date?: string | null;
+  type?: string;
+  utilisateur?: string;
+  description?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Prospection / Pré-prospection
+// ---------------------------------------------------------------------------
+
+export interface ProspectionListItemDto {
+  id: UUID;
+  code?: string;
+  dateDocument?: string | null;
+  /** Free-text lead description captured before a Prospect record exists
+   * (pré-prospection). Replaces the old displayName/phone/email trio. */
+  tempDescription?: string;
+  prospectId?: UUID;
+  prospectNom?: string;
+  commercialId?: UUID;
+  commercialNom?: string;
+  origine?: string;
+  etape?: string;
+  fermee?: boolean;
+  prix?: number;
+  surface?: number;
+}
+
+export interface ProspectionDetailDto {
+  id: UUID;
+  code?: string;
+  dateDocument?: string | null;
+  tempDescription?: string;
+  tempTel?: string;
+  tempEmail?: string;
+  prospectId?: UUID;
+  prospectNom?: string;
+  commercialId?: UUID;
+  commercialNom?: string;
+  proposeurId?: UUID;
+  proposeurNom?: string;
+  origineId?: UUID;
+  origine?: string;
+  origineSupportId?: UUID;
+  origineSupport?: string;
+  etapeId?: UUID;
+  etape?: string;
+  vocationId?: UUID;
+  vocation?: string;
+  typeContactId?: UUID;
+  typeContact?: string;
+  actionCommercialeId?: UUID;
+  actionCommerciale?: string;
+  notes?: string;
+  surface?: number;
+  surfaceJusqua?: number;
+  prix?: number;
+  prixJusqua?: number;
+  avance?: number;
+  financementFondsPropres?: number;
+  financementCredit?: number;
+  financementAutre?: number;
+  fermee?: boolean;
+  dateFermeture?: string | null;
+  raisonFermetureId?: UUID;
+  raisonFermeture?: string;
+  raisonFermetureTexte?: string;
+  ancienClient?: boolean;
+  trancheId?: UUID;
+  articleId?: UUID;
+}
+
+export interface TransformerProspectionRequest {
+  commercialId?: UUID;
+}
+
+/** General-purpose PATCH for a Prospection's editable fields — supersedes
+ * hand-editing individual fields client-side; origine/support/vocation/
+ * typeContact/actionCommerciale are all référentiel-backed UUID pickers. */
+export interface ModifierProspectionRequest {
+  origineId?: UUID;
+  origineSupportId?: UUID;
+  vocationId?: UUID;
+  typeContactId?: UUID;
+  actionCommercialeId?: UUID;
+  surface?: number;
+  surfaceJusqua?: number;
+  prix?: number;
+  prixJusqua?: number;
+  avance?: number;
+  financementFondsPropres?: number;
+  financementCredit?: number;
+  financementAutre?: number;
+  notes?: string;
+  trancheId?: UUID;
+  articleId?: UUID;
+}
+
+export interface ChangerEtapeRequest {
+  etapeId: UUID;
+  note?: string;
+}
+
+export interface ArchiverProspectionRequest {
+  raisonId?: UUID;
+  raisonTexte?: string;
+}
+
+// --- Prospection sub-collections (each a simple {id, xxxId, xxx} link row,
+// with a matching Ajouter*Request to add one and a DELETE by itemId) ---
+
+export interface AjouterVilleRequest {
+  villeId: UUID;
+}
+export interface ProspectionVilleDto {
+  id: UUID;
+  villeId?: UUID;
+  ville?: string;
+}
+
+export interface AjouterTypeBienRequest {
+  typeBienId: UUID;
+}
+export interface ProspectionTypeBienDto {
+  id: UUID;
+  typeBienId?: UUID;
+  typeBien?: string;
+}
+
+export interface AjouterProfilRequest {
+  profilId: UUID;
+}
+export interface ProspectionProfilDto {
+  id: UUID;
+  profilId?: UUID;
+  profil?: string;
+  categorieId?: UUID;
+  categorie?: string;
+}
+
+export interface AjouterCategorieRequest {
+  categorieId: UUID;
+}
+export interface ProspectionCategorieDto {
+  id: UUID;
+  categorieId?: UUID;
+  categorie?: string;
+}
+
+export interface AjouterAutreTrancheRequest {
+  trancheId?: UUID;
+  articleId?: UUID;
+}
+export interface ProspectionAutreTrancheDto {
+  id: UUID;
+  trancheId?: UUID;
+  tranche?: string;
+  articleId?: UUID;
+  article?: string;
+}
+
+export interface CreerDevisRequest {
+  trancheId?: UUID;
+  articleId?: UUID;
+  prix?: number;
   notes?: string;
 }
 
-/** A line of a Dossier's Échéancier. What was originally spec'd as two
- * separate wizard steps — "Plan de financement" (source of funds) then
- * "Échéancier" (call-up schedule) — turned out on the real screen to be one
- * and the same: each financing-category line carries its own settlement
- * tracking (montant/réglé/reste), an invoice reference, and expandable
- * payment sub-lines. See
- * instructions/FIX-dossier-vente-corrections.md §3 (supersedes the two-step
- * split originally described in FEATURE-plan-financement.md). */
-export interface EcheancierLine {
-  id: string;
-  /** Code from FINANCING_CATEGORIES (src/lib/financing.ts), e.g. "AVANCE". */
-  categorie: string;
-  /** Total due for this line. */
-  montant: number;
-  /** Échéance (due) date. */
-  date: string | null;
-  /** "Référence de facture" — free text, optional (not every line is invoiced). */
-  invoiceRef?: string;
-  notes: string;
-  /** Expandable payment sub-lines; réglé = sum(payments.montant), reste = montant - réglé. */
-  payments: EcheancierPayment[];
+export interface DevisDto {
+  id: UUID;
+  code?: string;
+  dateDocument?: string | null;
+  trancheId?: UUID;
+  tranche?: string;
+  articleId?: UUID;
+  article?: string;
+  prospectId?: UUID;
+  prix?: number;
+  notes?: string;
 }
 
-export interface Communication {
-  id: string;
-  date: string | null;
-  description: string;
-  isIncoming: boolean;
-  /** Follow-up reminder date (was misleadingly named alertValidityDate pre-export). */
-  alertDate: string | null;
-  /** The actual call/visit report text (was misleadingly named alertMessage pre-export). */
-  report: string;
-  user: string;
-  prospectionId: string | null;
-  folderId: string | null;
-  tierId: string | null;
-  actionType: string;
-  isUnpaid: boolean;
-  isSystem: boolean;
-  _prospectionLinkIsMock?: boolean;
-  /** RDV scheduling — prototype-only local state, not part of the source export. */
-  appointmentDate?: string | null;
-  appointmentLabel?: string | null;
+export interface CreerInteractionRequest {
+  description?: string;
+  entrante?: boolean;
 }
 
-export interface SettlementLine {
-  [key: string]: unknown;
+export interface InteractionDto {
+  id: UUID;
+  date?: string | null;
+  description?: string;
+  entrante?: boolean;
+  employeId?: UUID;
+  employeNom?: string;
 }
 
-export interface Settlement {
-  id: string;
-  code: string;
-  date: string | null;
-  echeanceDate: string | null;
-  settlementDate: string | null;
-  description: string;
-  amount: number;
-  isCredit: boolean;
-  status: string;
-  notes: string;
-  tierId: string | null;
-  tier: string;
-  category: string;
-  isAccounted: boolean;
-  lines: SettlementLine[];
-  createdBy: string;
-  createdAt: string | null;
+// ---------------------------------------------------------------------------
+// Dossier de vente
+// ---------------------------------------------------------------------------
+
+export interface ArticleSummaryDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  area?: number;
+  price?: number;
 }
 
-export interface Gift {
-  code: string;
-  description: string;
-  price: number;
+export interface DossierListItemDto {
+  id: UUID;
+  code?: string;
+  dateDocument?: string | null;
+  statut?: string;
+  clientId?: UUID;
+  clientNom?: string;
+  commercialId?: UUID;
+  commercialNom?: string;
+  prix?: number;
+  totalAPayer?: number;
 }
 
-export interface Lookups {
-  prospectionOrigins: string[];
-  prospectionKinds: string[];
-  prospectionClosingReasons: string[];
-  trancheStandings: string[];
-  actionMessageTypes: string[];
-  paymentMethods: string[];
-  gifts: Gift[];
+export interface DossierDetailDto {
+  id: UUID;
+  code?: string;
+  dateDocument?: string | null;
+  statut?: string;
+  etapesAtteignables?: string[];
+  clientId?: UUID;
+  clientNom?: string;
+  commercialId?: UUID;
+  commercialNom?: string;
+  avocatId?: UUID;
+  avocatNom?: string;
+  articles?: ArticleSummaryDto[];
+  prixAvantRemise?: number;
+  remise?: number;
+  remiseMontant?: number;
+  prixApresRemise?: number;
+  prix?: number;
+  montantAvance?: number;
+  totalAPayer?: number;
+  notes?: string;
+  probabiliteFinalisation?: number;
+  modePaie?: string;
+}
+
+export interface CreerDossierRequest {
+  prospectionId: UUID;
+  articleIds: UUID[];
+  prix?: number;
+  notes?: string;
+  /** Both added in api-docsV2 — the backend rejects the request without
+   * them (no `required` marker in the OpenAPI schema itself, but a 400
+   * comes back if either is missing). No référentiel endpoint exists yet
+   * for modes de paiement, so `modePaieId` has no lookup source in the UI. */
+  modePaieId?: UUID;
+  cin?: string;
+}
+
+export interface ChangerStatutRequest {
+  statut: string;
+  date?: string;
+  note?: string;
+}
+
+// A reachable next statut for a dossier, from GET
+// /api/dossiers/{id}/statut/etapes-suivantes (V4). `champDate` names the
+// dossier date field that milestone is derived from (e.g. `agreementDate`),
+// `libelleChampDate` its human label, and `confiance` how sure the backend
+// is that the dossier is actually ready for that transition.
+export interface EtapeSuivanteDto {
+  statut: string;
+  champDate?: string;
+  libelleChampDate?: string;
+  confiance?: string;
+}
+
+export interface EcheanceDto {
+  id: UUID;
+  code?: string;
+  dateEcheance?: string | null;
+  montant?: number;
+  montantHT?: number;
+  montantTTC?: number;
+  tauxTVA?: number;
+  description?: string;
+  categorieId?: UUID;
+  categorie?: string;
+  exclureDuPrix?: boolean;
+  notes?: string;
+  montantRegle?: number;
+  reste?: number;
+  statutCalcule?: string;
+}
+
+export interface CreerEcheanceRequest {
+  dateEcheance?: string | null;
+  montant?: number;
+  description?: string;
+  categorieId?: UUID;
+  exclureDuPrix?: boolean;
+  notes?: string;
+}
+
+export type ModifierEcheanceRequest = CreerEcheanceRequest;
+
+export interface ReglementDto {
+  id: UUID;
+  echeanceId?: UUID;
+  dateDocument?: string | null;
+  dateReglement?: string | null;
+  montant?: number;
+  type?: string;
+  notes?: string;
+}
+
+export interface CreerReglementRequest {
+  montant?: number;
+  dateReglement?: string | null;
+  typeId?: UUID;
+  banqueId?: UUID;
+  notes?: string;
+}
+
+export interface CategorieMontantDto {
+  categorie?: string;
+  montant?: number;
+  nombreLignes?: number;
+  regle?: number;
+  reste?: number;
+}
+
+export interface MontantsDossierDto {
+  parCategorie?: CategorieMontantDto[];
+  totalGeneral?: number;
+  totalSoumisReglePrixTTC?: number;
+}
+
+export interface PieceJointeDto {
+  id: UUID;
+  description?: string;
+  extension?: string;
+  dateCreation?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Tranche / Projet / Article
+// ---------------------------------------------------------------------------
+
+export interface TrancheListItemDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  ville?: string;
+  dateLivraison?: string | null;
+}
+
+export interface TrancheDetailDto {
+  id: UUID;
+  projetId?: UUID;
+  code?: string;
+  description?: string;
+  descriptionLongue?: string;
+  adresse?: string;
+  adresse2?: string;
+  adresse3?: string;
+  codePostal?: string;
+  ville?: string;
+  telephone?: string;
+  mobile?: string;
+  fax?: string;
+  email?: string;
+  siteWeb?: string;
+  dateDebutTravaux?: string | null;
+  dateFinTravaux?: string | null;
+  dateDebutCommercialisation?: string | null;
+  dateFinCommercialisation?: string | null;
+  dateLivraison?: string | null;
+  estEnVente?: boolean;
+  estEnLocation?: boolean;
+  tauxPenaliteAnnulation?: number;
+  tauxPenaliteAnnulationRemise?: number;
+  penaliteTransfertArticle?: number;
+  penaliteTransfertArticleRemise?: number;
+  penaliteTransfertTranche?: number;
+  penaliteTransfertTrancheRemise?: number;
+  penaliteTransfertClient?: number;
+  penaliteTransfertClientRemise?: number;
+  tauxPenalitePremierEngagement?: number;
+  tauxPenaliteDeuxiemeEngagement?: number;
+  delaiGarantie?: number;
+  delaiGarantieSupplement?: number;
+  delaiPremierEngagement?: number;
+  delaiDeuxiemeEngagement?: number;
+  delaiSoldePaiement?: number;
+  delaiNotaireMinutes?: number;
+  delaiToutSoldeMinutes?: number;
+  delaiRetractation?: number;
+  delaiMinimumIntervention?: number;
+  delaiMaxEcheance?: number;
+  advancePercent?: number;
+  concretisationPercent?: number;
+  maxVisitNumber?: number;
+  isWithVerifCredit?: boolean;
+  creditPercent?: number;
+}
+
+export type ArticleStatut = 'DISPONIBLE' | 'OCCUPE';
+
+export interface ArticleListItemDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  area?: number;
+  salePrice?: number;
+  comSalePrice?: number;
+  statut?: ArticleStatut;
+  titreFoncier?: string;
+  categorie?: string;
+  type?: string;
+}
+
+export interface ArticleDetailDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  adresse?: string;
+  area?: number;
+  salePrice?: number;
+  comSalePrice?: number;
+  statut?: ArticleStatut;
+  trancheId?: UUID;
+  lotParentId?: UUID;
+  sousLots?: ArticleListItemDto[];
+  titreFoncier?: string;
+  categorie?: string;
+  type?: string;
+}
+
+export interface ProjetListItemDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  ville?: string;
+}
+
+export interface ProjetDetailDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  descriptionLongue?: string;
+  adresse?: string;
+  adresse2?: string;
+  adresse3?: string;
+  codePostal?: string;
+  ville?: string;
+  villeSignature?: string;
+  telephone?: string;
+  mobile?: string;
+  fax?: string;
+  email?: string;
+  siteWeb?: string;
+  dateDebutTravaux?: string | null;
+  dateFinTravaux?: string | null;
+  dateDebutCommercialisation?: string | null;
+  dateFinCommercialisation?: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard / Commercial
+// ---------------------------------------------------------------------------
+
+export interface EtapeCountDto {
+  etape?: string;
+  nombre?: number;
+}
+
+export interface RelanceDto {
+  dossierId: UUID;
+  clientNom?: string;
+  dateEcheance?: string | null;
+  joursRetard?: number;
+}
+
+export interface DashboardDto {
+  valeurPipeline?: number;
+  panierMoyen?: number;
+  dossiersParEtape?: EtapeCountDto[];
+  relancesEnRetard?: RelanceDto[];
+  prospectionsOuvertes?: number;
+  prospectionsTotal?: number;
+}
+
+export interface CommercialListItemDto {
+  id: UUID;
+  code?: string;
+  prenom?: string;
+  nom?: string;
+  email?: string;
+  telephone?: string;
+  kind?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Pagination — every list endpoint now requires a `pageable` param
+// (page/size/sort, 0-indexed) and returns a PageDto wrapper instead of a
+// bare array.
+// ---------------------------------------------------------------------------
+
+export interface Pageable {
+  page?: number;
+  size?: number;
+  sort?: string[];
+}
+
+export interface PageDto<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+// ---------------------------------------------------------------------------
+// Référentiels — lookup tables for every UUID foreign key used across the
+// forms above (/api/referentiels/*). Most are the plain {id, code,
+// description, sorting} shape; a handful carry extra fields.
+// ---------------------------------------------------------------------------
+
+export interface ReferentielItemDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  sorting?: number;
+}
+
+export interface VilleDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  paysId?: UUID;
+}
+
+export interface TitreDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  sexeId?: UUID;
+}
+
+export interface ProfilDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+}
+
+export interface ProfilCategorieDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  multiSelect?: boolean;
+  profils?: ProfilDto[];
+}
+
+export interface PaysDto {
+  id: UUID;
+  code?: string;
+  isoAlpha3?: string;
+  description?: string;
+  indicatifTelephone?: number;
+}
+
+export interface OrigineProspectionDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  avecProposeur?: boolean;
+  avecCadeau?: boolean;
+  avecSupport?: boolean;
 }
 
 export type BadgeTone = 'neutral' | 'info' | 'progress' | 'success' | 'warning' | 'amber';
-
-export interface DerivedDossierStatus {
-  label: string;
-  tone: BadgeTone;
-}

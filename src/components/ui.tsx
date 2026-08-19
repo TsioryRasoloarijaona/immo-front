@@ -90,12 +90,12 @@ export function Card({
   return (
     <ShadcnCard className="gap-0 py-0">
       {title && (
-        <CardHeader className="gap-0 border-b border-border py-4">
+        <CardHeader className="gap-0 border-b border-border py-3">
           <CardTitle className="text-[14.5px]">{title}</CardTitle>
           {action && <CardAction>{action}</CardAction>}
         </CardHeader>
       )}
-      <CardContent className={padded ? 'py-5' : 'px-0 py-0'}>{children}</CardContent>
+      <CardContent className={padded ? 'py-4' : 'px-0 py-0'}>{children}</CardContent>
     </ShadcnCard>
   );
 }

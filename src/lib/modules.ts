@@ -30,12 +30,11 @@ export function moduleForPath(pathname: string): string | null {
     pathname.startsWith('/prospections') ||
     pathname.startsWith('/prospects') ||
     pathname.startsWith('/clients') ||
-    pathname.startsWith('/dossiers') ||
-    pathname.startsWith('/rendez-vous')
+    pathname.startsWith('/dossiers')
   ) {
     return 'vente';
   }
-  if (pathname.startsWith('/tranches') || pathname.startsWith('/articles')) {
+  if (pathname.startsWith('/tranches') || pathname.startsWith('/articles') || pathname.startsWith('/projets')) {
     return 'patrimoine';
   }
   if (pathname.startsWith('/bientot/')) {

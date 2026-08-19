@@ -35,7 +35,7 @@ export default function PageShell({
 
   return (
     <>
-      <header className="sticky top-0 z-5 flex items-center justify-between gap-4 border-b border-border bg-background/88 px-4 py-3 backdrop-blur-sm md:px-7 md:py-4">
+      <header className="sticky top-0 z-5 flex items-center justify-between gap-4 border-b border-border bg-background/88 px-4 py-2.5 backdrop-blur-sm md:px-7 md:py-3">
         <div className="flex min-w-0 items-center gap-2">
           <SidebarTrigger title="Afficher/masquer la barre latérale" />
           <Separator orientation="vertical" className="mr-1 h-5" />

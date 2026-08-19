@@ -1,12 +1,27 @@
 import { useState } from 'react';
 import Modal from './Modal';
-import type { Person } from '../types';
+import type { CreerProspectRequest, ProspectionDetailDto } from '../types';
 import { Button } from './ui/button';
 import { DialogFooter } from './ui/dialog';
 import { Field as FormField, FieldGroup, FieldLabel } from './ui/field';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { PERSON_GENDER_OPTIONS, PERSON_TITLE_OPTIONS } from '../lib/domain';
+import { creerProspectFromPreProspection, getTierKindsForType } from '../lib/api';
+import { toApiDateTime } from '../lib/format';
+import { useApi } from '../lib/useApi';
+import {
+  referentielItems,
+  useNationalites,
+  usePays,
+  useRegimesMatrimoniaux,
+  useSalaires,
+  useSexes,
+  useSituationsFamiliales,
+  useTierTypes,
+  useTitres,
+  useTypesPieceIdentite,
+  useTypesResidence,
+} from '../lib/referentiels';
 
 export interface CreateProspectInitial {
   firstName?: string;
@@ -15,77 +30,174 @@ export interface CreateProspectInitial {
   email?: string;
 }
 
-// The étape intermédiaire between a raw Pré-Prospection and "Transformer en
-// prospection" — on the real Omran screen (see omaran_visual/prospect-creation.png)
-// "Créer Prospect" opens a full contact record, not a 3-field modal: Nom/
-// Prénom/coordonnées AND a profile section (ville, adresse, profession,
-// enfants). This mirrors the fields the fiche Prospect actually surfaces
-// afterward on the Contact card (ProspectionDetail's Aperçu tab), so nothing
-// captured here is invisible once saved. Full legal-identity fields from the
-// real screen (forme juridique, pièce d'identité, situation familiale,
-// régime matrimonial…) have no home in this prototype's Person model and
-// aren't fabricated — see CLAUDE.md "Data honesty note".
+function RefSelect({
+  id,
+  label,
+  value,
+  onChange,
+  items,
+  disabled,
+}: {
+  id: string;
+  label: string;
+  value: string | null;
+  onChange: (v: string | null) => void;
+  items: { label: string; value: string }[];
+  disabled?: boolean;
+}) {
+  const allItems = [{ label: '— Non renseigné —', value: '' }, ...items];
+  return (
+    <FormField>
+      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <Select
+        items={allItems}
+        value={value ?? ''}
+        onValueChange={(v) => onChange((v as string) || null)}
+        disabled={disabled}
+      >
+        <SelectTrigger id={id}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {allItems.map((item) => (
+              <SelectItem key={item.value || '__none'} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </FormField>
+  );
+}
+
+// The étape intermédiaire between a raw Pré-Prospection and a qualified
+// Prospection — maps to POST /api/pre-prospections/{id}/creer-prospect.
+// Field set mirrors the real Omran "Prospect : Général" screen
+// (omaran_visual/prospect-creation.png) now that the référentiels needed to
+// drive it (titres, sexes, pays, nationalités, situations familiales, types
+// de résidence, régimes matrimoniaux, salaires, tier types/kinds, types de
+// pièce d'identité) are exposed by the API.
 export default function CreateProspectForm({
+  preProspectionId,
   initial,
   onClose,
   onSubmit,
 }: {
+  preProspectionId: string;
   initial?: CreateProspectInitial;
   onClose: () => void;
-  onSubmit: (person: Person) => void;
+  onSubmit: (updated: ProspectionDetailDto) => void;
 }) {
-  const [title, setTitle] = useState<string | null>(null);
-  const [gender, setGender] = useState<string | null>(null);
-  const [firstName, setFirstName] = useState(initial?.firstName ?? '');
-  const [lastName, setLastName] = useState(initial?.lastName ?? '');
-  const [phone, setPhone] = useState(initial?.phone ?? '');
+  const [prenom, setPrenom] = useState(initial?.firstName ?? '');
+  const [nom, setNom] = useState(initial?.lastName ?? '');
+  const [telephone, setTelephone] = useState(initial?.phone ?? '');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState(initial?.email ?? '');
-  const [city, setCity] = useState('');
-  const [address, setAddress] = useState('');
-  const [nationality, setNationality] = useState('');
-  const [idNumber, setIdNumber] = useState('');
-  const [profession, setProfession] = useState('');
-  const [nbrChildren, setNbrChildren] = useState('');
+  const [ville, setVille] = useState('');
+  const [adresse, setAdresse] = useState('');
+  const [codePostal, setCodePostal] = useState('');
+  const [dateNaissance, setDateNaissance] = useState('');
+  const [lieuNaissance, setLieuNaissance] = useState('');
+  const [nombreEnfants, setNombreEnfants] = useState('');
+  const [employeur, setEmployeur] = useState('');
+  const [anciennete, setAnciennete] = useState('');
+  const [filsDe, setFilsDe] = useState('');
+  const [etDe, setEtDe] = useState('');
 
-  const titleItems = [{ label: '— Non renseigné —', value: null as string | null }, ...PERSON_TITLE_OPTIONS.map((t) => ({ label: t, value: t as string | null }))];
-  const genderItems = [{ label: '— Non renseigné —', value: null as string | null }, ...PERSON_GENDER_OPTIONS.map((g) => ({ label: g, value: g as string | null }))];
+  const [titreId, setTitreId] = useState<string | null>(null);
+  const [sexeId, setSexeId] = useState<string | null>(null);
+  const [paysId, setPaysId] = useState<string | null>(null);
+  const [paysResidenceId, setPaysResidenceId] = useState<string | null>(null);
+  const [nationaliteId, setNationaliteId] = useState<string | null>(null);
+  const [situationFamilialeId, setSituationFamilialeId] = useState<string | null>(null);
+  const [typeResidenceId, setTypeResidenceId] = useState<string | null>(null);
+  const [regimeMatrimonialId, setRegimeMatrimonialId] = useState<string | null>(null);
+  const [salaireId, setSalaireId] = useState<string | null>(null);
+  const [tierTypeId, setTierTypeId] = useState<string | null>(null);
+  const [tierKindId, setTierKindId] = useState<string | null>(null);
+  const [pieceTypeId, setPieceTypeId] = useState<string | null>(null);
+  const [pieceNumero, setPieceNumero] = useState('');
+  const [pieceDelivreeLe, setPieceDelivreeLe] = useState('');
+  const [pieceLieuDelivrance, setPieceLieuDelivrance] = useState('');
+  const [pieceValideJusquau, setPieceValideJusquau] = useState('');
+  const [pieceLieuValidite, setPieceLieuValidite] = useState('');
 
-  function handleSubmit(e: React.FormEvent) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const titres = useTitres();
+  const sexes = useSexes();
+  const pays = usePays();
+  const nationalites = useNationalites();
+  const situations = useSituationsFamiliales();
+  const typesResidence = useTypesResidence();
+  const regimes = useRegimesMatrimoniaux();
+  const salaires = useSalaires();
+  const tierTypes = useTierTypes();
+  const typesPiece = useTypesPieceIdentite();
+  const tierKinds = useApi(() => (tierTypeId ? getTierKindsForType(tierTypeId) : Promise.resolve([])), [tierTypeId]);
+
+  const paysItems = pays.data.map((p) => ({ label: p.description || p.code || p.id, value: p.id }));
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim() || !phone.trim()) return;
-    const id = crypto.randomUUID();
-    onSubmit({
-      id,
-      code: `TMP-${id.slice(0, 6).toUpperCase()}`,
-      name: `${firstName.trim()} ${lastName.trim()}`,
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      phone: phone.trim(),
-      mobile: mobile.trim(),
-      email: email.trim(),
-      address: address.trim(),
-      city: city.trim(),
-      idNumber: idNumber.trim(),
-      idPlace: '',
-      idDate: null,
-      birthDate: null,
-      birthPlace: '',
-      profession: profession.trim(),
-      isProspect: true,
-      isOldCustomer: false,
-      nbrChildren: Number(nbrChildren) || 0,
-      fatherName: '',
-      motherName: '',
-      title: title ?? undefined,
-      gender: gender ?? undefined,
-      nationality: nationality.trim() || undefined,
-    });
-    onClose();
+    if (!prenom.trim() || !nom.trim() || !telephone.trim()) return;
+    const body: CreerProspectRequest = {
+      prenom: prenom.trim(),
+      nom: nom.trim(),
+      telephone: telephone.trim(),
+      mobile: mobile.trim() || undefined,
+      email: email.trim() || undefined,
+      ville: ville.trim() || undefined,
+      adresse: adresse.trim() || undefined,
+      codePostal: codePostal.trim() || undefined,
+      // These 3 are `format: date-time` on the backend — a bare
+      // "YYYY-MM-DD" from the date inputs 400s, so pad to midnight ISO.
+      dateNaissance: toApiDateTime(dateNaissance),
+      lieuNaissance: lieuNaissance.trim() || undefined,
+      nombreEnfants: nombreEnfants ? Number(nombreEnfants) : undefined,
+      employeur: employeur.trim() || undefined,
+      anciennete: anciennete ? Number(anciennete) : undefined,
+      filsDe: filsDe.trim() || undefined,
+      etDe: etDe.trim() || undefined,
+      titreId: titreId ?? undefined,
+      sexeId: sexeId ?? undefined,
+      paysId: paysId ?? undefined,
+      paysResidenceId: paysResidenceId ?? undefined,
+      nationaliteId: nationaliteId ?? undefined,
+      situationFamilialeId: situationFamilialeId ?? undefined,
+      typeResidenceId: typeResidenceId ?? undefined,
+      regimeMatrimonialId: regimeMatrimonialId ?? undefined,
+      salaireId: salaireId ?? undefined,
+      typeId: tierTypeId ?? undefined,
+      kindId: tierKindId ?? undefined,
+      pieceIdentite:
+        pieceTypeId || pieceNumero
+          ? {
+              typeId: pieceTypeId ?? undefined,
+              numero: pieceNumero.trim() || undefined,
+              delivreeLe: toApiDateTime(pieceDelivreeLe),
+              lieuDelivrance: pieceLieuDelivrance.trim() || undefined,
+              valideJusquau: toApiDateTime(pieceValideJusquau),
+              lieuValidite: pieceLieuValidite.trim() || undefined,
+            }
+          : undefined,
+    };
+    setSubmitting(true);
+    setError(null);
+    try {
+      const updated = await creerProspectFromPreProspection(preProspectionId, body);
+      onSubmit(updated);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Échec de la création.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
-    <Modal title="Créer la fiche prospect" onClose={onClose} width={520}>
+    <Modal title="Créer la fiche prospect" onClose={onClose} width={640}>
       <form onSubmit={handleSubmit}>
         {(initial?.firstName || initial?.phone) && (
           <p className="mb-3.5 text-xs text-muted-foreground">
@@ -95,93 +207,125 @@ export default function CreateProspectForm({
 
         <div className="mb-1.5 text-[11.5px] font-semibold text-foreground">Identité & coordonnées</div>
         <FieldGroup>
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+            <RefSelect id="titre" label="Titre" value={titreId} onChange={setTitreId} items={referentielItems(titres.data)} />
+            <RefSelect id="sexe" label="Sexe" value={sexeId} onChange={setSexeId} items={referentielItems(sexes.data)} />
             <FormField>
-              <FieldLabel htmlFor="title">Titre</FieldLabel>
-              <Select items={titleItems} value={title} onValueChange={(v) => setTitle(v as string | null)}>
-                <SelectTrigger id="title">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {titleItems.map((item) => (
-                      <SelectItem key={item.value ?? '__none'} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <FieldLabel htmlFor="prenom">Prénom</FieldLabel>
+              <Input id="prenom" value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
             </FormField>
             <FormField>
-              <FieldLabel htmlFor="gender">Sexe</FieldLabel>
-              <Select items={genderItems} value={gender} onValueChange={(v) => setGender(v as string | null)}>
-                <SelectTrigger id="gender">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {genderItems.map((item) => (
-                      <SelectItem key={item.value ?? '__none'} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+              <FieldLabel htmlFor="nom">Nom</FieldLabel>
+              <Input id="nom" value={nom} onChange={(e) => setNom(e.target.value)} required />
             </FormField>
             <FormField>
-              <FieldLabel htmlFor="firstName">Prénom</FieldLabel>
-              <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
+              <FieldLabel htmlFor="filsDe">Fils de</FieldLabel>
+              <Input id="filsDe" value={filsDe} onChange={(e) => setFilsDe(e.target.value)} />
             </FormField>
             <FormField>
-              <FieldLabel htmlFor="lastName">Nom</FieldLabel>
-              <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required />
+              <FieldLabel htmlFor="etDe">Et de</FieldLabel>
+              <Input id="etDe" value={etDe} onChange={(e) => setEtDe(e.target.value)} />
             </FormField>
             <FormField>
-              <FieldLabel htmlFor="phone">Téléphone</FieldLabel>
-              <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+              <FieldLabel htmlFor="telephone">Téléphone</FieldLabel>
+              <Input id="telephone" value={telephone} onChange={(e) => setTelephone(e.target.value)} required />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="mobile">Mobile</FieldLabel>
               <Input id="mobile" value={mobile} onChange={(e) => setMobile(e.target.value)} />
             </FormField>
-            <FormField className="sm:col-span-2">
+            <FormField>
               <FieldLabel htmlFor="email">Email</FieldLabel>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </FormField>
           </div>
         </FieldGroup>
 
-        <div className="mt-4 mb-1.5 border-t border-border pt-4 text-[11.5px] font-semibold text-foreground">Profil</div>
+        <div className="mt-4 mb-1.5 border-t border-border pt-4 text-[11.5px] font-semibold text-foreground">Résidence & nationalité</div>
         <FieldGroup>
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             <FormField>
-              <FieldLabel htmlFor="city">Ville</FieldLabel>
-              <Input id="city" value={city} onChange={(e) => setCity(e.target.value)} />
+              <FieldLabel htmlFor="ville">Ville</FieldLabel>
+              <Input id="ville" value={ville} onChange={(e) => setVille(e.target.value)} />
             </FormField>
             <FormField>
-              <FieldLabel htmlFor="nationality">Nationalité</FieldLabel>
-              <Input id="nationality" value={nationality} onChange={(e) => setNationality(e.target.value)} />
+              <FieldLabel htmlFor="codePostal">Code postal</FieldLabel>
+              <Input id="codePostal" value={codePostal} onChange={(e) => setCodePostal(e.target.value)} />
             </FormField>
-            <FormField className="sm:col-span-2">
-              <FieldLabel htmlFor="address">Adresse</FieldLabel>
-              <Input id="address" value={address} onChange={(e) => setAddress(e.target.value)} />
+            <FormField className="sm:col-span-2 lg:col-span-1">
+              <FieldLabel htmlFor="adresse">Adresse</FieldLabel>
+              <Input id="adresse" value={adresse} onChange={(e) => setAdresse(e.target.value)} />
+            </FormField>
+            <RefSelect id="pays" label="Pays" value={paysId} onChange={setPaysId} items={paysItems} />
+            <RefSelect id="paysResidence" label="Pays de résidence" value={paysResidenceId} onChange={setPaysResidenceId} items={paysItems} />
+            <RefSelect id="nationalite" label="Nationalité" value={nationaliteId} onChange={setNationaliteId} items={referentielItems(nationalites.data)} />
+            <FormField>
+              <FieldLabel htmlFor="dateNaissance">Date de naissance</FieldLabel>
+              <Input id="dateNaissance" type="date" value={dateNaissance} onChange={(e) => setDateNaissance(e.target.value)} />
             </FormField>
             <FormField>
-              <FieldLabel htmlFor="idNumber">Pièce d'identité (CIN)</FieldLabel>
-              <Input id="idNumber" value={idNumber} onChange={(e) => setIdNumber(e.target.value)} />
-            </FormField>
-            <FormField>
-              <FieldLabel htmlFor="profession">Profession</FieldLabel>
-              <Input id="profession" value={profession} onChange={(e) => setProfession(e.target.value)} />
-            </FormField>
-            <FormField>
-              <FieldLabel htmlFor="nbrChildren">Enfants</FieldLabel>
-              <Input id="nbrChildren" type="number" min={0} value={nbrChildren} onChange={(e) => setNbrChildren(e.target.value)} />
+              <FieldLabel htmlFor="lieuNaissance">Lieu de naissance</FieldLabel>
+              <Input id="lieuNaissance" value={lieuNaissance} onChange={(e) => setLieuNaissance(e.target.value)} />
             </FormField>
           </div>
         </FieldGroup>
 
+        <div className="mt-4 mb-1.5 border-t border-border pt-4 text-[11.5px] font-semibold text-foreground">Situation & profession</div>
+        <FieldGroup>
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+            <RefSelect id="situationFamiliale" label="Situation familiale" value={situationFamilialeId} onChange={setSituationFamilialeId} items={referentielItems(situations.data)} />
+            <FormField>
+              <FieldLabel htmlFor="nombreEnfants">Enfants</FieldLabel>
+              <Input id="nombreEnfants" type="number" min={0} value={nombreEnfants} onChange={(e) => setNombreEnfants(e.target.value)} />
+            </FormField>
+            <RefSelect id="regimeMatrimonial" label="Régime matrimonial" value={regimeMatrimonialId} onChange={setRegimeMatrimonialId} items={referentielItems(regimes.data)} />
+            <RefSelect id="typeResidence" label="Type de résidence" value={typeResidenceId} onChange={setTypeResidenceId} items={referentielItems(typesResidence.data)} />
+            <RefSelect id="salaire" label="Salaire" value={salaireId} onChange={setSalaireId} items={referentielItems(salaires.data)} />
+            <FormField>
+              <FieldLabel htmlFor="employeur">Employeur</FieldLabel>
+              <Input id="employeur" value={employeur} onChange={(e) => setEmployeur(e.target.value)} />
+            </FormField>
+            <FormField>
+              <FieldLabel htmlFor="anciennete">Ancienneté (années)</FieldLabel>
+              <Input id="anciennete" type="number" min={0} value={anciennete} onChange={(e) => setAnciennete(e.target.value)} />
+            </FormField>
+            <RefSelect id="tierType" label="Type de tiers" value={tierTypeId} onChange={(v) => { setTierTypeId(v); setTierKindId(null); }} items={referentielItems(tierTypes.data)} />
+            <RefSelect id="tierKind" label="Nature du tiers" value={tierKindId} onChange={setTierKindId} items={referentielItems(tierKinds.data ?? [])} disabled={!tierTypeId} />
+          </div>
+        </FieldGroup>
+
+        <div className="mt-4 mb-1.5 border-t border-border pt-4 text-[11.5px] font-semibold text-foreground">Pièce d'identité</div>
+        <FieldGroup>
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+            <RefSelect id="pieceType" label="Type de pièce" value={pieceTypeId} onChange={setPieceTypeId} items={referentielItems(typesPiece.data)} />
+            <FormField>
+              <FieldLabel htmlFor="pieceNumero">Numéro</FieldLabel>
+              <Input id="pieceNumero" value={pieceNumero} onChange={(e) => setPieceNumero(e.target.value)} />
+            </FormField>
+            <FormField>
+              <FieldLabel htmlFor="pieceDelivreeLe">Délivrée le</FieldLabel>
+              <Input id="pieceDelivreeLe" type="date" value={pieceDelivreeLe} onChange={(e) => setPieceDelivreeLe(e.target.value)} />
+            </FormField>
+            <FormField>
+              <FieldLabel htmlFor="pieceLieuDelivrance">Lieu de délivrance</FieldLabel>
+              <Input id="pieceLieuDelivrance" value={pieceLieuDelivrance} onChange={(e) => setPieceLieuDelivrance(e.target.value)} />
+            </FormField>
+            <FormField>
+              <FieldLabel htmlFor="pieceValideJusquau">Valide jusqu'au</FieldLabel>
+              <Input id="pieceValideJusquau" type="date" value={pieceValideJusquau} onChange={(e) => setPieceValideJusquau(e.target.value)} />
+            </FormField>
+            <FormField>
+              <FieldLabel htmlFor="pieceLieuValidite">Lieu de validité</FieldLabel>
+              <Input id="pieceLieuValidite" value={pieceLieuValidite} onChange={(e) => setPieceLieuValidite(e.target.value)} />
+            </FormField>
+          </div>
+        </FieldGroup>
+
+        {error && <p className="mt-3 text-[12.5px] text-destructive">{error}</p>}
+
         <DialogFooter className="mt-5">
-          <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>
-          <Button type="submit">Créer</Button>
+          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Annuler</Button>
+          <Button type="submit" disabled={submitting}>{submitting ? 'Création…' : 'Créer'}</Button>
         </DialogFooter>
       </form>
     </Modal>

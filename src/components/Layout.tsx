@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Building2, CalendarClock, Contact, Folder, IdCard, LayoutDashboard, LayoutGrid, Users } from 'lucide-react';
+import { Building2, Contact, Folder, LayoutDashboard, LayoutGrid, UserCheck, Users } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -81,7 +81,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton render={<NavLink to="/clients" />} isActive={location.pathname.startsWith('/clients')} tooltip="Clients">
-                    <IdCard />
+                    <UserCheck />
                     Clients
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -89,12 +89,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                   <SidebarMenuButton render={<NavLink to="/dossiers" />} isActive={location.pathname.startsWith('/dossiers')} tooltip="Dossiers de vente">
                     <Folder />
                     Dossiers de vente
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/rendez-vous" />} isActive={location.pathname.startsWith('/rendez-vous')} tooltip="Rendez-vous">
-                    <CalendarClock />
-                    Rendez-vous
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -106,15 +100,15 @@ export default function Layout({ children }: { children: ReactNode }) {
               <SidebarGroupLabel>Patrimoine</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/tranches" />} isActive={location.pathname.startsWith('/tranches')} tooltip="Tranches">
-                    <Building2 />
-                    Tranches
+                  <SidebarMenuButton render={<NavLink to="/projets" />} isActive={location.pathname.startsWith('/projets')} tooltip="Projets">
+                    <LayoutGrid />
+                    Projets
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/articles" />} isActive={location.pathname.startsWith('/articles')} tooltip="Articles">
-                    <LayoutGrid />
-                    Articles
+                  <SidebarMenuButton render={<NavLink to="/tranches" />} isActive={location.pathname.startsWith('/tranches')} tooltip="Tranches">
+                    <Building2 />
+                    Tranches
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

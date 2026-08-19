@@ -2,41 +2,50 @@ import { useState } from 'react';
 import { Check, X } from 'lucide-react';
 import { Card } from './ui';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from './ui/popover';
-import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, validTransitionsFrom } from '../lib/dossierStatus';
+import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, normalizeStatus } from '../lib/dossierStatus';
+import { todayISO } from '../lib/format';
 import { cn } from '../lib/utils';
+import type { EtapeSuivanteDto } from '../types';
 
-// Interactive, non-linear status changer — replaces the old static status
-// badge + "Faire avancer/Annuler la dernière étape" buttons. See
-// instructions/FEATURE-changement-statut.md. Only statuses in
-// validTransitionsFrom(currentStatus) are clickable; everything else in the
-// pipeline stays visible (for process context) but inert.
+// Interactive, non-linear status changer — see instructions/FEATURE-changement-statut.md
+// for the original design. GET /api/dossiers/{id}/statut/etapes-suivantes
+// (V4) still informs each step when it can — the date field it hangs off
+// (`champDate`/`libelleChampDate`) and the backend's confidence that the
+// dossier is actually ready (`confiance`) — but every step in the pipeline
+// is clickable regardless of whether the API listed it as reachable: real
+// dossiers routinely skip steps, so this is left un-enforced by design and
+// any status is one click away.
 export default function DossierStatusStepper({
   currentStatus,
+  nextSteps,
   onConfirm,
 }: {
   currentStatus: string;
-  onConfirm: (newStatus: string, note: string) => void;
+  nextSteps: EtapeSuivanteDto[];
+  onConfirm: (newStatus: string, note: string, date?: string) => void;
 }) {
-  const currentIndex = DOSSIER_STATUS_PIPELINE.indexOf(currentStatus as (typeof DOSSIER_STATUS_PIPELINE)[number]);
-  const validTargets = validTransitionsFrom(currentStatus);
+  const normalizedCurrent = normalizeStatus(currentStatus);
+  const currentIndex = DOSSIER_STATUS_PIPELINE.findIndex((label) => normalizeStatus(label) === normalizedCurrent);
+  const stepByStatus = new Map(nextSteps.map((s) => [normalizeStatus(s.statut), s]));
 
   return (
     <Card title="Statut du dossier">
       <div className="flex flex-col gap-5">
         <div className="flex items-center overflow-x-auto pb-1">
           {DOSSIER_STATUS_PIPELINE.map((label, i) => {
-            const isCurrent = label === currentStatus;
+            const isCurrent = normalizeStatus(label) === normalizedCurrent;
             const isPast = currentIndex >= 0 && i < currentIndex;
-            const isClickable = !isCurrent && validTargets.includes(label);
+            const step = stepByStatus.get(normalizeStatus(label));
             return (
               <div className="flex shrink-0 items-center last:flex-1" key={label}>
                 <StepNode
                   label={label}
                   isCurrent={isCurrent}
                   isPast={isPast}
-                  isClickable={isClickable}
+                  step={step}
                   onConfirm={onConfirm}
                 />
                 {i < DOSSIER_STATUS_PIPELINE.length - 1 && (
@@ -50,14 +59,14 @@ export default function DossierStatusStepper({
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
           <span className="text-[11.5px] font-medium text-muted-foreground">Sorties :</span>
           {DOSSIER_EXIT_STATUSES.map((label) => {
-            const isCurrent = label === currentStatus;
-            const isClickable = !isCurrent && validTargets.includes(label);
+            const isCurrent = normalizeStatus(label) === normalizedCurrent;
+            const step = stepByStatus.get(normalizeStatus(label));
             return (
               <ExitChip
                 key={label}
                 label={label}
                 isCurrent={isCurrent}
-                isClickable={isClickable}
+                step={step}
                 onConfirm={onConfirm}
               />
             );
@@ -68,11 +77,50 @@ export default function DossierStatusStepper({
   );
 }
 
-function ConfirmPopoverBody({ label, onConfirm, close }: { label: string; onConfirm: (s: string, note: string) => void; close: () => void }) {
+const CONFIANCE_TONE: Record<string, string> = {
+  ELEVEE: 'text-[var(--success)]',
+  HIGH: 'text-[var(--success)]',
+  MOYENNE: 'text-[var(--warning)]',
+  MEDIUM: 'text-[var(--warning)]',
+  FAIBLE: 'text-destructive',
+  LOW: 'text-destructive',
+};
+
+function ConfianceBadge({ confiance }: { confiance?: string }) {
+  if (!confiance) return null;
+  const tone = CONFIANCE_TONE[confiance.toUpperCase()] ?? 'text-muted-foreground';
+  return <span className={cn('text-[10.5px] font-medium', tone)}>Confiance : {confiance}</span>;
+}
+
+function ConfirmPopoverBody({
+  label,
+  step,
+  onConfirm,
+  close,
+}: {
+  label: string;
+  step?: EtapeSuivanteDto;
+  onConfirm: (s: string, note: string, date?: string) => void;
+  close: () => void;
+}) {
   const [note, setNote] = useState('');
+  const [date, setDate] = useState(todayISO());
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[13px] font-medium text-foreground">Passer à « {label} » ?</p>
+      {step ? (
+        <ConfianceBadge confiance={step.confiance} />
+      ) : (
+        <span className="text-[10.5px] font-medium text-muted-foreground">
+          Statut non listé comme atteignable par l'API — le saut sera forcé.
+        </span>
+      )}
+      {step?.champDate && (
+        <label className="flex flex-col gap-1 text-[11.5px] font-medium text-muted-foreground">
+          {step.libelleChampDate || 'Date'}
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="text-[13px]" />
+        </label>
+      )}
       <Textarea
         placeholder="Motif / note (optionnel)"
         value={note}
@@ -85,7 +133,10 @@ function ConfirmPopoverBody({ label, onConfirm, close }: { label: string; onConf
           type="button"
           size="sm"
           onClick={() => {
-            onConfirm(label, note.trim());
+            // Submit the exact statut string the API gave us as reachable
+            // (step.statut), not our display label — they can differ in
+            // casing/accents (e.g. "CONCRETISATION" vs "Concrétisation").
+            onConfirm(step?.statut ?? label, note.trim(), step?.champDate ? date || undefined : undefined);
             setNote('');
             close();
           }}
@@ -101,16 +152,17 @@ function StepNode({
   label,
   isCurrent,
   isPast,
-  isClickable,
+  step,
   onConfirm,
 }: {
   label: string;
   isCurrent: boolean;
   isPast: boolean;
-  isClickable: boolean;
-  onConfirm: (s: string, note: string) => void;
+  step?: EtapeSuivanteDto;
+  onConfirm: (s: string, note: string, date?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const isClickable = !isCurrent;
   const circle = (
     <div
       className={cn(
@@ -157,7 +209,7 @@ function StepNode({
         {textLabel}
       </PopoverTrigger>
       <PopoverContent>
-        <ConfirmPopoverBody label={label} onConfirm={onConfirm} close={() => setOpen(false)} />
+        <ConfirmPopoverBody label={label} step={step} onConfirm={onConfirm} close={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
   );
@@ -166,15 +218,16 @@ function StepNode({
 function ExitChip({
   label,
   isCurrent,
-  isClickable,
+  step,
   onConfirm,
 }: {
   label: string;
   isCurrent: boolean;
-  isClickable: boolean;
-  onConfirm: (s: string, note: string) => void;
+  step?: EtapeSuivanteDto;
+  onConfirm: (s: string, note: string, date?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const isClickable = !isCurrent;
   const chip = (
     <span
       className={cn(
@@ -199,7 +252,7 @@ function ExitChip({
         {chip}
       </PopoverTrigger>
       <PopoverContent>
-        <ConfirmPopoverBody label={label} onConfirm={onConfirm} close={() => setOpen(false)} />
+        <ConfirmPopoverBody label={label} step={step} onConfirm={onConfirm} close={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
   );
