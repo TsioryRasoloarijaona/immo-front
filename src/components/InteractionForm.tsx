@@ -1,21 +1,33 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Modal from './Modal';
 import type { CreerInteractionRequest } from '../types';
 import { Button } from './ui/button';
 import { DialogFooter } from './ui/dialog';
 import { Field as FormField, FieldGroup, FieldLabel } from './ui/field';
+import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { toApiDateTime } from '../lib/format';
+import { referentielItems, useResultatsInteraction, useTypesContactProspection } from '../lib/referentiels';
 
-const DIRECTION_ITEMS = [
-  { label: 'Sortant (nous → contact)', value: 'out' },
-  { label: 'Entrant (contact → nous)', value: 'in' },
-];
+// Reproduit la boîte de dialogue "Action" de l'ancien système (Action /
+// Résultat / Date alerte, + un sélecteur de date de RDV quand le résultat
+// en implique un) — voir docs/api-docsV4.json : POST
+// /api/prospections/{id}/interactions accepte désormais actionTypeId
+// (référentiel /api/referentiels/types-contact-prospection, réutilisé —
+// même liste que le "Type de contact" d'une prospection), resultatId
+// (référentiel /api/referentiels/resultats-interaction, qui indique via
+// necessiteDateRdv/alerteRecommandee comment adapter ce formulaire sans
+// coder les libellés en dur), dateAlerte et dateRdv.
 
-// CreerInteractionRequest only carries description + entrante — the API has
-// no actionType/channel/RDV-scheduling fields (that was prototype-only
-// state layered on the legacy export), so this form is intentionally
-// minimal now.
+// Sens de l'échange déduit du libellé de l'action choisie, pour continuer à
+// alimenter le champ directionnel `entrante` (et donc la bonne icône dans
+// la timeline via interactionIcon()) — le référentiel ne porte pas cette
+// info explicitement.
+function entranteFromActionLabel(label: string | undefined): boolean {
+  return /entrant/i.test(label ?? '');
+}
+
 export default function InteractionForm({
   onClose,
   onSubmit,
@@ -23,29 +35,51 @@ export default function InteractionForm({
   onClose: () => void;
   onSubmit: (input: CreerInteractionRequest) => void;
 }) {
-  const [direction, setDirection] = useState<'in' | 'out'>('out');
+  const actionTypes = useTypesContactProspection();
+  const resultats = useResultatsInteraction();
+
+  const [actionTypeId, setActionTypeId] = useState('');
+  const [resultatId, setResultatId] = useState('');
+  const [dateAlerte, setDateAlerte] = useState('');
+  const [dateRdv, setDateRdv] = useState('');
   const [description, setDescription] = useState('');
+
+  const actionItems = referentielItems(actionTypes.data);
+  const resultatItems = [{ label: '— Non renseigné —', value: '' }, ...referentielItems(resultats.data)];
+
+  const selectedResultat = useMemo(() => resultats.data.find((r) => r.id === resultatId), [resultats.data, resultatId]);
+  const isRdv = !!selectedResultat?.necessiteDateRdv;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!description.trim()) return;
-    onSubmit({ description: description.trim(), entrante: direction === 'in' });
+    if (!actionTypeId || !description.trim()) return;
+    if (isRdv && !dateRdv) return;
+
+    const actionLabel = actionTypes.data.find((a) => a.id === actionTypeId)?.description;
+    onSubmit({
+      description: description.trim(),
+      entrante: entranteFromActionLabel(actionLabel),
+      actionTypeId,
+      resultatId: resultatId || undefined,
+      dateAlerte: dateAlerte ? toApiDateTime(dateAlerte) : undefined,
+      dateRdv: isRdv && dateRdv ? toApiDateTime(dateRdv) : undefined,
+    });
     onClose();
   }
 
   return (
-    <Modal title="Ajouter une interaction" onClose={onClose} width={460}>
+    <Modal title="Ajouter une action" onClose={onClose} width={480}>
       <form onSubmit={handleSubmit}>
         <FieldGroup>
           <FormField>
-            <FieldLabel htmlFor="direction">Sens</FieldLabel>
-            <Select items={DIRECTION_ITEMS} value={direction} onValueChange={(v) => setDirection(v as 'in' | 'out')}>
-              <SelectTrigger id="direction" className="w-full">
-                <SelectValue />
+            <FieldLabel htmlFor="action-type">Action</FieldLabel>
+            <Select items={actionItems} value={actionTypeId} onValueChange={(v) => setActionTypeId((v as string) || '')}>
+              <SelectTrigger id="action-type" className="w-full">
+                <SelectValue placeholder="Sélectionner…" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  {DIRECTION_ITEMS.map((item) => (
+                  {actionItems.map((item) => (
                     <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
                   ))}
                 </SelectGroup>
@@ -54,7 +88,38 @@ export default function InteractionForm({
           </FormField>
 
           <FormField>
-            <FieldLabel htmlFor="description">Description</FieldLabel>
+            <FieldLabel htmlFor="action-resultat">Résultat</FieldLabel>
+            <Select items={resultatItems} value={resultatId} onValueChange={(v) => setResultatId((v as string) || '')}>
+              <SelectTrigger id="action-resultat" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {resultatItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </FormField>
+
+          {isRdv && (
+            <FormField>
+              <FieldLabel htmlFor="action-date-rdv">Date du rendez-vous</FieldLabel>
+              <Input id="action-date-rdv" type="date" value={dateRdv} onChange={(e) => setDateRdv(e.target.value)} required />
+            </FormField>
+          )}
+
+          <FormField>
+            <FieldLabel htmlFor="action-date-alerte">
+              Date alerte
+              {selectedResultat?.alerteRecommandee && <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">(recommandée pour ce résultat)</span>}
+            </FieldLabel>
+            <Input id="action-date-alerte" type="date" value={dateAlerte} onChange={(e) => setDateAlerte(e.target.value)} />
+          </FormField>
+
+          <FormField>
+            <FieldLabel htmlFor="description">Notes</FieldLabel>
             <Textarea
               id="description"
               placeholder="Compte-rendu de l'appel / de la visite…"
@@ -67,7 +132,7 @@ export default function InteractionForm({
 
         <DialogFooter className="mt-5">
           <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>
-          <Button type="submit">Enregistrer</Button>
+          <Button type="submit" disabled={!actionTypeId || !description.trim() || (isRdv && !dateRdv)}>Enregistrer</Button>
         </DialogFooter>
       </form>
     </Modal>

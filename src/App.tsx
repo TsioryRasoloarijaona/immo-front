@@ -3,7 +3,13 @@ import Layout from './components/Layout';
 import { ConfirmProvider } from './components/ConfirmModal';
 import { PreviewProvider } from './components/PreviewProvider';
 import { AppDataProvider } from './lib/appData';
+import { AuthProvider, useAuth } from './lib/auth';
+import Login from './pages/auth/Login';
+import ChangePasswordGate from './pages/auth/ChangePasswordGate';
+import CompleteProfileGate from './pages/auth/CompleteProfileGate';
 import Dashboard from './pages/Dashboard';
+import Calendrier from './pages/calendrier/Calendrier';
+import Hotline from './pages/hotline/Hotline';
 import ProspectionsList from './pages/prospections/ProspectionsList';
 import ProspectionDetail from './pages/prospections/ProspectionDetail';
 import ProspectsList from './pages/prospects/ProspectsList';
@@ -20,7 +26,12 @@ import ArticleDetail from './pages/articles/ArticleDetail';
 import ComingSoon from './pages/ComingSoon';
 import NotFound from './pages/NotFound';
 
-function App() {
+// The routed app shell — only ever mounted once a session exists and both
+// onboarding gates (mustChangePassword / profileCompleted) have cleared, so
+// nothing under here needs to think about auth at all (AppDataProvider's
+// unconditional listCommerciaux() call, for instance, would otherwise 401
+// during the brief window before login).
+function AuthenticatedApp() {
   return (
     <AppDataProvider>
       <ConfirmProvider>
@@ -28,6 +39,8 @@ function App() {
           <Layout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/hotline" element={<Hotline />} />
+              <Route path="/calendrier" element={<Calendrier />} />
               <Route path="/prospections" element={<ProspectionsList />} />
               <Route path="/prospections/:id" element={<ProspectionDetail />} />
               <Route path="/prospections/:id/nouveau-dossier" element={<NewDossier />} />
@@ -48,6 +61,36 @@ function App() {
         </PreviewProvider>
       </ConfirmProvider>
     </AppDataProvider>
+  );
+}
+
+function AuthGate() {
+  const { status, user } = useAuth();
+
+  if (status === 'loading') {
+    // Deliberately blank rather than a spinner — this resolves in one
+    // GET /api/mon-compte round trip, almost always faster than a spinner
+    // would even paint.
+    return null;
+  }
+  if (status === 'unauthenticated') {
+    return <Login />;
+  }
+  // status === 'authenticated' past this point — user is guaranteed set.
+  if (user!.mustChangePassword) {
+    return <ChangePasswordGate />;
+  }
+  if (!user!.profileCompleted) {
+    return <CompleteProfileGate />;
+  }
+  return <AuthenticatedApp />;
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
   );
 }
 

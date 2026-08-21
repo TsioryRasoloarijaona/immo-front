@@ -27,6 +27,8 @@ export interface AppModule {
  * Returns null for module-neutral routes (Dashboard). */
 export function moduleForPath(pathname: string): string | null {
   if (
+    pathname.startsWith('/hotline') ||
+    pathname.startsWith('/calendrier') ||
     pathname.startsWith('/prospections') ||
     pathname.startsWith('/prospects') ||
     pathname.startsWith('/clients') ||

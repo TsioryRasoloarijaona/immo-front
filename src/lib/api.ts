@@ -13,9 +13,12 @@ import type {
   ArticleListItemDto,
   ArticleStatut,
   ChangerEtapeRequest,
+  ChangerMotDePasseRequest,
   ChangerStatutRequest,
   ClientListItemDto,
   CommercialListItemDto,
+  CompleterProfilRequest,
+  ConnexionRequest,
   ContactProspectDto,
   CreerContactProspectRequest,
   CreerDevisRequest,
@@ -30,8 +33,10 @@ import type {
   DossierListItemDto,
   EcheanceDto,
   EtapeSuivanteDto,
+  EvenementCalendrierDto,
   HistoriqueDto,
   HistoriqueEvenementDto,
+  HotlineResultDto,
   InteractionDto,
   ModifierEcheanceRequest,
   ModifierProspectRequest,
@@ -57,10 +62,13 @@ import type {
   ReferentielItemDto,
   ReglementDto,
   ReglementProspectDto,
+  ReinitialiserMotDePasseResponse,
+  ResultatInteractionDto,
   TitreDto,
   TransformerProspectionRequest,
   TrancheDetailDto,
   TrancheListItemDto,
+  UtilisateurCourantDto,
   UUID,
   VilleDto,
 } from '../types';
@@ -171,6 +179,11 @@ async function performRequest<T>(
       method,
       headers: opts?.body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
       body: opts?.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      // Auth (V4) rides on an httpOnly `access_token` cookie set by
+      // /api/auth/connexion — without `include`, cross-origin dev setups
+      // (frontend on a different port than the backend) would silently
+      // never send it back, and every call would look like a 401.
+      credentials: 'include',
     });
   } catch {
     throw new ApiError(0, `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`);
@@ -459,7 +472,7 @@ function mimeForExtension(extension: string | undefined): string {
 async function fetchByteEndpointBlob(url: string, mime: string): Promise<Blob> {
   let res: Response;
   try {
-    res = await fetch(url);
+    res = await fetch(url, { credentials: 'include' });
   } catch {
     throw new ApiError(0, `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`);
   }
@@ -658,6 +671,25 @@ export function listCommerciaux(pageable?: Pageable): Promise<PageDto<Commercial
 }
 
 // ---------------------------------------------------------------------------
+// Hotline — recherche par numéro de téléphone (V4). Ne renvoie jamais 404 :
+// même un numéro inconnu répond 200 avec `connu: false` et des listes vides.
+// ---------------------------------------------------------------------------
+
+export function rechercherHotline(telephone: string): Promise<HotlineResultDto> {
+  return request('GET', '/api/hotline/recherche', { query: { telephone } });
+}
+
+// ---------------------------------------------------------------------------
+// Calendrier — rendez-vous/visites planifiés (V4). debut/fin doivent être
+// des date-time ISO (voir toApiDateTime dans lib/format.ts) ; l'API répond
+// aussi en 400 avec un tableau vide si fin < debut.
+// ---------------------------------------------------------------------------
+
+export function getEvenementsCalendrier(debut: string, fin: string): Promise<EvenementCalendrierDto[]> {
+  return request('GET', '/api/calendrier/evenements', { query: { debut, fin } });
+}
+
+// ---------------------------------------------------------------------------
 // Référentiels — lookup tables backing every UUID picker in the app. Most
 // are plain unpaginated lists; getVilles is the one paginated + searchable
 // exception (real cities table, potentially large).
@@ -690,10 +722,47 @@ export const getCategoriesBien = (): Promise<ReferentielItemDto[]> => request('G
 export const getCategoriesEcheance = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/categories-echeance');
 export const getActionsCommerciales = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/actions-commerciales');
 export const getModesPaiement = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/modes-paiement');
+// Dropdown "Résultat" de la boîte de dialogue Action — chaque entrée indique
+// via necessiteDateRdv/alerteRecommandee comment adapter InteractionForm.
+export const getResultatsInteraction = (): Promise<ResultatInteractionDto[]> => request('GET', '/api/referentiels/resultats-interaction');
 
 export function getVillesReferentiel(
   params?: { paysId?: UUID; search?: string },
   pageable?: Pageable,
 ): Promise<PageDto<VilleDto>> {
   return request('GET', '/api/referentiels/villes', { query: withPageable(params, pageable) });
+}
+
+// ---------------------------------------------------------------------------
+// Authentification / Mon compte (V4) — connexion pose un cookie JWT httpOnly
+// `access_token` (jamais lu ni manipulé côté front, juste transporté par
+// `credentials: 'include'` sur chaque requête, voir plus haut). Tant que
+// mustChangePassword/!profileCompleted, tout le reste de l'API répond 403 —
+// c'est AuthProvider (lib/auth.tsx) qui applique ce garde-fou côté UI.
+// ---------------------------------------------------------------------------
+
+export function connexion(body: ConnexionRequest): Promise<UtilisateurCourantDto> {
+  return request('POST', '/api/auth/connexion', { body });
+}
+
+export function deconnexion(): Promise<void> {
+  return request('POST', '/api/auth/deconnexion');
+}
+
+export function getMonCompte(): Promise<UtilisateurCourantDto> {
+  return request('GET', '/api/mon-compte');
+}
+
+export function changerMotDePasse(body: ChangerMotDePasseRequest): Promise<UtilisateurCourantDto> {
+  return request('POST', '/api/mon-compte/changer-mot-de-passe', { body });
+}
+
+export function completerProfil(body: CompleterProfilRequest): Promise<UtilisateurCourantDto> {
+  return request('PATCH', '/api/mon-compte/profil', { body });
+}
+
+/** Réservé au rôle Administrateur — génère un mot de passe temporaire à
+ * communiquer hors-bande, jamais renvoyé une seconde fois. */
+export function reinitialiserMotDePasse(admUserId: UUID): Promise<ReinitialiserMotDePasseResponse> {
+  return request('POST', `/api/utilisateurs/${admUserId}/reinitialiser-mot-de-passe`);
 }

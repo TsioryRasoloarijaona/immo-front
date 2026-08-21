@@ -10,7 +10,83 @@
       "description": "Generated server url"
     }
   ],
+  "tags": [
+    {
+      "name": "Authentification",
+      "description": "Connexion/déconnexion par cookie JWT httpOnly."
+    },
+    {
+      "name": "Mon compte",
+      "description": "Profil de l'utilisateur authentifié — les seules routes accessibles (avec /api/auth/**) tant que mustChangePassword/profileCompleted bloquent le reste de l'API."
+    },
+    {
+      "name": "Calendrier",
+      "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front."
+    },
+    {
+      "name": "Utilisateurs (admin)",
+      "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur."
+    },
+    {
+      "name": "Hotline",
+      "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM."
+    }
+  ],
   "paths": {
+    "/api/utilisateurs/{admUserId}/reinitialiser-mot-de-passe": {
+      "post": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Réinitialise le mot de passe d'un utilisateur",
+        "description": "Génère un mot de passe temporaire, le renvoie une seule fois dans la réponse (à communiquer par un canal hors-bande — jamais stocké en clair), et force l'utilisateur à le changer à sa prochaine connexion (mustChangePassword=true). Invalide immédiatement tous les tokens déjà émis pour ce compte, sur tous les appareils. Crée l'enregistrement d'identifiants web si ce compte legacy (AdmUser) ne s'était encore jamais connecté à l'application web. Réservé au rôle Administrateur.",
+        "operationId": "reinitialiserMotDePasse",
+        "parameters": [
+          {
+            "name": "admUserId",
+            "in": "path",
+            "description": "Id de l'AdmUser à réinitialiser.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mot de passe temporaire généré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReinitialiserMotDePasseResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReinitialiserMotDePasseResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun AdmUser avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReinitialiserMotDePasseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prospects": {
       "get": {
         "tags": [
@@ -423,11 +499,14 @@
         "tags": [
           "prospection-controller"
         ],
+        "summary": "Journal des interactions d'une prospection",
+        "description": "Historique des interactions (appels, messages, notes, visites...) loggées sur cette prospection, les plus récentes en premier.",
         "operationId": "findInteractions",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Id de la prospection.",
             "required": true,
             "schema": {
               "type": "string",
@@ -445,7 +524,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Page d'interactions (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoInteractionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -460,11 +549,14 @@
         "tags": [
           "prospection-controller"
         ],
+        "summary": "Ajoute une interaction à une prospection",
+        "description": "Journalise un appel/message/visite/note sur cette prospection. `actionTypeId` (\"Action\") et `resultatId` (\"Résultat\") sont optionnels mais recommandés pour un suivi exploitable — voir GET /api/referentiels/types-contact-prospection et GET /api/referentiels/resultats-interaction. Si le résultat choisi est \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\", `dateRdv` devient obligatoire et une entrée calendrier est créée, visible ensuite via GET /api/calendrier/evenements.",
         "operationId": "addInteraction",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Id de la prospection.",
             "required": true,
             "schema": {
               "type": "string",
@@ -483,8 +575,28 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Interaction créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InteractionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`description` manquante, `actionTypeId`/`resultatId` inconnu, ou `dateRdv` manquante alors que le résultat choisi l'exige.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InteractionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -761,6 +873,48 @@
         }
       }
     },
+    "/api/mon-compte/changer-mot-de-passe": {
+      "post": {
+        "tags": [
+          "Mon compte"
+        ],
+        "summary": "Change le mot de passe",
+        "description": "Vérifie ancienMotDePasse puis stocke nouveauMotDePasse (bcrypt, min. 8 caractères). Efface mustChangePassword et réémet un cookie access_token à jour — invalide tous les tokens émis avant cet appel (TokenVersion incrémenté), y compris sur d'autres appareils.",
+        "operationId": "changerMotDePasse",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangerMotDePasseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Mot de passe changé, nouveau cookie posé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurCourantDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champs manquants, nouveau mot de passe trop court, ou ancien mot de passe incorrect.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurCourantDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers": {
       "get": {
         "tags": [
@@ -974,6 +1128,63 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ReglementDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/deconnexion": {
+      "post": {
+        "tags": [
+          "Authentification"
+        ],
+        "summary": "Déconnexion",
+        "description": "Efface le cookie access_token côté client. Ne révoque pas le token côté serveur avant son expiration naturelle (pas de session partagée entre appareils à invalider) — pour une révocation immédiate sur tous les appareils, voir le changement de mot de passe (bump de TokenVersion).",
+        "operationId": "deconnexion",
+        "responses": {
+          "204": {
+            "description": "Cookie effacé."
+          }
+        }
+      }
+    },
+    "/api/auth/connexion": {
+      "post": {
+        "tags": [
+          "Authentification"
+        ],
+        "summary": "Connexion",
+        "description": "Vérifie username/password contre AppUserCredential (bcrypt) et pose un cookie JWT httpOnly `access_token` (Secure, SameSite=Strict) valable app.jwt.expiration-minutes. Le corps de réponse contient le profil et les rôles, jamais le token lui-même. Si `mustChangePassword`/`profileCompleted` sont défavorables, seules les routes /api/auth/** et /api/mon-compte/** restent accessibles tant que l'utilisateur n'a pas régularisé sa situation.",
+        "operationId": "connexion",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnexionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Connexion réussie, cookie posé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurCourantDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Identifiants invalides ou compte désactivé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurCourantDto"
                 }
               }
             }
@@ -1196,6 +1407,48 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/mon-compte/profil": {
+      "patch": {
+        "tags": [
+          "Mon compte"
+        ],
+        "summary": "Complète le profil (\"première connexion\")",
+        "description": "Renseigne prenom/nom/telephone/email/dateNaissance (adresse optionnelle) sur la fiche employé (CfgTier) liée au compte, et marque profileCompleted=true. Réémet un cookie access_token à jour.",
+        "operationId": "completerProfil",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleterProfilRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Profil complété, nouveau cookie posé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurCourantDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Un champ obligatoire manque, ou le compte n'est lié à aucune fiche employé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurCourantDto"
                 }
               }
             }
@@ -1702,6 +1955,31 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels/resultats-interaction": {
+      "get": {
+        "tags": [
+          "referentiel-controller"
+        ],
+        "summary": "Résultats possibles pour une interaction (dropdown \"Résultat\")",
+        "description": "Liste les résultats utilisables comme `resultatId` dans `POST /api/prospections/{id}/interactions` (ex: \"Rendez vous pris\", \"Hors Budget\", \"Client injoignable ou Boite vocale\"...). Chaque entrée indique via `necessiteDateRdv`/`alerteRecommandee` comment adapter le formulaire, sans avoir à coder les libellés en dur côté front.",
+        "operationId": "getResultatsInteraction",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultatInteractionDto"
                   }
                 }
               }
@@ -2377,6 +2655,72 @@
         }
       }
     },
+    "/api/mon-compte": {
+      "get": {
+        "tags": [
+          "Mon compte"
+        ],
+        "summary": "Profil courant",
+        "description": "Le compte authentifié : identité, rôles, et l'état mustChangePassword/profileCompleted qui pilote l'onboarding.",
+        "operationId": "moi",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/UtilisateurCourantDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hotline/recherche": {
+      "get": {
+        "tags": [
+          "Hotline"
+        ],
+        "summary": "Recherche complète par numéro de téléphone",
+        "description": "Recherche, en une seule requête, tout ce que le système sait sur un numéro de téléphone donné :\n\n1. **Fiches existantes** — toute personne (CfgTier : prospect, client, contact...) dont un des numéros enregistrés (Phone, Phone1, Phone2, Mobile) correspond. Pour chacune : informations générales, prospections, dossiers de vente, règlements, interactions et historique de statut.\n\n2. **Appels sans fiche** — pré-prospections (premiers contacts jamais convertis en fiche) dont le numéro renseigné à l'époque correspond, signalant un appelant déjà contacté par le passé mais jamais créé formellement.\n\nLa comparaison ignore les espaces, tirets, parenthèses et l'indicatif pays : \"+212 6 12 34 56 78\", \"212612345678\" et \"0612345678\" sont considérés comme le même numéro. Ne renvoie jamais 404 : si personne ne correspond, `connu` vaut `false` et les listes sont vides — c'est au front de proposer la création d'une nouvelle fiche dans ce cas.",
+        "operationId": "rechercher",
+        "parameters": [
+          {
+            "name": "telephone",
+            "in": "query",
+            "description": "Numéro de téléphone à rechercher, dans n'importe quel format utilisé par les agents ou l'ancien système (avec ou sans indicatif pays, avec ou sans espaces).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "06 12 34 56 78"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recherche effectuée (que quelqu'un ait été trouvé ou non — voir le champ `connu`).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotlineResultDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Le paramètre `telephone` est manquant, vide, ou ne contient aucun chiffre exploitable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/HotlineResultDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}": {
       "get": {
         "tags": [
@@ -2827,6 +3171,68 @@
         }
       }
     },
+    "/api/calendrier/evenements": {
+      "get": {
+        "tags": [
+          "Calendrier"
+        ],
+        "summary": "Liste les rendez-vous/visites planifiés sur une période",
+        "description": "Renvoie chaque entrée calendrier (AdmEvent) créée par POST /api/prospections/{id}/interactions lorsque le résultat était \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\", dont la date de début tombe entre `debut` et `fin` (bornes incluses), triées par date croissante. `resultatCode` permet au front de distinguer un rendez-vous d'une visite sans coder de libellé en dur.",
+        "operationId": "evenements",
+        "parameters": [
+          {
+            "name": "debut",
+            "in": "query",
+            "description": "Début de la période (inclus), format ISO-8601.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-09-01T00:00:00"
+          },
+          {
+            "name": "fin",
+            "in": "query",
+            "description": "Fin de la période (inclus), format ISO-8601.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-09-30T23:59:59"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des événements (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EvenementCalendrierDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`debut`/`fin` manquants, ou `fin` antérieure à `debut`.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EvenementCalendrierDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/articles/{id}": {
       "get": {
         "tags": [
@@ -3059,6 +3465,24 @@
   },
   "components": {
     "schemas": {
+      "ReinitialiserMotDePasseResponse": {
+        "type": "object",
+        "description": "Résultat d'une réinitialisation de mot de passe par un administrateur.",
+        "properties": {
+          "admUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "description": "Nom d'utilisateur (AdmUser.Code) du compte réinitialisé."
+          },
+          "motDePasseTemporaire": {
+            "type": "string",
+            "description": "Mot de passe temporaire généré, à communiquer à l'utilisateur par un canal hors-bande (jamais renvoyé une seconde fois — ni stocké en clair côté serveur). Le compte devra le changer dès sa prochaine connexion (mustChangePassword=true)."
+          }
+        }
+      },
       "CreerProspectRequest": {
         "type": "object",
         "properties": {
@@ -3690,17 +4114,44 @@
       },
       "CreerInteractionRequest": {
         "type": "object",
+        "description": "Corps de création d'une interaction (appel, message, visite...) sur une prospection ou une fiche.",
         "properties": {
           "description": {
-            "type": "string"
+            "type": "string",
+            "description": "Texte libre décrivant l'interaction."
           },
           "entrante": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "true si l'interaction est entrante (l'appelant/le prospect a initié le contact), false si sortante. Par défaut true si omis."
+          },
+          "actionTypeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de l'\"Action\" (nature de l'interaction : Instruction, Mail entrant/Sortant, Message entrant/sortant, Note, Téléphone entrant/Sortant, Visite, WEB). Référentiel : GET /api/referentiels/types-contact-prospection. Optionnel."
+          },
+          "resultatId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du \"Résultat\" de l'interaction (ex: \"Rendez vous pris\", \"Hors Budget\", \"Client injoignable ou Boite vocale\", \"Le prospect veut faire une visite du projet\"...). Référentiel : GET /api/referentiels/resultats-interaction. Optionnel — mais si le résultat choisi a necessiteDateRdv=true (\"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\"), dateRdv devient obligatoire."
+          },
+          "dateAlerte": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date jusqu'à laquelle une relance sur cette interaction reste pertinente (alimente le rappel/l'alerte de suivi). Recommandé quand le référentiel resultat indique alerteRecommandee=true, mais jamais imposé côté serveur. Optionnel."
+          },
+          "dateRdv": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date/heure du rendez-vous ou de la visite planifiée avec le prospect/client. Obligatoire si le résultat choisi est \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\" (voir resultatId) ; ignoré sinon. Crée une entrée calendrier ({@code AdmEvent}) rattachée à cette interaction, restituée par GET /api/calendrier/evenements pour affichage dans un calendrier côté front."
           }
-        }
+        },
+        "required": [
+          "description"
+        ]
       },
       "InteractionDto": {
         "type": "object",
+        "description": "Une interaction (appel, message, visite, note...) journalisée sur une prospection ou une fiche.",
         "properties": {
           "id": {
             "type": "string",
@@ -3708,13 +4159,15 @@
           },
           "date": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Date/heure de l'interaction."
           },
           "description": {
             "type": "string"
           },
           "entrante": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "true si entrante, false si sortante."
           },
           "employeId": {
             "type": "string",
@@ -3722,6 +4175,34 @@
           },
           "employeNom": {
             "type": "string"
+          },
+          "actionTypeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de l'\"Action\" (nature de l'interaction). null si non renseignée."
+          },
+          "actionType": {
+            "type": "string",
+            "description": "Libellé de l'\"Action\" (Instruction, Visite, Téléphone entrant...). null si non renseignée."
+          },
+          "resultatId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du \"Résultat\" de l'interaction. null si non renseigné."
+          },
+          "resultat": {
+            "type": "string",
+            "description": "Libellé du \"Résultat\" (Rendez vous pris, Hors Budget...). null si non renseigné."
+          },
+          "dateAlerte": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fin de validité de la relance/alerte, si renseignée. null sinon."
+          },
+          "dateRdv": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du rendez-vous, présente uniquement quand resultat est \"Rendez vous pris\" ou \"RDV reporté\" et qu'une date a été fournie à la création. null sinon."
           }
         }
       },
@@ -3842,6 +4323,64 @@
           },
           "article": {
             "type": "string"
+          }
+        }
+      },
+      "ChangerMotDePasseRequest": {
+        "type": "object",
+        "description": "Corps de changement de mot de passe — utilisé aussi bien pour la régularisation d'un mot de passe temporaire (première connexion) qu'un changement volontaire ultérieur.",
+        "properties": {
+          "ancienMotDePasse": {
+            "type": "string",
+            "description": "Mot de passe actuel (temporaire ou non) — vérifié avant tout changement."
+          },
+          "nouveauMotDePasse": {
+            "type": "string",
+            "description": "Nouveau mot de passe, au moins 8 caractères."
+          }
+        },
+        "required": [
+          "ancienMotDePasse",
+          "nouveauMotDePasse"
+        ]
+      },
+      "UtilisateurCourantDto": {
+        "type": "object",
+        "description": "Le compte authentifié — renvoyé par POST /api/auth/connexion et GET /api/mon-compte.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "description": "Nom d'utilisateur (AdmUser.Code)."
+          },
+          "description": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la fiche employé/commercial (CfgTier) liée, si connue."
+          },
+          "roles": {
+            "type": "array",
+            "description": "Codes des rôles assignés (AdmRole.Code), ex: [\"Commercial\", \"Administrateur\"].",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mustChangePassword": {
+            "type": "boolean",
+            "description": "true si un mot de passe temporaire est actif — le front doit rediriger vers l'écran de changement de mot de passe ; toutes les autres routes de l'API renvoient 403 tant que c'est le cas."
+          },
+          "profileCompleted": {
+            "type": "boolean",
+            "description": "false tant que le formulaire de première connexion (infos personnelles) n'a pas été soumis — mêmes conséquences que mustChangePassword."
           }
         }
       },
@@ -4108,6 +4647,24 @@
           }
         }
       },
+      "ConnexionRequest": {
+        "type": "object",
+        "description": "Corps de connexion : identifiants d'un compte AdmUser.",
+        "properties": {
+          "username": {
+            "type": "string",
+            "description": "Nom d'utilisateur (AdmUser.Code)."
+          },
+          "password": {
+            "type": "string",
+            "description": "Mot de passe web (jamais le mot de passe legacy AdmUser.Pass)."
+          }
+        },
+        "required": [
+          "password",
+          "username"
+        ]
+      },
       "ModifierProspectRequest": {
         "type": "object",
         "properties": {
@@ -4308,6 +4865,40 @@
             "type": "string"
           }
         }
+      },
+      "CompleterProfilRequest": {
+        "type": "object",
+        "description": "Corps du formulaire \"première connexion\" — complète la fiche employé (CfgTier) liée au compte. Tous les champs sont obligatoires sauf `adresse`.",
+        "properties": {
+          "prenom": {
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Numéro de mobile."
+          },
+          "email": {
+            "type": "string"
+          },
+          "dateNaissance": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Optionnelle — non requise pour marquer le profil comme complété."
+          }
+        },
+        "required": [
+          "dateNaissance",
+          "email",
+          "nom",
+          "prenom",
+          "telephone"
+        ]
       },
       "ChangerStatutRequest": {
         "type": "object",
@@ -4682,6 +5273,31 @@
           "sexeId": {
             "type": "string",
             "format": "uuid"
+          }
+        }
+      },
+      "ResultatInteractionDto": {
+        "type": "object",
+        "description": "Un résultat possible pour une interaction (appel, message, visite...), avec les indications nécessaires pour adapter le formulaire côté front sans avoir à coder en dur les libellés métier.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "description": "Libellé du résultat, ex: \"Rendez vous pris\", \"Hors Budget\"."
+          },
+          "description": {
+            "type": "string"
+          },
+          "necessiteDateRdv": {
+            "type": "boolean",
+            "description": "true si ce résultat rend le champ \"Date du rendez-vous\" obligatoire à la création de l'interaction (résultats \"Rendez vous pris\", \"RDV reporté\" et \"Le prospect veut faire une visite du projet\") — POST /api/prospections/{id}/interactions renvoie 400 si dateRdv est absente dans ce cas, et crée une entrée exploitable par GET /api/calendrier/evenements."
+          },
+          "alerteRecommandee": {
+            "type": "boolean",
+            "description": "true si la donnée légataire indique qu'une relance (dateAlerte) est recommandée pour ce résultat. Purement indicatif — jamais imposé côté serveur."
           }
         }
       },
@@ -5301,6 +5917,85 @@
           }
         }
       },
+      "HotlineFicheDto": {
+        "type": "object",
+        "description": "Fiche complète d'une personne déjà connue (CfgTier) trouvée par numéro de téléphone : informations générales + tout son historique d'activité, limité aux entrées les plus récentes de chaque catégorie. Pour l'historique complet d'une catégorie, utiliser tier.id avec les endpoints /api/prospects/{id}/... correspondants.",
+        "properties": {
+          "tier": {
+            "$ref": "#/components/schemas/ProspectDetailDto",
+            "description": "Informations générales de la personne (identité, coordonnées, type/kind, commercial référent...) — identique au détail retourné par GET /api/prospects/{id}."
+          },
+          "prospections": {
+            "type": "array",
+            "description": "Prospections (démarches d'achat/vente en cours ou closes) où cette personne est le prospect, les plus récentes en premier.",
+            "items": {
+              "$ref": "#/components/schemas/ProspectionListItemDto"
+            }
+          },
+          "dossiers": {
+            "type": "array",
+            "description": "Dossiers de vente où cette personne est le client, les plus récents en premier.",
+            "items": {
+              "$ref": "#/components/schemas/DossierListItemDto"
+            }
+          },
+          "reglements": {
+            "type": "array",
+            "description": "Règlements (paiements) de cette personne, tous dossiers confondus, les plus récents en premier.",
+            "items": {
+              "$ref": "#/components/schemas/ReglementProspectDto"
+            }
+          },
+          "interactions": {
+            "type": "array",
+            "description": "Journal des interactions (appels, messages, notes) enregistrées directement sur sa fiche — hors interactions déjà rattachées à une prospection ou un dossier précis, les plus récentes en premier.",
+            "items": {
+              "$ref": "#/components/schemas/InteractionDto"
+            }
+          },
+          "historique": {
+            "type": "array",
+            "description": "Historique des changements de statut/workflow de cette personne (alimente l'onglet \"Historique\" de la fiche prospect), le plus récent en premier.",
+            "items": {
+              "$ref": "#/components/schemas/HistoriqueDto"
+            }
+          }
+        }
+      },
+      "HotlineResultDto": {
+        "type": "object",
+        "description": "Résultat de la recherche hotline par numéro de téléphone : la ou les fiches correspondantes (s'il en existe) avec tout leur historique, plus les éventuels appels antérieurs non encore rattachés à une fiche formelle.",
+        "properties": {
+          "telephoneRecherche": {
+            "type": "string",
+            "description": "Numéro de téléphone tel que saisi par l'agent, non modifié.",
+            "example": "06 12 34 56 78"
+          },
+          "telephoneNormalise": {
+            "type": "string",
+            "description": "Numéro normalisé effectivement utilisé pour la recherche : uniquement les chiffres, 9 derniers chiffres conservés (indicatif pays ignoré). Utile pour comprendre pourquoi deux numéros écrits différemment se sont (ou non) rejoints.",
+            "example": "612345678"
+          },
+          "connu": {
+            "type": "boolean",
+            "description": "true si au moins une fiche (CfgTier) existante correspond à ce numéro — c'est-à-dire si cette personne est déjà connue du système, pas seulement un appelant jamais recontacté."
+          },
+          "fiches": {
+            "type": "array",
+            "description": "Une entrée par CfgTier existant dont un des numéros de téléphone correspond, chacune avec tout son historique. Vide si personne n'est trouvé.",
+            "items": {
+              "$ref": "#/components/schemas/HotlineFicheDto"
+            }
+          },
+          "appelsSansFiche": {
+            "type": "array",
+            "description": "Pré-prospections (premiers contacts / démarchages) dont le numéro de téléphone renseigné à l'époque correspond, mais qui n'ont jamais été rattachées à une fiche CfgTier — donc absentes de la liste \"fiches\". Signale un appelant déjà contacté par le passé mais jamais formellement créé comme prospect/client.",
+            "items": {
+              "$ref": "#/components/schemas/ProspectionListItemDto"
+            }
+          }
+        }
+      },
       "EtapeSuivanteDto": {
         "type": "object",
         "properties": {
@@ -5628,6 +6323,72 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "EvenementCalendrierDto": {
+        "type": "object",
+        "description": "Un événement planifié (rendez-vous ou visite) à afficher dans le calendrier du front. Une entrée par interaction ayant fixé une date de rendez-vous/visite.",
+        "properties": {
+          "interactionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de l'interaction (ComActionMessage) à l'origine de l'événement."
+          },
+          "sujet": {
+            "type": "string",
+            "description": "Sujet de l'événement — reprend la description de l'interaction."
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date/heure de début de l'événement (la \"Date du rendez-vous\" saisie sur l'interaction)."
+          },
+          "dateFin": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date/heure de fin de l'événement, si renseignée. Null la plupart du temps — seule dateDebut est capturée aujourd'hui."
+          },
+          "lieu": {
+            "type": "string",
+            "description": "Lieu de l'événement, si renseigné."
+          },
+          "resultatId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du \"Résultat\" (ComActionMessageSubCategory) à l'origine de l'événement."
+          },
+          "resultatCode": {
+            "type": "string",
+            "description": "Code du résultat — permet au front de distinguer un rendez-vous (\"Rendez vous pris\", \"RDV reporté\") d'une visite (\"Le prospect veut faire une visite du projet\") sans coder de libellé en dur."
+          },
+          "resultatDescription": {
+            "type": "string"
+          },
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la prospection sur laquelle l'interaction a été loggée. Null si l'interaction est rattachée directement à une fiche (hotline)."
+          },
+          "prospectionCode": {
+            "type": "string"
+          },
+          "prospectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du prospect/client concerné, si connu."
+          },
+          "prospectNom": {
+            "type": "string",
+            "description": "Nom affichable du prospect/client (raison sociale ou prénom nom)."
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du commercial ayant loggé l'interaction, si connu."
+          },
+          "commercialNom": {
+            "type": "string"
           }
         }
       },

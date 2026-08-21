@@ -331,7 +331,7 @@ export default function ProspectionDetail() {
         </div>
         <div className="flex shrink-0 flex-col items-end gap-2.5">
           <Button variant="outline" size="sm" onClick={() => setShowInteractionForm(true)}>
-            Ajouter une interaction
+            Ajouter une action
           </Button>
           {isPre ? (
             <Button variant="outline" size="sm" onClick={() => setShowCreateProspect(true)}>
@@ -717,11 +717,11 @@ export default function ProspectionDetail() {
           </TabsContent>
 
           <TabsContent value="historique">
-            <Card title={`Interactions (${interactions.data?.totalElements ?? 0})`}>
+            <Card title={`Actions (${interactions.data?.totalElements ?? 0})`}>
               {interactions.loading && <LoadingState />}
               {interactions.error && <ErrorState message={interactions.error} />}
               {interactions.data && interactions.data.content.length === 0 && (
-                <p className="text-[13px] text-muted-foreground">Aucune interaction enregistrée pour cette prospection.</p>
+                <p className="text-[13px] text-muted-foreground">Aucune action enregistrée pour cette prospection.</p>
               )}
               {interactions.data && interactions.data.content.length > 0 && (
                 <div className="flex flex-col">
@@ -732,12 +732,19 @@ export default function ProspectionDetail() {
                         {i < interactions.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
                       </div>
                       <div className="min-w-0 flex-1 pb-0.5">
-                        <div className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                        <div className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-foreground">
                           <span className="inline-flex text-[var(--brand)]">{interactionIcon(c.entrante)}</span>
-                          {c.entrante ? 'Entrant' : 'Sortant'}
+                          {c.actionType || (c.entrante ? 'Entrant' : 'Sortant')}
+                          {c.resultat && <Badge tone={c.dateRdv ? 'success' : 'neutral'}>{c.resultat}</Badge>}
                         </div>
                         <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(c.date)} · {c.employeNom || 'Système'}</div>
                         {c.description && <div className="mt-1 text-[12.5px] text-foreground">{c.description}</div>}
+                        {(c.dateRdv || c.dateAlerte) && (
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
+                            {c.dateRdv && <Badge tone="success">RDV le {formatDate(c.dateRdv)}</Badge>}
+                            {c.dateAlerte && <Badge tone="warning">Alerte jusqu'au {formatDate(c.dateAlerte)}</Badge>}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -785,7 +792,7 @@ export default function ProspectionDetail() {
           onSubmit={async (input) => {
             await addInteraction(p!.id, input);
             interactions.refetch();
-            showToast('Interaction enregistrée.');
+            showToast('Action enregistrée.');
           }}
         />
       )}

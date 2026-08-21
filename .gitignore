@@ -23,6 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 
-omran_visual
+omaran_visual
 instructions
 .env
+
+

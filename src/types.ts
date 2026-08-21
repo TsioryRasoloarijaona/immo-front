@@ -378,8 +378,19 @@ export interface DevisDto {
 }
 
 export interface CreerInteractionRequest {
-  description?: string;
+  description: string;
   entrante?: boolean;
+  /** Nature de l'interaction (Instruction, Mail entrant/Sortant, Message
+   * entrant/sortant, Note, Téléphone entrant/Sortant, Visite, WEB).
+   * Référentiel : GET /api/referentiels/types-contact-prospection. */
+  actionTypeId?: UUID;
+  /** Référentiel : GET /api/referentiels/resultats-interaction. Si le
+   * résultat choisi a necessiteDateRdv=true, dateRdv devient obligatoire. */
+  resultatId?: UUID;
+  /** format: date-time — fin de validité de la relance/alerte. */
+  dateAlerte?: string;
+  /** format: date-time — obligatoire si resultatId.necessiteDateRdv. */
+  dateRdv?: string;
 }
 
 export interface InteractionDto {
@@ -389,6 +400,24 @@ export interface InteractionDto {
   entrante?: boolean;
   employeId?: UUID;
   employeNom?: string;
+  actionTypeId?: UUID | null;
+  actionType?: string | null;
+  resultatId?: UUID | null;
+  resultat?: string | null;
+  dateAlerte?: string | null;
+  dateRdv?: string | null;
+}
+
+/** GET /api/referentiels/resultats-interaction — un résultat possible pour
+ * une interaction, avec les indications nécessaires pour adapter le
+ * formulaire (afficher le sélecteur de date de RDV, suggérer une alerte)
+ * sans coder les libellés métier en dur côté front. */
+export interface ResultatInteractionDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  necessiteDateRdv?: boolean;
+  alerteRecommandee?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -777,3 +806,103 @@ export interface OrigineProspectionDto {
 }
 
 export type BadgeTone = 'neutral' | 'info' | 'progress' | 'success' | 'warning' | 'amber';
+
+// ---------------------------------------------------------------------------
+// Calendrier — rendez-vous/visites planifiés (V4). Une entrée par
+// interaction dont le résultat nécessitait une date de RDV (résultat
+// "Rendez vous pris" / "RDV reporté" / "Le prospect veut faire une visite
+// du projet"). GET /api/calendrier/evenements?debut=...&fin=... (bornes
+// ISO-8601 incluses).
+// ---------------------------------------------------------------------------
+
+export interface EvenementCalendrierDto {
+  interactionId: UUID;
+  sujet?: string;
+  dateDebut?: string | null;
+  dateFin?: string | null;
+  lieu?: string;
+  resultatId?: UUID;
+  /** Même texte que resultats-interaction.code — permet de distinguer un
+   * rendez-vous d'une visite sans coder de libellé métier en dur. */
+  resultatCode?: string;
+  resultatDescription?: string;
+  prospectionId?: UUID;
+  prospectionCode?: string;
+  prospectId?: UUID;
+  prospectNom?: string;
+  commercialId?: UUID;
+  commercialNom?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Hotline — recherche par numéro de téléphone (V4)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Authentification / Mon compte (V4). Le cookie JWT httpOnly `access_token`
+// n'est jamais visible côté front — seul UtilisateurCourantDto (profil +
+// rôles + mustChangePassword/profileCompleted) circule dans les réponses.
+// Tant que mustChangePassword ou !profileCompleted, le backend renvoie 403
+// sur toute route hors /api/auth/** et /api/mon-compte/**.
+// ---------------------------------------------------------------------------
+
+export interface ConnexionRequest {
+  username: string;
+  password: string;
+}
+
+export interface UtilisateurCourantDto {
+  id: UUID;
+  username?: string;
+  description?: string;
+  email?: string;
+  employeeId?: UUID;
+  roles?: string[];
+  mustChangePassword?: boolean;
+  profileCompleted?: boolean;
+}
+
+export interface ChangerMotDePasseRequest {
+  ancienMotDePasse: string;
+  nouveauMotDePasse: string;
+}
+
+/** Tous les champs sont obligatoires sauf `adresse`. */
+export interface CompleterProfilRequest {
+  prenom: string;
+  nom: string;
+  telephone: string;
+  email: string;
+  dateNaissance: string;
+  adresse?: string;
+}
+
+export interface ReinitialiserMotDePasseResponse {
+  admUserId: UUID;
+  username?: string;
+  /** Renvoyé une seule fois — jamais stocké en clair côté serveur. */
+  motDePasseTemporaire?: string;
+}
+
+/** Fiche complète d'une personne déjà connue (CfgTier) trouvée par numéro de
+ * téléphone, avec ses derniers historiques d'activité (voir tier.id pour
+ * consulter l'historique complet via les endpoints /api/prospects/{id}/...). */
+export interface HotlineFicheDto {
+  tier: ProspectDetailDto;
+  prospections?: ProspectionListItemDto[];
+  dossiers?: DossierListItemDto[];
+  reglements?: ReglementProspectDto[];
+  interactions?: InteractionDto[];
+  historique?: HistoriqueDto[];
+}
+
+export interface HotlineResultDto {
+  telephoneRecherche?: string;
+  telephoneNormalise?: string;
+  connu?: boolean;
+  fiches?: HotlineFicheDto[];
+  /** Pré-prospections dont le numéro de l'époque correspond mais qui n'ont
+   * jamais été rattachées à une fiche CfgTier — un appelant déjà contacté
+   * par le passé mais jamais formellement créé comme prospect/client. */
+  appelsSansFiche?: ProspectionListItemDto[];
+}

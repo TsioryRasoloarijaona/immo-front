@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { IconMessage, IconNote, IconPhoneIn, IconPhoneOut } from '../components/icons';
-import type { BadgeTone, ProspectionDetailDto, ProspectionListItemDto } from '../types';
+import type { BadgeTone, EvenementCalendrierDto, ProspectionDetailDto, ProspectionListItemDto } from '../types';
 
 // Best-effort ordered pipeline read off the real étape labels migrated from
 // the legacy Omran export (see CLAUDE.md) — the API only ever gives us a
@@ -71,6 +71,17 @@ export function personDisplayName(p: { prenom?: string; nom?: string; raisonSoci
 export function interactionIcon(entrante: boolean | undefined): ReactNode {
   const Icon = entrante ? IconPhoneIn : IconPhoneOut;
   return <Icon />;
+}
+
+// EvenementCalendrierDto.resultatCode carries the same text as the
+// resultats-interaction référentiel's `code` (a real, stable value, not a
+// display-only label) — comparing against it distinguishes a visite from a
+// simple rendez-vous without inventing a business enum on the front. Only
+// "Le prospect veut faire une visite du projet" behaves as a visite today;
+// match loosely on "visite" so a future référentiel entry phrased
+// differently (e.g. "Visite du projet demandée") keeps working.
+export function isVisiteEvenement(ev: Pick<EvenementCalendrierDto, 'resultatCode'>): boolean {
+  return (ev.resultatCode ?? '').toLowerCase().includes('visite');
 }
 
 export function noteIcon(): ReactNode {
