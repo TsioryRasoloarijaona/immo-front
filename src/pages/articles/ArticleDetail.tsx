@@ -45,8 +45,8 @@ export default function ArticleDetail() {
           <FieldGrid>
             <Field label="Description" value={a.description} />
             <Field label="Adresse" value={a.adresse} />
-            <Field label="Type" value={a.type} />
-            <Field label="Catégorie" value={a.categorie} />
+            <Field label="Type" value={a.typeLibelle} />
+            <Field label="Catégorie" value={a.categorieLibelle} />
             <Field label="Superficie" value={a.area ? `${a.area} m²` : undefined} />
             <Field label="Prix de vente" value={a.salePrice ? formatCurrency(a.salePrice) : undefined} />
             <Field label="Prix de vente commercial" value={a.comSalePrice ? formatCurrency(a.comSalePrice) : undefined} />

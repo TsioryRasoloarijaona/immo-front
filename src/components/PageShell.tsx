@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Grid2x2 } from 'lucide-react';
+import { cn } from '../lib/utils';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -24,18 +25,24 @@ export default function PageShell({
   title,
   crumbs,
   actions,
+  fullHeight = false,
   children,
 }: {
   title: string;
   crumbs?: Crumb[];
   actions?: ReactNode;
+  /** Pins the header in place and constrains `.page` to the remaining viewport
+   * height instead of letting the document scroll — for list views that manage
+   * their own internal scroll region (filters/pagination stay on screen, only
+   * the table body scrolls). */
+  fullHeight?: boolean;
   children: ReactNode;
 }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
   return (
-    <>
-      <header className="sticky top-0 z-5 flex items-center justify-between gap-4 border-b border-border bg-background/88 px-4 py-2.5 backdrop-blur-sm md:px-7 md:py-3">
+    <div className={cn(fullHeight && 'flex h-svh flex-col overflow-hidden')}>
+      <header className="sticky top-0 z-5 flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background/88 px-4 py-2.5 backdrop-blur-sm md:px-7 md:py-3">
         <div className="flex min-w-0 items-center gap-2">
           <SidebarTrigger title="Afficher/masquer la barre latérale" />
           <Separator orientation="vertical" className="mr-1 h-5" />
@@ -77,9 +84,9 @@ export default function PageShell({
           </Button>
         </div>
       </header>
-      <div className="page">{children}</div>
+      <div className={cn('page', fullHeight && 'flex min-h-0 flex-col overflow-hidden')}>{children}</div>
 
       {switcherOpen && <ModuleSwitcher onClose={() => setSwitcherOpen(false)} />}
-    </>
+    </div>
   );
 }

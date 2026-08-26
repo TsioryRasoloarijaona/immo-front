@@ -36,13 +36,13 @@ export function StatCard({
   icon?: ReactNode;
 }) {
   return (
-    <ShadcnCard size="sm" className="gap-2 px-5 py-4.5">
-      <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground [&_svg]:size-[15px] [&_svg]:opacity-80">
+    <ShadcnCard size="sm" className="gap-1.5 px-4 py-3.5">
+      <div className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground [&_svg]:size-[14px] [&_svg]:opacity-80">
         {icon}
         {label}
       </div>
-      <div className="text-[25px] font-semibold tracking-tight text-foreground">{value}</div>
-      {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
+      <div className="text-[22px] font-semibold tracking-tight text-foreground">{value}</div>
+      {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
     </ShadcnCard>
   );
 }
@@ -81,21 +81,23 @@ export function Card({
   action,
   children,
   padded = true,
+  className,
 }: {
   title?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
   padded?: boolean;
+  className?: string;
 }) {
   return (
-    <ShadcnCard className="gap-0 py-0">
+    <ShadcnCard className={cn('gap-0 py-0', className)}>
       {title && (
-        <CardHeader className="gap-0 border-b border-border py-3">
-          <CardTitle className="text-[14.5px]">{title}</CardTitle>
+        <CardHeader className="gap-0 border-b border-border py-2.5">
+          <CardTitle className="text-[13.5px]">{title}</CardTitle>
           {action && <CardAction>{action}</CardAction>}
         </CardHeader>
       )}
-      <CardContent className={padded ? 'py-4' : 'px-0 py-0'}>{children}</CardContent>
+      <CardContent className={padded ? 'py-3' : 'px-0 py-0'}>{children}</CardContent>
     </ShadcnCard>
   );
 }
@@ -128,6 +130,17 @@ export function EmptyState({ title, message }: { title: string; message?: string
         {message && <EmptyDescription>{message}</EmptyDescription>}
       </EmptyHeader>
     </Empty>
+  );
+}
+
+/** Same amber "Bientôt" pill used in ModuleSwitcher for not-yet-active
+ * modules — reused here for filter controls that are visually built but
+ * still waiting on backend support. */
+export function SoonBadge({ children = 'Bientôt' }: { children?: ReactNode }) {
+  return (
+    <span className="rounded-full bg-[var(--amber-bg)] px-1.75 py-0.5 text-[10px] font-bold text-[var(--amber)]">
+      {children}
+    </span>
   );
 }
 

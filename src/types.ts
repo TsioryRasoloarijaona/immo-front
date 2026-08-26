@@ -222,6 +222,7 @@ export interface ProspectionListItemDto {
   fermee?: boolean;
   prix?: number;
   surface?: number;
+  trancheId?: UUID;
 }
 
 export interface ProspectionDetailDto {
@@ -345,6 +346,18 @@ export interface ProspectionCategorieDto {
   categorie?: string;
 }
 
+/** `PATCH /api/prospections/{id}/tranche-principale` — the ONLY endpoint
+ * that changes a prospection's `trancheId`/`articleId` (the "tranche/article
+ * principal"); the generic `PATCH /api/prospections/{id}` no longer touches
+ * these two fields. `trancheId` is required; `articleId` is optional but,
+ * when given, MUST belong to `trancheId` (400 otherwise). Distinct from
+ * `AjouterAutreTrancheRequest` below, which manages independent secondary
+ * interests and never affects the principal tranche/article. */
+export interface ModifierTranchePrincipaleRequest {
+  trancheId: UUID;
+  articleId?: UUID;
+}
+
 export interface AjouterAutreTrancheRequest {
   trancheId?: UUID;
   articleId?: UUID;
@@ -358,10 +371,52 @@ export interface ProspectionAutreTrancheDto {
 }
 
 export interface CreerDevisRequest {
+  /** Obligatoire. */
   trancheId?: UUID;
+  /** Article principal — sert de base au calcul HT/TTC/TVA/prix au m² s'il
+   * est renseigné. Sans lui, l'offre est "libre" (pas de ventilation) et
+   * `prix` devient obligatoire. */
   articleId?: UUID;
+  /** Sous-articles inclus dans l'offre (prix commercial sommé). Ignoré si
+   * `articleId` est absent. */
+  sousArticleIds?: UUID[];
+  /** Repris du prospect/commercial de la prospection si absent. */
+  prospectId?: UUID;
+  commercialId?: UUID;
+  modePaiementId?: UUID;
+  /** Prix de vente TTC — obligatoire si `articleId` est absent, sinon
+   * remplace le prix commercial de l'article s'il est fourni. */
   prix?: number;
+  /** Taux de remise à appliquer, en %. Défaut 0. */
+  remisePercent?: number;
   notes?: string;
+}
+
+/** Détail HT/TTC d'une offre, reproduisant l'onglet "Montants" du formulaire
+ * Offre legacy — voir `docs/api-docsV4.json` → `MontantsOffreDto`. */
+export interface MontantsOffreDto {
+  tvaRatio?: number;
+  prixM2HT?: number;
+  prixM2TTC?: number;
+  prixArticleHT?: number;
+  prixArticleTTC?: number;
+  prixSousArticlesHT?: number;
+  prixSousArticlesTTC?: number;
+  totalHT?: number;
+  totalTTC?: number;
+  remisePercent?: number;
+  remiseHT?: number;
+  remiseTTC?: number;
+  prixM2ApresRemiseHT?: number;
+  prixM2ApresRemiseTTC?: number;
+  prixArticleApresRemiseHT?: number;
+  prixArticleApresRemiseTTC?: number;
+  prixSousArticlesApresRemiseHT?: number;
+  prixSousArticlesApresRemiseTTC?: number;
+  /** Prix de vente final HT = total HT − remise HT. Ligne finale du
+   * formulaire legacy. */
+  prixVenteHT?: number;
+  prixVenteTTC?: number;
 }
 
 export interface DevisDto {
@@ -370,9 +425,20 @@ export interface DevisDto {
   dateDocument?: string | null;
   trancheId?: UUID;
   tranche?: string;
+  trancheDescription?: string;
   articleId?: UUID;
   article?: string;
+  articleDescription?: string;
+  articleSuperficie?: number;
+  articleCategorie?: string;
+  articleType?: string;
   prospectId?: UUID;
+  prospect?: string;
+  commercialId?: UUID;
+  commercial?: string;
+  modePaiementId?: UUID;
+  modePaiement?: string;
+  montants?: MontantsOffreDto;
   prix?: number;
   notes?: string;
 }
@@ -481,6 +547,29 @@ export interface CreerDossierRequest {
    * for modes de paiement, so `modePaieId` has no lookup source in the UI. */
   modePaieId?: UUID;
   cin?: string;
+}
+
+/** `POST /api/dossiers/simulation-financement` — previews the "Schéma de
+ * financement" (AUTO-FINANCEMENT / AVANCE / FRAIS SYNDIC lines) that
+ * `POST /api/dossiers` would generate for this exact article selection and
+ * prix, without creating or persisting anything. Meant to be called on
+ * every price/article change during the creation wizard, before the real
+ * `POST /api/dossiers` call. `articleIds` doesn't need DISPONIBLE articles —
+ * nothing gets reserved by this call. */
+export interface SimulerSchemaFinancementRequest {
+  articleIds: UUID[];
+  prix: number;
+}
+export interface LigneSchemaFinancementDto {
+  categorie?: string;
+  montant?: number;
+  /** True for lines (e.g. FRAIS SYNDIC) that are additional fees, not part
+   * of the sale price itself — don't fold into a "prix" subtotal check. */
+  exclureDuPrix?: boolean;
+}
+export interface SchemaFinancementDto {
+  lignes?: LigneSchemaFinancementDto[];
+  totalGeneral?: number;
 }
 
 export interface ChangerStatutRequest {
@@ -642,8 +731,15 @@ export interface ArticleListItemDto {
   comSalePrice?: number;
   statut?: ArticleStatut;
   titreFoncier?: string;
-  categorie?: string;
-  type?: string;
+  categorieId?: UUID;
+  categorieCode?: string;
+  categorieLibelle?: string;
+  typeId?: UUID;
+  typeCode?: string;
+  typeLibelle?: string;
+  /** True when this row is itself a sous-article (StkItem.ParentId set). */
+  sousArticle?: boolean;
+  lotParentId?: UUID;
 }
 
 export interface ArticleDetailDto {
@@ -656,11 +752,22 @@ export interface ArticleDetailDto {
   comSalePrice?: number;
   statut?: ArticleStatut;
   trancheId?: UUID;
+  trancheCode?: string;
+  trancheDescription?: string;
+  /** Populated when this article IS a sous-article — its parent lot's id/code/description,
+   * resolved server-side without an extra call ("recherche inverse"). */
   lotParentId?: UUID;
+  lotParentCode?: string;
+  lotParentDescription?: string;
+  /** All sous-articles of this article, regardless of availability status. */
   sousLots?: ArticleListItemDto[];
   titreFoncier?: string;
-  categorie?: string;
-  type?: string;
+  categorieId?: UUID;
+  categorieCode?: string;
+  categorieLibelle?: string;
+  typeId?: UUID;
+  typeCode?: string;
+  typeLibelle?: string;
 }
 
 export interface ProjetListItemDto {
@@ -880,6 +987,31 @@ export interface CompleterProfilRequest {
 export interface ReinitialiserMotDePasseResponse {
   admUserId: UUID;
   username?: string;
+  /** Renvoyé une seule fois — jamais stocké en clair côté serveur. */
+  motDePasseTemporaire?: string;
+}
+
+/** Tous les champs sont obligatoires sauf `mobile`. Réservé au rôle
+ * Administrateur — crée en une fois la fiche personne (CfgTier), le compte
+ * de connexion (AdmUser) et ses rôles. */
+export interface CreerEmployeRequest {
+  prenom: string;
+  nom: string;
+  /** Nom d'utilisateur du compte (AdmUser.Code) — doit être unique. */
+  identifiant: string;
+  email: string;
+  mobile?: string;
+  /** Code CfgTierKind qualifiant le type d'employé (ex: "COM" pour commercial). */
+  typeEmployeCode: string;
+  /** Codes AdmRole à assigner (ex: ["Commercial"]) — au moins un requis. */
+  roles: string[];
+}
+
+export interface CreerEmployeResponse {
+  cfgTierId?: UUID;
+  admUserId?: UUID;
+  identifiant?: string;
+  roles?: string[];
   /** Renvoyé une seule fois — jamais stocké en clair côté serveur. */
   motDePasseTemporaire?: string;
 }

@@ -12,12 +12,24 @@
   ],
   "tags": [
     {
+      "name": "Référentiels",
+      "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
+    },
+    {
+      "name": "Articles",
+      "description": "Articles et sous-articles (StkItem) — lots vendables d'une tranche, avec leur disponibilité et leurs éventuels sous-lots (cave/parking annexés)."
+    },
+    {
       "name": "Authentification",
       "description": "Connexion/déconnexion par cookie JWT httpOnly."
     },
     {
       "name": "Mon compte",
       "description": "Profil de l'utilisateur authentifié — les seules routes accessibles (avec /api/auth/**) tant que mustChangePassword/profileCompleted bloquent le reste de l'API."
+    },
+    {
+      "name": "Tranches",
+      "description": "Tranches (CfgTranche) — phases d'un projet immobilier, leurs conditions commerciales et leurs articles."
     },
     {
       "name": "Calendrier",
@@ -28,11 +40,85 @@
       "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur."
     },
     {
+      "name": "Prospections",
+      "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables."
+    },
+    {
+      "name": "Pré-prospections",
+      "description": "Leads bruts non encore qualifiés (ComProspection sans CfgProspectId ni CfgCommercialId) — même forme que /api/prospections."
+    },
+    {
       "name": "Hotline",
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM."
+    },
+    {
+      "name": "Dossiers",
+      "description": "Dossiers de vente (ComFolder) — cycle de vie, échéancier, pièces jointes et génération de documents."
     }
   ],
   "paths": {
+    "/api/utilisateurs": {
+      "post": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Crée un nouvel employé",
+        "description": "Crée en une seule opération la fiche personne (CfgTier), le compte de connexion (AdmUser) qui lui est lié, les rôles demandés (AdmUserRole), et génère un mot de passe temporaire renvoyé une seule fois dans la réponse (à communiquer par un canal hors-bande — jamais stocké en clair). Le compte devra changer ce mot de passe et compléter son profil à sa première connexion (mustChangePassword=true, profileCompleted=false — voir GET /api/mon-compte). Réservé au rôle Administrateur.",
+        "operationId": "creerEmploye",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerEmployeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Employé créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreerEmployeResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ requis manquant, ou typeEmployeCode/rôle référençant un code inconnu en base.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreerEmployeResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreerEmployeResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "L'identifiant demandé est déjà utilisé par un autre compte.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreerEmployeResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/utilisateurs/{admUserId}/reinitialiser-mot-de-passe": {
       "post": {
         "tags": [
@@ -107,7 +193,10 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string"
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
             }
           },
           {
@@ -237,7 +326,7 @@
     "/api/prospections/{id}/villes": {
       "get": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "getVilles",
         "parameters": [
@@ -269,7 +358,7 @@
       },
       "post": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "ajouterVille",
         "parameters": [
@@ -310,7 +399,7 @@
     "/api/prospections/{id}/types-bien": {
       "get": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "getTypesBien",
         "parameters": [
@@ -342,7 +431,7 @@
       },
       "post": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "ajouterTypeBien",
         "parameters": [
@@ -383,7 +472,7 @@
     "/api/prospections/{id}/transformer": {
       "post": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "transformer",
         "parameters": [
@@ -424,7 +513,7 @@
     "/api/prospections/{id}/profils": {
       "get": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "getProfils",
         "parameters": [
@@ -456,7 +545,7 @@
       },
       "post": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "ajouterProfil",
         "parameters": [
@@ -497,7 +586,7 @@
     "/api/prospections/{id}/interactions": {
       "get": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "summary": "Journal des interactions d'une prospection",
         "description": "Historique des interactions (appels, messages, notes, visites...) loggées sur cette prospection, les plus récentes en premier.",
@@ -547,7 +636,7 @@
       },
       "post": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "summary": "Ajoute une interaction à une prospection",
         "description": "Journalise un appel/message/visite/note sur cette prospection. `actionTypeId` (\"Action\") et `resultatId` (\"Résultat\") sont optionnels mais recommandés pour un suivi exploitable — voir GET /api/referentiels/types-contact-prospection et GET /api/referentiels/resultats-interaction. Si le résultat choisi est \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\", `dateRdv` devient obligatoire et une entrée calendrier est créée, visible ensuite via GET /api/calendrier/evenements.",
@@ -611,8 +700,10 @@
     "/api/prospections/{id}/devis": {
       "get": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
+        "summary": "Liste les offres (devis) d'une prospection",
+        "description": "Chaque offre inclut son détail HT/TTC complet (voir `montants`), reproduisant l'onglet \"Montants\" du formulaire Offre legacy.",
         "operationId": "getDevis",
         "parameters": [
           {
@@ -635,7 +726,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Page d'offres (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoDevisDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -648,8 +749,10 @@
       },
       "post": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
+        "summary": "Crée une offre (devis) sur une prospection",
+        "description": "Si `articleId` est fourni, les montants HT/TTC/TVA/prix au m² sont calculés à partir du prix commercial de l'article (`ComSalePrice(HT)`, `Vat`) et, s'ils sont fournis, des `sousArticleIds` — voir `CreerDevisRequest` pour le détail du calcul et des remplacements possibles (`prix`, `remisePercent`). Sans `articleId`, l'offre est \"libre\": `prix` devient directement le prix de vente TTC, sans ventilation HT/m²/sous-articles.",
         "operationId": "creerDevis",
         "parameters": [
           {
@@ -674,7 +777,27 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Offre créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevisDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`trancheId` manquant/introuvable, `prix` manquant alors qu'aucun `articleId` n'est fourni, ou un id (article/sous-article/prospect/commercial/mode de paiement) est introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevisDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -689,7 +812,7 @@
     "/api/prospections/{id}/categories": {
       "get": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "getCategories",
         "parameters": [
@@ -721,7 +844,7 @@
       },
       "post": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "ajouterCategorie",
         "parameters": [
@@ -762,8 +885,10 @@
     "/api/prospections/{id}/autres-tranches": {
       "get": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
+        "summary": "Liste les \"autres tranches\" (intérêts secondaires)",
+        "description": "Indépendant de la tranche/l'article principal (`ProspectionDetailDto.trancheId`/`articleId`) — voir le guide dans la description du tag \"Prospections\" pour la distinction.",
         "operationId": "getAutresTranches",
         "parameters": [
           {
@@ -794,8 +919,10 @@
       },
       "post": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
+        "summary": "Ajoute un intérêt secondaire sur une autre tranche",
+        "description": "N'affecte jamais la tranche/l'article principal — utiliser `PATCH /api/prospections/{id}/tranche-principale` pour ça. `articleId`, s'il est fourni, doit appartenir à `trancheId` (400 sinon).",
         "operationId": "ajouterAutreTranche",
         "parameters": [
           {
@@ -820,7 +947,27 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Intérêt secondaire ajouté.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionAutreTrancheDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`trancheId` manquant/introuvable, ou l'article fourni n'appartient pas à la tranche fournie.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionAutreTrancheDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -835,7 +982,7 @@
     "/api/pre-prospections/{id}/creer-prospect": {
       "post": {
         "tags": [
-          "pre-prospection-controller"
+          "Pré-prospections"
         ],
         "operationId": "creerProspect",
         "parameters": [
@@ -918,21 +1065,29 @@
     "/api/dossiers": {
       "get": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
+        "summary": "Liste paginée des dossiers de vente",
+        "description": "Filtre optionnellement par statut (multi-sélection, une valeur pour un seul statut se comporte comme avant), commercial, entité (projet), tranche(s), plage de dates sur un jalon au choix, et recherche libre sur le code. Voir instructions/filtres-avances.md pour le détail des filtres avancés.",
         "operationId": "findAll_1",
         "parameters": [
           {
             "name": "statut",
             "in": "query",
+            "description": "Code(s) StrStatus à filtrer. Répéter le paramètre pour sélectionner plusieurs statuts (?statut=Réservation&statut=Concrétisation). Absent = tous les statuts.",
             "required": false,
             "schema": {
-              "type": "string"
-            }
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "Réservation"
           },
           {
             "name": "commercial",
             "in": "query",
+            "description": "Id du commercial (CfgTier.id, cfgCommercial).",
             "required": false,
             "schema": {
               "type": "string",
@@ -942,6 +1097,7 @@
           {
             "name": "projet",
             "in": "query",
+            "description": "Id de l'entité/projet (CfgProject.id), matché via l'article principal du dossier.",
             "required": false,
             "schema": {
               "type": "string",
@@ -949,8 +1105,65 @@
             }
           },
           {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id, StkItem.stkHierarchy). Répéter le paramètre pour plusieurs tranches. Renvoie les dossiers dont au moins un article appartient à une des tranches demandées.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "description": "Jalon sur lequel appliquer dateDebut/dateFin. Ignoré si aucun des deux n'est fourni. Défaut : RESERVATION (= date de création du dossier).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RESERVATION",
+                "CONCRETISATION",
+                "COMPROMIS",
+                "ENVOI_NOTAIRE",
+                "CREDIT_DEBLOQUE",
+                "MINUTE",
+                "REMISE_DES_CLES",
+                "FORMALISATION",
+                "ANNULATION"
+              ]
+            },
+            "example": "CONCRETISATION"
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Borne inférieure (incluse) de la plage sur champDate, format ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-01-01T00:00:00"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Borne supérieure (incluse) de la plage sur champDate, format ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-12-31T23:59:59"
+          },
+          {
             "name": "search",
             "in": "query",
+            "description": "Recherche libre sur le code du dossier.",
             "required": false,
             "schema": {
               "type": "string"
@@ -980,8 +1193,10 @@
       },
       "post": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
+        "summary": "Crée un dossier de vente à partir d'une prospection",
+        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant cet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté automatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient utilisés).",
         "operationId": "create_1",
         "requestBody": {
           "content": {
@@ -1010,7 +1225,7 @@
     "/api/dossiers/{id}/echeancier": {
       "get": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "findEcheances",
         "parameters": [
@@ -1047,7 +1262,7 @@
       },
       "post": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "addEcheance",
         "parameters": [
@@ -1088,7 +1303,7 @@
     "/api/dossiers/{id}/echeancier/{echeanceId}/reglements": {
       "post": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "addReglement",
         "parameters": [
@@ -1128,6 +1343,48 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ReglementDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/simulation-financement": {
+      "post": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Prévisualise le schéma de financement (étape avant création du dossier)",
+        "description": "Calcule le \"Schéma de financement\" (AUTO-FINANCEMENT / AVANCE / FRAIS SYNDIC) que `POST /api/dossiers` générerait pour ce(s) article(s) et ce prix, **sans rien créer ni persister** — ni dossier, ni échéance. Étape de simulation dans l'assistant de création : le front appelle cet endpoint à chaque changement de prix/article pour afficher le récapitulatif avant validation finale via `POST /api/dossiers`. `articleIds` accepte le même format que la création réelle (le premier article détermine la tranche — barème AVANCE/SYNDIC — et la vocation — catégorie d'échéance). Les articles n'ont pas besoin d'être DISPONIBLE ici : rien n'est réservé.",
+        "operationId": "simulerSchemaFinancement",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulerSchemaFinancementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Schéma calculé. `lignes` peut être vide si aucune catégorie AUTO-FINANCEMENT/AVANCE/FRAIS SYNDIC n'existe pour la vocation de l'article (cas très inhabituel — même règle qu'à la création).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchemaFinancementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`articleIds` manquant/vide, `prix` manquant, ou un des articles est introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchemaFinancementDto"
                 }
               }
             }
@@ -1265,7 +1522,7 @@
     "/api/prospections/{id}": {
       "get": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "findById_1",
         "parameters": [
@@ -1294,8 +1551,10 @@
       },
       "patch": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
+        "summary": "Modifie les champs de qualification d'une prospection",
+        "description": "Mise à jour partielle (`null` = inchangé) : origine, vocation, budget, notes... **Ne modifie plus la tranche/l'article principal** — utiliser `PATCH /api/prospections/{id}/tranche-principale` pour ça (voir le guide dans la description du tag \"Prospections\").",
         "operationId": "modifierProspection",
         "parameters": [
           {
@@ -1332,10 +1591,73 @@
         }
       }
     },
+    "/api/prospections/{id}/tranche-principale": {
+      "patch": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Remplace la tranche/l'article principal",
+        "description": "Seul endpoint qui modifie `trancheId`/`articleId` d'une prospection. `trancheId` est obligatoire ; `articleId` est optionnel mais, s'il est fourni, DOIT appartenir à `trancheId` (l'API renvoie 400 sinon — un article d'une autre tranche ne peut pas devenir article principal). Si `articleId` est omis et que l'article actuellement assigné n'appartient plus à la nouvelle tranche, il est automatiquement désassigné (jamais laissé dans un état incohérent). Distinct de `POST /api/prospections/{id}/autres-tranches` (intérêts secondaires, indépendants) — voir le guide sur le tag.",
+        "operationId": "modifierTranchePrincipale",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierTranchePrincipaleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Tranche/article principal mis à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`trancheId` manquant, tranche/article introuvable, ou l'article fourni n'appartient pas à la tranche fournie.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prospections/{id}/etape": {
       "patch": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "changerEtape",
         "parameters": [
@@ -1376,7 +1698,7 @@
     "/api/prospections/{id}/archiver": {
       "patch": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "archiver",
         "parameters": [
@@ -1459,7 +1781,7 @@
     "/api/dossiers/{id}/statut": {
       "patch": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "changerStatut",
         "parameters": [
@@ -1500,7 +1822,7 @@
     "/api/dossiers/{id}/echeancier/{echeanceId}": {
       "patch": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "updateEcheance",
         "parameters": [
@@ -1547,10 +1869,52 @@
         }
       }
     },
+    "/api/tranches": {
+      "get": {
+        "tags": [
+          "Tranches"
+        ],
+        "summary": "Liste paginée des tranches, à plat",
+        "description": "Toutes les tranches, tous projets confondus, ou filtrées sur un seul projet via `projetId`. Évite le contournement N+1 (GET /api/projets puis GET /api/projets/{id}/tranches pour chacun) pour peupler une checklist de filtre côté front — voir instructions/filtres-avances.md point 2.",
+        "operationId": "findAll_2",
+        "parameters": [
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (Entité, CfgProject.id) pour ne renvoyer que ses tranches. Absent = toutes les tranches.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoTrancheListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tranches/{id}": {
       "get": {
         "tags": [
-          "tranche-controller"
+          "Tranches"
         ],
         "operationId": "findById_2",
         "parameters": [
@@ -1581,8 +1945,10 @@
     "/api/tranches/{id}/articles": {
       "get": {
         "tags": [
-          "tranche-controller"
+          "Tranches"
         ],
+        "summary": "Articles et sous-articles d'une tranche",
+        "description": "Liste paginée, mélangeant articles racine et sous-articles de la tranche (chacun porte `sousArticle`/`lotParentId` pour les distinguer). Filtrable sur la disponibilité (`statut`, défaut DISPONIBLE), la catégorie (`categorieId`, StkItemCategory — ex. \"APPARTEMENT\") et le type (`typeId`, StkItemType — ex. \"1 CHAMBRES + SALON\"), à cocher indépendamment comme dans le formulaire de qualification Tranche → Catégorie → Type → Article. Les listes de choix viennent de `GET /api/referentiels/categories-bien` / `GET /api/referentiels/types-bien`.",
         "operationId": "findArticles",
         "parameters": [
           {
@@ -1597,6 +1963,7 @@
           {
             "name": "statut",
             "in": "query",
+            "description": "Filtre sur la disponibilité. Absent = DISPONIBLE.",
             "required": false,
             "schema": {
               "type": "string",
@@ -1604,6 +1971,32 @@
                 "DISPONIBLE",
                 "OCCUPE"
               ]
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de StkItemType. Répétable, correspondance OR. Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
             }
           },
           {
@@ -1632,7 +2025,7 @@
     "/api/referentiels/vocations": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getVocations",
         "responses": {
@@ -1655,7 +2048,7 @@
     "/api/referentiels/villes": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getVilles_1",
         "parameters": [
@@ -1702,7 +2095,7 @@
     "/api/referentiels/types-residence": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getTypesResidence",
         "responses": {
@@ -1725,7 +2118,7 @@
     "/api/referentiels/types-relation-contact": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getTypesRelationContact",
         "responses": {
@@ -1748,7 +2141,7 @@
     "/api/referentiels/types-piece-identite": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getTypesPieceIdentite",
         "responses": {
@@ -1771,7 +2164,7 @@
     "/api/referentiels/types-contact-prospection": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getTypesContactProspection",
         "responses": {
@@ -1794,9 +2187,46 @@
     "/api/referentiels/types-bien": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getTypesBien_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels/tranches": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Dropdown \"Tranche\"",
+        "description": "Toutes les tranches (CfgTranche), ou uniquement celles du projet `projetId` si fourni — deuxième maillon de la cascade Projet → Tranche → Article. Contrairement à `GET /api/tranches`, cette liste n'est pas paginée : elle est prévue pour peupler un `<select>` directement.",
+        "operationId": "getTranches",
+        "parameters": [
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) pour restreindre les tranches. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -1817,7 +2247,7 @@
     "/api/referentiels/titres": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getTitres",
         "responses": {
@@ -1840,7 +2270,7 @@
     "/api/referentiels/tier-types": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getTierTypes",
         "responses": {
@@ -1863,7 +2293,7 @@
     "/api/referentiels/tier-types/{typeId}/kinds": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getTierKindsForType",
         "parameters": [
@@ -1894,10 +2324,86 @@
         }
       }
     },
+    "/api/referentiels/sous-articles": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Dropdown \"Sous-article\" d'un article",
+        "description": "Sous-articles (StkItem.ParentId) de l'article `articleId` (obligatoire), filtrés par disponibilité (défaut: DISPONIBLE) et optionnellement par catégorie/type comme `GET /api/referentiels/articles` — ex. sélectionner une place de parking annexée au lot déjà choisi. Chaque entrée expose son `description` (son nom), pas seulement son `code`.",
+        "operationId": "getSousArticles",
+        "parameters": [
+          {
+            "name": "articleId",
+            "in": "query",
+            "description": "Id de l'article parent (StkItem.id). Obligatoire.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de StkItemType. Répétable, correspondance OR. Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Filtre sur la disponibilité. Absent = DISPONIBLE.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DISPONIBLE",
+                "OCCUPE"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ArticleListItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/situations-familiales": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getSituationsFamiliales",
         "responses": {
@@ -1920,7 +2426,7 @@
     "/api/referentiels/sexes": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getSexes",
         "responses": {
@@ -1943,7 +2449,7 @@
     "/api/referentiels/salaires": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getSalaires",
         "responses": {
@@ -1966,7 +2472,7 @@
     "/api/referentiels/resultats-interaction": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "summary": "Résultats possibles pour une interaction (dropdown \"Résultat\")",
         "description": "Liste les résultats utilisables comme `resultatId` dans `POST /api/prospections/{id}/interactions` (ex: \"Rendez vous pris\", \"Hors Budget\", \"Client injoignable ou Boite vocale\"...). Chaque entrée indique via `necessiteDateRdv`/`alerteRecommandee` comment adapter le formulaire, sans avoir à coder les libellés en dur côté front.",
@@ -1991,7 +2497,7 @@
     "/api/referentiels/regimes-matrimoniaux": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getRegimesMatrimoniaux",
         "responses": {
@@ -2014,9 +2520,34 @@
     "/api/referentiels/raisons-cloture": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getRaisonsCloture",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels/projets": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Dropdown \"Projet\"",
+        "description": "Tous les projets (CfgProject), pour peupler un sélecteur par nom/code plutôt que par id — premier maillon de la cascade Projet → Tranche → Article.",
+        "operationId": "getProjets",
         "responses": {
           "200": {
             "description": "OK",
@@ -2037,7 +2568,7 @@
     "/api/referentiels/profils-prospection": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getProfilsProspection",
         "responses": {
@@ -2060,7 +2591,7 @@
     "/api/referentiels/professions": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getProfessions",
         "responses": {
@@ -2083,7 +2614,7 @@
     "/api/referentiels/pays": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getPays",
         "responses": {
@@ -2106,7 +2637,7 @@
     "/api/referentiels/origines-prospection": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getOriginesProspection",
         "responses": {
@@ -2129,7 +2660,7 @@
     "/api/referentiels/origines-prospection/{origineId}/supports": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getSupportsForOrigine",
         "parameters": [
@@ -2163,7 +2694,7 @@
     "/api/referentiels/nationalites": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getNationalites",
         "responses": {
@@ -2186,7 +2717,7 @@
     "/api/referentiels/modes-paiement": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getModesPaiement",
         "responses": {
@@ -2209,7 +2740,7 @@
     "/api/referentiels/etapes-prospection": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getEtapesProspection",
         "responses": {
@@ -2232,7 +2763,7 @@
     "/api/referentiels/categories-echeance": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getCategoriesEcheance",
         "responses": {
@@ -2255,7 +2786,7 @@
     "/api/referentiels/categories-bien": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getCategoriesBien",
         "responses": {
@@ -2275,10 +2806,86 @@
         }
       }
     },
+    "/api/referentiels/articles": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Dropdown \"Article\" d'une tranche",
+        "description": "Articles racine (hors sous-articles) de la tranche `trancheId` (obligatoire), filtrés par disponibilité (défaut: DISPONIBLE) et optionnellement par catégorie (`categorieId`, ex. \"APPARTEMENT\") et type (`typeId`, ex. \"1 CHAMBRES + SALON\") — reproduit la cascade de cases à cocher \"Catégorie\"/\"Type\" du formulaire de qualification legacy avant de choisir l'article. Chaque entrée expose son `code` ET sa `description` (le nom de l'article), plus l'id/code/libellé de sa catégorie et de son type, pour peupler ces cases à cocher sans appel séparé. Dernier maillon de la cascade Projet → Tranche → Article avant sélection d'un sous-article éventuel via `GET /api/referentiels/sous-articles`.",
+        "operationId": "getArticles",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id de la tranche (CfgTranche.id). Obligatoire.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Filtre sur la disponibilité. Absent = DISPONIBLE.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DISPONIBLE",
+                "OCCUPE"
+              ]
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de StkItemType. Répétable, correspondance OR. Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ArticleListItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/actions-commerciales": {
       "get": {
         "tags": [
-          "referentiel-controller"
+          "Référentiels"
         ],
         "operationId": "getActionsCommerciales",
         "responses": {
@@ -2457,34 +3064,85 @@
     "/api/prospections": {
       "get": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
-        "operationId": "findAll_2",
+        "summary": "Liste paginée des prospections",
+        "description": "Filtre optionnellement par étape/origine/commercial (multi-sélection, une valeur pour un seul choix se comporte comme avant), tranche(s) visée(s), plage de dates sur la date du document, et recherche libre. Exclut les pré-prospections (voir GET /api/pre-prospections). Voir instructions/filtres-avances.md pour le détail des filtres avancés.",
+        "operationId": "findAll_3",
         "parameters": [
           {
             "name": "etape",
             "in": "query",
+            "description": "Code(s) ComProspectionKind (\"Nature\"/étape) à filtrer. Répéter le paramètre pour plusieurs étapes. Absent = toutes les étapes.",
             "required": false,
             "schema": {
-              "type": "string"
-            }
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": 3
           },
           {
             "name": "origine",
             "in": "query",
+            "description": "Code(s) ComProspectionOrigin à filtrer. Répéter le paramètre pour plusieurs origines.",
             "required": false,
             "schema": {
-              "type": "string"
-            }
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "FACEBOOK"
           },
           {
             "name": "commercial",
             "in": "query",
+            "description": "Id(s) du commercial (CfgTier.id, cfgCommercial). Répéter le paramètre pour plusieurs commerciaux.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche visée (CfgTranche.id, ComProspection.stkHierarchy). Répéter le paramètre pour plusieurs tranches.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Borne inférieure (incluse) sur la date du document, format ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
-              "format": "uuid"
-            }
+              "format": "date-time"
+            },
+            "example": "2026-01-01T00:00:00"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Borne supérieure (incluse) sur la date du document, format ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-12-31T23:59:59"
           },
           {
             "name": "search",
@@ -2525,12 +3183,64 @@
         }
       }
     },
+    "/api/prospections/{id}/devis/{devisId}": {
+      "get": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Détail d'une offre (devis)",
+        "description": "Détail complet d'une offre, y compris le HT/TTC de l'onglet \"Montants\" (`montants`).",
+        "operationId": "getDevisById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "devisId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "L'offre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevisDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune offre avec cet id sur cette prospection.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevisDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projets": {
       "get": {
         "tags": [
           "projet-controller"
         ],
-        "operationId": "findAll_3",
+        "operationId": "findAll_4",
         "parameters": [
           {
             "name": "pageable",
@@ -2628,10 +3338,98 @@
     "/api/pre-prospections": {
       "get": {
         "tags": [
-          "pre-prospection-controller"
+          "Pré-prospections"
         ],
-        "operationId": "findAll_4",
+        "summary": "Liste paginée des pré-prospections",
+        "description": "Mêmes filtres que GET /api/prospections (étape, origine, commercial, tranche(s), plage de dates, recherche libre, ouvertes) appliqués aux leads non encore qualifiés. Voir instructions/filtres-avances.md point 5.",
+        "operationId": "findAll_5",
         "parameters": [
+          {
+            "name": "etape",
+            "in": "query",
+            "description": "Code(s) ComProspectionKind (\"Nature\"/étape) à filtrer. Répéter le paramètre pour plusieurs étapes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "origine",
+            "in": "query",
+            "description": "Code(s) ComProspectionOrigin à filtrer. Répéter le paramètre pour plusieurs origines.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "commercial",
+            "in": "query",
+            "description": "Id(s) du commercial (CfgTier.id, cfgCommercial). Répéter le paramètre pour plusieurs commerciaux.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche visée (CfgTranche.id, ComProspection.stkHierarchy). Répéter le paramètre pour plusieurs tranches.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Borne inférieure (incluse) sur la date du document, format ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Borne supérieure (incluse) sur la date du document, format ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ouvertes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
           {
             "name": "pageable",
             "in": "query",
@@ -2724,7 +3522,7 @@
     "/api/dossiers/{id}": {
       "get": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "findById_4",
         "parameters": [
@@ -2755,7 +3553,7 @@
     "/api/dossiers/{id}/statut/etapes-suivantes": {
       "get": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "getEtapesSuivantes",
         "parameters": [
@@ -2789,7 +3587,7 @@
     "/api/dossiers/{id}/pieces-jointes": {
       "get": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "getPiecesJointes",
         "parameters": [
@@ -2823,7 +3621,7 @@
     "/api/dossiers/{id}/pieces-jointes/{pieceId}/fichier": {
       "get": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "getFichier",
         "parameters": [
@@ -2864,7 +3662,7 @@
     "/api/dossiers/{id}/montants": {
       "get": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "montants",
         "parameters": [
@@ -2895,7 +3693,7 @@
     "/api/dossiers/{id}/historique": {
       "get": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "getHistorique_1",
         "parameters": [
@@ -2934,7 +3732,7 @@
     "/api/dossiers/{id}/documents/fiche-reservation": {
       "get": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "getFicheReservation",
         "parameters": [
@@ -2975,7 +3773,7 @@
     "/api/dossiers/{id}/documents/acte-reservation": {
       "get": {
         "tags": [
-          "dossier-controller"
+          "Dossiers"
         ],
         "operationId": "getActeReservation",
         "parameters": [
@@ -3038,7 +3836,7 @@
         "tags": [
           "commercial-controller"
         ],
-        "operationId": "findAll_5",
+        "operationId": "findAll_6",
         "parameters": [
           {
             "name": "pageable",
@@ -3068,7 +3866,7 @@
         "tags": [
           "client-controller"
         ],
-        "operationId": "findAll_6",
+        "operationId": "findAll_7",
         "parameters": [
           {
             "name": "search",
@@ -3236,8 +4034,10 @@
     "/api/articles/{id}": {
       "get": {
         "tags": [
-          "article-controller"
+          "Articles"
         ],
+        "summary": "Détail d'un article ou sous-article",
+        "description": "Fonctionne indifféremment pour un article racine ou un sous-article (même table StkItem) — la \"recherche inverse\" (partir d'un sous-article pour retrouver sa tranche et son article parent) passe par ce même endpoint : `trancheId`/`trancheCode`/`trancheDescription` et `lotParentId`/`lotParentCode`/`lotParentDescription` sont toujours renseignés quand applicable, sans appel supplémentaire. `sousLots` liste tous les sous-articles de cet article, quel que soit leur statut.",
         "operationId": "findById_6",
         "parameters": [
           {
@@ -3257,6 +4057,86 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}/sous-articles": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Sous-articles disponibles (ou occupés) d'un article",
+        "description": "Liste paginée des sous-articles (StkItem.ParentId) d'un article donné — ex. les places de parking ou caves annexées à un lot. `statut` filtre sur la disponibilité (défaut: DISPONIBLE) ; `categorieId`/`typeId` filtrent comme sur `GET /api/tranches/{id}/articles`. Chaque sous-article renvoyé porte son propre `description` (son nom), pas seulement son `code`.",
+        "operationId": "findSousArticles",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Filtre sur la disponibilité du sous-article. Absent = DISPONIBLE.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DISPONIBLE",
+                "OCCUPE"
+              ]
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de StkItemType. Répétable, correspondance OR. Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
                 }
               }
             }
@@ -3300,7 +4180,7 @@
     "/api/prospections/{id}/villes/{itemId}": {
       "delete": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "retirerVille",
         "parameters": [
@@ -3333,7 +4213,7 @@
     "/api/prospections/{id}/types-bien/{itemId}": {
       "delete": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "retirerTypeBien",
         "parameters": [
@@ -3366,7 +4246,7 @@
     "/api/prospections/{id}/profils/{itemId}": {
       "delete": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "retirerProfil",
         "parameters": [
@@ -3399,7 +4279,7 @@
     "/api/prospections/{id}/categories/{itemId}": {
       "delete": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "retirerCategorie",
         "parameters": [
@@ -3432,7 +4312,7 @@
     "/api/prospections/{id}/autres-tranches/{itemId}": {
       "delete": {
         "tags": [
-          "prospection-controller"
+          "Prospections"
         ],
         "operationId": "retirerAutreTranche",
         "parameters": [
@@ -3465,6 +4345,80 @@
   },
   "components": {
     "schemas": {
+      "CreerEmployeRequest": {
+        "type": "object",
+        "description": "Corps de la création d'un nouvel employé par un administrateur — crée en une fois la fiche personne (CfgTier), le compte de connexion (AdmUser) et ses identifiants web.",
+        "properties": {
+          "prenom": {
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "identifiant": {
+            "type": "string",
+            "description": "Nom d'utilisateur du compte (AdmUser.Code) — doit être unique.",
+            "example": "j.dupont"
+          },
+          "email": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "typeEmployeCode": {
+            "type": "string",
+            "description": "Code CfgTierKind qualifiant le type d'employé (ex: COM pour commercial). Doit exister en base.",
+            "example": "COM"
+          },
+          "roles": {
+            "type": "array",
+            "description": "Codes AdmRole à assigner au compte (ex: [\"Commercial\"]) — au moins un requis, chaque code doit exister en base.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "email",
+          "identifiant",
+          "nom",
+          "prenom",
+          "roles",
+          "typeEmployeCode"
+        ]
+      },
+      "CreerEmployeResponse": {
+        "type": "object",
+        "description": "Résultat de la création d'un employé par un administrateur.",
+        "properties": {
+          "cfgTierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la fiche personne créée (CfgTier)."
+          },
+          "admUserId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du compte de connexion créé (AdmUser)."
+          },
+          "identifiant": {
+            "type": "string",
+            "description": "Nom d'utilisateur (AdmUser.Code) du compte créé."
+          },
+          "roles": {
+            "type": "array",
+            "description": "Codes AdmRole assignés au compte.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "motDePasseTemporaire": {
+            "type": "string",
+            "description": "Mot de passe temporaire généré, à communiquer à l'employé par un canal hors-bande (jamais renvoyé une seconde fois — ni stocké en clair côté serveur). Le compte devra le changer dès sa première connexion (mustChangePassword=true)."
+          }
+        }
+      },
       "ReinitialiserMotDePasseResponse": {
         "type": "object",
         "description": "Résultat d'une réinitialisation de mot de passe par un administrateur.",
@@ -4074,9 +5028,21 @@
             "type": "string",
             "format": "uuid"
           },
+          "trancheCode": {
+            "type": "string"
+          },
+          "trancheDescription": {
+            "type": "string"
+          },
           "articleId": {
             "type": "string",
             "format": "uuid"
+          },
+          "articleCode": {
+            "type": "string"
+          },
+          "articleDescription": {
+            "type": "string"
           }
         }
       },
@@ -4211,14 +5177,44 @@
         "properties": {
           "trancheId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Tranche de l'offre. Obligatoire."
           },
           "articleId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Article principal de l'offre. Si renseigné, sert de base au calcul HT/TTC/TVA/prix au m². Optionnel (offre libre sans ventilation sinon)."
+          },
+          "sousArticleIds": {
+            "type": "array",
+            "description": "Sous-articles inclus dans l'offre (leur prix commercial est sommé dans \"prix sous-articles\"). Ignoré si articleId est absent.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "prospectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Prospect concerné par l'offre. Si absent, repris du prospect de la prospection."
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Commercial de l'offre. Si absent, repris du commercial de la prospection."
+          },
+          "modePaiementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Mode de paiement envisagé. Optionnel."
           },
           "prix": {
-            "type": "number"
+            "type": "number",
+            "description": "Prix de vente TTC. Obligatoire si articleId est absent (offre libre); sinon optionnel et remplace le prix commercial de l'article s'il est fourni."
+          },
+          "remisePercent": {
+            "type": "number",
+            "description": "Taux de remise à appliquer, en %. Défaut 0."
           },
           "notes": {
             "type": "string"
@@ -4227,6 +5223,7 @@
       },
       "DevisDto": {
         "type": "object",
+        "description": "Une offre de prix (\"devis\") faite à un prospect sur une prospection, avec son détail HT/TTC complet.",
         "properties": {
           "id": {
             "type": "string",
@@ -4244,24 +5241,153 @@
             "format": "uuid"
           },
           "tranche": {
-            "type": "string"
+            "type": "string",
+            "description": "Code de la tranche."
+          },
+          "trancheDescription": {
+            "type": "string",
+            "description": "Libellé (description) de la tranche."
           },
           "articleId": {
             "type": "string",
             "format": "uuid"
           },
           "article": {
-            "type": "string"
+            "type": "string",
+            "description": "Code de l'article."
+          },
+          "articleDescription": {
+            "type": "string",
+            "description": "Libellé (description) de l'article."
+          },
+          "articleSuperficie": {
+            "type": "number",
+            "description": "Superficie de l'article, en m². null si l'offre n'a pas d'article."
+          },
+          "articleCategorie": {
+            "type": "string",
+            "description": "Nature du bien (StkItemCategory), ex. \"APPARTEMENT\". null si l'offre n'a pas d'article."
+          },
+          "articleType": {
+            "type": "string",
+            "description": "Typologie du bien (StkItemType), ex. \"1 CHAMBRES + SALON\". null si l'offre n'a pas d'article."
           },
           "prospectId": {
             "type": "string",
             "format": "uuid"
           },
-          "prix": {
-            "type": "number"
+          "prospect": {
+            "type": "string",
+            "description": "Nom (raison sociale ou prénom+nom) du prospect."
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commercial": {
+            "type": "string",
+            "description": "Nom du commercial."
+          },
+          "modePaiementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "modePaiement": {
+            "type": "string",
+            "description": "Libellé du mode de paiement."
+          },
+          "montants": {
+            "$ref": "#/components/schemas/MontantsOffreDto",
+            "description": "Détail HT/TTC complet de l'offre — voir MontantsOffreDto."
           },
           "notes": {
             "type": "string"
+          }
+        }
+      },
+      "MontantsOffreDto": {
+        "type": "object",
+        "description": "Détail HT/TTC des montants d'une offre, reproduisant l'onglet \"Montants\" du formulaire Offre legacy.",
+        "properties": {
+          "tvaRatio": {
+            "type": "number",
+            "description": "Taux de TVA appliqué (ex. 0.20 = 20%), repris de l'article au moment de la création de l'offre."
+          },
+          "prixM2HT": {
+            "type": "number",
+            "description": "Prix du m² HT = prix article HT / superficie de l'article."
+          },
+          "prixM2TTC": {
+            "type": "number",
+            "description": "Prix du m² TTC."
+          },
+          "prixArticleHT": {
+            "type": "number",
+            "description": "Prix de l'article principal, HT."
+          },
+          "prixArticleTTC": {
+            "type": "number",
+            "description": "Prix de l'article principal, TTC."
+          },
+          "prixSousArticlesHT": {
+            "type": "number",
+            "description": "Somme des prix des sous-articles inclus dans l'offre, HT. 0 si aucun sous-article."
+          },
+          "prixSousArticlesTTC": {
+            "type": "number",
+            "description": "Somme des prix des sous-articles inclus dans l'offre, TTC."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Total HT = prix article HT + prix sous-articles HT, avant remise."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Total TTC, avant remise."
+          },
+          "remisePercent": {
+            "type": "number",
+            "description": "Taux de remise appliqué au total, en %."
+          },
+          "remiseHT": {
+            "type": "number",
+            "description": "Montant de la remise, HT."
+          },
+          "remiseTTC": {
+            "type": "number",
+            "description": "Montant de la remise, TTC."
+          },
+          "prixM2ApresRemiseHT": {
+            "type": "number",
+            "description": "Prix du m² HT après remise (remise répartie au prorata entre article et sous-articles)."
+          },
+          "prixM2ApresRemiseTTC": {
+            "type": "number",
+            "description": "Prix du m² TTC après remise."
+          },
+          "prixArticleApresRemiseHT": {
+            "type": "number",
+            "description": "Prix de l'article HT après remise."
+          },
+          "prixArticleApresRemiseTTC": {
+            "type": "number",
+            "description": "Prix de l'article TTC après remise."
+          },
+          "prixSousArticlesApresRemiseHT": {
+            "type": "number",
+            "description": "Prix des sous-articles HT après remise."
+          },
+          "prixSousArticlesApresRemiseTTC": {
+            "type": "number",
+            "description": "Prix des sous-articles TTC après remise."
+          },
+          "prixVenteHT": {
+            "type": "number",
+            "description": "Prix de vente final HT = total HT − remise HT. Ligne finale du formulaire Offre legacy."
+          },
+          "prixVenteTTC": {
+            "type": "number",
+            "description": "Prix de vente final TTC = total TTC − remise TTC."
           }
         }
       },
@@ -4317,11 +5443,17 @@
           "tranche": {
             "type": "string"
           },
+          "trancheDescription": {
+            "type": "string"
+          },
           "articleId": {
             "type": "string",
             "format": "uuid"
           },
           "article": {
+            "type": "string"
+          },
+          "articleDescription": {
             "type": "string"
           }
         }
@@ -4647,6 +5779,49 @@
           }
         }
       },
+      "SimulerSchemaFinancementRequest": {
+        "type": "object",
+        "properties": {
+          "articleIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "prix": {
+            "type": "number"
+          }
+        }
+      },
+      "LigneSchemaFinancementDto": {
+        "type": "object",
+        "properties": {
+          "categorie": {
+            "type": "string"
+          },
+          "montant": {
+            "type": "number"
+          },
+          "exclureDuPrix": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SchemaFinancementDto": {
+        "type": "object",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneSchemaFinancementDto"
+            }
+          },
+          "totalGeneral": {
+            "type": "number"
+          }
+        }
+      },
       "ConnexionRequest": {
         "type": "object",
         "description": "Corps de connexion : identifiants d'un compte AdmUser.",
@@ -4831,7 +6006,12 @@
           },
           "notes": {
             "type": "string"
-          },
+          }
+        }
+      },
+      "ModifierTranchePrincipaleRequest": {
+        "type": "object",
+        "properties": {
           "trancheId": {
             "type": "string",
             "format": "uuid"
@@ -4937,6 +6117,76 @@
           },
           "notes": {
             "type": "string"
+          }
+        }
+      },
+      "Pageable": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PageDtoTrancheListItemDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrancheListItemDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TrancheListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "dateLivraison": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -5104,27 +6354,6 @@
           }
         }
       },
-      "Pageable": {
-        "type": "object",
-        "properties": {
-          "page": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 0
-          },
-          "size": {
-            "type": "integer",
-            "format": "int32",
-            "minimum": 1
-          },
-          "sort": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
       "ArticleListItemDto": {
         "type": "object",
         "properties": {
@@ -5157,11 +6386,32 @@
           "titreFoncier": {
             "type": "string"
           },
-          "categorie": {
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorieCode": {
             "type": "string"
           },
-          "type": {
+          "categorieLibelle": {
             "type": "string"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeCode": {
+            "type": "string"
+          },
+          "typeLibelle": {
+            "type": "string"
+          },
+          "sousArticle": {
+            "type": "boolean"
+          },
+          "lotParentId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -5581,6 +6831,16 @@
           },
           "surface": {
             "type": "number"
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trancheCode": {
+            "type": "string"
+          },
+          "trancheDescription": {
+            "type": "string"
           }
         }
       },
@@ -5672,6 +6932,10 @@
           },
           "totalAPayer": {
             "type": "number"
+          },
+          "dateConcretisation": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -5863,55 +7127,6 @@
             "format": "date-time"
           },
           "dateFinCommercialisation": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "PageDtoTrancheListItemDto": {
-        "type": "object",
-        "properties": {
-          "content": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TrancheListItemDto"
-            }
-          },
-          "page": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "size": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalElements": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "totalPages": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      },
-      "TrancheListItemDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "code": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "ville": {
-            "type": "string"
-          },
-          "dateLivraison": {
             "type": "string",
             "format": "date-time"
           }
@@ -6428,9 +7643,21 @@
             "type": "string",
             "format": "uuid"
           },
+          "trancheCode": {
+            "type": "string"
+          },
+          "trancheDescription": {
+            "type": "string"
+          },
           "lotParentId": {
             "type": "string",
             "format": "uuid"
+          },
+          "lotParentCode": {
+            "type": "string"
+          },
+          "lotParentDescription": {
+            "type": "string"
           },
           "sousLots": {
             "type": "array",
@@ -6441,10 +7668,24 @@
           "titreFoncier": {
             "type": "string"
           },
-          "categorie": {
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorieCode": {
             "type": "string"
           },
-          "type": {
+          "categorieLibelle": {
+            "type": "string"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeCode": {
+            "type": "string"
+          },
+          "typeLibelle": {
             "type": "string"
           }
         }

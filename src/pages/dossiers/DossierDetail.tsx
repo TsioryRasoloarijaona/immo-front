@@ -577,7 +577,7 @@ export default function DossierDetail() {
       </Tabs>
 
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-[13px] font-medium text-background shadow-lg">
+        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-[13px] font-medium text-background shadow-lg">
           {toast}
         </div>
       )}

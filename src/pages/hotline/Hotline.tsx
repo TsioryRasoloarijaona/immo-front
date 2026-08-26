@@ -112,7 +112,17 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
                 </TableHeader>
                 <TableBody>
                   {prospections.map((p) => (
-                    <TableRow key={p.id} tabIndex={0} role="link" className="cursor-pointer" onClick={() => navigate(`/prospections/${p.id}`)}>
+                    <TableRow
+                      key={p.id}
+                      tabIndex={0}
+                      role="link"
+                      aria-label={`Ouvrir la prospection ${p.code || prospectionDisplayName(p)}`}
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/prospections/${p.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') navigate(`/prospections/${p.id}`);
+                      }}
+                    >
                       <TableCell className="font-medium text-foreground">{p.code || prospectionDisplayName(p)}</TableCell>
                       <TableCell><Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge></TableCell>
                       <TableCell className="text-muted-foreground">{p.origine || '—'}</TableCell>
@@ -142,7 +152,17 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
                 </TableHeader>
                 <TableBody>
                   {dossiers.map((d) => (
-                    <TableRow key={d.id} tabIndex={0} role="link" className="cursor-pointer" onClick={() => navigate(`/dossiers/${d.id}`)}>
+                    <TableRow
+                      key={d.id}
+                      tabIndex={0}
+                      role="link"
+                      aria-label={`Ouvrir le dossier ${d.code}`}
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/dossiers/${d.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') navigate(`/dossiers/${d.id}`);
+                      }}
+                    >
                       <TableCell className="font-medium text-foreground">{d.code}</TableCell>
                       <TableCell><Badge tone={toneForStatus(d.statut)}>{d.statut || '—'}</Badge></TableCell>
                       <TableCell className="text-right tabular-nums">{formatCurrency(d.prix)}</TableCell>
@@ -381,7 +401,7 @@ export default function Hotline() {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-[13px] font-medium text-background shadow-lg">
+        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-[13px] font-medium text-background shadow-lg">
           {toast}
         </div>
       )}

@@ -24,6 +24,8 @@ import type {
   CreerDevisRequest,
   CreerDossierRequest,
   CreerEcheanceRequest,
+  CreerEmployeRequest,
+  CreerEmployeResponse,
   CreerInteractionRequest,
   CreerProspectRequest,
   CreerReglementRequest,
@@ -41,6 +43,7 @@ import type {
   ModifierEcheanceRequest,
   ModifierProspectRequest,
   ModifierProspectionRequest,
+  ModifierTranchePrincipaleRequest,
   MontantsDossierDto,
   OrigineProspectionDto,
   PageDto,
@@ -64,6 +67,8 @@ import type {
   ReglementProspectDto,
   ReinitialiserMotDePasseResponse,
   ResultatInteractionDto,
+  SchemaFinancementDto,
+  SimulerSchemaFinancementRequest,
   TitreDto,
   TransformerProspectionRequest,
   TrancheDetailDto,
@@ -77,7 +82,7 @@ import type {
 export const DEFAULT_PAGE_SIZE = 20;
 
 function withPageable(
-  params: Record<string, string | number | boolean | undefined | null> | undefined,
+  params: Record<string, string | number | boolean | string[] | undefined | null> | undefined,
   pageable?: Pageable,
 ): Record<string, string | number | boolean | string[] | undefined | null> {
   return {
@@ -224,7 +229,14 @@ async function performRequest<T>(
 // ---------------------------------------------------------------------------
 
 export function listProspects(
-  params?: { search?: string; type?: string },
+  params?: {
+    search?: string;
+    /** Repeatable — pass several to OR-match any of them. Backend today only
+     * binds the first value of a repeated `type` param (see
+     * docs/filtres-avances.md); kept as `string[]` here so the UI is ready
+     * the moment the backend adds real array support. */
+    type?: string[];
+  },
   pageable?: Pageable,
 ): Promise<PageDto<ProspectListItemDto>> {
   return request('GET', '/api/prospects', { query: withPageable(params, pageable) });
@@ -289,14 +301,32 @@ export function listProspectHistorique(prospectId: UUID, pageable?: Pageable): P
 // Prospections / Pré-prospections
 // ---------------------------------------------------------------------------
 
+/** Shared filter shape for /api/prospections and /api/pre-prospections — the
+ * two endpoints list the same underlying table (see CLAUDE.md) and accept
+ * the same filter set, for UI consistency with /api/dossiers. All fields
+ * below are real, repeatable-where-noted server-side params on both
+ * endpoints as of docs/api-docsV4.json's 88-route revision (confirmed
+ * 2026-08-22 — see docs/filtres-avances.md for the backend ask history). */
+export interface ProspectionFilterParams {
+  [key: string]: string | number | boolean | string[] | undefined | null;
+  /** Repeatable — pass several to OR-match any of them. */
+  etape?: string[];
+  /** Repeatable — pass several to OR-match any of them. */
+  origine?: string[];
+  /** Repeatable — pass several to OR-match any of them. */
+  commercial?: UUID[];
+  /** Repeatable — pass several to OR-match prospections whose tranche is any of them. */
+  trancheId?: UUID[];
+  /** ISO-8601 datetime, inclusive lower bound on `dateDocument`. */
+  dateDebut?: string;
+  /** ISO-8601 datetime, inclusive upper bound on `dateDocument`. */
+  dateFin?: string;
+  search?: string;
+  ouvertes?: boolean;
+}
+
 export function listProspections(
-  params?: {
-    etape?: string;
-    origine?: string;
-    commercial?: UUID;
-    search?: string;
-    ouvertes?: boolean;
-  },
+  params?: ProspectionFilterParams,
   pageable?: Pageable,
 ): Promise<PageDto<ProspectionListItemDto>> {
   return request('GET', '/api/prospections', { query: withPageable(params, pageable) });
@@ -306,8 +336,11 @@ export function getProspection(id: UUID): Promise<ProspectionDetailDto> {
   return request('GET', `/api/prospections/${id}`);
 }
 
-export function listPreProspections(pageable?: Pageable): Promise<PageDto<ProspectionListItemDto>> {
-  return request('GET', '/api/pre-prospections', { query: withPageable(undefined, pageable) });
+export function listPreProspections(
+  params?: ProspectionFilterParams,
+  pageable?: Pageable,
+): Promise<PageDto<ProspectionListItemDto>> {
+  return request('GET', '/api/pre-prospections', { query: withPageable(params, pageable) });
 }
 
 export function creerProspectFromPreProspection(id: UUID, body: CreerProspectRequest): Promise<ProspectionDetailDto> {
@@ -328,6 +361,14 @@ export function archiverProspection(id: UUID, body: ArchiverProspectionRequest):
 
 export function modifierProspection(id: UUID, body: ModifierProspectionRequest): Promise<ProspectionDetailDto> {
   return request('PATCH', `/api/prospections/${id}`, { body });
+}
+
+/** The only endpoint that changes a prospection's tranche/article
+ * "principal" — distinct from `addProspectionAutreTranche`, which manages
+ * independent secondary interests and never touches `trancheId`/`articleId`.
+ * See `ModifierTranchePrincipaleRequest`. */
+export function modifierTranchePrincipale(id: UUID, body: ModifierTranchePrincipaleRequest): Promise<ProspectionDetailDto> {
+  return request('PATCH', `/api/prospections/${id}/tranche-principale`, { body });
 }
 
 export function listInteractions(prospectionId: UUID, pageable?: Pageable): Promise<PageDto<InteractionDto>> {
@@ -397,16 +438,43 @@ export function listDevis(prospectionId: UUID, pageable?: Pageable): Promise<Pag
 export function creerDevis(prospectionId: UUID, body: CreerDevisRequest): Promise<DevisDto> {
   return request('POST', `/api/prospections/${prospectionId}/devis`, { body });
 }
+/** Détail complet d'une offre, y compris le HT/TTC de l'onglet "Montants"
+ * (`montants`) — la liste (`listDevis`) renvoie déjà ce détail complet par
+ * offre, donc cet endpoint sert surtout à re-fetcher une offre isolément. */
+export function getDevisById(prospectionId: UUID, devisId: UUID): Promise<DevisDto> {
+  return request('GET', `/api/prospections/${prospectionId}/devis/${devisId}`);
+}
 
 // ---------------------------------------------------------------------------
 // Dossiers
 // ---------------------------------------------------------------------------
 
+export type DossierChampDate =
+  | 'RESERVATION'
+  | 'CONCRETISATION'
+  | 'COMPROMIS'
+  | 'ENVOI_NOTAIRE'
+  | 'CREDIT_DEBLOQUE'
+  | 'MINUTE'
+  | 'REMISE_DES_CLES'
+  | 'FORMALISATION'
+  | 'ANNULATION';
+
 export function listDossiers(
   params?: {
-    statut?: string;
+    /** Repeatable — pass several to OR-match any of them. */
+    statut?: string[];
     commercial?: UUID;
+    /** Filters by Entité/Projet (`CfgProject.id`), matched via the dossier's main article. */
     projet?: UUID;
+    /** Repeatable — pass several to OR-match dossiers with an article in any of them. */
+    trancheId?: UUID[];
+    /** Milestone `dateDebut`/`dateFin` applies to. Ignored if neither is set. Default: RESERVATION. */
+    champDate?: DossierChampDate;
+    /** ISO-8601 datetime, inclusive lower bound on `champDate`. */
+    dateDebut?: string;
+    /** ISO-8601 datetime, inclusive upper bound on `champDate`. */
+    dateFin?: string;
     search?: string;
   },
   pageable?: Pageable,
@@ -420,6 +488,13 @@ export function getDossier(id: UUID): Promise<DossierDetailDto> {
 
 export function createDossier(body: CreerDossierRequest): Promise<DossierDetailDto> {
   return request('POST', '/api/dossiers', { body });
+}
+
+/** Preview step of the dossier creation wizard — computes the same "Schéma
+ * de financement" `POST /api/dossiers` would generate, without creating or
+ * persisting anything. Call again on every articleIds/prix change. */
+export function simulerSchemaFinancement(body: SimulerSchemaFinancementRequest): Promise<SchemaFinancementDto> {
+  return request('POST', '/api/dossiers/simulation-financement', { body });
 }
 
 export function changerStatutDossier(id: UUID, body: ChangerStatutRequest): Promise<DossierDetailDto> {
@@ -654,8 +729,55 @@ export function listProjetTranches(projetId: UUID, pageable?: Pageable): Promise
   return request('GET', `/api/projets/${projetId}/tranches`, { query: withPageable(undefined, pageable) });
 }
 
+/** Flat tranches listing (optionally scoped to one Entité/Projet) — added
+ * alongside the `trancheId` filter on `/api/dossiers` so callers no longer
+ * need the `listProjets` + `listProjetTranches` N+1 aggregate (still used by
+ * `TranchesList.tsx`'s full-portfolio view, which has other needs). */
+export function listTranches(params?: { projetId?: UUID }, pageable?: Pageable): Promise<PageDto<TrancheListItemDto>> {
+  return request('GET', '/api/tranches', { query: withPageable(params, pageable) });
+}
+
 export function getArticle(id: UUID): Promise<ArticleDetailDto> {
   return request('GET', `/api/articles/${id}`);
+}
+
+/** Dropdown "Projet" — first link of the cascade Projet → Tranche → Article
+ * → Sous-article, to narrow the Tranche dropdown below it. */
+export function getProjetsReferentiel(): Promise<ReferentielItemDto[]> {
+  return request('GET', '/api/referentiels/projets');
+}
+
+/** Dropdown "Tranche" — all tranches, or only those of `projetId` if given
+ * (second link of the cascade). Unpaginated, meant to populate a `<select>`
+ * directly (unlike `listTranches`, which is paginated). */
+export function getTranchesReferentiel(projetId?: UUID): Promise<ReferentielItemDto[]> {
+  return request('GET', '/api/referentiels/tranches', { query: { projetId } });
+}
+
+/** Filters shared by `getArticlesReferentiel`/`getSousArticlesReferentiel` —
+ * `categorieId`/`typeId` mirror the legacy "Catégorie"/"Type" checkbox
+ * cascade (repeatable, OR'd server-side); absent = no restriction. */
+export interface ArticleReferentielFilters {
+  statut?: ArticleStatut;
+  categorieId?: UUID[];
+  typeId?: UUID[];
+}
+
+/** Root articles (hors sous-articles) of a tranche, filtered by availability
+ * (default DISPONIBLE) and optionally by catégorie/type — reproduces the
+ * legacy qualification form's checkbox cascade before picking the article
+ * itself from the resulting filtered list (not a dropdown of every article).
+ * Each entry already carries its catégorie/type libellés and code/description
+ * for display without a separate call. Last link of the cascade Projet →
+ * Tranche → Article before optionally picking a sous-article. */
+export function getArticlesReferentiel(trancheId: UUID, filters?: ArticleReferentielFilters): Promise<ArticleListItemDto[]> {
+  return request('GET', '/api/referentiels/articles', { query: { trancheId, ...filters } });
+}
+
+/** Sous-articles of an article (e.g. a parking spot or cave attached to a
+ * lot), same availability/catégorie/type filtering as `getArticlesReferentiel`. */
+export function getSousArticlesReferentiel(articleId: UUID, filters?: ArticleReferentielFilters): Promise<ArticleListItemDto[]> {
+  return request('GET', '/api/referentiels/sous-articles', { query: { articleId, ...filters } });
 }
 
 // ---------------------------------------------------------------------------
@@ -765,4 +887,11 @@ export function completerProfil(body: CompleterProfilRequest): Promise<Utilisate
  * communiquer hors-bande, jamais renvoyé une seconde fois. */
 export function reinitialiserMotDePasse(admUserId: UUID): Promise<ReinitialiserMotDePasseResponse> {
   return request('POST', `/api/utilisateurs/${admUserId}/reinitialiser-mot-de-passe`);
+}
+
+/** Réservé au rôle Administrateur — crée en une fois la fiche employé
+ * (CfgTier), le compte de connexion (AdmUser) et ses rôles ; le mot de passe
+ * temporaire renvoyé n'est jamais réémis, à communiquer hors-bande. */
+export function creerEmploye(body: CreerEmployeRequest): Promise<CreerEmployeResponse> {
+  return request('POST', '/api/utilisateurs', { body });
 }

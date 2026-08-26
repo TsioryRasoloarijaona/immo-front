@@ -40,6 +40,24 @@ export function etapeBadgeTone(etape: string | undefined, fermee?: boolean): Bad
   return 'success';
 }
 
+// Shared filter-bar state for ProspectionsList/PreProspectionsList — kept
+// here rather than in the component file so ProspectionFilterBar.tsx only
+// exports the component (react-refresh requirement).
+export interface ProspectionFilterBarState {
+  search: string;
+  etape: string[];
+  origine: string[];
+  commercial: string[];
+  trancheId: string[];
+  dateDebut: string;
+  dateFin: string;
+  ouvertes: 'all' | 'open' | 'closed';
+}
+
+export function emptyProspectionFilters(): ProspectionFilterBarState {
+  return { search: '', etape: [], origine: [], commercial: [], trancheId: [], dateDebut: '', dateFin: '', ouvertes: 'open' };
+}
+
 export function standingClass(standing: string): string {
   const s = (standing || '').toLowerCase();
   if (s.includes('très haut')) return 'bg-[var(--brand-bg)] text-[var(--brand)]';

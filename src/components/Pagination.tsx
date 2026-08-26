@@ -1,9 +1,24 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
+import { cn } from '../lib/utils';
 
 // Shared pager for every paginated list view — the API's PageDto is
 // 0-indexed (page/size/totalElements/totalPages), this renders it as a
-// 1-indexed "Page X sur Y" control with Précédent/Suivant.
+// numbered "1 2 3 … N" control (1-indexed for display) plus
+// Précédent/Suivant, always keeping the first, last and current ±1 pages
+// visible and collapsing the rest behind "…".
+function pageWindow(current: number, total: number): (number | 'ellipsis')[] {
+  const items = new Set<number>([0, total - 1, current, current - 1, current + 1]);
+  const sorted = [...items].filter((p) => p >= 0 && p <= total - 1).sort((a, b) => a - b);
+
+  const out: (number | 'ellipsis')[] = [];
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) out.push('ellipsis');
+    out.push(p);
+  });
+  return out;
+}
+
 export default function Pagination({
   page,
   totalPages,
@@ -22,28 +37,50 @@ export default function Pagination({
       <div className="text-[11.5px] text-muted-foreground">
         Page {page + 1} sur {totalPages} · {totalElements} résultat{totalElements > 1 ? 's' : ''}
       </div>
-      <div className="flex items-center gap-1.5">
+      <nav aria-label="Pagination" className="flex items-center gap-1">
         <Button
           type="button"
           variant="outline"
-          size="sm"
-          className="h-6.5 px-2 text-[12px]"
+          size="icon-sm"
+          className="h-6.5 w-6.5"
           disabled={page <= 0}
+          aria-label="Page précédente"
           onClick={() => onPageChange(page - 1)}
         >
-          <ChevronLeft data-icon="inline-start" /> Précédent
+          <ChevronLeft />
         </Button>
+        {pageWindow(page, totalPages).map((p, i) =>
+          p === 'ellipsis' ? (
+            <span key={`e${i}`} className="px-1 text-[12px] text-muted-foreground">
+              …
+            </span>
+          ) : (
+            <Button
+              key={p}
+              type="button"
+              variant={p === page ? 'default' : 'outline'}
+              size="icon-sm"
+              className={cn('h-6.5 w-6.5 text-[12px] tabular-nums', p === page && 'pointer-events-none')}
+              aria-label={`Page ${p + 1}`}
+              aria-current={p === page ? 'page' : undefined}
+              onClick={() => onPageChange(p)}
+            >
+              {p + 1}
+            </Button>
+          ),
+        )}
         <Button
           type="button"
           variant="outline"
-          size="sm"
-          className="h-6.5 px-2 text-[12px]"
+          size="icon-sm"
+          className="h-6.5 w-6.5"
           disabled={page >= totalPages - 1}
+          aria-label="Page suivante"
           onClick={() => onPageChange(page + 1)}
         >
-          Suivant <ChevronRight data-icon="inline-end" />
+          <ChevronRight />
         </Button>
-      </div>
+      </nav>
     </div>
   );
 }

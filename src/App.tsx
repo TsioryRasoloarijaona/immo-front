@@ -1,30 +1,43 @@
+import { lazy, Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import { ConfirmProvider } from './components/ConfirmModal';
 import { PreviewProvider } from './components/PreviewProvider';
+import { LoadingState } from './components/ui';
 import { AppDataProvider } from './lib/appData';
 import { AuthProvider, useAuth } from './lib/auth';
 import Login from './pages/auth/Login';
 import ChangePasswordGate from './pages/auth/ChangePasswordGate';
 import CompleteProfileGate from './pages/auth/CompleteProfileGate';
-import Dashboard from './pages/Dashboard';
-import Calendrier from './pages/calendrier/Calendrier';
-import Hotline from './pages/hotline/Hotline';
-import ProspectionsList from './pages/prospections/ProspectionsList';
-import ProspectionDetail from './pages/prospections/ProspectionDetail';
-import ProspectsList from './pages/prospects/ProspectsList';
-import ProspectDetail from './pages/prospects/ProspectDetail';
-import ClientsList from './pages/clients/ClientsList';
-import NewDossier from './pages/dossiers/NewDossier';
-import DossiersList from './pages/dossiers/DossiersList';
-import DossierDetail from './pages/dossiers/DossierDetail';
-import ProjetsList from './pages/projets/ProjetsList';
-import ProjetDetail from './pages/projets/ProjetDetail';
-import TranchesList from './pages/tranches/TranchesList';
-import TrancheDetail from './pages/tranches/TrancheDetail';
-import ArticleDetail from './pages/articles/ArticleDetail';
-import ComingSoon from './pages/ComingSoon';
-import NotFound from './pages/NotFound';
+
+// Every routed page is code-split behind React.lazy — none of them are
+// needed for the first paint (auth gates above render before any route
+// does), and together they were the bulk of the single ~720 kB bundle Vite
+// warned about. Splitting per-route means a session only ever downloads the
+// pages it actually visits, and repeat visits hit the browser cache per
+// chunk instead of invalidating one monolithic bundle on every deploy.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Profil = lazy(() => import('./pages/profil/Profil'));
+const NouvelUtilisateur = lazy(() => import('./pages/utilisateurs/NouvelUtilisateur'));
+const ReinitialiserMotDePasse = lazy(() => import('./pages/utilisateurs/ReinitialiserMotDePasse'));
+const Calendrier = lazy(() => import('./pages/calendrier/Calendrier'));
+const Hotline = lazy(() => import('./pages/hotline/Hotline'));
+const ProspectionsList = lazy(() => import('./pages/prospections/ProspectionsList'));
+const PreProspectionsList = lazy(() => import('./pages/prospections/PreProspectionsList'));
+const ProspectionDetail = lazy(() => import('./pages/prospections/ProspectionDetail'));
+const ProspectsList = lazy(() => import('./pages/prospects/ProspectsList'));
+const ProspectDetail = lazy(() => import('./pages/prospects/ProspectDetail'));
+const ClientsList = lazy(() => import('./pages/clients/ClientsList'));
+const NewDossier = lazy(() => import('./pages/dossiers/NewDossier'));
+const DossiersList = lazy(() => import('./pages/dossiers/DossiersList'));
+const DossierDetail = lazy(() => import('./pages/dossiers/DossierDetail'));
+const ProjetsList = lazy(() => import('./pages/projets/ProjetsList'));
+const ProjetDetail = lazy(() => import('./pages/projets/ProjetDetail'));
+const TranchesList = lazy(() => import('./pages/tranches/TranchesList'));
+const TrancheDetail = lazy(() => import('./pages/tranches/TrancheDetail'));
+const ArticleDetail = lazy(() => import('./pages/articles/ArticleDetail'));
+const ComingSoon = lazy(() => import('./pages/ComingSoon'));
+const NotFound = lazy(() => import('./pages/NotFound'));
 
 // The routed app shell — only ever mounted once a session exists and both
 // onboarding gates (mustChangePassword / profileCompleted) have cleared, so
@@ -37,26 +50,32 @@ function AuthenticatedApp() {
       <ConfirmProvider>
         <PreviewProvider>
           <Layout>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/hotline" element={<Hotline />} />
-              <Route path="/calendrier" element={<Calendrier />} />
-              <Route path="/prospections" element={<ProspectionsList />} />
-              <Route path="/prospections/:id" element={<ProspectionDetail />} />
-              <Route path="/prospections/:id/nouveau-dossier" element={<NewDossier />} />
-              <Route path="/prospects" element={<ProspectsList />} />
-              <Route path="/prospects/:id" element={<ProspectDetail />} />
-              <Route path="/clients" element={<ClientsList />} />
-              <Route path="/dossiers" element={<DossiersList />} />
-              <Route path="/dossiers/:id" element={<DossierDetail />} />
-              <Route path="/projets" element={<ProjetsList />} />
-              <Route path="/projets/:id" element={<ProjetDetail />} />
-              <Route path="/tranches" element={<TranchesList />} />
-              <Route path="/tranches/:id" element={<TrancheDetail />} />
-              <Route path="/articles/:id" element={<ArticleDetail />} />
-              <Route path="/bientot/:module" element={<ComingSoon />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <Suspense fallback={<LoadingState />}>
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/profil" element={<Profil />} />
+                <Route path="/utilisateurs/nouveau" element={<NouvelUtilisateur />} />
+                <Route path="/utilisateurs/reinitialiser-mot-de-passe" element={<ReinitialiserMotDePasse />} />
+                <Route path="/hotline" element={<Hotline />} />
+                <Route path="/calendrier" element={<Calendrier />} />
+                <Route path="/prospections" element={<ProspectionsList />} />
+                <Route path="/pre-prospections" element={<PreProspectionsList />} />
+                <Route path="/prospections/:id" element={<ProspectionDetail />} />
+                <Route path="/prospections/:id/nouveau-dossier" element={<NewDossier />} />
+                <Route path="/prospects" element={<ProspectsList />} />
+                <Route path="/prospects/:id" element={<ProspectDetail />} />
+                <Route path="/clients" element={<ClientsList />} />
+                <Route path="/dossiers" element={<DossiersList />} />
+                <Route path="/dossiers/:id" element={<DossierDetail />} />
+                <Route path="/projets" element={<ProjetsList />} />
+                <Route path="/projets/:id" element={<ProjetDetail />} />
+                <Route path="/tranches" element={<TranchesList />} />
+                <Route path="/tranches/:id" element={<TrancheDetail />} />
+                <Route path="/articles/:id" element={<ArticleDetail />} />
+                <Route path="/bientot/:module" element={<ComingSoon />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
           </Layout>
         </PreviewProvider>
       </ConfirmProvider>

@@ -1,8 +1,10 @@
 /* ===========================================================================
    Ayad Développement — design tokens & global styles
-   Accent is the brand purple sampled from /public/brand (icon-color.png).
-   Visual references: Linear / Stripe Dashboard / Attio — generous whitespace,
-   muted neutral palette, one accent color, status as color-coded pills.
+   Simple color space: one accent sampled straight from the brand mark
+   (public/LOGO - Copie/icon-color.png, #5d396e) on plain neutral grays —
+   no invented second/third brand hue. Dense, information-forward sales CRM
+   layout (tight spacing/radius) so more of the pipeline is visible without
+   scrolling.
    =========================================================================== */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -26,7 +28,9 @@
   --surface-hover: #fafafa;
   --border-strong: #d7d6dd;
 
-  /* Brand purple sampled from the Ayad Développement mark (icon-color.png, #5d396e). */
+  /* Brand purple sampled directly from the logo mark
+     (public/LOGO - Copie/icon-color.png, #5d396e) — the app's one accent
+     color; everything else stays plain neutral gray. */
   --brand: #5d396e;
   --brand-hover: #4a2d58;
   --brand-bg: rgba(93, 57, 110, 0.09);
@@ -62,7 +66,7 @@
   --mono: ui-monospace, 'SF Mono', Consolas, monospace;
 
   color-scheme: light;
-  font: 14.5px/1.5 var(--sans);
+  font: 13.5px/1.45 var(--sans);
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -95,12 +99,14 @@
   --border: #e6e5ea;
   --input: #d7d6dd;
   --ring: var(--brand);
+  /* Simple/monochrome — one hue (the brand purple) at descending
+     lightness, not a rainbow of unrelated chart colors. */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.875rem;
+  --radius: 0.5rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #55535e;
   --sidebar-primary: var(--brand);
@@ -253,8 +259,8 @@ table {
 }
 
 .page {
-  padding: 18px 28px 28px;
-  max-width: 1240px;
+  padding: 14px 24px 24px;
+  max-width: 1680px;
   width: 100%;
   margin: 0 auto;
   flex: 1;

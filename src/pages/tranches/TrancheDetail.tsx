@@ -233,8 +233,8 @@ export default function TrancheDetail() {
                     >
                       <TableCell className="font-medium text-foreground">{a.code}</TableCell>
                       <TableCell className="text-muted-foreground">{a.description || '—'}</TableCell>
-                      <TableCell className="text-muted-foreground">{a.type}</TableCell>
-                      <TableCell className="text-muted-foreground">{a.categorie}</TableCell>
+                      <TableCell className="text-muted-foreground">{a.typeLibelle}</TableCell>
+                      <TableCell className="text-muted-foreground">{a.categorieLibelle}</TableCell>
                       <TableCell className="text-right tabular-nums">{a.area ? `${a.area} m²` : '—'}</TableCell>
                       <TableCell className="text-right tabular-nums">{a.salePrice ? formatCurrency(a.salePrice) : '—'}</TableCell>
                       <TableCell>

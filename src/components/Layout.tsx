@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Building2, Calendar, Contact, Folder, LayoutDashboard, LayoutGrid, LogOut, Phone, UserCheck, Users } from 'lucide-react';
+import { Building2, Calendar, Contact, Folder, KeyRound, LayoutDashboard, LayoutGrid, LogOut, Phone, UserCheck, UserPlus, Users } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -23,7 +23,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const activeModule = moduleForPath(location.pathname);
   const { user, logout } = useAuth();
-  const activeSoonModule = activeModule && activeModule !== 'vente' && activeModule !== 'patrimoine'
+  const isAdmin = user?.roles?.includes('Administrateur') ?? false;
+  const activeSoonModule = activeModule && activeModule !== 'vente' && activeModule !== 'patrimoine' && activeModule !== 'administration'
     ? APP_MODULES.find((m) => m.slug === activeModule)
     : undefined;
 
@@ -89,6 +90,12 @@ export default function Layout({ children }: { children: ReactNode }) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
+                  <SidebarMenuButton render={<NavLink to="/pre-prospections" />} isActive={location.pathname.startsWith('/pre-prospections')} tooltip="Pré-prospections">
+                    <UserPlus />
+                    Pré-prospections
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
                   <SidebarMenuButton render={<NavLink to="/prospects" />} isActive={location.pathname.startsWith('/prospects')} tooltip="Prospects">
                     <Contact />
                     Prospects
@@ -138,14 +145,55 @@ export default function Layout({ children }: { children: ReactNode }) {
               </p>
             </SidebarGroup>
           )}
+
+          {activeModule === 'administration' && !isAdmin && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Administration</SidebarGroupLabel>
+              <p className="px-2 text-xs leading-relaxed text-muted-foreground group-data-[collapsible=icon]:hidden">
+                Ce module est réservé aux comptes ayant le rôle Administrateur.
+              </p>
+            </SidebarGroup>
+          )}
+
+          {activeModule === 'administration' && isAdmin && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Administration</SidebarGroupLabel>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/utilisateurs/nouveau" />}
+                    isActive={location.pathname.startsWith('/utilisateurs/nouveau')}
+                    tooltip="Nouvel utilisateur"
+                  >
+                    <UserPlus />
+                    Nouvel utilisateur
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/utilisateurs/reinitialiser-mot-de-passe" />}
+                    isActive={location.pathname.startsWith('/utilisateurs/reinitialiser-mot-de-passe')}
+                    tooltip="Réinitialiser un mot de passe"
+                  >
+                    <KeyRound />
+                    Réinitialiser un mot de passe
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+          )}
         </SidebarContent>
 
         <SidebarFooter>
           <div className="flex items-center gap-2 border-t border-sidebar-border px-2 pt-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-            <div className="flex min-w-0 flex-1 flex-col leading-tight group-data-[collapsible=icon]:hidden">
-              <span className="truncate text-[13px] font-medium text-foreground">{user?.description || user?.username}</span>
+            <Link
+              to="/profil"
+              className="flex min-w-0 flex-1 flex-col leading-tight no-underline group-data-[collapsible=icon]:hidden"
+              title="Mon profil"
+            >
+              <span className="truncate text-[13px] font-medium text-foreground hover:text-primary">{user?.description || user?.username}</span>
               <span className="truncate text-xs text-muted-foreground">{user?.roles?.join(', ') || user?.username}</span>
-            </div>
+            </Link>
             <Button
               type="button"
               variant="ghost"
