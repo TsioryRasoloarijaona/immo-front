@@ -660,13 +660,67 @@ export interface CreerEcheanceRequest {
 
 export type ModifierEcheanceRequest = CreerEcheanceRequest;
 
+/** Une ligne de GET .../echeancier/{echeanceId}/reglements — détail complet
+ * d'un versement (contrepartie du seul total montantRegle/reste renvoyé par
+ * GET .../echeancier). `payeurId`/`payeurNom` peut différer de l'acquéreur
+ * principal du dossier (un tiers peut régler pour le compte du client). */
 export interface ReglementDto {
   id: UUID;
   echeanceId?: UUID;
+  /** Référence du document (ex : n° de chèque), pas d'équivalent en saisie. */
+  reference?: string;
   dateDocument?: string | null;
   dateReglement?: string | null;
   montant?: number;
-  type?: string;
+  typeId?: UUID;
+  typeCode?: string;
+  typeLibelle?: string;
+  /** Renseigné seulement si le type de règlement le requiert (voir
+   * `TypeReglementDto.banqueObligatoire`). */
+  banqueId?: UUID;
+  banqueNom?: string;
+  payeurId?: UUID;
+  payeurNom?: string;
+  notes?: string;
+}
+
+export type EncaissementEtat = 'IN_WORK' | 'POINTED' | 'CANCELED';
+
+/** Une ligne de GET /api/encaissements — catalogue transverse des
+ * règlements de Dossiers de vente (Vente > Encaissements côté legacy),
+ * tous dossiers/échéances confondus. `montantBrutRestant` (part non encore
+ * affectée à une échéance) et `montantNet` (après retenue source/timbre)
+ * sont calculés côté serveur, jamais stockés. */
+export interface EncaissementDto {
+  id: UUID;
+  reference?: string;
+  /** StlSettlement.Status — IN_WORK/POINTED/CANCELED confirmés sur données
+   * réelles ; l'écran legacy propose aussi Impayé(e)/Perdu(e), aucune ligne
+   * réelle ne les porte à ce jour (voir instructions/from_front.md). */
+  etat?: string;
+  dossierId?: UUID;
+  dossierCode?: string;
+  dateDocument?: string | null;
+  dateEcheance?: string | null;
+  dateReglement?: string | null;
+  tierId?: UUID;
+  tierNom?: string;
+  montantBrut?: number;
+  montantBrutRestant?: number;
+  montantNet?: number;
+  comptabilise?: boolean;
+  typeId?: UUID;
+  typeCode?: string;
+  typeLibelle?: string;
+  entiteId?: UUID;
+  entiteCode?: string;
+  entiteLibelle?: string;
+  compteId?: UUID;
+  compteCode?: string;
+  depotId?: UUID;
+  depotCode?: string;
+  banqueId?: UUID;
+  banqueNom?: string;
   notes?: string;
 }
 
@@ -781,6 +835,16 @@ export interface ArticleListItemDto {
   /** True when this row is itself a sous-article (StkItem.ParentId set). */
   sousArticle?: boolean;
   lotParentId?: UUID;
+  /** Reverse Article→Dossier link (null when not reserved/sold —
+   * StkItem.ComFolderId absent). `dossierStatut` carries the same raw
+   * value as DossierListItemDto/DossierDetailDto.statut (StrStatus.Code),
+   * run it through canonicalStatusLabel/toneForStatus like everywhere
+   * else. Powers ArticlesList.tsx's État/N° Dossier/Client columns. */
+  dossierId?: UUID;
+  dossierCode?: string;
+  dossierStatut?: string;
+  clientId?: UUID;
+  clientNom?: string;
 }
 
 export interface ArticleDetailDto {
@@ -809,6 +873,14 @@ export interface ArticleDetailDto {
   typeId?: UUID;
   typeCode?: string;
   typeLibelle?: string;
+  /** Same reverse Article→Dossier link as ArticleListItemDto.
+   * ArticleDetail.tsx's "Dossier de vente" card fetches the full
+   * DossierDetailDto via getDossier(dossierId) when this is set. */
+  dossierId?: UUID;
+  dossierCode?: string;
+  dossierStatut?: string;
+  clientId?: UUID;
+  clientNom?: string;
 }
 
 export interface ProjetListItemDto {
@@ -906,6 +978,17 @@ export interface ReferentielItemDto {
   code?: string;
   description?: string;
   sorting?: number;
+}
+
+/** Une ligne de GET /api/referentiels/types-reglement — distinct de
+ * `modes-paiement` (StlSettlementType vs ComPaymentMethod, deux tables
+ * différentes malgré des noms proches). `banqueObligatoire` pilote
+ * l'affichage conditionnel du champ Banque dans "Ajouter un règlement". */
+export interface TypeReglementDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  banqueObligatoire?: boolean;
 }
 
 export interface VilleDto {

@@ -68,6 +68,11 @@ export const useCategoriesBien = makeCachedListHook(api.getCategoriesBien);
 export const useCategoriesEcheance = makeCachedListHook(api.getCategoriesEcheance);
 export const useActionsCommerciales = makeCachedListHook(api.getActionsCommerciales);
 export const useModesPaiement = makeCachedListHook(api.getModesPaiement);
+export const useTypesReglement = makeCachedListHook(api.getTypesReglement);
+export const useBanques = makeCachedListHook(api.getBanques);
+export const useEntitesReferentiel = makeCachedListHook(api.getEntitesReferentiel);
+export const useComptesReferentiel = makeCachedListHook(api.getComptesReferentiel);
+export const useDepotsReferentiel = makeCachedListHook(api.getDepotsReferentiel);
 export const useResultatsInteraction = makeCachedListHook(api.getResultatsInteraction);
 
 /** {id, code, description} → Select `items` shape, description preferred. */

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Building2, Calendar, Contact, FileText, Folder, Home, KeyRound, LayoutDashboard, LayoutGrid, LogOut, Phone, UserCheck, UserCircle, UserPlus, Users } from 'lucide-react';
+import { Building2, Calendar, Contact, FileText, Folder, Home, KeyRound, LayoutDashboard, LayoutGrid, LogOut, Phone, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -139,6 +139,12 @@ export default function Layout({ children }: { children: ReactNode }) {
                   <SidebarMenuButton render={<NavLink to="/offres" />} isActive={location.pathname.startsWith('/offres')} tooltip="Offres">
                     <FileText style={{ color: 'var(--sec-offre)' }} />
                     Offres
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton render={<NavLink to="/encaissements" />} isActive={location.pathname.startsWith('/encaissements')} tooltip="Encaissements">
+                    <Wallet style={{ color: 'var(--sec-dossier)' }} />
+                    Encaissements
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

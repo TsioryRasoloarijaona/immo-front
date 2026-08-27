@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Plus, UserPlus, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, UserPlus, Users, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
@@ -378,6 +378,12 @@ export default function ProspectionDetail() {
             instead of blending into a stack of equally-weighted buttons. */}
         <div className="flex shrink-0 flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <ProspectionDocumentButtons prospectionId={p.id} hasProspect={!!p.prospectId} />
+          {/* Static — pas encore relié à un vrai standard VOIP, juste
+              l'affordance visuelle (voir instructions/from_front.md pour la
+              demande d'intégration si/quand elle est priorisée). */}
+          <Button variant="outline" size="sm" className="h-8 w-full sm:w-auto" onClick={() => showToast('Intégration VOIP à venir.')}>
+            <Phone data-icon="inline-start" /> Appeler
+          </Button>
           <Button variant="outline" size="sm" className="h-8 w-full sm:w-auto" onClick={() => setShowInteractionForm(true)}>
             Ajouter une action
           </Button>

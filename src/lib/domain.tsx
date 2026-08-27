@@ -40,6 +40,31 @@ export function etapeBadgeTone(etape: string | undefined, fermee?: boolean): Bad
   return 'success';
 }
 
+// StlSettlement.Status confirmed on real /api/encaissements data (see
+// instructions/from_front.md, backend repo) — IN_WORK/POINTED/CANCELED.
+// The legacy screen also offers Impayé(e)/Perdu(e) as filter checkboxes,
+// but no real row carries either code today, so no label/tone is guessed
+// for them here; unmapped codes fall back to the raw string, neutral tone.
+export const ENCAISSEMENT_ETAT_LABELS: Record<string, string> = {
+  IN_WORK: 'En cours',
+  POINTED: 'Pointé',
+  CANCELED: 'Annulé',
+};
+
+export function encaissementEtatLabel(etat: string | undefined): string {
+  if (!etat) return '—';
+  return ENCAISSEMENT_ETAT_LABELS[etat.toUpperCase()] ?? etat;
+}
+
+export function encaissementEtatTone(etat: string | undefined): BadgeTone {
+  switch (etat?.toUpperCase()) {
+    case 'POINTED': return 'success';
+    case 'IN_WORK': return 'info';
+    case 'CANCELED': return 'neutral';
+    default: return 'neutral';
+  }
+}
+
 // Shared filter-bar state for ProspectionsList/PreProspectionsList — kept
 // here rather than in the component file so ProspectionFilterBar.tsx only
 // exports the component (react-refresh requirement).

@@ -34,7 +34,8 @@ export function moduleForPath(pathname: string): string | null {
     pathname.startsWith('/prospects') ||
     pathname.startsWith('/clients') ||
     pathname.startsWith('/dossiers') ||
-    pathname.startsWith('/offres')
+    pathname.startsWith('/offres') ||
+    pathname.startsWith('/encaissements')
   ) {
     return 'vente';
   }

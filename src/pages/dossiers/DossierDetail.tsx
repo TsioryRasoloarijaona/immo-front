@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Coins, Download, Eye, FileText, Folder, Plus, TrendingUp, Upload, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Coins, Download, Eye, FileText, Folder, Minus, Phone, Plus, TrendingUp, Upload, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, StatCard } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
@@ -11,7 +11,7 @@ import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { referentielItems, useCategoriesEcheance } from '../../lib/referentiels';
+import { referentielItems, useBanques, useCategoriesEcheance, useTypesReglement } from '../../lib/referentiels';
 import { formatCurrency, formatDate, formatPercent, toApiDateTime, todayISO } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import { etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
@@ -24,6 +24,7 @@ import {
   getDossier,
   getMontantsDossier,
   getProspection,
+  listEcheanceReglements,
   listEcheances,
   downloadActeReservation,
   downloadFicheReservation,
@@ -40,7 +41,7 @@ import {
   type DossierPdfOnlyDocKind,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import type { CreerEcheanceRequest, CreerReglementRequest, PieceJointeDto } from '../../types';
+import type { CreerEcheanceRequest, CreerReglementRequest, EcheanceDto, PieceJointeDto } from '../../types';
 
 type DossierTab = 'apercu' | 'financier' | 'documents' | 'historique' | 'admin';
 
@@ -154,18 +155,18 @@ function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJ
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-[13px]">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5 text-[13px] first:pt-0 last:pb-0">
       <span className="flex min-w-0 items-center gap-2">
         <FileText className="size-4 shrink-0 text-muted-foreground" />
         <span className="truncate font-medium text-foreground">{filename}</span>
       </span>
       <span className="shrink-0 text-muted-foreground">{formatDate(piece.dateCreation)}</span>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1">
         {error && <span className="text-[11.5px] text-destructive">{error}</span>}
-        <Button type="button" variant="outline" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
+        <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
           <Eye data-icon="inline-start" /> {busyAction === 'view' ? 'Ouverture…' : 'Voir'}
         </Button>
-        <Button type="button" variant="outline" size="sm" disabled={!!busyAction} onClick={() => handle('download')}>
+        <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('download')}>
           <Download data-icon="inline-start" /> {busyAction === 'download' ? 'Téléchargement…' : 'Télécharger'}
         </Button>
       </div>
@@ -232,27 +233,27 @@ function GeneratedDocumentRow({ dossierId, code, kind }: { dossierId: string; co
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-[13px]">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5 text-[13px] first:pt-0 last:pb-0">
       <span className="flex min-w-0 items-center gap-2">
         <FileText className="size-4 shrink-0 text-muted-foreground" />
         <span className="truncate font-medium text-foreground">{title}</span>
       </span>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 items-center gap-1">
         {error && <span className="text-[11.5px] text-destructive">{error}</span>}
-        <Button type="button" variant="outline" size="sm" disabled={!!busy} onClick={() => handle('view')}>
+        <Button type="button" variant="ghost" size="sm" disabled={!!busy} onClick={() => handle('view')}>
           <Eye data-icon="inline-start" /> {busy === 'view' ? 'Ouverture…' : 'Voir'}
         </Button>
         {hasDocx ? (
           <>
-            <Button type="button" variant="outline" size="sm" disabled={!!busy} onClick={() => handle('pdf')}>
+            <Button type="button" variant="ghost" size="sm" disabled={!!busy} onClick={() => handle('pdf')}>
               <Download data-icon="inline-start" /> {busy === 'pdf' ? 'Téléchargement…' : 'PDF'}
             </Button>
-            <Button type="button" variant="outline" size="sm" disabled={!!busy} onClick={() => handle('docx')}>
+            <Button type="button" variant="ghost" size="sm" disabled={!!busy} onClick={() => handle('docx')}>
               <Download data-icon="inline-start" /> {busy === 'docx' ? 'Téléchargement…' : 'Word'}
             </Button>
           </>
         ) : (
-          <Button type="button" variant="outline" size="sm" disabled={!!busy} onClick={() => handle('pdf')}>
+          <Button type="button" variant="ghost" size="sm" disabled={!!busy} onClick={() => handle('pdf')}>
             <Download data-icon="inline-start" /> {busy === 'pdf' ? 'Téléchargement…' : 'Télécharger'}
           </Button>
         )}
@@ -337,12 +338,33 @@ function AddPieceJointeRow({ dossierId, onAdded }: { dossierId: string; onAdded:
   );
 }
 
+/** `typeId`/`banqueId` (CreerReglementRequest) resolve against
+ * `GET /api/referentiels/types-reglement`/`/banques` — distinct tables from
+ * `modes-paiement` (StlSettlementType vs ComPaymentMethod), confirmed live
+ * (see instructions/from_front.md, backend repo). Banque is only shown once
+ * a type with `banqueObligatoire` is picked, per `TypeReglementDto`. */
 function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (echeanceId: string, body: CreerReglementRequest) => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [montant, setMontant] = useState('');
   const [dateReglement, setDateReglement] = useState('');
-  const [typeId, setTypeId] = useState('');
+  const [typeId, setTypeId] = useState<string | null>(null);
+  const [banqueId, setBanqueId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const typesReglement = useTypesReglement();
+  const banques = useBanques();
+  const typesReglementItems = typesReglement.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  const banquesItems = referentielItems(banques.data);
+  const selectedType = typesReglement.data.find((t) => t.id === typeId);
+  const banqueRequired = selectedType?.banqueObligatoire ?? false;
+
+  function reset() {
+    setOpen(false);
+    setMontant('');
+    setDateReglement('');
+    setTypeId(null);
+    setBanqueId(null);
+  }
 
   if (!open) {
     return (
@@ -356,19 +378,53 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
     <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/30 p-2.5">
       <Input type="number" placeholder="Montant" className="w-27.5" value={montant} onChange={(e) => setMontant(e.target.value)} />
       <Input type="date" className="w-35" value={dateReglement} onChange={(e) => setDateReglement(e.target.value)} />
-      <Input placeholder="UUID type de règlement" className="w-42.5" value={typeId} onChange={(e) => setTypeId(e.target.value)} />
+      <Select
+        items={typesReglementItems}
+        value={typeId}
+        onValueChange={(v) => {
+          setTypeId(v as string | null);
+          setBanqueId(null);
+        }}
+      >
+        <SelectTrigger size="sm" className="w-42.5">
+          <SelectValue placeholder={typesReglement.loading ? 'Chargement…' : 'Type de règlement'} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {typesReglementItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+      {banqueRequired && (
+        <Select items={banquesItems} value={banqueId} onValueChange={(v) => setBanqueId(v as string | null)}>
+          <SelectTrigger size="sm" className="w-38">
+            <SelectValue placeholder={banques.loading ? 'Chargement…' : 'Banque'} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {banquesItems.map((item) => (
+                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      )}
       <Button
         type="button"
         size="sm"
-        disabled={busy || !montant}
+        disabled={busy || !montant || (banqueRequired && !banqueId)}
         onClick={async () => {
           setBusy(true);
           try {
-            await onAdd(echeanceId, { montant: Number(montant) || 0, dateReglement: toApiDateTime(dateReglement) ?? null, typeId: typeId || undefined });
-            setOpen(false);
-            setMontant('');
-            setDateReglement('');
-            setTypeId('');
+            await onAdd(echeanceId, {
+              montant: Number(montant) || 0,
+              dateReglement: toApiDateTime(dateReglement) ?? null,
+              typeId: typeId || undefined,
+              banqueId: banqueRequired ? banqueId || undefined : undefined,
+            });
+            reset();
           } finally {
             setBusy(false);
           }
@@ -376,7 +432,91 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
       >
         Ok
       </Button>
-      <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>Annuler</Button>
+      <Button type="button" size="sm" variant="ghost" onClick={reset}>Annuler</Button>
+    </div>
+  );
+}
+
+/** `GET .../echeancier/{echeanceId}/reglements` — détail ligne par ligne
+ * derrière le seul total `montantRegle`/`reste` de l'échéance (nouveau,
+ * voir instructions/from_front.md). Collapsed by default, même convention
+ * que `AddReglementRow`/`AddEcheanceRow`/`AddPieceJointeRow` mais pour la
+ * consultation plutôt que la saisie. `refreshKey` force un refetch quand un
+ * nouveau règlement vient d'être ajouté pendant que la liste est ouverte. */
+function EcheanceReglementsHistory({ dossierId, echeanceId, refreshKey }: { dossierId: string; echeanceId: string; refreshKey: number }) {
+  const [open, setOpen] = useState(false);
+  const { data, loading, error } = useApi(
+    () => (open ? listEcheanceReglements(dossierId, echeanceId) : Promise.resolve(null)),
+    [open, dossierId, echeanceId, refreshKey],
+  );
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 text-[11.5px] font-medium text-muted-foreground hover:text-foreground"
+      >
+        {open ? <Minus className="size-3" /> : <Plus className="size-3" />}
+        {open ? 'Masquer les règlements' : 'Détail des règlements'}
+      </button>
+      {open && (
+        <div className="mt-1.5 flex flex-col gap-1">
+          {loading && <span className="text-[12px] text-muted-foreground">Chargement…</span>}
+          {error && <span className="text-[12px] text-destructive">{error}</span>}
+          {data && data.length === 0 && <span className="text-[12px] text-muted-foreground">Aucun règlement enregistré.</span>}
+          {data && data.map((r) => (
+            <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded border border-border/60 bg-background px-2.5 py-1.5 text-[12px]">
+              <span className="font-medium text-foreground">{r.typeLibelle || '—'}</span>
+              {r.banqueNom && <span className="text-muted-foreground">{r.banqueNom}</span>}
+              {r.reference && <span className="text-muted-foreground">Réf. {r.reference}</span>}
+              {r.payeurNom && <span className="text-muted-foreground">Payeur : {r.payeurNom}</span>}
+              <span className="text-muted-foreground">{formatDate(r.dateReglement)}</span>
+              {r.notes && <span className="text-muted-foreground italic">{r.notes}</span>}
+              <span className="ml-auto font-medium tabular-nums text-foreground">{formatCurrency(r.montant)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** One line of "Schéma de financement" — extracted from an inline `.map()`
+ * (was previously stateless) so `reglementsVersion` can live per-row and
+ * force `EcheanceReglementsHistory` to refetch right after a new règlement
+ * is added through `AddReglementRow`, without the whole card re-rendering. */
+function EcheanceRow({
+  dossierId,
+  echeance,
+  onReglementAdded,
+}: {
+  dossierId: string;
+  echeance: EcheanceDto;
+  onReglementAdded: (echeanceId: string, body: CreerReglementRequest) => Promise<void>;
+}) {
+  const [reglementsVersion, setReglementsVersion] = useState(0);
+
+  return (
+    <div className="rounded-md border border-border px-3 py-2 text-[13px]">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span className="font-medium text-foreground">{echeance.categorie || echeance.description || 'Échéance'}</span>
+        <span className="text-muted-foreground">{formatDate(echeance.dateEcheance)}</span>
+        <span className="text-muted-foreground">
+          Réglé {formatCurrency(echeance.montantRegle)} · Reste {formatCurrency(echeance.reste)}
+        </span>
+        <span className="font-medium tabular-nums text-foreground">{formatCurrency(echeance.montant)}</span>
+      </div>
+      <div className="mt-1.5 flex flex-col gap-1.5">
+        <EcheanceReglementsHistory dossierId={dossierId} echeanceId={echeance.id} refreshKey={reglementsVersion} />
+        <AddReglementRow
+          echeanceId={echeance.id}
+          onAdd={async (echeanceId, body) => {
+            await onReglementAdded(echeanceId, body);
+            setReglementsVersion((v) => v + 1);
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -465,6 +605,12 @@ export default function DossierDetail() {
             Dossier {d.code} · Créé le {formatDate(d.dateDocument)} · Commercial : {d.commercialNom || '—'}
           </div>
         </div>
+        {/* Static — pas encore relié à un vrai standard VOIP, juste
+            l'affordance visuelle (voir instructions/from_front.md pour la
+            demande d'intégration si/quand elle est priorisée). */}
+        <Button variant="outline" size="sm" className="shrink-0" onClick={() => showToast('Intégration VOIP à venir.')}>
+          <Phone data-icon="inline-start" /> Appeler
+        </Button>
       </div>
 
       <div className="mb-3 grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-3.5">
@@ -677,26 +823,16 @@ export default function DossierDetail() {
               {echeances.data && echeances.data.content.length > 0 && (
                 <div className="flex flex-col gap-2">
                   {echeances.data.content.map((l) => (
-                    <div key={l.id} className="rounded-md border border-border px-3 py-2 text-[13px]">
-                      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                        <span className="font-medium text-foreground">{l.categorie || l.description || 'Échéance'}</span>
-                        <span className="text-muted-foreground">{formatDate(l.dateEcheance)}</span>
-                        <span className="text-muted-foreground">
-                          Réglé {formatCurrency(l.montantRegle)} · Reste {formatCurrency(l.reste)}
-                        </span>
-                        <span className="font-medium tabular-nums text-foreground">{formatCurrency(l.montant)}</span>
-                      </div>
-                      <div className="mt-1.5">
-                        <AddReglementRow
-                          echeanceId={l.id}
-                          onAdd={async (echeanceId, body) => {
-                            await addReglement(d.id, echeanceId, body);
-                            await echeances.refetch();
-                            await montants.refetch();
-                          }}
-                        />
-                      </div>
-                    </div>
+                    <EcheanceRow
+                      key={l.id}
+                      dossierId={d.id}
+                      echeance={l}
+                      onReglementAdded={async (echeanceId, body) => {
+                        await addReglement(d.id, echeanceId, body);
+                        await echeances.refetch();
+                        await montants.refetch();
+                      }}
+                    />
                   ))}
                 </div>
               )}
@@ -715,7 +851,7 @@ export default function DossierDetail() {
         <TabsContent value="documents">
           <div className="flex flex-col gap-3.5">
           <Card title={`Documents générés (${GENERATED_DOC_KINDS.length})`}>
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col divide-y divide-border">
               {GENERATED_DOC_KINDS.map((kind) => (
                 <GeneratedDocumentRow key={kind} dossierId={d.id} code={d.code} kind={kind} />
               ))}
@@ -728,7 +864,7 @@ export default function DossierDetail() {
               <EmptyState title="Aucune pièce jointe" message="Aucun document n'a été attaché à ce dossier." />
             )}
             {pieces.data && pieces.data.length > 0 && (
-              <div className="mb-2.5 flex flex-col gap-2">
+              <div className="mb-1 flex flex-col divide-y divide-border">
                 {pieces.data.map((p) => (
                   <PieceJointeRow key={p.id} dossierId={d.id} piece={p} />
                 ))}

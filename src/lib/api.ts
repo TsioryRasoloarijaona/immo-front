@@ -35,6 +35,7 @@ import type {
   DossierDetailDto,
   DossierListItemDto,
   EcheanceDto,
+  EncaissementDto,
   EtapeSuivanteDto,
   EvenementCalendrierDto,
   HistoriqueDto,
@@ -74,6 +75,7 @@ import type {
   TransformerProspectionRequest,
   TrancheDetailDto,
   TrancheListItemDto,
+  TypeReglementDto,
   UtilisateurCourantDto,
   UtilisateurListItemDto,
   UUID,
@@ -95,8 +97,21 @@ function withPageable(
   };
 }
 
+// `VITE_API_BASE_URL` (if set — see .env) always wins, for pointing at a
+// specific/remote backend. Otherwise, fall back to the *same host the page
+// was loaded from*, port 8080 — not a hardcoded 'localhost'. A hardcoded
+// localhost default works fine when both frontend and backend run on the
+// developer's own machine, but breaks for anyone else on the network: a
+// phone/laptop that loads the frontend from the dev machine's LAN IP
+// (e.g. http://192.168.1.50:5173) would still send API calls to its own
+// "localhost:8080", which has no backend running on it at all — this is
+// the actual cause behind "backend unreachable from another device."
+// `window.location.hostname` is whatever host the browser used to reach
+// this page, so it's correct in every case: localhost, 127.0.0.1, or a LAN
+// IP — no per-device/per-network configuration needed.
 export const API_BASE_URL: string =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') || 'http://localhost:8080';
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
+  `${window.location.protocol}//${window.location.hostname}:8080`;
 
 export class ApiError extends Error {
   status: number;
@@ -862,12 +877,79 @@ export function addReglement(dossierId: UUID, echeanceId: UUID, body: CreerRegle
   return request('POST', `/api/dossiers/${dossierId}/echeancier/${echeanceId}/reglements`, { body });
 }
 
+/** Historique complet des règlements d'une échéance (type/banque/payeur/
+ * référence par ligne) — contrepartie en lecture de `addReglement`, derrière
+ * le seul total `montantRegle`/`reste` que `listEcheances` renvoie. Pas
+ * paginé côté API (tableau simple). */
+export function listEcheanceReglements(dossierId: UUID, echeanceId: UUID): Promise<ReglementDto[]> {
+  return request('GET', `/api/dossiers/${dossierId}/echeancier/${echeanceId}/reglements`);
+}
+
+// ---------------------------------------------------------------------------
+// Encaissements — catalogue transverse des règlements de Dossiers de vente
+// (reprend l'écran legacy Vente > Encaissements Vente), tous dossiers
+// confondus. Distinct de listEcheanceReglements (scopé à une échéance).
+// ---------------------------------------------------------------------------
+
+export type EncaissementChampDate = 'DATE_PIECE' | 'DATE_ECHEANCE' | 'DATE_REGLEMENT';
+
+/** `GET /api/encaissements/{id}` — pas encore livré côté backend (demandé,
+ * voir instructions/from_front.md #3) ; câblé dès maintenant comme tout
+ * autre écran de détail de l'app (`getDossier`, `getProspection`…) plutôt
+ * que de faire naviguer `/encaissements/:id` sans vrai fetch. 404 tant que
+ * l'endpoint n'existe pas — EncaissementDetail.tsx affiche l'erreur telle
+ * quelle jusque-là. */
+export function getEncaissement(id: UUID): Promise<EncaissementDto> {
+  return request('GET', `/api/encaissements/${id}`);
+}
+
+export function listEncaissements(
+  params?: {
+    entiteId?: UUID[];
+    typeId?: UUID[];
+    /** IN_WORK/POINTED/CANCELED confirmés — voir EncaissementEtat. */
+    etat?: string[];
+    compteId?: UUID;
+    depotId?: UUID;
+    dossierId?: UUID;
+    tierId?: UUID;
+    reference?: string;
+    search?: string;
+    comptabilise?: boolean;
+    montantDe?: number;
+    montantA?: number;
+    /** Jalon sur lequel s'appliquent dateDebut/dateFin — ignoré si les deux
+     * sont absents. Défaut serveur : DATE_PIECE. */
+    champDate?: EncaissementChampDate;
+    dateDebut?: string;
+    dateFin?: string;
+  },
+  pageable?: Pageable,
+): Promise<PageDto<EncaissementDto>> {
+  return request('GET', '/api/encaissements', { query: withPageable(params, pageable) });
+}
+
+export const getEntitesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/entites');
+export const getComptesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/comptes');
+export const getDepotsReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/depots');
+
 // ---------------------------------------------------------------------------
 // Tranches / Projets / Articles
 // ---------------------------------------------------------------------------
 
 export function getTranche(id: UUID): Promise<TrancheDetailDto> {
   return request('GET', `/api/tranches/${id}`);
+}
+
+/** Catalogue transverse — toutes tranches confondues, restreint aux entités
+ * juridiques actives (ADMOD/GHRIZA) côté serveur. Contrairement à
+ * `listTrancheArticles`, `statut` absent renvoie DISPONIBLE **et** OCCUPE
+ * (vraie vue "tout le patrimoine"), pas juste DISPONIBLE. */
+export function listArticles(
+  params?: { search?: string; trancheId?: UUID[]; statut?: ArticleStatut; categorieId?: UUID[]; typeId?: UUID[] },
+  pageable?: Pageable,
+): Promise<PageDto<ArticleListItemDto>> {
+  return request('GET', '/api/articles', { query: withPageable(params, pageable) });
 }
 
 export function listTrancheArticles(
@@ -1013,6 +1095,12 @@ export const getCategoriesBien = (): Promise<ReferentielItemDto[]> => request('G
 export const getCategoriesEcheance = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/categories-echeance');
 export const getActionsCommerciales = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/actions-commerciales');
 export const getModesPaiement = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/modes-paiement');
+// Distinct de modes-paiement (StlSettlementType, pas ComPaymentMethod) —
+// alimente le Select `typeId` de "Ajouter un règlement" (AddReglementRow).
+export const getTypesReglement = (): Promise<TypeReglementDto[]> => request('GET', '/api/referentiels/types-reglement');
+// Alimente le Select `banqueId`, affiché seulement quand le type de
+// règlement choisi a banqueObligatoire === true.
+export const getBanques = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/banques');
 // Dropdown "Résultat" de la boîte de dialogue Action — chaque entrée indique
 // via necessiteDateRdv/alerteRecommandee comment adapter InteractionForm.
 export const getResultatsInteraction = (): Promise<ResultatInteractionDto[]> => request('GET', '/api/referentiels/resultats-interaction');
