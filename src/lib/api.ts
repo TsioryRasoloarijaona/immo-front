@@ -579,12 +579,14 @@ export function listPiecesJointes(dossierId: UUID): Promise<PieceJointeDto[]> {
  * error-message extraction as `performRequest` (Spring's ProblemDetail
  * `detail`/`title`), just inlined since this is the one non-JSON mutation
  * in the app. `description` is a free caption — absent = backend falls
- * back to the original filename. Clears the GET cache on success like
- * every other mutation, so the pièces-jointes list refetches fresh. */
-export async function uploadPieceJointe(dossierId: UUID, file: File, description?: string): Promise<PieceJointeDto> {
+ * back to the original filename. `typeId` (AdmAttachedFileType.PKey, see
+ * `getTypesPieceJointe`) is optional — absent = type non renseigné.
+ * Clears the GET cache on success like every other mutation, so the
+ * pièces-jointes list refetches fresh. */
+export async function uploadPieceJointe(dossierId: UUID, file: File, description?: string, typeId?: UUID): Promise<PieceJointeDto> {
   const form = new FormData();
   form.set('fichier', file);
-  const url = `${API_BASE_URL}/api/dossiers/${dossierId}/pieces-jointes${buildQuery({ description })}`;
+  const url = `${API_BASE_URL}/api/dossiers/${dossierId}/pieces-jointes${buildQuery({ description, typeId })}`;
   let res: Response;
   try {
     res = await fetch(url, { method: 'POST', body: form, credentials: 'include' });
@@ -1064,6 +1066,7 @@ export const getVocations = (): Promise<ReferentielItemDto[]> => request('GET', 
 export const getTypesResidence = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-residence');
 export const getTypesRelationContact = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-relation-contact');
 export const getTypesPieceIdentite = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-piece-identite');
+export const getTypesPieceJointe = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-piece-jointe');
 export const getTypesContactProspection = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-contact-prospection');
 export const getTypesBienReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-bien');
 export const getTitres = (): Promise<TitreDto[]> => request('GET', '/api/referentiels/titres');

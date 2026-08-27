@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Coins, Download, Eye, FileText, Folder, Minus, Phone, Plus, TrendingUp, Upload, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Coins, Download, Eye, FileDown, FileText, Folder, Minus, Phone, Plus, TrendingUp, Upload, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, StatCard } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
@@ -11,7 +11,7 @@ import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { referentielItems, useBanques, useCategoriesEcheance, useTypesReglement } from '../../lib/referentiels';
+import { referentielItems, useBanques, useCategoriesEcheance, useTypesPieceJointe, useTypesReglement } from '../../lib/referentiels';
 import { formatCurrency, formatDate, formatPercent, toApiDateTime, todayISO } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import { etapeBadgeTone, pieceJointeTypeTone, prospectionDisplayName } from '../../lib/domain';
@@ -216,56 +216,62 @@ const GENERATED_DOC_HANDLERS: Record<GeneratedDocKind, {
   },
 };
 
-/** One compact row per generated document — same row shape as
- * `PieceJointeRow` below (icon + name on the left, actions on the right),
- * so the 5 document kinds read as one scannable list instead of 5
- * same-shaped card shells stacked full-width (the previous layout forced a
- * scroll for what's fundamentally just a list of file generators). */
-function GeneratedDocumentRow({ dossierId, code, kind }: { dossierId: string; code?: string | null; kind: GeneratedDocKind }) {
+/** One compact chip per generated document — these 5 kinds aren't a saved
+ * list (nothing here persists, no count that grows), just a fixed set of
+ * on-demand document generators, so they shouldn't read as data rows at
+ * all. A wrapped row of small chips (icon + name + icon-only actions)
+ * takes a fraction of the vertical space the old full-width divide-y rows
+ * did, while still fitting the same "Documents générés" card. Errors go
+ * through the page-level toast (`onError`) rather than inline text, since
+ * a chip has no room for a message of its own. */
+function GeneratedDocumentChip({
+  dossierId,
+  code,
+  kind,
+  onError,
+}: {
+  dossierId: string;
+  code?: string | null;
+  kind: GeneratedDocKind;
+  onError: (message: string) => void;
+}) {
   const [busy, setBusy] = useState<'view' | 'pdf' | 'docx' | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const { title, hasDocx, view, download } = GENERATED_DOC_HANDLERS[kind];
   const filenameBase = code ? `${code}-${kind}` : kind;
 
   async function handle(action: 'view' | 'pdf' | 'docx') {
     setBusy(action);
-    setError(null);
     try {
       if (action === 'view') await view(dossierId, 'pdf');
       else await download(dossierId, `${filenameBase}.${action}`, action);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de l'opération.");
+      onError(err instanceof Error ? err.message : "Échec de l'opération.");
     } finally {
       setBusy(null);
     }
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5 text-[13px] first:pt-0 last:pb-0">
-      <span className="flex min-w-0 items-center gap-2">
-        <FileText className="size-4 shrink-0 text-muted-foreground" />
-        <span className="truncate font-medium text-foreground">{title}</span>
-      </span>
-      <div className="flex shrink-0 items-center gap-1">
-        {error && <span className="text-[11.5px] text-destructive">{error}</span>}
-        <Button type="button" variant="ghost" size="sm" disabled={!!busy} onClick={() => handle('view')}>
-          <Eye data-icon="inline-start" /> {busy === 'view' ? 'Ouverture…' : 'Voir'}
-        </Button>
-        {hasDocx ? (
-          <>
-            <Button type="button" variant="ghost" size="sm" disabled={!!busy} onClick={() => handle('pdf')}>
-              <Download data-icon="inline-start" /> {busy === 'pdf' ? 'Téléchargement…' : 'PDF'}
-            </Button>
-            <Button type="button" variant="ghost" size="sm" disabled={!!busy} onClick={() => handle('docx')}>
-              <Download data-icon="inline-start" /> {busy === 'docx' ? 'Téléchargement…' : 'Word'}
-            </Button>
-          </>
-        ) : (
-          <Button type="button" variant="ghost" size="sm" disabled={!!busy} onClick={() => handle('pdf')}>
-            <Download data-icon="inline-start" /> {busy === 'pdf' ? 'Téléchargement…' : 'Télécharger'}
+    <div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-muted/30 py-1 pr-1 pl-2.5 text-[12.5px]">
+      <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="mr-1 ml-1.5 font-medium text-foreground">{title}</span>
+      <Button type="button" variant="ghost" size="icon-xs" title="Voir" disabled={!!busy} onClick={() => handle('view')}>
+        <Eye />
+      </Button>
+      {hasDocx ? (
+        <>
+          <Button type="button" variant="ghost" size="icon-xs" title="Télécharger en PDF" disabled={!!busy} onClick={() => handle('pdf')}>
+            <Download />
           </Button>
-        )}
-      </div>
+          <Button type="button" variant="ghost" size="icon-xs" title="Télécharger en Word" disabled={!!busy} onClick={() => handle('docx')}>
+            <FileDown />
+          </Button>
+        </>
+      ) : (
+        <Button type="button" variant="ghost" size="icon-xs" title="Télécharger" disabled={!!busy} onClick={() => handle('pdf')}>
+          <Download />
+        </Button>
+      )}
     </div>
   );
 }
@@ -300,13 +306,17 @@ function AddPieceJointeRow({
 }) {
   const [file, setFile] = useState<File | null>(null);
   const [description, setDescription] = useState('');
+  const [typeId, setTypeId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const typesPieceJointe = useTypesPieceJointe();
+  const typesPieceJointeItems = referentielItems(typesPieceJointe.data);
 
   function reset() {
     onOpenChange(false);
     setFile(null);
     setDescription('');
+    setTypeId(null);
     setError(null);
   }
 
@@ -325,6 +335,18 @@ function AddPieceJointeRow({
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
+      <Select items={typesPieceJointeItems} value={typeId} onValueChange={(v) => setTypeId(v as string | null)}>
+        <SelectTrigger size="sm" className="w-45">
+          <SelectValue placeholder={typesPieceJointe.loading ? 'Chargement…' : 'Type (optionnel)'} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {typesPieceJointeItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
       {error && <span className="text-[11.5px] text-destructive">{error}</span>}
       <Button
         type="button"
@@ -335,7 +357,7 @@ function AddPieceJointeRow({
           setBusy(true);
           setError(null);
           try {
-            await uploadPieceJointe(dossierId, file, description.trim() || undefined);
+            await uploadPieceJointe(dossierId, file, description.trim() || undefined, typeId || undefined);
             onAdded();
             reset();
           } catch (err) {
@@ -865,10 +887,13 @@ export default function DossierDetail() {
 
         <TabsContent value="documents">
           <div className="flex flex-col gap-3.5">
-          <Card title={`Documents générés (${GENERATED_DOC_KINDS.length})`}>
-            <div className="flex flex-col divide-y divide-border">
+          <Card title="Documents générés">
+            <p className="mb-2.5 -mt-1 text-[12px] text-muted-foreground">
+              Générés à la demande à partir des données du dossier — rien n'est enregistré ici.
+            </p>
+            <div className="flex flex-wrap gap-2">
               {GENERATED_DOC_KINDS.map((kind) => (
-                <GeneratedDocumentRow key={kind} dossierId={d.id} code={d.code} kind={kind} />
+                <GeneratedDocumentChip key={kind} dossierId={d.id} code={d.code} kind={kind} onError={showToast} />
               ))}
             </div>
           </Card>

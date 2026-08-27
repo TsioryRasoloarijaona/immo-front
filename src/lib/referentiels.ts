@@ -49,6 +49,7 @@ export const useVocations = makeCachedListHook(api.getVocations);
 export const useTypesResidence = makeCachedListHook(api.getTypesResidence);
 export const useTypesRelationContact = makeCachedListHook(api.getTypesRelationContact);
 export const useTypesPieceIdentite = makeCachedListHook(api.getTypesPieceIdentite);
+export const useTypesPieceJointe = makeCachedListHook(api.getTypesPieceJointe);
 export const useTypesContactProspection = makeCachedListHook(api.getTypesContactProspection);
 export const useTypesBienReferentiel = makeCachedListHook(api.getTypesBienReferentiel);
 export const useTitres = makeCachedListHook(api.getTitres);
