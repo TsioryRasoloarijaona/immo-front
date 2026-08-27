@@ -32,7 +32,7 @@ export default function DossierStatusStepper({
   const stepByStatus = new Map(nextSteps.map((s) => [normalizeStatus(s.statut), s]));
 
   return (
-    <Card title="Statut du dossier">
+    <Card title="Statut du dossier" accent="var(--sec-dossier)">
       <div className="flex flex-col gap-5">
         <div className="flex items-center overflow-x-auto pb-1">
           {DOSSIER_STATUS_PIPELINE.map((label, i) => {
@@ -49,7 +49,7 @@ export default function DossierStatusStepper({
                   onConfirm={onConfirm}
                 />
                 {i < DOSSIER_STATUS_PIPELINE.length - 1 && (
-                  <div className={cn('mx-1 h-0.5 w-6 shrink-0 sm:w-10', isPast ? 'bg-primary' : 'bg-border')} />
+                  <div className={cn('mx-1 h-0.5 w-6 shrink-0 sm:w-10', !isPast && 'bg-border')} style={isPast ? { background: 'var(--sec-dossier)' } : undefined} />
                 )}
               </div>
             );
@@ -78,10 +78,10 @@ export default function DossierStatusStepper({
 }
 
 const CONFIANCE_TONE: Record<string, string> = {
-  ELEVEE: 'text-[var(--success)]',
-  HIGH: 'text-[var(--success)]',
-  MOYENNE: 'text-[var(--warning)]',
-  MEDIUM: 'text-[var(--warning)]',
+  ELEVEE: 'text-(--success)',
+  HIGH: 'text-(--success)',
+  MOYENNE: 'text-(--warning)',
+  MEDIUM: 'text-(--warning)',
   FAIBLE: 'text-destructive',
   LOW: 'text-destructive',
 };
@@ -125,7 +125,7 @@ function ConfirmPopoverBody({
         placeholder="Motif / note (optionnel)"
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        className="min-h-[70px] text-[13px]"
+        className="min-h-17.5 text-[13px]"
       />
       <div className="flex justify-end gap-2">
         <PopoverClose render={<Button type="button" variant="outline" size="sm" />}>Annuler</PopoverClose>
@@ -166,14 +166,17 @@ function StepNode({
   const circle = (
     <div
       className={cn(
-        'flex size-[26px] shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-bold transition-transform',
-        isCurrent
-          ? 'border-primary bg-primary text-primary-foreground'
-          : isPast
-            ? 'border-primary bg-[var(--brand-bg)] text-primary'
-            : 'border-border bg-[var(--neutral-bg)] text-muted-foreground',
+        'flex size-6.5 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-bold transition-transform',
+        isCurrent ? 'text-white' : !isPast && 'border-border bg-(--neutral-bg) text-muted-foreground',
         isClickable && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md',
       )}
+      style={
+        isCurrent
+          ? { borderColor: 'var(--sec-dossier)', background: 'var(--sec-dossier)' }
+          : isPast
+            ? { borderColor: 'var(--sec-dossier)', background: 'var(--sec-dossier-bg)', color: 'var(--sec-dossier)' }
+            : undefined
+      }
     >
       {isPast ? <Check className="size-3.5" /> : ''}
     </div>
@@ -233,9 +236,9 @@ function ExitChip({
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold',
         isCurrent
-          ? 'border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]'
-          : 'border-border bg-[var(--neutral-bg)] text-muted-foreground',
-        isClickable && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-sm hover:border-[var(--warning-border)] hover:text-[var(--warning)]',
+          ? 'border-(--warning-border) bg-(--warning-bg) text-(--warning)'
+          : 'border-border bg-(--neutral-bg) text-muted-foreground',
+        isClickable && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-sm hover:border-(--warning-border) hover:text-(--warning)',
         !isClickable && !isCurrent && 'opacity-60',
       )}
     >

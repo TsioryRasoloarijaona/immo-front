@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RotateCcw, Search } from 'lucide-react';
+import { Contact, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
@@ -45,21 +45,28 @@ export default function ProspectsList() {
   const typeItems = tierTypes.data.map((t) => ({ label: t.description || t.code || t.id, value: t.code || t.id }));
 
   return (
-    <PageShell title="Prospects" crumbs={[{ label: 'Ventes' }, { label: 'Prospects' }]} fullHeight>
+    <PageShell
+      title="Prospects"
+      crumbs={[{ label: 'Ventes' }, { label: 'Prospects' }]}
+      fullHeight
+      icon={<Contact />}
+      accent="var(--sec-prospect)"
+      accentBg="var(--sec-prospect-bg)"
+    >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <p className="shrink-0 max-w-[720px] text-[12.5px] text-muted-foreground">
+        <p className="shrink-0 max-w-180 text-[12.5px] text-muted-foreground">
           Fiches contact (/api/prospects) — indépendantes des prospections, un même prospect peut être
           lié à plusieurs prospections au fil du temps.
         </p>
 
         <Card padded={false} className="shrink-0">
           <div className="flex flex-wrap items-center gap-2.5 p-3">
-            <InputGroup className="min-w-[220px] flex-1">
+            <InputGroup className="min-w-55 flex-1">
               <InputGroupAddon>
                 <Search />
               </InputGroupAddon>
               <InputGroupInput
-                placeholder="Rechercher un nom, téléphone, email…"
+                placeholder="Recherche multi-critère — nom, téléphone, email…"
                 value={search}
                 onChange={(e) => resetAndSet(setSearch, e.target.value)}
               />
@@ -82,7 +89,7 @@ export default function ProspectsList() {
               <EmptyState title="Aucun résultat" message="Ajustez vos filtres pour élargir la recherche." />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <Table className="w-full min-w-[640px] table-fixed">
+                <Table className="w-full min-w-160 table-fixed">
                   <TableHeader>
                     <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
                       <TableHead className="w-[14%]">Code</TableHead>

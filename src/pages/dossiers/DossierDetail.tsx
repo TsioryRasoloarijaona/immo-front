@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Coins, Download, Eye, FileText, Plus, TrendingUp, Wallet } from 'lucide-react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, ArrowUpRight, Coins, Download, Eye, FileText, Folder, Plus, TrendingUp, Upload, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, StatCard } from '../../components/ui';
+import ArticleCompactPreview from '../../components/ArticleCompactPreview';
 import DossierStatusStepper from '../../components/DossierStatusStepper';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
@@ -13,22 +14,30 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { referentielItems, useCategoriesEcheance } from '../../lib/referentiels';
 import { formatCurrency, formatDate, formatPercent, toApiDateTime, todayISO } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
+import { etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
 import {
   addEcheance,
   addReglement,
   changerStatutDossier,
+  getArticle,
+  getClient,
   getDossier,
   getMontantsDossier,
+  getProspection,
   listEcheances,
   downloadActeReservation,
   downloadFicheReservation,
+  downloadDossierPdfOnlyDocument,
   downloadPieceJointe,
   getEtapesSuivantes,
   listHistoriqueDossier,
   listPiecesJointes,
+  uploadPieceJointe,
   viewActeReservation,
   viewFicheReservation,
+  viewDossierPdfOnlyDocument,
   viewPieceJointe,
+  type DossierPdfOnlyDocKind,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import type { CreerEcheanceRequest, CreerReglementRequest, PieceJointeDto } from '../../types';
@@ -68,7 +77,7 @@ function AddEcheanceRow({
       <div className="flex flex-col gap-1">
         <label className="text-[11px] text-muted-foreground" htmlFor="new-cat">Catégorie</label>
         <Select items={categorieItems} value={categorieId} onValueChange={(v) => setCategorieId((v as string) || null)}>
-          <SelectTrigger id="new-cat" className="w-[180px]">
+          <SelectTrigger id="new-cat" className="w-45">
             <SelectValue placeholder="Choisir…" />
           </SelectTrigger>
           <SelectContent>
@@ -82,15 +91,15 @@ function AddEcheanceRow({
       </div>
       <div className="flex flex-col gap-1">
         <label className="text-[11px] text-muted-foreground" htmlFor="new-montant">Montant</label>
-        <Input id="new-montant" type="number" className="w-[130px]" value={montant} onChange={(e) => setMontant(e.target.value)} />
+        <Input id="new-montant" type="number" className="w-32.5" value={montant} onChange={(e) => setMontant(e.target.value)} />
       </div>
       <div className="flex flex-col gap-1">
         <label className="text-[11px] text-muted-foreground" htmlFor="new-date">Échéance</label>
-        <Input id="new-date" type="date" className="w-[145px]" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
+        <Input id="new-date" type="date" className="w-36.25" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
       </div>
       <div className="flex flex-col gap-1">
         <label className="text-[11px] text-muted-foreground" htmlFor="new-desc">Description</label>
-        <Input id="new-desc" className="w-[180px]" value={description} onChange={(e) => setDescription(e.target.value)} />
+        <Input id="new-desc" className="w-45" value={description} onChange={(e) => setDescription(e.target.value)} />
       </div>
       <Button
         type="button"
@@ -164,21 +173,49 @@ function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJ
   );
 }
 
-type GeneratedDocKind = 'fiche-reservation' | 'acte-reservation';
+type GeneratedDocKind = 'fiche-reservation' | 'acte-reservation' | DossierPdfOnlyDocKind;
 
 const GENERATED_DOC_HANDLERS: Record<GeneratedDocKind, {
   title: string;
+  /** Whether the backend also offers a `docx` variant — drives whether the
+   * card shows a split "PDF / Word" pair or a single "Télécharger" button.
+   * `fiche-bancaire` is explicitly PDF-only per the API description ("pas
+   * de variante Word pour ce document"); same for the other two new docs. */
+  hasDocx: boolean;
   view: (dossierId: string, format: 'pdf' | 'docx') => Promise<void>;
   download: (dossierId: string, filename: string, format: 'pdf' | 'docx') => Promise<void>;
 }> = {
-  'fiche-reservation': { title: 'Fiche de réservation', view: viewFicheReservation, download: downloadFicheReservation },
-  'acte-reservation': { title: 'Acte de réservation', view: viewActeReservation, download: downloadActeReservation },
+  'fiche-reservation': { title: 'Fiche de réservation', hasDocx: true, view: viewFicheReservation, download: downloadFicheReservation },
+  'acte-reservation': { title: 'Acte de réservation', hasDocx: true, view: viewActeReservation, download: downloadActeReservation },
+  'fiche-visite-technique': {
+    title: 'Fiche visite technique',
+    hasDocx: false,
+    view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-visite-technique'),
+    download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-visite-technique', filename),
+  },
+  'fiche-dossier-vente': {
+    title: 'Fiche dossier de vente',
+    hasDocx: false,
+    view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-dossier-vente'),
+    download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-dossier-vente', filename),
+  },
+  'fiche-bancaire': {
+    title: 'Fiche bancaire',
+    hasDocx: false,
+    view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-bancaire'),
+    download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-bancaire', filename),
+  },
 };
 
-function GeneratedDocumentCard({ dossierId, code, kind }: { dossierId: string; code?: string | null; kind: GeneratedDocKind }) {
+/** One compact row per generated document — same row shape as
+ * `PieceJointeRow` below (icon + name on the left, actions on the right),
+ * so the 5 document kinds read as one scannable list instead of 5
+ * same-shaped card shells stacked full-width (the previous layout forced a
+ * scroll for what's fundamentally just a list of file generators). */
+function GeneratedDocumentRow({ dossierId, code, kind }: { dossierId: string; code?: string | null; kind: GeneratedDocKind }) {
   const [busy, setBusy] = useState<'view' | 'pdf' | 'docx' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { title, view, download } = GENERATED_DOC_HANDLERS[kind];
+  const { title, hasDocx, view, download } = GENERATED_DOC_HANDLERS[kind];
   const filenameBase = code ? `${code}-${kind}` : kind;
 
   async function handle(action: 'view' | 'pdf' | 'docx') {
@@ -195,23 +232,108 @@ function GeneratedDocumentCard({ dossierId, code, kind }: { dossierId: string; c
   }
 
   return (
-    <Card title={title}>
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5">
-        <p className="text-[13px] text-muted-foreground">Document généré à partir des informations du dossier.</p>
-        <div className="flex shrink-0 items-center gap-2">
-          {error && <span className="text-[11.5px] text-destructive">{error}</span>}
-          <Button type="button" variant="outline" size="sm" disabled={!!busy} onClick={() => handle('view')}>
-            <Eye data-icon="inline-start" /> {busy === 'view' ? 'Ouverture…' : 'Voir'}
-          </Button>
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-[13px]">
+      <span className="flex min-w-0 items-center gap-2">
+        <FileText className="size-4 shrink-0 text-muted-foreground" />
+        <span className="truncate font-medium text-foreground">{title}</span>
+      </span>
+      <div className="flex shrink-0 items-center gap-2">
+        {error && <span className="text-[11.5px] text-destructive">{error}</span>}
+        <Button type="button" variant="outline" size="sm" disabled={!!busy} onClick={() => handle('view')}>
+          <Eye data-icon="inline-start" /> {busy === 'view' ? 'Ouverture…' : 'Voir'}
+        </Button>
+        {hasDocx ? (
+          <>
+            <Button type="button" variant="outline" size="sm" disabled={!!busy} onClick={() => handle('pdf')}>
+              <Download data-icon="inline-start" /> {busy === 'pdf' ? 'Téléchargement…' : 'PDF'}
+            </Button>
+            <Button type="button" variant="outline" size="sm" disabled={!!busy} onClick={() => handle('docx')}>
+              <Download data-icon="inline-start" /> {busy === 'docx' ? 'Téléchargement…' : 'Word'}
+            </Button>
+          </>
+        ) : (
           <Button type="button" variant="outline" size="sm" disabled={!!busy} onClick={() => handle('pdf')}>
-            <Download data-icon="inline-start" /> {busy === 'pdf' ? 'Téléchargement…' : 'PDF'}
+            <Download data-icon="inline-start" /> {busy === 'pdf' ? 'Téléchargement…' : 'Télécharger'}
           </Button>
-          <Button type="button" variant="outline" size="sm" disabled={!!busy} onClick={() => handle('docx')}>
-            <Download data-icon="inline-start" /> {busy === 'docx' ? 'Téléchargement…' : 'Word'}
-          </Button>
-        </div>
+        )}
       </div>
-    </Card>
+    </div>
+  );
+}
+
+const GENERATED_DOC_KINDS: GeneratedDocKind[] = [
+  'fiche-reservation',
+  'acte-reservation',
+  'fiche-visite-technique',
+  'fiche-dossier-vente',
+  'fiche-bancaire',
+];
+
+/** `POST /api/dossiers/{id}/pieces-jointes` — same collapsed-by-default
+ * inline-form convention as `AddReglementRow`/`AddEcheanceRow` below.
+ * `description` is optional (backend falls back to the original filename),
+ * matched here to a plain text `Input` rather than the file's own name so
+ * the user can give it a meaningful caption ("CIN client", "Contrat
+ * signé") instead of a raw upload filename. */
+function AddPieceJointeRow({ dossierId, onAdded }: { dossierId: string; onAdded: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [description, setDescription] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function reset() {
+    setOpen(false);
+    setFile(null);
+    setDescription('');
+    setError(null);
+  }
+
+  if (!open) {
+    return (
+      <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}>
+        <Plus data-icon="inline-start" /> Ajouter une pièce jointe
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2.5">
+      <label className="flex h-8 min-w-0 max-w-70 flex-1 cursor-pointer items-center gap-2 truncate rounded-md border border-dashed border-input px-2.5 text-[12.5px] text-muted-foreground hover:border-ring">
+        <Upload className="size-3.5 shrink-0" />
+        <span className="truncate">{file ? file.name : 'Choisir un fichier…'}</span>
+        <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      </label>
+      <Input
+        placeholder="Description (optionnel)"
+        className="w-45"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+      />
+      {error && <span className="text-[11.5px] text-destructive">{error}</span>}
+      <Button
+        type="button"
+        size="sm"
+        disabled={busy || !file}
+        onClick={async () => {
+          if (!file) return;
+          setBusy(true);
+          setError(null);
+          try {
+            await uploadPieceJointe(dossierId, file, description.trim() || undefined);
+            onAdded();
+            reset();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Échec de l'envoi.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? 'Envoi…' : 'Envoyer'}
+      </Button>
+      <Button type="button" size="sm" variant="ghost" onClick={reset} disabled={busy}>Annuler</Button>
+    </div>
   );
 }
 
@@ -232,9 +354,9 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
 
   return (
     <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/30 p-2.5">
-      <Input type="number" placeholder="Montant" className="w-[110px]" value={montant} onChange={(e) => setMontant(e.target.value)} />
-      <Input type="date" className="w-[140px]" value={dateReglement} onChange={(e) => setDateReglement(e.target.value)} />
-      <Input placeholder="UUID type de règlement" className="w-[170px]" value={typeId} onChange={(e) => setTypeId(e.target.value)} />
+      <Input type="number" placeholder="Montant" className="w-27.5" value={montant} onChange={(e) => setMontant(e.target.value)} />
+      <Input type="date" className="w-35" value={dateReglement} onChange={(e) => setDateReglement(e.target.value)} />
+      <Input placeholder="UUID type de règlement" className="w-42.5" value={typeId} onChange={(e) => setTypeId(e.target.value)} />
       <Button
         type="button"
         size="sm"
@@ -262,6 +384,24 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
 export default function DossierDetail() {
   const { id } = useParams();
   const { data: d, loading, error, refetch } = useApi(() => getDossier(id!), [id]);
+  // Cascade reference up to the originating Prospection — same
+  // reference-the-previous-pipeline-stage convention as Prospection's own
+  // "Prospect" tab. `prospectionId` isn't in the API yet (see the field's
+  // comment in types.ts); this stays dormant (tab hidden) until it is.
+  const linkedProspection = useApi(() => (d?.prospectionId ? getProspection(d.prospectionId) : Promise.resolve(null)), [d?.prospectionId]);
+  // Full contact details for the "Client" card — DossierDetailDto only
+  // carries clientId/clientNom, same reason the Prospection/Prospect
+  // cascade tabs needed their own fetch.
+  const linkedClient = useApi(() => (d?.clientId ? getClient(d.clientId) : Promise.resolve(null)), [d?.clientId]);
+  // Full article detail (catégorie/type/tranche/superficie/titre foncier/…)
+  // for "Article(s) réservé(s)" — DossierDetailDto.articles is only the
+  // summary shape (id/code/description/area/price), same gap as
+  // NewDossier.tsx's own selectedArticleDetails fetch.
+  const articleIds = (d?.articles ?? []).map((a) => a.id).join(',');
+  const articleDetails = useApi(
+    () => (d?.articles && d.articles.length > 0 ? Promise.all(d.articles.map((a) => getArticle(a.id))) : Promise.resolve([])),
+    [articleIds],
+  );
   const nextSteps = useApi(() => getEtapesSuivantes(id!), [id]);
   const montants = useApi(() => getMontantsDossier(id!), [id]);
   const [echeancesPage, setEcheancesPage] = useState(0);
@@ -297,13 +437,19 @@ export default function DossierDetail() {
   const title = d.clientNom || d.code || 'Dossier';
 
   return (
-    <PageShell title={title} crumbs={[{ label: 'Dossiers', to: '/dossiers' }, { label: d.code || '' }]}>
+    <PageShell
+      title={title}
+      crumbs={[{ label: 'Dossiers', to: '/dossiers' }, { label: d.code || '' }]}
+      icon={<Folder />}
+      accent="var(--sec-dossier)"
+      accentBg="var(--sec-dossier-bg)"
+    >
       <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate('/dossiers')}>
         <ArrowLeft data-icon="inline-start" /> Retour à la liste
       </Button>
 
       {fromCreation && (
-        <div className="mb-3 rounded-md border border-[var(--info-border)] bg-[var(--info-bg)] px-3.5 py-2.5 text-[13px] text-[var(--info)]">
+        <div className="mb-3 rounded-md border border-(--info-border) bg-(--info-bg) px-3.5 py-2.5 text-[13px] text-(--info)">
           Dossier créé. Le schéma de financement est vide — l'API ne permet pas de le pré-remplir à la création, complétez-le
           ci-dessous avec le formulaire « Ajouter une échéance » (déjà pré-rempli avec le total à payer).
         </div>
@@ -348,6 +494,7 @@ export default function DossierDetail() {
       <Tabs value={tab} onValueChange={(v) => setTab(v as DossierTab)} className="gap-3">
         <TabsList>
           <TabsTrigger value="apercu">Aperçu</TabsTrigger>
+          {d.prospectionId && <TabsTrigger value="prospection">Prospection</TabsTrigger>}
           <TabsTrigger value="financier">Financier</TabsTrigger>
           <TabsTrigger value="documents">
             Documents {(pieces.data?.length ?? 0) > 0 && <Badge tone="neutral" className="ml-1.5">{pieces.data!.length}</Badge>}
@@ -359,26 +506,46 @@ export default function DossierDetail() {
         <TabsContent value="apercu">
           <div className="flex flex-col gap-3">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <Card title="Client">
+              <Card
+                title="Client"
+                accent="var(--sec-dossier)"
+                action={
+                  d.clientId && (
+                    <Link to={`/clients/${d.clientId}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                      Fiche complète <ArrowUpRight className="size-3" />
+                    </Link>
+                  )
+                }
+              >
+                {linkedClient.loading && <LoadingState />}
+                {linkedClient.error && <ErrorState message={linkedClient.error} />}
                 <FieldGrid>
                   <Field label="Nom" value={d.clientNom} />
                   <Field label="Commercial" value={d.commercialNom} />
                   <Field label="Avocat" value={d.avocatNom} />
+                  {linkedClient.data && (
+                    <>
+                      <Field label="Téléphone" value={linkedClient.data.telephone || linkedClient.data.mobile} />
+                      <Field label="Email" value={linkedClient.data.email} />
+                      <Field label="Ville" value={linkedClient.data.ville} />
+                      <Field label="Adresse" value={linkedClient.data.adresse} />
+                      <Field label="Type" value={linkedClient.data.type} />
+                    </>
+                  )}
                 </FieldGrid>
               </Card>
 
               <Card title={`Article(s) réservé(s) (${d.articles?.length ?? 0})`}>
                 {!d.articles || d.articles.length === 0 ? (
                   <p className="text-[13px] text-muted-foreground">Aucun article lié.</p>
+                ) : articleDetails.loading ? (
+                  <LoadingState />
+                ) : articleDetails.error ? (
+                  <ErrorState message={articleDetails.error} />
                 ) : (
                   <div className="flex flex-col gap-2">
-                    {d.articles.map((a) => (
-                      <div key={a.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-[13px]">
-                        <span className="font-medium text-foreground">{a.code}</span>
-                        <span className="text-muted-foreground">{a.description}</span>
-                        <span className="text-muted-foreground">{a.area ? `${a.area} m²` : '—'}</span>
-                        <span className="font-medium tabular-nums text-foreground">{formatCurrency(a.price)}</span>
-                      </div>
+                    {(articleDetails.data ?? []).map((a) => (
+                      <ArticleCompactPreview key={a.id} article={a} defaultExpanded />
                     ))}
                   </div>
                 )}
@@ -394,6 +561,43 @@ export default function DossierDetail() {
             )}
           </div>
         </TabsContent>
+
+        {d.prospectionId && (
+          <TabsContent value="prospection">
+            {/* Cascade reference to the originating Prospection — the
+                pipeline-chain counterpart to Prospection's own "Prospect"
+                tab (ProspectionDetail.tsx). */}
+            <Card
+              title="Prospection"
+              accent="var(--sec-prospection)"
+              action={
+                <Link to={`/prospections/${d.prospectionId}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                  Fiche complète <ArrowUpRight className="size-3" />
+                </Link>
+              }
+            >
+              {linkedProspection.loading && <LoadingState />}
+              {linkedProspection.error && <ErrorState message={linkedProspection.error} />}
+              {linkedProspection.data && (
+                <FieldGrid>
+                  <Field label="Code" value={d.prospectionCode || linkedProspection.data.code} />
+                  <Field
+                    label="Étape"
+                    value={
+                      <Badge tone={etapeBadgeTone(linkedProspection.data.etape, linkedProspection.data.fermee)}>
+                        {linkedProspection.data.fermee ? 'Clôturée' : linkedProspection.data.etape || '—'}
+                      </Badge>
+                    }
+                  />
+                  <Field label="Prospect" value={prospectionDisplayName(linkedProspection.data)} />
+                  <Field label="Origine" value={linkedProspection.data.origine} />
+                  <Field label="Commercial" value={linkedProspection.data.commercialNom} />
+                  <Field label="Créée le" value={formatDate(linkedProspection.data.dateDocument)} />
+                </FieldGrid>
+              )}
+            </Card>
+          </TabsContent>
+        )}
 
         <TabsContent value="financier">
           <div className="flex flex-col gap-3">
@@ -510,8 +714,13 @@ export default function DossierDetail() {
 
         <TabsContent value="documents">
           <div className="flex flex-col gap-3.5">
-          <GeneratedDocumentCard dossierId={d.id} code={d.code} kind="fiche-reservation" />
-          <GeneratedDocumentCard dossierId={d.id} code={d.code} kind="acte-reservation" />
+          <Card title={`Documents générés (${GENERATED_DOC_KINDS.length})`}>
+            <div className="flex flex-col gap-2">
+              {GENERATED_DOC_KINDS.map((kind) => (
+                <GeneratedDocumentRow key={kind} dossierId={d.id} code={d.code} kind={kind} />
+              ))}
+            </div>
+          </Card>
           <Card title={`Pièces jointes (${pieces.data?.length ?? 0})`}>
             {pieces.loading && <LoadingState />}
             {pieces.error && <ErrorState message={pieces.error} />}
@@ -519,12 +728,13 @@ export default function DossierDetail() {
               <EmptyState title="Aucune pièce jointe" message="Aucun document n'a été attaché à ce dossier." />
             )}
             {pieces.data && pieces.data.length > 0 && (
-              <div className="flex flex-col gap-2">
+              <div className="mb-2.5 flex flex-col gap-2">
                 {pieces.data.map((p) => (
                   <PieceJointeRow key={p.id} dossierId={d.id} piece={p} />
                 ))}
               </div>
             )}
+            <AddPieceJointeRow dossierId={d.id} onAdded={pieces.refetch} />
           </Card>
           </div>
         </TabsContent>

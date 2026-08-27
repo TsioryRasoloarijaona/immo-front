@@ -267,6 +267,18 @@ export interface ProspectionDetailDto {
   ancienClient?: boolean;
   trancheId?: UUID;
   articleId?: UUID;
+  /** NOT YET IN docs/api-docsV4.json — proposed addition so
+   * ProspectionDetail.tsx's "Créer / ouvrir dossier" button can tell
+   * whether this prospection has already been converted, without a
+   * separate lookup. Today no read DTO links a Dossier back to the
+   * Prospection it was created from (only DevisDto carries
+   * prospectionId/prospectionCode) — POST /api/dossiers takes
+   * CreerDossierRequest.prospectionId but that link isn't surfaced
+   * anywhere afterwards. Wired defensively (see ProspectionDetail.tsx):
+   * stays undefined until the backend adds it, at which point the button
+   * starts working without further frontend changes. */
+  dossierId?: UUID;
+  dossierCode?: string;
 }
 
 export interface TransformerProspectionRequest {
@@ -423,6 +435,11 @@ export interface DevisDto {
   id: UUID;
   code?: string;
   dateDocument?: string | null;
+  /** Prospection d'origine — pour la colonne "Prospection" et le lien
+   * cliquable vers la prospection depuis la liste globale des offres
+   * (`GET /api/devis`, voir `listOffres`). */
+  prospectionId?: UUID;
+  prospectionCode?: string;
   trancheId?: UUID;
   tranche?: string;
   trancheDescription?: string;
@@ -439,8 +456,21 @@ export interface DevisDto {
   modePaiementId?: UUID;
   modePaiement?: string;
   montants?: MontantsOffreDto;
-  prix?: number;
   notes?: string;
+}
+
+/** Réponse de `GET /api/devis` (liste globale des offres) — même forme que
+ * `PageDto<DevisDto>` plus `sommePrixVenteTTCPage`, la somme des
+ * `montants.prixVenteTTC` de la page courante uniquement (offres sans
+ * montant renseigné exclues) — pas un total plein-filtre sur l'ensemble
+ * des résultats. */
+export interface DevisPageDto {
+  content: DevisDto[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  sommePrixVenteTTCPage?: number;
 }
 
 export interface CreerInteractionRequest {
@@ -509,6 +539,10 @@ export interface DossierListItemDto {
   commercialNom?: string;
   prix?: number;
   totalAPayer?: number;
+  /** Prospection à l'origine du dossier (ComFolder.ComProspectionId) —
+   * powers the "Prospection" column on DossiersList.tsx. */
+  prospectionId?: UUID;
+  prospectionCode?: string;
 }
 
 export interface DossierDetailDto {
@@ -534,6 +568,13 @@ export interface DossierDetailDto {
   notes?: string;
   probabiliteFinalisation?: number;
   modePaie?: string;
+  /** Prospection à l'origine du dossier (ComFolder.ComProspectionId) —
+   * powers DossierDetail.tsx's "Prospection" cascade-reference tab. The
+   * reverse link (ProspectionDetailDto.dossierId) is still not in the API —
+   * see that field's comment — so "Ouvrir le dossier" from a prospection
+   * still falls back to the "Créer un dossier" flow. */
+  prospectionId?: UUID;
+  prospectionCode?: string;
 }
 
 export interface CreerDossierRequest {
@@ -982,6 +1023,37 @@ export interface CompleterProfilRequest {
   email: string;
   dateNaissance: string;
   adresse?: string;
+}
+
+/** Une ligne de GET /api/utilisateurs — écran d'administration des comptes.
+ * Réservé au rôle Administrateur. */
+export interface UtilisateurListItemDto {
+  id: UUID;
+  /** Nom d'utilisateur (AdmUser.Code). */
+  username?: string;
+  description?: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  /** true si le compte est désactivé — ne peut plus se connecter. */
+  disabled?: boolean;
+  /** Id de la fiche employé/commercial (CfgTier) liée, si connue. */
+  employeeId?: UUID;
+  employeePrenom?: string;
+  employeeNom?: string;
+  /** Code CfgTierKind (ex: "COM" pour commercial), si la fiche employé en a un. */
+  typeEmployeCode?: string;
+  typeEmployeLibelle?: string;
+  /** Codes AdmRole assignés (ex: ["Commercial", "Administrateur"]). Vide si aucun. */
+  roles?: string[];
+  /** true si des identifiants web existent — false si le compte legacy ne
+   * s'est jamais connecté et n'a jamais été initialisé par un administrateur. */
+  compteWebInitialise?: boolean;
+  /** true si un mot de passe temporaire est en attente de changement. */
+  mustChangePassword?: boolean;
+  /** true si le profil de première connexion a déjà été complété. */
+  profileCompleted?: boolean;
+  dateCreation?: string;
 }
 
 export interface ReinitialiserMotDePasseResponse {

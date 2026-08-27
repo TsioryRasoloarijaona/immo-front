@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RotateCcw, Search } from 'lucide-react';
+import { Folder, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
@@ -94,11 +94,18 @@ export default function DossiersList() {
   ];
 
   return (
-    <PageShell title="Dossiers de vente" crumbs={[{ label: 'Ventes' }, { label: 'Dossiers' }]} fullHeight>
+    <PageShell
+      title="Dossiers de vente"
+      crumbs={[{ label: 'Ventes' }, { label: 'Dossiers' }]}
+      fullHeight
+      icon={<Folder />}
+      accent="var(--sec-dossier)"
+      accentBg="var(--sec-dossier-bg)"
+    >
       <div className="flex h-full min-h-0 flex-col gap-3">
         <Card padded={false} className="shrink-0">
           <div className="flex flex-wrap items-center gap-2.5 p-3">
-            <InputGroup className="min-w-[220px] flex-1">
+            <InputGroup className="min-w-55 flex-1">
               <InputGroupAddon>
                 <Search />
               </InputGroupAddon>
@@ -139,7 +146,7 @@ export default function DossiersList() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              <InputGroup className="w-[130px]">
+              <InputGroup className="w-32.5">
                 <InputGroupInput
                   type="date"
                   aria-label="Du"
@@ -147,7 +154,7 @@ export default function DossiersList() {
                   onChange={(e) => resetAndSet(setDateDebut, e.target.value)}
                 />
               </InputGroup>
-              <InputGroup className="w-[130px]">
+              <InputGroup className="w-32.5">
                 <InputGroupInput
                   type="date"
                   aria-label="Au"
@@ -185,16 +192,17 @@ export default function DossiersList() {
               <EmptyState title="Aucun résultat" message="Ajustez vos filtres pour élargir la recherche." />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <Table className="w-full min-w-[640px] table-fixed">
+                <Table className="w-full min-w-160 table-fixed">
                   <TableHeader>
                     <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
-                      <TableHead className="w-[20%]">Client</TableHead>
-                      <TableHead className="w-[14%]">Code</TableHead>
-                      <TableHead className="w-[16%]">Statut</TableHead>
-                      <TableHead className="w-[16%]">Commercial</TableHead>
-                      <TableHead className="w-[12%] text-right">Prix</TableHead>
-                      <TableHead className="w-[12%] text-right">Total à payer</TableHead>
-                      <TableHead className="w-[10%]">Date</TableHead>
+                      <TableHead className="w-[18%]">Client</TableHead>
+                      <TableHead className="w-[12%]">Code</TableHead>
+                      <TableHead className="w-[12%]">Prospection</TableHead>
+                      <TableHead className="w-[14%]">Statut</TableHead>
+                      <TableHead className="w-[14%]">Commercial</TableHead>
+                      <TableHead className="w-[10%] text-right">Prix</TableHead>
+                      <TableHead className="w-[11%] text-right">Total à payer</TableHead>
+                      <TableHead className="w-[9%]">Date</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -211,11 +219,27 @@ export default function DossiersList() {
                         }}
                       >
                         <TableCell className="truncate font-medium text-foreground" title={d.clientNom ?? undefined}>{d.clientNom ?? '—'}</TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={d.code}>{d.code}</TableCell>
+                        <TableCell className="truncate" title={d.code}><Badge tone="neutral" className="font-mono">{d.code}</Badge></TableCell>
+                        <TableCell className="truncate">
+                          {d.prospectionId ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/prospections/${d.prospectionId}`);
+                              }}
+                              title="Ouvrir la prospection d'origine"
+                            >
+                              <Badge tone="info">{d.prospectionCode || 'Voir'}</Badge>
+                            </button>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="truncate"><Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge></TableCell>
                         <TableCell className="truncate text-muted-foreground" title={d.commercialNom ?? undefined}>{d.commercialNom ?? '—'}</TableCell>
-                        <TableCell className="truncate text-right tabular-nums">{formatCurrency(d.prix)}</TableCell>
-                        <TableCell className="truncate text-right tabular-nums">{formatCurrency(d.totalAPayer)}</TableCell>
+                        <TableCell className="truncate text-right tabular-nums text-(--info)">{formatCurrency(d.prix)}</TableCell>
+                        <TableCell className="truncate text-right font-semibold tabular-nums text-(--success)">{formatCurrency(d.totalAPayer)}</TableCell>
                         <TableCell className="truncate text-muted-foreground">{formatDate(d.dateDocument)}</TableCell>
                       </TableRow>
                     ))}

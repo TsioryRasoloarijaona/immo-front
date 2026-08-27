@@ -63,8 +63,8 @@ function EventPill({ ev, onClick }: { ev: EvenementCalendrierDto; onClick: () =>
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-1.5 truncate rounded px-1.5 py-[3px] text-left text-[11px] font-medium',
-        visite ? 'bg-[var(--amber-bg)] text-[var(--amber)]' : 'bg-[var(--info-bg)] text-[var(--info)]'
+        'flex w-full items-center gap-1.5 truncate rounded px-1.5 py-0.75 text-left text-[11px] font-medium',
+        visite ? 'bg-(--amber-bg) text-(--amber)' : 'bg-(--info-bg) text-(--info)'
       )}
       title={ev.sujet || (visite ? 'Visite' : 'Rendez-vous')}
     >
@@ -207,9 +207,9 @@ export default function Calendrier() {
                         }
                       }}
                       className={cn(
-                        'flex min-h-[92px] cursor-pointer flex-col items-stretch gap-1 border-b border-r border-border p-1.5 text-left transition-colors last:border-r-0 [&:nth-child(7n)]:border-r-0 hover:bg-[var(--neutral-bg)]',
-                        !inMonth && 'bg-[var(--muted)]',
-                        isSelected && 'bg-[var(--brand-bg)] hover:bg-[var(--brand-bg)]'
+                        'flex min-h-23 cursor-pointer flex-col items-stretch gap-1 border-b border-r border-border p-1.5 text-left transition-colors last:border-r-0 [&:nth-child(7n)]:border-r-0 hover:bg-(--neutral-bg)',
+                        !inMonth && 'bg-(--muted)',
+                        isSelected && 'bg-(--brand-bg) hover:bg-(--brand-bg)'
                       )}
                     >
                       <span
@@ -263,7 +263,7 @@ export default function Calendrier() {
                     onClick={() => setSelectedDate((ev.dateDebut ?? '').slice(0, 10))}
                     className="flex items-center gap-2.5 border-b border-border py-2 text-left last:border-b-0"
                   >
-                    <span className={cn('size-2 shrink-0 rounded-full', isVisiteEvenement(ev) ? 'bg-[var(--amber)]' : 'bg-[var(--info)]')} />
+                    <span className={cn('size-2 shrink-0 rounded-full', isVisiteEvenement(ev) ? 'bg-(--amber)' : 'bg-(--info)')} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[12.5px] font-medium text-foreground">{ev.prospectNom || ev.sujet || '—'}</div>
                       <div className="text-[11px] text-muted-foreground">{formatDate(ev.dateDebut)}</div>

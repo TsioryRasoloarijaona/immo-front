@@ -13,10 +13,10 @@ export default function ComingSoon() {
 
   return (
     <PageShell title={label} crumbs={[{ label: 'Bientôt disponible' }]}>
-      <Empty className="border-none py-[70px]">
+      <Empty className="border-none py-17.5">
         <EmptyHeader>
           {Icon && (
-            <EmptyMedia variant="icon" className="size-14 rounded-2xl bg-[var(--brand-bg)] text-[var(--brand)]">
+            <EmptyMedia variant="icon" className="size-14 rounded-2xl bg-(--brand-bg) text-(--brand)">
               <Icon className="size-7" />
             </EmptyMedia>
           )}

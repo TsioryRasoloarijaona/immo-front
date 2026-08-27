@@ -15,6 +15,7 @@ import { SidebarTrigger } from './ui/sidebar';
 import { Button } from './ui/button';
 import ThemeToggle from './ThemeToggle';
 import ModuleSwitcher from './ModuleSwitcher';
+import { useAuth } from '../lib/auth';
 
 interface Crumb {
   label: string;
@@ -25,12 +26,25 @@ export default function PageShell({
   title,
   crumbs,
   actions,
+  icon,
+  accent,
+  accentBg,
   fullHeight = false,
   children,
 }: {
   title: string;
   crumbs?: Crumb[];
   actions?: ReactNode;
+  /** Small section-identity icon shown before the title — a lucide icon,
+   * colored via `accent`/`accentBg` (pass CSS var references, e.g.
+   * `var(--sec-prospection)` — see index.css's "Section-identity accents"
+   * block). Optional: pages that don't pass one keep the plain title, no
+   * layout shift. Color is a secondary cue only — the icon's own shape is
+   * what actually identifies the entity type, so reuse of a shade across
+   * unrelated icons (see index.css comment) is intentional, not a bug. */
+  icon?: ReactNode;
+  accent?: string;
+  accentBg?: string;
   /** Pins the header in place and constrains `.page` to the remaining viewport
    * height instead of letting the document scroll — for list views that manage
    * their own internal scroll region (filters/pagination stay on screen, only
@@ -39,6 +53,13 @@ export default function PageShell({
   children: ReactNode;
 }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const { user } = useAuth();
+  // Commercial's sidebar already lists every section it's allowed to see at
+  // once (Ventes/Patrimoine/Profil, see Layout.tsx's `isCommercial`) — the
+  // module-switcher launcher exists to jump between single-module views,
+  // which doesn't apply here, so it's hidden rather than left as a dead-end
+  // "choose a module" affordance for a role that only ever has one.
+  const isCommercial = user?.roles?.includes('Commercial') ?? false;
 
   return (
     <div className={cn(fullHeight && 'flex h-svh flex-col overflow-hidden')}>
@@ -46,6 +67,14 @@ export default function PageShell({
         <div className="flex min-w-0 items-center gap-2">
           <SidebarTrigger title="Afficher/masquer la barre latérale" />
           <Separator orientation="vertical" className="mr-1 h-5" />
+          {icon && (
+            <span
+              className="flex size-7 shrink-0 items-center justify-center rounded-lg [&_svg]:size-4"
+              style={{ color: accent, background: accentBg }}
+            >
+              {icon}
+            </span>
+          )}
           <div className="flex min-w-0 flex-col gap-0.5">
             <h1 className="truncate text-[19px] font-semibold tracking-tight text-foreground">{title}</h1>
             {crumbs && crumbs.length > 0 && (
@@ -72,21 +101,23 @@ export default function PageShell({
           {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
           {actions && <Separator orientation="vertical" className="h-5" />}
           <ThemeToggle />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setSwitcherOpen(true)}
-            aria-label="Changer de module"
-            title="Changer de module"
-          >
-            <Grid2x2 />
-          </Button>
+          {!isCommercial && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setSwitcherOpen(true)}
+              aria-label="Changer de module"
+              title="Changer de module"
+            >
+              <Grid2x2 />
+            </Button>
+          )}
         </div>
       </header>
       <div className={cn('page', fullHeight && 'flex min-h-0 flex-col overflow-hidden')}>{children}</div>
 
-      {switcherOpen && <ModuleSwitcher onClose={() => setSwitcherOpen(false)} />}
+      {!isCommercial && switcherOpen && <ModuleSwitcher onClose={() => setSwitcherOpen(false)} />}
     </div>
   );
 }

@@ -31,6 +31,7 @@ import type {
   CreerReglementRequest,
   DashboardDto,
   DevisDto,
+  DevisPageDto,
   DossierDetailDto,
   DossierListItemDto,
   EcheanceDto,
@@ -74,6 +75,7 @@ import type {
   TrancheDetailDto,
   TrancheListItemDto,
   UtilisateurCourantDto,
+  UtilisateurListItemDto,
   UUID,
   VilleDto,
 } from '../types';
@@ -336,6 +338,20 @@ export function getProspection(id: UUID): Promise<ProspectionDetailDto> {
   return request('GET', `/api/prospections/${id}`);
 }
 
+/** Piste d'audit paginée (plus récent en premier) des deux transitions du
+ * parcours pré-prospect → prospect → prospection que cette API trace
+ * elle-même — "Prospect créé et lié" (POST /api/pre-prospections/{id}/
+ * creer-prospect) et "Transformée en prospection" (POST /api/prospections/
+ * {id}/transformer). Comble une lacune réelle d'Omran : ces deux
+ * transitions n'y sont tracées nulle part (ComProspection.UserUpdateDateTime
+ * reste NULL même après transformation, la ligne étant mutée en place). La
+ * date de création du pré-prospect n'est pas dupliquée ici, elle reste sur
+ * ProspectionDetailDto.dateDocument. Le stade "Dossier de vente" a son
+ * propre historique séparé, voir listHistoriqueDossier. */
+export function listProspectionHistorique(id: UUID, pageable?: Pageable): Promise<PageDto<HistoriqueDto>> {
+  return request('GET', `/api/prospections/${id}/historique`, { query: withPageable(undefined, pageable) });
+}
+
 export function listPreProspections(
   params?: ProspectionFilterParams,
   pageable?: Pageable,
@@ -445,6 +461,32 @@ export function getDevisById(prospectionId: UUID, devisId: UUID): Promise<DevisD
   return request('GET', `/api/prospections/${prospectionId}/devis/${devisId}`);
 }
 
+/** Filtres pour la liste globale des offres (page `/offres`, tout
+ * `Vente > Offres` de l'ancien Omran) — mêmes conventions que
+ * `ProspectionFilterParams`/`DossierFilterParams` (liste répétable pour le
+ * multi-select `trancheId`, plage `dateDebut`/`dateFin` sur `dateDocument`).
+ * Confirmé dans `docs/api-docsV4.json` (`GET /api/devis`) — voir
+ * `docs/filtres-avances.md` §Offres. */
+export interface DevisFilterParams {
+  [key: string]: string | number | boolean | string[] | undefined | null;
+  search?: string;
+  /** Repeatable — pass several to OR-match any of them. */
+  trancheId?: UUID[];
+  commercial?: UUID;
+  /** ISO-8601 datetime, inclusive lower bound on `dateDocument`. */
+  dateDebut?: string;
+  /** ISO-8601 datetime, inclusive upper bound on `dateDocument`. */
+  dateFin?: string;
+}
+
+/** `GET /api/devis` — liste globale, cross-prospections, des offres émises.
+ * Réponse `DevisPageDto` : mêmes champs qu'une page standard plus
+ * `sommePrixVenteTTCPage` (somme des prix TTC de la page courante
+ * uniquement — pas un total plein-filtre, voir le type). */
+export function listOffres(params?: DevisFilterParams, pageable?: Pageable): Promise<DevisPageDto> {
+  return request('GET', '/api/devis', { query: withPageable(params, pageable) });
+}
+
 // ---------------------------------------------------------------------------
 // Dossiers
 // ---------------------------------------------------------------------------
@@ -515,6 +557,50 @@ export function getMontantsDossier(id: UUID): Promise<MontantsDossierDto> {
 
 export function listPiecesJointes(dossierId: UUID): Promise<PieceJointeDto[]> {
   return request('GET', `/api/dossiers/${dossierId}/pieces-jointes`);
+}
+
+/** `POST /api/dossiers/{id}/pieces-jointes` — multipart/form-data upload,
+ * so it can't go through `request()` (always JSON-encodes the body). Same
+ * error-message extraction as `performRequest` (Spring's ProblemDetail
+ * `detail`/`title`), just inlined since this is the one non-JSON mutation
+ * in the app. `description` is a free caption — absent = backend falls
+ * back to the original filename. Clears the GET cache on success like
+ * every other mutation, so the pièces-jointes list refetches fresh. */
+export async function uploadPieceJointe(dossierId: UUID, file: File, description?: string): Promise<PieceJointeDto> {
+  const form = new FormData();
+  form.set('fichier', file);
+  const url = `${API_BASE_URL}/api/dossiers/${dossierId}/pieces-jointes${buildQuery({ description })}`;
+  let res: Response;
+  try {
+    res = await fetch(url, { method: 'POST', body: form, credentials: 'include' });
+  } catch {
+    throw new ApiError(0, `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`);
+  }
+  if (!res.ok) {
+    let message = `POST ${url} a échoué (${res.status})`;
+    try {
+      const text = await res.text();
+      if (text) {
+        try {
+          const parsed: unknown = JSON.parse(text);
+          const detail =
+            parsed && typeof parsed === 'object' && 'detail' in parsed && typeof (parsed as { detail?: unknown }).detail === 'string'
+              ? (parsed as { detail: string }).detail
+              : parsed && typeof parsed === 'object' && 'title' in parsed && typeof (parsed as { title?: unknown }).title === 'string'
+                ? (parsed as { title: string }).title
+                : null;
+          message = detail || `${message} — ${text.slice(0, 300)}`;
+        } catch {
+          message = `${message} — ${text.slice(0, 300)}`;
+        }
+      }
+    } catch {
+      // ignore — fall back to the status-only message
+    }
+    throw new ApiError(res.status, message);
+  }
+  clearApiCache();
+  return res.json() as Promise<PieceJointeDto>;
 }
 
 const EXTENSION_MIME: Record<string, string> = {
@@ -597,12 +683,39 @@ function fetchPieceJointeBlob(dossierId: UUID, pieceId: UUID, extension: string 
   return fetchByteEndpointBlob(url, mimeForExtension(extension));
 }
 
-/** Shared by the dossier's generated-document endpoints
- * (`/documents/fiche-reservation`, `/documents/acte-reservation`, …) — same
- * `format: byte` shape, just a different document kind in the path. */
+/** Shared by the dossier's generated-document endpoints that offer both
+ * `pdf`/`docx` (`/documents/fiche-reservation`, `/documents/acte-reservation`)
+ * — same `format: byte` shape, just a different document kind in the path. */
 function fetchDossierDocumentBlob(dossierId: UUID, docKind: 'fiche-reservation' | 'acte-reservation', format: 'pdf' | 'docx'): Promise<Blob> {
   const url = `${API_BASE_URL}/api/dossiers/${dossierId}/documents/${docKind}?format=${format}`;
   return fetchByteEndpointBlob(url, mimeForExtension(format));
+}
+
+/** Shared by the dossier's generated-document endpoints that are PDF-only —
+ * no `format` query param exists on these, unlike `fetchDossierDocumentBlob`
+ * above (see e.g. Fiche Bancaire's "pas de variante Word pour ce document"). */
+export type DossierPdfOnlyDocKind = 'fiche-visite-technique' | 'fiche-dossier-vente' | 'fiche-bancaire';
+function fetchDossierPdfOnlyDocumentBlob(dossierId: UUID, docKind: DossierPdfOnlyDocKind): Promise<Blob> {
+  const url = `${API_BASE_URL}/api/dossiers/${dossierId}/documents/${docKind}`;
+  return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
+}
+
+/** Shared by the prospection's generated-document endpoints
+ * (`/documents/nda`, `/documents/fiche`) — PDF-only, prospection-scoped
+ * (no devisId in the path, unlike the offer document). */
+export type ProspectionPdfDocKind = 'nda' | 'fiche';
+function fetchProspectionDocumentBlob(prospectionId: UUID, docKind: ProspectionPdfDocKind): Promise<Blob> {
+  const url = `${API_BASE_URL}/api/prospections/${prospectionId}/documents/${docKind}`;
+  return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
+}
+
+/** `/api/prospections/{id}/devis/{devisId}/document` — the "Fiche Offre
+ * vente" PDF, reproducing the legacy Offre form exactly (entête, onglet
+ * "Montants" HT/TTC, tableau des sous-articles). PDF-only, unlike the
+ * dossier documents which also offer `docx`. */
+function fetchDevisDocumentBlob(prospectionId: UUID, devisId: UUID): Promise<Blob> {
+  const url = `${API_BASE_URL}/api/prospections/${prospectionId}/devis/${devisId}/document`;
+  return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
 }
 
 function triggerBlobDownload(blob: Blob, filename: string): void {
@@ -685,6 +798,54 @@ export async function viewActeReservation(dossierId: UUID, format: 'pdf' | 'docx
   }
 }
 
+export async function downloadDevisDocument(prospectionId: UUID, devisId: UUID, filename: string): Promise<void> {
+  const blob = await fetchDevisDocumentBlob(prospectionId, devisId);
+  triggerBlobDownload(blob, filename);
+}
+
+export async function viewDevisDocument(prospectionId: UUID, devisId: UUID): Promise<void> {
+  const win = window.open('', '_blank');
+  try {
+    const blob = await fetchDevisDocumentBlob(prospectionId, devisId);
+    showBlobInTab(win, blob);
+  } catch (err) {
+    win?.close();
+    throw err;
+  }
+}
+
+export async function downloadDossierPdfOnlyDocument(dossierId: UUID, docKind: DossierPdfOnlyDocKind, filename: string): Promise<void> {
+  const blob = await fetchDossierPdfOnlyDocumentBlob(dossierId, docKind);
+  triggerBlobDownload(blob, filename);
+}
+
+export async function viewDossierPdfOnlyDocument(dossierId: UUID, docKind: DossierPdfOnlyDocKind): Promise<void> {
+  const win = window.open('', '_blank');
+  try {
+    const blob = await fetchDossierPdfOnlyDocumentBlob(dossierId, docKind);
+    showBlobInTab(win, blob);
+  } catch (err) {
+    win?.close();
+    throw err;
+  }
+}
+
+export async function downloadProspectionDocument(prospectionId: UUID, docKind: ProspectionPdfDocKind, filename: string): Promise<void> {
+  const blob = await fetchProspectionDocumentBlob(prospectionId, docKind);
+  triggerBlobDownload(blob, filename);
+}
+
+export async function viewProspectionDocument(prospectionId: UUID, docKind: ProspectionPdfDocKind): Promise<void> {
+  const win = window.open('', '_blank');
+  try {
+    const blob = await fetchProspectionDocumentBlob(prospectionId, docKind);
+    showBlobInTab(win, blob);
+  } catch (err) {
+    win?.close();
+    throw err;
+  }
+}
+
 export function listEcheances(dossierId: UUID, pageable?: Pageable): Promise<PageDto<EcheanceDto>> {
   return request('GET', `/api/dossiers/${dossierId}/echeancier`, { query: withPageable(undefined, pageable) });
 }
@@ -711,7 +872,7 @@ export function getTranche(id: UUID): Promise<TrancheDetailDto> {
 
 export function listTrancheArticles(
   trancheId: UUID,
-  params?: { statut?: ArticleStatut },
+  params?: { statut?: ArticleStatut; categorieId?: UUID[]; typeId?: UUID[] },
   pageable?: Pageable,
 ): Promise<PageDto<ArticleListItemDto>> {
   return request('GET', `/api/tranches/${trancheId}/articles`, { query: withPageable(params, pageable) });
@@ -832,6 +993,14 @@ export const getSexes = (): Promise<ReferentielItemDto[]> => request('GET', '/ap
 export const getSalaires = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/salaires');
 export const getRegimesMatrimoniaux = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/regimes-matrimoniaux');
 export const getRaisonsCloture = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/raisons-cloture');
+// Rôles applicatifs (AdmRole) assignables à un compte — alimente les cases à
+// cocher "Rôles" de POST /api/utilisateurs (voir NouvelUtilisateur.tsx). Le
+// `code` (pas l'id) est ce que CreerEmployeRequest.roles attend.
+export const getRoles = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/roles');
+// Types d'employé (CfgTierKind, pré-filtrés sur CfgTierType "EMP") — alimente
+// le champ "Type d'employé" de POST /api/utilisateurs. Le `code` est ce que
+// CreerEmployeRequest.typeEmployeCode attend.
+export const getTypesEmploye = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-employe');
 export const getProfilsProspection = (): Promise<ProfilCategorieDto[]> => request('GET', '/api/referentiels/profils-prospection');
 export const getProfessions = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/professions');
 export const getPays = (): Promise<PaysDto[]> => request('GET', '/api/referentiels/pays');
@@ -881,6 +1050,18 @@ export function changerMotDePasse(body: ChangerMotDePasseRequest): Promise<Utili
 
 export function completerProfil(body: CompleterProfilRequest): Promise<UtilisateurCourantDto> {
   return request('PATCH', '/api/mon-compte/profil', { body });
+}
+
+/** Réservé au rôle Administrateur — annuaire des comptes (AdmUser) avec
+ * fiche employé et rôles. `search` filtre sur identifiant/description/email
+ * (sous-chaîne, insensible à la casse) ; `disabled` sur le statut
+ * activé/désactivé (absent = tous les comptes). Seuls filtres exposés par
+ * l'API — pas de filtre par rôle ou type d'employé côté serveur. */
+export function listUtilisateurs(
+  params?: { search?: string; disabled?: boolean },
+  pageable?: Pageable,
+): Promise<PageDto<UtilisateurListItemDto>> {
+  return request('GET', '/api/utilisateurs', { query: withPageable(params, pageable) });
 }
 
 /** Réservé au rôle Administrateur — génère un mot de passe temporaire à

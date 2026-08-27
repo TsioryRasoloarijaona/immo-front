@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Home } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
@@ -26,10 +26,14 @@ export default function ArticleDetail() {
     <PageShell
       title={a.code || 'Article'}
       crumbs={[
-        { label: 'Tranches', to: '/tranches' },
-        ...(a.trancheId ? [{ label: 'Tranche', to: `/tranches/${a.trancheId}` }] : []),
+        { label: 'Patrimoine' },
+        { label: 'Articles', to: '/articles' },
+        ...(a.trancheId ? [{ label: a.trancheCode || a.trancheDescription || 'Tranche', to: `/tranches/${a.trancheId}` }] : []),
         { label: a.code || '' },
       ]}
+      icon={<Home />}
+      accent="var(--sec-tranche)"
+      accentBg="var(--sec-tranche-bg)"
     >
       <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate(-1)}>
         <ArrowLeft data-icon="inline-start" /> Retour
@@ -38,13 +42,25 @@ export default function ArticleDetail() {
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <h1 className="text-[21px] font-semibold tracking-tight text-foreground">{a.code}</h1>
         <Badge tone={a.statut === 'DISPONIBLE' ? 'success' : 'neutral'}>{a.statut === 'DISPONIBLE' ? 'Disponible' : 'Occupé'}</Badge>
+        {a.lotParentId && <Badge tone="neutral">Sous-article</Badge>}
       </div>
 
+      {a.lotParentId && (
+        <button
+          type="button"
+          onClick={() => navigate(`/articles/${a.lotParentId}`)}
+          className="mb-3 flex items-center gap-1.5 text-[12.5px] text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Fait partie de <span className="font-medium text-foreground">{a.lotParentCode || a.lotParentDescription}</span>
+        </button>
+      )}
+
       <div className="flex flex-col gap-3">
-        <Card title="Détails">
+        <Card title="Détails" accent="var(--sec-tranche)">
           <FieldGrid>
             <Field label="Description" value={a.description} />
             <Field label="Adresse" value={a.adresse} />
+            <Field label="Tranche" value={a.trancheDescription || a.trancheCode} />
             <Field label="Type" value={a.typeLibelle} />
             <Field label="Catégorie" value={a.categorieLibelle} />
             <Field label="Superficie" value={a.area ? `${a.area} m²` : undefined} />

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Building2, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
@@ -56,7 +56,13 @@ export default function TranchesList() {
   if (error) return <PageShell title="Tranches"><ErrorState message={error} /></PageShell>;
 
   return (
-    <PageShell title="Tranches" crumbs={[{ label: 'Patrimoine' }, { label: 'Tranches' }]}>
+    <PageShell
+      title="Tranches"
+      crumbs={[{ label: 'Patrimoine' }, { label: 'Tranches' }]}
+      icon={<Building2 />}
+      accent="var(--sec-tranche)"
+      accentBg="var(--sec-tranche-bg)"
+    >
       <div className="mb-3">
         <InputGroup className="max-w-md">
           <InputGroupAddon>
@@ -80,7 +86,7 @@ export default function TranchesList() {
             <Link
               to={`/tranches/${t.id}`}
               key={t.id}
-              className="block rounded-xl border border-border bg-card p-4.5 no-underline transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-[var(--border-strong)] hover:shadow-md"
+              className="block rounded-xl border border-border bg-card p-4.5 no-underline transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-(--border-strong) hover:shadow-md"
             >
               <div className="mb-2.5">
                 <div className="mb-0.5 line-clamp-2 text-[15px] font-semibold text-foreground">{t.description}</div>

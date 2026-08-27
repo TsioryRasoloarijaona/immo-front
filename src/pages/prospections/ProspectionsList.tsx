@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Users } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -78,7 +79,14 @@ export default function ProspectionsList() {
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
 
   return (
-    <PageShell title="Prospections" crumbs={[{ label: 'Ventes' }, { label: 'Prospections' }]} fullHeight>
+    <PageShell
+      title="Prospections"
+      crumbs={[{ label: 'Ventes' }, { label: 'Prospections' }]}
+      fullHeight
+      icon={<Users />}
+      accent="var(--sec-prospection)"
+      accentBg="var(--sec-prospection-bg)"
+    >
       <div className="flex h-full min-h-0 flex-col gap-3">
         <ProspectionFilterBar
           state={filters}
@@ -100,7 +108,7 @@ export default function ProspectionsList() {
               <EmptyState title="Aucun résultat" message="Ajustez vos filtres pour élargir la recherche." />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <Table className="w-full min-w-[640px] table-fixed">
+                <Table className="w-full min-w-160 table-fixed">
                   <TableHeader>
                     <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
                       <TableHead className="w-[28%]">Prospect</TableHead>
@@ -130,10 +138,12 @@ export default function ProspectionsList() {
                         <TableCell className="truncate">
                           <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge>
                         </TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={p.origine || undefined}>{p.origine || '—'}</TableCell>
+                        <TableCell className="truncate" title={p.origine || undefined}>
+                          {p.origine ? <Badge tone="info">{p.origine}</Badge> : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
                         <TableCell className="truncate text-muted-foreground" title={p.commercialNom || undefined}>{p.commercialNom || '—'}</TableCell>
-                        <TableCell className="truncate text-right tabular-nums">
-                          {p.prix ? formatCurrency(p.prix) : <span className="text-muted-foreground">—</span>}
+                        <TableCell className="truncate text-right font-semibold tabular-nums text-(--success)">
+                          {p.prix ? formatCurrency(p.prix) : <span className="font-normal text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell className="truncate text-muted-foreground">{formatDate(p.dateDocument)}</TableCell>
                       </TableRow>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, LayoutGrid } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -27,13 +27,19 @@ export default function ProjetDetail() {
   }
 
   return (
-    <PageShell title={projet.description || projet.code || 'Projet'} crumbs={[{ label: 'Projets', to: '/projets' }, { label: projet.code || '' }]}>
+    <PageShell
+      title={projet.description || projet.code || 'Projet'}
+      crumbs={[{ label: 'Projets', to: '/projets' }, { label: projet.code || '' }]}
+      icon={<LayoutGrid />}
+      accent="var(--sec-projet)"
+      accentBg="var(--sec-projet-bg)"
+    >
       <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate('/projets')}>
         <ArrowLeft data-icon="inline-start" /> Retour à la liste
       </Button>
 
       <div className="flex flex-col gap-3">
-        <Card title="Aperçu">
+        <Card title="Aperçu" accent="var(--sec-projet)">
           <FieldGrid>
             <Field label="Adresse" value={projet.adresse} />
             <Field label="Ville" value={projet.ville} />

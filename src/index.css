@@ -1,10 +1,12 @@
 /* ===========================================================================
    Ayad Développement — design tokens & global styles
-   Simple color space: one accent sampled straight from the brand mark
-   (public/LOGO - Copie/icon-color.png, #5d396e) on plain neutral grays —
-   no invented second/third brand hue. Dense, information-forward sales CRM
-   layout (tight spacing/radius) so more of the pipeline is visible without
-   scrolling.
+   Simple color space: one achromatic "ink" accent (no hue at all — pure
+   near-black/near-white at descending lightness) on plain neutral grays,
+   matching the monochrome dashboard reference the design direction moved
+   to (no colored brand mark anymore — the sidebar/login wordmark is styled
+   text, see Layout.tsx / AuthScreen.tsx). Dense, information-forward sales
+   CRM layout (tight spacing/radius) so more of the pipeline is visible
+   without scrolling.
    =========================================================================== */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -28,13 +30,17 @@
   --surface-hover: #fafafa;
   --border-strong: #d7d6dd;
 
-  /* Brand purple sampled directly from the logo mark
-     (public/LOGO - Copie/icon-color.png, #5d396e) — the app's one accent
-     color; everything else stays plain neutral gray. */
-  --brand: #5d396e;
-  --brand-hover: #4a2d58;
-  --brand-bg: rgba(93, 57, 110, 0.09);
-  --brand-border: rgba(93, 57, 110, 0.35);
+  /* Monochrome "ink" accent — near-black, no hue — the app's one accent
+     color; everything else stays plain neutral gray. Replaces the earlier
+     brand-purple sampled from the (now-removed) logo mark. Hover brightens
+     rather than darkens: darkening an already near-black color is
+     imperceptible, so this is the one place the light/dark hover direction
+     intentionally breaks from the rest of the palette (which darkens on
+     hover in light mode). */
+  --brand: #18181b;
+  --brand-hover: #313033;
+  --brand-bg: rgba(24, 24, 27, 0.06);
+  --brand-border: rgba(24, 24, 27, 0.18);
   /* Foreground color for text/icons sitting on a solid --brand fill. */
   --brand-contrast: #fff;
 
@@ -56,6 +62,39 @@
 
   --neutral-bg: rgba(85, 83, 94, 0.09);
   --neutral-border: rgba(85, 83, 94, 0.22);
+
+  /* ---------------------------------------------------------------------
+     Section-identity accent — now that --brand is achromatic ink (see top
+     comment), every icon chip (PageShell header, sidebar nav in
+     Layout.tsx), card relief (Card's `accent` prop) and pipeline stepper
+     (ProspectionDetail, DossierStatusStepper) draws from this ONE color,
+     not a different hue per entity — a first pass gave every entity its
+     own hue family and it read as too scattered/noisy, then a plain
+     indigo read as too close to a "blue = link/info" affordance; a sober,
+     muted plum/wine (validated CVD-safe against the reserved status hues
+     above) reads as "the app has one quiet accent for structure, plus
+     status colors for state" instead of a rainbow. All --sec-* names are
+     kept as aliases to this single color so call sites don't need to
+     change if the palette is revisited again later. */
+  --sec-accent: #823060;
+  --sec-accent-bg: rgba(130, 48, 96, 0.1);
+
+  --sec-prospection: var(--sec-accent);
+  --sec-preprospection: var(--sec-accent);
+  --sec-prospect: var(--sec-accent);
+  --sec-client: var(--sec-accent);
+  --sec-dossier: var(--sec-accent);
+  --sec-offre: var(--sec-accent);
+  --sec-tranche: var(--sec-accent);
+  --sec-projet: var(--sec-accent);
+  --sec-prospection-bg: var(--sec-accent-bg);
+  --sec-preprospection-bg: var(--sec-accent-bg);
+  --sec-prospect-bg: var(--sec-accent-bg);
+  --sec-client-bg: var(--sec-accent-bg);
+  --sec-dossier-bg: var(--sec-accent-bg);
+  --sec-offre-bg: var(--sec-accent-bg);
+  --sec-tranche-bg: var(--sec-accent-bg);
+  --sec-projet-bg: var(--sec-accent-bg);
 
   --shadow-sm: 0 1px 2px rgba(20, 18, 30, 0.04);
   --shadow-md: 0 4px 16px rgba(20, 18, 30, 0.07), 0 1px 3px rgba(20, 18, 30, 0.05);
@@ -136,13 +175,14 @@
   --border: #2a2932;
   --border-strong: #38363f;
 
-  /* Same brand hue (≈281°), lightened for contrast against a dark surface. */
-  --brand: #c397d8;
-  --brand-hover: #d1acdf;
-  --brand-bg: rgba(195, 151, 216, 0.14);
-  --brand-border: rgba(195, 151, 216, 0.35);
+  /* Same achromatic accent, inverted to near-white for contrast against a
+     dark surface — still no hue, just the light end of the same ink scale. */
+  --brand: #e4e4e7;
+  --brand-hover: #f4f4f5;
+  --brand-bg: rgba(228, 228, 231, 0.12);
+  --brand-border: rgba(228, 228, 231, 0.3);
   /* --brand is now light, so a solid fill needs a dark foreground instead
-     (white-on-light-lavender fails contrast, ~2.4:1). */
+     (white-on-near-white fails contrast). */
   --brand-contrast: #111014;
 
   --success: #4ade80;
@@ -163,6 +203,28 @@
 
   --neutral-bg: rgba(167, 165, 179, 0.1);
   --neutral-border: rgba(167, 165, 179, 0.22);
+
+  /* Same single section-identity accent as :root, lightened for contrast
+     against the dark surface. */
+  --sec-accent: #b8608f;
+  --sec-accent-bg: rgba(184, 96, 143, 0.16);
+
+  --sec-prospection: var(--sec-accent);
+  --sec-preprospection: var(--sec-accent);
+  --sec-prospect: var(--sec-accent);
+  --sec-client: var(--sec-accent);
+  --sec-dossier: var(--sec-accent);
+  --sec-offre: var(--sec-accent);
+  --sec-tranche: var(--sec-accent);
+  --sec-projet: var(--sec-accent);
+  --sec-prospection-bg: var(--sec-accent-bg);
+  --sec-preprospection-bg: var(--sec-accent-bg);
+  --sec-prospect-bg: var(--sec-accent-bg);
+  --sec-client-bg: var(--sec-accent-bg);
+  --sec-dossier-bg: var(--sec-accent-bg);
+  --sec-offre-bg: var(--sec-accent-bg);
+  --sec-tranche-bg: var(--sec-accent-bg);
+  --sec-projet-bg: var(--sec-accent-bg);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32), 0 1px 3px rgba(0, 0, 0, 0.24);
@@ -321,19 +383,19 @@ table {
   --card-foreground: #f2f1f6;
   --popover: #18171d;
   --popover-foreground: #f2f1f6;
-  --primary: #c397d8;
+  --primary: #e4e4e7;
   --primary-foreground: #111014;
   --secondary: #1e1d24;
   --secondary-foreground: #f2f1f6;
   --muted: #1e1d24;
   --muted-foreground: #75737f;
-  --accent: rgba(195, 151, 216, 0.14);
-  --accent-foreground: #c397d8;
+  --accent: rgba(228, 228, 231, 0.12);
+  --accent-foreground: #e4e4e7;
   --destructive: #f87171;
   --destructive-foreground: #111014;
   --border: #2a2932;
   --input: #38363f;
-  --ring: #c397d8;
+  --ring: #e4e4e7;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -341,12 +403,12 @@ table {
   --chart-5: oklch(0.269 0 0);
   --sidebar: #18171d;
   --sidebar-foreground: #a7a5b3;
-  --sidebar-primary: #c397d8;
+  --sidebar-primary: #e4e4e7;
   --sidebar-primary-foreground: #111014;
-  --sidebar-accent: rgba(195, 151, 216, 0.14);
-  --sidebar-accent-foreground: #c397d8;
+  --sidebar-accent: rgba(228, 228, 231, 0.12);
+  --sidebar-accent-foreground: #e4e4e7;
   --sidebar-border: #2a2932;
-  --sidebar-ring: #c397d8;
+  --sidebar-ring: #e4e4e7;
 }
 
 @layer base {

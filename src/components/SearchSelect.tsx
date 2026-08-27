@@ -122,7 +122,7 @@ export default function SearchSelect({
           <div
             ref={listRef}
             style={{ position: 'fixed', top: rect.top, left: rect.left, width: rect.width }}
-            className="z-50 max-h-[220px] overflow-y-auto rounded-md border border-border bg-card py-1 shadow-lg"
+            className="z-50 max-h-55 overflow-y-auto rounded-md border border-border bg-card py-1 shadow-lg"
           >
             {loading && <div className="px-3 py-2 text-xs text-muted-foreground">Recherche…</div>}
             {!loading && options.length === 0 && <div className="px-3 py-2 text-xs text-muted-foreground">Aucun résultat.</div>}

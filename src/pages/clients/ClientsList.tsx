@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, UserCheck } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -17,9 +17,11 @@ import { formatCurrency } from '../../lib/format';
 // one dossier de vente, with À payer/Réglé/Reste totals aggregated
 // server-side (ClientListItemDto). GET /api/clients/{id} returns the same
 // ProspectDetailDto shape as /api/prospects/{id}, so the detail view reuses
-// the existing /prospects/:id page (Général/Contacts/Prospections/Dossiers/
-// Règlements/Historique already cover "toutes les fiches relatives à ce
-// client") instead of duplicating a second detail screen.
+// the existing ProspectDetail component (Général/Contacts/Prospections/
+// Dossiers/Règlements/Historique already cover "toutes les fiches relatives
+// à ce client") — mounted at its own /clients/:id route rather than
+// redirecting into /prospects/:id, so the breadcrumb/back-link/URL stay
+// under "Clients" (ProspectDetail detects the /clients prefix and adapts).
 export default function ClientsList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
@@ -37,15 +39,16 @@ export default function ClientsList() {
   }
 
   return (
-    <PageShell title="Clients" crumbs={[{ label: 'Ventes' }, { label: 'Clients' }]}>
-      <p className="mb-3 max-w-[680px] text-[12.5px] text-muted-foreground">
-        Vue centrée sur la personne — un même client peut avoir plusieurs dossiers ; les montants ci-dessous
-        sont agrégés sur l'ensemble de ses dossiers. Le détail (fiche complète, prospections, dossiers,
-        règlements, historique) s'ouvre sur la fiche prospect.
-      </p>
+    <PageShell
+      title="Clients"
+      crumbs={[{ label: 'Ventes' }, { label: 'Clients' }]}
+      icon={<UserCheck />}
+      accent="var(--sec-client)"
+      accentBg="var(--sec-client-bg)"
+    >
 
       <div className="mb-3 flex flex-wrap items-center gap-2.5">
-        <InputGroup className="min-w-[220px] flex-1">
+        <InputGroup className="min-w-55 flex-1">
           <InputGroupAddon>
             <Search />
           </InputGroupAddon>
@@ -68,7 +71,7 @@ export default function ClientsList() {
             <EmptyState title="Aucun résultat" message="Ajustez votre recherche." />
           ) : (
             <div className="overflow-x-auto rounded-xl border border-border bg-card">
-              <Table className="min-w-[760px]">
+              <Table className="min-w-190">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Code</TableHead>
@@ -91,9 +94,9 @@ export default function ClientsList() {
                       role="link"
                       aria-label={`Ouvrir la fiche de ${r.nomAffiche || r.code}`}
                       className="cursor-pointer"
-                      onClick={() => navigate(`/prospects/${r.id}`)}
+                      onClick={() => navigate(`/clients/${r.id}`)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') navigate(`/prospects/${r.id}`);
+                        if (e.key === 'Enter') navigate(`/clients/${r.id}`);
                       }}
                     >
                       <TableCell className="text-muted-foreground">{r.code || '—'}</TableCell>
@@ -104,7 +107,7 @@ export default function ClientsList() {
                       <TableCell className="text-muted-foreground">{r.email || '—'}</TableCell>
                       <TableCell className="text-right tabular-nums text-muted-foreground">{r.nbDossiers ?? '—'}</TableCell>
                       <TableCell className="text-right tabular-nums text-foreground">{formatCurrency(r.totalAPayer)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-[var(--success)]">{formatCurrency(r.totalRegle)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-(--success)">{formatCurrency(r.totalRegle)}</TableCell>
                       <TableCell className="text-right tabular-nums text-destructive">{formatCurrency(r.totalReste)}</TableCell>
                     </TableRow>
                   ))}

@@ -1,22 +1,23 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Copy } from 'lucide-react';
 import { Card, Field, FieldGrid } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldLabel, FieldError, FieldDescription } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
-import { ApiError, creerEmploye } from '../../lib/api';
-import type { CreerEmployeResponse } from '../../types';
+import SearchableSelect from '../../components/SearchableSelect';
+import { ApiError, creerEmploye, getRoles, getTypesEmploye } from '../../lib/api';
+import type { CreerEmployeResponse, ReferentielItemDto } from '../../types';
 import AdminGuard from './AdminGuard';
 
 // Renders a one-time temporary password in a copy-friendly box — the API
-// never returns it a second time (no list-users endpoint exists at all to
-// look it up later either), so this is the only chance to hand it to the
+// never returns it a second time (and GET /api/utilisateurs never exposes
+// it either, by design), so this is the only chance to hand it to the
 // employee.
 function TempPasswordBox({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="rounded-md border border-[var(--warning)]/30 bg-[var(--warning-bg)] p-3">
-      <div className="mb-1 text-[11.5px] font-medium text-[var(--warning)]">{label}</div>
+    <div className="rounded-md border border-(--warning)/30 bg-(--warning-bg) p-3">
+      <div className="mb-1 text-[11.5px] font-medium text-(--warning)">{label}</div>
       <div className="flex items-center gap-2">
         <code className="flex-1 truncate rounded bg-background px-2 py-1 text-[13px] font-medium text-foreground">{value}</code>
         <Button
@@ -34,7 +35,7 @@ function TempPasswordBox({ label, value }: { label: string; value: string }) {
           <Copy />
         </Button>
       </div>
-      {copied && <div className="mt-1 text-[11.5px] text-[var(--success)]">Copié.</div>}
+      {copied && <div className="mt-1 text-[11.5px] text-(--success)">Copié.</div>}
       <p className="mt-2 text-[11.5px] text-muted-foreground">
         À communiquer à l'employé par un canal hors-bande — ce mot de passe ne sera plus jamais affiché.
       </p>
@@ -49,12 +50,35 @@ function CreerEmployeCard() {
   const [email, setEmail] = useState('');
   const [mobile, setMobile] = useState('');
   const [typeEmployeCode, setTypeEmployeCode] = useState('');
-  const [roles, setRoles] = useState('');
+  const [roles, setRoles] = useState<string[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<ReferentielItemDto[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
+  const [rolesError, setRolesError] = useState<string | null>(null);
+  const [typesEmploye, setTypesEmploye] = useState<ReferentielItemDto[]>([]);
+  const [typesEmployeLoading, setTypesEmployeLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CreerEmployeResponse | null>(null);
 
-  const canSubmit = prenom.trim() && nom.trim() && identifiant.trim() && email.trim() && typeEmployeCode.trim() && roles.trim();
+  useEffect(() => {
+    let cancelled = false;
+    getRoles()
+      .then((items) => { if (!cancelled) setAvailableRoles(items); })
+      .catch((err) => { if (!cancelled) setRolesError(err instanceof ApiError ? err.message : 'Impossible de charger la liste des rôles.'); })
+      .finally(() => { if (!cancelled) setRolesLoading(false); });
+    getTypesEmploye()
+      .then((items) => { if (!cancelled) setTypesEmploye(items); })
+      .finally(() => { if (!cancelled) setTypesEmployeLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const typeEmployeItems = typesEmploye.map((t) => ({ label: t.description || t.code || '', value: t.code ?? '' }));
+
+  const canSubmit = prenom.trim() && nom.trim() && identifiant.trim() && email.trim() && typeEmployeCode.trim() && roles.length > 0;
+
+  function toggleRole(code: string) {
+    setRoles((prev) => (prev.includes(code) ? prev.filter((r) => r !== code) : [...prev, code]));
+  }
 
   function reset() {
     setPrenom('');
@@ -63,7 +87,7 @@ function CreerEmployeCard() {
     setEmail('');
     setMobile('');
     setTypeEmployeCode('');
-    setRoles('');
+    setRoles([]);
   }
 
   async function submit(e: React.FormEvent) {
@@ -79,7 +103,7 @@ function CreerEmployeCard() {
         email: email.trim(),
         mobile: mobile.trim() || undefined,
         typeEmployeCode: typeEmployeCode.trim(),
-        roles: roles.split(',').map((r) => r.trim()).filter(Boolean),
+        roles,
       });
       setResult(res);
       reset();
@@ -117,13 +141,41 @@ function CreerEmployeCard() {
           </FormField>
           <FormField>
             <FieldLabel htmlFor="ce-type">Type d'employé</FieldLabel>
-            <Input id="ce-type" placeholder="ex : COM" value={typeEmployeCode} onChange={(e) => setTypeEmployeCode(e.target.value)} required />
-            <FieldDescription>Code CfgTierKind (ex : COM pour commercial) — doit exister en base.</FieldDescription>
+            <SearchableSelect
+              id="ce-type"
+              items={typeEmployeItems}
+              value={typeEmployeCode || null}
+              onValueChange={(v) => setTypeEmployeCode(v ?? '')}
+              placeholder={typesEmployeLoading ? 'Chargement…' : 'Sélectionner…'}
+              disabled={typesEmployeLoading}
+              emptyMessage="Aucun type d'employé."
+            />
+            <FieldDescription>Détermine le rôle métier de l'employé (ex : Commercial).</FieldDescription>
           </FormField>
           <FormField className="sm:col-span-2">
-            <FieldLabel htmlFor="ce-roles">Rôles</FieldLabel>
-            <Input id="ce-roles" placeholder="ex : Commercial, Administrateur" value={roles} onChange={(e) => setRoles(e.target.value)} required />
-            <FieldDescription>Codes AdmRole séparés par des virgules — au moins un requis, chacun doit exister en base.</FieldDescription>
+            <FieldLabel>Rôles</FieldLabel>
+            {rolesLoading ? (
+              <p className="text-[12.5px] text-muted-foreground">Chargement des rôles…</p>
+            ) : rolesError ? (
+              <FieldError>{rolesError}</FieldError>
+            ) : availableRoles.length === 0 ? (
+              <p className="text-[12.5px] text-muted-foreground">Aucun rôle disponible.</p>
+            ) : (
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-x-4 gap-y-2 rounded-md border border-input px-3 py-2.5">
+                {availableRoles.map((r) => (
+                  <label key={r.id} className="flex items-center gap-1.5 text-[13px] select-none">
+                    <input
+                      type="checkbox"
+                      className="size-3.5 accent-(--sec-accent)"
+                      checked={roles.includes(r.code ?? '')}
+                      onChange={() => toggleRole(r.code ?? '')}
+                    />
+                    {r.description || r.code}
+                  </label>
+                ))}
+              </div>
+            )}
+            <FieldDescription>Au moins un rôle requis — pilote les autorisations d'accès du compte.</FieldDescription>
           </FormField>
           {error && <FieldError className="sm:col-span-2">{error}</FieldError>}
           <div className="sm:col-span-2">

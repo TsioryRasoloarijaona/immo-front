@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, X } from 'lucide-react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, ChevronDown, ChevronRight, Contact, Plus, UserCheck, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -12,7 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import {
   addProspectContact,
+  getClient,
+  getDossier,
   getProspect,
+  getProspection,
   listProspectContacts,
   listProspectDossiers,
   listProspectHistorique,
@@ -26,7 +29,7 @@ import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../..
 import { toneForStatus } from '../../lib/dossierStatus';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { referentielItems, useTypesRelationContact } from '../../lib/referentiels';
-import type { ModifierProspectRequest } from '../../types';
+import type { DossierListItemDto, ModifierProspectRequest, ProspectionListItemDto } from '../../types';
 
 type ProspectTab = 'general' | 'contacts' | 'prospections' | 'dossiers' | 'reglements' | 'historique';
 
@@ -50,12 +53,12 @@ function AddContactRow({ onAdd }: { onAdd: (prospectId: string, relationTypeId: 
     <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/30 p-3">
       <div className="flex flex-col gap-1">
         <label className="text-[11px] text-muted-foreground" htmlFor="contact-id">ID prospect à lier</label>
-        <Input id="contact-id" className="w-[220px]" placeholder="UUID du prospect" value={contactId} onChange={(e) => setContactId(e.target.value)} />
+        <Input id="contact-id" className="w-55" placeholder="UUID du prospect" value={contactId} onChange={(e) => setContactId(e.target.value)} />
       </div>
       <div className="flex flex-col gap-1">
         <label className="text-[11px] text-muted-foreground" htmlFor="relation-type">Relation</label>
         <Select items={relationItems} value={relationTypeId ?? ''} onValueChange={(v) => setRelationTypeId((v as string) || null)}>
-          <SelectTrigger id="relation-type" size="sm" className="w-[180px]">
+          <SelectTrigger id="relation-type" size="sm" className="w-45">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -92,7 +95,21 @@ function AddContactRow({ onAdd }: { onAdd: (prospectId: string, relationTypeId: 
 
 export default function ProspectDetail() {
   const { id } = useParams();
-  const { data: person, loading, error, refetch } = useApi(() => getProspect(id!), [id]);
+  // Reused verbatim for both `/prospects/:id` and `/clients/:id` — GET
+  // /api/clients/{id} returns the same ProspectDetailDto shape as
+  // /api/prospects/{id} (see ClientsList.tsx's comment), so rather than
+  // duplicating this whole page for "Clients", detect the entry point from
+  // the URL and swap only the fetch call + breadcrumb/back-link labels.
+  // This is the fix for the earlier behavior where opening a client always
+  // redirected into /prospects/:id, losing the "Clients" context.
+  const location = useLocation();
+  const isClientContext = location.pathname.startsWith('/clients');
+  const listPath = isClientContext ? '/clients' : '/prospects';
+  const listLabel = isClientContext ? 'Clients' : 'Prospects';
+  const { data: person, loading, error, refetch } = useApi(
+    () => (isClientContext ? getClient(id!) : getProspect(id!)),
+    [id, isClientContext],
+  );
   const navigate = useNavigate();
   const [tab, setTab] = useState<ProspectTab>('general');
   const [editing, setEditing] = useState(false);
@@ -109,13 +126,19 @@ export default function ProspectDetail() {
   const reglements = useApi(() => listProspectReglements(id!, { page: reglementsPage, size: 20 }), [id, reglementsPage]);
   const [historiquePage, setHistoriquePage] = useState(0);
   const historique = useApi(() => listProspectHistorique(id!, { page: historiquePage, size: 20 }), [id, historiquePage]);
+  // Prospections/Dossiers rows expand in place instead of navigating away —
+  // this page is reached from Clients as much as from Prospects, and
+  // leaving it to open /prospections/:id or /dossiers/:id was reported as
+  // an unwanted "redirect" out of the client's fiche.
+  const [expandedProspectionId, setExpandedProspectionId] = useState<string | null>(null);
+  const [expandedDossierId, setExpandedDossierId] = useState<string | null>(null);
 
-  if (loading) return <PageShell title="Prospect"><LoadingState /></PageShell>;
-  if (error) return <PageShell title="Prospect"><ErrorState message={error} /></PageShell>;
+  if (loading) return <PageShell title={isClientContext ? 'Client' : 'Prospect'}><LoadingState /></PageShell>;
+  if (error) return <PageShell title={isClientContext ? 'Client' : 'Prospect'}><ErrorState message={error} /></PageShell>;
   if (!person) {
     return (
-      <PageShell title="Prospect introuvable" crumbs={[{ label: 'Prospects', to: '/prospects' }]}>
-        <p>Ce prospect n'existe pas.</p>
+      <PageShell title={`${isClientContext ? 'Client' : 'Prospect'} introuvable`} crumbs={[{ label: listLabel, to: listPath }]}>
+        <p>Ce {isClientContext ? 'client' : 'prospect'} n'existe pas.</p>
       </PageShell>
     );
   }
@@ -150,8 +173,14 @@ export default function ProspectDetail() {
   }
 
   return (
-    <PageShell title={personDisplayName(person)} crumbs={[{ label: 'Prospects', to: '/prospects' }, { label: person.code || personDisplayName(person) }]}>
-      <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate('/prospects')}>
+    <PageShell
+      title={personDisplayName(person)}
+      crumbs={[{ label: listLabel, to: listPath }, { label: person.code || personDisplayName(person) }]}
+      icon={isClientContext ? <UserCheck /> : <Contact />}
+      accent={isClientContext ? 'var(--sec-client)' : 'var(--sec-prospect)'}
+      accentBg={isClientContext ? 'var(--sec-client-bg)' : 'var(--sec-prospect-bg)'}
+    >
+      <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate(listPath)}>
         <ArrowLeft data-icon="inline-start" /> Retour à la liste
       </Button>
 
@@ -186,6 +215,7 @@ export default function ProspectDetail() {
           <div className="flex flex-col gap-3">
             <Card
               title="Coordonnées"
+              accent={isClientContext ? 'var(--sec-client)' : 'var(--sec-prospect)'}
               action={
                 editing ? (
                   <div className="flex gap-2">
@@ -328,6 +358,7 @@ export default function ProspectDetail() {
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-8" />
                       <TableHead>Code</TableHead>
                       <TableHead>Étape</TableHead>
                       <TableHead>Origine</TableHead>
@@ -337,22 +368,12 @@ export default function ProspectDetail() {
                   </TableHeader>
                   <TableBody>
                     {prospections.data.content.map((p) => (
-                      <TableRow
+                      <ProspectionRow
                         key={p.id}
-                        tabIndex={0}
-                        role="link"
-                        className="cursor-pointer"
-                        onClick={() => navigate(`/prospections/${p.id}`)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') navigate(`/prospections/${p.id}`);
-                        }}
-                      >
-                        <TableCell className="font-medium text-foreground">{p.code || prospectionDisplayName(p)}</TableCell>
-                        <TableCell><Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge></TableCell>
-                        <TableCell className="text-muted-foreground">{p.origine || '—'}</TableCell>
-                        <TableCell className="text-right tabular-nums">{p.prix ? formatCurrency(p.prix) : '—'}</TableCell>
-                        <TableCell className="text-muted-foreground">{formatDate(p.dateDocument)}</TableCell>
-                      </TableRow>
+                        prospection={p}
+                        expanded={expandedProspectionId === p.id}
+                        onToggle={() => setExpandedProspectionId(expandedProspectionId === p.id ? null : p.id)}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -374,6 +395,7 @@ export default function ProspectDetail() {
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
+                      <TableHead className="w-8" />
                       <TableHead>Code</TableHead>
                       <TableHead>Statut</TableHead>
                       <TableHead className="text-right">Prix</TableHead>
@@ -383,22 +405,12 @@ export default function ProspectDetail() {
                   </TableHeader>
                   <TableBody>
                     {dossiers.data.content.map((d) => (
-                      <TableRow
+                      <DossierRow
                         key={d.id}
-                        tabIndex={0}
-                        role="link"
-                        className="cursor-pointer"
-                        onClick={() => navigate(`/dossiers/${d.id}`)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') navigate(`/dossiers/${d.id}`);
-                        }}
-                      >
-                        <TableCell className="font-medium text-foreground">{d.code}</TableCell>
-                        <TableCell><Badge tone={toneForStatus(d.statut)}>{d.statut || '—'}</Badge></TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCurrency(d.prix)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCurrency(d.totalAPayer)}</TableCell>
-                        <TableCell className="text-muted-foreground">{formatDate(d.dateDocument)}</TableCell>
-                      </TableRow>
+                        dossier={d}
+                        expanded={expandedDossierId === d.id}
+                        onToggle={() => setExpandedDossierId(expandedDossierId === d.id ? null : d.id)}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -476,5 +488,153 @@ export default function ProspectDetail() {
         </TabsContent>
       </Tabs>
     </PageShell>
+  );
+}
+
+/** One row of the "Prospections" tab — clicking toggles a detail panel open
+ * in place instead of navigating to `/prospections/:id` (this page's own
+ * list rows already do that; the Prospect/Client fiche is meant to stay put
+ * while browsing what's linked to it). The list row (`ProspectionListItemDto`)
+ * only carries a handful of fields, so the full detail (`ProspectionDetailDto`)
+ * is fetched lazily via `getProspection`, once, the first time the row opens. */
+function ProspectionRow({
+  prospection: p,
+  expanded,
+  onToggle,
+}: {
+  prospection: ProspectionListItemDto;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const detail = useApi(() => (expanded ? getProspection(p.id) : Promise.resolve(null)), [expanded, p.id]);
+
+  return (
+    <>
+      <TableRow
+        tabIndex={0}
+        role="button"
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Replier' : 'Déplier'} la prospection ${p.code || ''}`}
+        className="cursor-pointer"
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); }
+        }}
+      >
+        <TableCell>
+          {expanded ? <ChevronDown className="size-4 text-(--brand)" /> : <ChevronRight className="size-4 text-muted-foreground" />}
+        </TableCell>
+        <TableCell className="font-medium text-foreground">{p.code || prospectionDisplayName(p)}</TableCell>
+        <TableCell><Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge></TableCell>
+        <TableCell className="text-muted-foreground">{p.origine || '—'}</TableCell>
+        <TableCell className="text-right tabular-nums">{p.prix ? formatCurrency(p.prix) : '—'}</TableCell>
+        <TableCell className="text-muted-foreground">{formatDate(p.dateDocument)}</TableCell>
+      </TableRow>
+      {expanded && (
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={6} className="bg-muted/30 py-3">
+            {detail.loading && <LoadingState />}
+            {detail.error && <ErrorState message={detail.error} />}
+            {detail.data && (
+              <div className="flex flex-col gap-2.5">
+                <FieldGrid>
+                  <Field label="Support" value={detail.data.origineSupport} />
+                  <Field label="Vocation" value={detail.data.vocation} />
+                  <Field label="Type de contact" value={detail.data.typeContact} />
+                  <Field label="Action commerciale" value={detail.data.actionCommerciale} />
+                  <Field label="Surface" value={detail.data.surface != null ? `${detail.data.surface}${detail.data.surfaceJusqua ? ` à ${detail.data.surfaceJusqua}` : ''} m²` : undefined} />
+                  <Field label="Budget" value={detail.data.prix != null ? `${formatCurrency(detail.data.prix)}${detail.data.prixJusqua ? ` à ${formatCurrency(detail.data.prixJusqua)}` : ''}` : undefined} />
+                  <Field label="Avance" value={detail.data.avance != null ? formatCurrency(detail.data.avance) : undefined} />
+                  <Field label="Financement fonds propres" value={detail.data.financementFondsPropres != null ? formatCurrency(detail.data.financementFondsPropres) : undefined} />
+                  <Field label="Financement crédit" value={detail.data.financementCredit != null ? formatCurrency(detail.data.financementCredit) : undefined} />
+                  <Field label="Proposeur" value={detail.data.proposeurNom} />
+                  {detail.data.fermee && <Field label="Raison de fermeture" value={detail.data.raisonFermeture || detail.data.raisonFermetureTexte} />}
+                </FieldGrid>
+                {detail.data.notes && (
+                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-[12.5px] text-foreground">
+                    {detail.data.notes}
+                  </div>
+                )}
+              </div>
+            )}
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
+
+/** One row of the "Dossiers" tab — same expand-in-place pattern as
+ * `ProspectionRow` above, fetching the full `DossierDetailDto` (articles,
+ * pricing breakdown) lazily via `getDossier` on first expand. */
+function DossierRow({
+  dossier: d,
+  expanded,
+  onToggle,
+}: {
+  dossier: DossierListItemDto;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const detail = useApi(() => (expanded ? getDossier(d.id) : Promise.resolve(null)), [expanded, d.id]);
+
+  return (
+    <>
+      <TableRow
+        tabIndex={0}
+        role="button"
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Replier' : 'Déplier'} le dossier ${d.code || ''}`}
+        className="cursor-pointer"
+        onClick={onToggle}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); }
+        }}
+      >
+        <TableCell>
+          {expanded ? <ChevronDown className="size-4 text-(--brand)" /> : <ChevronRight className="size-4 text-muted-foreground" />}
+        </TableCell>
+        <TableCell className="font-medium text-foreground">{d.code}</TableCell>
+        <TableCell><Badge tone={toneForStatus(d.statut)}>{d.statut || '—'}</Badge></TableCell>
+        <TableCell className="text-right tabular-nums">{formatCurrency(d.prix)}</TableCell>
+        <TableCell className="text-right tabular-nums">{formatCurrency(d.totalAPayer)}</TableCell>
+        <TableCell className="text-muted-foreground">{formatDate(d.dateDocument)}</TableCell>
+      </TableRow>
+      {expanded && (
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={6} className="bg-muted/30 py-3">
+            {detail.loading && <LoadingState />}
+            {detail.error && <ErrorState message={detail.error} />}
+            {detail.data && (
+              <div className="flex flex-col gap-2.5">
+                {detail.data.articles && detail.data.articles.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {detail.data.articles.map((a) => (
+                      <Badge key={a.id} tone="neutral">{a.code || a.description || '—'}</Badge>
+                    ))}
+                  </div>
+                )}
+                <FieldGrid>
+                  <Field label="Commercial" value={detail.data.commercialNom} />
+                  <Field label="Avocat" value={detail.data.avocatNom} />
+                  <Field label="Prix avant remise" value={detail.data.prixAvantRemise != null ? formatCurrency(detail.data.prixAvantRemise) : undefined} />
+                  <Field label="Remise" value={detail.data.remise != null ? `${Math.round(detail.data.remise * 100)} %` : undefined} />
+                  <Field label="Remise montant" value={detail.data.remiseMontant != null ? formatCurrency(detail.data.remiseMontant) : undefined} />
+                  <Field label="Prix après remise" value={detail.data.prixApresRemise != null ? formatCurrency(detail.data.prixApresRemise) : undefined} />
+                  <Field label="Avance" value={detail.data.montantAvance != null ? formatCurrency(detail.data.montantAvance) : undefined} />
+                  <Field label="Mode de paiement" value={detail.data.modePaie} />
+                  <Field label="Probabilité de finalisation" value={detail.data.probabiliteFinalisation != null ? `${Math.round(detail.data.probabiliteFinalisation * 100)} %` : undefined} />
+                </FieldGrid>
+                {detail.data.notes && (
+                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-[12.5px] text-foreground">
+                    {detail.data.notes}
+                  </div>
+                )}
+              </div>
+            )}
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 }

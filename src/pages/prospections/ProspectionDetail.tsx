@@ -1,20 +1,23 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Minus, Pencil, Plus, X } from 'lucide-react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Plus, UserPlus, Users, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
+import ArticleResultsList from '../../components/ArticleResultsList';
 import CreateProspectForm, { type CreateProspectInitial } from '../../components/CreateProspectForm';
+import DevisFormSection from '../../components/DevisFormSection';
 import InteractionForm from '../../components/InteractionForm';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
+import RefSelect from '../../components/RefSelect';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Separator } from '../../components/ui/separator';
 import { Textarea } from '../../components/ui/textarea';
 import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { cn } from '../../lib/utils';
 import { formatCurrency, formatDate } from '../../lib/format';
 import {
@@ -27,6 +30,7 @@ import {
   interactionIcon,
 } from '../../lib/domain';
 import { useAppData, commercialLabel } from '../../lib/appData';
+import { useAuth } from '../../lib/auth';
 import {
   addInteraction,
   addProspectionAutreTranche,
@@ -36,6 +40,7 @@ import {
   getArticle,
   getArticlesReferentiel,
   getProjetsReferentiel,
+  getProspect,
   getProspection,
   getSousArticlesReferentiel,
   getSupportsForOrigine,
@@ -44,10 +49,16 @@ import {
   listDevis,
   listInteractions,
   listProspectionAutresTranches,
+  listProspectionHistorique,
   modifierProspection,
   modifierTranchePrincipale,
   removeProspectionAutreTranche,
   transformerProspection,
+  viewDevisDocument,
+  downloadDevisDocument,
+  viewProspectionDocument,
+  downloadProspectionDocument,
+  type ProspectionPdfDocKind,
   type ArticleReferentielFilters,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
@@ -56,55 +67,151 @@ import {
   useActionsCommerciales,
   useCategoriesBien,
   useEtapesProspection,
-  useModesPaiement,
   useOriginesProspection,
   useRaisonsCloture,
   useTypesBienReferentiel,
   useTypesContactProspection,
   useVocations,
 } from '../../lib/referentiels';
-import type { ArticleListItemDto, CreerDevisRequest, DevisDto, ModifierProspectionRequest } from '../../types';
+import type { DevisDto, ModifierProspectionRequest } from '../../types';
 
-type ProspectionTab = 'apercu' | 'article' | 'devis' | 'historique';
+type ProspectionTab = 'apercu' | 'prospect' | 'article' | 'devis' | 'historique';
 
-function RefSelect({
-  id,
-  value,
-  onChange,
-  items,
-  placeholder,
-  size,
+const PROSPECTION_DOC_LABELS: Record<ProspectionPdfDocKind, string> = {
+  nda: 'NDA',
+  fiche: 'Fiche',
+};
+
+/** One "Voir + Télécharger" cell pair inside the merged Documents group
+ * below — same actions as before (`viewProspectionDocument`/
+ * `downloadProspectionDocument`), just laid out as two adjoining cells of
+ * one segmented control instead of two separate floating buttons, so NDA
+ * and Fiche read as one "Documents" affordance rather than a scatter of
+ * near-identical button pairs. */
+function ProspectionDocCell({
+  prospectionId,
+  kind,
+  disabled,
+  disabledReason,
+  divider,
+  onError,
 }: {
-  id: string;
-  value: string | null;
-  onChange: (v: string | null) => void;
-  items: { label: string; value: string }[];
-  placeholder?: string;
-  size?: 'sm' | 'default';
+  prospectionId: string;
+  kind: ProspectionPdfDocKind;
+  disabled?: boolean;
+  disabledReason?: string;
+  divider?: boolean;
+  onError: (message: string | null) => void;
 }) {
-  const allItems = [{ label: placeholder ?? '— Non renseigné —', value: '' }, ...items];
+  const [busy, setBusy] = useState<'view' | 'download' | null>(null);
+
+  async function handle(action: 'view' | 'download') {
+    setBusy(action);
+    onError(null);
+    try {
+      if (action === 'view') await viewProspectionDocument(prospectionId, kind);
+      else await downloadProspectionDocument(prospectionId, kind, `${kind}-${prospectionId}.pdf`);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : "Échec de l'opération.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
-    <Select items={allItems} value={value ?? ''} onValueChange={(v) => onChange((v as string) || null)}>
-      <SelectTrigger id={id} size={size}>
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          {allItems.map((item) => (
-            <SelectItem key={item.value || '__none'} value={item.value}>{item.label}</SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
+    <>
+      {divider && <span aria-hidden className="w-px shrink-0 self-stretch bg-input" />}
+      <button
+        type="button"
+        disabled={!!busy || disabled}
+        title={disabled ? disabledReason : undefined}
+        onClick={() => handle('view')}
+        className="flex items-center gap-1.5 px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
+      >
+        <Eye className="size-3.5 text-muted-foreground" />
+        {busy === 'view' ? '…' : PROSPECTION_DOC_LABELS[kind]}
+      </button>
+      <button
+        type="button"
+        disabled={!!busy || disabled}
+        title={disabled ? disabledReason : `Télécharger ${PROSPECTION_DOC_LABELS[kind]} (PDF)`}
+        aria-label={`Télécharger ${PROSPECTION_DOC_LABELS[kind]}`}
+        onClick={() => handle('download')}
+        className="flex items-center border-l border-input px-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-40"
+      >
+        <Download className="size-3.5" />
+      </button>
+    </>
+  );
+}
+
+/** "Documents" — NDA + Fiche prospection generated PDFs, as one bordered
+ * segmented control (Voir/Télécharger per document) instead of two
+ * disconnected button pairs floating in the header. Errors from either cell
+ * surface as one line under the whole group. */
+function ProspectionDocumentButtons({ prospectionId, hasProspect }: { prospectionId: string; hasProspect: boolean }) {
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="inline-flex h-8 items-stretch overflow-hidden rounded-md border border-input">
+        <ProspectionDocCell
+          prospectionId={prospectionId}
+          kind="nda"
+          disabled={!hasProspect}
+          disabledReason="Aucune fiche prospect liée pour générer le NDA."
+          onError={setError}
+        />
+        <ProspectionDocCell prospectionId={prospectionId} kind="fiche" divider onError={setError} />
+      </div>
+      {error && <span className="text-[11px] text-destructive">{error}</span>}
+    </div>
   );
 }
 
 export default function ProspectionDetail() {
   const { id } = useParams();
+  // Reused for both `/prospections/:id` and `/pre-prospections/:id` — Omran
+  // stores both in the same table (see CLAUDE.md), so this is genuinely the
+  // same GET /api/prospections/{id} record either way. Only the entry
+  // point (which list you came from) differs, and that's what previously
+  // made every pré-prospection row feel like it "redirected to a
+  // prospection": the URL, breadcrumb and back-link always said
+  // "Prospections" even when opened from Pré-prospections. Detect the
+  // prefix from the URL and swap those labels only — `isPre` below (data-
+  // driven, not route-driven) still governs the actual page content.
+  const location = useLocation();
+  const isPreRoute = location.pathname.startsWith('/pre-prospections');
+  const listPath = isPreRoute ? '/pre-prospections' : '/prospections';
+  const listLabel = isPreRoute ? 'Pré-prospections' : 'Prospections';
+  // Section-identity accent (index.css) reused for the pipeline stepper and
+  // the "Contact" card's left border — same color as the PageShell icon
+  // chip above, so the whole page reads as one consistent identity instead
+  // of the plain black-on-white the monochrome --brand would otherwise
+  // give every page.
+  const sectionAccent = isPreRoute ? 'var(--sec-preprospection)' : 'var(--sec-prospection)';
   const { data: p, loading, error, refetch } = useApi(() => getProspection(id!), [id]);
+  // Cascade reference down to the linked Prospect — same pipeline-chain
+  // convention as Dossier's own "Prospection" reference: each stage links
+  // to the one before it. Only fetched once the prospection actually
+  // resolved to a prospect (unset while still a pré-prospection).
+  const linkedProspect = useApi(() => (p?.prospectId ? getProspect(p.prospectId) : Promise.resolve(null)), [p?.prospectId]);
   const [interactionsPage, setInteractionsPage] = useState(0);
   const interactions = useApi(() => listInteractions(id!, { page: interactionsPage, size: 20 }), [id, interactionsPage]);
+  // Parcours pré-prospect → prospect → prospection — GET
+  // /api/prospections/{id}/historique, distinct from the interactions/
+  // "Actions" timeline above: this one is the two transitions the API
+  // writes automatically ("Prospect créé et lié", "Transformée en
+  // prospection"), not manually-logged calls/visits/notes.
+  const [parcoursPage, setParcoursPage] = useState(0);
+  const parcours = useApi(() => listProspectionHistorique(id!, { page: parcoursPage, size: 20 }), [id, parcoursPage]);
   const { commerciaux } = useAppData();
+  const { user } = useAuth();
+  // A commercial assigning themselves doesn't need the "pick a commercial"
+  // dropdown at all — `user.employeeId` is the CfgTier id created for their
+  // account (POST /api/utilisateurs), the same id space `commerciaux`
+  // (CfgTier rows of kind commercial) uses, so this resolves whenever the
+  // logged-in employee actually is one of the assignable commerciaux.
+  const ownCommercial = commerciaux.find((c) => c.id === user?.employeeId) ?? null;
   const navigate = useNavigate();
   const [toast, setToast] = useState<string | null>(null);
   const [showCreateProspect, setShowCreateProspect] = useState(false);
@@ -140,12 +247,12 @@ export default function ProspectionDetail() {
     setTimeout(() => setToast(null), 3600);
   }
 
-  if (loading) return <PageShell title="Prospection"><LoadingState /></PageShell>;
-  if (error) return <PageShell title="Prospection"><ErrorState message={error} /></PageShell>;
+  if (loading) return <PageShell title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><LoadingState /></PageShell>;
+  if (error) return <PageShell title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><ErrorState message={error} /></PageShell>;
   if (!p) {
     return (
-      <PageShell title="Prospection introuvable" crumbs={[{ label: 'Prospections', to: '/prospections' }]}>
-        <p>Cette prospection n'existe pas.</p>
+      <PageShell title={`${isPreRoute ? 'Pré-prospection' : 'Prospection'} introuvable`} crumbs={[{ label: listLabel, to: listPath }]}>
+        <p>Cette {isPreRoute ? 'pré-prospection' : 'prospection'} n'existe pas.</p>
       </PageShell>
     );
   }
@@ -162,11 +269,10 @@ export default function ProspectionDetail() {
   const isPre = !p.prospectId;
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
 
-  async function handleTransform() {
-    if (!transformCommercial) return;
+  async function handleTransform(commercialId: string) {
     setBusy(true);
     try {
-      await transformerProspection(p!.id, { commercialId: transformCommercial });
+      await transformerProspection(p!.id, { commercialId });
       await refetch();
       showToast('Prospection transformée — commercial assigné.');
     } catch (err) {
@@ -241,8 +347,14 @@ export default function ProspectionDetail() {
   }
 
   return (
-    <PageShell title={name} crumbs={[{ label: 'Prospections', to: '/prospections' }, { label: p.code || name }]}>
-      <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate('/prospections')}>
+    <PageShell
+      title={name}
+      crumbs={[{ label: listLabel, to: listPath }, { label: p.code || name }]}
+      icon={isPreRoute ? <UserPlus /> : <Users />}
+      accent={isPreRoute ? 'var(--sec-preprospection)' : 'var(--sec-prospection)'}
+      accentBg={isPreRoute ? 'var(--sec-preprospection-bg)' : 'var(--sec-prospection-bg)'}
+    >
+      <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate(listPath)}>
         <ArrowLeft data-icon="inline-start" /> Retour à la liste
       </Button>
 
@@ -258,40 +370,80 @@ export default function ProspectionDetail() {
             Créée le {formatDate(p.dateDocument)} · Commercial : {p.commercialNom || '— non assigné —'}
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end sm:gap-2.5">
-          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setShowInteractionForm(true)}>
+        {/* Utility actions (documents, log an action, close the lead) group
+            on the left of this cluster; the one real call-to-action for
+            this prospection's current state (créer prospect / transformer /
+            créer-ou-ouvrir dossier) stands alone on the right, past a
+            divider, so it stays the visually strongest thing in the row
+            instead of blending into a stack of equally-weighted buttons. */}
+        <div className="flex shrink-0 flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+          <ProspectionDocumentButtons prospectionId={p.id} hasProspect={!!p.prospectId} />
+          <Button variant="outline" size="sm" className="h-8 w-full sm:w-auto" onClick={() => setShowInteractionForm(true)}>
             Ajouter une action
           </Button>
+          {!p.fermee && !showArchiver && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-full border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive sm:w-auto"
+              onClick={() => setShowArchiver(true)}
+              disabled={busy}
+            >
+              Clôturer
+            </Button>
+          )}
+
+          <Separator orientation="vertical" className="hidden h-6 sm:block" />
+
           {isPre ? (
             <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setShowCreateProspect(true)}>
               + Créer prospect
             </Button>
           ) : !p.commercialId ? (
-            <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center">
-              <Select items={commercialItems} value={transformCommercial} onValueChange={(v) => setTransformCommercial(v as string | null)}>
-                <SelectTrigger size="sm" className="w-full sm:w-auto">
-                  <SelectValue placeholder="Commercial…" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {commercialItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <Button size="sm" className="w-full sm:w-auto" onClick={handleTransform} disabled={!transformCommercial || busy}>
-                Transformer
-              </Button>
-            </div>
+            ownCommercial ? (
+              // The connected user is themselves an assignable commercial —
+              // no picker needed, they can only transform onto themselves.
+              // Name shown read-only (not an input) so it's unmistakably
+              // not an editable field.
+              <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center">
+                <div className="flex h-9 items-center rounded-md border border-input bg-muted/30 px-3 text-[13px] text-muted-foreground sm:w-48">
+                  {commercialLabel(ownCommercial)}
+                </div>
+                <Button size="sm" className="w-full sm:w-auto" onClick={() => handleTransform(ownCommercial.id)} disabled={busy}>
+                  Transformer
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center">
+                <Select items={commercialItems} value={transformCommercial} onValueChange={(v) => setTransformCommercial(v as string | null)}>
+                  <SelectTrigger size="sm" className="w-full sm:w-auto">
+                    <SelectValue placeholder="Commercial…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {commercialItems.map((item) => (
+                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <Button size="sm" className="w-full sm:w-auto" onClick={() => transformCommercial && handleTransform(transformCommercial)} disabled={!transformCommercial || busy}>
+                  Transformer
+                </Button>
+              </div>
+            )
+          ) : p.dossierId ? (
+            // Already converted — go straight to the existing dossier
+            // instead of the creation form. `dossierId` isn't in the API
+            // yet (see the field's comment in types.ts); this branch stays
+            // dormant, falling through to "Créer un dossier" below, until
+            // the backend adds it — nothing to change here once it does.
+            <Button className="w-full sm:w-auto" onClick={() => navigate(`/dossiers/${p.dossierId}`)}>
+              Ouvrir le dossier {p.dossierCode ? `${p.dossierCode}` : ''}
+            </Button>
           ) : (
             <Button className="w-full sm:w-auto" onClick={() => navigate(`/prospections/${p.id}/nouveau-dossier`)} disabled={p.fermee}>
-              Créer / ouvrir dossier
-            </Button>
-          )}
-          {!p.fermee && !showArchiver && (
-            <Button variant="ghost" size="sm" onClick={() => setShowArchiver(true)} disabled={busy} className="w-full text-destructive sm:w-auto">
-              Clôturer
+              Créer un dossier
             </Button>
           )}
         </div>
@@ -300,11 +452,11 @@ export default function ProspectionDetail() {
       {showArchiver && (
         <Card title="Clôturer la prospection" action={<Button variant="ghost" size="sm" onClick={() => setShowArchiver(false)}>Annuler</Button>}>
           <div className="flex flex-col flex-wrap items-stretch gap-3 sm:flex-row sm:items-end">
-            <div className="w-full sm:w-[240px]">
+            <div className="w-full sm:w-60">
               <div className="mb-1 text-[11.5px] font-medium text-muted-foreground">Raison</div>
               <RefSelect id="raison" value={raisonId} onChange={setRaisonId} items={referentielItems(raisons.data)} />
             </div>
-            <div className="min-w-0 flex-1 sm:min-w-[240px]">
+            <div className="min-w-0 flex-1 sm:min-w-60">
               <div className="mb-1 text-[11.5px] font-medium text-muted-foreground">Détail (optionnel)</div>
               <Input value={raisonTexte} onChange={(e) => setRaisonTexte(e.target.value)} />
             </div>
@@ -326,18 +478,20 @@ export default function ProspectionDetail() {
                       <div className={cn('flex flex-col items-center', i === PIPELINE_STAGES.length - 1 ? 'flex-none' : 'flex-1')}>
                         <div
                           className={cn(
-                            'flex size-[22px] shrink-0 items-center justify-center rounded-full border-2 text-[10.5px] font-bold transition-colors duration-300',
-                            i <= stageIdx
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-border bg-[var(--neutral-bg)] text-muted-foreground'
+                            'flex size-5.5 shrink-0 items-center justify-center rounded-full border-2 text-[10.5px] font-bold transition-colors duration-300',
+                            i <= stageIdx ? 'text-white' : 'border-border bg-(--neutral-bg) text-muted-foreground'
                           )}
+                          style={i <= stageIdx ? { borderColor: sectionAccent, background: sectionAccent } : undefined}
                         >
                           {i + 1}
                         </div>
                         <div className="mt-1.5 hidden text-center text-[10.5px] text-muted-foreground sm:block">{PIPELINE_STAGE_SHORT[stage]}</div>
                       </div>
                       {i < PIPELINE_STAGES.length - 1 && (
-                        <div className={cn('mx-0.5 h-0.5 flex-1 transition-colors duration-300', i < stageIdx ? 'bg-primary' : 'bg-border')} />
+                        <div
+                          className={cn('mx-0.5 h-0.5 flex-1 transition-colors duration-300', i >= stageIdx && 'bg-border')}
+                          style={i < stageIdx ? { background: sectionAccent } : undefined}
+                        />
                       )}
                     </div>
                   ))}
@@ -355,7 +509,7 @@ export default function ProspectionDetail() {
 
             <div className={cn('flex flex-col items-stretch gap-2.5 sm:flex-row sm:flex-wrap sm:items-center', showStepper && 'mt-4 border-t border-border pt-4')}>
               <span className="text-[11.5px] font-medium text-muted-foreground">Changer d'étape :</span>
-              <div className="w-full sm:w-[220px]">
+              <div className="w-full sm:w-55">
                 <RefSelect id="etape" value={etapeId} onChange={setEtapeId} items={referentielItems(etapes.data)} placeholder="Choisir une étape…" />
               </div>
               <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={handleChangeEtape} disabled={!etapeId || busy}>
@@ -393,6 +547,7 @@ export default function ProspectionDetail() {
           <div className="-mx-4 overflow-x-auto px-4 min-[881px]:mx-0 min-[881px]:overflow-visible min-[881px]:px-0">
             <TabsList>
               <TabsTrigger value="apercu">Aperçu</TabsTrigger>
+              {p.prospectId && <TabsTrigger value="prospect">Prospect</TabsTrigger>}
               <TabsTrigger value="article">
                 Article
                 {(autresTranches.data?.length ?? 0) > 0 && <Badge tone="neutral" className="ml-1.5">{autresTranches.data!.length}</Badge>}
@@ -409,7 +564,7 @@ export default function ProspectionDetail() {
 
           <TabsContent value="apercu">
             <div className="flex flex-col gap-3">
-              <Card title="Contact">
+              <Card title="Contact" accent={sectionAccent}>
                 <FieldGrid>
                   <Field label="Nom" value={p.prospectNom} />
                   {isPre && <Field label="Description (temp.)" value={p.tempDescription} />}
@@ -525,7 +680,7 @@ export default function ProspectionDetail() {
                 ) : (
                   <>
                     <FieldGrid>
-                      <Field label="Origine" value={p.origine} />
+                      <Field label="Origine" value={p.origine ? <Badge tone="info">{p.origine}</Badge> : undefined} />
                       <Field label="Support / campagne" value={p.origineSupport} />
                       <Field label="Vocation" value={p.vocation} />
                       <Field label="Type de contact" value={p.typeContact} />
@@ -552,6 +707,36 @@ export default function ProspectionDetail() {
               </Card>
             </div>
           </TabsContent>
+
+          {p.prospectId && (
+            <TabsContent value="prospect">
+              {/* Cascade reference to the linked Prospect — mirrors the
+                  same "reference the previous pipeline stage" pattern as
+                  Dossier→Prospection and Prospect→Prospections-d'origine. */}
+              <Card
+                title="Prospect"
+                accent="var(--sec-prospect)"
+                action={
+                  <Link to={`/prospects/${p.prospectId}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                    Fiche complète <ArrowUpRight className="size-3" />
+                  </Link>
+                }
+              >
+                {linkedProspect.loading && <LoadingState />}
+                {linkedProspect.error && <ErrorState message={linkedProspect.error} />}
+                {linkedProspect.data && (
+                  <FieldGrid>
+                    <Field label="Nom" value={p.prospectNom || `${linkedProspect.data.prenom || ''} ${linkedProspect.data.nom || ''}`.trim()} />
+                    <Field label="Type" value={linkedProspect.data.type} />
+                    <Field label="Téléphone" value={linkedProspect.data.telephone || linkedProspect.data.mobile} />
+                    <Field label="Email" value={linkedProspect.data.email} />
+                    <Field label="Ville" value={linkedProspect.data.ville} />
+                    <Field label="Commercial" value={linkedProspect.data.commercialNom} />
+                  </FieldGrid>
+                )}
+              </Card>
+            </TabsContent>
+          )}
 
           <TabsContent value="article">
             <div className="flex flex-col gap-3">
@@ -591,7 +776,7 @@ export default function ProspectionDetail() {
                 {devis.data && devis.data.content.length > 0 && (
                   <div className="flex flex-col gap-2">
                     {devis.data.content.map((dv) => (
-                      <DevisRow key={dv.id} devis={dv} />
+                      <DevisRow key={dv.id} prospectionId={p.id} devis={dv} />
                     ))}
                   </div>
                 )}
@@ -603,48 +788,86 @@ export default function ProspectionDetail() {
           </TabsContent>
 
           <TabsContent value="historique">
-            <Card title={`Actions (${interactions.data?.totalElements ?? 0})`}>
-              {interactions.loading && <LoadingState />}
-              {interactions.error && <ErrorState message={interactions.error} />}
-              {interactions.data && interactions.data.content.length === 0 && (
-                <p className="text-[13px] text-muted-foreground">Aucune action enregistrée pour cette prospection.</p>
-              )}
-              {interactions.data && interactions.data.content.length > 0 && (
-                <div className="flex flex-col">
-                  {interactions.data.content.map((c, i) => (
-                    <div className="relative flex gap-3 pb-4.5 last:pb-0" key={c.id}>
-                      <div className="flex shrink-0 flex-col items-center">
-                        <div className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" />
-                        {i < interactions.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
-                      </div>
-                      <div className="min-w-0 flex-1 pb-0.5">
-                        <div className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-foreground">
-                          <span className="inline-flex text-[var(--brand)]">{interactionIcon(c.entrante)}</span>
-                          {c.actionType || (c.entrante ? 'Entrant' : 'Sortant')}
-                          {c.resultat && <Badge tone={c.dateRdv ? 'success' : 'neutral'}>{c.resultat}</Badge>}
+            <div className="flex flex-col gap-3">
+              <Card title={`Parcours (${parcours.data?.totalElements ?? 0})`}>
+                {parcours.loading && <LoadingState />}
+                {parcours.error && <ErrorState message={parcours.error} />}
+                {parcours.data && parcours.data.content.length === 0 && (
+                  <p className="text-[13px] text-muted-foreground">
+                    Aucune transition tracée pour l'instant — apparaîtra ici dès que cette fiche sera liée à un
+                    prospect ou transformée en prospection qualifiée.
+                  </p>
+                )}
+                {parcours.data && parcours.data.content.length > 0 && (
+                  <div className="flex flex-col">
+                    {parcours.data.content.map((h, i) => (
+                      <div className="relative flex gap-3 pb-4.5 last:pb-0" key={h.id}>
+                        <div className="flex shrink-0 flex-col items-center">
+                          <div className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" />
+                          {i < parcours.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
                         </div>
-                        <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(c.date)} · {c.employeNom || 'Système'}</div>
-                        {c.description && <div className="mt-1 text-[12.5px] text-foreground">{c.description}</div>}
-                        {(c.dateRdv || c.dateAlerte) && (
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {c.dateRdv && <Badge tone="success">RDV le {formatDate(c.dateRdv)}</Badge>}
-                            {c.dateAlerte && <Badge tone="warning">Alerte jusqu'au {formatDate(c.dateAlerte)}</Badge>}
-                          </div>
-                        )}
+                        <div className="min-w-0 flex-1 pb-0.5">
+                          <div className="text-[13px] font-semibold text-foreground">{h.workflowDescription || h.statutDescription || 'Événement'}</div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(h.date)} · {h.utilisateur || 'Système'}</div>
+                          {h.description && <div className="mt-1 text-[12.5px] text-foreground">{h.description}</div>}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {interactions.data && (
-                <Pagination
-                  page={interactions.data.page}
-                  totalPages={interactions.data.totalPages}
-                  totalElements={interactions.data.totalElements}
-                  onPageChange={setInteractionsPage}
-                />
-              )}
-            </Card>
+                    ))}
+                  </div>
+                )}
+                {parcours.data && (
+                  <Pagination
+                    page={parcours.data.page}
+                    totalPages={parcours.data.totalPages}
+                    totalElements={parcours.data.totalElements}
+                    onPageChange={setParcoursPage}
+                  />
+                )}
+              </Card>
+
+              <Card title={`Actions (${interactions.data?.totalElements ?? 0})`}>
+                {interactions.loading && <LoadingState />}
+                {interactions.error && <ErrorState message={interactions.error} />}
+                {interactions.data && interactions.data.content.length === 0 && (
+                  <p className="text-[13px] text-muted-foreground">Aucune action enregistrée pour cette prospection.</p>
+                )}
+                {interactions.data && interactions.data.content.length > 0 && (
+                  <div className="flex flex-col">
+                    {interactions.data.content.map((c, i) => (
+                      <div className="relative flex gap-3 pb-4.5 last:pb-0" key={c.id}>
+                        <div className="flex shrink-0 flex-col items-center">
+                          <div className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" />
+                          {i < interactions.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
+                        </div>
+                        <div className="min-w-0 flex-1 pb-0.5">
+                          <div className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                            <span className="inline-flex text-(--brand)">{interactionIcon(c.entrante)}</span>
+                            {c.actionType || (c.entrante ? 'Entrant' : 'Sortant')}
+                            {c.resultat && <Badge tone={c.dateRdv ? 'success' : 'neutral'}>{c.resultat}</Badge>}
+                          </div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(c.date)} · {c.employeNom || 'Système'}</div>
+                          {c.description && <div className="mt-1 text-[12.5px] text-foreground">{c.description}</div>}
+                          {(c.dateRdv || c.dateAlerte) && (
+                            <div className="mt-1.5 flex flex-wrap gap-1.5">
+                              {c.dateRdv && <Badge tone="success">RDV le {formatDate(c.dateRdv)}</Badge>}
+                              {c.dateAlerte && <Badge tone="warning">Alerte jusqu'au {formatDate(c.dateAlerte)}</Badge>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {interactions.data && (
+                  <Pagination
+                    page={interactions.data.page}
+                    totalPages={interactions.data.totalPages}
+                    totalElements={interactions.data.totalElements}
+                    onPageChange={setInteractionsPage}
+                  />
+                )}
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
@@ -689,75 +912,6 @@ export default function ProspectionDetail() {
  * narrows the same table in place. Mirrors the backend's guidance: the user
  * picks the article from *this* filtered list, never from a dropdown of
  * every article in the tranche. */
-function ArticleResultsList({
-  items,
-  loading,
-  selectedId,
-  onSelect,
-  allowNone,
-  noneLabel,
-}: {
-  items: ArticleListItemDto[];
-  loading?: boolean;
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
-  allowNone?: boolean;
-  noneLabel?: string;
-}) {
-  if (loading) return <p className="text-[12px] text-muted-foreground">Chargement…</p>;
-  if (items.length === 0) return <p className="text-[12px] text-muted-foreground">Aucun résultat pour ces filtres.</p>;
-  return (
-    <div className="max-h-[280px] overflow-y-auto rounded-md border border-border">
-      <Table>
-        <TableHeader className="sticky top-0 z-10 bg-background">
-          <TableRow className="hover:bg-transparent">
-            <TableHead>Code</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead>Catégorie</TableHead>
-            <TableHead>Type</TableHead>
-            <TableHead className="text-right">Surface</TableHead>
-            <TableHead className="text-right">Prix de vente</TableHead>
-            <TableHead>Statut</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {allowNone && (
-            <TableRow
-              tabIndex={0}
-              role="button"
-              className={cn('cursor-pointer', selectedId === null && 'bg-primary/10')}
-              onClick={() => onSelect(null)}
-              onKeyDown={(e) => { if (e.key === 'Enter') onSelect(null); }}
-            >
-              <TableCell colSpan={7} className="text-muted-foreground">{noneLabel}</TableCell>
-            </TableRow>
-          )}
-          {items.map((a) => (
-            <TableRow
-              key={a.id}
-              tabIndex={0}
-              role="button"
-              className={cn('cursor-pointer', selectedId === a.id && 'bg-primary/10')}
-              onClick={() => onSelect(a.id)}
-              onKeyDown={(e) => { if (e.key === 'Enter') onSelect(a.id); }}
-            >
-              <TableCell className="font-medium text-foreground">{a.code}</TableCell>
-              <TableCell className="text-muted-foreground">{a.description || '—'}</TableCell>
-              <TableCell className="text-muted-foreground">{a.categorieLibelle || '—'}</TableCell>
-              <TableCell className="text-muted-foreground">{a.typeLibelle || '—'}</TableCell>
-              <TableCell className="text-right tabular-nums">{a.area ? `${a.area} m²` : '—'}</TableCell>
-              <TableCell className="text-right tabular-nums">{a.salePrice ? formatCurrency(a.salePrice) : '—'}</TableCell>
-              <TableCell>
-                {a.statut && <Badge tone={a.statut === 'DISPONIBLE' ? 'success' : 'warning'}>{a.statut}</Badge>}
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-
 /** Full référentiel picker reproducing the legacy "Choix article" form's
  * exact mechanic (per the backend's implementation guide on the
  * `Référentiels` OpenAPI tag): the user narrows by Projet → Tranche, ticks
@@ -863,29 +1017,23 @@ function ArticleCascadePicker({
 
   return (
     <div className="flex flex-col gap-2.5">
-      <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-end">
-        <div className="w-full sm:w-[180px]">
-          <div className="mb-1 text-[11.5px] font-medium text-muted-foreground">Projet</div>
-          <RefSelect
-            id="cascade-projet"
-            value={projetId}
-            onChange={(v) => { setProjetId(v); setTrancheId(null); setArticleId(null); setSousArticleId(null); }}
-            items={referentielItems(projets.data ?? [])}
-            placeholder="Tous les projets"
-            size="sm"
-          />
-        </div>
-        <div className="w-full sm:w-[190px]">
-          <div className="mb-1 text-[11.5px] font-medium text-muted-foreground">Tranche</div>
-          <RefSelect
-            id="cascade-tranche"
-            value={trancheId}
-            onChange={(v) => { setTrancheId(v); setArticleId(null); setSousArticleId(null); }}
-            items={referentielItems(tranches.data ?? [])}
-            placeholder="Choisir une tranche…"
-            size="sm"
-          />
-        </div>
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+        <RefSelect
+          id="cascade-projet"
+          label="Projet"
+          value={projetId}
+          onChange={(v) => { setProjetId(v); setTrancheId(null); setArticleId(null); setSousArticleId(null); }}
+          items={referentielItems(projets.data ?? [])}
+          placeholder="Tous les projets"
+        />
+        <RefSelect
+          id="cascade-tranche"
+          label="Tranche"
+          value={trancheId}
+          onChange={(v) => { setTrancheId(v); setArticleId(null); setSousArticleId(null); }}
+          items={referentielItems(tranches.data ?? [])}
+          placeholder="Choisir une tranche…"
+        />
         <MultiSelectDropdown
           label="Catégorie"
           placeholder="Toutes"
@@ -900,7 +1048,7 @@ function ArticleCascadePicker({
           onChange={setTypeIdsAndReset}
           items={referentielItems(typesRef.data)}
         />
-        <label className="flex items-center gap-1.5 pb-1.5 text-[12.5px] text-muted-foreground">
+        <label className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
           <input
             type="checkbox"
             checked={onlyDisponible}
@@ -1035,7 +1183,7 @@ function ChoixArticleSection({
           <button
             type="button"
             onClick={() => navigate(`/tranches/${trancheId}`)}
-            className="inline-flex w-fit items-center gap-1 rounded-md border border-border bg-[var(--neutral-bg)] px-2.5 py-1 text-[12.5px] font-semibold text-primary hover:underline"
+            className="inline-flex w-fit items-center gap-1 rounded-md border border-border bg-(--neutral-bg) px-2.5 py-1 text-[12.5px] font-semibold text-primary hover:underline"
           >
             {currentTranche.data?.description || currentTranche.data?.code || 'Tranche'} <ArrowUpRight className="size-2.5" />
           </button>
@@ -1177,9 +1325,24 @@ function ArticlesAssociesSection({
  * remise itself, figures after remise, then the final Prix de vente line —
  * same expand-on-demand shape as `ArticleCompactPreview`, so a dense
  * ~20-field breakdown never dumps onto the page uninvited. */
-function DevisRow({ devis: dv }: { devis: DevisDto }) {
+function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: DevisDto }) {
   const [expanded, setExpanded] = useState(false);
+  const [generating, setGenerating] = useState<'view' | 'download' | null>(null);
+  const [genError, setGenError] = useState<string | null>(null);
   const m = dv.montants;
+
+  async function handleGenerateFiche(action: 'view' | 'download') {
+    setGenerating(action);
+    setGenError(null);
+    try {
+      if (action === 'view') await viewDevisDocument(prospectionId, dv.id);
+      else await downloadDevisDocument(prospectionId, dv.id, `offre-${dv.code}.pdf`);
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : "Échec de la génération.");
+    } finally {
+      setGenerating(null);
+    }
+  }
 
   return (
     <div className="rounded-md border border-border px-3 py-2">
@@ -1194,8 +1357,25 @@ function DevisRow({ devis: dv }: { devis: DevisDto }) {
         <div className="flex shrink-0 items-center gap-2">
           <span className="text-[12px] text-muted-foreground">{formatDate(dv.dateDocument)}</span>
           <span className="text-[13.5px] font-semibold tabular-nums text-foreground">
-            {m?.prixVenteTTC != null ? formatCurrency(m.prixVenteTTC) : dv.prix != null ? formatCurrency(dv.prix) : '—'}
+            {m?.prixVenteTTC != null ? formatCurrency(m.prixVenteTTC) : '—'}
           </span>
+          {genError && <span className="text-[11.5px] text-destructive">{genError}</span>}
+          <Button type="button" variant="outline" size="sm" className="h-6 gap-1 px-1.5 text-[12px]" disabled={!!generating} onClick={() => handleGenerateFiche('view')}>
+            <FileText className="size-3" />
+            {generating === 'view' ? 'Génération…' : 'Fiche offre'}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="size-6"
+            disabled={!!generating}
+            title="Télécharger la fiche offre (PDF)"
+            aria-label="Télécharger la fiche offre"
+            onClick={() => handleGenerateFiche('download')}
+          >
+            <Download className="size-3" />
+          </Button>
           {m && (
             <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-[12px]" onClick={() => setExpanded((v) => !v)}>
               {expanded ? <Minus className="size-3" /> : <Plus className="size-3" />}
@@ -1260,229 +1440,3 @@ function DevisRow({ devis: dv }: { devis: DevisDto }) {
   );
 }
 
-/** "Nouveau devis" — reproduces the legacy Offre form's own picking mechanic
- * (same projet → tranche → catégorie/type → article cascade as
- * `ArticleCascadePicker`, reused conceptually but self-contained here since
- * this form also needs a sous-articles multi-select, a prix override, a
- * remise and a mode de paiement, none of which the tranche-principale picker
- * needs). Tucked behind "Nouvelle offre" like every other "Modifier"-gated
- * picker on this page — collapsed by default so the offres list stays the
- * page's focus, forced open only via the toggle. Prospect/commercial default
- * silently to the prospection's own (per `CreerDevisRequest`), so they're
- * not asked for again here. */
-function DevisFormSection({
-  defaultTrancheId,
-  defaultArticleId,
-  defaultProspectId,
-  defaultCommercialId,
-  onAdd,
-}: {
-  defaultTrancheId?: string;
-  defaultArticleId?: string;
-  defaultProspectId?: string;
-  defaultCommercialId?: string;
-  onAdd: (body: CreerDevisRequest) => Promise<void>;
-}) {
-  const [open, setOpen] = useState(false);
-
-  const projets = useApi(() => getProjetsReferentiel(), []);
-  const categoriesRef = useCategoriesBien();
-  const typesRef = useTypesBienReferentiel();
-  const modesPaiement = useModesPaiement();
-
-  const [projetId, setProjetId] = useState<string | null>(null);
-  const [trancheId, setTrancheId] = useState<string | null>(defaultTrancheId ?? null);
-  const [categorieIds, setCategorieIds] = useState<string[]>([]);
-  const [typeIds, setTypeIds] = useState<string[]>([]);
-  const [onlyDisponible, setOnlyDisponible] = useState(!defaultArticleId);
-  const [articleId, setArticleId] = useState<string | null>(defaultArticleId ?? null);
-  const [sousArticleIds, setSousArticleIds] = useState<string[]>([]);
-  const [prix, setPrix] = useState('');
-  const [remisePercent, setRemisePercent] = useState('');
-  const [modePaiementId, setModePaiementId] = useState<string | null>(null);
-  const [notes, setNotes] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const tranches = useApi(() => getTranchesReferentiel(projetId ?? undefined), [projetId]);
-  const filters: ArticleReferentielFilters = {
-    statut: onlyDisponible ? 'DISPONIBLE' : undefined,
-    categorieId: categorieIds.length > 0 ? categorieIds : undefined,
-    typeId: typeIds.length > 0 ? typeIds : undefined,
-  };
-  const articles = useApi(
-    () => (trancheId ? getArticlesReferentiel(trancheId, filters) : Promise.resolve([])),
-    [trancheId, onlyDisponible, categorieIds, typeIds],
-  );
-  const sousArticles = useApi(
-    () => (articleId ? getSousArticlesReferentiel(articleId, filters) : Promise.resolve([])),
-    [articleId, onlyDisponible, categorieIds, typeIds],
-  );
-  const selected = useApi(() => (articleId ? getArticle(articleId) : Promise.resolve(null)), [articleId]);
-
-  const isLibre = !articleId;
-
-  function reset() {
-    setProjetId(null);
-    setTrancheId(defaultTrancheId ?? null);
-    setCategorieIds([]);
-    setTypeIds([]);
-    setArticleId(defaultArticleId ?? null);
-    setSousArticleIds([]);
-    setPrix('');
-    setRemisePercent('');
-    setModePaiementId(null);
-    setNotes('');
-    setError(null);
-  }
-
-  async function handleCreate() {
-    if (!trancheId) return;
-    if (isLibre && !prix.trim()) {
-      setError("Prix requis pour une offre libre (sans article).");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      await onAdd({
-        trancheId,
-        articleId: articleId ?? undefined,
-        sousArticleIds: sousArticleIds.length > 0 ? sousArticleIds : undefined,
-        prospectId: defaultProspectId,
-        commercialId: defaultCommercialId,
-        modePaiementId: modePaiementId ?? undefined,
-        prix: prix.trim() ? Number(prix) : undefined,
-        remisePercent: remisePercent.trim() ? Number(remisePercent) : undefined,
-        notes: notes.trim() || undefined,
-      });
-      reset();
-      setOpen(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de la création de l'offre.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Card
-      title="Nouvelle offre"
-      action={
-        <Button type="button" variant={open ? 'ghost' : 'outline'} size="sm" onClick={() => { if (open) reset(); setOpen((v) => !v); }}>
-          {open ? 'Annuler' : (<><Plus data-icon="inline-start" /> Nouvelle offre</>)}
-        </Button>
-      }
-    >
-      {!open ? (
-        <p className="text-[12.5px] text-muted-foreground">Créez une offre de prix pour cette prospection — avec ou sans article, remise incluse.</p>
-      ) : (
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-end">
-            <div className="w-full sm:w-[180px]">
-              <div className="mb-1 text-[11.5px] font-medium text-muted-foreground">Projet</div>
-              <RefSelect
-                id="devis-projet"
-                value={projetId}
-                onChange={(v) => { setProjetId(v); setTrancheId(null); setArticleId(null); setSousArticleIds([]); }}
-                items={referentielItems(projets.data ?? [])}
-                placeholder="Tous les projets"
-                size="sm"
-              />
-            </div>
-            <div className="w-full sm:w-[190px]">
-              <div className="mb-1 text-[11.5px] font-medium text-muted-foreground">Tranche</div>
-              <RefSelect
-                id="devis-tranche"
-                value={trancheId}
-                onChange={(v) => { setTrancheId(v); setArticleId(null); setSousArticleIds([]); }}
-                items={referentielItems(tranches.data ?? [])}
-                placeholder="Choisir une tranche…"
-                size="sm"
-              />
-            </div>
-            <MultiSelectDropdown
-              label="Catégorie"
-              placeholder="Toutes"
-              value={categorieIds}
-              onChange={(ids) => { setCategorieIds(ids); setArticleId(null); setSousArticleIds([]); }}
-              items={referentielItems(categoriesRef.data)}
-            />
-            <MultiSelectDropdown
-              label="Type"
-              placeholder="Tous"
-              value={typeIds}
-              onChange={(ids) => { setTypeIds(ids); setArticleId(null); setSousArticleIds([]); }}
-              items={referentielItems(typesRef.data)}
-            />
-            <label className="flex items-center gap-1.5 pb-1.5 text-[12.5px] text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={onlyDisponible}
-                onChange={(e) => { setOnlyDisponible(e.target.checked); setArticleId(null); setSousArticleIds([]); }}
-                className="size-3.5"
-              />
-              Disponibles uniquement
-            </label>
-          </div>
-
-          {trancheId && (
-            <div className="flex flex-col gap-1">
-              <span className="text-[11.5px] font-medium text-muted-foreground">
-                Article (optionnel — offre libre sans article sinon) {articles.data ? `(${articles.data.length})` : ''}
-              </span>
-              <ArticleResultsList
-                items={articles.data ?? []}
-                loading={articles.loading}
-                selectedId={articleId}
-                onSelect={(id) => { setArticleId(id); setSousArticleIds([]); }}
-                allowNone
-                noneLabel="Aucun — offre libre"
-              />
-            </div>
-          )}
-
-          {articleId && (
-            <>
-              <ArticleCompactPreview article={selected.data ?? null} loading={selected.loading} bare />
-              <MultiSelectDropdown
-                label="Sous-articles"
-                placeholder="Aucun"
-                value={sousArticleIds}
-                onChange={setSousArticleIds}
-                items={(sousArticles.data ?? []).map((a) => ({ label: `${a.code}${a.description ? ` — ${a.description}` : ''}`, value: a.id }))}
-                disabled={(sousArticles.data ?? []).length === 0}
-              />
-            </>
-          )}
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <FormField>
-              <FieldLabel htmlFor="devis-prix">{isLibre ? 'Prix TTC (requis)' : 'Prix TTC (remplace le prix commercial)'}</FieldLabel>
-              <Input id="devis-prix" type="number" value={prix} onChange={(e) => setPrix(e.target.value)} placeholder={isLibre ? 'Obligatoire' : 'Optionnel'} />
-            </FormField>
-            <FormField>
-              <FieldLabel htmlFor="devis-remise">Remise (%)</FieldLabel>
-              <Input id="devis-remise" type="number" value={remisePercent} onChange={(e) => setRemisePercent(e.target.value)} placeholder="0" />
-            </FormField>
-            <FormField>
-              <FieldLabel htmlFor="devis-mode">Mode de paiement</FieldLabel>
-              <RefSelect id="devis-mode" value={modePaiementId} onChange={setModePaiementId} items={referentielItems(modesPaiement.data)} placeholder="Non renseigné" size="default" />
-            </FormField>
-            <FormField className="sm:col-span-2 lg:col-span-1">
-              <FieldLabel htmlFor="devis-notes">Notes</FieldLabel>
-              <Input id="devis-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-            </FormField>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button type="button" size="sm" disabled={!trancheId || busy} onClick={handleCreate}>
-              {busy ? 'Création…' : 'Créer l’offre'}
-            </Button>
-            {error && <p className="text-[12px] text-destructive">{error}</p>}
-          </div>
-        </div>
-      )}
-    </Card>
-  );
-}

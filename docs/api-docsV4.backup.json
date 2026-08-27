@@ -24,6 +24,10 @@
       "description": "Connexion/déconnexion par cookie JWT httpOnly."
     },
     {
+      "name": "Devis",
+      "description": "Offres de prix (\"devis\") faites aux prospects — vue globale tous prospections confondues. Voir aussi POST/GET /api/prospections/{id}/devis pour la vue nestée sur une seule prospection."
+    },
+    {
       "name": "Mon compte",
       "description": "Profil de l'utilisateur authentifié — les seules routes accessibles (avec /api/auth/**) tant que mustChangePassword/profileCompleted bloquent le reste de l'API."
     },
@@ -58,6 +62,64 @@
   ],
   "paths": {
     "/api/utilisateurs": {
+      "get": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Liste les comptes utilisateurs",
+        "description": "Tous les comptes (AdmUser) avec leurs informations (identifiant, coordonnées, statut activé/désactivé), la fiche employé (CfgTier) liée et les rôles (AdmRole) assignés — écran d'administration des comptes. `search` filtre (insensible à la casse, sous-chaîne) sur identifiant/description/email. `disabled` filtre sur le statut activé/désactivé ; absent = tous les comptes. Réservé au rôle Administrateur.",
+        "operationId": "findAll",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sous-chaîne sur identifiant/description/email.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "disabled",
+            "in": "query",
+            "description": "Filtre sur le statut désactivé. Absent = tous les comptes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste (éventuellement vide) des comptes.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoUtilisateurListItemDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoUtilisateurListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
       "post": {
         "tags": [
           "Utilisateurs (admin)"
@@ -178,7 +240,7 @@
         "tags": [
           "prospect-controller"
         ],
-        "operationId": "findAll",
+        "operationId": "findAll_1",
         "parameters": [
           {
             "name": "search",
@@ -702,6 +764,8 @@
         "tags": [
           "Prospections"
         ],
+        "summary": "Liste les offres (devis) d'une prospection",
+        "description": "Chaque offre inclut son détail HT/TTC complet (voir `montants`), reproduisant l'onglet \"Montants\" du formulaire Offre legacy.",
         "operationId": "getDevis",
         "parameters": [
           {
@@ -724,7 +788,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Page d'offres (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoDevisDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -739,6 +813,8 @@
         "tags": [
           "Prospections"
         ],
+        "summary": "Crée une offre (devis) sur une prospection",
+        "description": "Si `articleId` est fourni, les montants HT/TTC/TVA/prix au m² sont calculés à partir du prix commercial de l'article (`ComSalePrice(HT)`, `Vat`) et, s'ils sont fournis, des `sousArticleIds` — voir `CreerDevisRequest` pour le détail du calcul et des remplacements possibles (`prix`, `remisePercent`). Sans `articleId`, l'offre est \"libre\": `prix` devient directement le prix de vente TTC, sans ventilation HT/m²/sous-articles.",
         "operationId": "creerDevis",
         "parameters": [
           {
@@ -763,7 +839,27 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Offre créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevisDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`trancheId` manquant/introuvable, `prix` manquant alors qu'aucun `articleId` n'est fourni, ou un id (article/sous-article/prospect/commercial/mode de paiement) est introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevisDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -1035,7 +1131,7 @@
         ],
         "summary": "Liste paginée des dossiers de vente",
         "description": "Filtre optionnellement par statut (multi-sélection, une valeur pour un seul statut se comporte comme avant), commercial, entité (projet), tranche(s), plage de dates sur un jalon au choix, et recherche libre sur le code. Voir instructions/filtres-avances.md pour le détail des filtres avancés.",
-        "operationId": "findAll_1",
+        "operationId": "findAll_2",
         "parameters": [
           {
             "name": "statut",
@@ -1842,7 +1938,7 @@
         ],
         "summary": "Liste paginée des tranches, à plat",
         "description": "Toutes les tranches, tous projets confondus, ou filtrées sur un seul projet via `projetId`. Évite le contournement N+1 (GET /api/projets puis GET /api/projets/{id}/tranches pour chacun) pour peupler une checklist de filtre côté front — voir instructions/filtres-avances.md point 2.",
-        "operationId": "findAll_2",
+        "operationId": "findAll_3",
         "parameters": [
           {
             "name": "projetId",
@@ -2110,6 +2206,31 @@
           "Référentiels"
         ],
         "operationId": "getTypesPieceIdentite",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels/types-employe": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Types d'employé (CfgTierKind) assignables à un compte",
+        "description": "Codes CfgTierKind valides pour `typeEmployeCode` de `POST /api/utilisateurs` lors de la création d'un employé (ex. \"COM\" pour commercial) — équivalent de `GET /api/referentiels/tier-types/{typeId}/kinds` déjà filtré sur le CfgTierType \"EMP\", pour ne pas obliger le front à connaître son id.",
+        "operationId": "getTypesEmploye",
         "responses": {
           "200": {
             "description": "OK",
@@ -2418,6 +2539,31 @@
           "Référentiels"
         ],
         "operationId": "getSalaires",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels/roles": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Liste des rôles applicatifs (AdmRole)",
+        "description": "Rôles pouvant être assignés à un compte utilisateur — alimente le choix (cases à cocher) \"roles\" de POST /api/utilisateurs lors de la création d'un employé. Chaque code (ex. \"Commercial\", \"Administrateur\") pilote aussi les autorisations d'accès (hasRole(...)) sur les endpoints réservés.",
+        "operationId": "getRoles",
         "responses": {
           "200": {
             "description": "OK",
@@ -3034,7 +3180,7 @@
         ],
         "summary": "Liste paginée des prospections",
         "description": "Filtre optionnellement par étape/origine/commercial (multi-sélection, une valeur pour un seul choix se comporte comme avant), tranche(s) visée(s), plage de dates sur la date du document, et recherche libre. Exclut les pré-prospections (voir GET /api/pre-prospections). Voir instructions/filtres-avances.md pour le détail des filtres avancés.",
-        "operationId": "findAll_3",
+        "operationId": "findAll_4",
         "parameters": [
           {
             "name": "etape",
@@ -3149,12 +3295,249 @@
         }
       }
     },
+    "/api/prospections/{id}/historique": {
+      "get": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Historique complet du parcours d'une prospection",
+        "description": "Piste d'audit paginée (plus récent en premier) des transitions pré-prospect → prospect → prospection tracées par cette API : \"Prospect créé et lié\" (POST /api/pre-prospections/{id}/creer-prospect) et \"Transformée en prospection\" (POST /api/prospections/{id}/transformer). Comble une lacune constatée sur données réelles : Omran ne trace nulle part ces deux transitions (ComProspection.UserUpdateDateTime reste toujours NULL même sur des lignes déjà transformées, la même ligne étant mutée en place). La date de création du pré-prospect reste disponible séparément via ProspectionDetailDto.dateDocument (pas dupliquée ici). Le stade \"Dossier de vente\" a son propre historique, voir GET /api/dossiers/{id}/historique.",
+        "operationId": "historique",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Prospection introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoHistoriqueDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections/{id}/documents/nda": {
+      "get": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Génère la \"NDA AYAD PRIVATE\" (PDF) du prospect de la prospection",
+        "description": "Formulaire \"Expression of Interest Form / Non-Disclosure Agreement\" (en anglais, reproduisant le formulaire legacy tel quel) — état civil et coordonnées du prospect lié à la prospection (`ComProspection.cfgProspect`). L'en-tête/pied de page AYAD Private est fixe (même contenu quel que soit le projet visé par la prospection — le NDA se signe en amont du choix d'un programme).",
+        "operationId": "getNda",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF généré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prospection introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections/{id}/documents/fiche": {
+      "get": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Génère la \"Fiche Prospection\" (PDF)",
+        "description": "Modélisé sur le template legacy \"FICHE\" (prospection) — récapitulatif imprimable reprenant les mêmes champs que `GET /api/prospections/{id}` (entête, budget/superficie recherchés, financement, alerte, notes) plus les 15 dernières actions journalisées (`GET /api/prospections/{id}/interactions`). La section \"PROFIL\" (catégorie/type/profil de prospection) du template legacy n'est pas reproduite ici — hors périmètre de cette itération.",
+        "operationId": "getFiche",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF généré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prospection introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections/{id}/devis/{devisId}": {
+      "get": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Détail d'une offre (devis)",
+        "description": "Détail complet d'une offre, y compris le HT/TTC de l'onglet \"Montants\" (`montants`).",
+        "operationId": "getDevisById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "devisId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "L'offre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevisDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune offre avec cet id sur cette prospection.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevisDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections/{id}/devis/{devisId}/document": {
+      "get": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Génère la \"Fiche Offre vente\" (PDF) d'une offre",
+        "description": "Reproduit exactement le formulaire Offre legacy (entête, onglet \"Montants\" HT/TTC, tableau des sous-articles avec leur propre remise) — voir `instructions/templates/priceOffer/OFFRE DE PRIX.pdf`. Le tableau \"SOUS ARTICLES\" n'apparaît que si l'offre a été créée avec des `sousArticleIds`.",
+        "operationId": "getDevisDocument",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "devisId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le PDF de la fiche offre vente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune offre avec cet id sur cette prospection.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projets": {
       "get": {
         "tags": [
           "projet-controller"
         ],
-        "operationId": "findAll_4",
+        "operationId": "findAll_5",
         "parameters": [
           {
             "name": "pageable",
@@ -3256,7 +3639,7 @@
         ],
         "summary": "Liste paginée des pré-prospections",
         "description": "Mêmes filtres que GET /api/prospections (étape, origine, commercial, tranche(s), plage de dates, recherche libre, ouvertes) appliqués aux leads non encore qualifiés. Voir instructions/filtres-avances.md point 5.",
-        "operationId": "findAll_5",
+        "operationId": "findAll_6",
         "parameters": [
           {
             "name": "etape",
@@ -3643,6 +4026,51 @@
         }
       }
     },
+    "/api/dossiers/{id}/documents/fiche-visite-technique": {
+      "get": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Génère la \"Fiche Visite Technique\" du dossier (PDF)",
+        "description": "Modélisé sur le template legacy \"FICHE VISITE TECHNIQUE\" — checklist d'inspection avant livraison (\"FICHE D'INTERVENTION AVANT LIVRAISON\"), référencée par la clause \"SERVICE APRES VENTE\" de l'Acte de réservation. Les colonnes Localisation/Date/Observations de la checklist sont volontairement laissées vides dans le PDF — remplies à la main lors de la visite physique, rien dans le schéma ne les alimente. Inclut aussi la synthèse des obligations du règlement de copropriété et la clause de contact SAV (adresse bureau, responsable de tranche/projet selon le code de la tranche, durée de garantie). Le template legacy est bilingue français/arabe ; seul le contenu français est reproduit ici. PDF uniquement.",
+        "operationId": "getFicheVisiteTechnique",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF généré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/documents/fiche-reservation": {
       "get": {
         "tags": [
@@ -3672,6 +4100,96 @@
         "responses": {
           "200": {
             "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/documents/fiche-dossier-vente": {
+      "get": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Génère la \"Fiche Dossier de Vente\" du dossier (PDF)",
+        "description": "Modélisé sur le template legacy \"FICHE COMPLETE\" — récapitulatif interne complet du dossier : entête, montants par catégorie (réutilise `GET /api/dossiers/{id}/montants`), tous les jalons de dates, échéancier persisté, sous-articles, acquéreurs et historique (réutilise `GET /api/dossiers/{id}/historique`). Les sections \"MODIFICATIONS\" et \"CADEAUX\" du template legacy ne sont pas reproduites ici — hors périmètre de cette itération. PDF uniquement.",
+        "operationId": "getFicheDossierVente",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF généré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/documents/fiche-bancaire": {
+      "get": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Génère la \"Fiche Bancaire\" du dossier (PDF)",
+        "description": "Modélisé sur le template legacy \"FICHE BANCAIRE\" — fiche de soutien à une demande de crédit immobilier : état civil complet de l'acquéreur principal et de chaque co-acquéreur (`ComFolderCustomer`), désignation complète du bien, et détail prix/frais dossier/frais syndic avec la part déjà réglée et le reliquat (réutilise le même calcul que `GET /api/dossiers/{id}/montants`, jamais re-dérivé). PDF uniquement — pas de variante Word pour ce document.",
+        "operationId": "getFicheBancaire",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF généré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable.",
             "content": {
               "*/*": {
                 "schema": {
@@ -3725,6 +4243,92 @@
         }
       }
     },
+    "/api/devis": {
+      "get": {
+        "tags": [
+          "Devis"
+        ],
+        "summary": "Liste paginée de toutes les offres (devis), tous prospections confondues",
+        "description": "Filtre optionnellement par recherche libre sur le code de l'offre, tranche(s), commercial, et plage de dates sur la date de l'offre (dateDocument). Chaque ligne porte prospectionId/prospectionCode pour la colonne \"Prospection\" et le lien cliquable vers la prospection d'origine. sommePrixVenteTTCPage est calculé uniquement sur la page renvoyée, pas sur l'ensemble des résultats filtrés — voir la description du champ.",
+        "operationId": "findAll_7",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche libre sur le code de l'offre.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id). Répéter le paramètre pour plusieurs tranches (?trancheId=a&trancheId=b). Absent = toutes les tranches.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "commercial",
+            "in": "query",
+            "description": "Id du commercial (CfgTier.id, cfgCommercial).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Borne inférieure (incluse) sur dateDocument, format ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-01-01T00:00:00"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Borne supérieure (incluse) sur dateDocument, format ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-12-31T23:59:59"
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DevisPageDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dashboard": {
       "get": {
         "tags": [
@@ -3750,7 +4354,7 @@
         "tags": [
           "commercial-controller"
         ],
-        "operationId": "findAll_6",
+        "operationId": "findAll_8",
         "parameters": [
           {
             "name": "pageable",
@@ -3780,7 +4384,7 @@
         "tags": [
           "client-controller"
         ],
-        "operationId": "findAll_7",
+        "operationId": "findAll_9",
         "parameters": [
           {
             "name": "search",
@@ -5091,14 +5695,44 @@
         "properties": {
           "trancheId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Tranche de l'offre. Obligatoire."
           },
           "articleId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Article principal de l'offre. Si renseigné, sert de base au calcul HT/TTC/TVA/prix au m². Optionnel (offre libre sans ventilation sinon)."
+          },
+          "sousArticleIds": {
+            "type": "array",
+            "description": "Sous-articles inclus dans l'offre (leur prix commercial est sommé dans \"prix sous-articles\"). Ignoré si articleId est absent.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "prospectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Prospect concerné par l'offre. Si absent, repris du prospect de la prospection."
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Commercial de l'offre. Si absent, repris du commercial de la prospection."
+          },
+          "modePaiementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Mode de paiement envisagé. Optionnel."
           },
           "prix": {
-            "type": "number"
+            "type": "number",
+            "description": "Prix de vente TTC. Obligatoire si articleId est absent (offre libre); sinon optionnel et remplace le prix commercial de l'article s'il est fourni."
+          },
+          "remisePercent": {
+            "type": "number",
+            "description": "Taux de remise à appliquer, en %. Défaut 0."
           },
           "notes": {
             "type": "string"
@@ -5107,6 +5741,7 @@
       },
       "DevisDto": {
         "type": "object",
+        "description": "Une offre de prix (\"devis\") faite à un prospect sur une prospection, avec son détail HT/TTC complet.",
         "properties": {
           "id": {
             "type": "string",
@@ -5119,29 +5754,191 @@
             "type": "string",
             "format": "date-time"
           },
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "prospectionCode": {
+            "type": "string",
+            "description": "Code de la prospection d'origine — pour la colonne \"Prospection\" et le lien cliquable vers la prospection dans la liste globale des offres (GET /api/devis)."
+          },
           "trancheId": {
             "type": "string",
             "format": "uuid"
           },
           "tranche": {
-            "type": "string"
+            "type": "string",
+            "description": "Code de la tranche."
+          },
+          "trancheDescription": {
+            "type": "string",
+            "description": "Libellé (description) de la tranche."
           },
           "articleId": {
             "type": "string",
             "format": "uuid"
           },
           "article": {
-            "type": "string"
+            "type": "string",
+            "description": "Code de l'article."
+          },
+          "articleDescription": {
+            "type": "string",
+            "description": "Libellé (description) de l'article."
+          },
+          "articleSuperficie": {
+            "type": "number",
+            "description": "Superficie de l'article, en m². null si l'offre n'a pas d'article."
+          },
+          "articleCategorie": {
+            "type": "string",
+            "description": "Nature du bien (StkItemCategory), ex. \"APPARTEMENT\". null si l'offre n'a pas d'article."
+          },
+          "articleType": {
+            "type": "string",
+            "description": "Typologie du bien (StkItemType), ex. \"1 CHAMBRES + SALON\". null si l'offre n'a pas d'article."
           },
           "prospectId": {
             "type": "string",
             "format": "uuid"
           },
-          "prix": {
-            "type": "number"
+          "prospect": {
+            "type": "string",
+            "description": "Nom (raison sociale ou prénom+nom) du prospect."
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commercial": {
+            "type": "string",
+            "description": "Nom du commercial."
+          },
+          "modePaiementId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "modePaiement": {
+            "type": "string",
+            "description": "Libellé du mode de paiement."
+          },
+          "montants": {
+            "$ref": "#/components/schemas/MontantsOffreDto",
+            "description": "Détail HT/TTC complet de l'offre — voir MontantsOffreDto."
+          },
+          "schemaFinancement": {
+            "type": "array",
+            "description": "Plan de financement (AUTO-FINANCEMENT / AVANCE / FRAIS SYNDIC) calculé sur le prix de vente TTC après remise de l'offre, même calcul que POST /api/dossiers/simulation-financement. Vide si l'offre n'a pas de prix.",
+            "items": {
+              "$ref": "#/components/schemas/LigneSchemaFinancementDto"
+            }
           },
           "notes": {
             "type": "string"
+          }
+        }
+      },
+      "LigneSchemaFinancementDto": {
+        "type": "object",
+        "properties": {
+          "categorie": {
+            "type": "string"
+          },
+          "montant": {
+            "type": "number"
+          },
+          "exclureDuPrix": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MontantsOffreDto": {
+        "type": "object",
+        "description": "Détail HT/TTC des montants d'une offre, reproduisant l'onglet \"Montants\" du formulaire Offre legacy.",
+        "properties": {
+          "tvaRatio": {
+            "type": "number",
+            "description": "Taux de TVA appliqué (ex. 0.20 = 20%), repris de l'article au moment de la création de l'offre."
+          },
+          "prixM2HT": {
+            "type": "number",
+            "description": "Prix du m² HT = prix article HT / superficie de l'article."
+          },
+          "prixM2TTC": {
+            "type": "number",
+            "description": "Prix du m² TTC."
+          },
+          "prixArticleHT": {
+            "type": "number",
+            "description": "Prix de l'article principal, HT."
+          },
+          "prixArticleTTC": {
+            "type": "number",
+            "description": "Prix de l'article principal, TTC."
+          },
+          "prixSousArticlesHT": {
+            "type": "number",
+            "description": "Somme des prix des sous-articles inclus dans l'offre, HT. 0 si aucun sous-article."
+          },
+          "prixSousArticlesTTC": {
+            "type": "number",
+            "description": "Somme des prix des sous-articles inclus dans l'offre, TTC."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Total HT = prix article HT + prix sous-articles HT, avant remise."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Total TTC, avant remise."
+          },
+          "remisePercent": {
+            "type": "number",
+            "description": "Taux de remise appliqué au total, en %."
+          },
+          "remiseHT": {
+            "type": "number",
+            "description": "Montant de la remise, HT."
+          },
+          "remiseTTC": {
+            "type": "number",
+            "description": "Montant de la remise, TTC."
+          },
+          "prixM2ApresRemiseHT": {
+            "type": "number",
+            "description": "Prix du m² HT après remise (remise répartie au prorata entre article et sous-articles)."
+          },
+          "prixM2ApresRemiseTTC": {
+            "type": "number",
+            "description": "Prix du m² TTC après remise."
+          },
+          "prixArticleApresRemiseHT": {
+            "type": "number",
+            "description": "Prix de l'article HT après remise."
+          },
+          "prixArticleApresRemiseTTC": {
+            "type": "number",
+            "description": "Prix de l'article TTC après remise."
+          },
+          "prixSousArticlesApresRemiseHT": {
+            "type": "number",
+            "description": "Prix des sous-articles HT après remise."
+          },
+          "prixSousArticlesApresRemiseTTC": {
+            "type": "number",
+            "description": "Prix des sous-articles TTC après remise."
+          },
+          "prixVenteHT": {
+            "type": "number",
+            "description": "Prix de vente final HT = total HT − remise HT. Ligne finale du formulaire Offre legacy."
+          },
+          "prixVenteTTC": {
+            "type": "number",
+            "description": "Prix de vente final TTC = total TTC − remise TTC."
+          },
+          "commissionPercent": {
+            "type": "number",
+            "description": "Taux de commission (ex. 0.03 = 3%), repris de l'offre. Null si non renseigné."
           }
         }
       },
@@ -5399,6 +6196,15 @@
           },
           "modePaie": {
             "type": "string"
+          },
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la prospection à l'origine du dossier (ComFolder.ComProspectionId)."
+          },
+          "prospectionCode": {
+            "type": "string",
+            "description": "Code de la prospection à l'origine du dossier — pour la référence cascade et le lien cliquable vers la prospection depuis le dossier (`GET /api/prospections/{prospectionId}`)."
           }
         }
       },
@@ -5545,20 +6351,6 @@
           },
           "prix": {
             "type": "number"
-          }
-        }
-      },
-      "LigneSchemaFinancementDto": {
-        "type": "object",
-        "properties": {
-          "categorie": {
-            "type": "string"
-          },
-          "montant": {
-            "type": "number"
-          },
-          "exclureDuPrix": {
-            "type": "boolean"
           }
         }
       },
@@ -5892,6 +6684,108 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "PageDtoUtilisateurListItemDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/UtilisateurListItemDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "UtilisateurListItemDto": {
+        "type": "object",
+        "description": "Une ligne de GET /api/utilisateurs — compte (AdmUser) avec ses informations, sa fiche employé (CfgTier) et ses rôles (AdmRole), pour l'écran d'administration des comptes.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "description": "Nom d'utilisateur (AdmUser.Code)."
+          },
+          "description": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "phone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "disabled": {
+            "type": "boolean",
+            "description": "true si le compte est désactivé (AdmUser.Disabled) — ne peut plus se connecter."
+          },
+          "employeeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la fiche employé/commercial (CfgTier) liée, si connue."
+          },
+          "employeePrenom": {
+            "type": "string",
+            "description": "Prénom de la fiche employé liée (CfgTier.FirstName), si connue."
+          },
+          "employeeNom": {
+            "type": "string",
+            "description": "Nom de la fiche employé liée (CfgTier.LastName), si connue."
+          },
+          "typeEmployeCode": {
+            "type": "string",
+            "description": "Code du type d'employé (CfgTierKind.Code, ex: \"COM\" pour commercial), si la fiche employé en a un."
+          },
+          "typeEmployeLibelle": {
+            "type": "string",
+            "description": "Libellé du type d'employé (CfgTierKind.Description)."
+          },
+          "roles": {
+            "type": "array",
+            "description": "Codes des rôles assignés (AdmRole.Code), ex: [\"Commercial\", \"Administrateur\"]. Vide si aucun rôle assigné.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "compteWebInitialise": {
+            "type": "boolean",
+            "description": "true si des identifiants web (AppUserCredential) existent pour ce compte — false si le compte legacy ne s'est encore jamais connecté à l'application web et n'a jamais été initialisé par un administrateur (voir POST /api/utilisateurs/{admUserId}/reinitialiser-mot-de-passe)."
+          },
+          "mustChangePassword": {
+            "type": "boolean",
+            "description": "true si un mot de passe temporaire est actif pour ce compte (en attente de changement à la prochaine connexion). false, y compris si compteWebInitialise est false."
+          },
+          "profileCompleted": {
+            "type": "boolean",
+            "description": "true si le profil (informations personnelles de première connexion) a déjà été complété. false, y compris si compteWebInitialise est false."
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création du compte (AdmUser.UserCreateDateTime)."
           }
         }
       },
@@ -6690,6 +7584,15 @@
           "dateConcretisation": {
             "type": "string",
             "format": "date-time"
+          },
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la prospection à l'origine du dossier (ComFolder.ComProspectionId)."
+          },
+          "prospectionCode": {
+            "type": "string",
+            "description": "Code de la prospection à l'origine du dossier — pour le lien cliquable vers la prospection depuis le dossier (`GET /api/prospections/{prospectionId}`)."
           }
         }
       },
@@ -7108,6 +8011,38 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "DevisPageDto": {
+        "type": "object",
+        "description": "Liste paginée des offres (devis), avec la somme des prix de vente TTC de la page courante uniquement (voir la description du champ pour le détail).",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DevisDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sommePrixVenteTTCPage": {
+            "type": "number",
+            "description": "Somme des prixVenteTTC des offres de la page courante uniquement (pas un total plein-filtre sur l'ensemble des résultats) — offres sans montant renseigné exclues de la somme."
           }
         }
       },

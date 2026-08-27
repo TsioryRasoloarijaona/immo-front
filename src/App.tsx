@@ -18,6 +18,7 @@ import CompleteProfileGate from './pages/auth/CompleteProfileGate';
 // chunk instead of invalidating one monolithic bundle on every deploy.
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Profil = lazy(() => import('./pages/profil/Profil'));
+const UtilisateursList = lazy(() => import('./pages/utilisateurs/UtilisateursList'));
 const NouvelUtilisateur = lazy(() => import('./pages/utilisateurs/NouvelUtilisateur'));
 const ReinitialiserMotDePasse = lazy(() => import('./pages/utilisateurs/ReinitialiserMotDePasse'));
 const Calendrier = lazy(() => import('./pages/calendrier/Calendrier'));
@@ -25,6 +26,7 @@ const Hotline = lazy(() => import('./pages/hotline/Hotline'));
 const ProspectionsList = lazy(() => import('./pages/prospections/ProspectionsList'));
 const PreProspectionsList = lazy(() => import('./pages/prospections/PreProspectionsList'));
 const ProspectionDetail = lazy(() => import('./pages/prospections/ProspectionDetail'));
+const OffresList = lazy(() => import('./pages/prospections/OffresList'));
 const ProspectsList = lazy(() => import('./pages/prospects/ProspectsList'));
 const ProspectDetail = lazy(() => import('./pages/prospects/ProspectDetail'));
 const ClientsList = lazy(() => import('./pages/clients/ClientsList'));
@@ -35,6 +37,7 @@ const ProjetsList = lazy(() => import('./pages/projets/ProjetsList'));
 const ProjetDetail = lazy(() => import('./pages/projets/ProjetDetail'));
 const TranchesList = lazy(() => import('./pages/tranches/TranchesList'));
 const TrancheDetail = lazy(() => import('./pages/tranches/TrancheDetail'));
+const ArticlesList = lazy(() => import('./pages/articles/ArticlesList'));
 const ArticleDetail = lazy(() => import('./pages/articles/ArticleDetail'));
 const ComingSoon = lazy(() => import('./pages/ComingSoon'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -54,23 +57,28 @@ function AuthenticatedApp() {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/profil" element={<Profil />} />
+                <Route path="/utilisateurs" element={<UtilisateursList />} />
                 <Route path="/utilisateurs/nouveau" element={<NouvelUtilisateur />} />
                 <Route path="/utilisateurs/reinitialiser-mot-de-passe" element={<ReinitialiserMotDePasse />} />
                 <Route path="/hotline" element={<Hotline />} />
                 <Route path="/calendrier" element={<Calendrier />} />
                 <Route path="/prospections" element={<ProspectionsList />} />
                 <Route path="/pre-prospections" element={<PreProspectionsList />} />
+                <Route path="/pre-prospections/:id" element={<ProspectionDetail />} />
                 <Route path="/prospections/:id" element={<ProspectionDetail />} />
                 <Route path="/prospections/:id/nouveau-dossier" element={<NewDossier />} />
+                <Route path="/offres" element={<OffresList />} />
                 <Route path="/prospects" element={<ProspectsList />} />
                 <Route path="/prospects/:id" element={<ProspectDetail />} />
                 <Route path="/clients" element={<ClientsList />} />
+                <Route path="/clients/:id" element={<ProspectDetail />} />
                 <Route path="/dossiers" element={<DossiersList />} />
                 <Route path="/dossiers/:id" element={<DossierDetail />} />
                 <Route path="/projets" element={<ProjetsList />} />
                 <Route path="/projets/:id" element={<ProjetDetail />} />
                 <Route path="/tranches" element={<TranchesList />} />
                 <Route path="/tranches/:id" element={<TrancheDetail />} />
+                <Route path="/articles" element={<ArticlesList />} />
                 <Route path="/articles/:id" element={<ArticleDetail />} />
                 <Route path="/bientot/:module" element={<ComingSoon />} />
                 <Route path="*" element={<NotFound />} />

@@ -44,7 +44,7 @@ export default function ProspectionFilterBar({
   return (
     <Card padded={false} className="shrink-0">
       <div className="flex flex-wrap items-center gap-2.5 p-3">
-        <InputGroup className="min-w-[220px] flex-1">
+        <InputGroup className="min-w-55 flex-1">
           <InputGroupAddon>
             <Search />
           </InputGroupAddon>
@@ -71,10 +71,10 @@ export default function ProspectionFilterBar({
         <MultiSelectDropdown label="Tranche" placeholder="Toutes" value={state.trancheId} onChange={(v) => onChange('trancheId', v)} items={trancheItems} />
         <MultiSelectDropdown label="Commercial" placeholder="Tous" value={state.commercial} onChange={(v) => onChange('commercial', v)} items={commercialItems} />
         <div className="flex items-center gap-1.5">
-          <InputGroup className="w-[130px]">
+          <InputGroup className="w-32.5">
             <InputGroupInput type="date" aria-label="Du" value={state.dateDebut} onChange={(e) => onChange('dateDebut', e.target.value)} />
           </InputGroup>
-          <InputGroup className="w-[130px]">
+          <InputGroup className="w-32.5">
             <InputGroupInput type="date" aria-label="Au" value={state.dateFin} onChange={(e) => onChange('dateFin', e.target.value)} />
           </InputGroup>
         </div>

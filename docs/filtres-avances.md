@@ -137,3 +137,90 @@ Tout ce qui précède est confirmé présent dans `docs/api-docsV4.json` (révis
 (`ProspectionFilterParams`, `listProspects`), `ProspectionsList.tsx`,
 `PreProspectionsList.tsx` (plus de filtrage client-side — vrai passe-plat
 serveur maintenant) et `ProspectsList.tsx`. Rien de plus à faire ici.
+
+---
+
+# Offres — nouvelle section `/offres` (liste globale, cross-prospections)
+
+> ✅ **Implémenté côté backend (docsV4) et câblé côté front.** Demandé et
+> livré le même jour (26/08) — `GET /api/devis` + `DevisDto.prospectionId`/
+> `prospectionCode` + `DevisPageDto.sommePrixVenteTTCPage`, exactement comme
+> demandé aux points 1-3 ci-dessous. Contrairement aux Devis déjà existants
+> (`GET/POST /api/prospections/{id}/devis`, câblés depuis plusieurs sessions
+> dans `ProspectionDetail.tsx`), cette page est une **nouvelle vue au niveau
+> module Vente** — reprend le panneau `Vente > Offres` de l'ancien Omran
+> (capture fournie par le métier : checklist Entité, Période + plage Du/Au,
+> Commercial, recherche multi-critère, liste triable avec un total).
+> Contrairement à la capture, le panneau reprend le layout `Card` horizontal
+> déjà utilisé par `/dossiers` et `/prospections` (pas le panneau vertical
+> legacy — cohérent avec `CLAUDE.md`, "Design direction"). Section conservée
+> comme trace historique de la demande.
+
+Front en place : `src/pages/prospections/OffresList.tsx`, route `/offres`,
+entrée de sidebar "Offres" sous **Ventes** (`Layout.tsx`), appelle
+`listOffres()` (`lib/api.ts`) → `GET /api/devis`, confirmé présent dans
+`docs/api-docsV4.json`.
+
+## 1. Nouvel endpoint : `GET /api/devis`
+
+Liste globale des offres, tous prospections confondues — symétrique de
+`GET /api/dossiers` (déjà global) vs. `GET /api/clients/{id}/dossiers`
+(déjà scopé). Aujourd'hui seul `GET /api/prospections/{id}/devis` (scopé)
+existe.
+
+Paramètres (mêmes conventions que `DossierFilterParams`/
+`ProspectionFilterParams` — voir sections précédentes de ce document) :
+
+- `search` — recherche multi-critère (code offre, nom du prospect, code
+  article…), même sémantique que sur `/api/dossiers`/`/api/prospections`.
+- `trancheId` — répétable (`?trancheId=…&trancheId=…`), filtre "Entité" de
+  la capture (en réalité un filtre par Tranche, comme sur `/api/dossiers`).
+- `commercial` — UUID, valeur unique (la capture n'a qu'un select simple,
+  pas de checklist, contrairement à Étape/Origine ailleurs).
+- `dateDebut` / `dateFin` — plage sur `dateDocument` (date de l'offre).
+- `pageable` standard.
+
+Réponse : `PageDto<DevisDto>` — le DTO existe déjà et couvre déjà la
+quasi-totalité des colonnes de la capture (`code`, `dateDocument`,
+`tranche`/`trancheDescription`, `article`/`articleDescription`,
+`commercial`, `prospect`, `modePaiement`, `montants.remisePercent`,
+`montants.prixVenteTTC`, `notes`). Un seul champ manque :
+
+## 2. `DevisDto` — ajouter `prospectionId` / `prospectionCode`
+
+La capture a une colonne "Prospection" (le code de la prospection dont
+l'offre est issue, ex. `26/05930`). `DevisDto` n'expose aujourd'hui aucun
+lien vers sa prospection parente — logique tant qu'il n'était consommé que
+nesté sous `/api/prospections/{id}/devis` (le parent est déjà connu de
+l'appelant), mais nécessaire pour :
+- afficher la colonne "Prospection" de la liste globale ;
+- permettre à `OffresList.tsx` de faire un lien cliquable vers
+  `/prospections/{prospectionId}` depuis une ligne d'offre (déjà câblé côté
+  front, juste en attente du champ).
+
+Front : le type `DevisDto` (`src/types.ts`) a déjà `prospectionId?: UUID` /
+`prospectionCode?: string` en attente, marqués optionnels — aucun autre
+changement de type nécessaire une fois le backend les renvoie.
+
+## 3. Total affiché
+
+La capture affiche un total agrégé ("Total : 6 851 151 DH"). Livré comme
+`DevisPageDto.sommePrixVenteTTCPage` — **somme de la page courante
+uniquement**, pas un total plein-filtre sur l'ensemble des résultats (les
+offres sans montant renseigné sont exclues de la somme). `OffresList.tsx`
+l'affiche tel quel, libellé "Total (page)" pour ne pas laisser croire à un
+total plein-jeu de filtres. Un vrai total plein-filtre resterait à faire si
+le besoin se précise (même contournement multi-fetch que pour les statuts
+de `/api/dossiers`, §1 plus haut).
+
+## Statut au 26/08
+
+Tout ce qui précède (`GET /api/devis`, `DevisDto.prospectionId`/
+`prospectionCode`, `DevisPageDto.sommePrixVenteTTCPage`) est confirmé
+présent dans `docs/api-docsV4.json` et câblé côté front dans `lib/api.ts`
+(`DevisFilterParams`, `listOffres`, type `DevisPageDto`) et
+`OffresList.tsx`. Au passage : `DevisDto.prix` (un champ qui n'a jamais
+existé dans le schéma réel) a été retiré du type front et des deux endroits
+qui s'y référaient encore par erreur (`ProspectionDetail.tsx`,
+`NewDossier.tsx`) — tous deux remplacés par `montants.prixVenteTTC`, le
+vrai champ. Rien de plus à faire ici.

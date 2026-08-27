@@ -18,10 +18,13 @@ export default function AuthScreen({
     <div className="flex min-h-svh items-center justify-center bg-muted/30 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-center justify-center gap-2">
-          <img src="/brand/app-icon.png" alt="" width={32} height={32} className="block size-8 rounded-lg" />
+          {/* Same wordmark treatment as the sidebar (Layout.tsx) — no
+              raster app-icon, just "Ayad" in a heavy, tight-tracked cut of
+              the app's own sans, colored with the (now monochrome) --brand
+              accent. */}
+          <span className="font-heading text-[22px] leading-none font-black tracking-tighter text-(--brand)">Ayad</span>
           <div className="flex flex-col leading-tight">
-            <strong className="text-[13px] font-bold tracking-tight text-foreground">Ayad Développement</strong>
-            <span className="text-xs text-muted-foreground">CRM prototype</span>
+            <span className="text-xs text-muted-foreground">Développement · CRM prototype</span>
           </div>
         </div>
         <Card>

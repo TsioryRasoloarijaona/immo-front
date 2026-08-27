@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { LayoutGrid, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -24,7 +24,13 @@ export default function ProjetsList() {
   if (error) return <PageShell title="Projets"><ErrorState message={error} /></PageShell>;
 
   return (
-    <PageShell title="Projets" crumbs={[{ label: 'Patrimoine' }, { label: 'Projets' }]}>
+    <PageShell
+      title="Projets"
+      crumbs={[{ label: 'Patrimoine' }, { label: 'Projets' }]}
+      icon={<LayoutGrid />}
+      accent="var(--sec-projet)"
+      accentBg="var(--sec-projet-bg)"
+    >
       <div className="mb-3">
         <InputGroup className="max-w-md">
           <InputGroupAddon>

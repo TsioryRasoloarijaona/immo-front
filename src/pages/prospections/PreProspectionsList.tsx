@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { UserPlus } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -81,9 +82,16 @@ export default function PreProspectionsList() {
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
 
   return (
-    <PageShell title="Pré-prospections" crumbs={[{ label: 'Ventes' }, { label: 'Pré-prospections' }]} fullHeight>
+    <PageShell
+      title="Pré-prospections"
+      crumbs={[{ label: 'Ventes' }, { label: 'Pré-prospections' }]}
+      fullHeight
+      icon={<UserPlus />}
+      accent="var(--sec-preprospection)"
+      accentBg="var(--sec-preprospection-bg)"
+    >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <p className="shrink-0 max-w-[720px] text-[12.5px] text-muted-foreground">
+        <p className="shrink-0 max-w-180 text-[12.5px] text-muted-foreground">
           Leads bruts pas encore qualifiés. Ouvrez-en un pour créer sa fiche prospect puis le transformer en prospection.
         </p>
 
@@ -107,7 +115,7 @@ export default function PreProspectionsList() {
               <EmptyState title="Aucun résultat" message="Ajustez vos filtres pour élargir la recherche." />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <Table className="w-full min-w-[640px] table-fixed">
+                <Table className="w-full min-w-160 table-fixed">
                   <TableHeader>
                     <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
                       <TableHead className="w-[28%]">Prospect</TableHead>
@@ -126,9 +134,9 @@ export default function PreProspectionsList() {
                         role="link"
                         aria-label={`Ouvrir la pré-prospection ${prospectionDisplayName(p)}`}
                         className="cursor-pointer"
-                        onClick={() => navigate(`/prospections/${p.id}`)}
+                        onClick={() => navigate(`/pre-prospections/${p.id}`)}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter') navigate(`/prospections/${p.id}`);
+                          if (e.key === 'Enter') navigate(`/pre-prospections/${p.id}`);
                         }}
                       >
                         <TableCell className="truncate font-medium text-foreground" title={prospectionDisplayName(p)}>
@@ -137,10 +145,12 @@ export default function PreProspectionsList() {
                         <TableCell className="truncate">
                           <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge>
                         </TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={p.origine || undefined}>{p.origine || '—'}</TableCell>
+                        <TableCell className="truncate" title={p.origine || undefined}>
+                          {p.origine ? <Badge tone="info">{p.origine}</Badge> : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
                         <TableCell className="truncate text-muted-foreground" title={p.commercialNom || undefined}>{p.commercialNom || '—'}</TableCell>
-                        <TableCell className="truncate text-right tabular-nums">
-                          {p.prix ? formatCurrency(p.prix) : <span className="text-muted-foreground">—</span>}
+                        <TableCell className="truncate text-right font-semibold tabular-nums text-(--success)">
+                          {p.prix ? formatCurrency(p.prix) : <span className="font-normal text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell className="truncate text-muted-foreground">{formatDate(p.dateDocument)}</TableCell>
                       </TableRow>

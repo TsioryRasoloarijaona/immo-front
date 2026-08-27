@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Check, Pencil, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
@@ -203,7 +203,7 @@ export default function NewDossier() {
   // already drafted for this prospection) over the sum of selected
   // articles' prix de vente, as long as the user hasn't overridden it by hand.
   const autoPrixFromArticles = selectedArticles.reduce((sum, a) => sum + (a.salePrice ?? 0), 0);
-  const autoPrix = latestDevis?.prix || autoPrixFromArticles;
+  const autoPrix = latestDevis?.montants?.prixVenteTTC || autoPrixFromArticles;
   const prixValue = priceTouched ? prix : autoPrix > 0 ? String(autoPrix) : prix;
 
   // Preview step — "Schéma de financement" the real `POST /api/dossiers`
@@ -227,6 +227,14 @@ export default function NewDossier() {
         <p>Cette prospection n'existe pas.</p>
       </PageShell>
     );
+  }
+  // Already converted — bounce straight to the existing dossier instead of
+  // showing the creation form again (covers a stale link/back-button visit
+  // to this URL after conversion, on top of ProspectionDetail's own button
+  // already routing here instead of there — see `dossierId`'s comment in
+  // types.ts, dormant until the backend adds the field).
+  if (prospection.dossierId) {
+    return <Navigate to={`/dossiers/${prospection.dossierId}`} replace />;
   }
 
   function toggleArticle(articleId: string) {
@@ -427,7 +435,7 @@ export default function NewDossier() {
                 <EmptyState title="Aucun article" message="Ajustez les filtres ci-dessus." />
               )}
               {filteredArticles.length > 0 && (
-                <div className="max-h-[360px] overflow-y-auto rounded-md border border-border">
+                <div className="max-h-90 overflow-y-auto rounded-md border border-border">
                   <Table>
                     <TableHeader className="sticky top-0 z-1 bg-card">
                       <TableRow className="hover:bg-transparent">
@@ -492,7 +500,7 @@ export default function NewDossier() {
                 />
                 {!priceTouched && autoPrix > 0 && (
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    {latestDevis?.prix
+                    {latestDevis?.montants?.prixVenteTTC
                       ? 'Pré-rempli depuis le devis existant de la prospection.'
                       : 'Pré-rempli depuis le prix de vente des lots sélectionnés.'}
                   </p>

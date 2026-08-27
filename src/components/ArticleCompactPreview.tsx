@@ -17,6 +17,7 @@ export default function ArticleCompactPreview({
   emptyLabel = 'Aucun article sélectionné.',
   bare,
   actions,
+  defaultExpanded,
 }: {
   article: ArticleDetailDto | null;
   loading?: boolean;
@@ -27,12 +28,17 @@ export default function ArticleCompactPreview({
   /** Extra controls (e.g. a "Retirer" button) rendered before the "Détails"
    * toggle, on the same header row. */
   actions?: ReactNode;
+  /** Starts expanded — for contexts where the full detail is the point
+   * (e.g. DossierDetail.tsx's "Article(s) réservé(s)", the final record),
+   * as opposed to a picker/summary context where collapsed-by-default
+   * keeps the layout light. */
+  defaultExpanded?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(!!defaultExpanded);
   if (loading) return <p className="text-[12px] text-muted-foreground">Chargement…</p>;
   if (!article) return <span className="text-[12.5px] text-muted-foreground">{emptyLabel}</span>;
   return (
-    <div className={bare ? '' : 'rounded-md border border-border bg-[var(--neutral-bg)] p-3'}>
+    <div className={bare ? '' : 'rounded-md border border-border bg-(--neutral-bg) p-3'}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-[13px] font-semibold text-foreground">{article.code}</span>
         {article.statut && <Badge tone={article.statut === 'DISPONIBLE' ? 'success' : 'warning'}>{article.statut}</Badge>}
@@ -48,6 +54,7 @@ export default function ArticleCompactPreview({
         <div className="mt-2.5 border-t border-border pt-2.5">
           <FieldGrid>
             <Field label="Description" value={article.description} />
+            <Field label="Tranche" value={article.trancheDescription || article.trancheCode} />
             <Field label="Catégorie" value={article.categorieLibelle} />
             <Field label="Type" value={article.typeLibelle} />
             <Field label="Surface" value={article.area ? `${article.area} m²` : undefined} />

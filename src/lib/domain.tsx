@@ -60,11 +60,11 @@ export function emptyProspectionFilters(): ProspectionFilterBarState {
 
 export function standingClass(standing: string): string {
   const s = (standing || '').toLowerCase();
-  if (s.includes('très haut')) return 'bg-[var(--brand-bg)] text-[var(--brand)]';
-  if (s.includes('touristique')) return 'bg-[var(--amber-bg)] text-[var(--amber)]';
-  if (s.includes('haut')) return 'bg-[var(--info-bg)] text-[var(--info)]';
-  if (s.includes('social')) return 'bg-[var(--success-bg)] text-[var(--success)]';
-  return 'bg-[var(--neutral-bg)] text-foreground';
+  if (s.includes('très haut')) return 'bg-(--brand-bg) text-(--brand)';
+  if (s.includes('touristique')) return 'bg-(--amber-bg) text-(--amber)';
+  if (s.includes('haut')) return 'bg-(--info-bg) text-(--info)';
+  if (s.includes('social')) return 'bg-(--success-bg) text-(--success)';
+  return 'bg-(--neutral-bg) text-foreground';
 }
 
 /** Display name for a prospection row/detail — prefers the linked prospect's

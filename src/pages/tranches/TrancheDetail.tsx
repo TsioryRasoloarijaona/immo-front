@@ -121,7 +121,13 @@ export default function TrancheDetail() {
   }
 
   return (
-    <PageShell title={t.description || t.code || 'Tranche'} crumbs={[{ label: 'Tranches', to: '/tranches' }, { label: t.code || '' }]}>
+    <PageShell
+      title={t.description || t.code || 'Tranche'}
+      crumbs={[{ label: 'Tranches', to: '/tranches' }, { label: t.code || '' }]}
+      icon={<Building2 />}
+      accent="var(--sec-tranche)"
+      accentBg="var(--sec-tranche-bg)"
+    >
       <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate('/tranches')}>
         <ArrowLeft data-icon="inline-start" /> Retour à la liste
       </Button>
@@ -138,7 +144,7 @@ export default function TrancheDetail() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <Card title="Aperçu du projet">
+        <Card title="Aperçu du projet" accent="var(--sec-tranche)">
           <FieldGrid>
             <Field label="Adresse" value={t.adresse} />
             <Field label="Ville" value={t.ville ? <span className="capitalize">{t.ville}</span> : undefined} />
@@ -154,7 +160,7 @@ export default function TrancheDetail() {
 
         <div>
           <div className="mb-2.5 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-            <Calendar className="size-[15px]" />
+            <Calendar className="size-3.75" />
             Règles de gestion
           </div>
           {SECTIONS.map((section) => (

@@ -134,7 +134,7 @@ function InformationsPersonnelles() {
             <Field label="Rôles" value={user?.roles && user.roles.length > 0 ? user.roles.join(', ') : undefined} />
           </FieldGrid>
           {savedAt && (
-            <p className="text-[12.5px] text-[var(--success)]">Profil mis à jour avec succès.</p>
+            <p className="text-[12.5px] text-(--success)">Profil mis à jour avec succès.</p>
           )}
         </div>
       )}
@@ -213,7 +213,7 @@ function Securite() {
             {mismatch && <FieldError>Les deux mots de passe ne correspondent pas.</FieldError>}
           </FormField>
           {error && <FieldError>{error}</FieldError>}
-          {savedAt && <p className="text-[12.5px] text-[var(--success)]">Mot de passe changé avec succès.</p>}
+          {savedAt && <p className="text-[12.5px] text-(--success)">Mot de passe changé avec succès.</p>}
           <Button type="submit" disabled={submitting || !canSubmit} className="w-fit">
             {submitting ? 'Enregistrement…' : 'Changer le mot de passe'}
           </Button>
