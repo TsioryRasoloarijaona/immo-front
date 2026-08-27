@@ -749,8 +749,14 @@ export interface MontantsDossierDto {
 export interface PieceJointeDto {
   id: UUID;
   description?: string;
+  /** Catégorie legacy brute (ex. "Yes.Com.Sales.Sale") — purement informatif, pas de logique métier dessus. */
+  category?: string;
+  /** Type de document (référentiel AdmAttachedFileType, ex. "PIECE D'IDENTITE", "CONTRAT"). Peut être null. */
+  type?: string | null;
   extension?: string;
   dateCreation?: string | null;
+  /** Identifiant/login de l'utilisateur ayant déposé le fichier. Peut être null (legacy ou dépôt via API). */
+  creePar?: string | null;
 }
 
 // ---------------------------------------------------------------------------

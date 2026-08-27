@@ -155,12 +155,18 @@ function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJ
   }
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2.5 text-[13px] first:pt-0 last:pb-0">
-      <span className="flex min-w-0 items-center gap-2">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 text-[13px] first:pt-0 last:pb-0">
+      <span className="flex min-w-0 flex-1 items-center gap-2">
         <FileText className="size-4 shrink-0 text-muted-foreground" />
         <span className="truncate font-medium text-foreground">{filename}</span>
+        {piece.type && <Badge tone="neutral">{piece.type}</Badge>}
       </span>
-      <span className="shrink-0 text-muted-foreground">{formatDate(piece.dateCreation)}</span>
+      <span
+        className="w-20 shrink-0 text-right text-muted-foreground"
+        title={piece.creePar ? `Déposé par ${piece.creePar}` : undefined}
+      >
+        {formatDate(piece.dateCreation)}
+      </span>
       <div className="flex shrink-0 items-center gap-1">
         {error && <span className="text-[11.5px] text-destructive">{error}</span>}
         <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>

@@ -1134,7 +1134,7 @@
           "Dossiers"
         ],
         "summary": "Liste paginée des dossiers de vente",
-        "description": "Filtre optionnellement par statut (multi-sélection, une valeur pour un seul statut se comporte comme avant), commercial, entité (projet), tranche(s), plage de dates sur un jalon au choix, et recherche libre sur le code. Voir instructions/filtres-avances.md pour le détail des filtres avancés.",
+        "description": "Filtre optionnellement par statut (multi-sélection, une valeur pour un seul statut se comporte comme avant), commercial, entité (projet), tranche(s), plage de dates sur un jalon au choix, et recherche libre sur le code du dossier OU le nom/prénom/raison sociale du client lié. Voir instructions/filtres-avances.md pour le détail des filtres avancés.",
         "operationId": "findAll_2",
         "parameters": [
           {
@@ -1229,7 +1229,7 @@
           {
             "name": "search",
             "in": "query",
-            "description": "Recherche libre sur le code du dossier.",
+            "description": "Recherche libre sur le code du dossier OU le nom/prénom/raison sociale du client lié (sous-chaîne, insensible à la casse).",
             "required": false,
             "schema": {
               "type": "string"
