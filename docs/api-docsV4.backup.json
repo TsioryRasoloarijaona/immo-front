@@ -1293,11 +1293,14 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Liste les pièces jointes du dossier",
+        "description": "Retourne toutes les pièces jointes rattachées au dossier `id` (`AdmAttachedFile.CategoryId = ComFolder.PKey`, voir la doc de `AdmAttachedFileSummary`/`AdmAttachedFileSummaryRepository#findByDossierId` pour le rattachement confirmé), triées par date de dépôt décroissante. Inclut toutes les catégories legacy (\"Dossier de vente...\", \"Yes.Com.Sales.Sale\", etc.) — aucun filtrage sur `Category` n'est appliqué. Chaque pièce jointe expose son `type` de document (ex. \"PIECE D'IDENTITE\", \"CONTRAT\"...), issu du référentiel `AdmAttachedFileType` — peut être `null` si non renseigné en base. Les lignes \"cochées mais jamais déposées\" (checklist sans fichier réel) sont exclues. Liste vide si aucune pièce jointe.",
         "operationId": "getPiecesJointes",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -1307,7 +1310,20 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Liste des pièces jointes (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PieceJointeDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable.",
             "content": {
               "*/*": {
                 "schema": {
@@ -6850,20 +6866,37 @@
       },
       "PieceJointeDto": {
         "type": "object",
+        "description": "Métadonnées d'une pièce jointe rattachée à un dossier.",
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Identifiant de la pièce jointe (AdmAttachedFile.PKey)."
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "description": "Légende/description libre de la pièce jointe (ex. \"CIN client\", \"Contrat signé\")."
+          },
+          "category": {
+            "type": "string",
+            "description": "Catégorie legacy brute de la pièce jointe (ex. \"Yes.Com.Sales.Sale\", \"Dossier de vente N° ... du ...\"). Purement informatif, sans logique métier dessus côté API."
+          },
+          "type": {
+            "type": "string",
+            "description": "Type de document (ex. \"PIECE D'IDENTITE\", \"CONTRAT\", \"FICHE PERMISSION REMISE DES CLES\"...), référentiel AdmAttachedFileType. Null si non renseigné en base (cas de certains dépôts anciens ou faits hors de cette API)."
           },
           "extension": {
-            "type": "string"
+            "type": "string",
+            "description": "Extension du fichier, avec le point (ex. \".pdf\")."
           },
           "dateCreation": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Date/heure de dépôt du fichier. Peut être absente (null) sur d'anciennes pièces jointes créées avant le suivi de cette colonne dans les données legacy."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Identifiant/login de l'utilisateur ayant déposé le fichier, tel qu'enregistré en base. Peut être null si non renseigné (legacy) ou pour un dépôt effectué via cette API."
           }
         }
       },

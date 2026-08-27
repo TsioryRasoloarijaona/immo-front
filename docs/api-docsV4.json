@@ -1342,7 +1342,7 @@
           "Dossiers"
         ],
         "summary": "Dépose une pièce jointe sur le dossier",
-        "description": "Téléverse un fichier (multipart/form-data) et l'associe au dossier `id` (stocké dans `AdmAttachedFile`, voir la doc de `AdmAttachedFileSummary` pour le rattachement confirmé à `ComFolder`). `description` est une légende libre (ex. \"CIN client\", \"Contrat signé\") ; si absente, le nom de fichier original est utilisé. Le fichier réapparaît immédiatement dans `GET /api/dossiers/{id}/pieces-jointes`.",
+        "description": "Téléverse un fichier (multipart/form-data) et l'associe au dossier `id` (stocké dans `AdmAttachedFile`, voir la doc de `AdmAttachedFileSummary` pour le rattachement confirmé à `ComFolder`). `description` est une légende libre (ex. \"CIN client\", \"Contrat signé\") ; si absente, le nom de fichier original est utilisé. `creePar` est renseigné automatiquement avec le nom de l'utilisateur connecté (ou `null` si non authentifiable). Le fichier réapparaît immédiatement dans `GET /api/dossiers/{id}/pieces-jointes`.",
         "operationId": "uploadPieceJointe",
         "parameters": [
           {

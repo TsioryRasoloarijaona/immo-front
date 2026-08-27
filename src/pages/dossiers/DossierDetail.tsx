@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { referentielItems, useBanques, useCategoriesEcheance, useTypesReglement } from '../../lib/referentiels';
 import { formatCurrency, formatDate, formatPercent, toApiDateTime, todayISO } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-import { etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
+import { etapeBadgeTone, pieceJointeTypeTone, prospectionDisplayName } from '../../lib/domain';
 import {
   addEcheance,
   addReglement,
@@ -155,28 +155,30 @@ function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJ
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2.5 text-[13px] first:pt-0 last:pb-0">
-      <span className="flex min-w-0 flex-1 items-center gap-2">
-        <FileText className="size-4 shrink-0 text-muted-foreground" />
-        <span className="truncate font-medium text-foreground">{filename}</span>
-        {piece.type && <Badge tone="neutral">{piece.type}</Badge>}
-      </span>
-      <span
-        className="w-20 shrink-0 text-right text-muted-foreground"
-        title={piece.creePar ? `Déposé par ${piece.creePar}` : undefined}
-      >
-        {formatDate(piece.dateCreation)}
-      </span>
-      <div className="flex shrink-0 items-center gap-1">
-        {error && <span className="text-[11.5px] text-destructive">{error}</span>}
-        <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
-          <Eye data-icon="inline-start" /> {busyAction === 'view' ? 'Ouverture…' : 'Voir'}
-        </Button>
-        <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('download')}>
-          <Download data-icon="inline-start" /> {busyAction === 'download' ? 'Téléchargement…' : 'Télécharger'}
-        </Button>
-      </div>
-    </div>
+    <TableRow className="hover:bg-muted/40">
+      <TableCell>
+        <span className="flex min-w-0 items-center gap-2">
+          <FileText className="size-4 shrink-0 text-muted-foreground" />
+          <span className="truncate font-medium text-foreground">{filename}</span>
+        </span>
+      </TableCell>
+      <TableCell className="text-muted-foreground">{piece.creePar || '—'}</TableCell>
+      <TableCell>
+        {piece.type ? <Badge tone={pieceJointeTypeTone(piece.type)}>{piece.type}</Badge> : <span className="text-muted-foreground">—</span>}
+      </TableCell>
+      <TableCell className="text-right text-muted-foreground">{formatDate(piece.dateCreation)}</TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1">
+          {error && <span className="text-[11.5px] text-destructive">{error}</span>}
+          <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
+            <Eye data-icon="inline-start" /> {busyAction === 'view' ? 'Ouverture…' : 'Voir'}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('download')}>
+            <Download data-icon="inline-start" /> {busyAction === 'download' ? 'Téléchargement…' : 'Télécharger'}
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -277,32 +279,38 @@ const GENERATED_DOC_KINDS: GeneratedDocKind[] = [
 ];
 
 /** `POST /api/dossiers/{id}/pieces-jointes` — same collapsed-by-default
- * inline-form convention as `AddReglementRow`/`AddEcheanceRow` below.
+ * inline-form convention as `AddReglementRow`/`AddEcheanceRow` below, but
+ * `open` is controlled by the parent: the trigger button lives in the
+ * card's top-right header `action` slot (not stacked below the list), and
+ * this component only renders the expanded form itself.
  * `description` is optional (backend falls back to the original filename),
  * matched here to a plain text `Input` rather than the file's own name so
  * the user can give it a meaningful caption ("CIN client", "Contrat
  * signé") instead of a raw upload filename. */
-function AddPieceJointeRow({ dossierId, onAdded }: { dossierId: string; onAdded: () => void }) {
-  const [open, setOpen] = useState(false);
+function AddPieceJointeRow({
+  dossierId,
+  open,
+  onOpenChange,
+  onAdded,
+}: {
+  dossierId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAdded: () => void;
+}) {
   const [file, setFile] = useState<File | null>(null);
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function reset() {
-    setOpen(false);
+    onOpenChange(false);
     setFile(null);
     setDescription('');
     setError(null);
   }
 
-  if (!open) {
-    return (
-      <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}>
-        <Plus data-icon="inline-start" /> Ajouter une pièce jointe
-      </Button>
-    );
-  }
+  if (!open) return null;
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2.5">
@@ -553,6 +561,7 @@ export default function DossierDetail() {
   const [echeancesPage, setEcheancesPage] = useState(0);
   const echeances = useApi(() => listEcheances(id!, { page: echeancesPage, size: 20 }), [id, echeancesPage]);
   const pieces = useApi(() => listPiecesJointes(id!), [id]);
+  const [addPieceOpen, setAddPieceOpen] = useState(false);
   const [historiquePage, setHistoriquePage] = useState(0);
   const historique = useApi(() => listHistoriqueDossier(id!, { page: historiquePage, size: 20 }), [id, historiquePage]);
   const navigate = useNavigate();
@@ -863,20 +872,50 @@ export default function DossierDetail() {
               ))}
             </div>
           </Card>
-          <Card title={`Pièces jointes (${pieces.data?.length ?? 0})`}>
+          <Card
+            title={`Pièces jointes (${pieces.data?.length ?? 0})`}
+            action={
+              !addPieceOpen && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setAddPieceOpen(true)}>
+                  <Plus data-icon="inline-start" /> Ajouter une pièce jointe
+                </Button>
+              )
+            }
+          >
             {pieces.loading && <LoadingState />}
             {pieces.error && <ErrorState message={pieces.error} />}
-            {pieces.data && pieces.data.length === 0 && (
+            <AddPieceJointeRow
+              dossierId={d.id}
+              open={addPieceOpen}
+              onOpenChange={setAddPieceOpen}
+              onAdded={async () => {
+                setAddPieceOpen(false);
+                await pieces.refetch();
+              }}
+            />
+            {pieces.data && pieces.data.length === 0 && !addPieceOpen && (
               <EmptyState title="Aucune pièce jointe" message="Aucun document n'a été attaché à ce dossier." />
             )}
             {pieces.data && pieces.data.length > 0 && (
-              <div className="mb-1 flex flex-col divide-y divide-border">
-                {pieces.data.map((p) => (
-                  <PieceJointeRow key={p.id} dossierId={d.id} piece={p} />
-                ))}
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Fichier</TableHead>
+                      <TableHead>Déposé par</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead className="text-right">Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pieces.data.map((p) => (
+                      <PieceJointeRow key={p.id} dossierId={d.id} piece={p} />
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             )}
-            <AddPieceJointeRow dossierId={d.id} onAdded={pieces.refetch} />
           </Card>
           </div>
         </TabsContent>

@@ -755,7 +755,9 @@ export interface PieceJointeDto {
   type?: string | null;
   extension?: string;
   dateCreation?: string | null;
-  /** Identifiant/login de l'utilisateur ayant déposé le fichier. Peut être null (legacy ou dépôt via API). */
+  /** Nom affiché de l'utilisateur ayant déposé le fichier (AdmUser.Description, ex. "Dounya SAFSAF", repli sur le
+   * username si absent — résolu automatiquement côté serveur lors de l'upload via cette API). Peut être null pour
+   * les pièces jointes legacy créées hors de cette API. */
   creePar?: string | null;
 }
 

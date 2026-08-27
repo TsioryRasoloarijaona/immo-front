@@ -65,6 +65,21 @@ export function encaissementEtatTone(etat: string | undefined): BadgeTone {
   }
 }
 
+// `PieceJointeDto.type` is free-text off the legacy `AdmAttachedFileType`
+// référentiel (no stable enum/id exposed by the API) — keyword-matched
+// here purely for a scannable badge color per document family, not a
+// business rule. Unmatched/null types fall back to neutral.
+export function pieceJointeTypeTone(type: string | null | undefined): BadgeTone {
+  const t = (type ?? '').toUpperCase();
+  if (!t) return 'neutral';
+  if (t.includes('IDENTITE')) return 'info';
+  if (t.includes('CONTRAT')) return 'progress';
+  if (t.includes('REGLEMENT') || t.includes('CHEQUE')) return 'success';
+  if (t.includes('REMISE DES CLES')) return 'amber';
+  if (t.includes('OBLIGATION') || t.includes('VISITE')) return 'warning';
+  return 'neutral';
+}
+
 // Shared filter-bar state for ProspectionsList/PreProspectionsList — kept
 // here rather than in the component file so ProspectionFilterBar.tsx only
 // exports the component (react-refresh requirement).
