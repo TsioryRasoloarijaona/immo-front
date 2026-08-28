@@ -1673,7 +1673,7 @@
           "Dossiers"
         ],
         "summary": "Historique complet des règlements d'une échéance",
-        "description": "Contrepartie en lecture du `POST` ci-dessus — tous les versements déjà enregistrés sur cette échéance, plus récent d'abord, avec le détail complet de chacun : type de règlement (`typeId`/`typeCode`/`typeLibelle`, voir `GET /api/referentiels/types-reglement`), banque (`banqueId`/`banqueNom`, pertinent seulement si le type le requiert), tiers réglant (`payeurId`/`payeurNom` — peut différer de l'acquéreur principal), date du document, date du règlement, référence (n° de chèque...) et notes. `GET /api/dossiers/{id}/echeancier` ne renvoie que le total réglé/reste par échéance (`montantRegle`/`reste`) — cet endpoint donne le détail ligne par ligne derrière ce total.",
+        "description": "Contrepartie en lecture du `POST` ci-dessus — tous les versements déjà enregistrés sur cette échéance, plus récent d'abord, avec le détail complet de chacun : type de règlement (`typeId`/`typeCode`/`typeLibelle`, voir `GET /api/referentiels/types-reglement`), banque (`banqueId`/`banqueNom`, pertinent seulement si le type le requiert), tiers réglant (`payeurId`/`payeurNom` — peut différer de l'acquéreur principal), date du document (saisie), date d'échéance, date de règlement effectif (souvent absente), référence (n° de chèque...) et notes. `GET /api/dossiers/{id}/echeancier` ne renvoie que le total réglé/reste par échéance (`montantRegle`/`reste`) — cet endpoint donne le détail ligne par ligne derrière ce total.",
         "operationId": "getReglements",
         "parameters": [
           {
@@ -1728,6 +1728,8 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Enregistre un règlement sur une échéance",
+        "description": "Crée un `StlSettlement` + sa `StlSettlementLine` de rattachement à l'échéance `echeanceId`. `montant` est requis (400 sinon). Porte deux dates distinctes, confirmées sur données réelles — voir `CreerReglementRequest` : `dateEcheance` (\"date d'échéance\", quasi toujours renseignée, défaut à maintenant si absente) et `dateReglement` (\"date de règlement effectif\", encaissement réel — optionnelle, aucun défaut, quasi jamais connue à la saisie). `reference` (n° de chèque...) est requise dès que le type de règlement choisi a `TypeReglementDto.referenceObligatoire=true` (ex. CHÈQUE, EFFET) — 400 sinon. `payeurId` (\"réglé par\", peut différer de l'acquéreur principal) est optionnel, sans valeur par défaut.",
         "operationId": "addReglement",
         "parameters": [
           {
@@ -1760,8 +1762,28 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Règlement enregistré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`montant` absent, ou `reference` absente alors que le type de règlement la requiert.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou échéance introuvable (ou l'échéance n'appartient pas à ce dossier).",
             "content": {
               "*/*": {
                 "schema": {
@@ -2897,7 +2919,7 @@
           "Référentiels"
         ],
         "summary": "Dropdown \"Type\" pour l'ajout d'un règlement",
-        "description": "Alimente `CreerReglementRequest.typeId` (`POST .../echeancier/{echeanceId}/reglements`) — table `StlSettlementType`, **distincte** de `GET /api/referentiels/modes-paiement` (qui alimente `CreerDossierRequest.modePaieId`, un champ différent utilisé uniquement à la création du dossier). Chaque entrée porte `banqueObligatoire` : quand vrai (ex. CHÈQUE, VIREMENT), le formulaire doit aussi demander une banque via `GET /api/referentiels/banques` ; quand faux (ex. ESPÈCES), ce champ n'a pas de sens et doit être masqué.",
+        "description": "Alimente `CreerReglementRequest.typeId` (`POST .../echeancier/{echeanceId}/reglements`) — table `StlSettlementType`, **distincte** de `GET /api/referentiels/modes-paiement` (qui alimente `CreerDossierRequest.modePaieId`, un champ différent utilisé uniquement à la création du dossier). Chaque entrée porte `banqueObligatoire` : quand vrai (ex. CHÈQUE, VIREMENT), le formulaire doit aussi demander une banque via `GET /api/referentiels/banques` ; quand faux (ex. ESPÈCES), ce champ n'a pas de sens et doit être masqué. Porte aussi `referenceObligatoire` : quand vrai (ex. CHÈQUE, EFFET), le formulaire doit demander une référence (`CreerReglementRequest.reference`) — **enforcé côté serveur** (400 si absente à la création), contrairement à `banqueObligatoire` qui reste indicatif.",
         "operationId": "getTypesReglement",
         "responses": {
           "200": {
@@ -7678,19 +7700,39 @@
         "type": "object",
         "properties": {
           "montant": {
-            "type": "number"
+            "type": "number",
+            "description": "Montant du règlement.",
+            "example": 50000
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'échéance du règlement (StlSettlement.EcheanceDate) — défaut : maintenant, si absent."
           },
           "dateReglement": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Date de règlement effectif (StlSettlement.SettlementDate) — encaissement réel/valeur bancaire, renseignée a posteriori. Optionnelle, aucune valeur par défaut (rarement connue à la saisie)."
           },
           "typeId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Type de règlement (StlSettlementType.PKey) — voir GET /api/referentiels/types-reglement."
           },
           "banqueId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Banque (CfgTier.PKey, type BAN) — voir GET /api/referentiels/banques. Pertinent seulement si le type le requiert (TypeReglementDto.banqueObligatoire)."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence du règlement (StlSettlement.Code) — n° de chèque, de virement... Requise si TypeReglementDto.referenceObligatoire est vrai pour le type choisi (400 sinon).",
+            "example": "CHQ-000123"
+          },
+          "payeurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers ayant effectivement réglé (StlSettlement.TierId) — \"réglé par\", peut différer de l'acquéreur principal (co-acquéreur, tiers payeur...). Confirmé quasi toujours renseigné en données réelles (>99%). Optionnel : reste null si absent, pas de valeur par défaut (pas de tiers \"acquéreur principal\" implicite côté serveur)."
           },
           "notes": {
             "type": "string"
@@ -7712,6 +7754,10 @@
             "type": "string"
           },
           "dateDocument": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateEcheance": {
             "type": "string",
             "format": "date-time"
           },
@@ -8610,6 +8656,9 @@
             "type": "string"
           },
           "banqueObligatoire": {
+            "type": "boolean"
+          },
+          "referenceObligatoire": {
             "type": "boolean"
           }
         }
