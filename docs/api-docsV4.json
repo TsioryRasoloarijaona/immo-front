@@ -389,6 +389,168 @@
         }
       }
     },
+    "/api/prospections": {
+      "get": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Liste paginée des prospections",
+        "description": "Filtre optionnellement par étape/origine/commercial (multi-sélection, une valeur pour un seul choix se comporte comme avant), tranche(s) visée(s), plage de dates sur la date du document, et recherche libre. Exclut les pré-prospections (voir GET /api/pre-prospections). Voir instructions/filtres-avances.md pour le détail des filtres avancés.",
+        "operationId": "findAll_2",
+        "parameters": [
+          {
+            "name": "etape",
+            "in": "query",
+            "description": "Code(s) ComProspectionKind (\"Nature\"/étape) à filtrer. Répéter le paramètre pour plusieurs étapes. Absent = toutes les étapes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": 3
+          },
+          {
+            "name": "origine",
+            "in": "query",
+            "description": "Code(s) ComProspectionOrigin à filtrer. Répéter le paramètre pour plusieurs origines.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "FACEBOOK"
+          },
+          {
+            "name": "commercial",
+            "in": "query",
+            "description": "Id(s) du commercial (CfgTier.id, cfgCommercial). Répéter le paramètre pour plusieurs commerciaux.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche visée (CfgTranche.id, ComProspection.stkHierarchy). Répéter le paramètre pour plusieurs tranches.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Borne inférieure (incluse) sur la date du document, format ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-01-01T00:00:00"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Borne supérieure (incluse) sur la date du document, format ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-12-31T23:59:59"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ouvertes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoProspectionListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Crée une prospection qualifiée pour un prospect existant",
+        "description": "instructions/from_front.md demande #9 — le point d'entrée du bouton \"Nouvelle prospection\", pour le cas où le prospect existe déjà (créé au préalable via `POST /api/prospects`, déjà câblé côté front). `prospectId` est **obligatoire** ; tous les autres champs sont optionnels et suivent la même sémantique que `PATCH /api/prospections/{id}` (mise à jour uniquement des champs fournis). `code` est toujours généré serveur (compteur `AdmSequence` \"Prospection\", format \"AA/NNNNN\"), jamais fourni par le client. `commercialId` peut être fourni directement ici pour obtenir une prospection immédiatement complète en un seul appel — sinon `POST /api/prospections/{id}/transformer` peut l'assigner ensuite. `trancheId`/`articleId` suivent la même validation croisée que `PATCH .../tranche-principale` (l'article doit appartenir à la tranche fournie). Pour un lead brut/non identifié (walk-in, appel entrant sans prospect connu), voir plutôt le flux pré-prospection (`GET /api/pre-prospections` + `POST .../creer-prospect` + `POST .../transformer`) — non couvert par cet endpoint.",
+        "operationId": "creerProspection",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerProspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Prospection créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`prospectId` manquant, ou un id fourni (prospect/commercial/tranche/article/origine/...) est introuvable, ou l'article fourni n'appartient pas à la tranche fournie.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prospections/{id}/villes": {
       "get": {
         "tags": [
@@ -1135,7 +1297,7 @@
         ],
         "summary": "Liste paginée des dossiers de vente",
         "description": "Filtre optionnellement par statut (multi-sélection, une valeur pour un seul statut se comporte comme avant), commercial, entité (projet), tranche(s), plage de dates sur un jalon au choix, et recherche libre sur le code du dossier OU le nom/prénom/raison sociale du client lié. Voir instructions/filtres-avances.md pour le détail des filtres avancés.",
-        "operationId": "findAll_2",
+        "operationId": "findAll_3",
         "parameters": [
           {
             "name": "statut",
@@ -2137,7 +2299,7 @@
         ],
         "summary": "Liste paginée des tranches, à plat",
         "description": "Toutes les tranches, tous projets confondus, ou filtrées sur un seul projet via `projetId`. Évite le contournement N+1 (GET /api/projets puis GET /api/projets/{id}/tranches pour chacun) pour peupler une checklist de filtre côté front — voir instructions/filtres-avances.md point 2.",
-        "operationId": "findAll_3",
+        "operationId": "findAll_4",
         "parameters": [
           {
             "name": "projetId",
@@ -3515,128 +3677,6 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PageDtoDossierListItemDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/prospections": {
-      "get": {
-        "tags": [
-          "Prospections"
-        ],
-        "summary": "Liste paginée des prospections",
-        "description": "Filtre optionnellement par étape/origine/commercial (multi-sélection, une valeur pour un seul choix se comporte comme avant), tranche(s) visée(s), plage de dates sur la date du document, et recherche libre. Exclut les pré-prospections (voir GET /api/pre-prospections). Voir instructions/filtres-avances.md pour le détail des filtres avancés.",
-        "operationId": "findAll_4",
-        "parameters": [
-          {
-            "name": "etape",
-            "in": "query",
-            "description": "Code(s) ComProspectionKind (\"Nature\"/étape) à filtrer. Répéter le paramètre pour plusieurs étapes. Absent = toutes les étapes.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "example": 3
-          },
-          {
-            "name": "origine",
-            "in": "query",
-            "description": "Code(s) ComProspectionOrigin à filtrer. Répéter le paramètre pour plusieurs origines.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "example": "FACEBOOK"
-          },
-          {
-            "name": "commercial",
-            "in": "query",
-            "description": "Id(s) du commercial (CfgTier.id, cfgCommercial). Répéter le paramètre pour plusieurs commerciaux.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "trancheId",
-            "in": "query",
-            "description": "Id(s) de tranche visée (CfgTranche.id, ComProspection.stkHierarchy). Répéter le paramètre pour plusieurs tranches.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "dateDebut",
-            "in": "query",
-            "description": "Borne inférieure (incluse) sur la date du document, format ISO-8601.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "date-time"
-            },
-            "example": "2026-01-01T00:00:00"
-          },
-          {
-            "name": "dateFin",
-            "in": "query",
-            "description": "Borne supérieure (incluse) sur la date du document, format ISO-8601.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "date-time"
-            },
-            "example": "2026-12-31T23:59:59"
-          },
-          {
-            "name": "search",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "ouvertes",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
-            "name": "pageable",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Pageable"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoProspectionListItemDto"
                 }
               }
             }
@@ -6202,62 +6242,78 @@
           }
         }
       },
-      "AjouterVilleRequest": {
+      "CreerProspectionRequest": {
         "type": "object",
         "properties": {
-          "villeId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
-      "ProspectionVilleDto": {
-        "type": "object",
-        "properties": {
-          "id": {
+          "prospectId": {
             "type": "string",
             "format": "uuid"
           },
-          "villeId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "ville": {
-            "type": "string"
-          }
-        }
-      },
-      "AjouterTypeBienRequest": {
-        "type": "object",
-        "properties": {
-          "typeBienId": {
-            "type": "string",
-            "format": "uuid"
-          }
-        }
-      },
-      "ProspectionTypeBienDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "typeBienId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "typeBien": {
-            "type": "string"
-          }
-        }
-      },
-      "TransformerProspectionRequest": {
-        "type": "object",
-        "properties": {
           "commercialId": {
             "type": "string",
             "format": "uuid"
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "articleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "origineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "origineSupportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeContactId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "actionCommercialeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "etapeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "surface": {
+            "type": "number"
+          },
+          "surfaceJusqua": {
+            "type": "number"
+          },
+          "prix": {
+            "type": "number"
+          },
+          "prixJusqua": {
+            "type": "number"
+          },
+          "avance": {
+            "type": "number"
+          },
+          "financementFondsPropres": {
+            "type": "number"
+          },
+          "financementCredit": {
+            "type": "number"
+          },
+          "financementAutre": {
+            "type": "number"
+          },
+          "ancienClient": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string"
           }
         }
       },
@@ -6413,6 +6469,65 @@
           },
           "articleDescription": {
             "type": "string"
+          }
+        }
+      },
+      "AjouterVilleRequest": {
+        "type": "object",
+        "properties": {
+          "villeId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ProspectionVilleDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "villeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "ville": {
+            "type": "string"
+          }
+        }
+      },
+      "AjouterTypeBienRequest": {
+        "type": "object",
+        "properties": {
+          "typeBienId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ProspectionTypeBienDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeBienId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeBien": {
+            "type": "string"
+          }
+        }
+      },
+      "TransformerProspectionRequest": {
+        "type": "object",
+        "properties": {
+          "commercialId": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
