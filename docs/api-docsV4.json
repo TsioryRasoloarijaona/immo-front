@@ -5408,6 +5408,112 @@
         }
       }
     },
+    "/api/articles/{id}/pieces-jointes": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Liste les pièces jointes de l'article",
+        "description": "Retourne toutes les pièces jointes rattachées à l'article `id` (`AdmAttachedFile.CategoryId = StkItem.PKey`, même convention polymorphe sans FK déclarée que pour les pièces jointes de Dossier). Ce sont essentiellement des plans (types `PLAN`/`PLAN_ARCHITECTE`/`PLAN_ETAGE`), mais aucun filtrage sur `type`/`Category` n'est appliqué ici — tout ce qui est rattaché à l'article ressort. Triées par date de dépôt décroissante. Les lignes \"cochées mais jamais déposées\" (checklist sans fichier réel) sont exclues. Liste vide si aucune pièce jointe.",
+        "operationId": "getPiecesJointes_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des pièces jointes (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PieceJointeDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Article introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PieceJointeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}/pieces-jointes/{pieceId}/fichier": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Télécharge/affiche une pièce jointe de l'article (ex. un plan)",
+        "description": "Retourne le contenu binaire brut de la pièce jointe, avec le content-type déduit de son extension stockée (`application/octet-stream` si extension inconnue/absente).",
+        "operationId": "getFichier_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pieceId",
+            "in": "path",
+            "description": "Identifiant de la pièce jointe (AdmAttachedFile.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Contenu du fichier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Article introuvable, pièce jointe introuvable pour cet article, ou aucun fichier attaché.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prospects/{id}/contacts/{contactId}": {
       "delete": {
         "tags": [
