@@ -695,9 +695,16 @@ export type ModifierEcheanceRequest = CreerEcheanceRequest;
 export interface ReglementDto {
   id: UUID;
   echeanceId?: UUID;
-  /** Référence du document (ex : n° de chèque), pas d'équivalent en saisie. */
+  /** Référence du document (ex : n° de chèque) — en saisie via
+   * `CreerReglementRequest.reference`, requise quand
+   * `TypeReglementDto.referenceObligatoire` est vrai pour le type choisi. */
   reference?: string;
   dateDocument?: string | null;
+  /** Date d'échéance du règlement (StlSettlement.EcheanceDate) — quasi
+   * toujours renseignée, défaut à maintenant si absente à la création. */
+  dateEcheance?: string | null;
+  /** Date de règlement effectif (encaissement réel/valeur bancaire) —
+   * optionnelle, renseignée a posteriori, quasi jamais connue à la saisie. */
   dateReglement?: string | null;
   montant?: number;
   typeId?: UUID;
@@ -754,9 +761,19 @@ export interface EncaissementDto {
 
 export interface CreerReglementRequest {
   montant?: number;
+  /** Date d'échéance du règlement — défaut : maintenant, si absente. */
+  dateEcheance?: string | null;
+  /** Date de règlement effectif — optionnelle, aucune valeur par défaut
+   * (rarement connue à la saisie). */
   dateReglement?: string | null;
   typeId?: UUID;
   banqueId?: UUID;
+  /** N° de chèque, de virement... Requise si `TypeReglementDto.referenceObligatoire`
+   * est vrai pour le type choisi (400 sinon). */
+  reference?: string;
+  /** Tiers ayant effectivement réglé ("réglé par") — peut différer de
+   * l'acquéreur principal. Optionnel, pas de valeur par défaut. */
+  payeurId?: UUID;
   notes?: string;
 }
 
@@ -1036,6 +1053,10 @@ export interface TypeReglementDto {
   code?: string;
   description?: string;
   banqueObligatoire?: boolean;
+  /** Pilote l'affichage conditionnel du champ Référence dans "Ajouter un
+   * règlement" — enforcé côté serveur (400 si absente à la création),
+   * contrairement à `banqueObligatoire` qui reste indicatif. */
+  referenceObligatoire?: boolean;
 }
 
 export interface VilleDto {

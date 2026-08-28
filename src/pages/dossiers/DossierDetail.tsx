@@ -406,13 +406,23 @@ function AddPieceJointeRow({
  * `GET /api/referentiels/types-reglement`/`/banques` — distinct tables from
  * `modes-paiement` (StlSettlementType vs ComPaymentMethod), confirmed live
  * (see instructions/from_front.md, backend repo). Banque is only shown once
- * a type with `banqueObligatoire` is picked, per `TypeReglementDto`. */
+ * a type with `banqueObligatoire` is picked, per `TypeReglementDto`. Two
+ * distinct dates, per the same DTO: `dateEcheance` (quasi toujours
+ * renseignée, prefilled to today) and `dateReglement` (encaissement réel,
+ * rarement connu à la saisie — left blank, no default). `reference` is
+ * shown, and enforced client-side too, only once a type with
+ * `referenceObligatoire` is picked — 400s server-side otherwise.
+ * `payeurId` ("réglé par") has no UI yet: no tiers-search picker exists in
+ * this prototype to resolve it against, so it's simply omitted (optional,
+ * no server default) rather than guessed. */
 function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (echeanceId: string, body: CreerReglementRequest) => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [montant, setMontant] = useState('');
+  const [dateEcheance, setDateEcheance] = useState(todayISO());
   const [dateReglement, setDateReglement] = useState('');
   const [typeId, setTypeId] = useState<string | null>(null);
   const [banqueId, setBanqueId] = useState<string | null>(null);
+  const [reference, setReference] = useState('');
   const [busy, setBusy] = useState(false);
 
   const typesReglement = useTypesReglement();
@@ -421,13 +431,16 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
   const banquesItems = referentielItems(banques.data);
   const selectedType = typesReglement.data.find((t) => t.id === typeId);
   const banqueRequired = selectedType?.banqueObligatoire ?? false;
+  const referenceRequired = selectedType?.referenceObligatoire ?? false;
 
   function reset() {
     setOpen(false);
     setMontant('');
+    setDateEcheance(todayISO());
     setDateReglement('');
     setTypeId(null);
     setBanqueId(null);
+    setReference('');
   }
 
   if (!open) {
@@ -447,9 +460,11 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
           try {
             await onAdd(echeanceId, {
               montant: Number(montant) || 0,
+              dateEcheance: toApiDateTime(dateEcheance) ?? null,
               dateReglement: toApiDateTime(dateReglement) ?? null,
               typeId: typeId || undefined,
               banqueId: banqueRequired ? banqueId || undefined : undefined,
+              reference: reference || undefined,
             });
             reset();
           } finally {
@@ -463,8 +478,15 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
             <Input id="reg-montant" type="number" value={montant} onChange={(e) => setMontant(e.target.value)} />
           </FormField>
           <FormField>
-            <FieldLabel htmlFor="reg-date">Date</FieldLabel>
-            <Input id="reg-date" type="date" value={dateReglement} onChange={(e) => setDateReglement(e.target.value)} />
+            <FieldLabel htmlFor="reg-date-echeance">Date d'échéance</FieldLabel>
+            <Input id="reg-date-echeance" type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
+          </FormField>
+          <FormField>
+            <FieldLabel htmlFor="reg-date-reglement">
+              Date de règlement effectif
+              <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">(si connue)</span>
+            </FieldLabel>
+            <Input id="reg-date-reglement" type="date" value={dateReglement} onChange={(e) => setDateReglement(e.target.value)} />
           </FormField>
           <FormField>
             <FieldLabel htmlFor="reg-type">Type de règlement</FieldLabel>
@@ -505,10 +527,16 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
               </Select>
             </FormField>
           )}
+          {referenceRequired && (
+            <FormField>
+              <FieldLabel htmlFor="reg-reference">Référence (n° de chèque…)</FieldLabel>
+              <Input id="reg-reference" value={reference} onChange={(e) => setReference(e.target.value)} required />
+            </FormField>
+          )}
         </FieldGroup>
         <DialogFooter className="mt-5">
           <Button type="button" variant="outline" onClick={reset}>Annuler</Button>
-          <Button type="submit" disabled={busy || !montant || (banqueRequired && !banqueId)}>Ok</Button>
+          <Button type="submit" disabled={busy || !montant || (banqueRequired && !banqueId) || (referenceRequired && !reference)}>Ok</Button>
         </DialogFooter>
       </form>
     </Modal>
@@ -603,7 +631,10 @@ function EcheanceReglementsHistory({ dossierId, echeanceId, refreshKey }: { doss
           {r.banqueNom && <span className="text-muted-foreground">{r.banqueNom}</span>}
           {r.reference && <span className="text-muted-foreground">Réf. {r.reference}</span>}
           {r.payeurNom && <span className="text-muted-foreground">Payeur : {r.payeurNom}</span>}
-          <span className="text-muted-foreground">{formatDate(r.dateReglement)}</span>
+          <span className="text-muted-foreground">
+            Échéance {formatDate(r.dateEcheance)}
+            {r.dateReglement ? ` · Réglé le ${formatDate(r.dateReglement)}` : ''}
+          </span>
           {r.notes && <span className="text-muted-foreground italic">{r.notes}</span>}
           <span className="ml-auto font-semibold tabular-nums text-(--success)">{formatCurrency(r.montant)}</span>
           <ReglementRecuButton dossierId={dossierId} reglementId={r.id} />
