@@ -1424,7 +1424,7 @@
           "Dossiers"
         ],
         "summary": "Crée un dossier de vente à partir d'une prospection",
-        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant cet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté automatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient utilisés).",
+        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant cet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté automatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient utilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\" d'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier (`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.",
         "operationId": "create_1",
         "requestBody": {
           "content": {
@@ -1808,6 +1808,336 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/SchemaFinancementDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/documents/fiche-visite-technique": {
+      "post": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Génère la \"Fiche Visite Technique\" de plusieurs dossiers en un seul PDF",
+        "description": "Même contenu par dossier que `GET /api/dossiers/{id}/documents/fiche-visite-technique`, concaténés dans l'ordre de `dossierIds`.",
+        "operationId": "getFichesVisiteTechniqueEnLot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenererDocumentsLotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "PDF généré (une page ou plus par dossier).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`dossierIds` manquant ou vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Au moins un des `dossierIds` est introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/documents/fiche-trop-percu": {
+      "post": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Génère la \"Fiche Trop Perçu\" de plusieurs dossiers en un seul PDF",
+        "description": "Même contenu par dossier que `GET /api/dossiers/{id}/documents/fiche-trop-percu`, concaténés dans l'ordre de `dossierIds` — le scénario d'origine de cette fonctionnalité : sélectionner plusieurs dossiers en trop-perçu et imprimer toutes leurs fiches en un seul PDF.",
+        "operationId": "getFichesTropPercuEnLot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenererDocumentsLotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "PDF généré (une page ou plus par dossier).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`dossierIds` manquant ou vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Au moins un des `dossierIds` est introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/documents/fiche-reservation": {
+      "post": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Génère la \"Fiche de réservation\" de plusieurs dossiers en un seul PDF",
+        "description": "Même contenu par dossier que `GET /api/dossiers/{id}/documents/fiche-reservation` (format PDF), concaténés dans l'ordre de `dossierIds` — un groupe de pages par dossier. PDF uniquement (pas de variante Word en lot).",
+        "operationId": "getFichesReservationEnLot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenererDocumentsLotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "PDF généré (une page ou plus par dossier).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`dossierIds` manquant ou vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Au moins un des `dossierIds` est introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/documents/fiche-dossier-vente": {
+      "post": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Génère la \"Fiche Dossier de Vente\" de plusieurs dossiers en un seul PDF",
+        "description": "Même contenu par dossier (3 pages chacun, voir `GET /api/dossiers/{id}/documents/fiche-dossier-vente`) que le endpoint single-dossier, concaténés dans l'ordre de `dossierIds`.",
+        "operationId": "getFichesDossierVenteEnLot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenererDocumentsLotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "PDF généré (3 pages ou plus par dossier).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`dossierIds` manquant ou vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Au moins un des `dossierIds` est introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/documents/fiche-bancaire": {
+      "post": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Génère la \"Fiche Bancaire\" de plusieurs dossiers en un seul PDF",
+        "description": "Même contenu par dossier que `GET /api/dossiers/{id}/documents/fiche-bancaire`, concaténés dans l'ordre de `dossierIds`.",
+        "operationId": "getFichesBancairesEnLot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenererDocumentsLotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "PDF généré (une page ou plus par dossier).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`dossierIds` manquant ou vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Au moins un des `dossierIds` est introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/documents/acte-reservation": {
+      "post": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Génère l'\"Acte de réservation\" de plusieurs dossiers en un seul PDF",
+        "description": "Même contenu par dossier que `GET /api/dossiers/{id}/documents/acte-reservation` (format PDF), concaténés dans l'ordre de `dossierIds`. PDF uniquement (pas de variante Word en lot).",
+        "operationId": "getActesReservationEnLot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenererDocumentsLotRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "PDF généré (une page ou plus par dossier).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`dossierIds` manquant ou vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Au moins un des `dossierIds` est introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
                 }
               }
             }
@@ -7392,6 +7722,18 @@
           },
           "totalGeneral": {
             "type": "number"
+          }
+        }
+      },
+      "GenererDocumentsLotRequest": {
+        "type": "object",
+        "properties": {
+          "dossierIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
