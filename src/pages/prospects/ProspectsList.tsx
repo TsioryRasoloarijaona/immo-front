@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Contact, RotateCcw, Search } from 'lucide-react';
+import { Contact, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
@@ -52,6 +52,11 @@ export default function ProspectsList() {
       icon={<Contact />}
       accent="var(--sec-prospect)"
       accentBg="var(--sec-prospect-bg)"
+      actions={
+        <Button type="button" size="sm" onClick={() => navigate('/prospects/nouveau')}>
+          <Plus data-icon="inline-start" /> Nouveau prospect
+        </Button>
+      }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
         <p className="shrink-0 max-w-180 text-[12.5px] text-muted-foreground">
