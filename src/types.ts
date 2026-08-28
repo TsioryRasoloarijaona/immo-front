@@ -154,6 +154,34 @@ export interface CreerProspectRequest {
 
 export type ModifierProspectRequest = CreerProspectRequest;
 
+// `POST /api/prospections` (from_front.md demande #9) — `prospectId` is the
+// only required field (400 if missing/unresolvable); everything else
+// follows the same optional-partial-update semantics as
+// `ModifierProspectionRequest`. `code` is always server-generated
+// (AdmSequence "Prospection", format "AA/NNNNN"), never sent by the client.
+export interface CreerProspectionRequest {
+  prospectId: UUID;
+  commercialId?: UUID;
+  trancheId?: UUID;
+  articleId?: UUID;
+  origineId?: UUID;
+  origineSupportId?: UUID;
+  vocationId?: UUID;
+  typeContactId?: UUID;
+  actionCommercialeId?: UUID;
+  etapeId?: UUID;
+  surface?: number;
+  surfaceJusqua?: number;
+  prix?: number;
+  prixJusqua?: number;
+  avance?: number;
+  financementFondsPropres?: number;
+  financementCredit?: number;
+  financementAutre?: number;
+  ancienClient?: boolean;
+  notes?: string;
+}
+
 // A prospect's own contact book (contacts personnels — e.g. spouse, agent) —
 // each entry links to another Prospect record by id, tagged with a relation
 // type (référentiel types-relation-contact).

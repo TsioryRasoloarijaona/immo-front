@@ -28,6 +28,7 @@ import type {
   CreerEmployeResponse,
   CreerInteractionRequest,
   CreerProspectRequest,
+  CreerProspectionRequest,
   CreerReglementRequest,
   DashboardDto,
   DevisDto,
@@ -351,6 +352,15 @@ export function listProspections(
 
 export function getProspection(id: UUID): Promise<ProspectionDetailDto> {
   return request('GET', `/api/prospections/${id}`);
+}
+
+/** `POST /api/prospections` (from_front.md demande #9, livré) — crée une
+ * prospection qualifiée pour un prospect existant. `prospectId` obligatoire
+ * (400 sinon) ; pas de contrepartie pour un lead brut/non identifié, voir
+ * plutôt le flux pré-prospection (`creerProspectFromPreProspection`/
+ * `transformerProspection`, si câblés) pour ce cas-là. */
+export function createProspection(body: CreerProspectionRequest): Promise<ProspectionDetailDto> {
+  return request('POST', '/api/prospections', { body });
 }
 
 /** Piste d'audit paginée (plus récent en premier) des deux transitions du

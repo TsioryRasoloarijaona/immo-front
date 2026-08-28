@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users } from 'lucide-react';
+import { Plus, Users } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { Button } from '../../components/ui/button';
 import Pagination from '../../components/Pagination';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -86,6 +87,11 @@ export default function ProspectionsList() {
       icon={<Users />}
       accent="var(--sec-prospection)"
       accentBg="var(--sec-prospection-bg)"
+      actions={
+        <Button type="button" size="sm" onClick={() => navigate('/prospections/nouveau')}>
+          <Plus data-icon="inline-start" /> Nouvelle prospection
+        </Button>
+      }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
         <ProspectionFilterBar
