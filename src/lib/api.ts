@@ -711,9 +711,19 @@ function fetchDossierDocumentBlob(dossierId: UUID, docKind: 'fiche-reservation' 
 /** Shared by the dossier's generated-document endpoints that are PDF-only —
  * no `format` query param exists on these, unlike `fetchDossierDocumentBlob`
  * above (see e.g. Fiche Bancaire's "pas de variante Word pour ce document"). */
-export type DossierPdfOnlyDocKind = 'fiche-visite-technique' | 'fiche-dossier-vente' | 'fiche-bancaire';
+export type DossierPdfOnlyDocKind = 'fiche-visite-technique' | 'fiche-dossier-vente' | 'fiche-bancaire' | 'fiche-trop-percu';
 function fetchDossierPdfOnlyDocumentBlob(dossierId: UUID, docKind: DossierPdfOnlyDocKind): Promise<Blob> {
   const url = `${API_BASE_URL}/api/dossiers/${dossierId}/documents/${docKind}`;
+  return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
+}
+
+/** `GET /api/dossiers/{id}/reglements/{reglementId}/documents/recu` — the
+ * "Reçu de règlement" ("ATTESTATION DE RÉCEPTION CHEQUE") for one specific
+ * règlement, not the whole dossier — unlike `DossierPdfOnlyDocKind` above,
+ * this needs a second id in the path, so it gets its own fetch helper
+ * rather than being folded into that union. PDF-only. */
+function fetchRecuReglementBlob(dossierId: UUID, reglementId: UUID): Promise<Blob> {
+  const url = `${API_BASE_URL}/api/dossiers/${dossierId}/reglements/${reglementId}/documents/recu`;
   return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
 }
 
@@ -840,6 +850,22 @@ export async function viewDossierPdfOnlyDocument(dossierId: UUID, docKind: Dossi
   const win = window.open('', '_blank');
   try {
     const blob = await fetchDossierPdfOnlyDocumentBlob(dossierId, docKind);
+    showBlobInTab(win, blob);
+  } catch (err) {
+    win?.close();
+    throw err;
+  }
+}
+
+export async function downloadRecuReglement(dossierId: UUID, reglementId: UUID, filename: string): Promise<void> {
+  const blob = await fetchRecuReglementBlob(dossierId, reglementId);
+  triggerBlobDownload(blob, filename);
+}
+
+export async function viewRecuReglement(dossierId: UUID, reglementId: UUID): Promise<void> {
+  const win = window.open('', '_blank');
+  try {
+    const blob = await fetchRecuReglementBlob(dossierId, reglementId);
     showBlobInTab(win, blob);
   } catch (err) {
     win?.close();

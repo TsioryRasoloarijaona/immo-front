@@ -1342,7 +1342,7 @@
           "Dossiers"
         ],
         "summary": "Dépose une pièce jointe sur le dossier",
-        "description": "Téléverse un fichier (multipart/form-data) et l'associe au dossier `id` (stocké dans `AdmAttachedFile`, voir la doc de `AdmAttachedFileSummary` pour le rattachement confirmé à `ComFolder`). `description` est une légende libre (ex. \"CIN client\", \"Contrat signé\") ; si absente, le nom de fichier original est utilisé. `creePar` est renseigné automatiquement avec le nom de l'utilisateur connecté (ou `null` si non authentifiable). Le fichier réapparaît immédiatement dans `GET /api/dossiers/{id}/pieces-jointes`.",
+        "description": "Téléverse un fichier (multipart/form-data) et l'associe au dossier `id` (stocké dans `AdmAttachedFile`, voir la doc de `AdmAttachedFileSummary` pour le rattachement confirmé à `ComFolder`). `description` est une légende libre (ex. \"CIN client\", \"Contrat signé\") ; si absente, le nom de fichier original est utilisé. `typeId` référence un `AdmAttachedFileType` (voir `GET /api/referentiels/types-piece-jointe`) ; absent = type non renseigné. `creePar` est déduit du token de l'utilisateur connecté — jamais demandé au front — et vaut `null` si non authentifiable. Le fichier réapparaît immédiatement dans `GET /api/dossiers/{id}/pieces-jointes`.",
         "operationId": "uploadPieceJointe",
         "parameters": [
           {
@@ -1361,6 +1361,16 @@
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Type de document (AdmAttachedFileType.PKey), voir GET /api/referentiels/types-piece-jointe. Absent = non renseigné.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
@@ -1405,7 +1415,7 @@
             }
           },
           "404": {
-            "description": "Dossier introuvable.",
+            "description": "Dossier introuvable, ou typeId ne correspond à aucun type connu.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2406,6 +2416,31 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/TypeReglementDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels/types-piece-jointe": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Types de pièce jointe disponibles",
+        "description": "Liste le référentiel `AdmAttachedFileType` (ex. \"PIECE D'IDENTITE\", \"CONTRAT\", \"FICHE PERMISSION REMISE DES CLES\"...), triée par description. À utiliser pour peupler le sélecteur de type lors du dépôt d'une pièce jointe de dossier (`POST /api/dossiers/{id}/pieces-jointes`, paramètre `typeId`).",
+        "operationId": "getTypesPieceJointe",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
                   }
                 }
               }
@@ -4425,6 +4460,61 @@
                   "items": {
                     "$ref": "#/components/schemas/EtapeSuivanteDto"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/reglements/{reglementId}/documents/recu": {
+      "get": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Génère le \"Reçu de règlement\" pour un règlement précis du dossier (PDF)",
+        "description": "Modélisé sur la page vente (\"Page1\") du template legacy Stimulsoft `instructions/templates/RECEIP/Yes_Stl_Front_Credit_Settlement_*.yes` (la variante locative de ce même fichier, basée sur RntDocumentView, n'est pas couverte) — une \"ATTESTATION DE RÉCEPTION CHEQUE\" pour le règlement `reglementId`, avec le texte inversé (client↔société) quand `StlSettlement.isCredit` est vrai (remboursement plutôt que versement). Inclut la désignation du bien, puis la \"situation des chèques reçus\" (tous les règlements du dossier, pas seulement celui de ce reçu) et le \"Reste à payer\" (réutilise `GET /api/dossiers/{id}/montants`, hors FRAIS DOSSIER/FRAIS SYNDIC, jamais re-dérivé). PDF uniquement.",
+        "operationId": "getRecuReglement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reglementId",
+            "in": "path",
+            "description": "Identifiant du règlement (StlSettlement.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF généré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable, règlement introuvable, ou règlement non rattaché à ce dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
                 }
               }
             }

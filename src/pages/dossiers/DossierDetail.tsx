@@ -30,6 +30,7 @@ import {
   downloadFicheReservation,
   downloadDossierPdfOnlyDocument,
   downloadPieceJointe,
+  downloadRecuReglement,
   getEtapesSuivantes,
   listHistoriqueDossier,
   listPiecesJointes,
@@ -38,6 +39,7 @@ import {
   viewFicheReservation,
   viewDossierPdfOnlyDocument,
   viewPieceJointe,
+  viewRecuReglement,
   type DossierPdfOnlyDocKind,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
@@ -214,6 +216,12 @@ const GENERATED_DOC_HANDLERS: Record<GeneratedDocKind, {
     view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-bancaire'),
     download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-bancaire', filename),
   },
+  'fiche-trop-percu': {
+    title: 'Fiche trop perçu',
+    hasDocx: false,
+    view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-trop-percu'),
+    download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-trop-percu', filename),
+  },
 };
 
 /** One compact chip per generated document — these 5 kinds aren't a saved
@@ -282,6 +290,7 @@ const GENERATED_DOC_KINDS: GeneratedDocKind[] = [
   'fiche-visite-technique',
   'fiche-dossier-vente',
   'fiche-bancaire',
+  'fiche-trop-percu',
 ];
 
 /** `POST /api/dossiers/{id}/pieces-jointes` — same collapsed-by-default
@@ -473,6 +482,40 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
   );
 }
 
+/** `GET /api/dossiers/{id}/reglements/{reglementId}/documents/recu` — one
+ * PDF-only "Reçu de règlement" per règlement row, icon-only like the
+ * generated-document chips (same reasoning: this isn't saved data, it's
+ * generated on demand from the règlement's own id). */
+function ReglementRecuButton({ dossierId, reglementId }: { dossierId: string; reglementId: string }) {
+  const [busy, setBusy] = useState<'view' | 'download' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handle(action: 'view' | 'download') {
+    setBusy(action);
+    setError(null);
+    try {
+      if (action === 'view') await viewRecuReglement(dossierId, reglementId);
+      else await downloadRecuReglement(dossierId, reglementId, `recu-${reglementId}.pdf`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de l'opération.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <span className="flex shrink-0 items-center gap-0.5">
+      {error && <span className="text-[11px] text-destructive">{error}</span>}
+      <Button type="button" variant="ghost" size="icon-xs" title="Voir le reçu" disabled={!!busy} onClick={() => handle('view')}>
+        <Eye />
+      </Button>
+      <Button type="button" variant="ghost" size="icon-xs" title="Télécharger le reçu" disabled={!!busy} onClick={() => handle('download')}>
+        <Download />
+      </Button>
+    </span>
+  );
+}
+
 /** `GET .../echeancier/{echeanceId}/reglements` — détail ligne par ligne
  * derrière le seul total `montantRegle`/`reste` de l'échéance (nouveau,
  * voir instructions/from_front.md). Collapsed by default, même convention
@@ -510,6 +553,7 @@ function EcheanceReglementsHistory({ dossierId, echeanceId, refreshKey }: { doss
               <span className="text-muted-foreground">{formatDate(r.dateReglement)}</span>
               {r.notes && <span className="text-muted-foreground italic">{r.notes}</span>}
               <span className="ml-auto font-medium tabular-nums text-foreground">{formatCurrency(r.montant)}</span>
+              <ReglementRecuButton dossierId={dossierId} reglementId={r.id} />
             </div>
           ))}
         </div>
