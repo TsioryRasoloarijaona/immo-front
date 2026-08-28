@@ -700,6 +700,35 @@ function fetchPieceJointeBlob(dossierId: UUID, pieceId: UUID, extension: string 
   return fetchByteEndpointBlob(url, mimeForExtension(extension));
 }
 
+/** `GET /api/articles/{id}/pieces-jointes` — read-only counterpart of the
+ * dossier's pièces jointes: mostly plans (PLAN/PLAN_ARCHITECTE/PLAN_ETAGE),
+ * same `PieceJointeDto` shape, but no upload endpoint exists for articles
+ * (no `POST` documented) — view/download only. */
+export function listArticlePiecesJointes(articleId: UUID): Promise<PieceJointeDto[]> {
+  return request('GET', `/api/articles/${articleId}/pieces-jointes`);
+}
+
+function fetchArticlePieceJointeBlob(articleId: UUID, pieceId: UUID, extension: string | undefined): Promise<Blob> {
+  const url = `${API_BASE_URL}/api/articles/${articleId}/pieces-jointes/${pieceId}/fichier`;
+  return fetchByteEndpointBlob(url, mimeForExtension(extension));
+}
+
+export async function downloadArticlePieceJointe(articleId: UUID, pieceId: UUID, filename: string, extension?: string): Promise<void> {
+  const blob = await fetchArticlePieceJointeBlob(articleId, pieceId, extension);
+  triggerBlobDownload(blob, filename);
+}
+
+export async function viewArticlePieceJointe(articleId: UUID, pieceId: UUID, extension?: string): Promise<void> {
+  const win = window.open('', '_blank');
+  try {
+    const blob = await fetchArticlePieceJointeBlob(articleId, pieceId, extension);
+    showBlobInTab(win, blob);
+  } catch (err) {
+    win?.close();
+    throw err;
+  }
+}
+
 /** Shared by the dossier's generated-document endpoints that offer both
  * `pdf`/`docx` (`/documents/fiche-reservation`, `/documents/acte-reservation`)
  * — same `format: byte` shape, just a different document kind in the path. */

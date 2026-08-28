@@ -1,12 +1,66 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Folder, Home } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Folder, Home } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
+import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
-import { getArticle, getDossier } from '../../lib/api';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { downloadArticlePieceJointe, getArticle, getDossier, listArticlePiecesJointes, viewArticlePieceJointe } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { formatCurrency, formatDate, formatPercent } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
+import { pieceJointeTypeTone } from '../../lib/domain';
+import type { PieceJointeDto } from '../../types';
+
+/** Read-only counterpart of `PieceJointeRow` in `DossierDetail.tsx` — same
+ * row shape (Fichier/Déposé par/Type/Date/Actions), but no upload endpoint
+ * exists for articles, so no add-row/delete affordance, view+download only. */
+function ArticlePieceJointeRow({ articleId, piece }: { articleId: string; piece: PieceJointeDto }) {
+  const [busyAction, setBusyAction] = useState<'view' | 'download' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const ext = piece.extension?.replace(/^\./, '') || '';
+  const filename = `${piece.description || 'document'}${ext ? `.${ext}` : ''}`;
+
+  async function handle(action: 'view' | 'download') {
+    setBusyAction(action);
+    setError(null);
+    try {
+      if (action === 'view') await viewArticlePieceJointe(articleId, piece.id, piece.extension);
+      else await downloadArticlePieceJointe(articleId, piece.id, filename, piece.extension);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de l'opération.");
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
+  return (
+    <TableRow className="hover:bg-muted/40">
+      <TableCell>
+        <span className="flex min-w-0 items-center gap-2">
+          <FileText className="size-4 shrink-0 text-muted-foreground" />
+          <span className="truncate font-medium text-foreground">{filename}</span>
+        </span>
+      </TableCell>
+      <TableCell className="text-muted-foreground">{piece.creePar || '—'}</TableCell>
+      <TableCell>
+        {piece.type ? <Badge tone={pieceJointeTypeTone(piece.type)}>{piece.type}</Badge> : <span className="text-muted-foreground">—</span>}
+      </TableCell>
+      <TableCell className="text-right text-muted-foreground">{formatDate(piece.dateCreation)}</TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1">
+          {error && <span className="text-[11.5px] text-destructive">{error}</span>}
+          <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
+            <Eye data-icon="inline-start" /> {busyAction === 'view' ? 'Ouverture…' : 'Voir'}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('download')}>
+            <Download data-icon="inline-start" /> {busyAction === 'download' ? 'Téléchargement…' : 'Télécharger'}
+          </Button>
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+}
 
 export default function ArticleDetail() {
   const { id } = useParams();
@@ -20,6 +74,8 @@ export default function ArticleDetail() {
     () => (a?.dossierId ? getDossier(a.dossierId) : Promise.resolve(null)),
     [a?.dossierId],
   );
+
+  const pieces = useApi(() => listArticlePiecesJointes(id!), [id]);
 
   if (loading) return <PageShell title="Article"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Article"><ErrorState message={error} /></PageShell>;
@@ -126,6 +182,34 @@ export default function ArticleDetail() {
             </div>
           </Card>
         )}
+
+        <Card title={`Pièces jointes (${pieces.data?.length ?? 0})`}>
+          {pieces.loading && <LoadingState />}
+          {pieces.error && <ErrorState message={pieces.error} />}
+          {pieces.data && pieces.data.length === 0 && (
+            <EmptyState title="Aucune pièce jointe" message="Aucun plan n'a été attaché à cet article." />
+          )}
+          {pieces.data && pieces.data.length > 0 && (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Fichier</TableHead>
+                    <TableHead>Déposé par</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Date</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pieces.data.map((p) => (
+                    <ArticlePieceJointeRow key={p.id} articleId={a.id} piece={p} />
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Card>
       </div>
     </PageShell>
   );
