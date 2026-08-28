@@ -53,12 +53,12 @@ export function StatCard({
 }) {
   const { fg, bg } = STAT_TONE_VARS[tone];
   return (
-    <ShadcnCard size="sm" className="gap-2 px-4 py-3.5">
+    <ShadcnCard size="sm" className="gap-1.5 px-3.5 py-2.5">
       <div className="flex items-center gap-2">
         {icon && (
           <span
             aria-hidden
-            className="flex size-6 shrink-0 items-center justify-center rounded-md [&_svg]:size-3.5"
+            className="flex size-5.5 shrink-0 items-center justify-center rounded-md [&_svg]:size-3.25"
             style={{ color: fg, background: bg }}
           >
             {icon}
@@ -66,7 +66,7 @@ export function StatCard({
         )}
         <span className="text-[12px] font-medium text-muted-foreground">{label}</span>
       </div>
-      <div className={cn('text-[22px] font-semibold tracking-tight', tone === 'neutral' && 'text-foreground')} style={tone !== 'neutral' ? { color: fg } : undefined}>
+      <div className={cn('text-[19px] font-semibold tracking-tight', tone === 'neutral' && 'text-foreground')} style={tone !== 'neutral' ? { color: fg } : undefined}>
         {value}
       </div>
       {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
@@ -86,10 +86,10 @@ export function Field({
   const isEmpty = value === null || value === undefined || value === '' || value === '—';
   return (
     <div className="min-w-0">
-      <div className="mb-0.5 text-[11.5px] font-medium text-muted-foreground">{label}</div>
+      <div className="mb-0 text-[11px] font-medium text-muted-foreground">{label}</div>
       <div
         className={cn(
-          'break-words text-[13.5px] font-medium text-foreground',
+          'break-words text-[13px] font-medium text-foreground',
           (muted || isEmpty) && 'font-normal text-muted-foreground'
         )}
       >
@@ -100,7 +100,7 @@ export function Field({
 }
 
 export function FieldGrid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-x-5 gap-y-4">{children}</div>;
+  return <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-x-4 gap-y-2.5">{children}</div>;
 }
 
 export function Card({
@@ -130,15 +130,15 @@ export function Card({
       style={accent ? { borderLeftColor: accent } : undefined}
     >
       {title && (
-        <CardHeader className="gap-0 border-b border-border py-2.5">
-          <CardTitle className="flex items-center gap-1.5 text-[13.5px]">
+        <CardHeader className="gap-0 border-b border-border py-1.75">
+          <CardTitle className="flex items-center gap-1.5 text-[13px]">
             {accent && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: accent }} />}
             {title}
           </CardTitle>
           {action && <CardAction>{action}</CardAction>}
         </CardHeader>
       )}
-      <CardContent className={padded ? 'py-3' : 'px-0 py-0'}>{children}</CardContent>
+      <CardContent className={padded ? 'py-2.5' : 'px-0 py-0'}>{children}</CardContent>
     </ShadcnCard>
   );
 }
