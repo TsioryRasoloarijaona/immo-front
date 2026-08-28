@@ -5748,7 +5748,7 @@
           "Articles"
         ],
         "summary": "Détail d'un article ou sous-article",
-        "description": "Fonctionne indifféremment pour un article racine ou un sous-article (même table StkItem) — la \"recherche inverse\" (partir d'un sous-article pour retrouver sa tranche et son article parent) passe par ce même endpoint : `trancheId`/`trancheCode`/`trancheDescription` et `lotParentId`/`lotParentCode`/`lotParentDescription` sont toujours renseignés quand applicable, sans appel supplémentaire. `sousLots` liste tous les sous-articles de cet article, quel que soit leur statut. `immeubleId`/`immeubleCode`/`immeubleLibelle` (StkBuilding), `etageId`/`etageCode`/`etageLibelle` (StkFloor) et `natureId`/`natureCode`/`natureLibelle` (StkKind) sont chacun des référentiels distincts de Catégorie/Type — tous null si l'article n'est rattaché à aucune valeur (ex. un terrain n'a ni immeuble ni étage).",
+        "description": "Fonctionne indifféremment pour un article racine ou un sous-article (même table StkItem) — la \"recherche inverse\" (partir d'un sous-article pour retrouver sa tranche et son article parent) passe par ce même endpoint : `trancheId`/`trancheCode`/`trancheDescription` et `lotParentId`/`lotParentCode`/`lotParentDescription` sont toujours renseignés quand applicable, sans appel supplémentaire. `sousLots` liste tous les sous-articles de cet article, quel que soit leur statut. `immeubleId`/`immeubleCode`/`immeubleLibelle` (StkBuilding), `etageId`/`etageCode`/`etageLibelle` (StkFloor) et `natureId`/`natureCode`/`natureLibelle` (StkKind) sont chacun des référentiels distincts de Catégorie/Type — tous null si l'article n'est rattaché à aucune valeur (ex. un terrain n'a ni immeuble ni étage). `salePriceFloor`/`comSalePriceFloor` (prix plancher) sont distincts de `salePrice`/`comSalePrice` (prix commercial) — ce dernier peut valoir 0 sur un article dont le prix commercial n'a jamais été saisi alors qu'un prix plancher existe déjà (confirmé sur données réelles) ; au front de décider s'il affiche le plancher en repli dans ce cas.",
         "operationId": "findById_7",
         "parameters": [
           {
@@ -9932,6 +9932,12 @@
             "type": "number"
           },
           "comSalePrice": {
+            "type": "number"
+          },
+          "salePriceFloor": {
+            "type": "number"
+          },
+          "comSalePriceFloor": {
             "type": "number"
           },
           "statut": {
