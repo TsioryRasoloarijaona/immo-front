@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { Check, Pencil, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
 import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/field';
@@ -24,7 +24,7 @@ import {
   simulerSchemaFinancement,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { formatCurrency } from '../../lib/format';
+import { formatCurrency, formatPercent } from '../../lib/format';
 import { prospectionDisplayName } from '../../lib/domain';
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../../lib/referentiels';
 import type { ArticleDetailDto, ArticleListItemDto } from '../../types';
@@ -481,6 +481,35 @@ export default function NewDossier() {
           )}
         </Card>
 
+        {/* HT/TVA/TTC breakdown only exists server-side on a Devis (Offre) —
+            MontantsOffreDto — there's no équivalent on ArticleDetailDto or
+            DossierDetailDto to derive it from otherwise (checked: neither
+            carries tvaRatio/prixHT/prixTTC). Shown only when a real devis
+            exists on the prospection; never client-computed/guessed when
+            it doesn't. */}
+        <Card title="Détail du prix">
+          {latestDevis?.montants ? (
+            <>
+              <FieldGrid>
+                <Field label="Prix avant TVA" value={formatCurrency(latestDevis.montants.prixVenteHT)} />
+                <Field label="Prix après TVA" value={formatCurrency(latestDevis.montants.prixVenteTTC)} />
+                <Field
+                  label="Taux de TVA"
+                  value={latestDevis.montants.tvaRatio != null ? formatPercent(latestDevis.montants.tvaRatio) : undefined}
+                />
+              </FieldGrid>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Repris du devis existant sur cette prospection ({latestDevis.code}).
+              </p>
+            </>
+          ) : (
+            <p className="text-[12.5px] text-muted-foreground">
+              Détail HT/TVA indisponible — aucune offre (devis) n'a encore été créée sur cette prospection pour
+              fournir ce calcul.
+            </p>
+          )}
+        </Card>
+
         <Card title="Prix & notes">
           <FieldGroup>
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
@@ -572,6 +601,12 @@ export default function NewDossier() {
               {schemaFinancement.error && <ErrorState message={schemaFinancement.error} />}
               {schemaFinancement.data && (
                 <>
+                  {latestDevis?.montants?.prixVenteTTC != null && (
+                    <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-[13px]">
+                      <span className="font-medium text-foreground">Prix réel (TTC, depuis le devis)</span>
+                      <span className="font-semibold tabular-nums text-foreground">{formatCurrency(latestDevis.montants.prixVenteTTC)}</span>
+                    </div>
+                  )}
                   {(schemaFinancement.data.lignes ?? []).length === 0 ? (
                     <p className="text-[12.5px] text-muted-foreground">
                       Aucune ligne AUTO-FINANCEMENT/AVANCE/FRAIS SYNDIC pour la vocation de cet article.
