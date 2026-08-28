@@ -908,6 +908,13 @@ export interface ArticleDetailDto {
   area?: number;
   salePrice?: number;
   comSalePrice?: number;
+  /** Prix plancher, distinct de `salePrice` (prix de vente) — `salePrice`
+   * peut valoir 0 sur un article dont le prix n'a jamais été saisi alors
+   * qu'un prix plancher existe déjà (confirmé sur données réelles); affiché
+   * en repli quand `salePrice` est absent/nul. */
+  salePriceFloor?: number;
+  /** Même relation que `salePriceFloor`/`salePrice`, côté prix commercial. */
+  comSalePriceFloor?: number;
   statut?: ArticleStatut;
   trancheId?: UUID;
   trancheCode?: string;

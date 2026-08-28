@@ -136,8 +136,14 @@ export default function ArticleDetail() {
             <Field label="Immeuble" value={a.immeubleLibelle} />
             <Field label="Étage" value={a.etageLibelle} />
             <Field label="Superficie" value={a.area ? `${a.area} m²` : undefined} />
-            <Field label="Prix de vente" value={a.salePrice ? formatCurrency(a.salePrice) : undefined} />
-            <Field label="Prix de vente commercial" value={a.comSalePrice ? formatCurrency(a.comSalePrice) : undefined} />
+            <Field
+              label="Prix de vente"
+              value={a.salePrice ? formatCurrency(a.salePrice) : a.salePriceFloor ? `${formatCurrency(a.salePriceFloor)} (plancher)` : undefined}
+            />
+            <Field
+              label="Prix de vente commercial"
+              value={a.comSalePrice ? formatCurrency(a.comSalePrice) : a.comSalePriceFloor ? `${formatCurrency(a.comSalePriceFloor)} (plancher)` : undefined}
+            />
             <Field label="Titre foncier" value={a.titreFoncier} />
           </FieldGrid>
         </Card>

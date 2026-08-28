@@ -58,8 +58,14 @@ export default function ArticleCompactPreview({
             <Field label="Catégorie" value={article.categorieLibelle} />
             <Field label="Type" value={article.typeLibelle} />
             <Field label="Surface" value={article.area ? `${article.area} m²` : undefined} />
-            <Field label="Prix de vente" value={article.salePrice ? formatCurrency(article.salePrice) : undefined} />
-            <Field label="Prix commercial" value={article.comSalePrice ? formatCurrency(article.comSalePrice) : undefined} />
+            <Field
+              label="Prix de vente"
+              value={article.salePrice ? formatCurrency(article.salePrice) : article.salePriceFloor ? `${formatCurrency(article.salePriceFloor)} (plancher)` : undefined}
+            />
+            <Field
+              label="Prix commercial"
+              value={article.comSalePrice ? formatCurrency(article.comSalePrice) : article.comSalePriceFloor ? `${formatCurrency(article.comSalePriceFloor)} (plancher)` : undefined}
+            />
             <Field label="Titre foncier" value={article.titreFoncier} />
             <Field label="Adresse" value={article.adresse} />
           </FieldGrid>
