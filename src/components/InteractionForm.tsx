@@ -6,7 +6,7 @@ import { DialogFooter } from './ui/dialog';
 import { Field as FormField, FieldGroup, FieldLabel } from './ui/field';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import SearchableSelect from './SearchableSelect';
 import { toApiDateTime } from '../lib/format';
 import { referentielItems, useResultatsInteraction, useTypesContactProspection } from '../lib/referentiels';
 
@@ -73,34 +73,26 @@ export default function InteractionForm({
         <FieldGroup>
           <FormField>
             <FieldLabel htmlFor="action-type">Action</FieldLabel>
-            <Select items={actionItems} value={actionTypeId} onValueChange={(v) => setActionTypeId((v as string) || '')}>
-              <SelectTrigger id="action-type" className="w-full">
-                <SelectValue placeholder="Sélectionner…" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {actionItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              id="action-type"
+              items={actionItems}
+              value={actionTypeId || null}
+              onValueChange={(v) => setActionTypeId(v || '')}
+              placeholder="Sélectionner…"
+              className="w-full"
+            />
           </FormField>
 
           <FormField>
             <FieldLabel htmlFor="action-resultat">Résultat</FieldLabel>
-            <Select items={resultatItems} value={resultatId} onValueChange={(v) => setResultatId((v as string) || '')}>
-              <SelectTrigger id="action-resultat" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {resultatItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              id="action-resultat"
+              items={resultatItems}
+              value={resultatId || null}
+              onValueChange={(v) => setResultatId(v || '')}
+              placeholder="— Non renseigné —"
+              className="w-full"
+            />
           </FormField>
 
           {isRdv && (
