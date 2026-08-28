@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Coins, Download, Eye, FileDown, FileText, Folder, Minus, Phone, Plus, TrendingUp, Upload, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, ChevronDown, ChevronRight, Coins, Download, Eye, FileDown, FileText, Folder, Phone, Plus, TrendingUp, Upload, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, StatCard } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
 import DossierStatusStepper from '../../components/DossierStatusStepper';
+import Modal from '../../components/Modal';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
+import { DialogFooter } from '../../components/ui/dialog';
+import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -14,7 +17,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { referentielItems, useBanques, useCategoriesEcheance, useTypesPieceJointe, useTypesReglement } from '../../lib/referentiels';
 import { formatCurrency, formatDate, formatPercent, toApiDateTime, todayISO } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-import { etapeBadgeTone, pieceJointeTypeTone, prospectionDisplayName } from '../../lib/domain';
+import {
+  ECHEANCE_STATUT_LABELS,
+  echeanceCategorieTone,
+  echeanceStatut,
+  echeanceStatutTone,
+  etapeBadgeTone,
+  pieceJointeTypeTone,
+  prospectionDisplayName,
+} from '../../lib/domain';
 import {
   addEcheance,
   addReglement,
@@ -27,6 +38,7 @@ import {
   listEcheanceReglements,
   listEcheances,
   downloadActeReservation,
+  downloadAutorisationVersement,
   downloadFicheReservation,
   downloadDossierPdfOnlyDocument,
   downloadPieceJointe,
@@ -36,6 +48,7 @@ import {
   listPiecesJointes,
   uploadPieceJointe,
   viewActeReservation,
+  viewAutorisationVersement,
   viewFicheReservation,
   viewDossierPdfOnlyDocument,
   viewPieceJointe,
@@ -67,6 +80,14 @@ function AddEcheanceRow({
   const categoriesEcheance = useCategoriesEcheance();
   const categorieItems = referentielItems(categoriesEcheance.data);
 
+  function reset() {
+    setOpen(false);
+    setCategorieId(null);
+    setMontant(initialMontant ? String(initialMontant) : '');
+    setDateEcheance(initialDate ?? '');
+    setDescription('');
+  }
+
   if (!open) {
     return (
       <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
@@ -76,39 +97,10 @@ function AddEcheanceRow({
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/30 p-3">
-      <div className="flex flex-col gap-1">
-        <label className="text-[11px] text-muted-foreground" htmlFor="new-cat">Catégorie</label>
-        <Select items={categorieItems} value={categorieId} onValueChange={(v) => setCategorieId((v as string) || null)}>
-          <SelectTrigger id="new-cat" className="w-45">
-            <SelectValue placeholder="Choisir…" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {categorieItems.map((item) => (
-                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-[11px] text-muted-foreground" htmlFor="new-montant">Montant</label>
-        <Input id="new-montant" type="number" className="w-32.5" value={montant} onChange={(e) => setMontant(e.target.value)} />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-[11px] text-muted-foreground" htmlFor="new-date">Échéance</label>
-        <Input id="new-date" type="date" className="w-36.25" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-[11px] text-muted-foreground" htmlFor="new-desc">Description</label>
-        <Input id="new-desc" className="w-45" value={description} onChange={(e) => setDescription(e.target.value)} />
-      </div>
-      <Button
-        type="button"
-        size="sm"
-        disabled={busy || !montant}
-        onClick={async () => {
+    <Modal title="Ajouter une échéance" onClose={reset} width={460}>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
           setBusy(true);
           try {
             await onAdd({
@@ -120,20 +112,47 @@ function AddEcheanceRow({
               dateEcheance: toApiDateTime(dateEcheance) ?? null,
               description: description || undefined,
             });
-            setOpen(false);
-            setCategorieId(null);
-            setMontant('');
-            setDateEcheance('');
-            setDescription('');
+            reset();
           } finally {
             setBusy(false);
           }
         }}
       >
-        Ajouter
-      </Button>
-      <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>Annuler</Button>
-    </div>
+        <FieldGroup>
+          <FormField>
+            <FieldLabel htmlFor="new-cat">Catégorie</FieldLabel>
+            <Select items={categorieItems} value={categorieId} onValueChange={(v) => setCategorieId((v as string) || null)}>
+              <SelectTrigger id="new-cat" className="w-full">
+                <SelectValue placeholder="Choisir…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {categorieItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField>
+            <FieldLabel htmlFor="new-montant">Montant</FieldLabel>
+            <Input id="new-montant" type="number" value={montant} onChange={(e) => setMontant(e.target.value)} />
+          </FormField>
+          <FormField>
+            <FieldLabel htmlFor="new-date">Échéance</FieldLabel>
+            <Input id="new-date" type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
+          </FormField>
+          <FormField>
+            <FieldLabel htmlFor="new-desc">Description</FieldLabel>
+            <Input id="new-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </FormField>
+        </FieldGroup>
+        <DialogFooter className="mt-5">
+          <Button type="button" variant="outline" onClick={reset}>Annuler</Button>
+          <Button type="submit" disabled={busy || !montant}>Ajouter</Button>
+        </DialogFooter>
+      </form>
+    </Modal>
   );
 }
 
@@ -420,47 +439,10 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/30 p-2.5">
-      <Input type="number" placeholder="Montant" className="w-27.5" value={montant} onChange={(e) => setMontant(e.target.value)} />
-      <Input type="date" className="w-35" value={dateReglement} onChange={(e) => setDateReglement(e.target.value)} />
-      <Select
-        items={typesReglementItems}
-        value={typeId}
-        onValueChange={(v) => {
-          setTypeId(v as string | null);
-          setBanqueId(null);
-        }}
-      >
-        <SelectTrigger size="sm" className="w-42.5">
-          <SelectValue placeholder={typesReglement.loading ? 'Chargement…' : 'Type de règlement'} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {typesReglementItems.map((item) => (
-              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-      {banqueRequired && (
-        <Select items={banquesItems} value={banqueId} onValueChange={(v) => setBanqueId(v as string | null)}>
-          <SelectTrigger size="sm" className="w-38">
-            <SelectValue placeholder={banques.loading ? 'Chargement…' : 'Banque'} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {banquesItems.map((item) => (
-                <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      )}
-      <Button
-        type="button"
-        size="sm"
-        disabled={busy || !montant || (banqueRequired && !banqueId)}
-        onClick={async () => {
+    <Modal title="Ajouter un règlement" onClose={reset} width={440}>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
           setBusy(true);
           try {
             await onAdd(echeanceId, {
@@ -475,10 +457,61 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
           }
         }}
       >
-        Ok
-      </Button>
-      <Button type="button" size="sm" variant="ghost" onClick={reset}>Annuler</Button>
-    </div>
+        <FieldGroup>
+          <FormField>
+            <FieldLabel htmlFor="reg-montant">Montant</FieldLabel>
+            <Input id="reg-montant" type="number" value={montant} onChange={(e) => setMontant(e.target.value)} />
+          </FormField>
+          <FormField>
+            <FieldLabel htmlFor="reg-date">Date</FieldLabel>
+            <Input id="reg-date" type="date" value={dateReglement} onChange={(e) => setDateReglement(e.target.value)} />
+          </FormField>
+          <FormField>
+            <FieldLabel htmlFor="reg-type">Type de règlement</FieldLabel>
+            <Select
+              items={typesReglementItems}
+              value={typeId}
+              onValueChange={(v) => {
+                setTypeId(v as string | null);
+                setBanqueId(null);
+              }}
+            >
+              <SelectTrigger id="reg-type" className="w-full">
+                <SelectValue placeholder={typesReglement.loading ? 'Chargement…' : 'Type de règlement'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {typesReglementItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </FormField>
+          {banqueRequired && (
+            <FormField>
+              <FieldLabel htmlFor="reg-banque">Banque</FieldLabel>
+              <Select items={banquesItems} value={banqueId} onValueChange={(v) => setBanqueId(v as string | null)}>
+                <SelectTrigger id="reg-banque" className="w-full">
+                  <SelectValue placeholder={banques.loading ? 'Chargement…' : 'Banque'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {banquesItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </FormField>
+          )}
+        </FieldGroup>
+        <DialogFooter className="mt-5">
+          <Button type="button" variant="outline" onClick={reset}>Annuler</Button>
+          <Button type="submit" disabled={busy || !montant || (banqueRequired && !banqueId)}>Ok</Button>
+        </DialogFooter>
+      </form>
+    </Modal>
   );
 }
 
@@ -516,56 +549,76 @@ function ReglementRecuButton({ dossierId, reglementId }: { dossierId: string; re
   );
 }
 
-/** `GET .../echeancier/{echeanceId}/reglements` — détail ligne par ligne
- * derrière le seul total `montantRegle`/`reste` de l'échéance (nouveau,
- * voir instructions/from_front.md). Collapsed by default, même convention
- * que `AddReglementRow`/`AddEcheanceRow`/`AddPieceJointeRow` mais pour la
- * consultation plutôt que la saisie. `refreshKey` force un refetch quand un
- * nouveau règlement vient d'être ajouté pendant que la liste est ouverte. */
-function EcheanceReglementsHistory({ dossierId, echeanceId, refreshKey }: { dossierId: string; echeanceId: string; refreshKey: number }) {
-  const [open, setOpen] = useState(false);
-  const { data, loading, error } = useApi(
-    () => (open ? listEcheanceReglements(dossierId, echeanceId) : Promise.resolve(null)),
-    [open, dossierId, echeanceId, refreshKey],
-  );
+/** `GET /api/dossiers/{id}/echeancier/{echeanceId}/documents/autorisation-versement`
+ * — one PDF-only "Autorisation d'Encaissement" per échéance (keyed off the
+ * échéance's own id, not a règlement's, unlike `ReglementRecuButton` above)
+ * — a document for the client's bank authorizing release of that échéance's
+ * amount. Same icon-only view/download pattern. */
+function AutorisationVersementButton({ dossierId, echeanceId }: { dossierId: string; echeanceId: string }) {
+  const [busy, setBusy] = useState<'view' | 'download' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handle(action: 'view' | 'download') {
+    setBusy(action);
+    setError(null);
+    try {
+      if (action === 'view') await viewAutorisationVersement(dossierId, echeanceId);
+      else await downloadAutorisationVersement(dossierId, echeanceId, `autorisation-versement-${echeanceId}.pdf`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de l'opération.");
+    } finally {
+      setBusy(null);
+    }
+  }
 
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-1 text-[11.5px] font-medium text-muted-foreground hover:text-foreground"
-      >
-        {open ? <Minus className="size-3" /> : <Plus className="size-3" />}
-        {open ? 'Masquer les règlements' : 'Détail des règlements'}
-      </button>
-      {open && (
-        <div className="mt-1.5 flex flex-col gap-1">
-          {loading && <span className="text-[12px] text-muted-foreground">Chargement…</span>}
-          {error && <span className="text-[12px] text-destructive">{error}</span>}
-          {data && data.length === 0 && <span className="text-[12px] text-muted-foreground">Aucun règlement enregistré.</span>}
-          {data && data.map((r) => (
-            <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded border border-border/60 bg-background px-2.5 py-1.5 text-[12px]">
-              <span className="font-medium text-foreground">{r.typeLibelle || '—'}</span>
-              {r.banqueNom && <span className="text-muted-foreground">{r.banqueNom}</span>}
-              {r.reference && <span className="text-muted-foreground">Réf. {r.reference}</span>}
-              {r.payeurNom && <span className="text-muted-foreground">Payeur : {r.payeurNom}</span>}
-              <span className="text-muted-foreground">{formatDate(r.dateReglement)}</span>
-              {r.notes && <span className="text-muted-foreground italic">{r.notes}</span>}
-              <span className="ml-auto font-medium tabular-nums text-foreground">{formatCurrency(r.montant)}</span>
-              <ReglementRecuButton dossierId={dossierId} reglementId={r.id} />
-            </div>
-          ))}
+    <span className="flex shrink-0 items-center gap-0.5">
+      {error && <span className="text-[11px] text-destructive">{error}</span>}
+      <Button type="button" variant="ghost" size="icon-xs" title="Voir l'autorisation d'encaissement" disabled={!!busy} onClick={() => handle('view')}>
+        <Eye />
+      </Button>
+      <Button type="button" variant="ghost" size="icon-xs" title="Télécharger l'autorisation d'encaissement" disabled={!!busy} onClick={() => handle('download')}>
+        <Download />
+      </Button>
+    </span>
+  );
+}
+
+/** `GET .../echeancier/{echeanceId}/reglements` — détail ligne par ligne
+ * derrière le seul total `montantRegle`/`reste` de l'échéance, rendu dans la
+ * ligne dépliée d'`EcheanceRow`. `refreshKey` force un refetch quand un
+ * nouveau règlement vient d'être ajouté pendant que la ligne est dépliée. */
+function EcheanceReglementsHistory({ dossierId, echeanceId, refreshKey }: { dossierId: string; echeanceId: string; refreshKey: number }) {
+  const { data, loading, error } = useApi(() => listEcheanceReglements(dossierId, echeanceId), [dossierId, echeanceId, refreshKey]);
+
+  if (loading) return <span className="text-[12px] text-muted-foreground">Chargement…</span>;
+  if (error) return <span className="text-[12px] text-destructive">{error}</span>;
+  if (data && data.length === 0) return <span className="text-[12px] text-muted-foreground">Aucun règlement enregistré.</span>;
+
+  return (
+    <div className="flex flex-col gap-1">
+      {data?.map((r) => (
+        <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md border border-(--success-border) bg-(--success-bg) px-2.5 py-1.5 text-[12px]">
+          <span className="font-medium text-foreground">{r.typeLibelle || '—'}</span>
+          {r.banqueNom && <span className="text-muted-foreground">{r.banqueNom}</span>}
+          {r.reference && <span className="text-muted-foreground">Réf. {r.reference}</span>}
+          {r.payeurNom && <span className="text-muted-foreground">Payeur : {r.payeurNom}</span>}
+          <span className="text-muted-foreground">{formatDate(r.dateReglement)}</span>
+          {r.notes && <span className="text-muted-foreground italic">{r.notes}</span>}
+          <span className="ml-auto font-semibold tabular-nums text-(--success)">{formatCurrency(r.montant)}</span>
+          <ReglementRecuButton dossierId={dossierId} reglementId={r.id} />
         </div>
-      )}
+      ))}
     </div>
   );
 }
 
-/** One line of "Schéma de financement" — extracted from an inline `.map()`
- * (was previously stateless) so `reglementsVersion` can live per-row and
- * force `EcheanceReglementsHistory` to refetch right after a new règlement
- * is added through `AddReglementRow`, without the whole card re-rendering. */
+/** One row of the "Schéma de financement" table — a colored `Badge` per
+ * catégorie/statut (see `echeanceCategorieTone`/`echeanceStatut` in
+ * lib/domain.tsx) plus a click-to-expand détail row, same convention as
+ * `ProspectDetail.tsx`'s `ProspectionRow`/`DossierRow`. `reglementsVersion`
+ * forces the détail row's history to refetch right after a new règlement is
+ * added through `AddReglementRow` without re-rendering the whole table. */
 function EcheanceRow({
   dossierId,
   echeance,
@@ -575,29 +628,63 @@ function EcheanceRow({
   echeance: EcheanceDto;
   onReglementAdded: (echeanceId: string, body: CreerReglementRequest) => Promise<void>;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const [reglementsVersion, setReglementsVersion] = useState(0);
+  const statut = echeanceStatut(echeance);
 
   return (
-    <div className="rounded-md border border-border px-3 py-2 text-[13px]">
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <span className="font-medium text-foreground">{echeance.categorie || echeance.description || 'Échéance'}</span>
-        <span className="text-muted-foreground">{formatDate(echeance.dateEcheance)}</span>
-        <span className="text-muted-foreground">
-          Réglé {formatCurrency(echeance.montantRegle)} · Reste {formatCurrency(echeance.reste)}
-        </span>
-        <span className="font-medium tabular-nums text-foreground">{formatCurrency(echeance.montant)}</span>
-      </div>
-      <div className="mt-1.5 flex flex-col gap-1.5">
-        <EcheanceReglementsHistory dossierId={dossierId} echeanceId={echeance.id} refreshKey={reglementsVersion} />
-        <AddReglementRow
-          echeanceId={echeance.id}
-          onAdd={async (echeanceId, body) => {
-            await onReglementAdded(echeanceId, body);
-            setReglementsVersion((v) => v + 1);
-          }}
-        />
-      </div>
-    </div>
+    <>
+      <TableRow
+        tabIndex={0}
+        role="button"
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Replier' : 'Déplier'} l'échéance ${echeance.categorie || echeance.description || ''}`}
+        className="cursor-pointer"
+        onClick={() => setExpanded((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded((o) => !o); }
+        }}
+      >
+        <TableCell>
+          {expanded ? <ChevronDown className="size-4 text-(--brand)" /> : <ChevronRight className="size-4 text-muted-foreground" />}
+        </TableCell>
+        <TableCell>
+          <Badge tone={echeanceCategorieTone(echeance.categorie)}>{echeance.categorie || echeance.description || 'Échéance'}</Badge>
+        </TableCell>
+        <TableCell className="text-muted-foreground">{formatDate(echeance.dateEcheance)}</TableCell>
+        <TableCell className="text-right font-semibold tabular-nums text-foreground">{formatCurrency(echeance.montant)}</TableCell>
+        <TableCell>
+          <div className="flex flex-col gap-0.5">
+            <Badge tone={echeanceStatutTone(statut)}>{ECHEANCE_STATUT_LABELS[statut]}</Badge>
+            {statut !== 'aregler' && (
+              <span className="text-[11px] text-muted-foreground">
+                Réglé {formatCurrency(echeance.montantRegle)}{echeance.reste ? ` · Reste ${formatCurrency(echeance.reste)}` : ''}
+              </span>
+            )}
+          </div>
+        </TableCell>
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-end gap-1">
+            <AutorisationVersementButton dossierId={dossierId} echeanceId={echeance.id} />
+            <AddReglementRow
+              echeanceId={echeance.id}
+              onAdd={async (echeanceId, body) => {
+                await onReglementAdded(echeanceId, body);
+                setReglementsVersion((v) => v + 1);
+                setExpanded(true);
+              }}
+            />
+          </div>
+        </TableCell>
+      </TableRow>
+      {expanded && (
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={6} className="bg-muted/30 py-3">
+            <EcheanceReglementsHistory dossierId={dossierId} echeanceId={echeance.id} refreshKey={reglementsVersion} />
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 }
 
@@ -867,6 +954,16 @@ export default function DossierDetail() {
                           {formatCurrency(montants.data.totalGeneral)}
                         </TableCell>
                       </TableRow>
+                      {montants.data.totalSoumisReglePrixTTC != null && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell className="text-muted-foreground">Total soumis à règlement (TTC)</TableCell>
+                          <TableCell />
+                          <TableCell />
+                          <TableCell className="text-right tabular-nums text-muted-foreground">
+                            {formatCurrency(montants.data.totalSoumisReglePrixTTC)}
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
@@ -902,19 +999,33 @@ export default function DossierDetail() {
                 <p className="text-[13px] text-muted-foreground">Aucune ligne dans le schéma de financement pour ce dossier.</p>
               )}
               {echeances.data && echeances.data.content.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  {echeances.data.content.map((l) => (
-                    <EcheanceRow
-                      key={l.id}
-                      dossierId={d.id}
-                      echeance={l}
-                      onReglementAdded={async (echeanceId, body) => {
-                        await addReglement(d.id, echeanceId, body);
-                        await echeances.refetch();
-                        await montants.refetch();
-                      }}
-                    />
-                  ))}
+                <div className="-mx-3">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead />
+                        <TableHead>Catégorie</TableHead>
+                        <TableHead>Échéance</TableHead>
+                        <TableHead className="text-right">Montant</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {echeances.data.content.map((l) => (
+                        <EcheanceRow
+                          key={l.id}
+                          dossierId={d.id}
+                          echeance={l}
+                          onReglementAdded={async (echeanceId, body) => {
+                            await addReglement(d.id, echeanceId, body);
+                            await echeances.refetch();
+                            await montants.refetch();
+                          }}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
               {echeances.data && (

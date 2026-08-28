@@ -80,6 +80,60 @@ export function pieceJointeTypeTone(type: string | null | undefined): BadgeTone 
   return 'neutral';
 }
 
+// `EcheanceDto.categorie` is free-text off the legacy référentiel
+// (`GET /api/referentiels/categories-echeance`) — keyword-matched here for
+// a scannable badge color per line type on the "Schéma de financement"
+// table, same convention as `pieceJointeTypeTone` above. Unmatched/null
+// falls back to neutral.
+export function echeanceCategorieTone(categorie: string | null | undefined): BadgeTone {
+  const c = (categorie ?? '').toUpperCase();
+  if (!c) return 'neutral';
+  if (c.includes('AVANCE')) return 'progress';
+  if (c.includes('AUTO') && c.includes('FINANCEMENT')) return 'info';
+  if (c.includes('CREDIT') || c.includes('CRÉDIT')) return 'amber';
+  if (c.includes('SYNDIC')) return 'neutral';
+  return 'neutral';
+}
+
+export type EcheanceStatut = 'soldee' | 'partielle' | 'enretard' | 'aregler';
+
+export const ECHEANCE_STATUT_LABELS: Record<EcheanceStatut, string> = {
+  soldee: 'Soldée',
+  partielle: 'Partielle',
+  enretard: 'En retard',
+  aregler: 'À régler',
+};
+
+export function echeanceStatutTone(statut: EcheanceStatut): BadgeTone {
+  switch (statut) {
+    case 'soldee': return 'success';
+    case 'partielle': return 'info';
+    case 'enretard': return 'warning';
+    default: return 'neutral';
+  }
+}
+
+// Real business signal, not decoration: a fully-paid line is "Soldée", a
+// partly-paid one is "Partielle", and an unpaid line past its own
+// `dateEcheance` is "En retard" (the same "make overdue reminders
+// prominent" principle CLAUDE.md asks for on prospection alerts, applied
+// here to the financing schedule) — everything else unpaid but not yet due
+// is plain "À régler".
+export function echeanceStatut(e: {
+  montant?: number | null;
+  montantRegle?: number | null;
+  reste?: number | null;
+  dateEcheance?: string | null;
+}): EcheanceStatut {
+  const montant = e.montant ?? 0;
+  const regle = e.montantRegle ?? 0;
+  const reste = e.reste ?? montant - regle;
+  if (montant > 0 && reste <= 0) return 'soldee';
+  if (regle > 0 && reste > 0) return 'partielle';
+  if (e.dateEcheance && new Date(e.dateEcheance) < new Date(new Date().toDateString())) return 'enretard';
+  return 'aregler';
+}
+
 // Shared filter-bar state for ProspectionsList/PreProspectionsList — kept
 // here rather than in the component file so ProspectionFilterBar.tsx only
 // exports the component (react-refresh requirement).

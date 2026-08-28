@@ -766,6 +766,17 @@ function fetchRecuReglementBlob(dossierId: UUID, reglementId: UUID): Promise<Blo
   return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
 }
 
+/** `GET /api/dossiers/{id}/echeancier/{echeanceId}/documents/autorisation-versement` —
+ * the "Autorisation d'Encaissement" for one specific échéance (not a
+ * règlement — the échéance's own id, `ComDocument.PKey`), authorizing the
+ * client's bank to release that échéance's amount. PDF-only, same
+ * per-row-id shape as `fetchRecuReglementBlob` above but keyed off the
+ * échéance instead. */
+function fetchAutorisationVersementBlob(dossierId: UUID, echeanceId: UUID): Promise<Blob> {
+  const url = `${API_BASE_URL}/api/dossiers/${dossierId}/echeancier/${echeanceId}/documents/autorisation-versement`;
+  return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
+}
+
 /** Shared by the prospection's generated-document endpoints
  * (`/documents/nda`, `/documents/fiche`) — PDF-only, prospection-scoped
  * (no devisId in the path, unlike the offer document). */
@@ -947,6 +958,22 @@ export async function viewRecuReglement(dossierId: UUID, reglementId: UUID): Pro
   const win = window.open('', '_blank');
   try {
     const blob = await fetchRecuReglementBlob(dossierId, reglementId);
+    showBlobInTab(win, blob);
+  } catch (err) {
+    win?.close();
+    throw err;
+  }
+}
+
+export async function downloadAutorisationVersement(dossierId: UUID, echeanceId: UUID, filename: string): Promise<void> {
+  const blob = await fetchAutorisationVersementBlob(dossierId, echeanceId);
+  triggerBlobDownload(blob, filename);
+}
+
+export async function viewAutorisationVersement(dossierId: UUID, echeanceId: UUID): Promise<void> {
+  const win = window.open('', '_blank');
+  try {
+    const blob = await fetchAutorisationVersementBlob(dossierId, echeanceId);
     showBlobInTab(win, blob);
   } catch (err) {
     win?.close();
