@@ -5301,7 +5301,7 @@
           "Articles"
         ],
         "summary": "Détail d'un article ou sous-article",
-        "description": "Fonctionne indifféremment pour un article racine ou un sous-article (même table StkItem) — la \"recherche inverse\" (partir d'un sous-article pour retrouver sa tranche et son article parent) passe par ce même endpoint : `trancheId`/`trancheCode`/`trancheDescription` et `lotParentId`/`lotParentCode`/`lotParentDescription` sont toujours renseignés quand applicable, sans appel supplémentaire. `sousLots` liste tous les sous-articles de cet article, quel que soit leur statut.",
+        "description": "Fonctionne indifféremment pour un article racine ou un sous-article (même table StkItem) — la \"recherche inverse\" (partir d'un sous-article pour retrouver sa tranche et son article parent) passe par ce même endpoint : `trancheId`/`trancheCode`/`trancheDescription` et `lotParentId`/`lotParentCode`/`lotParentDescription` sont toujours renseignés quand applicable, sans appel supplémentaire. `sousLots` liste tous les sous-articles de cet article, quel que soit leur statut. `immeubleId`/`immeubleCode`/`immeubleLibelle` (StkBuilding), `etageId`/`etageCode`/`etageLibelle` (StkFloor) et `natureId`/`natureCode`/`natureLibelle` (StkKind) sont chacun des référentiels distincts de Catégorie/Type — tous null si l'article n'est rattaché à aucune valeur (ex. un terrain n'a ni immeuble ni étage).",
         "operationId": "findById_7",
         "parameters": [
           {
@@ -9338,6 +9338,36 @@
             "format": "uuid"
           },
           "clientNom": {
+            "type": "string"
+          },
+          "immeubleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "immeubleCode": {
+            "type": "string"
+          },
+          "immeubleLibelle": {
+            "type": "string"
+          },
+          "etageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "etageCode": {
+            "type": "string"
+          },
+          "etageLibelle": {
+            "type": "string"
+          },
+          "natureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "natureCode": {
+            "type": "string"
+          },
+          "natureLibelle": {
             "type": "string"
           }
         }

@@ -76,6 +76,9 @@ export default function ArticleDetail() {
             <Field label="Tranche" value={a.trancheDescription || a.trancheCode} />
             <Field label="Type" value={a.typeLibelle} />
             <Field label="Catégorie" value={a.categorieLibelle} />
+            <Field label="Nature" value={a.natureLibelle} />
+            <Field label="Immeuble" value={a.immeubleLibelle} />
+            <Field label="Étage" value={a.etageLibelle} />
             <Field label="Superficie" value={a.area ? `${a.area} m²` : undefined} />
             <Field label="Prix de vente" value={a.salePrice ? formatCurrency(a.salePrice) : undefined} />
             <Field label="Prix de vente commercial" value={a.comSalePrice ? formatCurrency(a.comSalePrice) : undefined} />

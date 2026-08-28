@@ -889,6 +889,17 @@ export interface ArticleDetailDto {
   dossierStatut?: string;
   clientId?: UUID;
   clientNom?: string;
+  /** Référentiels distincts de Catégorie/Type (StkBuilding/StkFloor/StkKind) — chacun null si
+   * l'article n'est rattaché à aucune valeur (ex. un terrain n'a ni immeuble ni étage). */
+  immeubleId?: UUID;
+  immeubleCode?: string;
+  immeubleLibelle?: string;
+  etageId?: UUID;
+  etageCode?: string;
+  etageLibelle?: string;
+  natureId?: UUID;
+  natureCode?: string;
+  natureLibelle?: string;
 }
 
 export interface ProjetListItemDto {

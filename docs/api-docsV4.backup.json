@@ -4770,7 +4770,7 @@
           "Dossiers"
         ],
         "summary": "Génère la \"Fiche Dossier de Vente\" du dossier (PDF)",
-        "description": "Modélisé sur le template legacy \"FICHE COMPLETE\" — récapitulatif interne complet du dossier : entête, montants par catégorie (réutilise `GET /api/dossiers/{id}/montants`), tous les jalons de dates, échéancier persisté, sous-articles, acquéreurs et historique (réutilise `GET /api/dossiers/{id}/historique`). Les sections \"MODIFICATIONS\" et \"CADEAUX\" du template legacy ne sont pas reproduites ici — hors périmètre de cette itération. PDF uniquement.",
+        "description": "Reproduit la mise en page du template legacy Stimulsoft \"FICHE COMPLETE\" (`ComSaleFiche.yes`) sur 3 pages — récapitulatif interne complet du dossier : page 1 ENTETE/MONTANTS/DATE/ANNULATION, page 2 AUTRES, page 3 SCHEMA DE FINANCEMENT (avec détail des règlements)/SOUS ARTICLES/ACQUEREURS/HISTORIQUE (réutilise `GET /api/dossiers/{id}/historique`). Le bloc MONTANTS a 9 lignes fixes recalculées depuis l'échéancier via les catégories dédiées (Frais/Modification/Avance/Crédit/Auto-financement/Pénalité/Résiliation), distinct de `GET /api/dossiers/{id}/montants` qui groupe par texte libre. Deux champs du template legacy n'ont pas d'équivalent dans ce modèle de données et restent vides : \"Présentation\" et \"Décision MEILLEURTAUX\". PDF uniquement.",
         "operationId": "getFicheDossierVente",
         "parameters": [
           {
