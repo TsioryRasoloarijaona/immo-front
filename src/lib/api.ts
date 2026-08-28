@@ -657,10 +657,10 @@ function mimeForExtension(extension: string | undefined): string {
  * this handles either shape and always returns a proper Blob, tagged with
  * the given MIME type, so a "view" can render inline instead of forcing a
  * download. */
-async function fetchByteEndpointBlob(url: string, mime: string): Promise<Blob> {
+async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestInit): Promise<Blob> {
   let res: Response;
   try {
-    res = await fetch(url, { credentials: 'include' });
+    res = await fetch(url, { credentials: 'include', ...init });
   } catch {
     throw new ApiError(0, `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`);
   }
@@ -889,6 +889,48 @@ export async function viewDossierPdfOnlyDocument(dossierId: UUID, docKind: Dossi
   const win = window.open('', '_blank');
   try {
     const blob = await fetchDossierPdfOnlyDocumentBlob(dossierId, docKind);
+    showBlobInTab(win, blob);
+  } catch (err) {
+    win?.close();
+    throw err;
+  }
+}
+
+/** `POST /api/dossiers/documents/{kind}` — batch counterpart of the 6
+ * single-dossier generated documents above: one concatenated PDF covering
+ * every id in `dossierIds`, in order. Always PDF-only, even for the two
+ * kinds (`fiche-reservation`/`acte-reservation`) that offer a Word variant
+ * in single mode — no batch docx exists. Used by `DossiersList.tsx`'s
+ * multi-select "Générer un document" toolbar. */
+export type DossierBatchDocKind = 'fiche-reservation' | 'acte-reservation' | DossierPdfOnlyDocKind;
+
+export const DOSSIER_BATCH_DOC_LABELS: Record<DossierBatchDocKind, string> = {
+  'fiche-reservation': 'Fiche de réservation',
+  'acte-reservation': 'Acte de réservation',
+  'fiche-visite-technique': 'Fiche visite technique',
+  'fiche-dossier-vente': 'Fiche dossier de vente',
+  'fiche-bancaire': 'Fiche bancaire',
+  'fiche-trop-percu': 'Fiche trop perçu',
+};
+
+function fetchDossiersDocumentsEnLotBlob(kind: DossierBatchDocKind, dossierIds: UUID[]): Promise<Blob> {
+  const url = `${API_BASE_URL}/api/dossiers/documents/${kind}`;
+  return fetchByteEndpointBlob(url, mimeForExtension('pdf'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dossierIds }),
+  });
+}
+
+export async function downloadDossiersDocumentsEnLot(kind: DossierBatchDocKind, dossierIds: UUID[], filename: string): Promise<void> {
+  const blob = await fetchDossiersDocumentsEnLotBlob(kind, dossierIds);
+  triggerBlobDownload(blob, filename);
+}
+
+export async function viewDossiersDocumentsEnLot(kind: DossierBatchDocKind, dossierIds: UUID[]): Promise<void> {
+  const win = window.open('', '_blank');
+  try {
+    const blob = await fetchDossiersDocumentsEnLotBlob(kind, dossierIds);
     showBlobInTab(win, blob);
   } catch (err) {
     win?.close();

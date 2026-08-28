@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Folder, RotateCcw, Search } from 'lucide-react';
+import { Download, Eye, Folder, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
@@ -9,11 +9,23 @@ import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { DEFAULT_PAGE_SIZE, listDossiers, listTranches, type DossierChampDate } from '../../lib/api';
+import {
+  DEFAULT_PAGE_SIZE,
+  DOSSIER_BATCH_DOC_LABELS,
+  downloadDossiersDocumentsEnLot,
+  listDossiers,
+  listTranches,
+  viewDossiersDocumentsEnLot,
+  type DossierBatchDocKind,
+  type DossierChampDate,
+} from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
+import type { DossierListItemDto } from '../../types';
+
+const BATCH_DOC_ITEMS = (Object.entries(DOSSIER_BATCH_DOC_LABELS) as [DossierBatchDocKind, string][]).map(([value, label]) => ({ label, value }));
 
 const STATUS_ITEMS = [...DOSSIER_STATUS_PIPELINE, ...DOSSIER_EXIT_STATUSES].map((s) => ({ label: s, value: s }));
 
@@ -41,6 +53,18 @@ export default function DossiersList() {
   const [dateFin, setDateFin] = useState('');
   const [commercial, setCommercial] = useState('all');
   const [page, setPage] = useState(0);
+
+  // Batch document generation (POST /api/dossiers/documents/{kind}) — the
+  // selection lives independently of `search`/`status`/etc. below and of
+  // `page`, so switching filters or pages to pick more dossiers never wipes
+  // it out. `selectedLabels` keeps a friendly code/nom per id around even
+  // after the row scrolls off the current filtered/paginated page, so the
+  // "selected" chips still read as something meaningful.
+  const [batchDocKind, setBatchDocKind] = useState<DossierBatchDocKind | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedLabels, setSelectedLabels] = useState<Record<string, string>>({});
+  const [batchBusy, setBatchBusy] = useState<'view' | 'download' | null>(null);
+  const [batchError, setBatchError] = useState<string | null>(null);
 
   const { data, loading, error } = useApi(
     () =>
@@ -92,6 +116,45 @@ export default function DossiersList() {
     { label: 'Tous les commerciaux', value: 'all' },
     ...commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id })),
   ];
+
+  function toggleSelected(d: DossierListItemDto) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(d.id)) next.delete(d.id);
+      else next.add(d.id);
+      return next;
+    });
+    setSelectedLabels((prev) => ({ ...prev, [d.id]: d.code || d.clientNom || d.id }));
+  }
+
+  function removeSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+    setSelectedLabels({});
+    setBatchError(null);
+  }
+
+  async function handleBatchDocument(action: 'view' | 'download') {
+    if (!batchDocKind || selectedIds.size === 0) return;
+    setBatchBusy(action);
+    setBatchError(null);
+    try {
+      const ids = Array.from(selectedIds);
+      if (action === 'view') await viewDossiersDocumentsEnLot(batchDocKind, ids);
+      else await downloadDossiersDocumentsEnLot(batchDocKind, ids, `${batchDocKind}-lot.pdf`);
+    } catch (err) {
+      setBatchError(err instanceof Error ? err.message : "Échec de l'opération.");
+    } finally {
+      setBatchBusy(null);
+    }
+  }
 
   return (
     <PageShell
@@ -181,6 +244,58 @@ export default function DossiersList() {
           </div>
         </Card>
 
+        <Card padded={false} className="shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 p-3">
+            <Select
+              items={BATCH_DOC_ITEMS}
+              value={batchDocKind}
+              onValueChange={(v) => setBatchDocKind((v as DossierBatchDocKind) || null)}
+            >
+              <SelectTrigger className="w-65">
+                <SelectValue placeholder="Générer un document…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {BATCH_DOC_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            {batchDocKind && (
+              <>
+                <span className="text-[12.5px] text-muted-foreground">
+                  {selectedIds.size} dossier{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
+                </span>
+                <Button type="button" variant="outline" size="sm" disabled={selectedIds.size === 0 || !!batchBusy} onClick={() => handleBatchDocument('view')}>
+                  <Eye data-icon="inline-start" /> {batchBusy === 'view' ? 'Ouverture…' : 'Voir'}
+                </Button>
+                <Button type="button" size="sm" disabled={selectedIds.size === 0 || !!batchBusy} onClick={() => handleBatchDocument('download')}>
+                  <Download data-icon="inline-start" /> {batchBusy === 'download' ? 'Téléchargement…' : 'Télécharger'}
+                </Button>
+                {selectedIds.size > 0 && (
+                  <Button type="button" variant="ghost" size="sm" onClick={clearSelection}>
+                    Vider la sélection
+                  </Button>
+                )}
+                {batchError && <span className="text-[12px] text-destructive">{batchError}</span>}
+              </>
+            )}
+          </div>
+          {batchDocKind && selectedIds.size > 0 && (
+            <div className="flex flex-wrap gap-1.5 border-t border-border p-3 pt-2.5">
+              {Array.from(selectedIds).map((id) => (
+                <Badge key={id} tone="info" className="gap-1">
+                  {selectedLabels[id] || id}
+                  <button type="button" aria-label="Retirer de la sélection" onClick={() => removeSelected(id)}>
+                    <X className="size-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          )}
+        </Card>
+
         {loading && <LoadingState />}
         {error && <ErrorState message={error} />}
         {!loading && !error && (
@@ -195,11 +310,12 @@ export default function DossiersList() {
                 <Table className="w-full min-w-160 table-fixed">
                   <TableHeader>
                     <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
-                      <TableHead className="w-[18%]">Client</TableHead>
-                      <TableHead className="w-[12%]">Code</TableHead>
-                      <TableHead className="w-[12%]">Prospection</TableHead>
-                      <TableHead className="w-[14%]">Statut</TableHead>
-                      <TableHead className="w-[14%]">Commercial</TableHead>
+                      {batchDocKind && <TableHead className="w-9" />}
+                      <TableHead className="w-[17%]">Client</TableHead>
+                      <TableHead className="w-[11%]">Code</TableHead>
+                      <TableHead className="w-[11%]">Prospection</TableHead>
+                      <TableHead className="w-[13%]">Statut</TableHead>
+                      <TableHead className="w-[13%]">Commercial</TableHead>
                       <TableHead className="w-[10%] text-right">Prix</TableHead>
                       <TableHead className="w-[11%] text-right">Total à payer</TableHead>
                       <TableHead className="w-[9%]">Date</TableHead>
@@ -212,12 +328,23 @@ export default function DossiersList() {
                         tabIndex={0}
                         role="link"
                         aria-label={`Ouvrir le dossier ${d.clientNom ?? d.code}`}
-                        className="cursor-pointer"
+                        className={selectedIds.has(d.id) ? 'cursor-pointer bg-muted/40' : 'cursor-pointer'}
                         onClick={() => navigate(`/dossiers/${d.id}`)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') navigate(`/dossiers/${d.id}`);
                         }}
                       >
+                        {batchDocKind && (
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              className="size-3.5"
+                              aria-label={`Sélectionner ${d.clientNom ?? d.code}`}
+                              checked={selectedIds.has(d.id)}
+                              onChange={() => toggleSelected(d)}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell className="truncate font-medium text-foreground" title={d.clientNom ?? undefined}>{d.clientNom ?? '—'}</TableCell>
                         <TableCell className="truncate" title={d.code}><Badge tone="neutral" className="font-mono">{d.code}</Badge></TableCell>
                         <TableCell className="truncate">
