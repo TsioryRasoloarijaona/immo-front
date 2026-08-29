@@ -1068,6 +1068,12 @@ export function listEncaissements(
 export const getEntitesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/entites');
 export const getComptesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/comptes');
 export const getDepotsReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/depots');
+/** `StkKind` — instructions/from_front.md #4, alimente le filtre `natureId`
+ * de `GET /api/articles`/`GET /api/tranches/{id}/articles`. */
+export const getNatures = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/natures');
+/** `StkFloor` — instructions/from_front.md #4, alimente le filtre `etageId`
+ * de `GET /api/articles`/`GET /api/tranches/{id}/articles`. */
+export const getEtages = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/etages');
 
 // ---------------------------------------------------------------------------
 // Tranches / Projets / Articles
@@ -1077,12 +1083,27 @@ export function getTranche(id: UUID): Promise<TrancheDetailDto> {
   return request('GET', `/api/tranches/${id}`);
 }
 
+/** Filtres de parité avec la grille legacy "Articles" (instructions/from_front.md
+ * #4), partagés par `listArticles`/`listTrancheArticles` — bornes `prixDe`/
+ * `prixA` sur `comSalePrice`, `surfaceDe`/`surfaceA` sur `area`, toutes
+ * inclusives et indépendamment optionnelles. */
+export type ArticleListFilters = {
+  entiteId?: UUID;
+  natureId?: UUID;
+  vocationId?: UUID;
+  etageId?: UUID;
+  prixDe?: number;
+  prixA?: number;
+  surfaceDe?: number;
+  surfaceA?: number;
+};
+
 /** Catalogue transverse — toutes tranches confondues, restreint aux entités
  * juridiques actives (ADMOD/GHRIZA) côté serveur. Contrairement à
  * `listTrancheArticles`, `statut` absent renvoie DISPONIBLE **et** OCCUPE
  * (vraie vue "tout le patrimoine"), pas juste DISPONIBLE. */
 export function listArticles(
-  params?: { search?: string; trancheId?: UUID[]; statut?: ArticleStatut; categorieId?: UUID[]; typeId?: UUID[] },
+  params?: { search?: string; trancheId?: UUID[]; statut?: ArticleStatut; categorieId?: UUID[]; typeId?: UUID[] } & ArticleListFilters,
   pageable?: Pageable,
 ): Promise<PageDto<ArticleListItemDto>> {
   return request('GET', '/api/articles', { query: withPageable(params, pageable) });
@@ -1090,7 +1111,7 @@ export function listArticles(
 
 export function listTrancheArticles(
   trancheId: UUID,
-  params?: { statut?: ArticleStatut; categorieId?: UUID[]; typeId?: UUID[] },
+  params?: { statut?: ArticleStatut; categorieId?: UUID[]; typeId?: UUID[] } & ArticleListFilters,
   pageable?: Pageable,
 ): Promise<PageDto<ArticleListItemDto>> {
   return request('GET', `/api/tranches/${trancheId}/articles`, { query: withPageable(params, pageable) });

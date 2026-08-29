@@ -877,6 +877,12 @@ export interface ArticleListItemDto {
   area?: number;
   salePrice?: number;
   comSalePrice?: number;
+  /** Prix plancher, distinct de `salePrice`/`comSalePrice` (prix commercial)
+   * — voir `ArticleDetailDto.salePriceFloor`, désormais aussi sur la liste
+   * (instructions/from_front.md #4) pour que la colonne "Prix de vente" de
+   * `ArticlesList.tsx` puisse afficher le même repli que le détail. */
+  salePriceFloor?: number;
+  comSalePriceFloor?: number;
   statut?: ArticleStatut;
   titreFoncier?: string;
   categorieId?: UUID;
@@ -898,6 +904,28 @@ export interface ArticleListItemDto {
   dossierStatut?: string;
   clientId?: UUID;
   clientNom?: string;
+  /** StkItem.Vat (ratio brut, ex. 0.20 pour 20%) — instructions/from_front.md #4. */
+  tauxTVA?: number;
+  /** "Type Présentation" de la grille legacy — code court (F/C/D/H...),
+   * référentiel StkPresentationType distinct de Catégorie/Type, scopé par
+   * tranche. instructions/from_front.md #4. */
+  presentationTypeId?: UUID;
+  presentationTypeCode?: string;
+  presentationTypeLibelle?: string;
+  /** Somme des superficies des sous-articles rattachés (0 si aucun),
+   * distincte de `area` (superficie de l'article lui-même). */
+  superficieSousArticles?: number;
+  /** Référentiels distincts de Catégorie/Type (StkBuilding/StkFloor/StkKind),
+   * déjà sur ArticleDetailDto, désormais aussi sur la liste. */
+  immeubleId?: UUID;
+  immeubleCode?: string;
+  immeubleLibelle?: string;
+  etageId?: UUID;
+  etageCode?: string;
+  etageLibelle?: string;
+  natureId?: UUID;
+  natureCode?: string;
+  natureLibelle?: string;
 }
 
 export interface ArticleDetailDto {
@@ -952,6 +980,15 @@ export interface ArticleDetailDto {
   natureId?: UUID;
   natureCode?: string;
   natureLibelle?: string;
+  /** StkItem.Vat (ratio brut) — instructions/from_front.md #4. */
+  tauxTVA?: number;
+  /** "Type Présentation" de la grille legacy — voir ArticleListItemDto. */
+  presentationTypeId?: UUID;
+  presentationTypeCode?: string;
+  presentationTypeLibelle?: string;
+  /** Somme des superficies des sous-articles rattachés (0 si aucun),
+   * distincte de `area`. */
+  superficieSousArticles?: number;
 }
 
 export interface ProjetListItemDto {

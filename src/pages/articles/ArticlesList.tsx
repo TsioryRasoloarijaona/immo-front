@@ -6,13 +6,22 @@ import { Badge, Card, EmptyState, ErrorState, LoadingState } from '../../compone
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
+import { Input } from '../../components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { getTranchesReferentiel, listArticles } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { useCategoriesBien, useTypesBienReferentiel, referentielItems } from '../../lib/referentiels';
-import { formatCurrency } from '../../lib/format';
+import {
+  useCategoriesBien,
+  useEntitesReferentiel,
+  useEtages,
+  useNatures,
+  useTypesBienReferentiel,
+  useVocations,
+  referentielItems,
+} from '../../lib/referentiels';
+import { formatCurrency, formatPercent } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import type { ArticleListItemDto, ArticleStatut, ReferentielItemDto } from '../../types';
 
@@ -41,6 +50,10 @@ export default function ArticlesList() {
   const navigate = useNavigate();
   const categories = useCategoriesBien();
   const types = useTypesBienReferentiel();
+  const entites = useEntitesReferentiel();
+  const natures = useNatures();
+  const vocations = useVocations();
+  const etages = useEtages();
 
   const [tranches, setTranches] = useState<ReferentielItemDto[]>([]);
   const [tranchesLoading, setTranchesLoading] = useState(true);
@@ -50,6 +63,14 @@ export default function ArticlesList() {
   const [statut, setStatut] = useState<StatutFilter>('all');
   const [categorieId, setCategorieId] = useState<string[]>([]);
   const [typeId, setTypeId] = useState<string[]>([]);
+  const [entiteId, setEntiteId] = useState<string | null>(null);
+  const [natureId, setNatureId] = useState<string | null>(null);
+  const [vocationId, setVocationId] = useState<string | null>(null);
+  const [etageId, setEtageId] = useState<string | null>(null);
+  const [prixDe, setPrixDe] = useState('');
+  const [prixA, setPrixA] = useState('');
+  const [surfaceDe, setSurfaceDe] = useState('');
+  const [surfaceA, setSurfaceA] = useState('');
   const [page, setPage] = useState(0);
 
   useEffect(() => {
@@ -72,6 +93,14 @@ export default function ArticlesList() {
     setStatut('all');
     setCategorieId([]);
     setTypeId([]);
+    setEntiteId(null);
+    setNatureId(null);
+    setVocationId(null);
+    setEtageId(null);
+    setPrixDe('');
+    setPrixA('');
+    setSurfaceDe('');
+    setSurfaceA('');
   }
 
   const { data, loading, error } = useApi(
@@ -83,16 +112,43 @@ export default function ArticlesList() {
           statut: statut !== 'all' ? statut : undefined,
           categorieId: categorieId.length > 0 ? categorieId : undefined,
           typeId: typeId.length > 0 ? typeId : undefined,
+          entiteId: entiteId || undefined,
+          natureId: natureId || undefined,
+          vocationId: vocationId || undefined,
+          etageId: etageId || undefined,
+          prixDe: prixDe ? Number(prixDe) : undefined,
+          prixA: prixA ? Number(prixA) : undefined,
+          surfaceDe: surfaceDe ? Number(surfaceDe) : undefined,
+          surfaceA: surfaceA ? Number(surfaceA) : undefined,
         },
         { page, size: 20 },
       ),
-    [search, trancheId.join(','), statut, categorieId.join(','), typeId.join(','), page],
+    [
+      search,
+      trancheId.join(','),
+      statut,
+      categorieId.join(','),
+      typeId.join(','),
+      entiteId,
+      natureId,
+      vocationId,
+      etageId,
+      prixDe,
+      prixA,
+      surfaceDe,
+      surfaceA,
+      page,
+    ],
   );
   const rows = data?.content ?? [];
 
   const trancheItems = tranches.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   const categorieItems = referentielItems(categories.data);
   const typeItems = referentielItems(types.data);
+  const entiteItems = referentielItems(entites.data);
+  const natureItems = referentielItems(natures.data);
+  const vocationItems = referentielItems(vocations.data);
+  const etageItems = referentielItems(etages.data);
 
   return (
     <PageShell
@@ -142,6 +198,62 @@ export default function ArticlesList() {
             </Select>
             <MultiSelectDropdown label="Catégorie" placeholder="Toutes" value={categorieId} onChange={(v) => resetAndSet(setCategorieId, v)} items={categorieItems} />
             <MultiSelectDropdown label="Type" placeholder="Tous" value={typeId} onChange={(v) => resetAndSet(setTypeId, v)} items={typeItems} />
+            <Select items={entiteItems} value={entiteId} onValueChange={(v) => resetAndSet(setEntiteId, v as string | null)}>
+              <SelectTrigger className="w-38">
+                <SelectValue placeholder={entites.loading ? 'Chargement…' : 'Entité…'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {entiteItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Select items={natureItems} value={natureId} onValueChange={(v) => resetAndSet(setNatureId, v as string | null)}>
+              <SelectTrigger className="w-34">
+                <SelectValue placeholder={natures.loading ? 'Chargement…' : 'Nature…'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {natureItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Select items={vocationItems} value={vocationId} onValueChange={(v) => resetAndSet(setVocationId, v as string | null)}>
+              <SelectTrigger className="w-38">
+                <SelectValue placeholder={vocations.loading ? 'Chargement…' : 'Vocation…'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {vocationItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Select items={etageItems} value={etageId} onValueChange={(v) => resetAndSet(setEtageId, v as string | null)}>
+              <SelectTrigger className="w-34">
+                <SelectValue placeholder={etages.loading ? 'Chargement…' : 'Étage…'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {etageItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <div className="flex items-center gap-1.5">
+              <Input type="number" placeholder="Prix de" className="w-27.5" value={prixDe} onChange={(e) => resetAndSet(setPrixDe, e.target.value)} />
+              <Input type="number" placeholder="à" className="w-22" value={prixA} onChange={(e) => resetAndSet(setPrixA, e.target.value)} />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Input type="number" placeholder="Surface de" className="w-27.5" value={surfaceDe} onChange={(e) => resetAndSet(setSurfaceDe, e.target.value)} />
+              <Input type="number" placeholder="à" className="w-22" value={surfaceA} onChange={(e) => resetAndSet(setSurfaceA, e.target.value)} />
+            </div>
             <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
               <RotateCcw data-icon="inline-start" /> Réinitialiser
             </Button>
@@ -159,57 +271,70 @@ export default function ArticlesList() {
               <EmptyState title="Aucun résultat" message="Ajustez vos filtres pour élargir la recherche." />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <Table className="w-full min-w-240 table-fixed">
+                <Table className="w-full min-w-320 table-fixed">
                   <TableHeader>
                     <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
-                      <TableHead className="w-[10%]">État</TableHead>
-                      <TableHead className="w-[10%]">Code</TableHead>
-                      <TableHead className="w-[16%]">Description</TableHead>
-                      <TableHead className="w-[12%]">Catégorie</TableHead>
-                      <TableHead className="w-[13%]">Type</TableHead>
-                      <TableHead className="w-[8%] text-right">Superficie</TableHead>
-                      <TableHead className="w-[11%] text-right">Prix de vente</TableHead>
-                      <TableHead className="w-[9%]">N° Dossier</TableHead>
-                      <TableHead className="w-[11%]">Client</TableHead>
+                      <TableHead className="w-[7%]">État</TableHead>
+                      <TableHead className="w-[8%]">Code</TableHead>
+                      <TableHead className="w-[11%]">Description</TableHead>
+                      <TableHead className="w-[8%]">Catégorie</TableHead>
+                      <TableHead className="w-[9%]">Type</TableHead>
+                      <TableHead className="w-[5%]">Présent.</TableHead>
+                      <TableHead className="w-[6%]">Nature</TableHead>
+                      <TableHead className="w-[5%]">Étage</TableHead>
+                      <TableHead className="w-[6%] text-right">Superficie</TableHead>
+                      <TableHead className="w-[7%] text-right">Superf. sous-art.</TableHead>
+                      <TableHead className="w-[5%] text-right">TVA</TableHead>
+                      <TableHead className="w-[9%] text-right">Prix de vente</TableHead>
+                      <TableHead className="w-[6%]">N° Dossier</TableHead>
+                      <TableHead className="w-[8%]">Client</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rows.map((a) => (
-                      <TableRow
-                        key={a.id}
-                        tabIndex={0}
-                        role="link"
-                        aria-label={`Ouvrir la fiche de ${a.code}`}
-                        className="cursor-pointer"
-                        onClick={() => navigate(`/articles/${a.id}`)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') navigate(`/articles/${a.id}`);
-                        }}
-                      >
-                        <TableCell>{articleEtatBadge(a)}</TableCell>
-                        <TableCell className="truncate font-medium text-foreground" title={a.code || undefined}>
-                          {a.code || '—'}
-                          {a.sousArticle && <Badge tone="neutral" className="ml-1.5 align-middle">Sous-article</Badge>}
-                        </TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={a.description || undefined}>{a.description || '—'}</TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={a.categorieLibelle || undefined}>{a.categorieLibelle || '—'}</TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={a.typeLibelle || undefined}>{a.typeLibelle || '—'}</TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">{a.area ? `${a.area} m²` : '—'}</TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">{a.salePrice ? formatCurrency(a.salePrice) : '—'}</TableCell>
-                        <TableCell
-                          className="truncate text-muted-foreground"
-                          title={a.dossierCode || undefined}
-                          onClick={(e) => {
-                            if (!a.dossierId) return;
-                            e.stopPropagation();
-                            navigate(`/dossiers/${a.dossierId}`);
+                    {rows.map((a) => {
+                      const prix = a.salePrice ? formatCurrency(a.salePrice) : a.salePriceFloor ? `${formatCurrency(a.salePriceFloor)} (plancher)` : '—';
+                      return (
+                        <TableRow
+                          key={a.id}
+                          tabIndex={0}
+                          role="link"
+                          aria-label={`Ouvrir la fiche de ${a.code}`}
+                          className="cursor-pointer"
+                          onClick={() => navigate(`/articles/${a.id}`)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') navigate(`/articles/${a.id}`);
                           }}
                         >
-                          {a.dossierCode ? <span className="hover:text-foreground hover:underline">{a.dossierCode}</span> : '—'}
-                        </TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={a.clientNom || undefined}>{a.clientNom || '—'}</TableCell>
-                      </TableRow>
-                    ))}
+                          <TableCell>{articleEtatBadge(a)}</TableCell>
+                          <TableCell className="truncate font-medium text-foreground" title={a.code || undefined}>
+                            {a.code || '—'}
+                            {a.sousArticle && <Badge tone="neutral" className="ml-1.5 align-middle">Sous-article</Badge>}
+                          </TableCell>
+                          <TableCell className="truncate text-muted-foreground" title={a.description || undefined}>{a.description || '—'}</TableCell>
+                          <TableCell className="truncate text-muted-foreground" title={a.categorieLibelle || undefined}>{a.categorieLibelle || '—'}</TableCell>
+                          <TableCell className="truncate text-muted-foreground" title={a.typeLibelle || undefined}>{a.typeLibelle || '—'}</TableCell>
+                          <TableCell className="truncate text-muted-foreground" title={a.presentationTypeLibelle || undefined}>{a.presentationTypeCode || '—'}</TableCell>
+                          <TableCell className="truncate text-muted-foreground" title={a.natureLibelle || undefined}>{a.natureCode || a.natureLibelle || '—'}</TableCell>
+                          <TableCell className="truncate text-muted-foreground" title={a.etageLibelle || undefined}>{a.etageCode || a.etageLibelle || '—'}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">{a.area ? `${a.area} m²` : '—'}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">{a.superficieSousArticles ? `${a.superficieSousArticles} m²` : '—'}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">{a.tauxTVA != null ? formatPercent(a.tauxTVA) : '—'}</TableCell>
+                          <TableCell className="text-right tabular-nums text-muted-foreground">{prix}</TableCell>
+                          <TableCell
+                            className="truncate text-muted-foreground"
+                            title={a.dossierCode || undefined}
+                            onClick={(e) => {
+                              if (!a.dossierId) return;
+                              e.stopPropagation();
+                              navigate(`/dossiers/${a.dossierId}`);
+                            }}
+                          >
+                            {a.dossierCode ? <span className="hover:text-foreground hover:underline">{a.dossierCode}</span> : '—'}
+                          </TableCell>
+                          <TableCell className="truncate text-muted-foreground" title={a.clientNom || undefined}>{a.clientNom || '—'}</TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

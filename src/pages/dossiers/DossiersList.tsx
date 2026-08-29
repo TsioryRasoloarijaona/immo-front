@@ -22,12 +22,57 @@ import {
 import { useApi } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { formatCurrency, formatDate } from '../../lib/format';
-import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-import type { DossierListItemDto } from '../../types';
+import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, canonicalStatusLabel, normalizeStatus, toneForStatus } from '../../lib/dossierStatus';
+import type { DossierListItemDto, PageDto } from '../../types';
 
 const BATCH_DOC_ITEMS = (Object.entries(DOSSIER_BATCH_DOC_LABELS) as [DossierBatchDocKind, string][]).map(([value, label]) => ({ label, value }));
 
 const STATUS_ITEMS = [...DOSSIER_STATUS_PIPELINE, ...DOSSIER_EXIT_STATUSES].map((s) => ({ label: s, value: s }));
+
+/** `GET /api/dossiers`'s `statut` query param matches the raw `StrStatus.Code`
+ * stored in the DB (confirmed real example: "CONCRETISATION", see
+ * instructions/from_front.md #5 — backend repo), not the accented Title
+ * Case label this checklist shows ("Concrétisation", from
+ * `DOSSIER_STATUS_PIPELINE`). Sending the display label straight through
+ * as the filter value silently returns 0 rows for most statuses instead of
+ * an error — exactly the "a lot of empty results" symptom. Until the
+ * backend accepts/normalizes the display label (or exposes the exact raw
+ * codes), work around it client-side: fetch a large batch with every other
+ * filter still applied server-side but `statut` omitted, then match/paginate
+ * the statut filter here via `normalizeStatus` — the same accent/casing-
+ * insensitive comparison `canonicalStatusLabel` already uses for display,
+ * so it recognizes any raw variant regardless of the backend's actual
+ * casing. `size: 500` mirrors the tranches fetch below and the real
+ * dataset's ~374 dossiers (per instructions/filtres-avances.md) — revisit
+ * if the portfolio grows past that. */
+async function fetchDossiersWithStatusWorkaround(
+  baseParams: {
+    search?: string;
+    trancheId?: string[];
+    commercial?: string;
+    champDate?: DossierChampDate;
+    dateDebut?: string;
+    dateFin?: string;
+  },
+  statuses: string[],
+  page: number,
+  size: number,
+): Promise<PageDto<DossierListItemDto>> {
+  if (statuses.length === 0) {
+    return listDossiers(baseParams, { page, size, sort: ['docDate,desc'] });
+  }
+  const wanted = new Set(statuses.map((s) => normalizeStatus(s)));
+  const all = await listDossiers(baseParams, { page: 0, size: 500, sort: ['docDate,desc'] });
+  const filtered = all.content.filter((d) => wanted.has(normalizeStatus(d.statut)));
+  const start = page * size;
+  return {
+    content: filtered.slice(start, start + size),
+    page,
+    size,
+    totalElements: filtered.length,
+    totalPages: Math.max(1, Math.ceil(filtered.length / size)),
+  };
+}
 
 const CHAMP_DATE_ITEMS: { label: string; value: DossierChampDate }[] = [
   { label: 'Date de réservation', value: 'RESERVATION' },
@@ -68,21 +113,23 @@ export default function DossiersList() {
 
   const { data, loading, error } = useApi(
     () =>
-      listDossiers(
+      // Newest-first, so a just-created dossier lands on page 0. Sorts on
+      // `docDate` — the actual JPA entity column — not `dateDocument` (the
+      // response DTO's field name), which 400s: Pageable's `sort` validates
+      // against the entity property, and OpenAPI doesn't document it.
+      // `statut` itself is handled separately — see fetchDossiersWithStatusWorkaround.
+      fetchDossiersWithStatusWorkaround(
         {
           search: search || undefined,
-          statut: status.length > 0 ? status : undefined,
           trancheId: trancheIds.length > 0 ? trancheIds : undefined,
           commercial: commercial !== 'all' ? commercial : undefined,
           champDate: dateDebut || dateFin ? champDate : undefined,
           dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
           dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
         },
-        // Newest-first, so a just-created dossier lands on page 0. Sorts on
-        // `docDate` — the actual JPA entity column — not `dateDocument` (the
-        // response DTO's field name), which 400s: Pageable's `sort` validates
-        // against the entity property, and OpenAPI doesn't document it.
-        { page, size: DEFAULT_PAGE_SIZE, sort: ['docDate,desc'] },
+        status,
+        page,
+        DEFAULT_PAGE_SIZE,
       ),
     [search, status.join(','), trancheIds.join(','), champDate, dateDebut, dateFin, commercial, page],
   );

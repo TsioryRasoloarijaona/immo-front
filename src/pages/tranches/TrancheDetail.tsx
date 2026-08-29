@@ -242,7 +242,9 @@ export default function TrancheDetail() {
                       <TableCell className="text-muted-foreground">{a.typeLibelle}</TableCell>
                       <TableCell className="text-muted-foreground">{a.categorieLibelle}</TableCell>
                       <TableCell className="text-right tabular-nums">{a.area ? `${a.area} m²` : '—'}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.salePrice ? formatCurrency(a.salePrice) : '—'}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {a.salePrice ? formatCurrency(a.salePrice) : a.salePriceFloor ? `${formatCurrency(a.salePriceFloor)} (plancher)` : '—'}
+                      </TableCell>
                       <TableCell>
                         <Badge tone={a.statut === 'DISPONIBLE' ? 'success' : 'neutral'}>{a.statut === 'DISPONIBLE' ? 'Disponible' : 'Occupé'}</Badge>
                       </TableCell>
