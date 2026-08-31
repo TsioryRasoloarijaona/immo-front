@@ -3,6 +3,7 @@
 // function here issues an actual HTTP request.
 
 import type {
+  AffecterProjetsRequest,
   AjouterAutreTrancheRequest,
   AjouterCategorieRequest,
   AjouterProfilRequest,
@@ -56,6 +57,7 @@ import type {
   ProfilCategorieDto,
   ProjetDetailDto,
   ProjetListItemDto,
+  ProjetPerimetreDto,
   ProspectDetailDto,
   ProspectListItemDto,
   ProspectionAutreTrancheDto,
@@ -1323,4 +1325,25 @@ export function reinitialiserMotDePasse(admUserId: UUID): Promise<ReinitialiserM
  * temporaire renvoyé n'est jamais réémis, à communiquer hors-bande. */
 export function creerEmploye(body: CreerEmployeRequest): Promise<CreerEmployeResponse> {
   return request('POST', '/api/utilisateurs', { body });
+}
+
+/** Réservé au rôle Administrateur — projets actuellement affectés à ce
+ * compte (périmètre commercial brut, pas le périmètre effectif : un compte
+ * exempté — Administrateur, Direction Générale — peut avoir une liste non
+ * vide sans être filtré). 404 si l'AdmUser n'existe pas. */
+export function getProjetsUtilisateur(admUserId: UUID): Promise<ProjetPerimetreDto[]> {
+  return request('GET', `/api/utilisateurs/${admUserId}/projets`);
+}
+
+/** Réservé au rôle Administrateur — remplacement intégral du périmètre
+ * projet de ce compte (état final des cases à cocher, pas un delta). Une
+ * liste vide retire toute restriction ; le backend 400 sur un corps sans
+ * `projetIds` (absent/null), donc `projetIds` doit toujours être un tableau
+ * explicite ici — jamais `undefined`. Les lignes d'habilitation société/
+ * tranche/projet-travaux préexistantes de l'utilisateur sont préservées
+ * côté serveur (voir FEATURE-perimetre-commercial.md §9bis.4). 400 si un
+ * `projetId` est inconnu, 404 si l'AdmUser n'existe pas. */
+export function remplacerProjetsUtilisateur(admUserId: UUID, projetIds: UUID[]): Promise<ProjetPerimetreDto[]> {
+  const body: AffecterProjetsRequest = { projetIds };
+  return request('PUT', `/api/utilisateurs/${admUserId}/projets`, { body });
 }

@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RotateCcw, UserPlus } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import { Badge, EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listPreProspections, listTranches } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { useOriginesProspection } from '../../lib/referentiels';
 import { formatCurrency, formatDate } from '../../lib/format';
@@ -37,6 +38,8 @@ const ETAPE_ITEMS = [
 // /api/prospections as of the docs/api-docsV4.json 88-route revision.
 export default function PreProspectionsList() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const { commerciaux } = useAppData();
   const origines = useOriginesProspection();
 
@@ -97,6 +100,8 @@ export default function PreProspectionsList() {
         <p className="shrink-0 max-w-180 text-body text-muted-foreground">
           Leads bruts pas encore qualifiés. Ouvrez-en un pour créer sa fiche prospect puis le transformer en prospection.
         </p>
+
+        <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
 
         <ProspectionFilterBar
           state={filters}

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Building2, Loader2 } from 'lucide-react';
 import type { BadgeTone } from '../types';
 import { Badge as ShadcnBadge } from './ui/badge';
 import { Card as ShadcnCard, CardAction, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -264,6 +264,27 @@ export function Chip({ children, warning }: { children: ReactNode; warning?: boo
     >
       {children}
     </span>
+  );
+}
+
+/** Discreet-but-explicit "Périmètre limité à : ARS, MBR" indicator for the
+ * prospections / pré-prospections / dossiers / encaissements lists
+ * (FEATURE-perimetre-commercial.md §9.2). A restricted commercial's list is
+ * server-filtered to their assigned projects; without this, a short result
+ * count reads as a bug or lost data rather than a deliberate restriction.
+ * Renders nothing for the unrestricted case (`projets` empty — zero
+ * assigned projects, or an Administrateur/Direction Générale account, both
+ * of which see everything per §6.2/§6.3), so callers can pass their
+ * perimeter unconditionally rather than guarding the render themselves. */
+export function PerimetreBanner({ projets }: { projets: { code: string }[] }) {
+  if (projets.length === 0) return null;
+  return (
+    <div className="flex shrink-0 items-center gap-2 rounded-md bg-(--info-bg) px-3 py-1.75 text-body text-(--info)">
+      <Building2 aria-hidden className="size-3.75 shrink-0" />
+      <span>
+        Périmètre limité à : <span className="font-semibold">{projets.map((p) => p.code).join(', ')}</span>
+      </span>
+    </div>
   );
 }
 
