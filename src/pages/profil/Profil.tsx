@@ -224,6 +224,68 @@ function Securite() {
   );
 }
 
+// Same exemption set as `AffecterProjetsDialog` (Comptes utilisateurs) —
+// an Administrateur/Direction Générale account always sees every project,
+// independent of any project assignment.
+const EXEMPT_ROLES = new Set(['Administrateur', 'Direction Générale']);
+
+/** Read-only summary of the connected account's commercial perimeter. The
+ * three states below are enforced server-side (see `UtilisateurCourantDto`
+ * in types.ts) and are not interchangeable:
+ * - `perimetreRestreint` true → the account is genuinely filtered to
+ *   `projetsAutorises`.
+ * - false + an exempt role → the account sees everything *because of the
+ *   role*, regardless of any assignment underneath.
+ * - false + no exempt role → the account simply has no restriction
+ *   configured; this is the default state for an unassigned account, not
+ *   an error or an empty list, so it must not be phrased like one. */
+function ProjetsAffectes() {
+  const { user } = useAuth();
+  const exemptRoles = (user?.roles ?? []).filter((r) => EXEMPT_ROLES.has(r));
+  const isExempt = exemptRoles.length > 0;
+  const projets = user?.projetsAutorises ?? [];
+
+  return (
+    <Card title="Projets affectés">
+      {user?.perimetreRestreint ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-body text-muted-foreground">
+            Votre compte est limité aux projets ci-dessous : vous ne voyez que leurs prospections,
+            pré-prospections, dossiers et encaissements.
+          </p>
+          {projets.length > 0 ? (
+            <div className="flex flex-col gap-1.5">
+              {projets.map((p) => (
+                <div key={p.id} className="flex items-center gap-2.5 rounded-md px-1.5 py-1">
+                  <Badge tone="info">{p.code ?? '—'}</Badge>
+                  <span className="text-body text-foreground">{p.libelle ?? ''}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-body text-muted-foreground">Aucun projet n'est actuellement affecté à ce compte.</p>
+          )}
+          <p className="text-micro text-muted-foreground">
+            Seul un administrateur peut modifier cette affectation, depuis l'écran Comptes utilisateurs.
+          </p>
+        </div>
+      ) : isExempt ? (
+        <p className="text-body text-muted-foreground">
+          Aucune restriction ne s'applique à votre compte : le rôle{' '}
+          <span className="font-medium text-foreground">{exemptRoles.join(' / ')}</span> vous donne accès à
+          tous les projets, quelle que soit l'affectation.
+        </p>
+      ) : (
+        <p className="text-body text-muted-foreground">
+          Aucune restriction de périmètre n'est appliquée à ce compte : vous avez accès à tous les
+          projets. Un administrateur peut en configurer une depuis l'écran Comptes utilisateurs si
+          nécessaire.
+        </p>
+      )}
+    </Card>
+  );
+}
+
 export default function Profil() {
   const { user } = useAuth();
 
@@ -246,6 +308,7 @@ export default function Profil() {
       <div className="flex flex-col gap-3">
         <InformationsPersonnelles />
         <Securite />
+        <ProjetsAffectes />
       </div>
     </PageShell>
   );
