@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Check, Pencil, RotateCcw, Search, X } from 'lucide-react';
+import { Check, Folder, Pencil, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
@@ -284,6 +284,9 @@ export default function NewDossier() {
         { label: prospection.code || prospectionDisplayName(prospection), to: `/prospections/${prospection.id}` },
         { label: 'Nouveau dossier' },
       ]}
+      icon={<Folder />}
+      accent="var(--sec-dossier)"
+      accentBg="var(--sec-dossier-bg)"
     >
       <div className="flex flex-col gap-3">
         <Card
@@ -305,11 +308,11 @@ export default function NewDossier() {
           {selectedArticles.length > 0 && (
             <div className={showPicker ? 'mb-3.5 flex flex-col gap-2 border-b border-border pb-3.5' : 'flex flex-col gap-2'}>
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="text-[11.5px] font-medium text-muted-foreground">
+                <span className="text-micro font-medium text-muted-foreground">
                   Article{selectedArticles.length > 1 ? 's' : ''} sélectionné{selectedArticles.length > 1 ? 's' : ''} ({selectedArticles.length})
                 </span>
                 {isSelectionSeeded && (
-                  <span className="text-[11px] text-muted-foreground">— pré-rempli depuis la prospection</span>
+                  <span className="text-micro text-muted-foreground">— pré-rempli depuis la prospection</span>
                 )}
               </div>
               <div className="flex flex-col gap-2">
@@ -421,7 +424,7 @@ export default function NewDossier() {
               </div>
 
               <div className="mb-3 flex items-center justify-between gap-3 border-t border-border pt-3">
-                <span className="text-[12px] text-muted-foreground">
+                <span className="text-body text-muted-foreground">
                   {trancheId ? `${filteredArticles.length} article${filteredArticles.length > 1 ? 's' : ''} sur ${articles.data?.content.length ?? 0} chargé${(articles.data?.content.length ?? 0) > 1 ? 's' : ''}` : 'Choisissez un projet puis une tranche.'}
                 </span>
                 <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
@@ -498,12 +501,12 @@ export default function NewDossier() {
                   value={latestDevis.montants.tvaRatio != null ? formatPercent(latestDevis.montants.tvaRatio) : undefined}
                 />
               </FieldGrid>
-              <p className="mt-2 text-[11px] text-muted-foreground">
+              <p className="mt-2 text-micro text-muted-foreground">
                 Repris du devis existant sur cette prospection ({latestDevis.code}).
               </p>
             </>
           ) : (
-            <p className="text-[12.5px] text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               Détail HT/TVA indisponible — aucune offre (devis) n'a encore été créée sur cette prospection pour
               fournir ce calcul.
             </p>
@@ -528,14 +531,14 @@ export default function NewDossier() {
                   required
                 />
                 {!priceTouched && autoPrix > 0 && (
-                  <p className="mt-1 text-[11px] text-muted-foreground">
+                  <p className="mt-1 text-micro text-muted-foreground">
                     {latestDevis?.montants?.prixVenteTTC
                       ? 'Pré-rempli depuis le devis existant de la prospection.'
                       : 'Pré-rempli depuis le prix de vente des lots sélectionnés.'}
                   </p>
                 )}
                 {!priceTouched && autoPrix === 0 && selectedIds.length > 0 && (
-                  <p className="mt-1 text-[11px] text-destructive">
+                  <p className="mt-1 text-micro text-destructive">
                     Aucun prix de vente sur les lots sélectionnés — saisissez le prix manuellement.
                   </p>
                 )}
@@ -552,7 +555,7 @@ export default function NewDossier() {
                   required
                 />
                 {!cinTouched && autoCin && (
-                  <p className="mt-1 text-[11px] text-muted-foreground">Pré-rempli depuis la pièce d'identité du prospect.</p>
+                  <p className="mt-1 text-micro text-muted-foreground">Pré-rempli depuis la pièce d'identité du prospect.</p>
                 )}
               </FormField>
               <FormField>
@@ -582,7 +585,7 @@ export default function NewDossier() {
                 }}
               />
               {!notesTouched && autoNotes && (
-                <p className="mt-1 text-[11px] text-muted-foreground">
+                <p className="mt-1 text-micro text-muted-foreground">
                   {latestDevis?.notes ? 'Pré-rempli depuis le devis existant.' : 'Pré-rempli depuis les notes de la prospection.'}
                 </p>
               )}
@@ -592,7 +595,7 @@ export default function NewDossier() {
 
         <Card title="Schéma de financement">
           {selectedIds.length === 0 || !prixNumber || prixNumber <= 0 ? (
-            <p className="text-[12.5px] text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               Sélectionnez au moins un article et un prix retenu pour voir le schéma de financement calculé par le serveur.
             </p>
           ) : (
@@ -602,19 +605,19 @@ export default function NewDossier() {
               {schemaFinancement.data && (
                 <>
                   {latestDevis?.montants?.prixVenteTTC != null && (
-                    <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-[13px]">
+                    <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-label">
                       <span className="font-medium text-foreground">Prix réel (TTC, depuis le devis)</span>
                       <span className="font-semibold tabular-nums text-foreground">{formatCurrency(latestDevis.montants.prixVenteTTC)}</span>
                     </div>
                   )}
                   {(schemaFinancement.data.lignes ?? []).length === 0 ? (
-                    <p className="text-[12.5px] text-muted-foreground">
+                    <p className="text-body text-muted-foreground">
                       Aucune ligne AUTO-FINANCEMENT/AVANCE/FRAIS SYNDIC pour la vocation de cet article.
                     </p>
                   ) : (
                     <div className="flex flex-col gap-1.5">
                       {(schemaFinancement.data.lignes ?? []).map((ligne, i) => (
-                        <div key={i} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-[13px]">
+                        <div key={i} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-label">
                           <span className="flex items-center gap-2 font-medium text-foreground">
                             {ligne.categorie}
                             {ligne.exclureDuPrix && <Badge tone="neutral">Hors prix</Badge>}
@@ -625,12 +628,12 @@ export default function NewDossier() {
                     </div>
                   )}
                   <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-                    <span className="text-[13px] font-semibold text-foreground">Total général</span>
-                    <span className="text-[14px] font-semibold tabular-nums text-foreground">
+                    <span className="text-label font-semibold text-foreground">Total général</span>
+                    <span className="text-title font-semibold tabular-nums text-foreground">
                       {formatCurrency(schemaFinancement.data.totalGeneral ?? 0)}
                     </span>
                   </div>
-                  <p className="mt-2 text-[11px] text-muted-foreground">
+                  <p className="mt-2 text-micro text-muted-foreground">
                     Aperçu calculé par le serveur — rien n'est créé ni réservé tant que le dossier n'est pas validé ci-dessous.
                   </p>
                 </>
@@ -639,7 +642,7 @@ export default function NewDossier() {
           )}
         </Card>
 
-        {submitError && <p className="text-[12.5px] text-destructive">{submitError}</p>}
+        {submitError && <p className="text-body text-destructive">{submitError}</p>}
 
         <div className="flex items-center justify-end border-t border-border pt-4">
           <Button type="button" onClick={handleCreate} disabled={!canCreate || submitting}>

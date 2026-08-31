@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, Eye, Folder, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
@@ -19,7 +19,7 @@ import {
   type DossierBatchDocKind,
   type DossierChampDate,
 } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, canonicalStatusLabel, normalizeStatus, toneForStatus } from '../../lib/dossierStatus';
@@ -91,6 +91,7 @@ export default function DossiersList() {
   const { commerciaux } = useAppData();
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [status, setStatus] = useState<string[]>([]);
   const [trancheIds, setTrancheIds] = useState<string[]>([]);
   const [champDate, setChampDate] = useState<DossierChampDate>('RESERVATION');
@@ -120,7 +121,7 @@ export default function DossiersList() {
       // `statut` itself is handled separately — see fetchDossiersWithStatusWorkaround.
       fetchDossiersWithStatusWorkaround(
         {
-          search: search || undefined,
+          search: debouncedSearch || undefined,
           trancheId: trancheIds.length > 0 ? trancheIds : undefined,
           commercial: commercial !== 'all' ? commercial : undefined,
           champDate: dateDebut || dateFin ? champDate : undefined,
@@ -131,7 +132,7 @@ export default function DossiersList() {
         page,
         DEFAULT_PAGE_SIZE,
       ),
-    [search, status.join(','), trancheIds.join(','), champDate, dateDebut, dateFin, commercial, page],
+    [debouncedSearch, status.join(','), trancheIds.join(','), champDate, dateDebut, dateFin, commercial, page],
   );
   const dossiers = data?.content ?? [];
 
@@ -158,6 +159,10 @@ export default function DossiersList() {
     setDateFin('');
     setCommercial('all');
   }
+
+  // Drives the empty state's wording and its escape hatch — see ArticlesList.
+  const hasActiveFilters =
+    !!search || status.length > 0 || trancheIds.length > 0 || champDate !== 'RESERVATION' || !!dateDebut || !!dateFin || commercial !== 'all';
 
   const commercialItems = [
     { label: 'Tous les commerciaux', value: 'all' },
@@ -311,8 +316,18 @@ export default function DossiersList() {
             </Select>
             {batchDocKind && (
               <>
-                <span className="text-[12.5px] text-muted-foreground">
-                  {selectedIds.size} dossier{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
+                {/* Picking a document kind leaves both action buttons
+                    disabled until rows are ticked, with nothing saying why —
+                    so say it, rather than showing "0 dossier sélectionné"
+                    next to two dead buttons. */}
+                <span className="text-body text-muted-foreground">
+                  {selectedIds.size === 0 ? (
+                    <>Cochez les dossiers à inclure dans le document.</>
+                  ) : (
+                    <>
+                      {selectedIds.size} dossier{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
+                    </>
+                  )}
                 </span>
                 <Button type="button" variant="outline" size="sm" disabled={selectedIds.size === 0 || !!batchBusy} onClick={() => handleBatchDocument('view')}>
                   <Eye data-icon="inline-start" /> {batchBusy === 'view' ? 'Ouverture…' : 'Voir'}
@@ -325,7 +340,7 @@ export default function DossiersList() {
                     Vider la sélection
                   </Button>
                 )}
-                {batchError && <span className="text-[12px] text-destructive">{batchError}</span>}
+                {batchError && <span className="text-body text-destructive">{batchError}</span>}
               </>
             )}
           </div>
@@ -343,15 +358,29 @@ export default function DossiersList() {
           )}
         </Card>
 
-        {loading && <LoadingState />}
+        {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}
-        {!loading && !error && (
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-            <div className="shrink-0 text-[12.5px] text-muted-foreground">
+        {!error && data && (
+          <ResultsRegion loading={loading}>
+            <div className="shrink-0 text-body text-muted-foreground">
               {(data?.totalElements ?? 0)} dossier{(data?.totalElements ?? 0) > 1 ? 's' : ''}
             </div>
             {dossiers.length === 0 ? (
-              <EmptyState title="Aucun résultat" message="Ajustez vos filtres pour élargir la recherche." />
+              <EmptyState
+                title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
+                message={
+                  hasActiveFilters
+                    ? 'Aucun dossier de vente ne correspond aux filtres actifs.'
+                    : "Aucun dossier de vente n'est encore enregistré."
+                }
+                action={
+                  hasActiveFilters ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
+                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
                 <Table className="w-full min-w-160 table-fixed">
@@ -426,7 +455,7 @@ export default function DossiersList() {
                 <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
               )}
             </div>
-          </div>
+          </ResultsRegion>
         )}
       </div>
     </PageShell>

@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, UserCheck } from 'lucide-react';
+import { RotateCcw, Search, UserCheck } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
+import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listClients } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { formatCurrency } from '../../lib/format';
 
 // "Clients" — a person-centric view distinct from the Dossiers list (per
@@ -25,11 +26,12 @@ import { formatCurrency } from '../../lib/format';
 export default function ClientsList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [page, setPage] = useState(0);
 
   const { data, loading, error } = useApi(
-    () => listClients({ search: search || undefined }, { page, size: DEFAULT_PAGE_SIZE }),
-    [search, page],
+    () => listClients({ search: debouncedSearch || undefined }, { page, size: DEFAULT_PAGE_SIZE }),
+    [debouncedSearch, page],
   );
   const rows = data?.content ?? [];
 
@@ -45,32 +47,47 @@ export default function ClientsList() {
       icon={<UserCheck />}
       accent="var(--sec-client)"
       accentBg="var(--sec-client-bg)"
+      fullHeight
     >
+      <div className="flex h-full min-h-0 flex-col gap-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2.5">
+          <InputGroup className="min-w-55 flex-1">
+            <InputGroupAddon>
+              <Search />
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder="Rechercher un nom, téléphone, email…"
+              value={search}
+              onChange={(e) => resetAndSet(setSearch, e.target.value)}
+            />
+          </InputGroup>
+        </div>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2.5">
-        <InputGroup className="min-w-55 flex-1">
-          <InputGroupAddon>
-            <Search />
-          </InputGroupAddon>
-          <InputGroupInput
-            placeholder="Rechercher un nom, téléphone, email…"
-            value={search}
-            onChange={(e) => resetAndSet(setSearch, e.target.value)}
-          />
-        </InputGroup>
-      </div>
-
-      {loading && <LoadingState />}
-      {error && <ErrorState message={error} />}
-      {!loading && !error && (
-        <>
-          <div className="mb-2.5 text-[12.5px] text-muted-foreground">
-            {(data?.totalElements ?? 0)} client{(data?.totalElements ?? 0) > 1 ? 's' : ''}
-          </div>
+        {loading && !data && <LoadingState />}
+        {error && <ErrorState message={error} />}
+        {!error && data && (
+          <ResultsRegion loading={loading}>
+            <div className="shrink-0 text-body text-muted-foreground">
+              {(data?.totalElements ?? 0)} client{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+            </div>
           {rows.length === 0 ? (
-            <EmptyState title="Aucun résultat" message="Ajustez votre recherche." />
+            <EmptyState
+              title={search ? 'Aucun résultat' : 'Rien à afficher'}
+              message={
+                search
+                  ? 'Aucun client ne correspond aux filtres actifs.'
+                  : "Aucun client n'est encore enregistré."
+              }
+              action={
+                search ? (
+                  <Button type="button" variant="outline" size="sm" onClick={() => { setPage(0); setSearch(''); }}>
+                    <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                  </Button>
+                ) : undefined
+              }
+            />
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
               <Table className="min-w-190">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -115,11 +132,14 @@ export default function ClientsList() {
               </Table>
             </div>
           )}
-          {data && (
-            <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
-          )}
-        </>
-      )}
+            <div className="shrink-0">
+              {data && (
+                <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
+              )}
+            </div>
+          </ResultsRegion>
+        )}
+      </div>
     </PageShell>
   );
 }

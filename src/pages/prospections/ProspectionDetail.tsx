@@ -126,7 +126,7 @@ function ProspectionDocCell({
         disabled={!!busy || disabled}
         title={disabled ? disabledReason : undefined}
         onClick={() => handle('view')}
-        className="flex items-center gap-1.5 px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
+        className="flex items-center gap-1.5 px-2.5 text-body font-medium text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
       >
         <Eye className="size-3.5 text-muted-foreground" />
         {busy === 'view' ? '…' : PROSPECTION_DOC_LABELS[kind]}
@@ -163,7 +163,7 @@ function ProspectionDocumentButtons({ prospectionId, hasProspect }: { prospectio
         />
         <ProspectionDocCell prospectionId={prospectionId} kind="fiche" divider onError={setError} />
       </div>
-      {error && <span className="text-[11px] text-destructive">{error}</span>}
+      {error && <span className="text-micro text-destructive">{error}</span>}
     </div>
   );
 }
@@ -361,11 +361,11 @@ export default function ProspectionDetail() {
       <div className="mb-3 flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-[21px] font-semibold tracking-tight text-foreground break-words">{name}</h1>
+            <h2 className="text-hero font-semibold tracking-tight text-foreground break-words">{name}</h2>
             {isPre && <Badge tone="amber">Pré-prospection · Non qualifiée</Badge>}
             <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-label text-muted-foreground">
             {p.code && <>Code {p.code} · </>}
             Créée le {formatDate(p.dateDocument)} · Commercial : {p.commercialNom || '— non assigné —'}
           </div>
@@ -412,7 +412,7 @@ export default function ProspectionDetail() {
               // Name shown read-only (not an input) so it's unmistakably
               // not an editable field.
               <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center">
-                <div className="flex h-9 items-center rounded-md border border-input bg-muted/30 px-3 text-[13px] text-muted-foreground sm:w-48">
+                <div className="flex h-9 items-center rounded-md border border-input bg-muted/30 px-3 text-label text-muted-foreground sm:w-48">
                   {commercialLabel(ownCommercial)}
                 </div>
                 <Button size="sm" className="w-full sm:w-auto" onClick={() => handleTransform(ownCommercial.id)} disabled={busy}>
@@ -459,11 +459,11 @@ export default function ProspectionDetail() {
         <Card title="Clôturer la prospection" action={<Button variant="ghost" size="sm" onClick={() => setShowArchiver(false)}>Annuler</Button>}>
           <div className="flex flex-col flex-wrap items-stretch gap-3 sm:flex-row sm:items-end">
             <div className="w-full sm:w-60">
-              <div className="mb-1 text-[11.5px] font-medium text-muted-foreground">Raison</div>
+              <div className="mb-1 text-micro font-medium text-muted-foreground">Raison</div>
               <RefSelect id="raison" value={raisonId} onChange={setRaisonId} items={referentielItems(raisons.data)} />
             </div>
             <div className="min-w-0 flex-1 sm:min-w-60">
-              <div className="mb-1 text-[11.5px] font-medium text-muted-foreground">Détail (optionnel)</div>
+              <div className="mb-1 text-micro font-medium text-muted-foreground">Détail (optionnel)</div>
               <Input value={raisonTexte} onChange={(e) => setRaisonTexte(e.target.value)} />
             </div>
             <Button size="sm" onClick={handleArchiver} disabled={busy} className="w-full text-destructive-foreground sm:w-auto">
@@ -484,14 +484,14 @@ export default function ProspectionDetail() {
                       <div className={cn('flex flex-col items-center', i === PIPELINE_STAGES.length - 1 ? 'flex-none' : 'flex-1')}>
                         <div
                           className={cn(
-                            'flex size-5.5 shrink-0 items-center justify-center rounded-full border-2 text-[10.5px] font-bold transition-colors duration-300',
+                            'flex size-5.5 shrink-0 items-center justify-center rounded-full border-2 text-micro font-bold transition-colors duration-300',
                             i <= stageIdx ? 'text-white' : 'border-border bg-(--neutral-bg) text-muted-foreground'
                           )}
                           style={i <= stageIdx ? { borderColor: sectionAccent, background: sectionAccent } : undefined}
                         >
                           {i + 1}
                         </div>
-                        <div className="mt-1.5 hidden text-center text-[10.5px] text-muted-foreground sm:block">{PIPELINE_STAGE_SHORT[stage]}</div>
+                        <div className="mt-1.5 hidden text-center text-micro text-muted-foreground sm:block">{PIPELINE_STAGE_SHORT[stage]}</div>
                       </div>
                       {i < PIPELINE_STAGES.length - 1 && (
                         <div
@@ -507,14 +507,14 @@ export default function ProspectionDetail() {
                     ~68px column each would wrap into an unreadable ladder on a
                     360px screen; naming only the current step keeps the
                     stepper legible without losing the "where am I" info. */}
-                <div className="mt-2 text-center text-[12px] font-medium text-foreground sm:hidden">
+                <div className="mt-2 text-center text-body font-medium text-foreground sm:hidden">
                   Étape {stageIdx + 1}/{PIPELINE_STAGES.length} · {PIPELINE_STAGE_SHORT[PIPELINE_STAGES[stageIdx]]}
                 </div>
               </div>
             )}
 
             <div className={cn('flex flex-col items-stretch gap-2.5 sm:flex-row sm:flex-wrap sm:items-center', showStepper && 'mt-4 border-t border-border pt-4')}>
-              <span className="text-[11.5px] font-medium text-muted-foreground">Changer d'étape :</span>
+              <span className="text-micro font-medium text-muted-foreground">Changer d'étape :</span>
               <div className="w-full sm:w-55">
                 <RefSelect id="etape" value={etapeId} onChange={setEtapeId} items={referentielItems(etapes.data)} placeholder="Choisir une étape…" />
               </div>
@@ -533,8 +533,8 @@ export default function ProspectionDetail() {
             </FieldGrid>
             {p.raisonFermetureTexte && (
               <div className="mt-3.5">
-                <div className="mb-1.5 text-[11.5px] font-medium text-muted-foreground">Détail</div>
-                <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground">
+                <div className="mb-1.5 text-micro font-medium text-muted-foreground">Détail</div>
+                <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-label leading-relaxed text-foreground">
                   {p.raisonFermetureTexte}
                 </div>
               </div>
@@ -704,8 +704,8 @@ export default function ProspectionDetail() {
                     </FieldGrid>
                     {p.notes && (
                       <div className="mt-3.5 border-t border-border pt-3.5">
-                        <div className="mb-1.5 text-[11.5px] font-medium text-muted-foreground">Notes</div>
-                        <div className="whitespace-pre-wrap text-[13px] leading-relaxed text-foreground">{p.notes}</div>
+                        <div className="mb-1.5 text-micro font-medium text-muted-foreground">Notes</div>
+                        <div className="whitespace-pre-wrap text-label leading-relaxed text-foreground">{p.notes}</div>
                       </div>
                     )}
                   </>
@@ -799,7 +799,7 @@ export default function ProspectionDetail() {
                 {parcours.loading && <LoadingState />}
                 {parcours.error && <ErrorState message={parcours.error} />}
                 {parcours.data && parcours.data.content.length === 0 && (
-                  <p className="text-[13px] text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     Aucune transition tracée pour l'instant — apparaîtra ici dès que cette fiche sera liée à un
                     prospect ou transformée en prospection qualifiée.
                   </p>
@@ -813,9 +813,9 @@ export default function ProspectionDetail() {
                           {i < parcours.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
                         </div>
                         <div className="min-w-0 flex-1 pb-0.5">
-                          <div className="text-[13px] font-semibold text-foreground">{h.workflowDescription || h.statutDescription || 'Événement'}</div>
+                          <div className="text-label font-semibold text-foreground">{h.workflowDescription || h.statutDescription || 'Événement'}</div>
                           <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(h.date)} · {h.utilisateur || 'Système'}</div>
-                          {h.description && <div className="mt-1 text-[12.5px] text-foreground">{h.description}</div>}
+                          {h.description && <div className="mt-1 text-body text-foreground">{h.description}</div>}
                         </div>
                       </div>
                     ))}
@@ -835,7 +835,7 @@ export default function ProspectionDetail() {
                 {interactions.loading && <LoadingState />}
                 {interactions.error && <ErrorState message={interactions.error} />}
                 {interactions.data && interactions.data.content.length === 0 && (
-                  <p className="text-[13px] text-muted-foreground">Aucune action enregistrée pour cette prospection.</p>
+                  <p className="text-label text-muted-foreground">Aucune action enregistrée pour cette prospection.</p>
                 )}
                 {interactions.data && interactions.data.content.length > 0 && (
                   <div className="flex flex-col">
@@ -846,13 +846,13 @@ export default function ProspectionDetail() {
                           {i < interactions.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
                         </div>
                         <div className="min-w-0 flex-1 pb-0.5">
-                          <div className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                          <div className="flex flex-wrap items-center gap-1.5 text-label font-semibold text-foreground">
                             <span className="inline-flex text-(--brand)">{interactionIcon(c.entrante)}</span>
                             {c.actionType || (c.entrante ? 'Entrant' : 'Sortant')}
                             {c.resultat && <Badge tone={c.dateRdv ? 'success' : 'neutral'}>{c.resultat}</Badge>}
                           </div>
                           <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(c.date)} · {c.employeNom || 'Système'}</div>
-                          {c.description && <div className="mt-1 text-[12.5px] text-foreground">{c.description}</div>}
+                          {c.description && <div className="mt-1 text-body text-foreground">{c.description}</div>}
                           {(c.dateRdv || c.dateAlerte) && (
                             <div className="mt-1.5 flex flex-wrap gap-1.5">
                               {c.dateRdv && <Badge tone="success">RDV le {formatDate(c.dateRdv)}</Badge>}
@@ -902,7 +902,7 @@ export default function ProspectionDetail() {
       )}
 
       {toast && (
-        <div role="status" aria-live="polite" className="fixed inset-x-4 bottom-4 z-50 rounded-lg bg-foreground px-4.5 py-3 text-center text-[13px] font-medium text-background shadow-lg sm:inset-x-auto sm:right-6 sm:bottom-6 sm:text-left">
+        <div role="status" aria-live="polite" className="fixed inset-x-4 bottom-4 z-50 rounded-lg bg-foreground px-4.5 py-3 text-center text-label font-medium text-background shadow-lg sm:inset-x-auto sm:right-6 sm:bottom-6 sm:text-left">
           {toast}
         </div>
       )}
@@ -1054,7 +1054,7 @@ function ArticleCascadePicker({
           onChange={setTypeIdsAndReset}
           items={referentielItems(typesRef.data)}
         />
-        <label className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+        <label className="flex items-center gap-1.5 text-body text-muted-foreground">
           <input
             type="checkbox"
             checked={onlyDisponible}
@@ -1067,7 +1067,7 @@ function ArticleCascadePicker({
 
       {trancheId && (
         <div className="flex flex-col gap-1">
-          <span className="text-[11.5px] font-medium text-muted-foreground">
+          <span className="text-micro font-medium text-muted-foreground">
             Articles {articles.data ? `(${articles.data.length})` : ''}
           </span>
           <ArticleResultsList
@@ -1081,7 +1081,7 @@ function ArticleCascadePicker({
 
       {articleId && (
         <div className="flex flex-col gap-1">
-          <span className="text-[11.5px] font-medium text-muted-foreground">
+          <span className="text-micro font-medium text-muted-foreground">
             Sous-article {sousArticles.data && sousArticles.data.length > 0 ? `(${sousArticles.data.length})` : '(aucun)'}
           </span>
           {sousArticles.data && sousArticles.data.length > 0 ? (
@@ -1094,7 +1094,7 @@ function ArticleCascadePicker({
               noneLabel="Aucun — utiliser l'article lui-même"
             />
           ) : (
-            <p className="text-[12px] text-muted-foreground">Cet article n'a pas de sous-article.</p>
+            <p className="text-body text-muted-foreground">Cet article n'a pas de sous-article.</p>
           )}
         </div>
       )}
@@ -1119,13 +1119,13 @@ function ArticleCascadePicker({
         )}
       </div>
       {principalTrancheId && trancheId && (
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-micro text-muted-foreground">
           {isPrincipalTranche
             ? 'Modifiera la tranche/article principal de la prospection.'
             : 'Tranche différente de la tranche principale — utilisez « Ajouter » pour l\'associer comme intérêt secondaire.'}
         </p>
       )}
-      {error && <p className="text-[12px] text-destructive">{error}</p>}
+      {error && <p className="text-body text-destructive">{error}</p>}
     </div>
   );
 }
@@ -1184,23 +1184,23 @@ function ChoixArticleSection({
       }
     >
       <div className={cn('flex flex-col gap-1.5', showPicker && 'mb-3.5 border-b border-border pb-3.5')}>
-        <span className="text-[11.5px] font-medium text-muted-foreground">Tranche principale</span>
+        <span className="text-micro font-medium text-muted-foreground">Tranche principale</span>
         {trancheId ? (
           <button
             type="button"
             onClick={() => navigate(`/tranches/${trancheId}`)}
-            className="inline-flex w-fit items-center gap-1 rounded-md border border-border bg-(--neutral-bg) px-2.5 py-1 text-[12.5px] font-semibold text-primary hover:underline"
+            className="inline-flex w-fit items-center gap-1 rounded-md border border-border bg-(--neutral-bg) px-2.5 py-1 text-body font-semibold text-primary hover:underline"
           >
             {currentTranche.data?.description || currentTranche.data?.code || 'Tranche'} <ArrowUpRight className="size-2.5" />
           </button>
         ) : (
-          <span className="text-[12.5px] text-muted-foreground">Aucune tranche principale définie pour l'instant.</span>
+          <span className="text-body text-muted-foreground">Aucune tranche principale définie pour l'instant.</span>
         )}
         <div className="mt-1">
           {articleId ? (
             <ArticleCompactPreview article={current.data ?? null} loading={current.loading} emptyLabel="Aucun article principal sélectionné." />
           ) : (
-            <span className="text-[12.5px] text-muted-foreground">Aucun article principal sélectionné pour l'instant.</span>
+            <span className="text-body text-muted-foreground">Aucun article principal sélectionné pour l'instant.</span>
           )}
         </div>
       </div>
@@ -1253,7 +1253,7 @@ function ArticleAssocieRow({
   return (
     <div className="rounded-md border border-border px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <span className="text-[13px] font-medium text-foreground">{item.tranche || item.trancheId}</span>
+        <span className="text-label font-medium text-foreground">{item.tranche || item.trancheId}</span>
         <div className="flex items-center gap-1">
           {item.trancheId && (
             <Button type="button" variant="ghost" size="sm" onClick={() => navigate(`/tranches/${item.trancheId}`)}>
@@ -1273,7 +1273,7 @@ function ArticleAssocieRow({
           <ArticleCompactPreview article={article.data ?? null} loading={article.loading} bare />
         </div>
       ) : (
-        item.article && <span className="mt-1 block text-[12.5px] text-muted-foreground">{item.article}</span>
+        item.article && <span className="mt-1 block text-body text-muted-foreground">{item.article}</span>
       )}
       {editing && (
         <div className="mt-3 border-t border-border pt-3">
@@ -1315,7 +1315,7 @@ function ArticlesAssociesSection({
   return (
     <Card title="Articles associés">
       <div className="flex flex-col gap-2">
-        {items.length === 0 && <span className="text-[12.5px] text-muted-foreground">Aucun article associé pour l'instant.</span>}
+        {items.length === 0 && <span className="text-body text-muted-foreground">Aucun article associé pour l'instant.</span>}
         {items.map((t) => (
           <ArticleAssocieRow key={t.id} prospectionId={prospectionId} item={t} onRemove={onRemove} onEdited={onEdited} navigate={navigate} />
         ))}
@@ -1354,19 +1354,19 @@ function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: 
     <div className="rounded-md border border-border px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span className="text-[13px] font-semibold text-foreground">{dv.code}</span>
-          <span className="text-[12.5px] text-muted-foreground">
+          <span className="text-label font-semibold text-foreground">{dv.code}</span>
+          <span className="text-body text-muted-foreground">
             {dv.trancheDescription || dv.tranche}
             {dv.articleDescription || dv.article ? ` · ${dv.articleDescription || dv.article}` : ''}
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="text-[12px] text-muted-foreground">{formatDate(dv.dateDocument)}</span>
-          <span className="text-[13.5px] font-semibold tabular-nums text-foreground">
+          <span className="text-body text-muted-foreground">{formatDate(dv.dateDocument)}</span>
+          <span className="text-label font-semibold tabular-nums text-foreground">
             {m?.prixVenteTTC != null ? formatCurrency(m.prixVenteTTC) : '—'}
           </span>
-          {genError && <span className="text-[11.5px] text-destructive">{genError}</span>}
-          <Button type="button" variant="outline" size="sm" className="h-6 gap-1 px-1.5 text-[12px]" disabled={!!generating} onClick={() => handleGenerateFiche('view')}>
+          {genError && <span className="text-micro text-destructive">{genError}</span>}
+          <Button type="button" variant="outline" size="sm" className="h-6 gap-1 px-1.5 text-body" disabled={!!generating} onClick={() => handleGenerateFiche('view')}>
             <FileText className="size-3" />
             {generating === 'view' ? 'Génération…' : 'Fiche offre'}
           </Button>
@@ -1383,7 +1383,7 @@ function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: 
             <Download className="size-3" />
           </Button>
           {m && (
-            <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-[12px]" onClick={() => setExpanded((v) => !v)}>
+            <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-body" onClick={() => setExpanded((v) => !v)}>
               {expanded ? <Minus className="size-3" /> : <Plus className="size-3" />}
               {expanded ? 'Moins de détails' : 'Montants'}
             </Button>
@@ -1392,7 +1392,7 @@ function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: 
       </div>
 
       {(dv.prospect || dv.commercial || dv.modePaiement) && (
-        <div className="mt-1 text-[12px] text-muted-foreground">
+        <div className="mt-1 text-body text-muted-foreground">
           {[dv.prospect, dv.commercial, dv.modePaiement].filter(Boolean).join(' · ')}
         </div>
       )}
@@ -1400,7 +1400,7 @@ function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: 
       {expanded && m && (
         <div className="mt-2.5 flex flex-col gap-3 border-t border-border pt-2.5">
           <div>
-            <div className="mb-1.5 text-[11.5px] font-medium text-muted-foreground">Avant remise</div>
+            <div className="mb-1.5 text-micro font-medium text-muted-foreground">Avant remise</div>
             <FieldGrid>
               <Field label="TVA" value={m.tvaRatio != null ? `${Math.round(m.tvaRatio * 100)} %` : undefined} />
               <Field label="Prix m² HT" value={m.prixM2HT != null ? formatCurrency(m.prixM2HT) : undefined} />
@@ -1416,7 +1416,7 @@ function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: 
 
           {(m.remisePercent ?? 0) > 0 && (
             <div>
-              <div className="mb-1.5 text-[11.5px] font-medium text-muted-foreground">Remise</div>
+              <div className="mb-1.5 text-micro font-medium text-muted-foreground">Remise</div>
               <FieldGrid>
                 <Field label="Taux" value={m.remisePercent != null ? `${m.remisePercent} %` : undefined} />
                 <Field label="Remise HT" value={m.remiseHT != null ? formatCurrency(m.remiseHT) : undefined} />
@@ -1432,15 +1432,15 @@ function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: 
           )}
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-border pt-2.5">
-            <span className="text-[11.5px] font-medium text-muted-foreground">Prix de vente final</span>
-            <span className="text-[13.5px] font-semibold text-foreground">HT {m.prixVenteHT != null ? formatCurrency(m.prixVenteHT) : '—'}</span>
-            <span className="text-[13.5px] font-semibold text-foreground">TTC {m.prixVenteTTC != null ? formatCurrency(m.prixVenteTTC) : '—'}</span>
+            <span className="text-micro font-medium text-muted-foreground">Prix de vente final</span>
+            <span className="text-label font-semibold text-foreground">HT {m.prixVenteHT != null ? formatCurrency(m.prixVenteHT) : '—'}</span>
+            <span className="text-label font-semibold text-foreground">TTC {m.prixVenteTTC != null ? formatCurrency(m.prixVenteTTC) : '—'}</span>
           </div>
         </div>
       )}
 
       {dv.notes && (
-        <div className="mt-1.5 whitespace-pre-wrap text-[12.5px] text-foreground">{dv.notes}</div>
+        <div className="mt-1.5 whitespace-pre-wrap text-body text-foreground">{dv.notes}</div>
       )}
     </div>
   );

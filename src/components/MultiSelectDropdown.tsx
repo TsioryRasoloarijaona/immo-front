@@ -61,7 +61,7 @@ export default function MultiSelectDropdown({
       </DropdownMenuTrigger>
       <DropdownMenuContent className="max-h-72 w-56" align="start">
         {items.length === 0 ? (
-          <p className="px-2 py-2 text-[12.5px] text-muted-foreground">Aucun élément.</p>
+          <p className="px-2 py-2 text-body text-muted-foreground">Aucun élément.</p>
         ) : (
           items.map((item) => (
             <DropdownMenuCheckboxItem

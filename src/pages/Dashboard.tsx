@@ -75,11 +75,11 @@ function KanbanColumn({
           <span className="flex size-5.5 shrink-0 items-center justify-center rounded-md [&_svg]:size-3" style={{ color: accent, background: accentBg }}>
             {icon}
           </span>
-          <span className="truncate text-[12.5px] font-semibold text-foreground">{title}</span>
-          {subtitle && <span className="truncate text-[10.5px] font-normal text-muted-foreground">{subtitle}</span>}
+          <span className="truncate text-body font-semibold text-foreground">{title}</span>
+          {subtitle && <span className="truncate text-micro font-normal text-muted-foreground">{subtitle}</span>}
         </div>
         <span
-          className="shrink-0 rounded-full px-1.75 py-0.5 text-[11px] font-bold tabular-nums shadow-xs"
+          className="shrink-0 rounded-full px-1.75 py-0.5 text-micro font-bold tabular-nums shadow-xs"
           style={countTone === 'accent' ? { color: accent, background: accentBg } : { color: 'var(--foreground)', background: 'var(--background)' }}
         >
           {count ?? 0}
@@ -87,7 +87,7 @@ function KanbanColumn({
       </div>
       <div className="flex flex-1 flex-col gap-0.5 p-1.5">
         {items.length === 0 ? (
-          <p className="px-1.5 py-2 text-[11px] text-muted-foreground">{emptyMessage}</p>
+          <p className="px-1.5 py-2 text-micro text-muted-foreground">{emptyMessage}</p>
         ) : (
           items
         )}
@@ -95,7 +95,7 @@ function KanbanColumn({
       {items.length > 0 && (
         <Link
           to={viewAllTo}
-          className="flex items-center justify-center gap-0.5 border-t border-border/70 py-1.5 text-[11px] font-medium text-muted-foreground no-underline transition-colors hover:bg-background hover:text-primary"
+          className="flex items-center justify-center gap-0.5 border-t border-border/70 py-1.5 text-micro font-medium text-muted-foreground no-underline transition-colors hover:bg-background hover:text-primary"
         >
           Voir tout
           <ChevronRight className="size-3" />
@@ -110,7 +110,7 @@ function KanbanColumn({
  * de vente) both get the same rounded hover surface and truncation. */
 function KanbanItemRow({ onClick, to, children }: { onClick?: () => void; to?: string; children: ReactNode }) {
   const className =
-    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[12px] font-medium text-foreground no-underline transition-colors hover:bg-background';
+    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body font-medium text-foreground no-underline transition-colors hover:bg-background';
   if (to) {
     return (
       <Link to={to} className={className}>
@@ -207,7 +207,7 @@ export default function Dashboard() {
               {nouvellesPage?.content.slice(0, 4).map((p) => (
                 <KanbanItemRow to={`/prospections/${p.id}`} key={p.id}>
                   <span className="min-w-0 flex-1 truncate">{prospectionDisplayName(p)}</span>
-                  <span className="shrink-0 text-[10.5px] text-muted-foreground">{formatDate(p.dateDocument)}</span>
+                  <span className="shrink-0 text-micro text-muted-foreground">{formatDate(p.dateDocument)}</span>
                 </KanbanItemRow>
               ))}
             </KanbanColumn>
@@ -226,7 +226,7 @@ export default function Dashboard() {
               {aTraiterPage?.content.slice(0, 4).map((p) => (
                 <KanbanItemRow to={`/prospections/${p.id}`} key={p.id}>
                   <span className="min-w-0 flex-1 truncate">{prospectionDisplayName(p)}</span>
-                  <Badge tone={etapeBadgeTone(p.etape, p.fermee)} className="shrink-0 text-[10px]">
+                  <Badge tone={etapeBadgeTone(p.etape, p.fermee)} className="shrink-0 text-micro">
                     {p.etape || '—'}
                   </Badge>
                 </KanbanItemRow>
@@ -286,7 +286,7 @@ export default function Dashboard() {
               {dossiersPage?.content.slice(0, 4).map((d) => (
                 <KanbanItemRow onClick={() => previewDossier(d.id)} key={d.id}>
                   <span className="min-w-0 flex-1 truncate">{d.clientNom || '—'}</span>
-                  <Badge tone={toneForStatus(d.statut)} className="shrink-0 text-[9.5px]">
+                  <Badge tone={toneForStatus(d.statut)} className="shrink-0 text-micro">
                     {canonicalStatusLabel(d.statut) || d.statut || '—'}
                   </Badge>
                 </KanbanItemRow>
@@ -317,10 +317,10 @@ export default function Dashboard() {
                   >
                     <span className="size-1.5 shrink-0 rounded-full bg-(--warning)" />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[12.5px] font-semibold text-foreground">{r.clientNom || 'Client'}</div>
-                      <div className="truncate text-[11px] text-muted-foreground">Échéance {formatDate(r.dateEcheance)}</div>
+                      <div className="truncate text-body font-semibold text-foreground">{r.clientNom || 'Client'}</div>
+                      <div className="truncate text-micro text-muted-foreground">Échéance {formatDate(r.dateEcheance)}</div>
                     </div>
-                    <div className="shrink-0 text-[11px] font-semibold text-(--warning)">
+                    <div className="shrink-0 text-micro font-semibold text-(--warning)">
                       {r.joursRetard ? `${r.joursRetard} j` : ''}
                     </div>
                     <ArrowUpRight className="size-3 shrink-0 text-muted-foreground" />
@@ -349,10 +349,10 @@ export default function Dashboard() {
                     key={p.id}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[12.5px] font-semibold text-foreground">{prospectionDisplayName(p)}</div>
-                      <div className="truncate text-[11px] text-muted-foreground">{p.commercialNom || '—'}</div>
+                      <div className="truncate text-body font-semibold text-foreground">{prospectionDisplayName(p)}</div>
+                      <div className="truncate text-micro text-muted-foreground">{p.commercialNom || '—'}</div>
                     </div>
-                    <Badge tone={etapeBadgeTone(p.etape, p.fermee)} className="shrink-0 text-[10.5px]">
+                    <Badge tone={etapeBadgeTone(p.etape, p.fermee)} className="shrink-0 text-micro">
                       {p.etape || '—'}
                     </Badge>
                   </Link>
@@ -375,9 +375,9 @@ export default function Dashboard() {
             <EmptyState title="Aucun dossier" />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-[12.5px]">
+              <table className="w-full border-collapse text-body">
                 <thead>
-                  <tr className="border-b border-border text-left text-[11px] font-medium text-muted-foreground">
+                  <tr className="border-b border-border text-left text-micro font-medium text-muted-foreground">
                     <th className="px-4 py-2 font-medium">Client</th>
                     <th className="px-4 py-2 font-medium">Commercial</th>
                     <th className="px-4 py-2 font-medium">Statut</th>
@@ -395,7 +395,7 @@ export default function Dashboard() {
                       <td className="px-4 py-2 font-medium text-foreground">{d.clientNom || '—'}</td>
                       <td className="px-4 py-2 text-muted-foreground">{d.commercialNom || '—'}</td>
                       <td className="px-4 py-2">
-                        <Badge tone="neutral" className="text-[10.5px]">
+                        <Badge tone="neutral" className="text-micro">
                           {d.statut || '—'}
                         </Badge>
                       </td>

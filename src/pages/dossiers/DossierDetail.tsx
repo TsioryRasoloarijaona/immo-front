@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, ChevronDown, ChevronRight, Coins, Download, Eye, FileDown, FileText, Folder, Phone, Plus, TrendingUp, Upload, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, ChevronDown, ChevronRight, ClipboardCheck, Coins, Download, Eye, FileDown, FileSignature, FileStack, FileText, Folder, Landmark, Loader2, Phone, Plus, Receipt, TrendingUp, Upload, Wallet } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, StatCard } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
@@ -9,6 +10,7 @@ import Modal from '../../components/Modal';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { DialogFooter } from '../../components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
@@ -190,7 +192,7 @@ function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJ
       <TableCell className="text-right text-muted-foreground">{formatDate(piece.dateCreation)}</TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
-          {error && <span className="text-[11.5px] text-destructive">{error}</span>}
+          {error && <span className="text-micro text-destructive">{error}</span>}
           <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
             <Eye data-icon="inline-start" /> {busyAction === 'view' ? 'Ouverture…' : 'Voir'}
           </Button>
@@ -207,6 +209,17 @@ type GeneratedDocKind = 'fiche-reservation' | 'acte-reservation' | DossierPdfOnl
 
 const GENERATED_DOC_HANDLERS: Record<GeneratedDocKind, {
   title: string;
+  /** One line saying what the document actually contains — condensed from
+   * each endpoint's own `description` in docs/api-docsV4.json, not invented
+   * here. Without it the card is six near-identical titles ("Fiche
+   * bancaire" vs "Fiche trop perçu" tells a new user nothing), which is the
+   * whole reason this section reads as a wall of chips. */
+  description: string;
+  /** Per-document glyph — the documents differ in kind (contrat, checklist
+   * d'inspection, dossier de crédit, reçu), and a distinct icon per kind is
+   * what makes the grid scannable at a glance instead of six identical
+   * sheets of paper. */
+  Icon: LucideIcon;
   /** Whether the backend also offers a `docx` variant — drives whether the
    * card shows a split "PDF / Word" pair or a single "Télécharger" button.
    * `fiche-bancaire` is explicitly PDF-only per the API description ("pas
@@ -215,89 +228,172 @@ const GENERATED_DOC_HANDLERS: Record<GeneratedDocKind, {
   view: (dossierId: string, format: 'pdf' | 'docx') => Promise<void>;
   download: (dossierId: string, filename: string, format: 'pdf' | 'docx') => Promise<void>;
 }> = {
-  'fiche-reservation': { title: 'Fiche de réservation', hasDocx: true, view: viewFicheReservation, download: downloadFicheReservation },
-  'acte-reservation': { title: 'Acte de réservation', hasDocx: true, view: viewActeReservation, download: downloadActeReservation },
+  'fiche-reservation': {
+    title: 'Fiche de réservation',
+    description: 'Fiche récapitulative de la réservation du bien.',
+    Icon: FileText,
+    hasDocx: true,
+    view: viewFicheReservation,
+    download: downloadFicheReservation,
+  },
+  'acte-reservation': {
+    title: 'Acte de réservation',
+    description: 'Contrat de réservation : clauses et engagements des parties.',
+    Icon: FileSignature,
+    hasDocx: true,
+    view: viewActeReservation,
+    download: downloadActeReservation,
+  },
   'fiche-visite-technique': {
     title: 'Fiche visite technique',
+    description: "Checklist d'inspection avant livraison, avec clause de contact SAV.",
+    Icon: ClipboardCheck,
     hasDocx: false,
     view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-visite-technique'),
     download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-visite-technique', filename),
   },
   'fiche-dossier-vente': {
     title: 'Fiche dossier de vente',
+    description: 'Récapitulatif interne complet : montants, financement, acquéreurs, historique.',
+    Icon: FileStack,
     hasDocx: false,
     view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-dossier-vente'),
     download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-dossier-vente', filename),
   },
   'fiche-bancaire': {
     title: 'Fiche bancaire',
+    description: 'Support de demande de crédit : état civil, bien, prix et reliquat.',
+    Icon: Landmark,
     hasDocx: false,
     view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-bancaire'),
     download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-bancaire', filename),
   },
   'fiche-trop-percu': {
     title: 'Fiche trop perçu',
+    description: 'Reçu du trop-perçu lorsque les versements dépassent le prix du dossier.',
+    Icon: Receipt,
     hasDocx: false,
     view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-trop-percu'),
     download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-trop-percu', filename),
   },
 };
 
-/** One compact chip per generated document — these 5 kinds aren't a saved
- * list (nothing here persists, no count that grows), just a fixed set of
- * on-demand document generators, so they shouldn't read as data rows at
- * all. A wrapped row of small chips (icon + name + icon-only actions)
- * takes a fraction of the vertical space the old full-width divide-y rows
- * did, while still fitting the same "Documents générés" card. Errors go
- * through the page-level toast (`onError`) rather than inline text, since
- * a chip has no room for a message of its own. */
-function GeneratedDocumentChip({
+/** One tile per generated document. These 6 kinds aren't a saved list
+ * (nothing here persists, no count that grows), just a fixed set of
+ * on-demand generators — so they're a *menu of actions*, not data rows, and
+ * they get a card grid rather than a table.
+ *
+ * Replaces the previous single wrapped row of chips, which had three
+ * problems the tile fixes: (1) a chip is this app's visual language for a
+ * passive status label (`Badge`), so the tab's primary actions read as
+ * metadata; (2) title-only chips carry no information scent — hence the
+ * `description` line, condensed from each endpoint's own API description;
+ * (3) the actions were 2–3 adjacent 24px icon-only ghost buttons whose
+ * glyphs (eye / download / file-down) are near-indistinguishable at that
+ * size and are below a comfortable touch target — now a labelled "Aperçu"
+ * primary plus a labelled download, with the PDF-vs-Word choice moved into
+ * an explicit menu instead of two look-alike icons sitting side by side.
+ *
+ * Errors now render inline in the tile instead of going to the page toast:
+ * the old chip genuinely had no room for a message, this does, and an error
+ * pinned to the document that failed beats a floating toast that doesn't
+ * say which of the six it was. */
+function GeneratedDocumentCard({
   dossierId,
   code,
   kind,
-  onError,
 }: {
   dossierId: string;
   code?: string | null;
   kind: GeneratedDocKind;
-  onError: (message: string) => void;
 }) {
   const [busy, setBusy] = useState<'view' | 'pdf' | 'docx' | null>(null);
-  const { title, hasDocx, view, download } = GENERATED_DOC_HANDLERS[kind];
+  const [error, setError] = useState<string | null>(null);
+  const { title, description, Icon, hasDocx, view, download } = GENERATED_DOC_HANDLERS[kind];
   const filenameBase = code ? `${code}-${kind}` : kind;
 
   async function handle(action: 'view' | 'pdf' | 'docx') {
     setBusy(action);
+    setError(null);
     try {
       if (action === 'view') await view(dossierId, 'pdf');
       else await download(dossierId, `${filenameBase}.${action}`, action);
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Échec de l'opération.");
+      setError(err instanceof Error ? err.message : "Échec de l'opération.");
     } finally {
       setBusy(null);
     }
   }
 
+  const downloading = busy === 'pdf' || busy === 'docx';
+
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-lg border border-border bg-muted/30 py-1 pr-1 pl-2.5 text-[12.5px]">
-      <FileText className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="mr-1 ml-1.5 font-medium text-foreground">{title}</span>
-      <Button type="button" variant="ghost" size="icon-xs" title="Voir" disabled={!!busy} onClick={() => handle('view')}>
-        <Eye />
-      </Button>
-      {hasDocx ? (
-        <>
-          <Button type="button" variant="ghost" size="icon-xs" title="Télécharger en PDF" disabled={!!busy} onClick={() => handle('pdf')}>
-            <Download />
-          </Button>
-          <Button type="button" variant="ghost" size="icon-xs" title="Télécharger en Word" disabled={!!busy} onClick={() => handle('docx')}>
-            <FileDown />
-          </Button>
-        </>
-      ) : (
-        <Button type="button" variant="ghost" size="icon-xs" title="Télécharger" disabled={!!busy} onClick={() => handle('pdf')}>
-          <Download />
+    <div className="group flex flex-col rounded-xl border border-border bg-card transition-[border-color,box-shadow,transform] hover:border-(--brand-border) sm:hover:-translate-y-px sm:hover:shadow-sm">
+      <div className="flex flex-1 items-start gap-2.5 p-2.5">
+        <span
+          aria-hidden
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-(--brand-bg) text-(--brand) transition-colors group-hover:bg-(--brand)/12"
+        >
+          <Icon className="size-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-label leading-snug font-medium text-foreground">{title}</span>
+            <span className="mt-px shrink-0 rounded bg-muted px-1.5 py-0.5 text-micro font-medium tracking-wide text-muted-foreground uppercase">
+              {hasDocx ? 'PDF · Word' : 'PDF'}
+            </span>
+          </div>
+          <p className="mt-0.5 line-clamp-2 text-micro leading-[1.45] text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5 border-t border-border px-2.5 py-1.5">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9 flex-1 sm:h-7 sm:flex-none"
+          disabled={!!busy}
+          onClick={() => handle('view')}
+        >
+          {busy === 'view' ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <Eye data-icon="inline-start" />}
+          {busy === 'view' ? 'Génération…' : 'Aperçu'}
         </Button>
+        {hasDocx ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button type="button" variant="ghost" size="sm" className="h-9 flex-1 sm:h-7 sm:flex-none" disabled={!!busy} />}
+            >
+              {downloading ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <Download data-icon="inline-start" />}
+              Télécharger
+              <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => handle('pdf')}>
+                <Download /> PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handle('docx')}>
+                <FileDown /> Word
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9 flex-1 sm:h-7 sm:flex-none"
+            disabled={!!busy}
+            onClick={() => handle('pdf')}
+          >
+            {downloading ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <Download data-icon="inline-start" />}
+            Télécharger
+          </Button>
+        )}
+      </div>
+      {error && (
+        <p role="alert" className="border-t border-destructive/25 bg-destructive/10 px-2.5 py-1 text-micro text-destructive">
+          {error}
+        </p>
       )}
     </div>
   );
@@ -352,7 +448,7 @@ function AddPieceJointeRow({
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2.5">
-      <label className="flex h-8 min-w-0 max-w-70 flex-1 cursor-pointer items-center gap-2 truncate rounded-md border border-dashed border-input px-2.5 text-[12.5px] text-muted-foreground hover:border-ring">
+      <label className="flex h-8 min-w-0 max-w-70 flex-1 cursor-pointer items-center gap-2 truncate rounded-md border border-dashed border-input px-2.5 text-body text-muted-foreground hover:border-ring">
         <Upload className="size-3.5 shrink-0" />
         <span className="truncate">{file ? file.name : 'Choisir un fichier…'}</span>
         <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
@@ -375,7 +471,7 @@ function AddPieceJointeRow({
           </SelectGroup>
         </SelectContent>
       </Select>
-      {error && <span className="text-[11.5px] text-destructive">{error}</span>}
+      {error && <span className="text-micro text-destructive">{error}</span>}
       <Button
         type="button"
         size="sm"
@@ -484,7 +580,7 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
           <FormField>
             <FieldLabel htmlFor="reg-date-reglement">
               Date de règlement effectif
-              <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">(si connue)</span>
+              <span className="ml-1.5 text-micro font-normal text-muted-foreground">(si connue)</span>
             </FieldLabel>
             <Input id="reg-date-reglement" type="date" value={dateReglement} onChange={(e) => setDateReglement(e.target.value)} />
           </FormField>
@@ -566,7 +662,7 @@ function ReglementRecuButton({ dossierId, reglementId }: { dossierId: string; re
 
   return (
     <span className="flex shrink-0 items-center gap-0.5">
-      {error && <span className="text-[11px] text-destructive">{error}</span>}
+      {error && <span className="text-micro text-destructive">{error}</span>}
       <Button type="button" variant="ghost" size="icon-xs" title="Voir le reçu" disabled={!!busy} onClick={() => handle('view')}>
         <Eye />
       </Button>
@@ -577,12 +673,13 @@ function ReglementRecuButton({ dossierId, reglementId }: { dossierId: string; re
   );
 }
 
-/** `GET /api/dossiers/{id}/echeancier/{echeanceId}/documents/autorisation-versement`
- * — one PDF-only "Autorisation d'Encaissement" per échéance (keyed off the
- * échéance's own id, not a règlement's, unlike `ReglementRecuButton` above)
- * — a document for the client's bank authorizing release of that échéance's
- * amount. Same icon-only view/download pattern. */
-function AutorisationVersementButton({ dossierId, echeanceId }: { dossierId: string; echeanceId: string }) {
+/** `GET /api/dossiers/{id}/reglements/{reglementId}/documents/autorisation-versement`
+ * — one PDF-only "Autorisation d'Encaissement" per règlement, sitting beside
+ * `ReglementRecuButton` above and keyed off the same `reglementId`: the
+ * compte destinataire / mode de versement / tiers payeur the document is
+ * built from live on the règlement, not on the échéance. Same icon-only
+ * view/download pattern. */
+function AutorisationVersementButton({ dossierId, reglementId }: { dossierId: string; reglementId: string }) {
   const [busy, setBusy] = useState<'view' | 'download' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -590,8 +687,8 @@ function AutorisationVersementButton({ dossierId, echeanceId }: { dossierId: str
     setBusy(action);
     setError(null);
     try {
-      if (action === 'view') await viewAutorisationVersement(dossierId, echeanceId);
-      else await downloadAutorisationVersement(dossierId, echeanceId, `autorisation-versement-${echeanceId}.pdf`);
+      if (action === 'view') await viewAutorisationVersement(dossierId, reglementId);
+      else await downloadAutorisationVersement(dossierId, reglementId, `autorisation-versement-${reglementId}.pdf`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de l'opération.");
     } finally {
@@ -601,7 +698,7 @@ function AutorisationVersementButton({ dossierId, echeanceId }: { dossierId: str
 
   return (
     <span className="flex shrink-0 items-center gap-0.5">
-      {error && <span className="text-[11px] text-destructive">{error}</span>}
+      {error && <span className="text-micro text-destructive">{error}</span>}
       <Button type="button" variant="ghost" size="icon-xs" title="Voir l'autorisation d'encaissement" disabled={!!busy} onClick={() => handle('view')}>
         <Eye />
       </Button>
@@ -619,14 +716,14 @@ function AutorisationVersementButton({ dossierId, echeanceId }: { dossierId: str
 function EcheanceReglementsHistory({ dossierId, echeanceId, refreshKey }: { dossierId: string; echeanceId: string; refreshKey: number }) {
   const { data, loading, error } = useApi(() => listEcheanceReglements(dossierId, echeanceId), [dossierId, echeanceId, refreshKey]);
 
-  if (loading) return <span className="text-[12px] text-muted-foreground">Chargement…</span>;
-  if (error) return <span className="text-[12px] text-destructive">{error}</span>;
-  if (data && data.length === 0) return <span className="text-[12px] text-muted-foreground">Aucun règlement enregistré.</span>;
+  if (loading) return <span className="text-body text-muted-foreground">Chargement…</span>;
+  if (error) return <span className="text-body text-destructive">{error}</span>;
+  if (data && data.length === 0) return <span className="text-body text-muted-foreground">Aucun règlement enregistré.</span>;
 
   return (
     <div className="flex flex-col gap-1">
       {data?.map((r) => (
-        <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md border border-(--success-border) bg-(--success-bg) px-2.5 py-1.5 text-[12px]">
+        <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md border border-(--success-border) bg-(--success-bg) px-2.5 py-1.5 text-body">
           <span className="font-medium text-foreground">{r.typeLibelle || '—'}</span>
           {r.banqueNom && <span className="text-muted-foreground">{r.banqueNom}</span>}
           {r.reference && <span className="text-muted-foreground">Réf. {r.reference}</span>}
@@ -638,6 +735,7 @@ function EcheanceReglementsHistory({ dossierId, echeanceId, refreshKey }: { doss
           {r.notes && <span className="text-muted-foreground italic">{r.notes}</span>}
           <span className="ml-auto font-semibold tabular-nums text-(--success)">{formatCurrency(r.montant)}</span>
           <ReglementRecuButton dossierId={dossierId} reglementId={r.id} />
+          <AutorisationVersementButton dossierId={dossierId} reglementId={r.id} />
         </div>
       ))}
     </div>
@@ -688,7 +786,7 @@ function EcheanceRow({
           <div className="flex flex-col gap-0.5">
             <Badge tone={echeanceStatutTone(statut)}>{ECHEANCE_STATUT_LABELS[statut]}</Badge>
             {statut !== 'aregler' && (
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-micro text-muted-foreground">
                 Réglé {formatCurrency(echeance.montantRegle)}{echeance.reste ? ` · Reste ${formatCurrency(echeance.reste)}` : ''}
               </span>
             )}
@@ -696,7 +794,6 @@ function EcheanceRow({
         </TableCell>
         <TableCell onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-end gap-1">
-            <AutorisationVersementButton dossierId={dossierId} echeanceId={echeance.id} />
             <AddReglementRow
               echeanceId={echeance.id}
               onAdd={async (echeanceId, body) => {
@@ -788,7 +885,7 @@ export default function DossierDetail() {
       </Button>
 
       {fromCreation && (
-        <div className="mb-3 rounded-md border border-(--info-border) bg-(--info-bg) px-3.5 py-2.5 text-[13px] text-(--info)">
+        <div className="mb-3 rounded-md border border-(--info-border) bg-(--info-bg) px-3.5 py-2.5 text-label text-(--info)">
           Dossier créé. Le schéma de financement est vide — l'API ne permet pas de le pré-remplir à la création, complétez-le
           ci-dessous avec le formulaire « Ajouter une échéance » (déjà pré-rempli avec le total à payer).
         </div>
@@ -797,10 +894,10 @@ export default function DossierDetail() {
       <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-[21px] font-semibold tracking-tight text-foreground">{title}</h1>
+            <h2 className="text-hero font-semibold tracking-tight text-foreground">{title}</h2>
             <Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-label text-muted-foreground">
             Dossier {d.code} · Créé le {formatDate(d.dateDocument)} · Commercial : {d.commercialNom || '—'}
           </div>
         </div>
@@ -882,7 +979,7 @@ export default function DossierDetail() {
 
               <Card title={`Article(s) réservé(s) (${d.articles?.length ?? 0})`}>
                 {!d.articles || d.articles.length === 0 ? (
-                  <p className="text-[13px] text-muted-foreground">Aucun article lié.</p>
+                  <p className="text-label text-muted-foreground">Aucun article lié.</p>
                 ) : articleDetails.loading ? (
                   <LoadingState />
                 ) : articleDetails.error ? (
@@ -899,7 +996,7 @@ export default function DossierDetail() {
 
             {d.notes && (
               <Card title="Notes">
-                <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground">
+                <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-label leading-relaxed text-foreground">
                   {d.notes}
                 </div>
               </Card>
@@ -981,7 +1078,7 @@ export default function DossierDetail() {
                         <TableCell className="font-semibold text-foreground">Total général</TableCell>
                         <TableCell />
                         <TableCell />
-                        <TableCell className="text-right text-[14px] font-semibold tabular-nums text-foreground">
+                        <TableCell className="text-right text-title font-semibold tabular-nums text-foreground">
                           {formatCurrency(montants.data.totalGeneral)}
                         </TableCell>
                       </TableRow>
@@ -1027,7 +1124,7 @@ export default function DossierDetail() {
               {echeances.loading && <LoadingState />}
               {echeances.error && <ErrorState message={echeances.error} />}
               {echeances.data && echeances.data.content.length === 0 && (
-                <p className="text-[13px] text-muted-foreground">Aucune ligne dans le schéma de financement pour ce dossier.</p>
+                <p className="text-label text-muted-foreground">Aucune ligne dans le schéma de financement pour ce dossier.</p>
               )}
               {echeances.data && echeances.data.content.length > 0 && (
                 <div className="-mx-3">
@@ -1074,12 +1171,14 @@ export default function DossierDetail() {
         <TabsContent value="documents">
           <div className="flex flex-col gap-3.5">
           <Card title="Documents générés">
-            <p className="mb-2.5 -mt-1 text-[12px] text-muted-foreground">
+            <p className="mb-2.5 -mt-1 text-body text-muted-foreground">
               Générés à la demande à partir des données du dossier — rien n'est enregistré ici.
             </p>
-            <div className="flex flex-wrap gap-2">
+            {/* 1 col on mobile (full-width tiles, 36px targets), 2 on tablet,
+                3 on wide desktop — 6 documents land as an even 2 rows. */}
+            <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
               {GENERATED_DOC_KINDS.map((kind) => (
-                <GeneratedDocumentChip key={kind} dossierId={d.id} code={d.code} kind={kind} onError={showToast} />
+                <GeneratedDocumentCard key={kind} dossierId={d.id} code={d.code} kind={kind} />
               ))}
             </div>
           </Card>
@@ -1147,9 +1246,9 @@ export default function DossierDetail() {
                       {i < historique.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
                     </div>
                     <div className="min-w-0 flex-1 pb-0.5">
-                      <div className="text-[13px] font-semibold text-foreground">{h.type || 'Événement'}</div>
+                      <div className="text-label font-semibold text-foreground">{h.type || 'Événement'}</div>
                       <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(h.date)} · {h.utilisateur || 'Système'}</div>
-                      {h.description && <div className="mt-1 text-[12.5px] text-foreground">{h.description}</div>}
+                      {h.description && <div className="mt-1 text-body text-foreground">{h.description}</div>}
                     </div>
                   </div>
                 ))}
@@ -1179,7 +1278,7 @@ export default function DossierDetail() {
       </Tabs>
 
       {toast && (
-        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-[13px] font-medium text-background shadow-lg">
+        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-label font-medium text-background shadow-lg">
           {toast}
         </div>
       )}

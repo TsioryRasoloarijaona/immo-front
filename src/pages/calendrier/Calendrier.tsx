@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Eye, MapPin } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Eye, MapPin } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
@@ -63,7 +63,7 @@ function EventPill({ ev, onClick }: { ev: EvenementCalendrierDto; onClick: () =>
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-1.5 truncate rounded px-1.5 py-0.75 text-left text-[11px] font-medium',
+        'flex w-full items-center gap-1.5 truncate rounded px-1.5 py-0.75 text-left text-micro font-medium',
         visite ? 'bg-(--amber-bg) text-(--amber)' : 'bg-(--info-bg) text-(--info)'
       )}
       title={ev.sujet || (visite ? 'Visite' : 'Rendez-vous')}
@@ -83,12 +83,12 @@ function EventCard({ ev }: { ev: EvenementCalendrierDto }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Badge tone={eventTone(ev)}>{visite ? 'Visite' : 'Rendez-vous'}</Badge>
         {ev.resultatDescription && ev.resultatDescription !== ev.resultatCode && (
-          <span className="text-[11px] text-muted-foreground">{ev.resultatDescription}</span>
+          <span className="text-micro text-muted-foreground">{ev.resultatDescription}</span>
         )}
       </div>
-      <div className="text-[13.5px] font-semibold text-foreground">{ev.prospectNom || 'Prospect inconnu'}</div>
-      {ev.sujet && <div className="text-[12.5px] text-muted-foreground">{ev.sujet}</div>}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-muted-foreground">
+      <div className="text-label font-semibold text-foreground">{ev.prospectNom || 'Prospect inconnu'}</div>
+      {ev.sujet && <div className="text-body text-muted-foreground">{ev.sujet}</div>}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-muted-foreground">
         {ev.lieu && (
           <span className="inline-flex items-center gap-1">
             <MapPin className="size-3" /> {ev.lieu}
@@ -150,11 +150,11 @@ export default function Calendrier() {
   );
 
   return (
-    <PageShell title="Calendrier" crumbs={[{ label: 'Calendrier' }]}>
+    <PageShell title="Calendrier" crumbs={[{ label: 'Calendrier' }]} icon={<Calendar />} accent="var(--sec-accent)" accentBg="var(--sec-accent-bg)">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
         <Card padded={false}>
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4.5 py-3">
-            <div className="text-[15px] font-semibold text-foreground">
+            <div className="text-title font-semibold text-foreground">
               {MONTH_LABELS[month.getMonth()]} {month.getFullYear()}
             </div>
             <div className="flex items-center gap-1.5">
@@ -177,7 +177,7 @@ export default function Calendrier() {
             <div>
               <div className="grid grid-cols-7 border-b border-border">
                 {WEEKDAY_LABELS.map((w) => (
-                  <div key={w} className="px-2 py-2 text-center text-[11px] font-medium text-muted-foreground">
+                  <div key={w} className="px-2 py-2 text-center text-micro font-medium text-muted-foreground">
                     {w}
                   </div>
                 ))}
@@ -214,7 +214,7 @@ export default function Calendrier() {
                     >
                       <span
                         className={cn(
-                          'inline-flex size-6 items-center justify-center self-start rounded-full text-[12px] font-medium',
+                          'inline-flex size-6 items-center justify-center self-start rounded-full text-body font-medium',
                           !inMonth && 'text-muted-foreground/60',
                           inMonth && !isToday && 'text-foreground',
                           isToday && 'bg-primary font-semibold text-primary-foreground'
@@ -227,7 +227,7 @@ export default function Calendrier() {
                           <EventPill key={ev.interactionId} ev={ev} onClick={() => setSelectedDate(iso)} />
                         ))}
                         {dayEvents.length > 2 && (
-                          <span className="px-1.5 text-[10.5px] font-medium text-muted-foreground">+{dayEvents.length - 2} autre(s)</span>
+                          <span className="px-1.5 text-micro font-medium text-muted-foreground">+{dayEvents.length - 2} autre(s)</span>
                         )}
                       </div>
                     </div>
@@ -265,8 +265,8 @@ export default function Calendrier() {
                   >
                     <span className={cn('size-2 shrink-0 rounded-full', isVisiteEvenement(ev) ? 'bg-(--amber)' : 'bg-(--info)')} />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-[12.5px] font-medium text-foreground">{ev.prospectNom || ev.sujet || '—'}</div>
-                      <div className="text-[11px] text-muted-foreground">{formatDate(ev.dateDebut)}</div>
+                      <div className="truncate text-body font-medium text-foreground">{ev.prospectNom || ev.sujet || '—'}</div>
+                      <div className="text-micro text-muted-foreground">{formatDate(ev.dateDebut)}</div>
                     </div>
                   </button>
                 ))}

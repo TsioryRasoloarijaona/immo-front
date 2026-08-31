@@ -126,18 +126,18 @@ export default function NewProspect() {
               </FormField>
             </div>
             {!canCreate && (
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-micro text-muted-foreground">
                 Renseignez prénom + nom, ou une raison sociale, pour pouvoir créer le prospect.
               </p>
             )}
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-micro text-muted-foreground">
               Le reste (coordonnées complètes, état civil, pièce d'identité…) pourra être complété
               depuis la fiche du prospect une fois créé.
             </p>
           </FieldGroup>
         </Card>
 
-        {submitError && <p className="text-[12.5px] text-destructive">{submitError}</p>}
+        {submitError && <p className="text-body text-destructive">{submitError}</p>}
 
         <div className="flex items-center justify-end border-t border-border pt-4">
           <Button type="button" onClick={handleCreate} disabled={!canCreate || submitting}>

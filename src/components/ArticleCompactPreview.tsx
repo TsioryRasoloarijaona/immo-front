@@ -35,16 +35,16 @@ export default function ArticleCompactPreview({
   defaultExpanded?: boolean;
 }) {
   const [expanded, setExpanded] = useState(!!defaultExpanded);
-  if (loading) return <p className="text-[12px] text-muted-foreground">Chargement…</p>;
-  if (!article) return <span className="text-[12.5px] text-muted-foreground">{emptyLabel}</span>;
+  if (loading) return <p className="text-body text-muted-foreground">Chargement…</p>;
+  if (!article) return <span className="text-body text-muted-foreground">{emptyLabel}</span>;
   return (
     <div className={bare ? '' : 'rounded-md border border-border bg-(--neutral-bg) p-3'}>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[13px] font-semibold text-foreground">{article.code}</span>
+        <span className="text-label font-semibold text-foreground">{article.code}</span>
         {article.statut && <Badge tone={article.statut === 'DISPONIBLE' ? 'success' : 'warning'}>{article.statut}</Badge>}
         <div className="ml-auto flex items-center gap-1">
           {actions}
-          <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-[12px]" onClick={() => setExpanded((v) => !v)}>
+          <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-body" onClick={() => setExpanded((v) => !v)}>
             {expanded ? <Minus className="size-3" /> : <Plus className="size-3" />}
             {expanded ? 'Moins de détails' : 'Détails'}
           </Button>

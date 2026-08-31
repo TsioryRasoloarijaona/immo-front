@@ -133,8 +133,8 @@ export default function TrancheDetail() {
       </Button>
 
       <div className="mb-3">
-        <h1 className="text-[21px] font-semibold tracking-tight text-foreground">{t.description}</h1>
-        <div className="mt-1 text-[13px] text-muted-foreground">
+        <h2 className="text-hero font-semibold tracking-tight text-foreground">{t.description}</h2>
+        <div className="mt-1 text-label text-muted-foreground">
           {t.code} · {t.ville ? <span className="capitalize">{t.ville}</span> : 'Ville non renseignée'}
         </div>
         <div className="mt-2 flex flex-wrap gap-1.5">
@@ -159,7 +159,7 @@ export default function TrancheDetail() {
         </Card>
 
         <div>
-          <div className="mb-2.5 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="mb-2.5 flex items-center gap-2 text-body font-semibold uppercase tracking-wide text-muted-foreground">
             <Calendar className="size-3.75" />
             Règles de gestion
           </div>
@@ -168,7 +168,7 @@ export default function TrancheDetail() {
               <div className="flex items-center gap-2.5 border-b border-border px-5 py-3.5 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-primary">
                 {section.icon}
                 <div>
-                  <h3 className="text-[13.5px] font-semibold text-foreground">{section.title}</h3>
+                  <h3 className="text-label font-semibold text-foreground">{section.title}</h3>
                   <div className="mt-px text-xs text-muted-foreground">{section.desc}</div>
                 </div>
               </div>
@@ -176,7 +176,7 @@ export default function TrancheDetail() {
                 {section.fields.map((f) => (
                   <div className="bg-card px-5 py-3.5" key={String(f.key)}>
                     <div className="mb-1 text-xs text-muted-foreground">{f.label}</div>
-                    <div className="flex items-center gap-1.5 text-[15px] font-semibold text-foreground">{renderValue(f.fmt, t[f.key])}</div>
+                    <div className="flex items-center gap-1.5 text-title font-semibold text-foreground">{renderValue(f.fmt, t[f.key])}</div>
                   </div>
                 ))}
               </div>

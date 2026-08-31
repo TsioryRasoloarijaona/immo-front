@@ -1,6 +1,32 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from './api';
 
+/** Trailing-edge debounce for a value fed into a `useApi` dependency array.
+ *
+ * Every list page put its raw search box state straight into `useApi`'s deps,
+ * so typing "BENANI" fired six requests — and because each one flips
+ * `loading` back to true, the results area was torn down and rebuilt on every
+ * keystroke. Debouncing the value used for *fetching* (while the input itself
+ * stays immediate, so typing never feels laggy) collapses that to one request
+ * after the user stops typing.
+ *
+ * 300ms is the usual sweet spot: long enough to swallow a normal typing
+ * cadence, short enough that the wait after the last character isn't felt. */
+export function useDebouncedValue<T>(value: T, delay = 300): T {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    if (Object.is(value, debounced)) return;
+    const id = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(id);
+    // `debounced` is intentionally read but not depended on — including it
+    // would restart the timer each time it settles.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, delay]);
+
+  return debounced;
+}
+
 export interface ApiState<T> {
   data: T | null;
   loading: boolean;

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, Download, FileText, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
+import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, ResultsRegion } from '../../components/ui';
 import DevisFormSection from '../../components/DevisFormSection';
 import Modal from '../../components/Modal';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
@@ -13,7 +13,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/u
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { creerDevis, DEFAULT_PAGE_SIZE, downloadDevisDocument, getProspection, listOffres, listProspections, listTranches, viewDevisDocument } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { cn } from '../../lib/utils';
@@ -64,6 +64,7 @@ export default function OffresList() {
   const { commerciaux } = useAppData();
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [trancheIds, setTrancheIds] = useState<string[]>([]);
   const [commercial, setCommercial] = useState('all');
   const [periode, setPeriode] = useState<PeriodePreset>('custom');
@@ -80,7 +81,7 @@ export default function OffresList() {
     () =>
       listOffres(
         {
-          search: search || undefined,
+          search: debouncedSearch || undefined,
           trancheId: trancheIds.length > 0 ? trancheIds : undefined,
           commercial: commercial !== 'all' ? commercial : undefined,
           dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
@@ -93,7 +94,7 @@ export default function OffresList() {
         // OpenAPI doesn't document it.
         { page, size: DEFAULT_PAGE_SIZE, sort: ['docDate,desc'] },
       ),
-    [search, trancheIds.join(','), commercial, dateDebut, dateFin, page],
+    [debouncedSearch, trancheIds.join(','), commercial, dateDebut, dateFin, page],
   );
   const offres = data?.content ?? [];
   // Somme des prix TTC de la page chargée uniquement (pas un total
@@ -133,6 +134,10 @@ export default function OffresList() {
     setDateDebut('');
     setDateFin('');
   }
+
+  // Drives the empty state's wording and its escape hatch — see ArticlesList.
+  const hasActiveFilters =
+    !!search || trancheIds.length > 0 || commercial !== 'all' || periode !== 'custom' || !!dateDebut || !!dateFin;
 
   return (
     <PageShell
@@ -218,18 +223,32 @@ export default function OffresList() {
           </div>
         </Card>
 
-        {loading && <LoadingState />}
+        {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}
-        {!loading && !error && (
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-            <div className="flex shrink-0 items-center justify-between text-[12.5px] text-muted-foreground">
+        {!error && data && (
+          <ResultsRegion loading={loading}>
+            <div className="flex shrink-0 items-center justify-between text-body text-muted-foreground">
               <span>{(data?.totalElements ?? 0)} offre{(data?.totalElements ?? 0) > 1 ? 's' : ''}</span>
               {offres.length > 0 && (
                 <span>Total (page) <span className="font-semibold tabular-nums text-(--success)">{formatCurrency(totalPageTTC)}</span></span>
               )}
             </div>
             {offres.length === 0 ? (
-              <EmptyState title="Aucune offre" message="Ajustez vos filtres pour élargir la recherche." />
+              <EmptyState
+                title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
+                message={
+                  hasActiveFilters
+                    ? 'Aucune offre ne correspond aux filtres actifs.'
+                    : "Aucune offre n'est encore enregistrée."
+                }
+                action={
+                  hasActiveFilters ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
+                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
                 <Table className="w-full min-w-240 table-fixed">
@@ -271,7 +290,7 @@ export default function OffresList() {
                 <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
               )}
             </div>
-          </div>
+          </ResultsRegion>
         )}
       </div>
     </PageShell>
@@ -292,11 +311,12 @@ export default function OffresList() {
  * create-flow in the app (`CreateProspectForm`, `InteractionForm`). */
 function NouvelleOffreDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [pickedId, setPickedId] = useState<string | null>(null);
 
   const results = useApi(
-    () => (pickedId || search.trim().length < 2 ? Promise.resolve(null) : listProspections({ search }, { page: 0, size: 8 })),
-    [search, pickedId],
+    () => (pickedId || debouncedSearch.trim().length < 2 ? Promise.resolve(null) : listProspections({ search: debouncedSearch }, { page: 0, size: 8 })),
+    [debouncedSearch, pickedId],
   );
   const picked = useApi(() => (pickedId ? getProspection(pickedId) : Promise.resolve(null)), [pickedId]);
 
@@ -326,23 +346,23 @@ function NouvelleOffreDialog({ onClose, onCreated }: { onClose: () => void; onCr
             </InputGroup>
           </FormField>
           {search.trim().length < 2 ? (
-            <p className="text-[12px] text-muted-foreground">Tapez au moins 2 caractères pour rechercher une prospection.</p>
+            <p className="text-body text-muted-foreground">Tapez au moins 2 caractères pour rechercher une prospection.</p>
           ) : results.loading ? (
-            <p className="text-[12px] text-muted-foreground">Recherche…</p>
+            <p className="text-body text-muted-foreground">Recherche…</p>
           ) : (results.data?.content.length ?? 0) === 0 ? (
-            <p className="text-[12px] text-muted-foreground">Aucune prospection trouvée.</p>
+            <p className="text-body text-muted-foreground">Aucune prospection trouvée.</p>
           ) : (
             <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
               {results.data!.content.map((p) => (
                 <button
                   key={p.id}
                   type="button"
-                  className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-left text-[12.5px] hover:bg-muted/50"
+                  className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-left text-body hover:bg-muted/50"
                   onClick={() => setPickedId(p.id)}
                 >
                   <span className="flex min-w-0 flex-col">
                     <span className="truncate font-medium text-foreground">{prospectionDisplayName(p)}</span>
-                    <span className="truncate text-[11.5px] text-muted-foreground">
+                    <span className="truncate text-micro text-muted-foreground">
                       {p.code}
                       {p.etape ? ` · ${p.etape}` : ''}
                     </span>
@@ -359,7 +379,7 @@ function NouvelleOffreDialog({ onClose, onCreated }: { onClose: () => void; onCr
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
-            <span className="text-[12.5px]">
+            <span className="text-body">
               <span className="font-medium text-foreground">{picked.data ? prospectionDisplayName(picked.data) : 'Chargement…'}</span>
               {picked.data?.code && <span className="text-muted-foreground"> · {picked.data.code}</span>}
             </span>
@@ -462,7 +482,7 @@ function OffreRows({
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-6 gap-1 px-1.5 text-[12px]"
+                className="h-6 gap-1 px-1.5 text-body"
                 disabled={!!generating || !o.prospectionId}
                 title={!o.prospectionId ? 'Prospection introuvable pour cette offre' : undefined}
                 onClick={() => handleGenerateFiche('view')}
@@ -483,7 +503,7 @@ function OffreRows({
                 <Download className="size-3" />
               </Button>
             </div>
-            {genError && <span className="text-[11px] text-destructive">{genError}</span>}
+            {genError && <span className="text-micro text-destructive">{genError}</span>}
           </div>
         </TableCell>
       </TableRow>
@@ -491,11 +511,11 @@ function OffreRows({
         <TableRow className="hover:bg-transparent">
           <TableCell colSpan={12} className="bg-muted/30 py-3">
             {!m ? (
-              <p className="text-[12.5px] text-muted-foreground">Aucun détail de montants pour cette offre.</p>
+              <p className="text-body text-muted-foreground">Aucun détail de montants pour cette offre.</p>
             ) : (
               <div className="flex flex-col gap-3">
                 <div>
-                  <div className="mb-1.5 text-[11.5px] font-medium text-muted-foreground">Avant remise</div>
+                  <div className="mb-1.5 text-micro font-medium text-muted-foreground">Avant remise</div>
                   <FieldGrid>
                     <Field label="TVA" value={m.tvaRatio != null ? `${Math.round(m.tvaRatio * 100)} %` : undefined} />
                     <Field label="Prix m² HT" value={m.prixM2HT != null ? formatCurrency(m.prixM2HT) : undefined} />
@@ -511,7 +531,7 @@ function OffreRows({
 
                 {(m.remisePercent ?? 0) > 0 && (
                   <div>
-                    <div className="mb-1.5 text-[11.5px] font-medium text-muted-foreground">Remise</div>
+                    <div className="mb-1.5 text-micro font-medium text-muted-foreground">Remise</div>
                     <FieldGrid>
                       <Field label="Taux" value={m.remisePercent != null ? `${m.remisePercent} %` : undefined} />
                       <Field label="Remise HT" value={m.remiseHT != null ? formatCurrency(m.remiseHT) : undefined} />
@@ -527,12 +547,12 @@ function OffreRows({
                 )}
 
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-border pt-2.5">
-                  <span className="text-[11.5px] font-medium text-muted-foreground">Prix de vente final</span>
-                  <span className="text-[13.5px] font-semibold text-foreground">HT {m.prixVenteHT != null ? formatCurrency(m.prixVenteHT) : '—'}</span>
-                  <span className="text-[13.5px] font-semibold text-foreground">TTC {m.prixVenteTTC != null ? formatCurrency(m.prixVenteTTC) : '—'}</span>
+                  <span className="text-micro font-medium text-muted-foreground">Prix de vente final</span>
+                  <span className="text-label font-semibold text-foreground">HT {m.prixVenteHT != null ? formatCurrency(m.prixVenteHT) : '—'}</span>
+                  <span className="text-label font-semibold text-foreground">TTC {m.prixVenteTTC != null ? formatCurrency(m.prixVenteTTC) : '—'}</span>
                 </div>
 
-                {o.notes && <p className="whitespace-pre-wrap text-[12.5px] text-foreground">{o.notes}</p>}
+                {o.notes && <p className="whitespace-pre-wrap text-body text-foreground">{o.notes}</p>}
               </div>
             )}
           </TableCell>

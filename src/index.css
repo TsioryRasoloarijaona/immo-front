@@ -267,6 +267,40 @@
   box-sizing: border-box;
 }
 
+/* ---------------------------------------------------------------------------
+   Reduced motion
+   ---------------------------------------------------------------------------
+   Nothing in the app honoured `prefers-reduced-motion` before this, while the
+   UI grew hover lifts, dialog/dropdown/popover enter-exit animations, sidebar
+   collapse and opacity cross-fades — all vestibular triggers for users who
+   have asked the OS to stop them.
+
+   Animations are collapsed to ~0 rather than removed so that anything relying
+   on `animationend`/`transitionend` firing still completes (Base UI's popup
+   primitives close on transition end — removing the transition outright can
+   leave a popup mounted forever).
+
+   `.animate-spin` is deliberately exempt: a busy spinner is status, not
+   decoration. WCAG's motion criteria target non-essential animation, and
+   freezing the one indicator that says "still working" would leave a reduced-
+   motion user staring at what looks like a hung screen.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
+}
+
 body {
   margin: 0;
 }
@@ -326,6 +360,42 @@ table {
   width: 100%;
   margin: 0 auto;
   flex: 1;
+}
+
+/* ---------------------------------------------------------------------------
+   Type scale
+   ---------------------------------------------------------------------------
+   Six semantic steps replacing the 15 distinct arbitrary sizes the app had
+   accumulated (text-micro through text-hero, including half-pixel values
+   like 11.5 / 12.5 / 13.5 / 14.5). Sizes half a pixel apart aren't hierarchy,
+   they're drift: nobody can see the difference between text-micro and
+   text-micro, so they carried no meaning while making every new component
+   a guess. Six steps that are actually distinguishable do carry meaning.
+
+   Named rather than t-shirt-sized on purpose: `text-xs`/`text-sm`/`text-base`
+   already exist as Tailwind defaults and are used by the shadcn primitives
+   (button, table, dropdown…), so redefining them would silently restyle every
+   vendored component. These names sit alongside the defaults instead.
+
+   Font size only, no paired line-height: the arbitrary values being replaced
+   set font-size alone, and the ~40 call sites that pair one with an explicit
+   `leading-*` must keep winning. Adding `--text-*--line-height` here would
+   make that override order load-bearing.
+
+     micro  11px — badges, table meta, timestamps, helper captions
+     body   12.5px — the workhorse: table cells, field values, descriptions
+     label  13px — field labels, card titles, emphasized rows
+     title  15px — section headings, prominent figures
+     page   19px — the PageShell H1
+     hero   21px — auth screen wordmark, dashboard headline figures
+   --------------------------------------------------------------------------- */
+@theme {
+  --text-micro: 11px;
+  --text-body: 12.5px;
+  --text-label: 13px;
+  --text-title: 15px;
+  --text-page: 19px;
+  --text-hero: 21px;
 }
 
 @theme inline {

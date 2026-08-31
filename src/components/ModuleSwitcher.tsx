@@ -42,9 +42,9 @@ export default function ModuleSwitcher({ onClose }: { onClose: () => void }) {
                 >
                   <Icon />
                 </span>
-                <span className="text-[13px] font-semibold text-foreground">{mod.label}</span>
+                <span className="text-label font-semibold text-foreground">{mod.label}</span>
                 {!mod.active && (
-                  <span className="absolute right-2.5 top-2.5 rounded-full bg-(--amber-bg) px-1.75 py-0.5 text-[10px] font-bold text-(--amber)">
+                  <span className="absolute right-2.5 top-2.5 rounded-full bg-(--amber-bg) px-1.75 py-0.5 text-micro font-bold text-(--amber)">
                     Bientôt
                   </span>
                 )}

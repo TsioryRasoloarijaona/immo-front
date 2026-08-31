@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RotateCcw, Search, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
@@ -11,7 +11,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/u
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listEncaissements, type EncaissementChampDate } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { referentielItems, useComptesReferentiel, useDepotsReferentiel, useEntitesReferentiel, useTypesReglement } from '../../lib/referentiels';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { ENCAISSEMENT_ETAT_LABELS, encaissementEtatLabel, encaissementEtatTone } from '../../lib/domain';
@@ -41,6 +41,7 @@ export default function EncaissementsList() {
   const depots = useDepotsReferentiel();
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [reference, setReference] = useState('');
   const [entiteId, setEntiteId] = useState<string[]>([]);
   const [typeId, setTypeId] = useState<string[]>([]);
@@ -77,11 +78,15 @@ export default function EncaissementsList() {
     setMontantA('');
   }
 
+  // Drives the empty state's wording and its escape hatch — see ArticlesList.
+  const hasActiveFilters =
+    !!search || !!reference || entiteId.length > 0 || typeId.length > 0 || etat.length > 0 || !!compteId || !!depotId || comptabilise !== 'all' || champDate !== 'DATE_PIECE' || !!dateDebut || !!dateFin || !!montantDe || !!montantA;
+
   const { data, loading, error } = useApi(
     () =>
       listEncaissements(
         {
-          search: search || undefined,
+          search: debouncedSearch || undefined,
           reference: reference || undefined,
           entiteId: entiteId.length > 0 ? entiteId : undefined,
           typeId: typeId.length > 0 ? typeId : undefined,
@@ -97,7 +102,7 @@ export default function EncaissementsList() {
         },
         { page, size: DEFAULT_PAGE_SIZE },
       ),
-    [search, reference, entiteId.join(','), typeId.join(','), etat.join(','), compteId, depotId, comptabilise, champDate, dateDebut, dateFin, montantDe, montantA, page],
+    [debouncedSearch, reference, entiteId.join(','), typeId.join(','), etat.join(','), compteId, depotId, comptabilise, champDate, dateDebut, dateFin, montantDe, montantA, page],
   );
   const rows = data?.content ?? [];
 
@@ -116,7 +121,7 @@ export default function EncaissementsList() {
       accentBg="var(--sec-dossier-bg)"
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <p className="shrink-0 max-w-180 text-[12.5px] text-muted-foreground">
+        <p className="shrink-0 max-w-180 text-body text-muted-foreground">
           Règlements de Dossiers de vente (/api/encaissements), toutes échéances confondues — reprend
           l'écran "Encaissements Vente" de l'ancien système.
         </p>
@@ -212,15 +217,29 @@ export default function EncaissementsList() {
           </div>
         </Card>
 
-        {loading && <LoadingState />}
+        {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}
-        {!loading && !error && (
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-            <div className="shrink-0 text-[12.5px] text-muted-foreground">
+        {!error && data && (
+          <ResultsRegion loading={loading}>
+            <div className="shrink-0 text-body text-muted-foreground">
               {(data?.totalElements ?? 0)} encaissement{(data?.totalElements ?? 0) > 1 ? 's' : ''}
             </div>
             {rows.length === 0 ? (
-              <EmptyState title="Aucun résultat" message="Ajustez vos filtres pour élargir la recherche." />
+              <EmptyState
+                title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
+                message={
+                  hasActiveFilters
+                    ? 'Aucun encaissement ne correspond aux filtres actifs.'
+                    : "Aucun encaissement n'est encore enregistré."
+                }
+                action={
+                  hasActiveFilters ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
+                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
                 <Table className="w-full min-w-240 table-fixed">
@@ -274,7 +293,7 @@ export default function EncaissementsList() {
                 <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
               )}
             </div>
-          </div>
+          </ResultsRegion>
         )}
       </div>
     </PageShell>

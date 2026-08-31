@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
@@ -11,7 +11,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/u
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { getTranchesReferentiel, listArticles } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
 import {
   useCategoriesBien,
   useEntitesReferentiel,
@@ -59,6 +59,7 @@ export default function ArticlesList() {
   const [tranchesLoading, setTranchesLoading] = useState(true);
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [trancheId, setTrancheId] = useState<string[]>([]);
   const [statut, setStatut] = useState<StatutFilter>('all');
   const [categorieId, setCategorieId] = useState<string[]>([]);
@@ -103,11 +104,29 @@ export default function ArticlesList() {
     setSurfaceA('');
   }
 
+  // Drives the empty state's wording and its escape hatch: "no rows because
+  // your filters excluded them" (offer a reset) is a different situation from
+  // "this list is genuinely empty" (nothing to undo).
+  const hasActiveFilters =
+    !!search ||
+    trancheId.length > 0 ||
+    statut !== 'all' ||
+    categorieId.length > 0 ||
+    typeId.length > 0 ||
+    !!entiteId ||
+    !!natureId ||
+    !!vocationId ||
+    !!etageId ||
+    !!prixDe ||
+    !!prixA ||
+    !!surfaceDe ||
+    !!surfaceA;
+
   const { data, loading, error } = useApi(
     () =>
       listArticles(
         {
-          search: search || undefined,
+          search: debouncedSearch || undefined,
           trancheId: trancheId.length > 0 ? trancheId : undefined,
           statut: statut !== 'all' ? statut : undefined,
           categorieId: categorieId.length > 0 ? categorieId : undefined,
@@ -124,7 +143,7 @@ export default function ArticlesList() {
         { page, size: 20 },
       ),
     [
-      search,
+      debouncedSearch,
       trancheId.join(','),
       statut,
       categorieId.join(','),
@@ -160,7 +179,7 @@ export default function ArticlesList() {
       accentBg="var(--sec-tranche-bg)"
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <p className="shrink-0 max-w-180 text-[12.5px] text-muted-foreground">
+        <p className="shrink-0 max-w-180 text-body text-muted-foreground">
           Catalogue transverse des articles (/api/articles) — tous lots et sous-lots, toutes tranches
           confondues (entités actives uniquement).
         </p>
@@ -260,15 +279,29 @@ export default function ArticlesList() {
           </div>
         </Card>
 
-        {loading && <LoadingState />}
+        {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}
-        {!loading && !error && (
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-            <div className="shrink-0 text-[12.5px] text-muted-foreground">
+        {!error && data && (
+          <ResultsRegion loading={loading}>
+            <div className="shrink-0 text-body text-muted-foreground">
               {(data?.totalElements ?? 0)} article{(data?.totalElements ?? 0) > 1 ? 's' : ''}
             </div>
             {rows.length === 0 ? (
-              <EmptyState title="Aucun résultat" message="Ajustez vos filtres pour élargir la recherche." />
+              <EmptyState
+                title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
+                message={
+                  hasActiveFilters
+                    ? 'Aucun article ne correspond aux filtres actifs.'
+                    : "Aucun article n'est encore enregistré."
+                }
+                action={
+                  hasActiveFilters ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
+                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
                 <Table className="w-full min-w-320 table-fixed">
@@ -344,7 +377,7 @@ export default function ArticlesList() {
                 <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
               )}
             </div>
-          </div>
+          </ResultsRegion>
         )}
       </div>
     </PageShell>

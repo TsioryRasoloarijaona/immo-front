@@ -76,7 +76,7 @@ export default function TranchesList() {
         </InputGroup>
       </div>
 
-      <div className="mb-2.5 text-[12.5px] text-muted-foreground">{filtered.length} tranche{filtered.length > 1 ? 's' : ''}</div>
+      <div className="mb-2.5 text-body text-muted-foreground">{filtered.length} tranche{filtered.length > 1 ? 's' : ''}</div>
 
       {filtered.length === 0 ? (
         <EmptyState title="Aucun résultat" />
@@ -89,10 +89,10 @@ export default function TranchesList() {
               className="block rounded-xl border border-border bg-card p-4.5 no-underline transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-(--border-strong) hover:shadow-md"
             >
               <div className="mb-2.5">
-                <div className="mb-0.5 line-clamp-2 text-[15px] font-semibold text-foreground">{t.description}</div>
-                <div className="font-mono text-[11.5px] text-muted-foreground">{t.code} · {projetById.get(t._projetId)}</div>
+                <div className="mb-0.5 line-clamp-2 text-title font-semibold text-foreground">{t.description}</div>
+                <div className="font-mono text-micro text-muted-foreground">{t.code} · {projetById.get(t._projetId)}</div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-x-3.5 gap-y-1.5 border-t border-border pt-3 text-[12.5px] text-muted-foreground">
+              <div className="mt-3 flex flex-wrap gap-x-3.5 gap-y-1.5 border-t border-border pt-3 text-body text-muted-foreground">
                 <span>{t.ville ? <span className="capitalize">{t.ville}</span> : 'Ville non renseignée'}</span>
                 <span>Livraison : {formatDate(t.dateLivraison) === '—' ? 'non planifiée' : formatDate(t.dateLivraison)}</span>
               </div>

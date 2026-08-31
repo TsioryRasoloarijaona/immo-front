@@ -46,7 +46,7 @@ export default function EncaissementDetail() {
       </Button>
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h1 className="text-[21px] font-semibold tracking-tight text-foreground">{e.reference || 'Règlement'}</h1>
+        <h2 className="text-hero font-semibold tracking-tight text-foreground">{e.reference || 'Règlement'}</h2>
         <Badge tone={encaissementEtatTone(e.etat)}>{encaissementEtatLabel(e.etat)}</Badge>
         <Badge tone={e.comptabilise ? 'success' : 'neutral'}>{e.comptabilise ? 'Comptabilisé' : 'Non comptabilisé'}</Badge>
       </div>
@@ -77,7 +77,7 @@ export default function EncaissementDetail() {
 
         {e.notes && (
           <Card title="Notes">
-            <p className="text-[13px] text-foreground">{e.notes}</p>
+            <p className="text-label text-foreground">{e.notes}</p>
           </Card>
         )}
 

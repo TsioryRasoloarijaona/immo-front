@@ -53,7 +53,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   collapses to icon-only width. */}
               <span
                 aria-hidden={true}
-                className="block shrink-0 font-heading text-[21px] leading-none font-black tracking-tighter text-(--brand) group-data-[collapsible=icon]:text-[19px]"
+                className="block shrink-0 font-heading text-hero leading-none font-black tracking-tighter text-(--brand) group-data-[collapsible=icon]:text-page"
               >
                 <span className="group-data-[collapsible=icon]:hidden">Ayad</span>
                 <span className="hidden group-data-[collapsible=icon]:inline">A</span>
@@ -264,7 +264,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               className="flex min-w-0 flex-1 flex-col leading-tight no-underline group-data-[collapsible=icon]:hidden"
               title="Mon profil"
             >
-              <span className="truncate text-[13px] font-medium text-foreground hover:text-primary">{user?.description || user?.username}</span>
+              <span className="truncate text-label font-medium text-foreground hover:text-primary">{user?.description || user?.username}</span>
               <span className="truncate text-xs text-muted-foreground">{user?.roles?.join(', ') || user?.username}</span>
             </Link>
             <Button

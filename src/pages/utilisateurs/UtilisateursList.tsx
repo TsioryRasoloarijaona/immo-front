@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { KeyRound, Search, Users } from 'lucide-react';
-import { Badge, Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { KeyRound, RotateCcw, Search, Users } from 'lucide-react';
+import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listUtilisateurs } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { formatDate } from '../../lib/format';
 import AdminGuard from './AdminGuard';
 
@@ -33,6 +33,7 @@ export default function UtilisateursList() {
   const navigate = useNavigate();
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [disabledFilter, setDisabledFilter] = useState<DisabledFilter>('all');
   const [page, setPage] = useState(0);
 
@@ -45,12 +46,12 @@ export default function UtilisateursList() {
     () =>
       listUtilisateurs(
         {
-          search: search || undefined,
+          search: debouncedSearch || undefined,
           disabled: disabledFilter === 'active' ? false : disabledFilter === 'disabled' ? true : undefined,
         },
         { page, size: DEFAULT_PAGE_SIZE },
       ),
-    [search, disabledFilter, page],
+    [debouncedSearch, disabledFilter, page],
   );
   const rows = data?.content ?? [];
 
@@ -64,7 +65,7 @@ export default function UtilisateursList() {
       fullHeight
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <p className="shrink-0 max-w-180 text-[12.5px] text-muted-foreground">
+        <p className="shrink-0 max-w-180 text-body text-muted-foreground">
           Annuaire des comptes (/api/utilisateurs) — identifiant, fiche employé liée et rôles assignés.
           Réservé au rôle Administrateur.
         </p>
@@ -96,15 +97,29 @@ export default function UtilisateursList() {
           </div>
         </Card>
 
-        {loading && <LoadingState />}
+        {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}
-        {!loading && !error && (
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-            <div className="shrink-0 text-[12.5px] text-muted-foreground">
+        {!error && data && (
+          <ResultsRegion loading={loading}>
+            <div className="shrink-0 text-body text-muted-foreground">
               {(data?.totalElements ?? 0)} compte{(data?.totalElements ?? 0) > 1 ? 's' : ''}
             </div>
             {rows.length === 0 ? (
-              <EmptyState title="Aucun résultat" message="Ajustez vos filtres pour élargir la recherche." />
+              <EmptyState
+                title={!!search || disabledFilter !== 'all' ? 'Aucun résultat' : 'Rien à afficher'}
+                message={
+                  !!search || disabledFilter !== 'all'
+                    ? 'Aucun compte ne correspond aux filtres actifs.'
+                    : "Aucun compte n'est encore enregistré."
+                }
+                action={
+                  !!search || disabledFilter !== 'all' ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => { setPage(0); setSearch(''); setDisabledFilter('all'); }}>
+                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
                 <Table className="w-full min-w-220 table-fixed">
@@ -124,14 +139,14 @@ export default function UtilisateursList() {
                       <TableRow key={r.id}>
                         <TableCell className="truncate font-medium text-foreground" title={r.username || undefined}>
                           {r.username || '—'}
-                          {r.description && <div className="truncate text-[11.5px] font-normal text-muted-foreground" title={r.description}>{r.description}</div>}
-                          {r.dateCreation && <div className="truncate text-[11px] font-normal text-muted-foreground">Créé le {formatDate(r.dateCreation)}</div>}
+                          {r.description && <div className="truncate text-micro font-normal text-muted-foreground" title={r.description}>{r.description}</div>}
+                          {r.dateCreation && <div className="truncate text-micro font-normal text-muted-foreground">Créé le {formatDate(r.dateCreation)}</div>}
                         </TableCell>
                         <TableCell className="truncate text-muted-foreground" title={employeeName(r)}>{employeeName(r)}</TableCell>
                         <TableCell className="truncate text-muted-foreground" title={r.typeEmployeLibelle || undefined}>{r.typeEmployeLibelle || '—'}</TableCell>
                         <TableCell className="truncate text-muted-foreground" title={[r.email, r.mobile || r.phone].filter(Boolean).join(' · ') || undefined}>
                           <div className="truncate">{r.email || '—'}</div>
-                          {(r.mobile || r.phone) && <div className="truncate text-[11.5px]">{r.mobile || r.phone}</div>}
+                          {(r.mobile || r.phone) && <div className="truncate text-micro">{r.mobile || r.phone}</div>}
                         </TableCell>
                         <TableCell>
                           {r.roles && r.roles.length > 0 ? (
@@ -172,7 +187,7 @@ export default function UtilisateursList() {
                 <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
               )}
             </div>
-          </div>
+          </ResultsRegion>
         )}
       </div>
     </AdminGuard>

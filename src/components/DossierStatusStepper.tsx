@@ -57,7 +57,7 @@ export default function DossierStatusStepper({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
-          <span className="text-[11.5px] font-medium text-muted-foreground">Sorties :</span>
+          <span className="text-micro font-medium text-muted-foreground">Sorties :</span>
           {DOSSIER_EXIT_STATUSES.map((label) => {
             const isCurrent = normalizeStatus(label) === normalizedCurrent;
             const step = stepByStatus.get(normalizeStatus(label));
@@ -89,7 +89,7 @@ const CONFIANCE_TONE: Record<string, string> = {
 function ConfianceBadge({ confiance }: { confiance?: string }) {
   if (!confiance) return null;
   const tone = CONFIANCE_TONE[confiance.toUpperCase()] ?? 'text-muted-foreground';
-  return <span className={cn('text-[10.5px] font-medium', tone)}>Confiance : {confiance}</span>;
+  return <span className={cn('text-micro font-medium', tone)}>Confiance : {confiance}</span>;
 }
 
 function ConfirmPopoverBody({
@@ -107,25 +107,25 @@ function ConfirmPopoverBody({
   const [date, setDate] = useState(todayISO());
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-[13px] font-medium text-foreground">Passer à « {label} » ?</p>
+      <p className="text-label font-medium text-foreground">Passer à « {label} » ?</p>
       {step ? (
         <ConfianceBadge confiance={step.confiance} />
       ) : (
-        <span className="text-[10.5px] font-medium text-muted-foreground">
+        <span className="text-micro font-medium text-muted-foreground">
           Statut non listé comme atteignable par l'API — le saut sera forcé.
         </span>
       )}
       {step?.champDate && (
-        <label className="flex flex-col gap-1 text-[11.5px] font-medium text-muted-foreground">
+        <label className="flex flex-col gap-1 text-micro font-medium text-muted-foreground">
           {step.libelleChampDate || 'Date'}
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="text-[13px]" />
+          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="text-label" />
         </label>
       )}
       <Textarea
         placeholder="Motif / note (optionnel)"
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        className="min-h-17.5 text-[13px]"
+        className="min-h-17.5 text-label"
       />
       <div className="flex justify-end gap-2">
         <PopoverClose render={<Button type="button" variant="outline" size="sm" />}>Annuler</PopoverClose>
@@ -166,7 +166,7 @@ function StepNode({
   const circle = (
     <div
       className={cn(
-        'flex size-6.5 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-bold transition-transform',
+        'flex size-6.5 shrink-0 items-center justify-center rounded-full border-2 text-micro font-bold transition-transform',
         isCurrent ? 'text-white' : !isPast && 'border-border bg-(--neutral-bg) text-muted-foreground',
         isClickable && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md',
       )}
@@ -184,7 +184,7 @@ function StepNode({
   const textLabel = (
     <div
       className={cn(
-        'mt-1.5 whitespace-nowrap text-center text-[10.5px]',
+        'mt-1.5 whitespace-nowrap text-center text-micro',
         isCurrent ? 'font-semibold text-foreground' : isPast ? 'text-foreground' : 'text-muted-foreground',
         !isClickable && !isCurrent && 'opacity-60',
       )}

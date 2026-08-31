@@ -32,6 +32,11 @@ export default function PageShell({
   fullHeight = false,
   children,
 }: {
+  /** Rendered as the page's `<h1>` — the only one on any page. Several detail
+   * pages used to render a second `<h1>` for the record's name (client,
+   * article, tranche…), which gave every one of them two competing top-level
+   * headings in the accessibility tree; those are `<h2>` now. Anything a page
+   * renders below this is h2 or deeper. */
   title: string;
   crumbs?: Crumb[];
   actions?: ReactNode;
@@ -76,7 +81,7 @@ export default function PageShell({
             </span>
           )}
           <div className="flex min-w-0 flex-col gap-0.5">
-            <h1 className="truncate text-[19px] font-semibold tracking-tight text-foreground">{title}</h1>
+            <h1 className="truncate text-page font-semibold tracking-tight text-foreground">{title}</h1>
             {crumbs && crumbs.length > 0 && (
               <Breadcrumb>
                 <BreadcrumbList className="flex-nowrap gap-1 text-xs">

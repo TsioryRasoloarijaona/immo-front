@@ -76,7 +76,7 @@ function ComboboxContent({
           )}
           {...props}
         >
-          <ComboboxPrimitive.Empty className="px-2.5 py-2 text-[12.5px] text-muted-foreground empty:m-0 empty:p-0">
+          <ComboboxPrimitive.Empty className="px-2.5 py-2 text-body text-muted-foreground empty:m-0 empty:p-0">
             {emptyMessage}
           </ComboboxPrimitive.Empty>
           <ComboboxPrimitive.List className="scroll-my-1 p-1">{children}</ComboboxPrimitive.List>

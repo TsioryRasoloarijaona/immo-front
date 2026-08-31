@@ -25,8 +25,8 @@ export default function ArticleResultsList({
   allowNone?: boolean;
   noneLabel?: string;
 }) {
-  if (loading) return <p className="text-[12px] text-muted-foreground">Chargement…</p>;
-  if (items.length === 0) return <p className="text-[12px] text-muted-foreground">Aucun résultat pour ces filtres.</p>;
+  if (loading) return <p className="text-body text-muted-foreground">Chargement…</p>;
+  if (items.length === 0) return <p className="text-body text-muted-foreground">Aucun résultat pour ces filtres.</p>;
   return (
     <div className="max-h-70 overflow-y-auto rounded-md border border-border">
       <Table>

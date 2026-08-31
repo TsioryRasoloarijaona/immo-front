@@ -22,7 +22,7 @@ export default function AuthScreen({
               raster app-icon, just "Ayad" in a heavy, tight-tracked cut of
               the app's own sans, colored with the (now monochrome) --brand
               accent. */}
-          <span className="font-heading text-[22px] leading-none font-black tracking-tighter text-(--brand)">Ayad</span>
+          <span className="font-heading text-hero leading-none font-black tracking-tighter text-(--brand)">Ayad</span>
           <div className="flex flex-col leading-tight">
             <span className="text-xs text-muted-foreground">Développement · CRM prototype</span>
           </div>

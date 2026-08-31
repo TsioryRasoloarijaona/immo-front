@@ -40,7 +40,7 @@ export default function ProjetsList() {
         </InputGroup>
       </div>
       {search && (
-        <p className="mb-3 text-[11.5px] text-muted-foreground">Recherche appliquée uniquement à la page chargée (l'API ne l'accepte pas encore sur cet endpoint).</p>
+        <p className="mb-3 text-micro text-muted-foreground">Recherche appliquée uniquement à la page chargée (l'API ne l'accepte pas encore sur cet endpoint).</p>
       )}
 
       {filtered.length === 0 ? (

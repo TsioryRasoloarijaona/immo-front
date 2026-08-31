@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react';
 import type { BadgeTone } from '../types';
 import { Badge as ShadcnBadge } from './ui/badge';
 import { Card as ShadcnCard, CardAction, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty';
 import { Avatar as ShadcnAvatar, AvatarFallback } from './ui/avatar';
 import { cn } from '../lib/utils';
 
@@ -64,12 +64,12 @@ export function StatCard({
             {icon}
           </span>
         )}
-        <span className="text-[12px] font-medium text-muted-foreground">{label}</span>
+        <span className="text-body font-medium text-muted-foreground">{label}</span>
       </div>
-      <div className={cn('text-[19px] font-semibold tracking-tight', tone === 'neutral' && 'text-foreground')} style={tone !== 'neutral' ? { color: fg } : undefined}>
+      <div className={cn('text-page font-semibold tracking-tight', tone === 'neutral' && 'text-foreground')} style={tone !== 'neutral' ? { color: fg } : undefined}>
         {value}
       </div>
-      {sub && <div className="text-[11px] text-muted-foreground">{sub}</div>}
+      {sub && <div className="text-micro text-muted-foreground">{sub}</div>}
     </ShadcnCard>
   );
 }
@@ -86,10 +86,10 @@ export function Field({
   const isEmpty = value === null || value === undefined || value === '' || value === '—';
   return (
     <div className="min-w-0">
-      <div className="mb-0 text-[11px] font-medium text-muted-foreground">{label}</div>
+      <div className="mb-0 text-micro font-medium text-muted-foreground">{label}</div>
       <div
         className={cn(
-          'break-words text-[13px] font-medium text-foreground',
+          'break-words text-label font-medium text-foreground',
           (muted || isEmpty) && 'font-normal text-muted-foreground'
         )}
       >
@@ -131,7 +131,7 @@ export function Card({
     >
       {title && (
         <CardHeader className="gap-0 border-b border-border py-1.75">
-          <CardTitle className="flex items-center gap-1.5 text-[13px]">
+          <CardTitle className="flex items-center gap-1.5 text-label">
             {accent && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: accent }} />}
             {title}
           </CardTitle>
@@ -147,8 +147,46 @@ export function LoadingState() {
   return (
     <Empty className="border-none py-17.5">
       <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      <p className="text-[13px] text-muted-foreground">Chargement des données…</p>
+      <p className="text-label text-muted-foreground">Chargement des données…</p>
     </Empty>
+  );
+}
+
+/** Wrapper for a list page's results block (count + table + pagination) that
+ * keeps the previous page of data on screen while the next one loads, instead
+ * of unmounting it behind `LoadingState`.
+ *
+ * `useApi` already preserves `data` across a refetch — the lists were simply
+ * choosing not to render it (`{!loading && !error && …}`), so every filter
+ * change or keystroke collapsed the table, the result count and the
+ * pagination to a centred spinner and then rebuilt them. That reads as a page
+ * reload for what is really a partial update, and it makes the whole region
+ * jump. Dimming the stale rows and marking the region `aria-busy` conveys the
+ * same "working" state without the layout churn; the full `LoadingState` is
+ * kept for the genuine first load, when there is nothing to keep.
+ *
+ * `pointer-events-none` while busy stops clicks landing on a row that is
+ * about to be replaced by a different one. */
+export function ResultsRegion({
+  loading,
+  className,
+  children,
+}: {
+  loading: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      aria-busy={loading}
+      className={cn(
+        'flex min-h-0 flex-1 flex-col gap-2.5 transition-opacity duration-200 motion-reduce:transition-none',
+        loading && 'pointer-events-none opacity-55',
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }
 
@@ -163,13 +201,28 @@ export function ErrorState({ message }: { message: string }) {
   );
 }
 
-export function EmptyState({ title, message }: { title: string; message?: string }) {
+/** `action` renders a way *out* of the empty state — most often "Réinitialiser
+ * les filtres" when a list came back empty because the filters excluded
+ * everything. Telling someone to "ajustez vos filtres" while making them go
+ * find the reset button themselves is a dead end; the escape hatch belongs
+ * where the problem is reported. Optional, because plenty of empty states are
+ * genuinely just "nothing here yet" with nothing to undo. */
+export function EmptyState({
+  title,
+  message,
+  action,
+}: {
+  title: string;
+  message?: string;
+  action?: ReactNode;
+}) {
   return (
     <Empty className="border-none py-17.5">
       <EmptyHeader>
         <EmptyTitle>{title}</EmptyTitle>
         {message && <EmptyDescription>{message}</EmptyDescription>}
       </EmptyHeader>
+      {action && <EmptyContent>{action}</EmptyContent>}
     </Empty>
   );
 }
@@ -179,7 +232,7 @@ export function EmptyState({ title, message }: { title: string; message?: string
  * still waiting on backend support. */
 export function SoonBadge({ children = 'Bientôt' }: { children?: ReactNode }) {
   return (
-    <span className="rounded-full bg-(--amber-bg) px-1.75 py-0.5 text-[10px] font-bold text-(--amber)">
+    <span className="rounded-full bg-(--amber-bg) px-1.75 py-0.5 text-micro font-bold text-(--amber)">
       {children}
     </span>
   );
@@ -189,7 +242,7 @@ export function TogglePill({ on, onLabel = 'Activé', offLabel = 'Désactivé' }
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12.5px] font-semibold',
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-body font-semibold',
         on ? 'bg-(--success-bg) text-(--success)' : 'bg-(--neutral-bg) text-muted-foreground'
       )}
     >

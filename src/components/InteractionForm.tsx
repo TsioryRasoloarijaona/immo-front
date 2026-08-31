@@ -105,7 +105,7 @@ export default function InteractionForm({
           <FormField>
             <FieldLabel htmlFor="action-date-alerte">
               Date alerte
-              {selectedResultat?.alerteRecommandee && <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">(recommandée pour ce résultat)</span>}
+              {selectedResultat?.alerteRecommandee && <span className="ml-1.5 text-micro font-normal text-muted-foreground">(recommandée pour ce résultat)</span>}
             </FieldLabel>
             <Input id="action-date-alerte" type="date" value={dateAlerte} onChange={(e) => setDateAlerte(e.target.value)} />
           </FormField>

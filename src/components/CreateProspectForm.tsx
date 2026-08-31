@@ -205,7 +205,7 @@ export default function CreateProspectForm({
           </p>
         )}
 
-        <div className="mb-1.5 text-[11.5px] font-semibold text-foreground">Identité & coordonnées</div>
+        <div className="mb-1.5 text-micro font-semibold text-foreground">Identité & coordonnées</div>
         <FieldGroup>
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             <RefSelect id="titre" label="Titre" value={titreId} onChange={setTitreId} items={referentielItems(titres.data)} />
@@ -241,7 +241,7 @@ export default function CreateProspectForm({
           </div>
         </FieldGroup>
 
-        <div className="mt-4 mb-1.5 border-t border-border pt-4 text-[11.5px] font-semibold text-foreground">Résidence & nationalité</div>
+        <div className="mt-4 mb-1.5 border-t border-border pt-4 text-micro font-semibold text-foreground">Résidence & nationalité</div>
         <FieldGroup>
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             <FormField>
@@ -270,7 +270,7 @@ export default function CreateProspectForm({
           </div>
         </FieldGroup>
 
-        <div className="mt-4 mb-1.5 border-t border-border pt-4 text-[11.5px] font-semibold text-foreground">Situation & profession</div>
+        <div className="mt-4 mb-1.5 border-t border-border pt-4 text-micro font-semibold text-foreground">Situation & profession</div>
         <FieldGroup>
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             <RefSelect id="situationFamiliale" label="Situation familiale" value={situationFamilialeId} onChange={setSituationFamilialeId} items={referentielItems(situations.data)} />
@@ -294,7 +294,7 @@ export default function CreateProspectForm({
           </div>
         </FieldGroup>
 
-        <div className="mt-4 mb-1.5 border-t border-border pt-4 text-[11.5px] font-semibold text-foreground">Pièce d'identité</div>
+        <div className="mt-4 mb-1.5 border-t border-border pt-4 text-micro font-semibold text-foreground">Pièce d'identité</div>
         <FieldGroup>
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             <RefSelect id="pieceType" label="Type de pièce" value={pieceTypeId} onChange={setPieceTypeId} items={referentielItems(typesPiece.data)} />
@@ -321,7 +321,7 @@ export default function CreateProspectForm({
           </div>
         </FieldGroup>
 
-        {error && <p className="mt-3 text-[12.5px] text-destructive">{error}</p>}
+        {error && <p className="mt-3 text-body text-destructive">{error}</p>}
 
         <DialogFooter className="mt-5">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Annuler</Button>

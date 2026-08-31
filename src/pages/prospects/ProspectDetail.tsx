@@ -52,11 +52,11 @@ function AddContactRow({ onAdd }: { onAdd: (prospectId: string, relationTypeId: 
   return (
     <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/30 p-3">
       <div className="flex flex-col gap-1">
-        <label className="text-[11px] text-muted-foreground" htmlFor="contact-id">ID prospect à lier</label>
+        <label className="text-micro text-muted-foreground" htmlFor="contact-id">ID prospect à lier</label>
         <Input id="contact-id" className="w-55" placeholder="UUID du prospect" value={contactId} onChange={(e) => setContactId(e.target.value)} />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-[11px] text-muted-foreground" htmlFor="relation-type">Relation</label>
+        <label className="text-micro text-muted-foreground" htmlFor="relation-type">Relation</label>
         <Select items={relationItems} value={relationTypeId ?? ''} onValueChange={(v) => setRelationTypeId((v as string) || null)}>
           <SelectTrigger id="relation-type" size="sm" className="w-45">
             <SelectValue />
@@ -185,8 +185,8 @@ export default function ProspectDetail() {
       </Button>
 
       <div className="mb-3.5">
-        <h1 className="text-[21px] font-semibold tracking-tight text-foreground">{personDisplayName(person)}</h1>
-        <div className="mt-1 text-[13px] text-muted-foreground">
+        <h2 className="text-hero font-semibold tracking-tight text-foreground">{personDisplayName(person)}</h2>
+        <div className="mt-1 text-label text-muted-foreground">
           {person.code && <>Code {person.code} · </>}
           {person.type || 'Prospect'}
           {person.commercialNom && <> · Commercial : {person.commercialNom}</>}
@@ -261,7 +261,7 @@ export default function ProspectDetail() {
                     <FieldLabel htmlFor="e-codePostal">Code postal</FieldLabel>
                     <Input id="e-codePostal" value={form.codePostal ?? ''} onChange={(e) => setForm({ ...form, codePostal: e.target.value })} />
                   </FormField>
-                  {saveError && <p className="text-[12.5px] text-destructive sm:col-span-2">{saveError}</p>}
+                  {saveError && <p className="text-body text-destructive sm:col-span-2">{saveError}</p>}
                 </div>
               ) : (
                 <FieldGrid>
@@ -309,7 +309,7 @@ export default function ProspectDetail() {
 
             {person.notes && (
               <Card title="Notes">
-                <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground">
+                <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-label leading-relaxed text-foreground">
                   {person.notes}
                 </div>
               </Card>
@@ -325,7 +325,7 @@ export default function ProspectDetail() {
             {contacts.data && contacts.data.length > 0 && (
               <div className="flex flex-col gap-2">
                 {contacts.data.map((c) => (
-                  <div key={c.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-[13px]">
+                  <div key={c.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-label">
                     <span className="font-medium text-foreground">{c.nomContact}</span>
                     <span className="text-muted-foreground">{c.telephoneContact}</span>
                     {c.relationType && <Badge tone="info">{c.relationType}</Badge>}
@@ -473,9 +473,9 @@ export default function ProspectDetail() {
                       {i < historique.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
                     </div>
                     <div className="min-w-0 flex-1 pb-0.5">
-                      <div className="text-[13px] font-semibold text-foreground">{h.workflowDescription || h.statutDescription || 'Événement'}</div>
+                      <div className="text-label font-semibold text-foreground">{h.workflowDescription || h.statutDescription || 'Événement'}</div>
                       <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(h.date)} · {h.utilisateur || 'Système'}</div>
-                      {h.description && <div className="mt-1 text-[12.5px] text-foreground">{h.description}</div>}
+                      {h.description && <div className="mt-1 text-body text-foreground">{h.description}</div>}
                     </div>
                   </div>
                 ))}
@@ -551,7 +551,7 @@ function ProspectionRow({
                   {detail.data.fermee && <Field label="Raison de fermeture" value={detail.data.raisonFermeture || detail.data.raisonFermetureTexte} />}
                 </FieldGrid>
                 {detail.data.notes && (
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-[12.5px] text-foreground">
+                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-body text-foreground">
                     {detail.data.notes}
                   </div>
                 )}
@@ -626,7 +626,7 @@ function DossierRow({
                   <Field label="Probabilité de finalisation" value={detail.data.probabiliteFinalisation != null ? `${Math.round(detail.data.probabiliteFinalisation * 100)} %` : undefined} />
                 </FieldGrid>
                 {detail.data.notes && (
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-[12.5px] text-foreground">
+                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-body text-foreground">
                     {detail.data.notes}
                   </div>
                 )}

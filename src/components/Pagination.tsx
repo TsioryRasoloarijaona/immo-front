@@ -34,7 +34,7 @@ export default function Pagination({
 
   return (
     <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
-      <div className="text-[11.5px] text-muted-foreground">
+      <div className="text-micro text-muted-foreground">
         Page {page + 1} sur {totalPages} · {totalElements} résultat{totalElements > 1 ? 's' : ''}
       </div>
       <nav aria-label="Pagination" className="flex items-center gap-1">
@@ -51,7 +51,7 @@ export default function Pagination({
         </Button>
         {pageWindow(page, totalPages).map((p, i) =>
           p === 'ellipsis' ? (
-            <span key={`e${i}`} className="px-1 text-[12px] text-muted-foreground">
+            <span key={`e${i}`} className="px-1 text-body text-muted-foreground">
               …
             </span>
           ) : (
@@ -60,7 +60,7 @@ export default function Pagination({
               type="button"
               variant={p === page ? 'default' : 'outline'}
               size="icon-sm"
-              className={cn('h-6.5 w-6.5 text-[12px] tabular-nums', p === page && 'pointer-events-none')}
+              className={cn('h-6.5 w-6.5 text-body tabular-nums', p === page && 'pointer-events-none')}
               aria-label={`Page ${p + 1}`}
               aria-current={p === page ? 'page' : undefined}
               onClick={() => onPageChange(p)}

@@ -82,7 +82,7 @@ function ProspectPicker({
 
       {mode === 'existing' && (
         selectedProspect ? (
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border bg-muted/30 px-3 py-2 text-[13px]">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border bg-muted/30 px-3 py-2 text-label">
             <span className="font-medium text-foreground">{personDisplayName(selectedProspect)}</span>
             <span className="text-muted-foreground">{selectedProspect.mobile || selectedProspect.telephone || '—'}</span>
             <span className="text-muted-foreground">{selectedProspect.email || '—'}</span>
@@ -360,7 +360,7 @@ export default function NewProspection() {
             </FormField>
           </div>
 
-          <label className="mt-3.5 flex items-center gap-1.5 text-[13px] text-foreground">
+          <label className="mt-3.5 flex items-center gap-1.5 text-label text-foreground">
             <input type="checkbox" className="size-3.5" checked={ancienClient} onChange={(e) => setAncienClient(e.target.checked)} />
             C'est un ancien client
           </label>
@@ -371,7 +371,7 @@ export default function NewProspection() {
           </FormField>
         </Card>
 
-        {submitError && <p className="text-[12.5px] text-destructive">{submitError}</p>}
+        {submitError && <p className="text-body text-destructive">{submitError}</p>}
 
         <div className="flex items-center justify-end border-t border-border pt-4">
           <Button type="button" onClick={handleCreate} disabled={!canCreate || submitting}>

@@ -62,7 +62,7 @@ function HotlineProspectionRow({ prospection: p, expanded, onToggle }: { prospec
         <TableCell className="text-right tabular-nums">{p.prix ? formatCurrency(p.prix) : '—'}</TableCell>
         <TableCell className="text-muted-foreground">{formatDate(p.dateDocument)}</TableCell>
         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-          <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-[12px]" onClick={() => navigate(`/prospections/${p.id}`)}>
+          <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-body" onClick={() => navigate(`/prospections/${p.id}`)}>
             Fiche complète <ArrowUpRight className="size-3" />
           </Button>
         </TableCell>
@@ -84,7 +84,7 @@ function HotlineProspectionRow({ prospection: p, expanded, onToggle }: { prospec
                   {detail.data.fermee && <Field label="Raison de fermeture" value={detail.data.raisonFermeture || detail.data.raisonFermetureTexte} />}
                 </FieldGrid>
                 {detail.data.notes && (
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-[12.5px] text-foreground">
+                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-body text-foreground">
                     {detail.data.notes}
                   </div>
                 )}
@@ -125,7 +125,7 @@ function HotlineDossierRow({ dossier: d, expanded, onToggle }: { dossier: Dossie
         <TableCell className="text-right tabular-nums">{formatCurrency(d.totalAPayer)}</TableCell>
         <TableCell className="text-muted-foreground">{formatDate(d.dateDocument)}</TableCell>
         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-          <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-[12px]" onClick={() => navigate(`/dossiers/${d.id}`)}>
+          <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-body" onClick={() => navigate(`/dossiers/${d.id}`)}>
             Fiche complète <ArrowUpRight className="size-3" />
           </Button>
         </TableCell>
@@ -152,7 +152,7 @@ function HotlineDossierRow({ dossier: d, expanded, onToggle }: { dossier: Dossie
                   <Field label="Mode de paiement" value={detail.data.modePaie} />
                 </FieldGrid>
                 {detail.data.notes && (
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-[12.5px] text-foreground">
+                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-body text-foreground">
                     {detail.data.notes}
                   </div>
                 )}
@@ -189,7 +189,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
           <Avatar name={name} small />
           <div className="flex flex-col">
             <span>{name}</span>
-            {tier.code && <span className="text-[11px] font-normal text-muted-foreground">{tier.code}</span>}
+            {tier.code && <span className="text-micro font-normal text-muted-foreground">{tier.code}</span>}
           </div>
           {tier.type && <Badge tone="info">{tier.type}</Badge>}
           {tier.estAncienClient && <Badge tone="success">Ancien client</Badge>}
@@ -245,7 +245,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
 
               {tier.pieceIdentite && (tier.pieceIdentite.numero || tier.pieceIdentite.type) && (
                 <div>
-                  <div className="mb-2 text-[11.5px] font-medium text-muted-foreground">Pièce d'identité</div>
+                  <div className="mb-2 text-micro font-medium text-muted-foreground">Pièce d'identité</div>
                   <FieldGrid>
                     <Field label="Type" value={tier.pieceIdentite.type} />
                     <Field label="Numéro" value={tier.pieceIdentite.numero} />
@@ -257,8 +257,8 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
 
               {tier.notes && (
                 <div>
-                  <div className="mb-2 text-[11.5px] font-medium text-muted-foreground">Notes</div>
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground">
+                  <div className="mb-2 text-micro font-medium text-muted-foreground">Notes</div>
+                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-label leading-relaxed text-foreground">
                     {tier.notes}
                   </div>
                 </div>
@@ -373,13 +373,13 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
                       {i < interactions.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
                     </div>
                     <div className="min-w-0 flex-1 pb-0.5">
-                      <div className="flex flex-wrap items-center gap-1.5 text-[13px] font-semibold text-foreground">
+                      <div className="flex flex-wrap items-center gap-1.5 text-label font-semibold text-foreground">
                         <span className="inline-flex text-(--brand)">{interactionIcon(c.entrante)}</span>
                         {c.actionType || (c.entrante ? 'Entrant' : 'Sortant')}
                         {c.resultat && <Badge tone={c.dateRdv ? 'success' : 'neutral'}>{c.resultat}</Badge>}
                       </div>
                       <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(c.date)} · {c.employeNom || 'Système'}</div>
-                      {c.description && <div className="mt-1 text-[12.5px] text-foreground">{c.description}</div>}
+                      {c.description && <div className="mt-1 text-body text-foreground">{c.description}</div>}
                       {(c.dateRdv || c.dateAlerte) && (
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                           {c.dateRdv && <Badge tone="success">RDV le {formatDate(c.dateRdv)}</Badge>}
@@ -405,9 +405,9 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
                       {i < historique.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
                     </div>
                     <div className="min-w-0 flex-1 pb-0.5">
-                      <div className="text-[13px] font-semibold text-foreground">{h.workflowDescription || h.statutDescription || 'Événement'}</div>
+                      <div className="text-label font-semibold text-foreground">{h.workflowDescription || h.statutDescription || 'Événement'}</div>
                       <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(h.date)} · {h.utilisateur || 'Système'}</div>
-                      {h.description && <div className="mt-1 text-[12.5px] text-foreground">{h.description}</div>}
+                      {h.description && <div className="mt-1 text-body text-foreground">{h.description}</div>}
                     </div>
                   </div>
                 ))}
@@ -445,7 +445,7 @@ export default function Hotline() {
   const appelsSansFiche = data?.appelsSansFiche ?? [];
 
   return (
-    <PageShell title="Hotline" crumbs={[{ label: 'Hotline' }]}>
+    <PageShell title="Hotline" crumbs={[{ label: 'Hotline' }]} icon={<Phone />} accent="var(--sec-accent)" accentBg="var(--sec-accent-bg)">
       <Card>
         <form
           className="flex flex-wrap items-end gap-2.5"
@@ -455,7 +455,7 @@ export default function Hotline() {
           }}
         >
           <div className="flex min-w-65 flex-1 flex-col gap-1">
-            <label htmlFor="hotline-tel" className="text-[11.5px] font-medium text-muted-foreground">
+            <label htmlFor="hotline-tel" className="text-micro font-medium text-muted-foreground">
               Numéro de téléphone de l'appelant
             </label>
             <Input
@@ -465,14 +465,14 @@ export default function Hotline() {
               placeholder="06 12 34 56 78"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              className="h-10 text-[15px]"
+              className="h-10 text-title"
             />
           </div>
           <Button type="submit" size="lg" disabled={!input.trim()}>
             <Search data-icon="inline-start" /> Rechercher
           </Button>
         </form>
-        <p className="mt-2.5 text-[12px] text-muted-foreground">
+        <p className="mt-2.5 text-body text-muted-foreground">
           Espaces, tirets, parenthèses et indicatif pays sont ignorés — "+212 6 12 34 56 78", "212612345678" et
           "0612345678" sont reconnus comme le même numéro.
         </p>
@@ -498,8 +498,8 @@ export default function Hotline() {
                   <PhoneOff className="size-4.5 text-muted-foreground" />
                 )}
                 <div>
-                  <div className="text-[14.5px] font-semibold text-foreground">{data.telephoneRecherche || query}</div>
-                  <div className="text-[11.5px] text-muted-foreground">Numéro normalisé : {data.telephoneNormalise || '—'}</div>
+                  <div className="text-title font-semibold text-foreground">{data.telephoneRecherche || query}</div>
+                  <div className="text-micro text-muted-foreground">Numéro normalisé : {data.telephoneNormalise || '—'}</div>
                 </div>
               </div>
               <Badge tone={data.connu ? 'success' : 'neutral'}>{data.connu ? 'Numéro connu' : 'Numéro inconnu'}</Badge>
@@ -519,7 +519,7 @@ export default function Hotline() {
 
           {appelsSansFiche.length > 0 && (
             <Card title={`Appels antérieurs sans fiche (${appelsSansFiche.length})`}>
-              <p className="mb-3 text-[12.5px] text-muted-foreground">
+              <p className="mb-3 text-body text-muted-foreground">
                 Ce numéro a déjà été démarché, mais n'a jamais été rattaché à une fiche formelle — proposez la
                 création d'une fiche prospect à l'appelant.
               </p>
@@ -527,8 +527,8 @@ export default function Hotline() {
                 {appelsSansFiche.map((p) => (
                   <div key={p.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-md border border-border px-3 py-2.5">
                     <div className="min-w-0">
-                      <div className="text-[13px] font-medium text-foreground">{prospectionDisplayName(p)}</div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11.5px] text-muted-foreground">
+                      <div className="text-label font-medium text-foreground">{prospectionDisplayName(p)}</div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-micro text-muted-foreground">
                         <span>{formatDate(p.dateDocument)}</span>
                         {p.origine && <span>· {p.origine}</span>}
                         {p.commercialNom && <span>· {p.commercialNom}</span>}
@@ -559,7 +559,7 @@ export default function Hotline() {
       )}
 
       {toast && (
-        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-[13px] font-medium text-background shadow-lg">
+        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-label font-medium text-background shadow-lg">
           {toast}
         </div>
       )}

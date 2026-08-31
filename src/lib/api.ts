@@ -766,14 +766,16 @@ function fetchRecuReglementBlob(dossierId: UUID, reglementId: UUID): Promise<Blo
   return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
 }
 
-/** `GET /api/dossiers/{id}/echeancier/{echeanceId}/documents/autorisation-versement` —
- * the "Autorisation d'Encaissement" for one specific échéance (not a
- * règlement — the échéance's own id, `ComDocument.PKey`), authorizing the
- * client's bank to release that échéance's amount. PDF-only, same
- * per-row-id shape as `fetchRecuReglementBlob` above but keyed off the
- * échéance instead. */
-function fetchAutorisationVersementBlob(dossierId: UUID, echeanceId: UUID): Promise<Blob> {
-  const url = `${API_BASE_URL}/api/dossiers/${dossierId}/echeancier/${echeanceId}/documents/autorisation-versement`;
+/** `GET /api/dossiers/{id}/reglements/{reglementId}/documents/autorisation-versement`
+ * — the "Autorisation d'Encaissement" for one specific règlement
+ * (`StlSettlement.PKey`), authorizing the client's bank to release that
+ * règlement's amount. Scoped to the règlement, *not* the échéance: the
+ * fields that give the document its value (compte destinataire, mode de
+ * versement, tiers payeur) are populated on the règlement in real data and
+ * almost never on the échéance. Same per-row-id shape as
+ * `fetchRecuReglementBlob` above. PDF-only. */
+function fetchAutorisationVersementBlob(dossierId: UUID, reglementId: UUID): Promise<Blob> {
+  const url = `${API_BASE_URL}/api/dossiers/${dossierId}/reglements/${reglementId}/documents/autorisation-versement`;
   return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
 }
 
@@ -965,15 +967,15 @@ export async function viewRecuReglement(dossierId: UUID, reglementId: UUID): Pro
   }
 }
 
-export async function downloadAutorisationVersement(dossierId: UUID, echeanceId: UUID, filename: string): Promise<void> {
-  const blob = await fetchAutorisationVersementBlob(dossierId, echeanceId);
+export async function downloadAutorisationVersement(dossierId: UUID, reglementId: UUID, filename: string): Promise<void> {
+  const blob = await fetchAutorisationVersementBlob(dossierId, reglementId);
   triggerBlobDownload(blob, filename);
 }
 
-export async function viewAutorisationVersement(dossierId: UUID, echeanceId: UUID): Promise<void> {
+export async function viewAutorisationVersement(dossierId: UUID, reglementId: UUID): Promise<void> {
   const win = window.open('', '_blank');
   try {
-    const blob = await fetchAutorisationVersementBlob(dossierId, echeanceId);
+    const blob = await fetchAutorisationVersementBlob(dossierId, reglementId);
     showBlobInTab(win, blob);
   } catch (err) {
     win?.close();

@@ -49,7 +49,7 @@ function ArticlePieceJointeRow({ articleId, piece }: { articleId: string; piece:
       <TableCell className="text-right text-muted-foreground">{formatDate(piece.dateCreation)}</TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
-          {error && <span className="text-[11.5px] text-destructive">{error}</span>}
+          {error && <span className="text-micro text-destructive">{error}</span>}
           <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
             <Eye data-icon="inline-start" /> {busyAction === 'view' ? 'Ouverture…' : 'Voir'}
           </Button>
@@ -105,7 +105,7 @@ export default function ArticleDetail() {
       </Button>
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h1 className="text-[21px] font-semibold tracking-tight text-foreground">{a.code}</h1>
+        <h2 className="text-hero font-semibold tracking-tight text-foreground">{a.code}</h2>
         {a.dossierId ? (
           <Badge tone={toneForStatus(canonicalStatusLabel(a.dossierStatut))}>{canonicalStatusLabel(a.dossierStatut)}</Badge>
         ) : (
@@ -118,7 +118,7 @@ export default function ArticleDetail() {
         <button
           type="button"
           onClick={() => navigate(`/articles/${a.lotParentId}`)}
-          className="mb-3 flex items-center gap-1.5 text-[12.5px] text-muted-foreground hover:text-foreground hover:underline"
+          className="mb-3 flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground hover:underline"
         >
           Fait partie de <span className="font-medium text-foreground">{a.lotParentCode || a.lotParentDescription}</span>
         </button>
@@ -161,7 +161,7 @@ export default function ArticleDetail() {
               </Button>
             }
           >
-            {dossier.loading && <p className="text-[13px] text-muted-foreground">Chargement…</p>}
+            {dossier.loading && <p className="text-label text-muted-foreground">Chargement…</p>}
             {dossier.error && <ErrorState message={dossier.error} />}
             {dossier.data && (
               <FieldGrid>
@@ -182,7 +182,7 @@ export default function ArticleDetail() {
           <Card title={`Sous-lots (${a.sousLots.length})`}>
             <div className="flex flex-col gap-2">
               {a.sousLots.map((s) => (
-                <div key={s.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-[13px]">
+                <div key={s.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-label">
                   <span className="font-medium text-foreground">{s.code}</span>
                   <span className="text-muted-foreground">{s.description}</span>
                   <span className="font-medium tabular-nums text-foreground">{formatCurrency(s.salePrice)}</span>

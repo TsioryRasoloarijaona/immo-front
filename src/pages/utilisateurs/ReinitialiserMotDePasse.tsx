@@ -13,9 +13,9 @@ function TempPasswordBox({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="rounded-md border border-(--warning)/30 bg-(--warning-bg) p-3">
-      <div className="mb-1 text-[11.5px] font-medium text-(--warning)">{label}</div>
+      <div className="mb-1 text-micro font-medium text-(--warning)">{label}</div>
       <div className="flex items-center gap-2">
-        <code className="flex-1 truncate rounded bg-background px-2 py-1 text-[13px] font-medium text-foreground">{value}</code>
+        <code className="flex-1 truncate rounded bg-background px-2 py-1 text-label font-medium text-foreground">{value}</code>
         <Button
           type="button"
           size="icon-sm"
@@ -31,8 +31,8 @@ function TempPasswordBox({ label, value }: { label: string; value: string }) {
           <Copy />
         </Button>
       </div>
-      {copied && <div className="mt-1 text-[11.5px] text-(--success)">Copié.</div>}
-      <p className="mt-2 text-[11.5px] text-muted-foreground">
+      {copied && <div className="mt-1 text-micro text-(--success)">Copié.</div>}
+      <p className="mt-2 text-micro text-muted-foreground">
         À communiquer à l'employé par un canal hors-bande — ce mot de passe ne sera plus jamais affiché.
       </p>
     </div>

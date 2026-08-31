@@ -84,7 +84,7 @@ export default function SearchSelect({
   if (selectedLabel && !open) {
     return (
       <div className="flex items-center gap-1.5">
-        <span className="flex h-8 flex-1 items-center rounded-md border border-border bg-background px-2.5 text-[13px] text-foreground">
+        <span className="flex h-8 flex-1 items-center rounded-md border border-border bg-background px-2.5 text-label text-foreground">
           {selectedLabel}
         </span>
         {onClear && (
@@ -136,7 +136,7 @@ export default function SearchSelect({
                     setQuery('');
                     setOpen(false);
                   }}
-                  className="block w-full px-3 py-1.5 text-left text-[13px] text-foreground hover:bg-muted"
+                  className="block w-full px-3 py-1.5 text-left text-label text-foreground hover:bg-muted"
                 >
                   {o.label}
                 </button>

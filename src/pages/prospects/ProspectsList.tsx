@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Contact, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listProspects } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useTierTypes } from '../../lib/referentiels';
 import { personDisplayName } from '../../lib/domain';
 
@@ -18,6 +18,7 @@ export default function ProspectsList() {
   const tierTypes = useTierTypes();
 
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search);
   const [type, setType] = useState<string[]>([]);
   const [page, setPage] = useState(0);
 
@@ -32,9 +33,13 @@ export default function ProspectsList() {
     setType([]);
   }
 
+  // Drives the empty state's wording and its escape hatch — see ArticlesList.
+  const hasActiveFilters =
+    !!search || type.length > 0;
+
   const { data, loading, error } = useApi(
-    () => listProspects({ search: search || undefined, type: type.length > 0 ? type : undefined }, { page, size: DEFAULT_PAGE_SIZE }),
-    [search, type.join(','), page],
+    () => listProspects({ search: debouncedSearch || undefined, type: type.length > 0 ? type : undefined }, { page, size: DEFAULT_PAGE_SIZE }),
+    [debouncedSearch, type.join(','), page],
   );
   const rows = data?.content ?? [];
 
@@ -59,7 +64,7 @@ export default function ProspectsList() {
       }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <p className="shrink-0 max-w-180 text-[12.5px] text-muted-foreground">
+        <p className="shrink-0 max-w-180 text-body text-muted-foreground">
           Fiches contact (/api/prospects) — indépendantes des prospections, un même prospect peut être
           lié à plusieurs prospections au fil du temps.
         </p>
@@ -83,15 +88,29 @@ export default function ProspectsList() {
           </div>
         </Card>
 
-        {loading && <LoadingState />}
+        {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}
-        {!loading && !error && (
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-            <div className="shrink-0 text-[12.5px] text-muted-foreground">
+        {!error && data && (
+          <ResultsRegion loading={loading}>
+            <div className="shrink-0 text-body text-muted-foreground">
               {(data?.totalElements ?? 0)} prospect{(data?.totalElements ?? 0) > 1 ? 's' : ''}
             </div>
             {rows.length === 0 ? (
-              <EmptyState title="Aucun résultat" message="Ajustez vos filtres pour élargir la recherche." />
+              <EmptyState
+                title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
+                message={
+                  hasActiveFilters
+                    ? 'Aucun prospect ne correspond aux filtres actifs.'
+                    : "Aucun prospect n'est encore enregistré."
+                }
+                action={
+                  hasActiveFilters ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
+                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
                 <Table className="w-full min-w-160 table-fixed">
@@ -135,7 +154,7 @@ export default function ProspectsList() {
                 <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
               )}
             </div>
-          </div>
+          </ResultsRegion>
         )}
       </div>
     </PageShell>

@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Users } from 'lucide-react';
+import { Plus, RotateCcw, Users } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import Pagination from '../../components/Pagination';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listProspections, listTranches } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { useOriginesProspection } from '../../lib/referentiels';
 import { formatCurrency, formatDate } from '../../lib/format';
@@ -16,6 +16,7 @@ import {
   PIPELINE_STAGES,
   emptyProspectionFilters,
   etapeBadgeTone,
+  hasActiveProspectionFilters,
   prospectionDisplayName,
   type ProspectionFilterBarState,
 } from '../../lib/domain';
@@ -32,6 +33,7 @@ export default function ProspectionsList() {
   const origines = useOriginesProspection();
 
   const [filters, setFilters] = useState<ProspectionFilterBarState>(emptyProspectionFilters());
+  const debouncedSearch = useDebouncedValue(filters.search);
   const [page, setPage] = useState(0);
 
   function setFilter<K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) {
@@ -43,7 +45,7 @@ export default function ProspectionsList() {
     () =>
       listProspections(
         {
-          search: filters.search || undefined,
+          search: debouncedSearch || undefined,
           etape: filters.etape.length > 0 ? filters.etape : undefined,
           origine: filters.origine.length > 0 ? filters.origine : undefined,
           commercial: filters.commercial.length > 0 ? filters.commercial : undefined,
@@ -55,7 +57,7 @@ export default function ProspectionsList() {
         { page, size: DEFAULT_PAGE_SIZE },
       ),
     [
-      filters.search,
+      debouncedSearch,
       filters.etape.join(','),
       filters.origine.join(','),
       filters.commercial.join(','),
@@ -103,15 +105,29 @@ export default function ProspectionsList() {
           trancheItems={trancheItems}
         />
 
-        {loading && <LoadingState />}
+        {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}
-        {!loading && !error && (
-          <div className="flex min-h-0 flex-1 flex-col gap-2.5">
-            <div className="shrink-0 text-[12.5px] text-muted-foreground">
+        {!error && data && (
+          <ResultsRegion loading={loading}>
+            <div className="shrink-0 text-body text-muted-foreground">
               {data?.totalElements ?? 0} prospection{(data?.totalElements ?? 0) > 1 ? 's' : ''} au total
             </div>
             {rows.length === 0 ? (
-              <EmptyState title="Aucun résultat" message="Ajustez vos filtres pour élargir la recherche." />
+              <EmptyState
+                title={hasActiveProspectionFilters(filters) ? 'Aucun résultat' : 'Rien à afficher'}
+                message={
+                  hasActiveProspectionFilters(filters)
+                    ? 'Aucune prospection ne correspond aux filtres actifs.'
+                    : "Aucune prospection n'est encore enregistrée."
+                }
+                action={
+                  hasActiveProspectionFilters(filters) ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setFilters(emptyProspectionFilters())}>
+                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
                 <Table className="w-full min-w-160 table-fixed">
@@ -163,7 +179,7 @@ export default function ProspectionsList() {
                 <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
               )}
             </div>
-          </div>
+          </ResultsRegion>
         )}
       </div>
     </PageShell>

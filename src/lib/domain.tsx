@@ -152,6 +152,29 @@ export function emptyProspectionFilters(): ProspectionFilterBarState {
   return { search: '', etape: [], origine: [], commercial: [], trancheId: [], dateDebut: '', dateFin: '', ouvertes: 'open' };
 }
 
+/** True when the user has narrowed the list away from its default state.
+ *
+ * Compared field-by-field against `emptyProspectionFilters()` rather than a
+ * hand-written list of conditions, so a filter added to
+ * `ProspectionFilterBarState` later is covered automatically instead of
+ * silently falling out of the check. Note the default for `ouvertes` is
+ * `'open'`, not `'all'` — switching to "toutes"/"fermées" counts as an active
+ * filter, which is what makes an empty result explainable.
+ *
+ * Used by Prospections/Pré-prospections to decide whether an empty result
+ * means "your filters excluded everything" (offer a reset) or "there's
+ * genuinely nothing here". */
+export function hasActiveProspectionFilters(state: ProspectionFilterBarState): boolean {
+  const empty = emptyProspectionFilters();
+  return (Object.keys(empty) as (keyof ProspectionFilterBarState)[]).some((key) => {
+    const current = state[key];
+    const base = empty[key];
+    return Array.isArray(current) && Array.isArray(base)
+      ? current.length !== base.length
+      : current !== base;
+  });
+}
+
 export function standingClass(standing: string): string {
   const s = (standing || '').toLowerCase();
   if (s.includes('très haut')) return 'bg-(--brand-bg) text-(--brand)';

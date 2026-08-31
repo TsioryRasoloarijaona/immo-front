@@ -149,7 +149,7 @@ export default function DevisFormSection({
   const formFields = (
     <>
       {!open ? (
-        <p className="text-[12.5px] text-muted-foreground">Créez une offre de prix pour cette prospection — avec ou sans article, remise incluse.</p>
+        <p className="text-body text-muted-foreground">Créez une offre de prix pour cette prospection — avec ou sans article, remise incluse.</p>
       ) : (
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
@@ -183,7 +183,7 @@ export default function DevisFormSection({
               onChange={(ids) => { setTypeIds(ids); setArticleId(null); setSousArticleIds([]); }}
               items={referentielItems(typesRef.data)}
             />
-            <label className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">
+            <label className="flex items-center gap-1.5 text-body text-muted-foreground">
               <input
                 type="checkbox"
                 checked={onlyDisponible}
@@ -196,7 +196,7 @@ export default function DevisFormSection({
 
           {trancheId && (
             <div className="flex flex-col gap-1">
-              <span className="text-[11.5px] font-medium text-muted-foreground">
+              <span className="text-micro font-medium text-muted-foreground">
                 Article (optionnel — offre libre sans article sinon) {articles.data ? `(${articles.data.length})` : ''}
               </span>
               <ArticleResultsList
@@ -228,7 +228,7 @@ export default function DevisFormSection({
             <FormField>
               <FieldLabel htmlFor="devis-prix">Prix TTC</FieldLabel>
               <Input id="devis-prix" type="number" value={prix} onChange={(e) => setPrix(e.target.value)} placeholder={isLibre ? 'Obligatoire' : 'Optionnel'} />
-              <FieldDescription className="text-[11.5px]">
+              <FieldDescription className="text-micro">
                 {isLibre ? 'Requis — offre libre, sans article.' : 'Remplace le prix commercial de l’article.'}
               </FieldDescription>
             </FormField>
@@ -250,7 +250,7 @@ export default function DevisFormSection({
             <Button type="button" size="sm" disabled={!trancheId || busy} onClick={handleCreate}>
               {busy ? 'Création…' : 'Créer l’offre'}
             </Button>
-            {error && <p className="text-[12px] text-destructive">{error}</p>}
+            {error && <p className="text-body text-destructive">{error}</p>}
           </div>
         </div>
       )}

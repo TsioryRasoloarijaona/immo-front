@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { UserCircle } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, Field, FieldGrid } from '../../components/ui';
 import { Button } from '../../components/ui/button';
@@ -134,7 +135,7 @@ function InformationsPersonnelles() {
             <Field label="Rôles" value={user?.roles && user.roles.length > 0 ? user.roles.join(', ') : undefined} />
           </FieldGrid>
           {savedAt && (
-            <p className="text-[12.5px] text-(--success)">Profil mis à jour avec succès.</p>
+            <p className="text-body text-(--success)">Profil mis à jour avec succès.</p>
           )}
         </div>
       )}
@@ -213,7 +214,7 @@ function Securite() {
             {mismatch && <FieldError>Les deux mots de passe ne correspondent pas.</FieldError>}
           </FormField>
           {error && <FieldError>{error}</FieldError>}
-          {savedAt && <p className="text-[12.5px] text-(--success)">Mot de passe changé avec succès.</p>}
+          {savedAt && <p className="text-body text-(--success)">Mot de passe changé avec succès.</p>}
           <Button type="submit" disabled={submitting || !canSubmit} className="w-fit">
             {submitting ? 'Enregistrement…' : 'Changer le mot de passe'}
           </Button>
@@ -227,10 +228,14 @@ export default function Profil() {
   const { user } = useAuth();
 
   return (
-    <PageShell title="Mon profil" crumbs={[{ label: 'Mon profil' }]}>
+    <PageShell title="Mon profil" crumbs={[{ label: 'Mon profil' }]} icon={<UserCircle />} accent="var(--sec-accent)" accentBg="var(--sec-accent-bg)">
       <div className="mb-3.5">
-        <h1 className="text-[21px] font-semibold tracking-tight text-foreground">{user?.description || user?.username}</h1>
-        <div className="mt-1 flex items-center gap-1.5 text-[13px] text-muted-foreground">
+        {/* Not an <h1>: PageShell's header already renders the page's only
+            h1 ("Mon profil"). A second one here gave the page two competing
+            top-level headings in the accessibility tree — this is the user's
+            name as content, so it's an h2 under that heading. */}
+        <h2 className="text-hero font-semibold tracking-tight text-foreground">{user?.description || user?.username}</h2>
+        <div className="mt-1 flex items-center gap-1.5 text-label text-muted-foreground">
           {user?.username}
           {user?.roles?.map((r) => (
             <Badge key={r} tone="info">{r}</Badge>
