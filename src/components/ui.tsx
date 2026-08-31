@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react';
 import type { BadgeTone } from '../types';
 import { Badge as ShadcnBadge } from './ui/badge';
 import { Card as ShadcnCard, CardAction, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty';
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty';
 import { Avatar as ShadcnAvatar, AvatarFallback } from './ui/avatar';
 import { cn } from '../lib/utils';
 
@@ -24,25 +24,52 @@ export function Badge({
   );
 }
 
+/** Same reserved status hues `Badge`/`BadgeTone` draw from (see index.css) —
+ * `StatCard`'s `tone` prop reuses them rather than inventing new colors, so
+ * a "warning" stat and a "warning" badge always mean the same thing. */
+const STAT_TONE_VARS: Record<BadgeTone, { fg: string; bg: string }> = {
+  neutral: { fg: 'var(--muted-foreground)', bg: 'var(--neutral-bg)' },
+  info: { fg: 'var(--info)', bg: 'var(--info-bg)' },
+  progress: { fg: 'var(--brand)', bg: 'var(--brand-bg)' },
+  success: { fg: 'var(--success)', bg: 'var(--success-bg)' },
+  warning: { fg: 'var(--warning)', bg: 'var(--warning-bg)' },
+  amber: { fg: 'var(--amber)', bg: 'var(--amber-bg)' },
+};
+
 export function StatCard({
   label,
   value,
   sub,
   icon,
+  tone = 'neutral',
 }: {
   label: string;
   value: string;
   sub?: string;
   icon?: ReactNode;
+  /** Colors the icon chip and the value text — same palette as `Badge`'s
+   * `tone`. Defaults to the plain neutral look every StatCard had before. */
+  tone?: BadgeTone;
 }) {
+  const { fg, bg } = STAT_TONE_VARS[tone];
   return (
-    <ShadcnCard size="sm" className="gap-2 px-5 py-4.5">
-      <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground [&_svg]:size-[15px] [&_svg]:opacity-80">
-        {icon}
-        {label}
+    <ShadcnCard size="sm" className="gap-1.5 px-3.5 py-2.5">
+      <div className="flex items-center gap-2">
+        {icon && (
+          <span
+            aria-hidden
+            className="flex size-5.5 shrink-0 items-center justify-center rounded-md [&_svg]:size-3.25"
+            style={{ color: fg, background: bg }}
+          >
+            {icon}
+          </span>
+        )}
+        <span className="text-body font-medium text-muted-foreground">{label}</span>
       </div>
-      <div className="text-[25px] font-semibold tracking-tight text-foreground">{value}</div>
-      {sub && <div className="text-xs text-muted-foreground">{sub}</div>}
+      <div className={cn('text-page font-semibold tracking-tight', tone === 'neutral' && 'text-foreground')} style={tone !== 'neutral' ? { color: fg } : undefined}>
+        {value}
+      </div>
+      {sub && <div className="text-micro text-muted-foreground">{sub}</div>}
     </ShadcnCard>
   );
 }
@@ -59,10 +86,10 @@ export function Field({
   const isEmpty = value === null || value === undefined || value === '' || value === '—';
   return (
     <div className="min-w-0">
-      <div className="mb-0.5 text-[11.5px] font-medium text-muted-foreground">{label}</div>
+      <div className="mb-0 text-micro font-medium text-muted-foreground">{label}</div>
       <div
         className={cn(
-          'break-words text-[13.5px] font-medium text-foreground',
+          'break-words text-label font-medium text-foreground',
           (muted || isEmpty) && 'font-normal text-muted-foreground'
         )}
       >
@@ -73,7 +100,7 @@ export function Field({
 }
 
 export function FieldGrid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-x-5 gap-y-4">{children}</div>;
+  return <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-x-4 gap-y-2.5">{children}</div>;
 }
 
 export function Card({
@@ -81,37 +108,91 @@ export function Card({
   action,
   children,
   padded = true,
+  className,
+  accent,
 }: {
   title?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
   padded?: boolean;
+  className?: string;
+  /** Optional section-identity accent (a CSS color, e.g.
+   * `var(--sec-dossier)` — see index.css's "Section-identity accents"
+   * block) — tints a left border plus a small dot before the title.
+   * Purely a secondary/decorative cue, same rule as PageShell's icon chip:
+   * the title text still names the card, color just reinforces which
+   * entity it belongs to. */
+  accent?: string;
 }) {
   return (
-    <ShadcnCard className="gap-0 py-0">
+    <ShadcnCard
+      className={cn('gap-0 py-0', accent && 'border-l-2', className)}
+      style={accent ? { borderLeftColor: accent } : undefined}
+    >
       {title && (
-        <CardHeader className="gap-0 border-b border-border py-4">
-          <CardTitle className="text-[14.5px]">{title}</CardTitle>
+        <CardHeader className="gap-0 border-b border-border py-1.75">
+          <CardTitle className="flex items-center gap-1.5 text-label">
+            {accent && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: accent }} />}
+            {title}
+          </CardTitle>
           {action && <CardAction>{action}</CardAction>}
         </CardHeader>
       )}
-      <CardContent className={padded ? 'py-5' : 'px-0 py-0'}>{children}</CardContent>
+      <CardContent className={padded ? 'py-2.5' : 'px-0 py-0'}>{children}</CardContent>
     </ShadcnCard>
   );
 }
 
 export function LoadingState() {
   return (
-    <Empty className="border-none py-[70px]">
+    <Empty className="border-none py-17.5">
       <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      <p className="text-[13px] text-muted-foreground">Chargement des données…</p>
+      <p className="text-label text-muted-foreground">Chargement des données…</p>
     </Empty>
+  );
+}
+
+/** Wrapper for a list page's results block (count + table + pagination) that
+ * keeps the previous page of data on screen while the next one loads, instead
+ * of unmounting it behind `LoadingState`.
+ *
+ * `useApi` already preserves `data` across a refetch — the lists were simply
+ * choosing not to render it (`{!loading && !error && …}`), so every filter
+ * change or keystroke collapsed the table, the result count and the
+ * pagination to a centred spinner and then rebuilt them. That reads as a page
+ * reload for what is really a partial update, and it makes the whole region
+ * jump. Dimming the stale rows and marking the region `aria-busy` conveys the
+ * same "working" state without the layout churn; the full `LoadingState` is
+ * kept for the genuine first load, when there is nothing to keep.
+ *
+ * `pointer-events-none` while busy stops clicks landing on a row that is
+ * about to be replaced by a different one. */
+export function ResultsRegion({
+  loading,
+  className,
+  children,
+}: {
+  loading: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      aria-busy={loading}
+      className={cn(
+        'flex min-h-0 flex-1 flex-col gap-2.5 transition-opacity duration-200 motion-reduce:transition-none',
+        loading && 'pointer-events-none opacity-55',
+        className,
+      )}
+    >
+      {children}
+    </div>
   );
 }
 
 export function ErrorState({ message }: { message: string }) {
   return (
-    <Empty className="border-none py-[70px]">
+    <Empty className="border-none py-17.5">
       <EmptyHeader>
         <EmptyTitle>Impossible de charger les données</EmptyTitle>
         <EmptyDescription>{message}</EmptyDescription>
@@ -120,14 +201,40 @@ export function ErrorState({ message }: { message: string }) {
   );
 }
 
-export function EmptyState({ title, message }: { title: string; message?: string }) {
+/** `action` renders a way *out* of the empty state — most often "Réinitialiser
+ * les filtres" when a list came back empty because the filters excluded
+ * everything. Telling someone to "ajustez vos filtres" while making them go
+ * find the reset button themselves is a dead end; the escape hatch belongs
+ * where the problem is reported. Optional, because plenty of empty states are
+ * genuinely just "nothing here yet" with nothing to undo. */
+export function EmptyState({
+  title,
+  message,
+  action,
+}: {
+  title: string;
+  message?: string;
+  action?: ReactNode;
+}) {
   return (
-    <Empty className="border-none py-[70px]">
+    <Empty className="border-none py-17.5">
       <EmptyHeader>
         <EmptyTitle>{title}</EmptyTitle>
         {message && <EmptyDescription>{message}</EmptyDescription>}
       </EmptyHeader>
+      {action && <EmptyContent>{action}</EmptyContent>}
     </Empty>
+  );
+}
+
+/** Same amber "Bientôt" pill used in ModuleSwitcher for not-yet-active
+ * modules — reused here for filter controls that are visually built but
+ * still waiting on backend support. */
+export function SoonBadge({ children = 'Bientôt' }: { children?: ReactNode }) {
+  return (
+    <span className="rounded-full bg-(--amber-bg) px-1.75 py-0.5 text-micro font-bold text-(--amber)">
+      {children}
+    </span>
   );
 }
 
@@ -135,8 +242,8 @@ export function TogglePill({ on, onLabel = 'Activé', offLabel = 'Désactivé' }
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12.5px] font-semibold',
-        on ? 'bg-[var(--success-bg)] text-[var(--success)]' : 'bg-[var(--neutral-bg)] text-muted-foreground'
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-body font-semibold',
+        on ? 'bg-(--success-bg) text-(--success)' : 'bg-(--neutral-bg) text-muted-foreground'
       )}
     >
       <span className="size-1.5 rounded-full bg-current" />
@@ -149,10 +256,10 @@ export function Chip({ children, warning }: { children: ReactNode; warning?: boo
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold [&_svg]:size-[13px]',
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold [&_svg]:size-3.25',
         warning
-          ? 'border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]'
-          : 'border-[var(--brand-border)] bg-[var(--brand-bg)] text-[var(--brand)]'
+          ? 'border-(--warning-border) bg-(--warning-bg) text-(--warning)'
+          : 'border-(--brand-border) bg-(--brand-bg) text-(--brand)'
       )}
     >
       {children}
@@ -170,7 +277,7 @@ export function Avatar({ name, small }: { name: string | null | undefined; small
   })();
   return (
     <ShadcnAvatar size={small ? 'sm' : 'default'} className="after:hidden">
-      <AvatarFallback className="bg-[var(--brand-bg)] font-semibold text-[var(--brand)]">{initials}</AvatarFallback>
+      <AvatarFallback className="bg-(--brand-bg) font-semibold text-(--brand)">{initials}</AvatarFallback>
     </ShadcnAvatar>
   );
 }

@@ -1,159 +1,859 @@
-import { useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, ArrowUpRight, Calendar, Check, Coins, Eye, Receipt, TrendingUp, Upload, Wallet, X } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, ArrowUpRight, ChevronDown, ChevronRight, ClipboardCheck, Coins, Download, Eye, FileDown, FileSignature, FileStack, FileText, Folder, Landmark, Loader2, Phone, Plus, Receipt, TrendingUp, Upload, Wallet } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, Chip, ErrorState, Field, FieldGrid, LoadingState, StatCard, TogglePill } from '../../components/ui';
-import InteractionForm from '../../components/InteractionForm';
+import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, StatCard } from '../../components/ui';
+import ArticleCompactPreview from '../../components/ArticleCompactPreview';
 import DossierStatusStepper from '../../components/DossierStatusStepper';
+import Modal from '../../components/Modal';
+import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
+import { DialogFooter } from '../../components/ui/dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
+import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { usePreview } from '../../lib/previewContext';
-import { useStore } from '../../lib/storeContext';
-import { useData } from '../../lib/useData';
-import { cn } from '../../lib/utils';
-import { formatCurrency, formatDate, formatPercent, isPastOrToday, todayISO } from '../../lib/format';
-import { communicationIcon, resolveArticleTitleNumber, articleTypology, isPreProspection, prospectionDisplayName } from '../../lib/domain';
-import { categoryTotals, financingCategoryLabel, lineRemaining, lineSettled, netAPayer } from '../../lib/financing';
-import type { Dossier } from '../../types';
+import { referentielItems, useBanques, useCategoriesEcheance, useTypesPieceJointe, useTypesReglement } from '../../lib/referentiels';
+import { formatCurrency, formatDate, formatPercent, toApiDateTime, todayISO } from '../../lib/format';
+import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
+import {
+  ECHEANCE_STATUT_LABELS,
+  echeanceCategorieTone,
+  echeanceStatut,
+  echeanceStatutTone,
+  etapeBadgeTone,
+  pieceJointeTypeTone,
+  prospectionDisplayName,
+} from '../../lib/domain';
+import {
+  addEcheance,
+  addReglement,
+  changerStatutDossier,
+  getArticle,
+  getClient,
+  getDossier,
+  getMontantsDossier,
+  getProspection,
+  listEcheanceReglements,
+  listEcheances,
+  downloadActeReservation,
+  downloadAutorisationVersement,
+  downloadFicheReservation,
+  downloadDossierPdfOnlyDocument,
+  downloadPieceJointe,
+  downloadRecuReglement,
+  getEtapesSuivantes,
+  listHistoriqueDossier,
+  listPiecesJointes,
+  uploadPieceJointe,
+  viewActeReservation,
+  viewAutorisationVersement,
+  viewFicheReservation,
+  viewDossierPdfOnlyDocument,
+  viewPieceJointe,
+  viewRecuReglement,
+  type DossierPdfOnlyDocKind,
+} from '../../lib/api';
+import { useApi } from '../../lib/useApi';
+import type { CreerEcheanceRequest, CreerReglementRequest, EcheanceDto, PieceJointeDto } from '../../types';
 
-// Pièces & documents du dossier — Omran's export has no dedicated document/
-// attachment table (no file storage, no PDF generation in this prototype —
-// out of scope per CLAUDE.md), so "fourni" here means the real underlying
-// field it stands for is populated, not that a file was uploaded. Each item
-// maps to an actual field already in the data model (several overlap with
-// key-date fields elsewhere — expected: a document checklist and a progress
-// timeline are two legitimate views over the same underlying dates).
-const DOCUMENTS: { label: string; present: (d: Dossier) => boolean; date: (d: Dossier) => string | null }[] = [
-  { label: 'CIN du client', present: (d) => Boolean(d.client?.idNumber), date: (d) => d.client?.idDate ?? null },
-  { label: 'Dossier de réservation', present: (d) => Boolean(d.reservationDate), date: (d) => d.reservationDate },
-  { label: "Proposition d'offre", present: (d) => Boolean(d.agreementDatePrevisionel), date: (d) => d.agreementDatePrevisionel },
-  { label: 'Compromis de vente', present: (d) => Boolean(d.agreementSavingDate), date: (d) => d.agreementSavingDate },
-  { label: 'Contrat imprimé', present: (d) => Boolean(d.contractPrintDate), date: (d) => d.contractPrintDate },
-  { label: "Attestation d'assurance", present: (d) => Boolean(d.insuranceDate), date: (d) => d.insuranceDate },
-  { label: 'Dossier bancaire', present: (d) => Boolean(d.bankRecordDate), date: (d) => d.bankRecordDate },
-  { label: 'Certificat de propriété', present: (d) => Boolean(d.ownershipCertificateDate), date: (d) => d.ownershipCertificateDate },
-  { label: 'Titre foncier définitif', present: (d) => Boolean(d.finalTitleDate || d.finalTitleNumber), date: (d) => d.finalTitleDate },
-];
+type DossierTab = 'apercu' | 'financier' | 'documents' | 'historique' | 'admin';
 
-// The 5 detail tabs below the always-visible header/stats/stepper. Keeping
-// this list as data (rather than JSX-only) lets the tab trigger badges and
-// the content panels share one source of truth for ordering.
-type DossierTab = 'apercu' | 'financier' | 'suivi' | 'documents' | 'admin';
+function AddEcheanceRow({
+  onAdd,
+  initialOpen,
+  initialMontant,
+  initialDate,
+}: {
+  onAdd: (body: CreerEcheanceRequest) => Promise<void>;
+  initialOpen?: boolean;
+  initialMontant?: number;
+  initialDate?: string;
+}) {
+  const [open, setOpen] = useState(!!initialOpen);
+  const [categorieId, setCategorieId] = useState<string | null>(null);
+  const [montant, setMontant] = useState(initialMontant ? String(initialMontant) : '');
+  const [dateEcheance, setDateEcheance] = useState(initialDate ?? '');
+  const [description, setDescription] = useState('');
+  const [busy, setBusy] = useState(false);
+  const categoriesEcheance = useCategoriesEcheance();
+  const categorieItems = referentielItems(categoriesEcheance.data);
 
-function TimelineList({ children }: { children: React.ReactNode }) {
-  return <div className="flex flex-col">{children}</div>;
+  function reset() {
+    setOpen(false);
+    setCategorieId(null);
+    setMontant(initialMontant ? String(initialMontant) : '');
+    setDateEcheance(initialDate ?? '');
+    setDescription('');
+  }
+
+  if (!open) {
+    return (
+      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+        <Plus data-icon="inline-start" /> Ajouter une échéance
+      </Button>
+    );
+  }
+
+  return (
+    <Modal title="Ajouter une échéance" onClose={reset} width={460}>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          try {
+            await onAdd({
+              categorieId: categorieId || undefined,
+              montant: Number(montant) || 0,
+              // CreerEcheanceRequest.dateEcheance is `format: date-time` — a
+              // bare "YYYY-MM-DD" from the date input 400s (same issue fixed
+              // for ChangerStatutRequest.date), so pad it to midnight ISO.
+              dateEcheance: toApiDateTime(dateEcheance) ?? null,
+              description: description || undefined,
+            });
+            reset();
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <FieldGroup>
+          <FormField>
+            <FieldLabel htmlFor="new-cat">Catégorie</FieldLabel>
+            <Select items={categorieItems} value={categorieId} onValueChange={(v) => setCategorieId((v as string) || null)}>
+              <SelectTrigger id="new-cat" className="w-full">
+                <SelectValue placeholder="Choisir…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {categorieItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </FormField>
+          <FormField>
+            <FieldLabel htmlFor="new-montant">Montant</FieldLabel>
+            <Input id="new-montant" type="number" value={montant} onChange={(e) => setMontant(e.target.value)} />
+          </FormField>
+          <FormField>
+            <FieldLabel htmlFor="new-date">Échéance</FieldLabel>
+            <Input id="new-date" type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
+          </FormField>
+          <FormField>
+            <FieldLabel htmlFor="new-desc">Description</FieldLabel>
+            <Input id="new-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </FormField>
+        </FieldGroup>
+        <DialogFooter className="mt-5">
+          <Button type="button" variant="outline" onClick={reset}>Annuler</Button>
+          <Button type="submit" disabled={busy || !montant}>Ajouter</Button>
+        </DialogFooter>
+      </form>
+    </Modal>
+  );
 }
 
-function TimelineItem({
-  done,
-  system,
-  last,
-  title,
-  meta,
-}: {
-  done: boolean;
-  system?: boolean;
-  last: boolean;
-  title: React.ReactNode;
-  meta: React.ReactNode;
-  children?: React.ReactNode;
-}) {
+function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJointeDto }) {
+  const [busyAction, setBusyAction] = useState<'view' | 'download' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const ext = piece.extension?.replace(/^\./, '') || '';
+  const filename = `${piece.description || 'document'}${ext ? `.${ext}` : ''}`;
+
+  async function handle(action: 'view' | 'download') {
+    setBusyAction(action);
+    setError(null);
+    try {
+      if (action === 'view') await viewPieceJointe(dossierId, piece.id, piece.extension);
+      else await downloadPieceJointe(dossierId, piece.id, filename, piece.extension);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Échec de l\'opération.');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   return (
-    <div className={cn('relative flex gap-3 pb-4.5 last:pb-0', system && 'opacity-70')}>
-      <div className="flex shrink-0 flex-col items-center">
-        <div className={cn('mt-1 shrink-0 rounded-full', system ? 'size-1.5' : 'size-2.5', done ? 'bg-primary' : 'bg-border')} />
-        {!last && <div className="mt-1 w-0.5 flex-1 bg-border" />}
-      </div>
-      <div className="min-w-0 flex-1 pb-0.5">
-        <div className={cn('font-semibold text-foreground', system ? 'text-xs font-medium text-muted-foreground' : done ? 'text-[13px]' : 'text-[13px] font-medium text-muted-foreground')}>
-          {title}
+    <TableRow className="hover:bg-muted/40">
+      <TableCell>
+        <span className="flex min-w-0 items-center gap-2">
+          <FileText className="size-4 shrink-0 text-muted-foreground" />
+          <span className="truncate font-medium text-foreground">{filename}</span>
+        </span>
+      </TableCell>
+      <TableCell className="text-muted-foreground">{piece.creePar || '—'}</TableCell>
+      <TableCell>
+        {piece.type ? <Badge tone={pieceJointeTypeTone(piece.type)}>{piece.type}</Badge> : <span className="text-muted-foreground">—</span>}
+      </TableCell>
+      <TableCell className="text-right text-muted-foreground">{formatDate(piece.dateCreation)}</TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1">
+          {error && <span className="text-micro text-destructive">{error}</span>}
+          <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
+            <Eye data-icon="inline-start" /> {busyAction === 'view' ? 'Ouverture…' : 'Voir'}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('download')}>
+            <Download data-icon="inline-start" /> {busyAction === 'download' ? 'Téléchargement…' : 'Télécharger'}
+          </Button>
         </div>
-        <div className="mt-0.5 text-xs text-muted-foreground">{meta}</div>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+type GeneratedDocKind = 'fiche-reservation' | 'acte-reservation' | DossierPdfOnlyDocKind;
+
+const GENERATED_DOC_HANDLERS: Record<GeneratedDocKind, {
+  title: string;
+  /** One line saying what the document actually contains — condensed from
+   * each endpoint's own `description` in docs/api-docsV4.json, not invented
+   * here. Without it the card is six near-identical titles ("Fiche
+   * bancaire" vs "Fiche trop perçu" tells a new user nothing), which is the
+   * whole reason this section reads as a wall of chips. */
+  description: string;
+  /** Per-document glyph — the documents differ in kind (contrat, checklist
+   * d'inspection, dossier de crédit, reçu), and a distinct icon per kind is
+   * what makes the grid scannable at a glance instead of six identical
+   * sheets of paper. */
+  Icon: LucideIcon;
+  /** Whether the backend also offers a `docx` variant — drives whether the
+   * card shows a split "PDF / Word" pair or a single "Télécharger" button.
+   * `fiche-bancaire` is explicitly PDF-only per the API description ("pas
+   * de variante Word pour ce document"); same for the other two new docs. */
+  hasDocx: boolean;
+  view: (dossierId: string, format: 'pdf' | 'docx') => Promise<void>;
+  download: (dossierId: string, filename: string, format: 'pdf' | 'docx') => Promise<void>;
+}> = {
+  'fiche-reservation': {
+    title: 'Fiche de réservation',
+    description: 'Fiche récapitulative de la réservation du bien.',
+    Icon: FileText,
+    hasDocx: true,
+    view: viewFicheReservation,
+    download: downloadFicheReservation,
+  },
+  'acte-reservation': {
+    title: 'Acte de réservation',
+    description: 'Contrat de réservation : clauses et engagements des parties.',
+    Icon: FileSignature,
+    hasDocx: true,
+    view: viewActeReservation,
+    download: downloadActeReservation,
+  },
+  'fiche-visite-technique': {
+    title: 'Fiche visite technique',
+    description: "Checklist d'inspection avant livraison, avec clause de contact SAV.",
+    Icon: ClipboardCheck,
+    hasDocx: false,
+    view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-visite-technique'),
+    download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-visite-technique', filename),
+  },
+  'fiche-dossier-vente': {
+    title: 'Fiche dossier de vente',
+    description: 'Récapitulatif interne complet : montants, financement, acquéreurs, historique.',
+    Icon: FileStack,
+    hasDocx: false,
+    view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-dossier-vente'),
+    download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-dossier-vente', filename),
+  },
+  'fiche-bancaire': {
+    title: 'Fiche bancaire',
+    description: 'Support de demande de crédit : état civil, bien, prix et reliquat.',
+    Icon: Landmark,
+    hasDocx: false,
+    view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-bancaire'),
+    download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-bancaire', filename),
+  },
+  'fiche-trop-percu': {
+    title: 'Fiche trop perçu',
+    description: 'Reçu du trop-perçu lorsque les versements dépassent le prix du dossier.',
+    Icon: Receipt,
+    hasDocx: false,
+    view: (dossierId) => viewDossierPdfOnlyDocument(dossierId, 'fiche-trop-percu'),
+    download: (dossierId, filename) => downloadDossierPdfOnlyDocument(dossierId, 'fiche-trop-percu', filename),
+  },
+};
+
+/** One tile per generated document. These 6 kinds aren't a saved list
+ * (nothing here persists, no count that grows), just a fixed set of
+ * on-demand generators — so they're a *menu of actions*, not data rows, and
+ * they get a card grid rather than a table.
+ *
+ * Replaces the previous single wrapped row of chips, which had three
+ * problems the tile fixes: (1) a chip is this app's visual language for a
+ * passive status label (`Badge`), so the tab's primary actions read as
+ * metadata; (2) title-only chips carry no information scent — hence the
+ * `description` line, condensed from each endpoint's own API description;
+ * (3) the actions were 2–3 adjacent 24px icon-only ghost buttons whose
+ * glyphs (eye / download / file-down) are near-indistinguishable at that
+ * size and are below a comfortable touch target — now a labelled "Aperçu"
+ * primary plus a labelled download, with the PDF-vs-Word choice moved into
+ * an explicit menu instead of two look-alike icons sitting side by side.
+ *
+ * Errors now render inline in the tile instead of going to the page toast:
+ * the old chip genuinely had no room for a message, this does, and an error
+ * pinned to the document that failed beats a floating toast that doesn't
+ * say which of the six it was. */
+function GeneratedDocumentCard({
+  dossierId,
+  code,
+  kind,
+}: {
+  dossierId: string;
+  code?: string | null;
+  kind: GeneratedDocKind;
+}) {
+  const [busy, setBusy] = useState<'view' | 'pdf' | 'docx' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const { title, description, Icon, hasDocx, view, download } = GENERATED_DOC_HANDLERS[kind];
+  const filenameBase = code ? `${code}-${kind}` : kind;
+
+  async function handle(action: 'view' | 'pdf' | 'docx') {
+    setBusy(action);
+    setError(null);
+    try {
+      if (action === 'view') await view(dossierId, 'pdf');
+      else await download(dossierId, `${filenameBase}.${action}`, action);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de l'opération.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const downloading = busy === 'pdf' || busy === 'docx';
+
+  return (
+    <div className="group flex flex-col rounded-xl border border-border bg-card transition-[border-color,box-shadow,transform] hover:border-(--brand-border) sm:hover:-translate-y-px sm:hover:shadow-sm">
+      <div className="flex flex-1 items-start gap-2.5 p-2.5">
+        <span
+          aria-hidden
+          className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-(--brand-bg) text-(--brand) transition-colors group-hover:bg-(--brand)/12"
+        >
+          <Icon className="size-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <span className="text-label leading-snug font-medium text-foreground">{title}</span>
+            <span className="mt-px shrink-0 rounded bg-muted px-1.5 py-0.5 text-micro font-medium tracking-wide text-muted-foreground uppercase">
+              {hasDocx ? 'PDF · Word' : 'PDF'}
+            </span>
+          </div>
+          <p className="mt-0.5 line-clamp-2 text-micro leading-[1.45] text-muted-foreground">{description}</p>
+        </div>
       </div>
+      <div className="flex items-center gap-1.5 border-t border-border px-2.5 py-1.5">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9 flex-1 sm:h-7 sm:flex-none"
+          disabled={!!busy}
+          onClick={() => handle('view')}
+        >
+          {busy === 'view' ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <Eye data-icon="inline-start" />}
+          {busy === 'view' ? 'Génération…' : 'Aperçu'}
+        </Button>
+        {hasDocx ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button type="button" variant="ghost" size="sm" className="h-9 flex-1 sm:h-7 sm:flex-none" disabled={!!busy} />}
+            >
+              {downloading ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <Download data-icon="inline-start" />}
+              Télécharger
+              <ChevronDown data-icon="inline-end" className="text-muted-foreground" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-40">
+              <DropdownMenuItem onClick={() => handle('pdf')}>
+                <Download /> PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handle('docx')}>
+                <FileDown /> Word
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-9 flex-1 sm:h-7 sm:flex-none"
+            disabled={!!busy}
+            onClick={() => handle('pdf')}
+          >
+            {downloading ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <Download data-icon="inline-start" />}
+            Télécharger
+          </Button>
+        )}
+      </div>
+      {error && (
+        <p role="alert" className="border-t border-destructive/25 bg-destructive/10 px-2.5 py-1 text-micro text-destructive">
+          {error}
+        </p>
+      )}
     </div>
+  );
+}
+
+const GENERATED_DOC_KINDS: GeneratedDocKind[] = [
+  'fiche-reservation',
+  'acte-reservation',
+  'fiche-visite-technique',
+  'fiche-dossier-vente',
+  'fiche-bancaire',
+  'fiche-trop-percu',
+];
+
+/** `POST /api/dossiers/{id}/pieces-jointes` — same collapsed-by-default
+ * inline-form convention as `AddReglementRow`/`AddEcheanceRow` below, but
+ * `open` is controlled by the parent: the trigger button lives in the
+ * card's top-right header `action` slot (not stacked below the list), and
+ * this component only renders the expanded form itself.
+ * `description` is optional (backend falls back to the original filename),
+ * matched here to a plain text `Input` rather than the file's own name so
+ * the user can give it a meaningful caption ("CIN client", "Contrat
+ * signé") instead of a raw upload filename. */
+function AddPieceJointeRow({
+  dossierId,
+  open,
+  onOpenChange,
+  onAdded,
+}: {
+  dossierId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onAdded: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [description, setDescription] = useState('');
+  const [typeId, setTypeId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const typesPieceJointe = useTypesPieceJointe();
+  const typesPieceJointeItems = referentielItems(typesPieceJointe.data);
+
+  function reset() {
+    onOpenChange(false);
+    setFile(null);
+    setDescription('');
+    setTypeId(null);
+    setError(null);
+  }
+
+  if (!open) return null;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2.5">
+      <label className="flex h-8 min-w-0 max-w-70 flex-1 cursor-pointer items-center gap-2 truncate rounded-md border border-dashed border-input px-2.5 text-body text-muted-foreground hover:border-ring">
+        <Upload className="size-3.5 shrink-0" />
+        <span className="truncate">{file ? file.name : 'Choisir un fichier…'}</span>
+        <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      </label>
+      <Input
+        placeholder="Description (optionnel)"
+        className="w-45"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+      />
+      <Select items={typesPieceJointeItems} value={typeId} onValueChange={(v) => setTypeId(v as string | null)}>
+        <SelectTrigger size="sm" className="w-45">
+          <SelectValue placeholder={typesPieceJointe.loading ? 'Chargement…' : 'Type (optionnel)'} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {typesPieceJointeItems.map((item) => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+      {error && <span className="text-micro text-destructive">{error}</span>}
+      <Button
+        type="button"
+        size="sm"
+        disabled={busy || !file}
+        onClick={async () => {
+          if (!file) return;
+          setBusy(true);
+          setError(null);
+          try {
+            await uploadPieceJointe(dossierId, file, description.trim() || undefined, typeId || undefined);
+            onAdded();
+            reset();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Échec de l'envoi.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? 'Envoi…' : 'Envoyer'}
+      </Button>
+      <Button type="button" size="sm" variant="ghost" onClick={reset} disabled={busy}>Annuler</Button>
+    </div>
+  );
+}
+
+/** `typeId`/`banqueId` (CreerReglementRequest) resolve against
+ * `GET /api/referentiels/types-reglement`/`/banques` — distinct tables from
+ * `modes-paiement` (StlSettlementType vs ComPaymentMethod), confirmed live
+ * (see instructions/from_front.md, backend repo). Banque is only shown once
+ * a type with `banqueObligatoire` is picked, per `TypeReglementDto`. Two
+ * distinct dates, per the same DTO: `dateEcheance` (quasi toujours
+ * renseignée, prefilled to today) and `dateReglement` (encaissement réel,
+ * rarement connu à la saisie — left blank, no default). `reference` is
+ * shown, and enforced client-side too, only once a type with
+ * `referenceObligatoire` is picked — 400s server-side otherwise.
+ * `payeurId` ("réglé par") has no UI yet: no tiers-search picker exists in
+ * this prototype to resolve it against, so it's simply omitted (optional,
+ * no server default) rather than guessed. */
+function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (echeanceId: string, body: CreerReglementRequest) => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [montant, setMontant] = useState('');
+  const [dateEcheance, setDateEcheance] = useState(todayISO());
+  const [dateReglement, setDateReglement] = useState('');
+  const [typeId, setTypeId] = useState<string | null>(null);
+  const [banqueId, setBanqueId] = useState<string | null>(null);
+  const [reference, setReference] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const typesReglement = useTypesReglement();
+  const banques = useBanques();
+  const typesReglementItems = typesReglement.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  const banquesItems = referentielItems(banques.data);
+  const selectedType = typesReglement.data.find((t) => t.id === typeId);
+  const banqueRequired = selectedType?.banqueObligatoire ?? false;
+  const referenceRequired = selectedType?.referenceObligatoire ?? false;
+
+  function reset() {
+    setOpen(false);
+    setMontant('');
+    setDateEcheance(todayISO());
+    setDateReglement('');
+    setTypeId(null);
+    setBanqueId(null);
+    setReference('');
+  }
+
+  if (!open) {
+    return (
+      <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(true)}>
+        + Règlement
+      </Button>
+    );
+  }
+
+  return (
+    <Modal title="Ajouter un règlement" onClose={reset} width={440}>
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setBusy(true);
+          try {
+            await onAdd(echeanceId, {
+              montant: Number(montant) || 0,
+              dateEcheance: toApiDateTime(dateEcheance) ?? null,
+              dateReglement: toApiDateTime(dateReglement) ?? null,
+              typeId: typeId || undefined,
+              banqueId: banqueRequired ? banqueId || undefined : undefined,
+              reference: reference || undefined,
+            });
+            reset();
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <FieldGroup>
+          <FormField>
+            <FieldLabel htmlFor="reg-montant">Montant</FieldLabel>
+            <Input id="reg-montant" type="number" value={montant} onChange={(e) => setMontant(e.target.value)} />
+          </FormField>
+          <FormField>
+            <FieldLabel htmlFor="reg-date-echeance">Date d'échéance</FieldLabel>
+            <Input id="reg-date-echeance" type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
+          </FormField>
+          <FormField>
+            <FieldLabel htmlFor="reg-date-reglement">
+              Date de règlement effectif
+              <span className="ml-1.5 text-micro font-normal text-muted-foreground">(si connue)</span>
+            </FieldLabel>
+            <Input id="reg-date-reglement" type="date" value={dateReglement} onChange={(e) => setDateReglement(e.target.value)} />
+          </FormField>
+          <FormField>
+            <FieldLabel htmlFor="reg-type">Type de règlement</FieldLabel>
+            <Select
+              items={typesReglementItems}
+              value={typeId}
+              onValueChange={(v) => {
+                setTypeId(v as string | null);
+                setBanqueId(null);
+              }}
+            >
+              <SelectTrigger id="reg-type" className="w-full">
+                <SelectValue placeholder={typesReglement.loading ? 'Chargement…' : 'Type de règlement'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {typesReglementItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </FormField>
+          {banqueRequired && (
+            <FormField>
+              <FieldLabel htmlFor="reg-banque">Banque</FieldLabel>
+              <Select items={banquesItems} value={banqueId} onValueChange={(v) => setBanqueId(v as string | null)}>
+                <SelectTrigger id="reg-banque" className="w-full">
+                  <SelectValue placeholder={banques.loading ? 'Chargement…' : 'Banque'} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {banquesItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </FormField>
+          )}
+          {referenceRequired && (
+            <FormField>
+              <FieldLabel htmlFor="reg-reference">Référence (n° de chèque…)</FieldLabel>
+              <Input id="reg-reference" value={reference} onChange={(e) => setReference(e.target.value)} required />
+            </FormField>
+          )}
+        </FieldGroup>
+        <DialogFooter className="mt-5">
+          <Button type="button" variant="outline" onClick={reset}>Annuler</Button>
+          <Button type="submit" disabled={busy || !montant || (banqueRequired && !banqueId) || (referenceRequired && !reference)}>Ok</Button>
+        </DialogFooter>
+      </form>
+    </Modal>
+  );
+}
+
+/** `GET /api/dossiers/{id}/reglements/{reglementId}/documents/recu` — one
+ * PDF-only "Reçu de règlement" per règlement row, icon-only like the
+ * generated-document chips (same reasoning: this isn't saved data, it's
+ * generated on demand from the règlement's own id). */
+function ReglementRecuButton({ dossierId, reglementId }: { dossierId: string; reglementId: string }) {
+  const [busy, setBusy] = useState<'view' | 'download' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handle(action: 'view' | 'download') {
+    setBusy(action);
+    setError(null);
+    try {
+      if (action === 'view') await viewRecuReglement(dossierId, reglementId);
+      else await downloadRecuReglement(dossierId, reglementId, `recu-${reglementId}.pdf`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de l'opération.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <span className="flex shrink-0 items-center gap-0.5">
+      {error && <span className="text-micro text-destructive">{error}</span>}
+      <Button type="button" variant="ghost" size="icon-xs" title="Voir le reçu" disabled={!!busy} onClick={() => handle('view')}>
+        <Eye />
+      </Button>
+      <Button type="button" variant="ghost" size="icon-xs" title="Télécharger le reçu" disabled={!!busy} onClick={() => handle('download')}>
+        <Download />
+      </Button>
+    </span>
+  );
+}
+
+/** `GET /api/dossiers/{id}/reglements/{reglementId}/documents/autorisation-versement`
+ * — one PDF-only "Autorisation d'Encaissement" per règlement, sitting beside
+ * `ReglementRecuButton` above and keyed off the same `reglementId`: the
+ * compte destinataire / mode de versement / tiers payeur the document is
+ * built from live on the règlement, not on the échéance. Same icon-only
+ * view/download pattern. */
+function AutorisationVersementButton({ dossierId, reglementId }: { dossierId: string; reglementId: string }) {
+  const [busy, setBusy] = useState<'view' | 'download' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handle(action: 'view' | 'download') {
+    setBusy(action);
+    setError(null);
+    try {
+      if (action === 'view') await viewAutorisationVersement(dossierId, reglementId);
+      else await downloadAutorisationVersement(dossierId, reglementId, `autorisation-versement-${reglementId}.pdf`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de l'opération.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <span className="flex shrink-0 items-center gap-0.5">
+      {error && <span className="text-micro text-destructive">{error}</span>}
+      <Button type="button" variant="ghost" size="icon-xs" title="Voir l'autorisation d'encaissement" disabled={!!busy} onClick={() => handle('view')}>
+        <Eye />
+      </Button>
+      <Button type="button" variant="ghost" size="icon-xs" title="Télécharger l'autorisation d'encaissement" disabled={!!busy} onClick={() => handle('download')}>
+        <Download />
+      </Button>
+    </span>
+  );
+}
+
+/** `GET .../echeancier/{echeanceId}/reglements` — détail ligne par ligne
+ * derrière le seul total `montantRegle`/`reste` de l'échéance, rendu dans la
+ * ligne dépliée d'`EcheanceRow`. `refreshKey` force un refetch quand un
+ * nouveau règlement vient d'être ajouté pendant que la ligne est dépliée. */
+function EcheanceReglementsHistory({ dossierId, echeanceId, refreshKey }: { dossierId: string; echeanceId: string; refreshKey: number }) {
+  const { data, loading, error } = useApi(() => listEcheanceReglements(dossierId, echeanceId), [dossierId, echeanceId, refreshKey]);
+
+  if (loading) return <span className="text-body text-muted-foreground">Chargement…</span>;
+  if (error) return <span className="text-body text-destructive">{error}</span>;
+  if (data && data.length === 0) return <span className="text-body text-muted-foreground">Aucun règlement enregistré.</span>;
+
+  return (
+    <div className="flex flex-col gap-1">
+      {data?.map((r) => (
+        <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md border border-(--success-border) bg-(--success-bg) px-2.5 py-1.5 text-body">
+          <span className="font-medium text-foreground">{r.typeLibelle || '—'}</span>
+          {r.banqueNom && <span className="text-muted-foreground">{r.banqueNom}</span>}
+          {r.reference && <span className="text-muted-foreground">Réf. {r.reference}</span>}
+          {r.payeurNom && <span className="text-muted-foreground">Payeur : {r.payeurNom}</span>}
+          <span className="text-muted-foreground">
+            Échéance {formatDate(r.dateEcheance)}
+            {r.dateReglement ? ` · Réglé le ${formatDate(r.dateReglement)}` : ''}
+          </span>
+          {r.notes && <span className="text-muted-foreground italic">{r.notes}</span>}
+          <span className="ml-auto font-semibold tabular-nums text-(--success)">{formatCurrency(r.montant)}</span>
+          <ReglementRecuButton dossierId={dossierId} reglementId={r.id} />
+          <AutorisationVersementButton dossierId={dossierId} reglementId={r.id} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** One row of the "Schéma de financement" table — a colored `Badge` per
+ * catégorie/statut (see `echeanceCategorieTone`/`echeanceStatut` in
+ * lib/domain.tsx) plus a click-to-expand détail row, same convention as
+ * `ProspectDetail.tsx`'s `ProspectionRow`/`DossierRow`. `reglementsVersion`
+ * forces the détail row's history to refetch right after a new règlement is
+ * added through `AddReglementRow` without re-rendering the whole table. */
+function EcheanceRow({
+  dossierId,
+  echeance,
+  onReglementAdded,
+}: {
+  dossierId: string;
+  echeance: EcheanceDto;
+  onReglementAdded: (echeanceId: string, body: CreerReglementRequest) => Promise<void>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [reglementsVersion, setReglementsVersion] = useState(0);
+  const statut = echeanceStatut(echeance);
+
+  return (
+    <>
+      <TableRow
+        tabIndex={0}
+        role="button"
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Replier' : 'Déplier'} l'échéance ${echeance.categorie || echeance.description || ''}`}
+        className="cursor-pointer"
+        onClick={() => setExpanded((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded((o) => !o); }
+        }}
+      >
+        <TableCell>
+          {expanded ? <ChevronDown className="size-4 text-(--brand)" /> : <ChevronRight className="size-4 text-muted-foreground" />}
+        </TableCell>
+        <TableCell>
+          <Badge tone={echeanceCategorieTone(echeance.categorie)}>{echeance.categorie || echeance.description || 'Échéance'}</Badge>
+        </TableCell>
+        <TableCell className="text-muted-foreground">{formatDate(echeance.dateEcheance)}</TableCell>
+        <TableCell className="text-right font-semibold tabular-nums text-foreground">{formatCurrency(echeance.montant)}</TableCell>
+        <TableCell>
+          <div className="flex flex-col gap-0.5">
+            <Badge tone={echeanceStatutTone(statut)}>{ECHEANCE_STATUT_LABELS[statut]}</Badge>
+            {statut !== 'aregler' && (
+              <span className="text-micro text-muted-foreground">
+                Réglé {formatCurrency(echeance.montantRegle)}{echeance.reste ? ` · Reste ${formatCurrency(echeance.reste)}` : ''}
+              </span>
+            )}
+          </div>
+        </TableCell>
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-end gap-1">
+            <AddReglementRow
+              echeanceId={echeance.id}
+              onAdd={async (echeanceId, body) => {
+                await onReglementAdded(echeanceId, body);
+                setReglementsVersion((v) => v + 1);
+                setExpanded(true);
+              }}
+            />
+          </div>
+        </TableCell>
+      </TableRow>
+      {expanded && (
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={6} className="bg-muted/30 py-3">
+            <EcheanceReglementsHistory dossierId={dossierId} echeanceId={echeance.id} refreshKey={reglementsVersion} />
+          </TableCell>
+        </TableRow>
+      )}
+    </>
   );
 }
 
 export default function DossierDetail() {
   const { id } = useParams();
-  const {
-    dossiers,
-    prospections,
-    communications,
-    commercials,
-    loading,
-    error,
-    getDossierStatus,
-    assignCommercial,
-    setDossierStatus,
-    updateDossierField,
-    addInteraction,
-  } = useStore();
-  const { data } = useData();
+  const { data: d, loading, error, refetch } = useApi(() => getDossier(id!), [id]);
+  // Cascade reference up to the originating Prospection — same
+  // reference-the-previous-pipeline-stage convention as Prospection's own
+  // "Prospect" tab. `prospectionId` isn't in the API yet (see the field's
+  // comment in types.ts); this stays dormant (tab hidden) until it is.
+  const linkedProspection = useApi(() => (d?.prospectionId ? getProspection(d.prospectionId) : Promise.resolve(null)), [d?.prospectionId]);
+  // Full contact details for the "Client" card — DossierDetailDto only
+  // carries clientId/clientNom, same reason the Prospection/Prospect
+  // cascade tabs needed their own fetch.
+  const linkedClient = useApi(() => (d?.clientId ? getClient(d.clientId) : Promise.resolve(null)), [d?.clientId]);
+  // Full article detail (catégorie/type/tranche/superficie/titre foncier/…)
+  // for "Article(s) réservé(s)" — DossierDetailDto.articles is only the
+  // summary shape (id/code/description/area/price), same gap as
+  // NewDossier.tsx's own selectedArticleDetails fetch.
+  const articleIds = (d?.articles ?? []).map((a) => a.id).join(',');
+  const articleDetails = useApi(
+    () => (d?.articles && d.articles.length > 0 ? Promise.all(d.articles.map((a) => getArticle(a.id))) : Promise.resolve([])),
+    [articleIds],
+  );
+  const nextSteps = useApi(() => getEtapesSuivantes(id!), [id]);
+  const montants = useApi(() => getMontantsDossier(id!), [id]);
+  const [echeancesPage, setEcheancesPage] = useState(0);
+  const echeances = useApi(() => listEcheances(id!, { page: echeancesPage, size: 20 }), [id, echeancesPage]);
+  const pieces = useApi(() => listPiecesJointes(id!), [id]);
+  const [addPieceOpen, setAddPieceOpen] = useState(false);
+  const [historiquePage, setHistoriquePage] = useState(0);
+  const historique = useApi(() => listHistoriqueDossier(id!, { page: historiquePage, size: 20 }), [id, historiquePage]);
   const navigate = useNavigate();
   const [toast, setToast] = useState<string | null>(null);
-  const [showInteractionForm, setShowInteractionForm] = useState(false);
-  const { previewProspection, previewProspect } = usePreview();
-  const [tab, setTab] = useState<DossierTab>('apercu');
-  // Uploaded files, session-only (never persisted, matches the rest of this
-  // prototype's mock-state approach — see lib/store.tsx). Keyed by document
-  // label since DOCUMENTS has no id and is per-page, not per-record.
-  const [uploadedDocs, setUploadedDocs] = useState<Record<string, { fileName: string; url: string; uploadedAt: string }>>({});
-  const uploadTargetRef = useRef<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  function triggerUpload(label: string) {
-    uploadTargetRef.current = label;
-    fileInputRef.current?.click();
-  }
-
-  function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    const label = uploadTargetRef.current;
-    e.target.value = ''; // allow re-selecting the same file later
-    if (!file || !label) return;
-    setUploadedDocs((prev) => {
-      const existing = prev[label];
-      if (existing) URL.revokeObjectURL(existing.url);
-      return { ...prev, [label]: { fileName: file.name, url: URL.createObjectURL(file), uploadedAt: todayISO() } };
-    });
-  }
-
-  function removeUpload(label: string) {
-    setUploadedDocs((prev) => {
-      const existing = prev[label];
-      if (!existing) return prev;
-      URL.revokeObjectURL(existing.url);
-      const next = { ...prev };
-      delete next[label];
-      return next;
-    });
-  }
-
-  const dossier = useMemo(() => dossiers.find((d) => d.id === id), [dossiers, id]);
-
-  const dossierComms = useMemo(
-    () =>
-      communications
-        .filter((c) => c.folderId === id)
-        .sort((a, b) => ((a.date ?? '') < (b.date ?? '') ? 1 : -1)),
-    [communications, id],
-  );
-
-  const upcomingRdv = useMemo(() => {
-    const today = todayISO();
-    const list = dossierComms.filter((c) => c.appointmentDate && c.appointmentDate >= today);
-    if (list.length === 0) return null;
-    return [...list].sort((a, b) => (a.appointmentDate! < b.appointmentDate! ? -1 : 1))[0];
-  }, [dossierComms]);
-
-  const prospection = useMemo(
-    () => (dossier?.prospectionId ? prospections.find((p) => p.id === dossier.prospectionId) : undefined),
-    [prospections, dossier],
-  );
+  const [searchParams] = useSearchParams();
+  // Landing here right after "Créer le dossier" (see NewDossier.tsx) — jump
+  // straight to Financier with the "Ajouter une échéance" row pre-opened and
+  // pre-filled, since the schéma de financement always starts empty (the
+  // API's CreerDossierRequest has no way to seed it at creation time).
+  const fromCreation = searchParams.get('nouveau') === '1';
+  const [tab, setTab] = useState<DossierTab>(fromCreation ? 'financier' : 'apercu');
 
   function showToast(msg: string) {
     setToast(msg);
@@ -162,232 +862,141 @@ export default function DossierDetail() {
 
   if (loading) return <PageShell title="Dossier de vente"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Dossier de vente"><ErrorState message={error} /></PageShell>;
-  if (!data) return null;
-  if (!dossier) {
+  if (!d) {
     return (
       <PageShell title="Dossier introuvable" crumbs={[{ label: 'Dossiers', to: '/dossiers' }]}>
-        <p>Ce dossier n'existe pas dans l'échantillon.</p>
+        <p>Ce dossier n'existe pas.</p>
       </PageShell>
     );
   }
 
-  const d = dossier;
-  const status = getDossierStatus(d.id);
-  const hasLegalTitle = Boolean(d.finalTitleDate || d.finalTitleNumber);
-  const isCancelled = Boolean(d.cancelDate || d.cancelDescription);
-  const currentUser = d.commercial || 'Vous (démo)';
-  const commercialItems = [{ label: '— Non assigné —', value: null as string | null }, ...commercials.map((c) => ({ label: c, value: c }))];
-
-  const revivals = [
-    { label: 'Première relance titre foncier', value: d.revival1, validity: d.revival1ValidityDate },
-    { label: 'Deuxième relance titre foncier', value: d.revival2, validity: d.revival2ValidityDate },
-  ];
-  const pendingRevivals = revivals.filter((r) => r.validity && !r.value);
-  const overdueRevivals = pendingRevivals.filter((r) => isPastOrToday(r.validity!));
-  const nextRevival = [...pendingRevivals].sort((a, b) => (a.validity! < b.validity! ? -1 : 1))[0];
-
-  // Reste à payer surfaced up front: net à payer from the échéancier when one
-  // exists, else the flat totalToPay field — same figure the "Montants" tab
-  // details further down.
-  const reste = d.echeancier && d.echeancier.length > 0 ? netAPayer(d.echeancier) : d.totalToPay;
-
-  const documentsPresentCount = DOCUMENTS.filter((doc) => doc.present(d) || uploadedDocs[doc.label]).length;
+  const title = d.clientNom || d.code || 'Dossier';
 
   return (
     <PageShell
-      title={d.client?.name ?? d.code}
-      crumbs={[{ label: 'Dossiers', to: '/dossiers' }, { label: d.code }]}
+      title={title}
+      crumbs={[{ label: 'Dossiers', to: '/dossiers' }, { label: d.code || '' }]}
+      icon={<Folder />}
+      accent="var(--sec-dossier)"
+      accentBg="var(--sec-dossier-bg)"
     >
-      <Button variant="outline" size="sm" className="mb-4" onClick={() => navigate('/dossiers')}>
+      <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate('/dossiers')}>
         <ArrowLeft data-icon="inline-start" /> Retour à la liste
       </Button>
 
-      {/* Always-visible summary — identity, the 4 numbers that matter most,
-          and the status pipeline. Everything else lives in tabs below so a
-          given screen only ever shows one topic at a time. */}
-      <div className="mb-5.5 flex flex-wrap items-start justify-between gap-4">
+      {fromCreation && (
+        <div className="mb-3 rounded-md border border-(--info-border) bg-(--info-bg) px-3.5 py-2.5 text-label text-(--info)">
+          Dossier créé. Le schéma de financement est vide — l'API ne permet pas de le pré-remplir à la création, complétez-le
+          ci-dessous avec le formulaire « Ajouter une échéance » (déjà pré-rempli avec le total à payer).
+        </div>
+      )}
+
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-[21px] font-semibold tracking-tight text-foreground">{d.client?.name ?? d.code}</h1>
-            <Badge tone={status.tone}>{status.label}</Badge>
-            {d.isOldCustomer && <Badge tone="info">Ancien client</Badge>}
-            {upcomingRdv && (
-              <Chip>
-                <Calendar />
-                Prochain RDV : {formatDate(upcomingRdv.appointmentDate)}{upcomingRdv.appointmentLabel ? ` — ${upcomingRdv.appointmentLabel}` : ''}
-              </Chip>
-            )}
-            {overdueRevivals.length > 0 && (
-              <Chip warning>
-                <AlertTriangle />
-                {overdueRevivals.length > 1 ? 'Relances titre foncier en retard' : `${overdueRevivals[0].label} en retard`}
-              </Chip>
-            )}
+            <h2 className="text-hero font-semibold tracking-tight text-foreground">{title}</h2>
+            <Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge>
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
-            Dossier {d.code} · Créé le {formatDate(d.date)} · Commercial :
-            <Select
-              items={commercialItems}
-              value={d.commercial || null}
-              onValueChange={(v) => assignCommercial('dossier', d.id, (v as string | null) ?? '')}
-            >
-              <SelectTrigger size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {commercialItems.map((item) => (
-                    <SelectItem key={item.value ?? '__none'} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-label text-muted-foreground">
+            Dossier {d.code} · Créé le {formatDate(d.dateDocument)} · Commercial : {d.commercialNom || '—'}
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-2.5">
-          <Button variant="outline" size="sm" onClick={() => setShowInteractionForm(true)}>
-            Ajouter un appel / une visite
-          </Button>
-        </div>
+        {/* Static — pas encore relié à un vrai standard VOIP, juste
+            l'affordance visuelle (voir instructions/from_front.md pour la
+            demande d'intégration si/quand elle est priorisée). */}
+        <Button variant="outline" size="sm" className="shrink-0" onClick={() => showToast('Intégration VOIP à venir.')}>
+          <Phone data-icon="inline-start" /> Appeler
+        </Button>
       </div>
 
-      <div className="mb-4 grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-3.5">
-        <StatCard
-          icon={<Coins />}
-          label="Prix retenu"
-          value={formatCurrency(d.price)}
-          sub={d.discount ? `Remise ${formatPercent(d.discount, 2)}` : undefined}
-        />
-        <StatCard
-          icon={<Wallet />}
-          label="Reste à payer"
-          value={formatCurrency(reste)}
-          sub={d.echeancier && d.echeancier.length > 0 ? 'Net à payer (échéancier)' : 'Total à payer'}
-        />
-        <StatCard
-          icon={<TrendingUp />}
-          label="Probabilité de finalisation"
-          value={formatPercent(d.probabilityOfFinalisation)}
-          sub={status.label}
-        />
-        <StatCard
-          icon={<AlertTriangle />}
-          label="Relance titre foncier"
-          value={overdueRevivals.length > 0 ? `${overdueRevivals.length} en retard` : nextRevival ? formatDate(nextRevival.validity) : 'Aucune'}
-          sub={overdueRevivals.length > 0 ? overdueRevivals[0].label : nextRevival ? nextRevival.label : 'Non planifiée ou déjà effectuée'}
-        />
+      <div className="mb-3 grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-3.5">
+        <StatCard icon={<Coins />} label="Prix retenu" value={formatCurrency(d.prix)} sub={d.remise ? `Remise ${formatPercent(d.remise, 2)}` : undefined} />
+        <StatCard icon={<Wallet />} label="Total à payer" value={formatCurrency(d.totalAPayer)} />
+        <StatCard icon={<TrendingUp />} label="Probabilité de finalisation" value={formatPercent(d.probabiliteFinalisation)} sub={canonicalStatusLabel(d.statut)} />
       </div>
 
-      <div className="mb-4">
+      <div className="mb-3">
         <DossierStatusStepper
-          currentStatus={status.label}
-          onConfirm={(newStatus, note) => {
-            setDossierStatus(d.id, newStatus, note || undefined);
-            showToast(`Statut changé : ${newStatus}.`);
+          currentStatus={d.statut || 'Réservation'}
+          nextSteps={nextSteps.data ?? []}
+          onConfirm={async (newStatus, note, date) => {
+            try {
+              await changerStatutDossier(d.id, { statut: newStatus, note: note || undefined, date: toApiDateTime(date) });
+              await refetch();
+              await nextSteps.refetch();
+              await historique.refetch();
+              showToast(`Statut changé : ${canonicalStatusLabel(newStatus)}.`);
+            } catch (err) {
+              showToast(err instanceof Error ? err.message : "Échec de l'opération.");
+            }
           }}
         />
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as DossierTab)} className="gap-4">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as DossierTab)} className="gap-3">
         <TabsList>
           <TabsTrigger value="apercu">Aperçu</TabsTrigger>
+          {d.prospectionId && <TabsTrigger value="prospection">Prospection</TabsTrigger>}
           <TabsTrigger value="financier">Financier</TabsTrigger>
-          <TabsTrigger value="suivi">
-            Suivi
-            {dossierComms.length > 0 && <Badge tone="neutral" className="ml-1.5">{dossierComms.length}</Badge>}
-            {overdueRevivals.length > 0 && <span aria-hidden className="ml-1.5 size-1.5 shrink-0 rounded-full bg-[var(--warning)]" />}
-          </TabsTrigger>
           <TabsTrigger value="documents">
-            Documents <Badge tone="neutral" className="ml-1.5">{documentsPresentCount}/{DOCUMENTS.length}</Badge>
+            Documents {(pieces.data?.length ?? 0) > 0 && <Badge tone="neutral" className="ml-1.5">{pieces.data!.length}</Badge>}
           </TabsTrigger>
+          <TabsTrigger value="historique">Historique</TabsTrigger>
           <TabsTrigger value="admin">Administratif</TabsTrigger>
         </TabsList>
 
         <TabsContent value="apercu">
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              <Card title="Client">
-                {d.client ? (
-                  <FieldGrid>
-                    <Field label="Titre" value={d.client.title} />
-                    <Field label="Sexe" value={d.client.gender} />
-                    <Field label="Nom" value={d.client.name} />
-                    <Field label="Téléphone" value={d.client.phone} />
-                    <Field label="Mobile" value={d.client.mobile} />
-                    <Field label="Email" value={d.client.email} />
-                    <Field label="Ville" value={d.client.city} />
-                    <Field label="Adresse" value={d.client.address} />
-                    <Field label="Nationalité" value={d.client.nationality} />
-                    <Field label="Pièce d'identité" value={d.client.idNumber} />
-                    <Field label="Profession" value={d.client.profession} />
-                  </FieldGrid>
-                ) : (
-                  <p className="text-[13px] text-muted-foreground">Aucun client résolu pour ce dossier.</p>
-                )}
+              <Card
+                title="Client"
+                accent="var(--sec-dossier)"
+                action={
+                  d.clientId && (
+                    <Link to={`/clients/${d.clientId}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                      Fiche complète <ArrowUpRight className="size-3" />
+                    </Link>
+                  )
+                }
+              >
+                {linkedClient.loading && <LoadingState />}
+                {linkedClient.error && <ErrorState message={linkedClient.error} />}
+                <FieldGrid>
+                  <Field label="Nom" value={d.clientNom} />
+                  <Field label="Commercial" value={d.commercialNom} />
+                  <Field label="Avocat" value={d.avocatNom} />
+                  {linkedClient.data && (
+                    <>
+                      <Field label="Téléphone" value={linkedClient.data.telephone || linkedClient.data.mobile} />
+                      <Field label="Email" value={linkedClient.data.email} />
+                      <Field label="Ville" value={linkedClient.data.ville} />
+                      <Field label="Adresse" value={linkedClient.data.adresse} />
+                      <Field label="Type" value={linkedClient.data.type} />
+                    </>
+                  )}
+                </FieldGrid>
               </Card>
 
-              <Card title="Article réservé">
-                {d.article ? (
-                  <FieldGrid>
-                    <Field label="Code" value={d.article.code} />
-                    <Field label="Description" value={d.article.description} />
-                    <Field label="Type" value={d.article.type} />
-                    <Field label="Catégorie" value={d.article.category} />
-                    <Field label="Typologie" value={articleTypology(d.article)} />
-                    <Field label="Titre foncier" value={resolveArticleTitleNumber(d.article, data.articles)} />
-                    <Field label="Superficie" value={`${d.area || d.article.area} m²`} />
-                    <Field label="Superficie globale" value={d.globalArea ? `${d.globalArea} m²` : undefined} />
-                  </FieldGrid>
+              <Card title={`Article(s) réservé(s) (${d.articles?.length ?? 0})`}>
+                {!d.articles || d.articles.length === 0 ? (
+                  <p className="text-label text-muted-foreground">Aucun article lié.</p>
+                ) : articleDetails.loading ? (
+                  <LoadingState />
+                ) : articleDetails.error ? (
+                  <ErrorState message={articleDetails.error} />
                 ) : (
-                  <p className="text-[13px] text-muted-foreground">Aucun article lié.</p>
+                  <div className="flex flex-col gap-2">
+                    {(articleDetails.data ?? []).map((a) => (
+                      <ArticleCompactPreview key={a.id} article={a} defaultExpanded />
+                    ))}
+                  </div>
                 )}
               </Card>
             </div>
 
-            {prospection && (
-              <Card title="Origine du dossier">
-                <p className="mb-3 text-xs text-muted-foreground">
-                  D'où vient ce dossier — cliquez une source pour voir son détail sans quitter cette page.
-                </p>
-                <div className="flex flex-col gap-2">
-                  {prospection.prospect && (
-                    <button
-                      type="button"
-                      onClick={() => previewProspect(prospection.prospect!, prospection.id)}
-                      className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-left text-[13px] hover:bg-muted"
-                    >
-                      <span>
-                        <span className="font-semibold text-foreground">Prospect</span>
-                        <span className="ml-1.5 text-muted-foreground">{prospection.prospect.name}</span>
-                      </span>
-                      <ArrowUpRight className="size-3 shrink-0 text-muted-foreground" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => previewProspection(prospection.id)}
-                    className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-left text-[13px] hover:bg-muted"
-                  >
-                    <span>
-                      <span className="font-semibold text-foreground">
-                        {isPreProspection(prospection) ? 'Pré-prospection' : 'Prospection'}
-                      </span>
-                      <span className="ml-1.5 text-muted-foreground">
-                        {prospection.code || prospectionDisplayName(prospection)}
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-1.5">
-                      {isPreProspection(prospection) && <Badge tone="amber">Non qualifiée</Badge>}
-                      <ArrowUpRight className="size-3 text-muted-foreground" />
-                    </span>
-                  </button>
-                </div>
-              </Card>
-            )}
-
             {d.notes && (
               <Card title="Notes">
-                <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground">
+                <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-label leading-relaxed text-foreground">
                   {d.notes}
                 </div>
               </Card>
@@ -395,25 +1004,57 @@ export default function DossierDetail() {
           </div>
         </TabsContent>
 
+        {d.prospectionId && (
+          <TabsContent value="prospection">
+            {/* Cascade reference to the originating Prospection — the
+                pipeline-chain counterpart to Prospection's own "Prospect"
+                tab (ProspectionDetail.tsx). */}
+            <Card
+              title="Prospection"
+              accent="var(--sec-prospection)"
+              action={
+                <Link to={`/prospections/${d.prospectionId}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                  Fiche complète <ArrowUpRight className="size-3" />
+                </Link>
+              }
+            >
+              {linkedProspection.loading && <LoadingState />}
+              {linkedProspection.error && <ErrorState message={linkedProspection.error} />}
+              {linkedProspection.data && (
+                <FieldGrid>
+                  <Field label="Code" value={d.prospectionCode || linkedProspection.data.code} />
+                  <Field
+                    label="Étape"
+                    value={
+                      <Badge tone={etapeBadgeTone(linkedProspection.data.etape, linkedProspection.data.fermee)}>
+                        {linkedProspection.data.fermee ? 'Clôturée' : linkedProspection.data.etape || '—'}
+                      </Badge>
+                    }
+                  />
+                  <Field label="Prospect" value={prospectionDisplayName(linkedProspection.data)} />
+                  <Field label="Origine" value={linkedProspection.data.origine} />
+                  <Field label="Commercial" value={linkedProspection.data.commercialNom} />
+                  <Field label="Créée le" value={formatDate(linkedProspection.data.dateDocument)} />
+                </FieldGrid>
+              )}
+            </Card>
+          </TabsContent>
+        )}
+
         <TabsContent value="financier">
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-3">
             <Card title="Montants">
               <FieldGrid>
-                <Field label="Prix contractuel" value={d.contractualPrice != null ? formatCurrency(d.contractualPrice) : undefined} />
-                <div className="min-w-0">
-                  <div className="mb-0.5 text-[11.5px] font-medium text-muted-foreground">Mode de paiement</div>
-                  {/* No confirmed référentiel for this select's values yet — free
-                      text until a real dropdown capture is available. See
-                      instructions/FIX-dossier-vente-corrections.md §1. */}
-                  <Input
-                    className="h-7 text-[13.5px]"
-                    value={d.paymentMethod}
-                    onChange={(e) => updateDossierField(d.id, 'paymentMethod', e.target.value)}
-                  />
-                </div>
+                <Field label="Prix avant remise" value={formatCurrency(d.prixAvantRemise)} />
+                <Field label="Remise" value={d.remise ? `${formatPercent(d.remise, 2)} (${formatCurrency(d.remiseMontant)})` : undefined} />
+                <Field label="Prix après remise" value={formatCurrency(d.prixApresRemise)} />
+                <Field label="Prix retenu" value={formatCurrency(d.prix)} />
+                <Field label="Avance" value={formatCurrency(d.montantAvance)} />
+                <Field label="Total à payer" value={formatCurrency(d.totalAPayer)} />
+                <Field label="Mode de paiement" value={d.modePaie} />
               </FieldGrid>
 
-              {d.echeancier && d.echeancier.length > 0 ? (
+              {montants.data && montants.data.parCategorie && montants.data.parCategorie.length > 0 && (
                 <div className="mt-4 overflow-x-auto border-t border-border pt-4">
                   <Table>
                     <TableHeader>
@@ -425,306 +1066,219 @@ export default function DossierDetail() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {categoryTotals(d.echeancier).map((row) => (
-                        <TableRow key={row.code} className="hover:bg-transparent">
-                          <TableCell className="font-medium text-foreground">{row.label}</TableCell>
+                      {montants.data.parCategorie.map((row) => (
+                        <TableRow key={row.categorie} className="hover:bg-transparent">
+                          <TableCell className="font-medium text-foreground">{row.categorie}</TableCell>
                           <TableCell className="text-right tabular-nums">{formatCurrency(row.montant)}</TableCell>
                           <TableCell className="text-right tabular-nums text-muted-foreground">{formatCurrency(row.regle)}</TableCell>
-                          <TableCell className={cn('text-right tabular-nums font-medium', row.reste > 0 ? 'text-foreground' : 'text-[var(--success)]')}>
-                            {formatCurrency(row.reste)}
-                          </TableCell>
+                          <TableCell className="text-right tabular-nums font-medium text-foreground">{formatCurrency(row.reste)}</TableCell>
                         </TableRow>
                       ))}
                       <TableRow className="hover:bg-transparent">
-                        <TableCell className="font-semibold text-foreground">Net à payer</TableCell>
+                        <TableCell className="font-semibold text-foreground">Total général</TableCell>
                         <TableCell />
                         <TableCell />
-                        <TableCell className="text-right text-[14px] font-semibold tabular-nums text-foreground">
-                          {formatCurrency(netAPayer(d.echeancier))}
+                        <TableCell className="text-right text-title font-semibold tabular-nums text-foreground">
+                          {formatCurrency(montants.data.totalGeneral)}
                         </TableCell>
                       </TableRow>
+                      {montants.data.totalSoumisReglePrixTTC != null && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell className="text-muted-foreground">Total soumis à règlement (TTC)</TableCell>
+                          <TableCell />
+                          <TableCell />
+                          <TableCell className="text-right tabular-nums text-muted-foreground">
+                            {formatCurrency(montants.data.totalSoumisReglePrixTTC)}
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </div>
-              ) : (
-                <p className="mt-4 border-t border-border pt-4 text-[13px] text-muted-foreground">Aucune ligne d'échéancier pour ce dossier.</p>
               )}
-
-              <div className="mt-4 border-t border-border pt-4">
-                <div className="mb-1.5 flex items-center justify-between gap-3">
-                  <div className="text-[11.5px] font-medium text-muted-foreground">Probabilité de finalisation</div>
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-[13px] font-semibold text-foreground">{formatPercent(d.probabilityOfFinalisation)}</span>
-                    <Button type="button" size="sm" variant="outline" disabled title="Facturation hors scope Vente/Patrimoine pour ce prototype">
-                      <Receipt data-icon="inline-start" /> Facturer la vente
-                    </Button>
-                  </div>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-[var(--neutral-bg)]">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${Math.max(0, Math.min(1, d.probabilityOfFinalisation)) * 100}%`,
-                      background: d.probabilityOfFinalisation < 0.34 ? 'var(--warning)' : d.probabilityOfFinalisation < 0.67 ? 'var(--amber)' : 'var(--brand)',
-                    }}
-                  />
-                </div>
-              </div>
             </Card>
 
-            <Card title="Détail du prix">
-              <FieldGrid>
-                <Field label="Coût unitaire (au m²)" value={d.unitCost ? formatCurrency(d.unitCost) : undefined} />
-                <Field label="Prix bien principal" value={d.itemPrice ? formatCurrency(d.itemPrice) : undefined} />
-                <Field label="Prix biens annexes" value={d.underItemsPrice ? formatCurrency(d.underItemsPrice) : undefined} />
-                <Field label="Prix avant remise" value={formatCurrency(d.priceBeforeDiscount)} />
-                <Field label="Remise" value={`${formatPercent(d.discount, 2)} (${formatCurrency(d.discountAmount)})`} />
-                <Field label="Prix après remise" value={formatCurrency(d.priceAfterDiscount)} />
-                <Field label="Prix retenu" value={formatCurrency(d.price)} />
-                <Field label="TVA" value={formatPercent(d.vatRatio)} />
-                <Field label="Prix HT" value={formatCurrency(d.priceHT)} />
-                <Field label="Total à payer" value={formatCurrency(d.totalToPay)} />
-                <Field label="Taux de commission" value={d.commissionRate ? formatPercent(d.commissionRate) : undefined} />
-              </FieldGrid>
-            </Card>
-
-            {d.echeancier && d.echeancier.length > 0 && (
-              <Card title="Échéancier">
-                <p className="mb-3 text-xs text-muted-foreground">
-                  Lignes de financement avec suivi de règlement — alimente le panneau Montants ci-dessus.
-                </p>
-                <div className="flex flex-col gap-2">
-                  {d.echeancier.map((l) => (
-                    <div key={l.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-[13px]">
-                      <span className="font-medium text-foreground">{financingCategoryLabel(l.categorie)}</span>
-                      <span className="text-muted-foreground">{formatDate(l.date)}</span>
-                      {l.invoiceRef && <span className="text-muted-foreground">Facture {l.invoiceRef}</span>}
-                      <span className="text-muted-foreground">Réglé {formatCurrency(lineSettled(l))} · Reste {formatCurrency(lineRemaining(l))}</span>
-                      <span className="font-medium tabular-nums text-foreground">{formatCurrency(l.montant)}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
-
-            {d.additionalLots && d.additionalLots.length > 0 && (
-              <Card title="Lots additionnels">
-                <div className="flex flex-col gap-2">
-                  {d.additionalLots.map((l) => (
-                    <div key={l.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-[13px]">
-                      <span className="font-medium text-foreground">{l.code}</span>
-                      <span className="text-muted-foreground">{l.description}</span>
-                      <span className="font-medium tabular-nums text-foreground">{formatCurrency(l.salePrice)}</span>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="suivi">
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.2fr]">
-            <div className="flex flex-col gap-4">
-              <Card title="Relances titre foncier">
-                <div className="flex flex-col gap-3">
-                  {revivals.map((r) => {
-                    const overdue = r.validity && isPastOrToday(r.validity) && !r.value;
-                    const done = Boolean(r.value);
-                    return (
-                      <div
-                        key={r.label}
-                        className={cn(
-                          'flex items-center gap-3 rounded-lg border px-3 py-2.5',
-                          overdue ? 'border-[var(--warning-border)] bg-[var(--warning-bg)]' : 'border-border bg-background'
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            'flex size-[22px] shrink-0 items-center justify-center rounded-full border-2 text-[10.5px] font-bold',
-                            done
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : overdue
-                                ? 'border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]'
-                                : 'border-border bg-[var(--neutral-bg)] text-muted-foreground'
-                          )}
-                        >
-                          {done ? <Check className="size-3" /> : overdue ? <AlertTriangle className="size-[11px]" /> : ''}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[13px] font-semibold text-foreground">{r.label}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {done ? `Effectuée le ${formatDate(r.value)}` : r.validity ? `Échéance ${formatDate(r.validity)}${overdue ? ' — en retard' : ''}` : 'Non planifiée'}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </Card>
-
-              {hasLegalTitle && (
-                <Card title="Légal — titre foncier définitif">
-                  <FieldGrid>
-                    <Field label="Numéro de titre foncier" value={d.finalTitleNumber} />
-                    <Field label="Date de formalisation" value={formatDate(d.finalTitleDate)} />
-                  </FieldGrid>
-                </Card>
+            {/* Called "Échéancier" in api-docsV0/V1, but the real Omran screen
+                (omaran_visual) labels this "Schéma de financement" — same
+                data (EcheanceDto), just the on-screen name. The screen also
+                shows Décompte/Facture columns and sibling tabs (Sous
+                articles, Acquéreurs, Modifications, Cadeaux, Dépenses,
+                Factures proforma, Factures, Avoirs, Décomptes, Réclamations)
+                that have no corresponding endpoint in api-docsV2 yet — out
+                of scope until the backend exposes them. */}
+            <Card
+              title="Schéma de financement"
+              action={
+                <AddEcheanceRow
+                  onAdd={async (body) => {
+                    await addEcheance(d.id, body);
+                    await echeances.refetch();
+                    await montants.refetch();
+                  }}
+                  initialOpen={fromCreation}
+                  initialMontant={d.totalAPayer ?? d.prix ?? undefined}
+                  initialDate={todayISO()}
+                />
+              }
+            >
+              {echeances.loading && <LoadingState />}
+              {echeances.error && <ErrorState message={echeances.error} />}
+              {echeances.data && echeances.data.content.length === 0 && (
+                <p className="text-label text-muted-foreground">Aucune ligne dans le schéma de financement pour ce dossier.</p>
               )}
-            </div>
-
-            <Card title={`Communications (${dossierComms.length})`}>
-              {dossierComms.length === 0 ? (
-                <p className="text-[13px] text-muted-foreground">Aucune interaction enregistrée pour ce dossier.</p>
-              ) : (
-                <TimelineList>
-                  {dossierComms.map((c, i) => {
-                    const alertOverdue = c.alertDate && isPastOrToday(c.alertDate);
-                    return (
-                      <TimelineItem
-                        key={c.id}
-                        done
-                        system={c.isSystem}
-                        last={i === dossierComms.length - 1}
-                        title={
-                          <span className="flex items-center gap-1.5">
-                            {!c.isSystem && <span className="inline-flex text-[var(--brand)]">{communicationIcon(c.actionType)}</span>}
-                            {c.actionType}
-                          </span>
-                        }
-                        meta={
-                          <>
-                            {formatDate(c.date)} · {c.user || 'Système'}
-                            {c.report && <div className="mt-1 text-[12.5px] text-foreground">{c.report}</div>}
-                            <div className="mt-1.5 flex flex-wrap gap-1.5">
-                              {c.alertDate && (
-                                <Chip warning={!!alertOverdue}>
-                                  {alertOverdue && <AlertTriangle />}
-                                  Relance prévue le {formatDate(c.alertDate)}
-                                </Chip>
-                              )}
-                              {c.appointmentDate && (
-                                <Chip>
-                                  <Calendar />
-                                  RDV {formatDate(c.appointmentDate)}{c.appointmentLabel ? ` — ${c.appointmentLabel}` : ''}
-                                </Chip>
-                              )}
-                            </div>
-                          </>
-                        }
-                      />
-                    );
-                  })}
-                </TimelineList>
+              {echeances.data && echeances.data.content.length > 0 && (
+                <div className="-mx-3">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead />
+                        <TableHead>Catégorie</TableHead>
+                        <TableHead>Échéance</TableHead>
+                        <TableHead className="text-right">Montant</TableHead>
+                        <TableHead>Statut</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {echeances.data.content.map((l) => (
+                        <EcheanceRow
+                          key={l.id}
+                          dossierId={d.id}
+                          echeance={l}
+                          onReglementAdded={async (echeanceId, body) => {
+                            await addReglement(d.id, echeanceId, body);
+                            await echeances.refetch();
+                            await montants.refetch();
+                          }}
+                        />
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              {echeances.data && (
+                <Pagination
+                  page={echeances.data.page}
+                  totalPages={echeances.data.totalPages}
+                  totalElements={echeances.data.totalElements}
+                  onPageChange={setEcheancesPage}
+                />
               )}
             </Card>
           </div>
         </TabsContent>
 
         <TabsContent value="documents">
-          <Card title={`Pièces & documents (${documentsPresentCount}/${DOCUMENTS.length})`}>
-            <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelected} />
-            <p className="mb-3 text-xs text-muted-foreground">
-              « Fourni » sans fichier joint reflète une donnée déjà présente dans le dossier — utilisez « Joindre »
-              pour y attacher le scan correspondant. Les fichiers joints ici restent en mémoire de session (non
-              persistés, comme le reste de ce prototype).
+          <div className="flex flex-col gap-3.5">
+          <Card title="Documents générés">
+            <p className="mb-2.5 -mt-1 text-body text-muted-foreground">
+              Générés à la demande à partir des données du dossier — rien n'est enregistré ici.
             </p>
-            <div className="flex flex-col gap-2">
-              {DOCUMENTS.map((doc) => {
-                const uploaded = uploadedDocs[doc.label];
-                const dataPresent = doc.present(d);
-                const present = dataPresent || Boolean(uploaded);
-                const date = doc.date(d);
-                return (
-                  <div
-                    key={doc.label}
-                    className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-md border border-border px-3 py-2 text-[13px]"
-                  >
-                    <div className="min-w-0">
-                      <span className={cn('font-medium', present ? 'text-foreground' : 'text-muted-foreground')}>{doc.label}</span>
-                      {uploaded ? (
-                        <div className="truncate text-xs text-muted-foreground">{uploaded.fileName} · {formatDate(uploaded.uploadedAt)}</div>
-                      ) : (
-                        dataPresent && date && <div className="text-xs text-muted-foreground">{formatDate(date)}</div>
-                      )}
+            {/* 1 col on mobile (full-width tiles, 36px targets), 2 on tablet,
+                3 on wide desktop — 6 documents land as an even 2 rows. */}
+            <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+              {GENERATED_DOC_KINDS.map((kind) => (
+                <GeneratedDocumentCard key={kind} dossierId={d.id} code={d.code} kind={kind} />
+              ))}
+            </div>
+          </Card>
+          <Card
+            title={`Pièces jointes (${pieces.data?.length ?? 0})`}
+            action={
+              !addPieceOpen && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setAddPieceOpen(true)}>
+                  <Plus data-icon="inline-start" /> Ajouter une pièce jointe
+                </Button>
+              )
+            }
+          >
+            {pieces.loading && <LoadingState />}
+            {pieces.error && <ErrorState message={pieces.error} />}
+            <AddPieceJointeRow
+              dossierId={d.id}
+              open={addPieceOpen}
+              onOpenChange={setAddPieceOpen}
+              onAdded={async () => {
+                setAddPieceOpen(false);
+                await pieces.refetch();
+              }}
+            />
+            {pieces.data && pieces.data.length === 0 && !addPieceOpen && (
+              <EmptyState title="Aucune pièce jointe" message="Aucun document n'a été attaché à ce dossier." />
+            )}
+            {pieces.data && pieces.data.length > 0 && (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead>Fichier</TableHead>
+                      <TableHead>Déposé par</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead className="text-right">Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pieces.data.map((p) => (
+                      <PieceJointeRow key={p.id} dossierId={d.id} piece={p} />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="historique">
+          <Card title="Historique">
+            {historique.loading && <LoadingState />}
+            {historique.error && <ErrorState message={historique.error} />}
+            {historique.data && historique.data.content.length === 0 && (
+              <EmptyState title="Aucun historique" message="Aucun événement n'a encore été enregistré pour ce dossier." />
+            )}
+            {historique.data && historique.data.content.length > 0 && (
+              <div className="flex flex-col">
+                {historique.data.content.map((h, i) => (
+                  <div className="relative flex gap-3 pb-4.5 last:pb-0" key={`${h.date}-${i}`}>
+                    <div className="flex shrink-0 flex-col items-center">
+                      <div className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" />
+                      {i < historique.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Badge tone={present ? 'success' : 'neutral'}>{present ? 'Fourni' : 'Manquant'}</Badge>
-                      {uploaded ? (
-                        <>
-                          <Button type="button" variant="outline" size="sm" onClick={() => window.open(uploaded.url, '_blank', 'noopener')}>
-                            <Eye data-icon="inline-start" /> Voir
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => removeUpload(doc.label)}
-                            aria-label={`Retirer le fichier joint pour ${doc.label}`}
-                            title="Retirer le fichier joint"
-                          >
-                            <X className="text-destructive" />
-                          </Button>
-                        </>
-                      ) : (
-                        <Button type="button" variant="outline" size="sm" onClick={() => triggerUpload(doc.label)}>
-                          <Upload data-icon="inline-start" /> Joindre
-                        </Button>
-                      )}
+                    <div className="min-w-0 flex-1 pb-0.5">
+                      <div className="text-label font-semibold text-foreground">{h.type || 'Événement'}</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(h.date)} · {h.utilisateur || 'Système'}</div>
+                      {h.description && <div className="mt-1 text-body text-foreground">{h.description}</div>}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
+            {historique.data && (
+              <Pagination
+                page={historique.data.page}
+                totalPages={historique.data.totalPages}
+                totalElements={historique.data.totalElements}
+                onPageChange={setHistoriquePage}
+              />
+            )}
           </Card>
         </TabsContent>
 
         <TabsContent value="admin">
-          <div className="flex flex-col gap-4">
-            <Card title="Suivi administratif">
-              <div className="mb-4 flex flex-wrap gap-2">
-                <TogglePill on={d.isAccounted} onLabel="Comptabilisé" offLabel="Non comptabilisé" />
-                <TogglePill on={d.isOldCustomer} onLabel="Ancien client" offLabel="Nouveau client" />
-                <TogglePill on={d.isPenaltyDisabled} onLabel="Pénalité désactivée" offLabel="Pénalité active" />
-                <TogglePill on={d.isConfirmedAgreementDate} onLabel="Date confirmée" offLabel="Date non confirmée" />
-              </div>
-              <FieldGrid>
-                <Field label="Enregistré par" value={d.createdBy} />
-                <Field label="Enregistré le" value={formatDate(d.createdAt)} />
-                <Field label="Modifié par" value={d.updatedBy} />
-                <Field label="Modifié le" value={formatDate(d.updatedAt)} />
-              </FieldGrid>
-            </Card>
-
-            {isCancelled && (
-              <Card title="Annulation">
-                <FieldGrid>
-                  <Field label="Date d'annulation" value={formatDate(d.cancelDate)} />
-                </FieldGrid>
-                {d.cancelDescription && (
-                  <div className="mt-3 whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-[13px] leading-relaxed text-foreground">
-                    {d.cancelDescription}
-                  </div>
-                )}
-              </Card>
-            )}
-          </div>
+          <Card title="Suivi administratif">
+            <FieldGrid>
+              <Field label="Code dossier" value={d.code} />
+              <Field label="Créé le" value={formatDate(d.dateDocument)} />
+              <Field label="Statut" value={canonicalStatusLabel(d.statut)} />
+              <Field label="Étapes atteignables" value={d.etapesAtteignables?.join(', ')} />
+            </FieldGrid>
+          </Card>
         </TabsContent>
       </Tabs>
 
-      {showInteractionForm && (
-        <InteractionForm
-          actionTypes={data.lookups.actionMessageTypes}
-          onClose={() => setShowInteractionForm(false)}
-          onSubmit={(input) => {
-            addInteraction({ folderId: d.id }, input, currentUser);
-            showToast('Interaction enregistrée.');
-          }}
-        />
-      )}
-
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-[13px] font-medium text-background shadow-lg">
+        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-label font-medium text-background shadow-lg">
           {toast}
         </div>
       )}

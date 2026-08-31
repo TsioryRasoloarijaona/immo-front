@@ -14,4 +14,9 @@ export default defineConfig({
       '@': path.resolve(dirname, './src'),
     },
   },
+  server: {
+    // Bind on 0.0.0.0 (not just localhost) so other devices on the LAN can
+    // load the dev server at all — `npm run dev` prints the LAN URL to use.
+    host: true,
+  },
 })

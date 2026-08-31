@@ -9,9 +9,9 @@ export default function NotFound() {
 
   return (
     <PageShell title="Page introuvable" crumbs={[{ label: '404' }]}>
-      <Empty className="border-none py-[70px]">
+      <Empty className="border-none py-17.5">
         <EmptyHeader>
-          <EmptyMedia variant="icon" className="size-14 rounded-2xl bg-[var(--warning-bg)] text-[var(--warning)]">
+          <EmptyMedia variant="icon" className="size-14 rounded-2xl bg-(--warning-bg) text-(--warning)">
             <AlertTriangle className="size-7" />
           </EmptyMedia>
           <EmptyTitle>Cette page n'existe pas</EmptyTitle>

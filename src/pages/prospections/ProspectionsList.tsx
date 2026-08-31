@@ -1,215 +1,187 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Search } from 'lucide-react';
+import { Plus, RotateCcw, Users } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, EmptyState, ErrorState, LoadingState } from '../../components/ui';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import { Button } from '../../components/ui/button';
+import Pagination from '../../components/Pagination';
+import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { useStore } from '../../lib/storeContext';
-import { useData } from '../../lib/useData';
-import { formatCurrency, formatDate, isPastOrToday } from '../../lib/format';
-import { natureBadgeTone, prospectionDisplayName } from '../../lib/domain';
+import { DEFAULT_PAGE_SIZE, listProspections, listTranches } from '../../lib/api';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useAppData, commercialLabel } from '../../lib/appData';
+import { useOriginesProspection } from '../../lib/referentiels';
+import { formatCurrency, formatDate } from '../../lib/format';
+import {
+  PIPELINE_STAGES,
+  emptyProspectionFilters,
+  etapeBadgeTone,
+  hasActiveProspectionFilters,
+  prospectionDisplayName,
+  type ProspectionFilterBarState,
+} from '../../lib/domain';
 
-type ClosedFilter = 'all' | 'open' | 'closed';
-type StageTab = 'qualified' | 'pre';
-
-function FilterSelect({
-  value,
-  onChange,
-  placeholder,
-  items,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  items: { label: string; value: string }[];
-}) {
-  const allItems = [{ label: placeholder, value: 'all' }, ...items];
-  return (
-    <Select items={allItems} value={value} onValueChange={(v) => onChange(v as string)}>
-      <SelectTrigger className="w-full sm:w-auto">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          {allItems.map((item) => (
-            <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
-  );
-}
+const ETAPE_ITEMS = [
+  ...PIPELINE_STAGES.map((s) => ({ label: s, value: s })),
+  { label: 'À rappeler par le commercial', value: 'A RAPPELER PAR LE COMMERCIAL' },
+  { label: 'Affaires à suivre', value: 'AFFAIRES A SUIVRE' },
+];
 
 export default function ProspectionsList() {
-  const { prospections, loading, error, commercials, isQualifiedProspection } = useStore();
-  const { data } = useData();
   const navigate = useNavigate();
+  const { commerciaux } = useAppData();
+  const origines = useOriginesProspection();
 
-  const [stageTab, setStageTab] = useState<StageTab>('qualified');
-  const [search, setSearch] = useState('');
-  const [nature, setNature] = useState('all');
-  const [origin, setOrigin] = useState('all');
-  const [commercial, setCommercial] = useState('all');
-  const [closedFilter, setClosedFilter] = useState<ClosedFilter>('open');
+  const [filters, setFilters] = useState<ProspectionFilterBarState>(emptyProspectionFilters());
+  const debouncedSearch = useDebouncedValue(filters.search);
+  const [page, setPage] = useState(0);
 
-  // Omran gates a raw lead behind two distinct stages before a sale file can
-  // exist — Pré-Prospection (no linked contact / no assigned commercial yet)
-  // and qualified Prospection. Surfaced as tabs so the gate is visible at a
-  // glance rather than buried in a column. See instructions/FIX-prospection-pipeline.md.
-  const { preCount, qualifiedCount } = useMemo(() => {
-    let pre = 0;
-    for (const p of prospections) if (!isQualifiedProspection(p.id)) pre += 1;
-    return { preCount: pre, qualifiedCount: prospections.length - pre };
-  }, [prospections, isQualifiedProspection]);
+  function setFilter<K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) {
+    setPage(0);
+    setFilters((f) => ({ ...f, [key]: value }));
+  }
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return prospections.filter((p) => {
-      if (!isQualifiedProspection(p.id) !== (stageTab === 'pre')) return false;
-      if (closedFilter === 'open' && p.isClosed) return false;
-      if (closedFilter === 'closed' && !p.isClosed) return false;
-      if (nature !== 'all' && p.nature !== nature) return false;
-      if (origin !== 'all' && p.origin !== origin) return false;
-      if (commercial !== 'all' && p.commercial !== commercial) return false;
-      if (q) {
-        const hay = `${prospectionDisplayName(p)} ${p.code} ${p.phone} ${p.email}`.toLowerCase();
-        if (!hay.includes(q)) return false;
-      }
-      return true;
-    });
-  }, [prospections, stageTab, search, nature, origin, commercial, closedFilter, isQualifiedProspection]);
+  const { data, loading, error } = useApi(
+    () =>
+      listProspections(
+        {
+          search: debouncedSearch || undefined,
+          etape: filters.etape.length > 0 ? filters.etape : undefined,
+          origine: filters.origine.length > 0 ? filters.origine : undefined,
+          commercial: filters.commercial.length > 0 ? filters.commercial : undefined,
+          trancheId: filters.trancheId.length > 0 ? filters.trancheId : undefined,
+          dateDebut: filters.dateDebut ? `${filters.dateDebut}T00:00:00` : undefined,
+          dateFin: filters.dateFin ? `${filters.dateFin}T23:59:59` : undefined,
+          ouvertes: filters.ouvertes === 'open' ? true : filters.ouvertes === 'closed' ? false : undefined,
+        },
+        { page, size: DEFAULT_PAGE_SIZE },
+      ),
+    [
+      debouncedSearch,
+      filters.etape.join(','),
+      filters.origine.join(','),
+      filters.commercial.join(','),
+      filters.trancheId.join(','),
+      filters.dateDebut,
+      filters.dateFin,
+      filters.ouvertes,
+      page,
+    ],
+  );
+  const rows = data?.content ?? [];
 
-  if (loading) return <PageShell title="Prospections"><LoadingState /></PageShell>;
-  if (error) return <PageShell title="Prospections"><ErrorState message={error} /></PageShell>;
-  if (!data) return null;
+  // Aggregate fetches for the filter dropdowns — independent of the
+  // prospections query above.
+  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), []);
+  const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  // `origine` on ProspectionListItemDto stores the référentiel *code*, not
+  // necessarily `description` — same code/description mismatch as tier-types
+  // on ProspectsList (e.g. "Bouche à Oreille" vs "BOUCHE À OREILLE"). Filter
+  // on `code` for correctness even where the two happen to match today.
+  const origineItems = origines.data.map((o) => ({ label: o.description || o.code || o.id, value: o.code || o.id }));
+  const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
 
   return (
-    <PageShell title="Prospections" crumbs={[{ label: 'Ventes' }, { label: 'Prospections' }]}>
-      <Tabs value={stageTab} onValueChange={(v) => setStageTab(v as StageTab)} className="mb-4">
-        <TabsList>
-          <TabsTrigger value="qualified">
-            Prospections <Badge tone="neutral" className="ml-1">{qualifiedCount}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="pre">
-            Pré-prospections <Badge tone="neutral" className="ml-1">{preCount}</Badge>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-      {stageTab === 'pre' && (
-        <p className="-mt-2 mb-4 max-w-[640px] text-[12.5px] text-muted-foreground">
-          Leads bruts pas encore qualifiés — sans contact lié et/ou sans commercial assigné. Ils
-          doivent être transformés en prospection avant qu'un dossier de vente puisse être ouvert.
-        </p>
-      )}
+    <PageShell
+      title="Prospections"
+      crumbs={[{ label: 'Ventes' }, { label: 'Prospections' }]}
+      fullHeight
+      icon={<Users />}
+      accent="var(--sec-prospection)"
+      accentBg="var(--sec-prospection-bg)"
+      actions={
+        <Button type="button" size="sm" onClick={() => navigate('/prospections/nouveau')}>
+          <Plus data-icon="inline-start" /> Nouvelle prospection
+        </Button>
+      }
+    >
+      <div className="flex h-full min-h-0 flex-col gap-3">
+        <ProspectionFilterBar
+          state={filters}
+          onChange={setFilter}
+          etapeItems={ETAPE_ITEMS}
+          origineItems={origineItems}
+          commercialItems={commercialItems}
+          trancheItems={trancheItems}
+        />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2.5">
-        <InputGroup className="min-w-[220px] flex-1">
-          <InputGroupAddon>
-            <Search />
-          </InputGroupAddon>
-          <InputGroupInput
-            placeholder="Rechercher un nom, code, téléphone…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </InputGroup>
-        <FilterSelect
-          value={closedFilter}
-          onChange={(v) => setClosedFilter(v as ClosedFilter)}
-          placeholder="Toutes"
-          items={[
-            { label: 'Ouvertes', value: 'open' },
-            { label: 'Clôturées', value: 'closed' },
-          ]}
-        />
-        <FilterSelect
-          value={nature}
-          onChange={setNature}
-          placeholder="Toutes les étapes"
-          items={data.lookups.prospectionKinds.map((k) => ({ label: k, value: k }))}
-        />
-        <FilterSelect
-          value={origin}
-          onChange={setOrigin}
-          placeholder="Toutes les origines"
-          items={data.lookups.prospectionOrigins.map((o) => ({ label: o, value: o }))}
-        />
-        <FilterSelect
-          value={commercial}
-          onChange={setCommercial}
-          placeholder="Tous les commerciaux"
-          items={commercials.map((c) => ({ label: c, value: c }))}
-        />
+        {loading && !data && <LoadingState />}
+        {error && <ErrorState message={error} />}
+        {!error && data && (
+          <ResultsRegion loading={loading}>
+            <div className="shrink-0 text-body text-muted-foreground">
+              {data?.totalElements ?? 0} prospection{(data?.totalElements ?? 0) > 1 ? 's' : ''} au total
+            </div>
+            {rows.length === 0 ? (
+              <EmptyState
+                title={hasActiveProspectionFilters(filters) ? 'Aucun résultat' : 'Rien à afficher'}
+                message={
+                  hasActiveProspectionFilters(filters)
+                    ? 'Aucune prospection ne correspond aux filtres actifs.'
+                    : "Aucune prospection n'est encore enregistrée."
+                }
+                action={
+                  hasActiveProspectionFilters(filters) ? (
+                    <Button type="button" variant="outline" size="sm" onClick={() => setFilters(emptyProspectionFilters())}>
+                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
+                <Table className="w-full min-w-160 table-fixed">
+                  <TableHeader>
+                    <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
+                      <TableHead className="w-[28%]">Prospect</TableHead>
+                      <TableHead className="w-[16%]">Étape</TableHead>
+                      <TableHead className="w-[16%]">Origine</TableHead>
+                      <TableHead className="w-[18%]">Commercial</TableHead>
+                      <TableHead className="w-[12%] text-right">Prix</TableHead>
+                      <TableHead className="w-[10%]">Date</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((p) => (
+                      <TableRow
+                        key={p.id}
+                        tabIndex={0}
+                        role="link"
+                        aria-label={`Ouvrir la prospection ${prospectionDisplayName(p)}`}
+                        className="cursor-pointer"
+                        onClick={() => navigate(`/prospections/${p.id}`)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') navigate(`/prospections/${p.id}`);
+                        }}
+                      >
+                        <TableCell className="truncate font-medium text-foreground" title={prospectionDisplayName(p)}>
+                          {prospectionDisplayName(p)}
+                        </TableCell>
+                        <TableCell className="truncate">
+                          <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge>
+                        </TableCell>
+                        <TableCell className="truncate" title={p.origine || undefined}>
+                          {p.origine ? <Badge tone="info">{p.origine}</Badge> : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell className="truncate text-muted-foreground" title={p.commercialNom || undefined}>{p.commercialNom || '—'}</TableCell>
+                        <TableCell className="truncate text-right font-semibold tabular-nums text-(--success)">
+                          {p.prix ? formatCurrency(p.prix) : <span className="font-normal text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell className="truncate text-muted-foreground">{formatDate(p.dateDocument)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            <div className="shrink-0">
+              {data && (
+                <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
+              )}
+            </div>
+          </ResultsRegion>
+        )}
       </div>
-
-      <div className="mb-2.5 text-[12.5px] text-muted-foreground">{filtered.length} prospection{filtered.length > 1 ? 's' : ''}</div>
-
-      {filtered.length === 0 ? (
-        <EmptyState title="Aucun résultat" message="Ajustez vos filtres pour élargir la recherche." />
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <Table className="min-w-[640px]">
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Prospect</TableHead>
-                <TableHead>Étape</TableHead>
-                <TableHead>Origine</TableHead>
-                <TableHead>Commercial</TableHead>
-                <TableHead className="text-right">Budget</TableHead>
-                <TableHead>Alerte</TableHead>
-                <TableHead>Date</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((p) => {
-                const overdue = !p.isClosed && p.alertValidityDate && isPastOrToday(p.alertValidityDate);
-                return (
-                  <TableRow
-                    key={p.id}
-                    tabIndex={0}
-                    role="link"
-                    aria-label={`Ouvrir la prospection ${prospectionDisplayName(p)}`}
-                    className="cursor-pointer"
-                    onClick={() => navigate(`/prospections/${p.id}`)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') navigate(`/prospections/${p.id}`);
-                    }}
-                  >
-                    <TableCell className="font-medium text-foreground">{prospectionDisplayName(p)}</TableCell>
-                    <TableCell>
-                      <Badge tone={natureBadgeTone(p.nature, p.isClosed)}>
-                        {p.isClosed ? 'Clôturée' : p.nature}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{p.origin || '—'}</TableCell>
-                    <TableCell className="text-muted-foreground">{p.commercial || '—'}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {p.budgetMax ? formatCurrency(p.budgetMax) : <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell>
-                      {p.alertValidityDate ? (
-                        <span
-                          className="inline-flex items-center gap-1.5 text-[12.5px]"
-                          style={{ color: overdue ? 'var(--warning)' : 'var(--text-muted)', fontWeight: overdue ? 600 : 400 }}
-                        >
-                          {overdue && <AlertTriangle className="size-[13px]" />}
-                          {formatDate(p.alertValidityDate)}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(p.date)}</TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      )}
     </PageShell>
   );
 }

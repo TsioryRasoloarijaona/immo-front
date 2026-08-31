@@ -21,12 +21,12 @@ const badgeVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         // Status tones — soft tint + border, used across the app for
         // pipeline stages, derived statuses, and toggle states.
-        neutral: "bg-[var(--neutral-bg)] text-foreground border-[var(--neutral-border)]",
-        info: "bg-[var(--info-bg)] text-[var(--info)] border-[var(--info-border)]",
-        progress: "bg-[var(--brand-bg)] text-[var(--brand)] border-[var(--brand-border)]",
-        success: "bg-[var(--success-bg)] text-[var(--success)] border-[var(--success-border)]",
-        warning: "bg-[var(--warning-bg)] text-[var(--warning)] border-[var(--warning-border)]",
-        amber: "bg-[var(--amber-bg)] text-[var(--amber)] border-[var(--amber-border)]",
+        neutral: "bg-(--neutral-bg) text-foreground border-(--neutral-border)",
+        info: "bg-(--info-bg) text-(--info) border-(--info-border)",
+        progress: "bg-(--brand-bg) text-(--brand) border-(--brand-border)",
+        success: "bg-(--success-bg) text-(--success) border-(--success-border)",
+        warning: "bg-(--warning-bg) text-(--warning) border-(--warning-border)",
+        amber: "bg-(--amber-bg) text-(--amber) border-(--amber-border)",
       },
     },
     defaultVariants: {

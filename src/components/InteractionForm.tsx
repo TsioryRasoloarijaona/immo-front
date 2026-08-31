@@ -1,138 +1,130 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Modal from './Modal';
-import type { NewInteractionInput } from '../lib/storeContext';
+import type { CreerInteractionRequest } from '../types';
 import { Button } from './ui/button';
 import { DialogFooter } from './ui/dialog';
 import { Field as FormField, FieldGroup, FieldLabel } from './ui/field';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import SearchableSelect from './SearchableSelect';
+import { toApiDateTime } from '../lib/format';
+import { referentielItems, useResultatsInteraction, useTypesContactProspection } from '../lib/referentiels';
 
-const RESULT_OPTIONS = ['Rendez-vous pris', 'À relancer', 'Ne répond pas', 'Hors budget', 'Intéressé', 'Pas intéressé'];
+// Reproduit la boîte de dialogue "Action" de l'ancien système (Action /
+// Résultat / Date alerte, + un sélecteur de date de RDV quand le résultat
+// en implique un) — voir docs/api-docsV4.json : POST
+// /api/prospections/{id}/interactions accepte désormais actionTypeId
+// (référentiel /api/referentiels/types-contact-prospection, réutilisé —
+// même liste que le "Type de contact" d'une prospection), resultatId
+// (référentiel /api/referentiels/resultats-interaction, qui indique via
+// necessiteDateRdv/alerteRecommandee comment adapter ce formulaire sans
+// coder les libellés en dur), dateAlerte et dateRdv.
+
+// Sens de l'échange déduit du libellé de l'action choisie, pour continuer à
+// alimenter le champ directionnel `entrante` (et donc la bonne icône dans
+// la timeline via interactionIcon()) — le référentiel ne porte pas cette
+// info explicitement.
+function entranteFromActionLabel(label: string | undefined): boolean {
+  return /entrant/i.test(label ?? '');
+}
 
 export default function InteractionForm({
-  actionTypes,
   onClose,
   onSubmit,
 }: {
-  actionTypes: string[];
   onClose: () => void;
-  onSubmit: (input: NewInteractionInput) => void;
+  onSubmit: (input: CreerInteractionRequest) => void;
 }) {
-  const [actionType, setActionType] = useState(actionTypes.includes('Téléphone Sortant') ? 'Téléphone Sortant' : actionTypes[0] ?? 'Note');
-  const [resultat, setResultat] = useState('');
-  const [report, setReport] = useState('');
-  const [alertDate, setAlertDate] = useState('');
-  const [rdvDate, setRdvDate] = useState('');
-  const [rdvTime, setRdvTime] = useState('');
-  const [rdvLabel, setRdvLabel] = useState('');
+  const actionTypes = useTypesContactProspection();
+  const resultats = useResultatsInteraction();
 
-  const showRdv = actionType === 'Visite' || resultat === 'Rendez-vous pris';
+  const [actionTypeId, setActionTypeId] = useState('');
+  const [resultatId, setResultatId] = useState('');
+  const [dateAlerte, setDateAlerte] = useState('');
+  const [dateRdv, setDateRdv] = useState('');
+  const [description, setDescription] = useState('');
 
-  const actionTypeItems = actionTypes.map((t) => ({ label: t, value: t }));
-  const resultItems = [{ label: '—', value: null as string | null }, ...RESULT_OPTIONS.map((r) => ({ label: r, value: r }))];
+  const actionItems = referentielItems(actionTypes.data);
+  const resultatItems = [{ label: '— Non renseigné —', value: '' }, ...referentielItems(resultats.data)];
+
+  const selectedResultat = useMemo(() => resultats.data.find((r) => r.id === resultatId), [resultats.data, resultatId]);
+  const isRdv = !!selectedResultat?.necessiteDateRdv;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!report.trim()) return;
+    if (!actionTypeId || !description.trim()) return;
+    if (isRdv && !dateRdv) return;
+
+    const actionLabel = actionTypes.data.find((a) => a.id === actionTypeId)?.description;
     onSubmit({
-      actionType,
-      report: resultat ? `[${resultat}] ${report.trim()}` : report.trim(),
-      alertDate: alertDate || null,
-      appointmentDate: showRdv && rdvDate ? `${rdvDate}${rdvTime ? `T${rdvTime}` : ''}` : null,
-      appointmentLabel: showRdv && rdvLabel ? rdvLabel : null,
-      isIncoming: actionType === 'Téléphone entrant' || actionType === 'Mail entrant' || actionType === 'Message entrant',
+      description: description.trim(),
+      entrante: entranteFromActionLabel(actionLabel),
+      actionTypeId,
+      resultatId: resultatId || undefined,
+      dateAlerte: dateAlerte ? toApiDateTime(dateAlerte) : undefined,
+      dateRdv: isRdv && dateRdv ? toApiDateTime(dateRdv) : undefined,
     });
     onClose();
   }
 
   return (
-    <Modal title="Ajouter un appel / une visite" onClose={onClose} width={460}>
+    <Modal title="Ajouter une action" onClose={onClose} width={480}>
       <form onSubmit={handleSubmit}>
         <FieldGroup>
-          <div className="grid grid-cols-2 gap-3">
-            <FormField>
-              <FieldLabel htmlFor="actionType">Type d'action</FieldLabel>
-              <Select items={actionTypeItems} value={actionType} onValueChange={(v) => setActionType(v as string)}>
-                <SelectTrigger id="actionType" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {actionTypeItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </FormField>
-            <FormField>
-              <FieldLabel htmlFor="resultat">Résultat</FieldLabel>
-              <Select
-                items={resultItems}
-                value={resultat || null}
-                onValueChange={(v) => setResultat((v as string | null) ?? '')}
-              >
-                <SelectTrigger id="resultat" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {resultItems.map((item) => (
-                      <SelectItem key={item.value ?? '__empty'} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </FormField>
-          </div>
-
           <FormField>
-            <FieldLabel htmlFor="report">Rapport</FieldLabel>
-            <Textarea
-              id="report"
-              placeholder="Compte-rendu de l'appel / de la visite…"
-              value={report}
-              onChange={(e) => setReport(e.target.value)}
-              required
+            <FieldLabel htmlFor="action-type">Action</FieldLabel>
+            <SearchableSelect
+              id="action-type"
+              items={actionItems}
+              value={actionTypeId || null}
+              onValueChange={(v) => setActionTypeId(v || '')}
+              placeholder="Sélectionner…"
+              className="w-full"
             />
           </FormField>
 
           <FormField>
-            <FieldLabel htmlFor="alertDate">Relance prévue (optionnel)</FieldLabel>
-            <Input id="alertDate" type="date" value={alertDate} onChange={(e) => setAlertDate(e.target.value)} />
+            <FieldLabel htmlFor="action-resultat">Résultat</FieldLabel>
+            <SearchableSelect
+              id="action-resultat"
+              items={resultatItems}
+              value={resultatId || null}
+              onValueChange={(v) => setResultatId(v || '')}
+              placeholder="— Non renseigné —"
+              className="w-full"
+            />
           </FormField>
 
-          {showRdv && (
-            <div className="rounded-lg border border-border bg-muted/40 p-3.5">
-              <div className="mb-2.5 text-[11.5px] font-medium text-muted-foreground">Rendez-vous</div>
-              <div className="mb-2.5 grid grid-cols-2 gap-3">
-                <FormField>
-                  <FieldLabel htmlFor="rdvDate">Date</FieldLabel>
-                  <Input id="rdvDate" type="date" value={rdvDate} onChange={(e) => setRdvDate(e.target.value)} />
-                </FormField>
-                <FormField>
-                  <FieldLabel htmlFor="rdvTime">Heure</FieldLabel>
-                  <Input id="rdvTime" type="time" value={rdvTime} onChange={(e) => setRdvTime(e.target.value)} />
-                </FormField>
-              </div>
-              <FormField>
-                <FieldLabel htmlFor="rdvLabel">Objet</FieldLabel>
-                <Input
-                  id="rdvLabel"
-                  type="text"
-                  placeholder="Visite technique, visite de réservation…"
-                  value={rdvLabel}
-                  onChange={(e) => setRdvLabel(e.target.value)}
-                />
-              </FormField>
-            </div>
+          {isRdv && (
+            <FormField>
+              <FieldLabel htmlFor="action-date-rdv">Date du rendez-vous</FieldLabel>
+              <Input id="action-date-rdv" type="date" value={dateRdv} onChange={(e) => setDateRdv(e.target.value)} required />
+            </FormField>
           )}
+
+          <FormField>
+            <FieldLabel htmlFor="action-date-alerte">
+              Date alerte
+              {selectedResultat?.alerteRecommandee && <span className="ml-1.5 text-micro font-normal text-muted-foreground">(recommandée pour ce résultat)</span>}
+            </FieldLabel>
+            <Input id="action-date-alerte" type="date" value={dateAlerte} onChange={(e) => setDateAlerte(e.target.value)} />
+          </FormField>
+
+          <FormField>
+            <FieldLabel htmlFor="description">Notes</FieldLabel>
+            <Textarea
+              id="description"
+              placeholder="Compte-rendu de l'appel / de la visite…"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              required
+            />
+          </FormField>
         </FieldGroup>
 
         <DialogFooter className="mt-5">
           <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>
-          <Button type="submit">Enregistrer</Button>
+          <Button type="submit" disabled={!actionTypeId || !description.trim() || (isRdv && !dateRdv)}>Enregistrer</Button>
         </DialogFooter>
       </form>
     </Modal>

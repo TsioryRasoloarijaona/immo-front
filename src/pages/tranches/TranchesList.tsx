@@ -1,42 +1,69 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Building2, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { useData } from '../../lib/useData';
+import { listProjets, listProjetTranches } from '../../lib/api';
+import { useApi } from '../../lib/useApi';
 import { formatDate } from '../../lib/format';
-import { cn } from '../../lib/utils';
-import { standingClass } from '../../lib/domain';
+import type { TrancheListItemDto } from '../../types';
 
-const MODULE_FLAGS: { key: 'isForSale' | 'isForRent' | 'isForProject' | 'isForBuy' | 'isForSav'; label: string }[] = [
-  { key: 'isForSale', label: 'Vente' },
-  { key: 'isForRent', label: 'Location' },
-  { key: 'isForProject', label: 'Projet' },
-  { key: 'isForBuy', label: 'Achat' },
-  { key: 'isForSav', label: 'SAV' },
-];
+// No flat "/api/tranches" list endpoint exists — tranches only come back
+// nested under a projet (GET /api/projets/{id}/tranches). This page
+// aggregates across every projet so "Tranches" in the sidebar still shows
+// the full portfolio in one place; see ProjetsList for the drill-down view.
+// Both levels are fetched with a generous page size (large enough for the
+// whole real-world portfolio) rather than exposing nested pagination
+// controls for an aggregate view — that would be awkward UX here.
+const AGGREGATE_PAGE_SIZE = 200;
 
 export default function TranchesList() {
-  const { data, loading, error } = useData();
+  const projets = useApi(() => listProjets({ page: 0, size: AGGREGATE_PAGE_SIZE }), []);
   const [search, setSearch] = useState('');
 
+  const projetIds = useMemo(() => (projets.data?.content ?? []).map((p) => p.id), [projets.data]);
+  const tranchesByProjet = useApi(
+    () =>
+      Promise.all(
+        projetIds.map((pid) =>
+          listProjetTranches(pid, { page: 0, size: AGGREGATE_PAGE_SIZE }).then((page) =>
+            page.content.map((t) => ({ ...t, _projetId: pid })),
+          ),
+        ),
+      ),
+    [projetIds.join(',')],
+  );
+
+  const projetById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of projets.data?.content ?? []) m.set(p.id, p.description || p.code || '');
+    return m;
+  }, [projets.data]);
+
+  const allTranches: (TrancheListItemDto & { _projetId: string })[] = (tranchesByProjet.data ?? []).flat();
+
   const filtered = useMemo(() => {
-    if (!data) return [];
     const q = search.trim().toLowerCase();
-    if (!q) return data.tranches;
-    return data.tranches.filter((t) =>
-      `${t.description} ${t.programme} ${t.code} ${t.city}`.toLowerCase().includes(q),
-    );
-  }, [data, search]);
+    if (!q) return allTranches;
+    return allTranches.filter((t) => `${t.description ?? ''} ${t.code ?? ''} ${t.ville ?? ''}`.toLowerCase().includes(q));
+  }, [allTranches, search]);
+
+  const loading = projets.loading || tranchesByProjet.loading;
+  const error = projets.error || tranchesByProjet.error;
 
   if (loading) return <PageShell title="Tranches"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Tranches"><ErrorState message={error} /></PageShell>;
-  if (!data) return null;
 
   return (
-    <PageShell title="Tranches" crumbs={[{ label: 'Patrimoine' }, { label: 'Tranches' }]}>
-      <div className="mb-4">
+    <PageShell
+      title="Tranches"
+      crumbs={[{ label: 'Patrimoine' }, { label: 'Tranches' }]}
+      icon={<Building2 />}
+      accent="var(--sec-tranche)"
+      accentBg="var(--sec-tranche-bg)"
+    >
+      <div className="mb-3">
         <InputGroup className="max-w-md">
           <InputGroupAddon>
             <Search />
@@ -49,7 +76,7 @@ export default function TranchesList() {
         </InputGroup>
       </div>
 
-      <div className="mb-2.5 text-[12.5px] text-muted-foreground">{filtered.length} tranche{filtered.length > 1 ? 's' : ''}</div>
+      <div className="mb-2.5 text-body text-muted-foreground">{filtered.length} tranche{filtered.length > 1 ? 's' : ''}</div>
 
       {filtered.length === 0 ? (
         <EmptyState title="Aucun résultat" />
@@ -59,35 +86,15 @@ export default function TranchesList() {
             <Link
               to={`/tranches/${t.id}`}
               key={t.id}
-              className="block rounded-xl border border-border bg-card p-4.5 no-underline transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-[var(--border-strong)] hover:shadow-md"
+              className="block rounded-xl border border-border bg-card p-4.5 no-underline transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-(--border-strong) hover:shadow-md"
             >
-              <div className="mb-2.5 flex items-start justify-between gap-2.5">
-                <div className="min-w-0 flex-1">
-                  <div className="mb-0.5 line-clamp-2 text-[15px] font-semibold text-foreground">{t.description}</div>
-                  <div className="font-mono text-[11.5px] text-muted-foreground">{t.code} · {t.programme}</div>
-                </div>
-                {t.standing && (
-                  <span className={cn('shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[11px] font-bold', standingClass(t.standing))}>
-                    {t.standing}
-                  </span>
-                )}
+              <div className="mb-2.5">
+                <div className="mb-0.5 line-clamp-2 text-title font-semibold text-foreground">{t.description}</div>
+                <div className="font-mono text-micro text-muted-foreground">{t.code} · {projetById.get(t._projetId)}</div>
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {MODULE_FLAGS.map((m) => (
-                  <span
-                    key={m.key}
-                    className={cn(
-                      'rounded px-1.5 py-0.5 text-[10.5px] font-semibold',
-                      t[m.key] ? 'bg-[var(--brand-bg)] text-[var(--brand)]' : 'bg-[var(--neutral-bg)] text-muted-foreground'
-                    )}
-                  >
-                    {m.label}
-                  </span>
-                ))}
-              </div>
-              <div className="mt-3 flex flex-wrap gap-x-3.5 gap-y-1.5 border-t border-border pt-3 text-[12.5px] text-muted-foreground">
-                <span>{t.city ? <span className="capitalize">{t.city}</span> : 'Ville non renseignée'}</span>
-                <span>Livraison : {formatDate(t.deliveryDate) === '—' ? 'non planifiée' : formatDate(t.deliveryDate)}</span>
+              <div className="mt-3 flex flex-wrap gap-x-3.5 gap-y-1.5 border-t border-border pt-3 text-body text-muted-foreground">
+                <span>{t.ville ? <span className="capitalize">{t.ville}</span> : 'Ville non renseignée'}</span>
+                <span>Livraison : {formatDate(t.dateLivraison) === '—' ? 'non planifiée' : formatDate(t.dateLivraison)}</span>
               </div>
             </Link>
           ))}

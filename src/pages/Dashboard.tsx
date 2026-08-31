@@ -1,179 +1,361 @@
-import { useMemo } from 'react';
+import { Children, type ReactNode } from 'react';
+import { AlertCircle, AlertTriangle, ArrowUpRight, ChevronRight, Coins, Folder, Sparkles, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowUpRight, Clock, Coins, Folder, TrendingUp, Users } from 'lucide-react';
 import PageShell from '../components/PageShell';
-import { Card, EmptyState, ErrorState, LoadingState, StatCard } from '../components/ui';
-import { communicationIcon, prospectionDisplayName } from '../lib/domain';
+import { Badge, Card, EmptyState, ErrorState, LoadingState, StatCard } from '../components/ui';
 import { usePreview } from '../lib/previewContext';
-import { useStore } from '../lib/storeContext';
-import { useData } from '../lib/useData';
-import { formatCurrency, formatDate, isPastOrToday, todayISO } from '../lib/format';
-import { DOSSIER_STATUS_PIPELINE, isExitStatus } from '../lib/dossierStatus';
+import { getDashboard, listClients, listDossiers, listPreProspections, listProspections } from '../lib/api';
+import { useApi } from '../lib/useApi';
+import { formatCurrency, formatDate, toApiDateTime } from '../lib/format';
+import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
+import { etapeBadgeTone, prospectionDisplayName, PIPELINE_STAGES } from '../lib/domain';
+
+// Étapes counted as "needs action" for the Vente actuality panel — the
+// pipeline's own starting stage plus its two side-track exception states
+// (see CLAUDE.md / lib/domain.tsx's PIPELINE_STAGES / isSideTrackEtape).
+// Not "2 EN COURS DE TRAITEMENT" onward — those are already being worked,
+// this bucket is specifically the ones nobody has picked up yet.
+const A_TRAITER_ETAPES = [PIPELINE_STAGES[0], 'A RAPPELER PAR LE COMMERCIAL', 'AFFAIRES A SUIVRE'];
+
+function nDaysAgoISO(n: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** One column of a dashboard "lane" grid — used both by the "Pipeline"
+ * Kanban (four entity stages, identified by icon shape — see
+ * index.css's section-identity convention: --sec-accent is one shared hue
+ * across every entity, the icon is what actually distinguishes them) and by
+ * "Vente — actualité" (two urgency states, which *do* get distinct
+ * semantic colors — info/amber are meaningful here, not identity). Each
+ * column is its own contained, tinted card (a thin accent bar on top plus a
+ * subtle background) so lanes read as separate at a glance instead of one
+ * continuous wall of text — the previous version relied on plain
+ * side-by-side text (Vente — actualité) or a `divide-x` border too faint
+ * against the dark theme to actually separate anything (Pipeline). */
+function KanbanColumn({
+  icon,
+  title,
+  subtitle,
+  count,
+  emptyMessage,
+  viewAllTo,
+  accent = 'var(--sec-accent)',
+  accentBg = 'var(--sec-accent-bg)',
+  countTone = 'neutral',
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  /** Small muted qualifier next to the title, e.g. "(7 derniers jours)". */
+  subtitle?: string;
+  count: number | undefined;
+  emptyMessage: string;
+  /** Shown as a "Voir tout" footer link when the real total exceeds what's
+   * previewed here — every column only ever renders a handful of records. */
+  viewAllTo: string;
+  /** Defaults to the shared section-identity accent (Pipeline's case).
+   * Pass a semantic status color (e.g. `var(--info)`/`var(--amber)`) for
+   * lanes that represent an urgency state rather than an entity type. */
+  accent?: string;
+  accentBg?: string;
+  /** 'neutral' (Pipeline — the count is just a tally, not itself a signal)
+   * or 'accent' (Vente — actualité — the count *is* the urgency signal, so
+   * it gets the same color as the lane). */
+  countTone?: 'neutral' | 'accent';
+  children: ReactNode;
+}) {
+  const items = Children.toArray(children).filter(Boolean);
+  return (
+    <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-(--neutral-bg)/50">
+      <span aria-hidden className="block h-0.75 shrink-0" style={{ background: accent }} />
+      <div className="flex items-center justify-between gap-2 border-b border-border/70 px-3 py-2.5">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="flex size-5.5 shrink-0 items-center justify-center rounded-md [&_svg]:size-3" style={{ color: accent, background: accentBg }}>
+            {icon}
+          </span>
+          <span className="truncate text-body font-semibold text-foreground">{title}</span>
+          {subtitle && <span className="truncate text-micro font-normal text-muted-foreground">{subtitle}</span>}
+        </div>
+        <span
+          className="shrink-0 rounded-full px-1.75 py-0.5 text-micro font-bold tabular-nums shadow-xs"
+          style={countTone === 'accent' ? { color: accent, background: accentBg } : { color: 'var(--foreground)', background: 'var(--background)' }}
+        >
+          {count ?? 0}
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col gap-0.5 p-1.5">
+        {items.length === 0 ? (
+          <p className="px-1.5 py-2 text-micro text-muted-foreground">{emptyMessage}</p>
+        ) : (
+          items
+        )}
+      </div>
+      {items.length > 0 && (
+        <Link
+          to={viewAllTo}
+          className="flex items-center justify-center gap-0.5 border-t border-border/70 py-1.5 text-micro font-medium text-muted-foreground no-underline transition-colors hover:bg-background hover:text-primary"
+        >
+          Voir tout
+          <ChevronRight className="size-3" />
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/** Shared hover-pill treatment for every Kanban row — a plain name (Pré-
+ * prospection/Prospections/Clients) or the richer name+badge row (Dossier
+ * de vente) both get the same rounded hover surface and truncation. */
+function KanbanItemRow({ onClick, to, children }: { onClick?: () => void; to?: string; children: ReactNode }) {
+  const className =
+    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body font-medium text-foreground no-underline transition-colors hover:bg-background';
+  if (to) {
+    return (
+      <Link to={to} className={className}>
+        {children}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={className}>
+      {children}
+    </button>
+  );
+}
 
 export default function Dashboard() {
-  const { prospections, dossiers, communications, getDossierStatus, loading, error } = useStore();
-  const { data: portfolio } = useData();
-  const { previewProspection, previewDossier } = usePreview();
-
-  const stats = useMemo(() => {
-    if (loading) return null;
-
-    const activeDossiers = dossiers.filter((d) => !isExitStatus(getDossierStatus(d.id).label));
-    const pipelineValue = activeDossiers.reduce((sum, d) => sum + (d.price || 0), 0);
-
-    const statusCounts = new Map<string, number>();
-    for (const label of DOSSIER_STATUS_PIPELINE) statusCounts.set(label, 0);
-    let cancelledCount = 0;
-    let withdrawnCount = 0;
-    for (const d of dossiers) {
-      const status = getDossierStatus(d.id);
-      if (status.label === 'Annulé') {
-        cancelledCount += 1;
-        continue;
-      }
-      if (status.label === 'Désistement') {
-        withdrawnCount += 1;
-        continue;
-      }
-      statusCounts.set(status.label, (statusCounts.get(status.label) ?? 0) + 1);
-    }
-
-    const openProspections = prospections.filter((p) => !p.isClosed);
-    const today = todayISO();
-    const followUpsToday = prospections
-      .filter((p) => !p.isClosed && p.alertValidityDate && isPastOrToday(p.alertValidityDate))
-      .sort((a, b) => (a.alertValidityDate! < b.alertValidityDate! ? -1 : 1));
-
-    const overdueCount = followUpsToday.filter((p) => p.alertValidityDate! < today).length;
-
-    const recentActivity = [...communications]
-      .filter((c) => c.date)
-      .sort((a, b) => (a.date! < b.date! ? 1 : -1))
-      .slice(0, 9);
-
-    const avgDeal = activeDossiers.length > 0 ? pipelineValue / activeDossiers.length : 0;
-
-    return {
-      pipelineValue,
-      statusCounts,
-      cancelledCount,
-      withdrawnCount,
-      openProspections,
-      followUpsToday,
-      overdueCount,
-      recentActivity,
-      avgDeal,
-      activeDossiersCount: activeDossiers.length,
-    };
-  }, [loading, prospections, dossiers, communications, getDossierStatus]);
+  const { data: dashboard, loading, error } = useApi(() => getDashboard(), []);
+  const { data: prospectionsPage } = useApi(() => listProspections({ ouvertes: true }, { size: 7 }), []);
+  const { data: dossiersPage } = useApi(() => listDossiers(undefined, { size: 7, sort: ['docDate,desc'] }), []);
+  const { data: nouvellesPage } = useApi(
+    () => listProspections({ ouvertes: true, dateDebut: toApiDateTime(nDaysAgoISO(7)) }, { size: 5, sort: ['dateDocument,desc'] }),
+    [],
+  );
+  const { data: aTraiterPage } = useApi(
+    () => listProspections({ ouvertes: true, etape: A_TRAITER_ETAPES }, { size: 5, sort: ['dateDocument,desc'] }),
+    [],
+  );
+  // Kanban's own two columns not already covered by an existing fetch —
+  // Prospections reuses `prospectionsPage` above, Dossier de vente reuses
+  // `dossiersPage` below, both already fetched for their own cards.
+  const { data: preProspectionsPage } = useApi(
+    () => listPreProspections({ ouvertes: true }, { size: 4, sort: ['dateDocument,desc'] }),
+    [],
+  );
+  const { data: clientsPage } = useApi(() => listClients(undefined, { size: 4 }), []);
+  const { previewDossier } = usePreview();
 
   if (loading) return <PageShell title="Dashboard"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Dashboard"><ErrorState message={error} /></PageShell>;
-  if (!stats) return null;
+  if (!dashboard) return null;
 
-  const maxStatusCount = Math.max(1, ...Array.from(stats.statusCounts.values()));
+  const statusCounts = dashboard.dossiersParEtape ?? [];
+  const relances = dashboard.relancesEnRetard ?? [];
+  // "Dossiers actifs" stat stays derived from the same aggregate the removed
+  // "Dossiers par étape" breakdown used to chart — only the bar-chart card
+  // itself was dropped in favor of the pipeline Kanban below, the number is
+  // still meaningful on its own.
+  const dossiersActifs = statusCounts.reduce((s, c) => s + (c.nombre ?? 0), 0);
 
   return (
     <PageShell title="Dashboard" crumbs={[{ label: 'Portefeuille' }]}>
-      <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-3.5">
-          <StatCard
-            icon={<Coins />}
-            label="Valeur du pipeline"
-            value={formatCurrency(stats.pipelineValue)}
-            sub={`${stats.activeDossiersCount} dossiers actifs`}
-          />
-          <StatCard
-            icon={<TrendingUp />}
-            label="Panier moyen"
-            value={formatCurrency(stats.avgDeal)}
-            sub="Par dossier actif"
-          />
+      {/* Everything below is sized to land on one screen at a normal laptop
+          viewport (~900px tall) — dense stat row, then a 3-column bank of
+          panels — rather than a single tall column that forces scrolling. */}
+      <div className="flex flex-col gap-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3">
+          <StatCard icon={<Coins />} label="Valeur du pipeline" value={formatCurrency(dashboard.valeurPipeline)} tone="progress" />
+          <StatCard icon={<TrendingUp />} label="Panier moyen" value={formatCurrency(dashboard.panierMoyen)} tone="info" />
           <StatCard
             icon={<Users />}
             label="Prospections ouvertes"
-            value={String(stats.openProspections.length)}
-            sub={`sur ${prospections.length} au total`}
+            value={String(dashboard.prospectionsOuvertes ?? 0)}
+            sub={`sur ${dashboard.prospectionsTotal ?? 0} au total`}
+            tone="info"
           />
-          <StatCard
-            icon={<AlertTriangle />}
-            label="Relances en retard"
-            value={String(stats.overdueCount)}
-            sub={`${stats.followUpsToday.length} à traiter aujourd'hui ou avant`}
-          />
+          <StatCard icon={<Folder />} label="Dossiers actifs" value={String(dossiersActifs)} tone="success" />
+          <StatCard icon={<AlertTriangle />} label="Relances en retard" value={String(relances.length)} tone="warning" />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
-          <Card title="Dossiers par étape">
-            <div>
-              {DOSSIER_STATUS_PIPELINE.map((label) => {
-                const count = stats.statusCounts.get(label) ?? 0;
-                return (
-                  <div className="flex items-center gap-3 py-2" key={label}>
-                    <div className="w-[130px] shrink-0 text-[12.5px] font-medium text-foreground">{label}</div>
-                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--neutral-bg)]">
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{ width: `${(count / maxStatusCount) * 100}%` }}
-                      />
+        <Card title="Vente — actualité" accent="var(--sec-accent)" padded={false}>
+          {/* Briefly answers "what's new" and "what needs picking up" for
+              the Ventes pipeline, side by side — Nouveau is prospections
+              created in the last 7 days (dateDebut filter), À traiter is
+              prospections still sitting in the pipeline's starting stage or
+              a side-track exception state (A_TRAITER_ETAPES, see above) —
+              nobody has moved them forward yet. Both are real server-side
+              filtered counts (totalElements), not client-side guesses.
+              Reuses the same contained-lane treatment as the Pipeline
+              Kanban below (KanbanColumn), just with semantic info/amber
+              accents instead of the shared identity accent — these two
+              lanes are urgency states, not entity types, so distinct color
+              is meaningful here. */}
+          <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2">
+            <KanbanColumn
+              icon={<Sparkles />}
+              title="Nouveau"
+              subtitle="7 derniers jours"
+              count={nouvellesPage?.totalElements}
+              emptyMessage="Aucune nouvelle prospection."
+              viewAllTo="/prospections"
+              accent="var(--info)"
+              accentBg="var(--info-bg)"
+              countTone="accent"
+            >
+              {nouvellesPage?.content.slice(0, 4).map((p) => (
+                <KanbanItemRow to={`/prospections/${p.id}`} key={p.id}>
+                  <span className="min-w-0 flex-1 truncate">{prospectionDisplayName(p)}</span>
+                  <span className="shrink-0 text-micro text-muted-foreground">{formatDate(p.dateDocument)}</span>
+                </KanbanItemRow>
+              ))}
+            </KanbanColumn>
+
+            <KanbanColumn
+              icon={<AlertCircle />}
+              title="À traiter"
+              subtitle="non prises en charge"
+              count={aTraiterPage?.totalElements}
+              emptyMessage="Rien à traiter — pipeline à jour."
+              viewAllTo="/prospections"
+              accent="var(--amber)"
+              accentBg="var(--amber-bg)"
+              countTone="accent"
+            >
+              {aTraiterPage?.content.slice(0, 4).map((p) => (
+                <KanbanItemRow to={`/prospections/${p.id}`} key={p.id}>
+                  <span className="min-w-0 flex-1 truncate">{prospectionDisplayName(p)}</span>
+                  <Badge tone={etapeBadgeTone(p.etape, p.fermee)} className="shrink-0 text-micro">
+                    {p.etape || '—'}
+                  </Badge>
+                </KanbanItemRow>
+              ))}
+            </KanbanColumn>
+          </div>
+        </Card>
+
+        <Card title="Pipeline" accent="var(--sec-accent)" padded={false}>
+          {/* Funnel view of the whole Ventes flow, one column per stage —
+              replaces the old "Dossiers par étape" bar chart (dossier
+              statuses only) with the full pré-prospection → prospection →
+              client → dossier journey. Each column is its own tinted card
+              (see KanbanColumn) with a real server-side count (totalElements
+              from the matching list endpoint) plus its most recent few
+              records. There's no drag/drop — records move stage by their
+              own workflow action (transformer, créer prospect, créer
+              dossier), not by dragging a card here. */}
+          <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 xl:grid-cols-4">
+            <KanbanColumn
+              icon={<UserPlus />}
+              title="Pré-prospection"
+              count={preProspectionsPage?.totalElements}
+              emptyMessage="Aucune pré-prospection."
+              viewAllTo="/pre-prospections"
+            >
+              {preProspectionsPage?.content.map((p) => (
+                <KanbanItemRow to={`/pre-prospections/${p.id}`} key={p.id}>
+                  <span className="min-w-0 truncate">{prospectionDisplayName(p)}</span>
+                </KanbanItemRow>
+              ))}
+            </KanbanColumn>
+
+            <KanbanColumn
+              icon={<Users />}
+              title="Prospections"
+              count={dashboard.prospectionsOuvertes}
+              emptyMessage="Aucune prospection ouverte."
+              viewAllTo="/prospections"
+            >
+              {prospectionsPage?.content.slice(0, 4).map((p) => (
+                <KanbanItemRow to={`/prospections/${p.id}`} key={p.id}>
+                  <span className="min-w-0 truncate">{prospectionDisplayName(p)}</span>
+                </KanbanItemRow>
+              ))}
+            </KanbanColumn>
+
+            <KanbanColumn icon={<UserCheck />} title="Clients" count={clientsPage?.totalElements} emptyMessage="Aucun client." viewAllTo="/clients">
+              {clientsPage?.content.map((c) => (
+                <KanbanItemRow to={`/clients/${c.id}`} key={c.id}>
+                  <span className="min-w-0 truncate">{c.nomAffiche || '—'}</span>
+                </KanbanItemRow>
+              ))}
+            </KanbanColumn>
+
+            <KanbanColumn icon={<Folder />} title="Dossier de vente" count={dossiersActifs} emptyMessage="Aucun dossier actif." viewAllTo="/dossiers">
+              {dossiersPage?.content.slice(0, 4).map((d) => (
+                <KanbanItemRow onClick={() => previewDossier(d.id)} key={d.id}>
+                  <span className="min-w-0 flex-1 truncate">{d.clientNom || '—'}</span>
+                  <Badge tone={toneForStatus(d.statut)} className="shrink-0 text-micro">
+                    {canonicalStatusLabel(d.statut) || d.statut || '—'}
+                  </Badge>
+                </KanbanItemRow>
+              ))}
+            </KanbanColumn>
+          </div>
+        </Card>
+
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          <Card
+            title="Relances en retard"
+            action={
+              <Link to="/dossiers" className="text-xs font-medium text-primary hover:underline">
+                Voir tout
+              </Link>
+            }
+          >
+            {relances.length === 0 ? (
+              <EmptyState title="Rien en attente" message="Aucune relance en retard." />
+            ) : (
+              <div>
+                {relances.slice(0, 6).map((r) => (
+                  <button
+                    type="button"
+                    onClick={() => previewDossier(r.dossierId)}
+                    className="flex w-full items-center gap-2.5 border-b border-border py-2 text-left last:border-b-0"
+                    key={r.dossierId}
+                  >
+                    <span className="size-1.5 shrink-0 rounded-full bg-(--warning)" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-body font-semibold text-foreground">{r.clientNom || 'Client'}</div>
+                      <div className="truncate text-micro text-muted-foreground">Échéance {formatDate(r.dateEcheance)}</div>
                     </div>
-                    <div className="w-7 shrink-0 text-right text-[12.5px] tabular-nums text-muted-foreground">{count}</div>
-                  </div>
-                );
-              })}
-              {stats.cancelledCount > 0 && (
-                <div className="flex items-center gap-3 py-2">
-                  <div className="w-[130px] shrink-0 text-[12.5px] font-medium text-foreground">Annulé</div>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--neutral-bg)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--warning)]"
-                      style={{ width: `${(stats.cancelledCount / maxStatusCount) * 100}%` }}
-                    />
-                  </div>
-                  <div className="w-7 shrink-0 text-right text-[12.5px] tabular-nums text-muted-foreground">{stats.cancelledCount}</div>
-                </div>
-              )}
-              {stats.withdrawnCount > 0 && (
-                <div className="flex items-center gap-3 py-2">
-                  <div className="w-[130px] shrink-0 text-[12.5px] font-medium text-foreground">Désistement</div>
-                  <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--neutral-bg)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--warning)]"
-                      style={{ width: `${(stats.withdrawnCount / maxStatusCount) * 100}%` }}
-                    />
-                  </div>
-                  <div className="w-7 shrink-0 text-right text-[12.5px] tabular-nums text-muted-foreground">{stats.withdrawnCount}</div>
-                </div>
-              )}
-            </div>
+                    <div className="shrink-0 text-micro font-semibold text-(--warning)">
+                      {r.joursRetard ? `${r.joursRetard} j` : ''}
+                    </div>
+                    <ArrowUpRight className="size-3 shrink-0 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            )}
           </Card>
 
           <Card
-            title="À relancer aujourd'hui"
+            title="Prospections récentes"
             action={
               <Link to="/prospections" className="text-xs font-medium text-primary hover:underline">
                 Voir tout
               </Link>
             }
           >
-            {stats.followUpsToday.length === 0 ? (
-              <EmptyState title="Rien en attente" message="Aucune relance due aujourd'hui ou en retard." />
+            {!prospectionsPage || prospectionsPage.content.length === 0 ? (
+              <EmptyState title="Aucune prospection" />
             ) : (
               <div>
-                {stats.followUpsToday.slice(0, 8).map((p) => (
-                  <button
-                    type="button"
-                    onClick={() => previewProspection(p.id)}
-                    className="flex w-full items-center gap-3 border-b border-border py-2.5 text-left last:border-b-0"
+                {prospectionsPage.content.slice(0, 6).map((p) => (
+                  <Link
+                    to={`/prospections/${p.id}`}
+                    className="flex w-full items-center gap-2.5 border-b border-border py-2 text-left no-underline last:border-b-0"
                     key={p.id}
                   >
-                    <span className="size-2 shrink-0 rounded-full bg-[var(--warning)]" />
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-semibold text-foreground">{prospectionDisplayName(p)}</div>
-                      <div className="truncate text-xs text-muted-foreground">{p.alertMessage || 'Relance planifiée'}</div>
+                      <div className="truncate text-body font-semibold text-foreground">{prospectionDisplayName(p)}</div>
+                      <div className="truncate text-micro text-muted-foreground">{p.commercialNom || '—'}</div>
                     </div>
-                    <div className="shrink-0 text-[11.5px] font-semibold text-[var(--warning)]">{formatDate(p.alertValidityDate)}</div>
-                  </button>
+                    <Badge tone={etapeBadgeTone(p.etape, p.fermee)} className="shrink-0 text-micro">
+                      {p.etape || '—'}
+                    </Badge>
+                  </Link>
                 ))}
               </div>
             )}
@@ -181,59 +363,51 @@ export default function Dashboard() {
         </div>
 
         <Card
-          title="Activité récente"
-          action={<Folder className="size-[15px] text-muted-foreground" />}
+          title="Dossiers récents"
+          action={
+            <Link to="/dossiers" className="text-xs font-medium text-primary hover:underline">
+              Voir tout
+            </Link>
+          }
+          padded={false}
         >
-          {stats.recentActivity.length === 0 ? (
-            <EmptyState title="Aucune activité" />
+          {!dossiersPage || dossiersPage.content.length === 0 ? (
+            <EmptyState title="Aucun dossier" />
           ) : (
-            <div>
-              {stats.recentActivity.map((c) => {
-                const onOpen = c.prospectionId
-                  ? () => previewProspection(c.prospectionId!)
-                  : c.folderId
-                    ? () => previewDossier(c.folderId!)
-                    : null;
-                const body = (
-                  <>
-                    <div className="flex size-[30px] shrink-0 items-center justify-center rounded-full bg-[var(--brand-bg)] text-[var(--brand)] [&_svg]:size-[15px]">
-                      {communicationIcon(c.actionType)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-medium text-foreground">
-                        {c.actionType} — {c.user || 'Système'}
-                      </div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(c.date)}</div>
-                      {c.report && <div className="mt-1 text-[12.5px] text-foreground">{c.report}</div>}
-                    </div>
-                    {onOpen && <ArrowUpRight className="mt-1.5 size-3.5 shrink-0 text-muted-foreground" />}
-                  </>
-                );
-                return onOpen ? (
-                  <button
-                    type="button"
-                    onClick={onOpen}
-                    key={c.id}
-                    className="flex w-full gap-3 border-b border-border py-2.5 text-left text-inherit last:border-b-0"
-                  >
-                    {body}
-                  </button>
-                ) : (
-                  <div className="flex gap-3 border-b border-border py-2.5 last:border-b-0" key={c.id}>
-                    {body}
-                  </div>
-                );
-              })}
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-body">
+                <thead>
+                  <tr className="border-b border-border text-left text-micro font-medium text-muted-foreground">
+                    <th className="px-4 py-2 font-medium">Client</th>
+                    <th className="px-4 py-2 font-medium">Commercial</th>
+                    <th className="px-4 py-2 font-medium">Statut</th>
+                    <th className="px-4 py-2 text-right font-medium">Prix</th>
+                    <th className="px-4 py-2 text-right font-medium">Total à payer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dossiersPage.content.slice(0, 7).map((d) => (
+                    <tr
+                      key={d.id}
+                      className="cursor-pointer border-b border-border last:border-b-0 hover:bg-(--surface-hover)"
+                      onClick={() => previewDossier(d.id)}
+                    >
+                      <td className="px-4 py-2 font-medium text-foreground">{d.clientNom || '—'}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{d.commercialNom || '—'}</td>
+                      <td className="px-4 py-2">
+                        <Badge tone="neutral" className="text-micro">
+                          {d.statut || '—'}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-foreground">{formatCurrency(d.prix)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{formatCurrency(d.totalAPayer)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </Card>
-
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(210px,1fr))] gap-3.5">
-          <StatCard icon={<Folder />} label="Dossiers totaux" value={String(dossiers.length)} />
-          <StatCard icon={<Clock />} label="Tranches" value={String(portfolio?.tranches.length ?? 0)} sub="Projets en portefeuille" />
-          <StatCard icon={<Users />} label="Articles" value={String(portfolio?.articles.length ?? 0)} sub="Lots référencés" />
-          <StatCard icon={<Clock />} label="Interactions" value={String(communications.length)} sub="Appels, visites, notes" />
-        </div>
       </div>
     </PageShell>
   );

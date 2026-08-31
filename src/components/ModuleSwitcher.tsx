@@ -17,7 +17,7 @@ export default function ModuleSwitcher({ onClose }: { onClose: () => void }) {
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[820px]">
+      <DialogContent className="sm:max-w-205">
         <DialogHeader>
           <DialogTitle className="text-xl">Modules</DialogTitle>
         </DialogHeader>
@@ -30,21 +30,21 @@ export default function ModuleSwitcher({ onClose }: { onClose: () => void }) {
                 type="button"
                 onClick={() => handleSelect(mod)}
                 className={cn(
-                  'relative flex flex-col items-center gap-2.5 rounded-xl border border-border bg-card px-4 pb-5 pt-6.5 text-center transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-md',
+                  'relative flex flex-col items-center gap-2.5 rounded-xl border border-border bg-card px-4 pb-5 pt-6.5 text-center transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-0.5 hover:border-(--border-strong) hover:shadow-md',
                   !mod.active && 'opacity-70'
                 )}
               >
                 <span
                   className={cn(
                     'flex size-12 items-center justify-center rounded-2xl [&_svg]:size-6',
-                    mod.active ? 'bg-[var(--brand-bg)] text-[var(--brand)]' : 'bg-[var(--neutral-bg)] text-muted-foreground'
+                    mod.active ? 'bg-(--brand-bg) text-(--brand)' : 'bg-(--neutral-bg) text-muted-foreground'
                   )}
                 >
                   <Icon />
                 </span>
-                <span className="text-[13px] font-semibold text-foreground">{mod.label}</span>
+                <span className="text-label font-semibold text-foreground">{mod.label}</span>
                 {!mod.active && (
-                  <span className="absolute right-2.5 top-2.5 rounded-full bg-[var(--amber-bg)] px-1.75 py-0.5 text-[10px] font-bold text-[var(--amber)]">
+                  <span className="absolute right-2.5 top-2.5 rounded-full bg-(--amber-bg) px-1.75 py-0.5 text-micro font-bold text-(--amber)">
                     Bientôt
                   </span>
                 )}

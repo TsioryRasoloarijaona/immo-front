@@ -1,0 +1,2725 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OpenAPI definition",
+    "version": "v0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Generated server url"
+    }
+  ],
+  "paths": {
+    "/api/prospects": {
+      "get": {
+        "tags": [
+          "prospect-controller"
+        ],
+        "operationId": "findAll",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoProspectListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "prospect-controller"
+        ],
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerProspectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections/{id}/transformer": {
+      "post": {
+        "tags": [
+          "prospection-controller"
+        ],
+        "operationId": "transformer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransformerProspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections/{id}/interactions": {
+      "get": {
+        "tags": [
+          "prospection-controller"
+        ],
+        "operationId": "findInteractions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoInteractionDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "prospection-controller"
+        ],
+        "operationId": "addInteraction",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerInteractionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InteractionDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pre-prospections/{id}/creer-prospect": {
+      "post": {
+        "tags": [
+          "pre-prospection-controller"
+        ],
+        "operationId": "creerProspect",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerProspectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers": {
+      "get": {
+        "tags": [
+          "dossier-controller"
+        ],
+        "operationId": "findAll_1",
+        "parameters": [
+          {
+            "name": "statut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "commercial",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projet",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoDossierListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "dossier-controller"
+        ],
+        "operationId": "create_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerDossierRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/echeancier": {
+      "get": {
+        "tags": [
+          "dossier-controller"
+        ],
+        "operationId": "findEcheances",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoEcheanceDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "dossier-controller"
+        ],
+        "operationId": "addEcheance",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerEcheanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/echeancier/{echeanceId}/reglements": {
+      "post": {
+        "tags": [
+          "dossier-controller"
+        ],
+        "operationId": "addReglement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "echeanceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerReglementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospects/{id}": {
+      "get": {
+        "tags": [
+          "prospect-controller"
+        ],
+        "operationId": "findById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectDetailDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "prospect-controller"
+        ],
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierProspectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections/{id}/etape": {
+      "patch": {
+        "tags": [
+          "prospection-controller"
+        ],
+        "operationId": "changerEtape",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangerEtapeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections/{id}/archiver": {
+      "patch": {
+        "tags": [
+          "prospection-controller"
+        ],
+        "operationId": "archiver",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiverProspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/statut": {
+      "patch": {
+        "tags": [
+          "dossier-controller"
+        ],
+        "operationId": "changerStatut",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangerStatutRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/echeancier/{echeanceId}": {
+      "patch": {
+        "tags": [
+          "dossier-controller"
+        ],
+        "operationId": "updateEcheance",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "echeanceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierEcheanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}": {
+      "get": {
+        "tags": [
+          "tranche-controller"
+        ],
+        "operationId": "findById_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/articles": {
+      "get": {
+        "tags": [
+          "tranche-controller"
+        ],
+        "operationId": "findArticles",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DISPONIBLE",
+                "OCCUPE"
+              ]
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections": {
+      "get": {
+        "tags": [
+          "prospection-controller"
+        ],
+        "operationId": "findAll_2",
+        "parameters": [
+          {
+            "name": "etape",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "origine",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "commercial",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ouvertes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoProspectionListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections/{id}": {
+      "get": {
+        "tags": [
+          "prospection-controller"
+        ],
+        "operationId": "findById_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projets": {
+      "get": {
+        "tags": [
+          "projet-controller"
+        ],
+        "operationId": "findAll_3",
+        "parameters": [
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoProjetListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projets/{id}": {
+      "get": {
+        "tags": [
+          "projet-controller"
+        ],
+        "operationId": "findById_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projets/{id}/tranches": {
+      "get": {
+        "tags": [
+          "projet-controller"
+        ],
+        "operationId": "findTranches",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoTrancheListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/pre-prospections": {
+      "get": {
+        "tags": [
+          "pre-prospection-controller"
+        ],
+        "operationId": "findAll_4",
+        "parameters": [
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoProspectionListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}": {
+      "get": {
+        "tags": [
+          "dossier-controller"
+        ],
+        "operationId": "findById_4",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/montants": {
+      "get": {
+        "tags": [
+          "dossier-controller"
+        ],
+        "operationId": "montants",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MontantsDossierDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard": {
+      "get": {
+        "tags": [
+          "dashboard-controller"
+        ],
+        "operationId": "get",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/commerciaux": {
+      "get": {
+        "tags": [
+          "commercial-controller"
+        ],
+        "operationId": "findAll_5",
+        "parameters": [
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoCommercialListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}": {
+      "get": {
+        "tags": [
+          "article-controller"
+        ],
+        "operationId": "findById_5",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreerProspectRequest": {
+        "type": "object",
+        "properties": {
+          "prenom": {
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "raisonSociale": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "dateNaissance": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kindId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ProspectDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "prenom": {
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "raisonSociale": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "telephone1": {
+            "type": "string"
+          },
+          "telephone2": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "fax": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "siteWeb": {
+            "type": "string"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "adresse2": {
+            "type": "string"
+          },
+          "adresse3": {
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "dateNaissance": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lieuNaissance": {
+            "type": "string"
+          },
+          "nombreEnfants": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "profession": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "ice": {
+            "type": "string"
+          },
+          "estAncienClient": {
+            "type": "boolean"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string"
+          },
+          "kindId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commercialNom": {
+            "type": "string"
+          }
+        }
+      },
+      "TransformerProspectionRequest": {
+        "type": "object",
+        "properties": {
+          "commercialId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ProspectionDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "prospectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "prospectNom": {
+            "type": "string"
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commercialNom": {
+            "type": "string"
+          },
+          "proposeurId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "proposeurNom": {
+            "type": "string"
+          },
+          "origineId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "origine": {
+            "type": "string"
+          },
+          "origineSupportId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "origineSupport": {
+            "type": "string"
+          },
+          "etapeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "etape": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "surface": {
+            "type": "number"
+          },
+          "surfaceJusqua": {
+            "type": "number"
+          },
+          "prix": {
+            "type": "number"
+          },
+          "prixJusqua": {
+            "type": "number"
+          },
+          "avance": {
+            "type": "number"
+          },
+          "financementFondsPropres": {
+            "type": "number"
+          },
+          "financementCredit": {
+            "type": "number"
+          },
+          "financementAutre": {
+            "type": "number"
+          },
+          "fermee": {
+            "type": "boolean"
+          },
+          "dateFermeture": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "raisonFermetureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "raisonFermeture": {
+            "type": "string"
+          },
+          "raisonFermetureTexte": {
+            "type": "string"
+          },
+          "ancienClient": {
+            "type": "boolean"
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "articleId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "CreerInteractionRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "entrante": {
+            "type": "boolean"
+          }
+        }
+      },
+      "InteractionDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": "string"
+          },
+          "entrante": {
+            "type": "boolean"
+          },
+          "employeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "employeNom": {
+            "type": "string"
+          }
+        }
+      },
+      "CreerDossierRequest": {
+        "type": "object",
+        "properties": {
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "articleIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "prix": {
+            "type": "number"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "ArticleSummaryDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "area": {
+            "type": "number"
+          },
+          "price": {
+            "type": "number"
+          }
+        }
+      },
+      "DossierDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "statut": {
+            "type": "string"
+          },
+          "etapesAtteignables": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientNom": {
+            "type": "string"
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commercialNom": {
+            "type": "string"
+          },
+          "avocatId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "avocatNom": {
+            "type": "string"
+          },
+          "articles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArticleSummaryDto"
+            }
+          },
+          "prixAvantRemise": {
+            "type": "number"
+          },
+          "remise": {
+            "type": "number"
+          },
+          "remiseMontant": {
+            "type": "number"
+          },
+          "prixApresRemise": {
+            "type": "number"
+          },
+          "prix": {
+            "type": "number"
+          },
+          "montantAvance": {
+            "type": "number"
+          },
+          "totalAPayer": {
+            "type": "number"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "probabiliteFinalisation": {
+            "type": "number"
+          },
+          "modePaie": {
+            "type": "string"
+          }
+        }
+      },
+      "CreerEcheanceRequest": {
+        "type": "object",
+        "properties": {
+          "dateEcheance": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "montant": {
+            "type": "number"
+          },
+          "description": {
+            "type": "string"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "exclureDuPrix": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "EcheanceDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "montant": {
+            "type": "number"
+          },
+          "montantHT": {
+            "type": "number"
+          },
+          "montantTTC": {
+            "type": "number"
+          },
+          "tauxTVA": {
+            "type": "number"
+          },
+          "description": {
+            "type": "string"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorie": {
+            "type": "string"
+          },
+          "exclureDuPrix": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "montantRegle": {
+            "type": "number"
+          },
+          "reste": {
+            "type": "number"
+          },
+          "statutCalcule": {
+            "type": "string"
+          }
+        }
+      },
+      "CreerReglementRequest": {
+        "type": "object",
+        "properties": {
+          "montant": {
+            "type": "number"
+          },
+          "dateReglement": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "banqueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "ReglementDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateReglement": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "montant": {
+            "type": "number"
+          },
+          "type": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "ModifierProspectRequest": {
+        "type": "object",
+        "properties": {
+          "prenom": {
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "raisonSociale": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "dateNaissance": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kindId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "ChangerEtapeRequest": {
+        "type": "object",
+        "properties": {
+          "etapeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "ArchiverProspectionRequest": {
+        "type": "object",
+        "properties": {
+          "raisonId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "raisonTexte": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangerStatutRequest": {
+        "type": "object",
+        "properties": {
+          "statut": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      },
+      "ModifierEcheanceRequest": {
+        "type": "object",
+        "properties": {
+          "dateEcheance": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "montant": {
+            "type": "number"
+          },
+          "description": {
+            "type": "string"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "exclureDuPrix": {
+            "type": "boolean"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "TrancheDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "descriptionLongue": {
+            "type": "string"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "adresse2": {
+            "type": "string"
+          },
+          "adresse3": {
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "fax": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "siteWeb": {
+            "type": "string"
+          },
+          "dateDebutTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDebutCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateLivraison": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "estEnVente": {
+            "type": "boolean"
+          },
+          "estEnLocation": {
+            "type": "boolean"
+          },
+          "tauxPenaliteAnnulation": {
+            "type": "number"
+          },
+          "tauxPenaliteAnnulationRemise": {
+            "type": "number"
+          },
+          "penaliteTransfertArticle": {
+            "type": "number"
+          },
+          "penaliteTransfertArticleRemise": {
+            "type": "number"
+          },
+          "penaliteTransfertTranche": {
+            "type": "number"
+          },
+          "penaliteTransfertTrancheRemise": {
+            "type": "number"
+          },
+          "penaliteTransfertClient": {
+            "type": "number"
+          },
+          "penaliteTransfertClientRemise": {
+            "type": "number"
+          },
+          "tauxPenalitePremierEngagement": {
+            "type": "number"
+          },
+          "tauxPenaliteDeuxiemeEngagement": {
+            "type": "number"
+          },
+          "delaiGarantie": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiGarantieSupplement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiPremierEngagement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiDeuxiemeEngagement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiSoldePaiement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiNotaireMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiToutSoldeMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiRetractation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiMinimumIntervention": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiMaxEcheance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "advancePercent": {
+            "type": "number"
+          },
+          "concretisationPercent": {
+            "type": "number"
+          },
+          "maxVisitNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isWithVerifCredit": {
+            "type": "boolean"
+          },
+          "creditPercent": {
+            "type": "number"
+          }
+        }
+      },
+      "Pageable": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "sort": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ArticleListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "area": {
+            "type": "number"
+          },
+          "salePrice": {
+            "type": "number"
+          },
+          "comSalePrice": {
+            "type": "number"
+          },
+          "statut": {
+            "type": "string",
+            "enum": [
+              "DISPONIBLE",
+              "OCCUPE"
+            ]
+          },
+          "titreFoncier": {
+            "type": "string"
+          },
+          "categorie": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "PageDtoArticleListItemDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArticleListItemDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PageDtoProspectListItemDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProspectListItemDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ProspectListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "prenom": {
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "raisonSociale": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "PageDtoProspectionListItemDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProspectionListItemDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ProspectionListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "prospectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "prospectNom": {
+            "type": "string"
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commercialNom": {
+            "type": "string"
+          },
+          "origine": {
+            "type": "string"
+          },
+          "etape": {
+            "type": "string"
+          },
+          "fermee": {
+            "type": "boolean"
+          },
+          "prix": {
+            "type": "number"
+          },
+          "surface": {
+            "type": "number"
+          }
+        }
+      },
+      "PageDtoInteractionDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InteractionDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "PageDtoProjetListItemDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjetListItemDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ProjetListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          }
+        }
+      },
+      "ProjetDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "descriptionLongue": {
+            "type": "string"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "adresse2": {
+            "type": "string"
+          },
+          "adresse3": {
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "villeSignature": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "fax": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "siteWeb": {
+            "type": "string"
+          },
+          "dateDebutTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDebutCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "PageDtoTrancheListItemDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TrancheListItemDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TrancheListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "dateLivraison": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DossierListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "statut": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientNom": {
+            "type": "string"
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commercialNom": {
+            "type": "string"
+          },
+          "prix": {
+            "type": "number"
+          },
+          "totalAPayer": {
+            "type": "number"
+          }
+        }
+      },
+      "PageDtoDossierListItemDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DossierListItemDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "CategorieMontantDto": {
+        "type": "object",
+        "properties": {
+          "categorie": {
+            "type": "string"
+          },
+          "montant": {
+            "type": "number"
+          },
+          "nombreLignes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "regle": {
+            "type": "number"
+          },
+          "reste": {
+            "type": "number"
+          }
+        }
+      },
+      "MontantsDossierDto": {
+        "type": "object",
+        "properties": {
+          "parCategorie": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CategorieMontantDto"
+            }
+          },
+          "totalGeneral": {
+            "type": "number"
+          },
+          "totalSoumisReglePrixTTC": {
+            "type": "number"
+          }
+        }
+      },
+      "PageDtoEcheanceDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EcheanceDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DashboardDto": {
+        "type": "object",
+        "properties": {
+          "valeurPipeline": {
+            "type": "number"
+          },
+          "panierMoyen": {
+            "type": "number"
+          },
+          "dossiersParEtape": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EtapeCountDto"
+            }
+          },
+          "relancesEnRetard": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RelanceDto"
+            }
+          },
+          "prospectionsOuvertes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "prospectionsTotal": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "EtapeCountDto": {
+        "type": "object",
+        "properties": {
+          "etape": {
+            "type": "string"
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "RelanceDto": {
+        "type": "object",
+        "properties": {
+          "dossierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientNom": {
+            "type": "string"
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "joursRetard": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "CommercialListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "prenom": {
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        }
+      },
+      "PageDtoCommercialListItemDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommercialListItemDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ArticleDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "area": {
+            "type": "number"
+          },
+          "salePrice": {
+            "type": "number"
+          },
+          "comSalePrice": {
+            "type": "number"
+          },
+          "statut": {
+            "type": "string",
+            "enum": [
+              "DISPONIBLE",
+              "OCCUPE"
+            ]
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lotParentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "sousLots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArticleListItemDto"
+            }
+          },
+          "titreFoncier": {
+            "type": "string"
+          },
+          "categorie": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

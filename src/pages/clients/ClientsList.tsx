@@ -1,132 +1,145 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Search } from 'lucide-react';
+import { RotateCcw, Search, UserCheck } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { useStore } from '../../lib/storeContext';
-import { useData } from '../../lib/useData';
-import { buildClientRows } from '../../lib/clients';
+import { DEFAULT_PAGE_SIZE, listClients } from '../../lib/api';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { formatCurrency } from '../../lib/format';
 
+// "Clients" — a person-centric view distinct from the Dossiers list (per
+// instructions/FIX-clients-and-module-switcher.md): useful once a client
+// has several dossiers/tranches, to see them by person rather than by file.
+// Backed by GET /api/clients (V4) — anyone who's the clientId of at least
+// one dossier de vente, with À payer/Réglé/Reste totals aggregated
+// server-side (ClientListItemDto). GET /api/clients/{id} returns the same
+// ProspectDetailDto shape as /api/prospects/{id}, so the detail view reuses
+// the existing ProspectDetail component (Général/Contacts/Prospections/
+// Dossiers/Règlements/Historique already cover "toutes les fiches relatives
+// à ce client") — mounted at its own /clients/:id route rather than
+// redirecting into /prospects/:id, so the breadcrumb/back-link/URL stay
+// under "Clients" (ProspectDetail detects the /clients prefix and adapts).
 export default function ClientsList() {
-  const { dossiers, loading: storeLoading, error } = useStore();
-  const { data, loading: dataLoading } = useData();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const [refreshedAt, setRefreshedAt] = useState<number | null>(null);
+  const debouncedSearch = useDebouncedValue(search);
+  const [page, setPage] = useState(0);
 
-  const rows = useMemo(() => {
-    if (!data) return [];
-    return buildClientRows(dossiers, data.settlements);
-  }, [dossiers, data]);
+  const { data, loading, error } = useApi(
+    () => listClients({ search: debouncedSearch || undefined }, { page, size: DEFAULT_PAGE_SIZE }),
+    [debouncedSearch, page],
+  );
+  const rows = data?.content ?? [];
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      `${r.displayName} ${r.code} ${r.mobile} ${r.phone} ${r.email}`.toLowerCase().includes(q),
-    );
-  }, [rows, search]);
-
-  const loading = storeLoading || dataLoading;
-
-  if (loading) return <PageShell title="Clients"><LoadingState /></PageShell>;
-  if (error) return <PageShell title="Clients"><ErrorState message={error} /></PageShell>;
-  if (!data) return null;
-
-  function handleRefresh() {
-    setRefreshedAt(Date.now());
-    setTimeout(() => setRefreshedAt(null), 1800);
+  function resetAndSet<T>(setter: (v: T) => void, v: T) {
+    setPage(0);
+    setter(v);
   }
 
   return (
-    <PageShell title="Clients" crumbs={[{ label: 'Ventes' }, { label: 'Clients' }]}>
-      <p className="mb-4 max-w-[680px] text-[12.5px] text-muted-foreground">
-        Vue centrée sur la personne plutôt que sur le dossier — un même client peut avoir plusieurs
-        dossiers dans des tranches différentes. Le rattachement dossier ↔ tranche n'étant pas
-        fiable dans cet échantillon (voir la page Articles), la colonne Tranches et son filtre ne
-        sont pas activés ici pour éviter d'afficher un regroupement incorrect.
-      </p>
-
-      <div className="mb-4 flex flex-wrap items-center gap-2.5">
-        <InputGroup className="min-w-[220px] flex-1">
-          <InputGroupAddon>
-            <Search />
-          </InputGroupAddon>
-          <InputGroupInput
-            placeholder="Rechercher un nom, code, téléphone, email…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </InputGroup>
-        <Button type="button" variant="outline" size="sm" onClick={handleRefresh}>
-          <Clock data-icon="inline-start" />
-          {refreshedAt ? 'Actualisé' : 'Rafraîchir'}
-        </Button>
-      </div>
-
-      <div className="mb-2.5 text-[12.5px] text-muted-foreground">{filtered.length} client{filtered.length > 1 ? 's' : ''}</div>
-
-      {filtered.length === 0 ? (
-        <EmptyState title="Aucun résultat" message="Ajustez votre recherche." />
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <Table className="min-w-[640px]">
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Code</TableHead>
-                <TableHead>Affiché comme</TableHead>
-                <TableHead>Mobile</TableHead>
-                <TableHead>Tél.</TableHead>
-                <TableHead className="text-right">Âge</TableHead>
-                <TableHead>Tranches</TableHead>
-                <TableHead className="text-right">À payer</TableHead>
-                <TableHead className="text-right">Réglé</TableHead>
-                <TableHead className="text-right">Reste</TableHead>
-                <TableHead>Email</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((r) => (
-                <TableRow
-                  key={r.id}
-                  tabIndex={0}
-                  role="link"
-                  aria-label={`Ouvrir le client ${r.displayName}`}
-                  className="cursor-pointer"
-                  onClick={() => navigate(`/clients/${r.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') navigate(`/clients/${r.id}`);
-                  }}
-                >
-                  <TableCell className="text-muted-foreground">{r.code}</TableCell>
-                  <TableCell className="font-medium text-foreground">
-                    {r.displayName}
-                    {r.dossiers.length > 1 && (
-                      <Badge tone="info" className="ml-2">{r.dossiers.length} dossiers</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{r.mobile || '—'}</TableCell>
-                  <TableCell className="text-muted-foreground">{r.phone || '—'}</TableCell>
-                  <TableCell className="text-right tabular-nums">{r.age ?? '—'}</TableCell>
-                  <TableCell className="text-muted-foreground">—</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatCurrency(r.totalDue)}</TableCell>
-                  <TableCell className="text-right tabular-nums" style={{ color: r.totalPaid > 0 ? 'var(--success)' : undefined }}>
-                    {formatCurrency(r.totalPaid)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums" style={{ color: r.totalRemaining > 0 ? 'var(--warning)' : 'var(--success)' }}>
-                    {formatCurrency(r.totalRemaining)}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{r.email || '—'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+    <PageShell
+      title="Clients"
+      crumbs={[{ label: 'Ventes' }, { label: 'Clients' }]}
+      icon={<UserCheck />}
+      accent="var(--sec-client)"
+      accentBg="var(--sec-client-bg)"
+      fullHeight
+    >
+      <div className="flex h-full min-h-0 flex-col gap-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2.5">
+          <InputGroup className="min-w-55 flex-1">
+            <InputGroupAddon>
+              <Search />
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder="Rechercher un nom, téléphone, email…"
+              value={search}
+              onChange={(e) => resetAndSet(setSearch, e.target.value)}
+            />
+          </InputGroup>
         </div>
-      )}
+
+        {loading && !data && <LoadingState />}
+        {error && <ErrorState message={error} />}
+        {!error && data && (
+          <ResultsRegion loading={loading}>
+            <div className="shrink-0 text-body text-muted-foreground">
+              {(data?.totalElements ?? 0)} client{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+            </div>
+          {rows.length === 0 ? (
+            <EmptyState
+              title={search ? 'Aucun résultat' : 'Rien à afficher'}
+              message={
+                search
+                  ? 'Aucun client ne correspond aux filtres actifs.'
+                  : "Aucun client n'est encore enregistré."
+              }
+              action={
+                search ? (
+                  <Button type="button" variant="outline" size="sm" onClick={() => { setPage(0); setSearch(''); }}>
+                    <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+              <Table className="min-w-190">
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Code</TableHead>
+                    <TableHead>Affiché comme</TableHead>
+                    <TableHead>Mobile</TableHead>
+                    <TableHead>Téléphone</TableHead>
+                    <TableHead>Ville</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead className="text-right">Dossiers</TableHead>
+                    <TableHead className="text-right">À payer</TableHead>
+                    <TableHead className="text-right">Réglé</TableHead>
+                    <TableHead className="text-right">Reste</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((r) => (
+                    <TableRow
+                      key={r.id}
+                      tabIndex={0}
+                      role="link"
+                      aria-label={`Ouvrir la fiche de ${r.nomAffiche || r.code}`}
+                      className="cursor-pointer"
+                      onClick={() => navigate(`/clients/${r.id}`)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') navigate(`/clients/${r.id}`);
+                      }}
+                    >
+                      <TableCell className="text-muted-foreground">{r.code || '—'}</TableCell>
+                      <TableCell className="font-medium text-foreground">{r.nomAffiche || '—'}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.mobile || '—'}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.telephone || '—'}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.ville || '—'}</TableCell>
+                      <TableCell className="text-muted-foreground">{r.email || '—'}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">{r.nbDossiers ?? '—'}</TableCell>
+                      <TableCell className="text-right tabular-nums text-foreground">{formatCurrency(r.totalAPayer)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-(--success)">{formatCurrency(r.totalRegle)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-destructive">{formatCurrency(r.totalReste)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+            <div className="shrink-0">
+              {data && (
+                <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
+              )}
+            </div>
+          </ResultsRegion>
+        )}
+      </div>
     </PageShell>
   );
 }

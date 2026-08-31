@@ -1,8 +1,12 @@
 /* ===========================================================================
    Ayad Développement — design tokens & global styles
-   Accent is the brand purple sampled from /public/brand (icon-color.png).
-   Visual references: Linear / Stripe Dashboard / Attio — generous whitespace,
-   muted neutral palette, one accent color, status as color-coded pills.
+   Simple color space: one achromatic "ink" accent (no hue at all — pure
+   near-black/near-white at descending lightness) on plain neutral grays,
+   matching the monochrome dashboard reference the design direction moved
+   to (no colored brand mark anymore — the sidebar/login wordmark is styled
+   text, see Layout.tsx / AuthScreen.tsx). Dense, information-forward sales
+   CRM layout (tight spacing/radius) so more of the pipeline is visible
+   without scrolling.
    =========================================================================== */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -26,11 +30,17 @@
   --surface-hover: #fafafa;
   --border-strong: #d7d6dd;
 
-  /* Brand purple sampled from the Ayad Développement mark (icon-color.png, #5d396e). */
-  --brand: #5d396e;
-  --brand-hover: #4a2d58;
-  --brand-bg: rgba(93, 57, 110, 0.09);
-  --brand-border: rgba(93, 57, 110, 0.35);
+  /* Monochrome "ink" accent — near-black, no hue — the app's one accent
+     color; everything else stays plain neutral gray. Replaces the earlier
+     brand-purple sampled from the (now-removed) logo mark. Hover brightens
+     rather than darkens: darkening an already near-black color is
+     imperceptible, so this is the one place the light/dark hover direction
+     intentionally breaks from the rest of the palette (which darkens on
+     hover in light mode). */
+  --brand: #18181b;
+  --brand-hover: #313033;
+  --brand-bg: rgba(24, 24, 27, 0.06);
+  --brand-border: rgba(24, 24, 27, 0.18);
   /* Foreground color for text/icons sitting on a solid --brand fill. */
   --brand-contrast: #fff;
 
@@ -53,6 +63,39 @@
   --neutral-bg: rgba(85, 83, 94, 0.09);
   --neutral-border: rgba(85, 83, 94, 0.22);
 
+  /* ---------------------------------------------------------------------
+     Section-identity accent — now that --brand is achromatic ink (see top
+     comment), every icon chip (PageShell header, sidebar nav in
+     Layout.tsx), card relief (Card's `accent` prop) and pipeline stepper
+     (ProspectionDetail, DossierStatusStepper) draws from this ONE color,
+     not a different hue per entity — a first pass gave every entity its
+     own hue family and it read as too scattered/noisy, then a plain
+     indigo read as too close to a "blue = link/info" affordance; a sober,
+     muted plum/wine (validated CVD-safe against the reserved status hues
+     above) reads as "the app has one quiet accent for structure, plus
+     status colors for state" instead of a rainbow. All --sec-* names are
+     kept as aliases to this single color so call sites don't need to
+     change if the palette is revisited again later. */
+  --sec-accent: #823060;
+  --sec-accent-bg: rgba(130, 48, 96, 0.1);
+
+  --sec-prospection: var(--sec-accent);
+  --sec-preprospection: var(--sec-accent);
+  --sec-prospect: var(--sec-accent);
+  --sec-client: var(--sec-accent);
+  --sec-dossier: var(--sec-accent);
+  --sec-offre: var(--sec-accent);
+  --sec-tranche: var(--sec-accent);
+  --sec-projet: var(--sec-accent);
+  --sec-prospection-bg: var(--sec-accent-bg);
+  --sec-preprospection-bg: var(--sec-accent-bg);
+  --sec-prospect-bg: var(--sec-accent-bg);
+  --sec-client-bg: var(--sec-accent-bg);
+  --sec-dossier-bg: var(--sec-accent-bg);
+  --sec-offre-bg: var(--sec-accent-bg);
+  --sec-tranche-bg: var(--sec-accent-bg);
+  --sec-projet-bg: var(--sec-accent-bg);
+
   --shadow-sm: 0 1px 2px rgba(20, 18, 30, 0.04);
   --shadow-md: 0 4px 16px rgba(20, 18, 30, 0.07), 0 1px 3px rgba(20, 18, 30, 0.05);
   --shadow-lg: 0 12px 32px rgba(20, 18, 30, 0.12), 0 2px 6px rgba(20, 18, 30, 0.06);
@@ -62,7 +105,7 @@
   --mono: ui-monospace, 'SF Mono', Consolas, monospace;
 
   color-scheme: light;
-  font: 14.5px/1.5 var(--sans);
+  font: 13.5px/1.45 var(--sans);
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -95,12 +138,14 @@
   --border: #e6e5ea;
   --input: #d7d6dd;
   --ring: var(--brand);
+  /* Simple/monochrome — one hue (the brand purple) at descending
+     lightness, not a rainbow of unrelated chart colors. */
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.875rem;
+  --radius: 0.5rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #55535e;
   --sidebar-primary: var(--brand);
@@ -130,13 +175,14 @@
   --border: #2a2932;
   --border-strong: #38363f;
 
-  /* Same brand hue (≈281°), lightened for contrast against a dark surface. */
-  --brand: #c397d8;
-  --brand-hover: #d1acdf;
-  --brand-bg: rgba(195, 151, 216, 0.14);
-  --brand-border: rgba(195, 151, 216, 0.35);
+  /* Same achromatic accent, inverted to near-white for contrast against a
+     dark surface — still no hue, just the light end of the same ink scale. */
+  --brand: #e4e4e7;
+  --brand-hover: #f4f4f5;
+  --brand-bg: rgba(228, 228, 231, 0.12);
+  --brand-border: rgba(228, 228, 231, 0.3);
   /* --brand is now light, so a solid fill needs a dark foreground instead
-     (white-on-light-lavender fails contrast, ~2.4:1). */
+     (white-on-near-white fails contrast). */
   --brand-contrast: #111014;
 
   --success: #4ade80;
@@ -157,6 +203,28 @@
 
   --neutral-bg: rgba(167, 165, 179, 0.1);
   --neutral-border: rgba(167, 165, 179, 0.22);
+
+  /* Same single section-identity accent as :root, lightened for contrast
+     against the dark surface. */
+  --sec-accent: #b8608f;
+  --sec-accent-bg: rgba(184, 96, 143, 0.16);
+
+  --sec-prospection: var(--sec-accent);
+  --sec-preprospection: var(--sec-accent);
+  --sec-prospect: var(--sec-accent);
+  --sec-client: var(--sec-accent);
+  --sec-dossier: var(--sec-accent);
+  --sec-offre: var(--sec-accent);
+  --sec-tranche: var(--sec-accent);
+  --sec-projet: var(--sec-accent);
+  --sec-prospection-bg: var(--sec-accent-bg);
+  --sec-preprospection-bg: var(--sec-accent-bg);
+  --sec-prospect-bg: var(--sec-accent-bg);
+  --sec-client-bg: var(--sec-accent-bg);
+  --sec-dossier-bg: var(--sec-accent-bg);
+  --sec-offre-bg: var(--sec-accent-bg);
+  --sec-tranche-bg: var(--sec-accent-bg);
+  --sec-projet-bg: var(--sec-accent-bg);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32), 0 1px 3px rgba(0, 0, 0, 0.24);
@@ -197,6 +265,40 @@
 
 * {
   box-sizing: border-box;
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced motion
+   ---------------------------------------------------------------------------
+   Nothing in the app honoured `prefers-reduced-motion` before this, while the
+   UI grew hover lifts, dialog/dropdown/popover enter-exit animations, sidebar
+   collapse and opacity cross-fades — all vestibular triggers for users who
+   have asked the OS to stop them.
+
+   Animations are collapsed to ~0 rather than removed so that anything relying
+   on `animationend`/`transitionend` firing still completes (Base UI's popup
+   primitives close on transition end — removing the transition outright can
+   leave a popup mounted forever).
+
+   `.animate-spin` is deliberately exempt: a busy spinner is status, not
+   decoration. WCAG's motion criteria target non-essential animation, and
+   freezing the one indicator that says "still working" would leave a reduced-
+   motion user staring at what looks like a hung screen.
+   --------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.animate-spin),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+
+  html {
+    scroll-behavior: auto !important;
+  }
 }
 
 body {
@@ -253,11 +355,47 @@ table {
 }
 
 .page {
-  padding: 24px 28px 56px;
-  max-width: 1240px;
+  padding: 10px 24px 16px;
+  max-width: 1680px;
   width: 100%;
   margin: 0 auto;
   flex: 1;
+}
+
+/* ---------------------------------------------------------------------------
+   Type scale
+   ---------------------------------------------------------------------------
+   Six semantic steps replacing the 15 distinct arbitrary sizes the app had
+   accumulated (text-micro through text-hero, including half-pixel values
+   like 11.5 / 12.5 / 13.5 / 14.5). Sizes half a pixel apart aren't hierarchy,
+   they're drift: nobody can see the difference between text-micro and
+   text-micro, so they carried no meaning while making every new component
+   a guess. Six steps that are actually distinguishable do carry meaning.
+
+   Named rather than t-shirt-sized on purpose: `text-xs`/`text-sm`/`text-base`
+   already exist as Tailwind defaults and are used by the shadcn primitives
+   (button, table, dropdown…), so redefining them would silently restyle every
+   vendored component. These names sit alongside the defaults instead.
+
+   Font size only, no paired line-height: the arbitrary values being replaced
+   set font-size alone, and the ~40 call sites that pair one with an explicit
+   `leading-*` must keep winning. Adding `--text-*--line-height` here would
+   make that override order load-bearing.
+
+     micro  11px — badges, table meta, timestamps, helper captions
+     body   12.5px — the workhorse: table cells, field values, descriptions
+     label  13px — field labels, card titles, emphasized rows
+     title  15px — section headings, prominent figures
+     page   19px — the PageShell H1
+     hero   21px — auth screen wordmark, dashboard headline figures
+   --------------------------------------------------------------------------- */
+@theme {
+  --text-micro: 11px;
+  --text-body: 12.5px;
+  --text-label: 13px;
+  --text-title: 15px;
+  --text-page: 19px;
+  --text-hero: 21px;
 }
 
 @theme inline {
@@ -315,19 +453,19 @@ table {
   --card-foreground: #f2f1f6;
   --popover: #18171d;
   --popover-foreground: #f2f1f6;
-  --primary: #c397d8;
+  --primary: #e4e4e7;
   --primary-foreground: #111014;
   --secondary: #1e1d24;
   --secondary-foreground: #f2f1f6;
   --muted: #1e1d24;
   --muted-foreground: #75737f;
-  --accent: rgba(195, 151, 216, 0.14);
-  --accent-foreground: #c397d8;
+  --accent: rgba(228, 228, 231, 0.12);
+  --accent-foreground: #e4e4e7;
   --destructive: #f87171;
   --destructive-foreground: #111014;
   --border: #2a2932;
   --input: #38363f;
-  --ring: #c397d8;
+  --ring: #e4e4e7;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -335,12 +473,12 @@ table {
   --chart-5: oklch(0.269 0 0);
   --sidebar: #18171d;
   --sidebar-foreground: #a7a5b3;
-  --sidebar-primary: #c397d8;
+  --sidebar-primary: #e4e4e7;
   --sidebar-primary-foreground: #111014;
-  --sidebar-accent: rgba(195, 151, 216, 0.14);
-  --sidebar-accent-foreground: #c397d8;
+  --sidebar-accent: rgba(228, 228, 231, 0.12);
+  --sidebar-accent-foreground: #e4e4e7;
   --sidebar-border: #2a2932;
-  --sidebar-ring: #c397d8;
+  --sidebar-ring: #e4e4e7;
 }
 
 @layer base {
