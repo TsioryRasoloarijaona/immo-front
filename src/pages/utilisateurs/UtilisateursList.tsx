@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { KeyRound, RotateCcw, Search, Users } from 'lucide-react';
+import { Building2, KeyRound, RotateCcw, Search, Users } from 'lucide-react';
 import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
@@ -11,6 +11,20 @@ import { DEFAULT_PAGE_SIZE, listUtilisateurs } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { formatDate } from '../../lib/format';
 import AdminGuard from './AdminGuard';
+import AffecterProjetsDialog from './AffecterProjetsDialog';
+
+const EXEMPT_ROLES = new Set(['Administrateur', 'Direction Générale']);
+
+/** Badge for the "Périmètre" column — mirrors the exempt/unrestricted/
+ * restricted read-out `AffecterProjetsDialog` itself shows, so an admin sees
+ * the same story on the list row and inside the dialog. `count === 0` is
+ * "unrestricted", not "broken" (FEATURE-perimetre-commercial.md §6.3) — it
+ * must never be styled to look like an empty/error state. */
+function perimetreBadge(count: number, roles?: string[]) {
+  if (roles?.some((r) => EXEMPT_ROLES.has(r))) return <Badge tone="amber">Exempté</Badge>;
+  if (count === 0) return <Badge tone="neutral">Tous les projets</Badge>;
+  return <Badge tone="progress">{count} projet{count > 1 ? 's' : ''}</Badge>;
+}
 
 type DisabledFilter = 'all' | 'active' | 'disabled';
 
@@ -37,12 +51,14 @@ export default function UtilisateursList() {
   const [disabledFilter, setDisabledFilter] = useState<DisabledFilter>('all');
   const [page, setPage] = useState(0);
 
+  const [dialogUser, setDialogUser] = useState<{ id: string; label: string; roles?: string[] } | null>(null);
+
   function resetAndSet<T>(setter: (v: T) => void, v: T) {
     setPage(0);
     setter(v);
   }
 
-  const { data, loading, error } = useApi(
+  const { data, loading, error, refetch } = useApi(
     () =>
       listUtilisateurs(
         {
@@ -122,16 +138,17 @@ export default function UtilisateursList() {
               />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <Table className="w-full min-w-220 table-fixed">
+                <Table className="w-full min-w-260 table-fixed">
                   <TableHeader>
                     <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
-                      <TableHead className="w-[16%]">Identifiant</TableHead>
-                      <TableHead className="w-[16%]">Employé</TableHead>
-                      <TableHead className="w-[12%]">Type</TableHead>
-                      <TableHead className="w-[18%]">Contact</TableHead>
-                      <TableHead className="w-[16%]">Rôles</TableHead>
-                      <TableHead className="w-[10%]">Statut</TableHead>
-                      <TableHead className="w-[12%] text-right">Actions</TableHead>
+                      <TableHead className="w-[14%]">Identifiant</TableHead>
+                      <TableHead className="w-[13%]">Employé</TableHead>
+                      <TableHead className="w-[9%]">Type</TableHead>
+                      <TableHead className="w-[14%]">Contact</TableHead>
+                      <TableHead className="w-[12%]">Rôles</TableHead>
+                      <TableHead className="w-[9%]">Statut</TableHead>
+                      <TableHead className="w-[11%]">Périmètre</TableHead>
+                      <TableHead className="w-[18%] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -166,15 +183,26 @@ export default function UtilisateursList() {
                             {r.compteWebInitialise && r.mustChangePassword && <Badge tone="info">Mdp à changer</Badge>}
                           </div>
                         </TableCell>
+                        <TableCell>{perimetreBadge(r.nombreProjets ?? 0, r.roles)}</TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate(`/utilisateurs/reinitialiser-mot-de-passe?admUserId=${r.id}`)}
-                          >
-                            <KeyRound data-icon="inline-start" /> Réinitialiser
-                          </Button>
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDialogUser({ id: r.id, label: r.username || employeeName(r), roles: r.roles })}
+                            >
+                              <Building2 data-icon="inline-start" /> Affecter
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => navigate(`/utilisateurs/reinitialiser-mot-de-passe?admUserId=${r.id}`)}
+                            >
+                              <KeyRound data-icon="inline-start" /> Réinitialiser
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -190,6 +218,14 @@ export default function UtilisateursList() {
           </ResultsRegion>
         )}
       </div>
+
+      {dialogUser && (
+        <AffecterProjetsDialog
+          user={dialogUser}
+          onClose={() => setDialogUser(null)}
+          onSaved={refetch}
+        />
+      )}
     </AdminGuard>
   );
 }

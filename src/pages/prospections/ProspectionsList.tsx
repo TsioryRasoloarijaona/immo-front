@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCcw, Users } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import { Badge, EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import Pagination from '../../components/Pagination';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listProspections, listTranches } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { useOriginesProspection } from '../../lib/referentiels';
 import { formatCurrency, formatDate } from '../../lib/format';
@@ -29,6 +30,8 @@ const ETAPE_ITEMS = [
 
 export default function ProspectionsList() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const { commerciaux } = useAppData();
   const origines = useOriginesProspection();
 
@@ -96,6 +99,8 @@ export default function ProspectionsList() {
       }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
+        <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
+
         <ProspectionFilterBar
           state={filters}
           onChange={setFilter}

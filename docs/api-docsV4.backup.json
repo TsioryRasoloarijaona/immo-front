@@ -5040,6 +5040,61 @@
         }
       }
     },
+    "/api/dossiers/{id}/reglements/{reglementId}/documents/autorisation-versement": {
+      "get": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Génère l'\"Autorisation d'Encaissement\" pour un règlement précis du dossier (PDF)",
+        "description": "Modélisé sur le template legacy Stimulsoft `instructions/templates/autorisation_virement/ComSaleDocumentAutorisationVersement.yes` — un document à remettre à la banque du client, l'autorisant à accepter l'encaissement du règlement `reglementId` (`StlSettlement.Amount`) pour le compte de la société. **Scopé au règlement (`StlSettlement`), pas à l'échéance** : bien que le template legacy clé techniquement sur l'échéance (`ComDocument`), les champs qui donnent sa valeur au document (compte destinataire, mode de versement, tiers payeur) sont confirmés quasi systématiquement renseignés sur le règlement en données réelles (`StlAccountId` 76%, `StlSettlementTypeId` 99,9%, `TierId` 99,7%) et quasi jamais sur l'échéance correspondante (2/958, 1/958) — un document scopé échéance ressortait vide sur la quasi-totalité des dossiers réels. Inclut la désignation de l'opération/du bien, le prix de vente TTC du dossier, la liste des clients (acquéreur + co-acquéreurs), le RIB du compte destinataire (`StlSettlement.StlAccountId`), le délai de retour (`CfgTranche.WithdrawalDelay`) et se termine par un encadré \"Cadre réservé à la banque\" à faire remplir et signer. Le \"Responsable Commercial\" affiché est `ComFolder.CfgCommercialId` (pas de session utilisateur en jeu ici, contrairement à l'app desktop legacy). PDF uniquement — pas de variante Word pour ce document.",
+        "operationId": "getAutorisationVersement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reglementId",
+            "in": "path",
+            "description": "Identifiant du règlement (StlSettlement.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF généré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable, règlement introuvable, ou règlement non rattaché à ce dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/pieces-jointes/{pieceId}/fichier": {
       "get": {
         "tags": [
@@ -5144,61 +5199,6 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PageDtoHistoriqueEvenementDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/dossiers/{id}/echeancier/{echeanceId}/documents/autorisation-versement": {
-      "get": {
-        "tags": [
-          "Dossiers"
-        ],
-        "summary": "Génère l'\"Autorisation d'Encaissement\" pour une échéance précise du dossier (PDF)",
-        "description": "Modélisé sur le template legacy Stimulsoft `instructions/templates/autorisation_virement/ComSaleDocumentAutorisationVersement.yes` — un document à remettre à la banque du client, l'autorisant à accepter l'encaissement du montant de l'échéance `echeanceId` (`ComDocument.Amount`) pour le compte de la société. Inclut la désignation de l'opération/du bien, le prix de vente TTC du dossier, la liste des clients (acquéreur + co-acquéreurs), le RIB du compte destinataire (`ComDocument.StlAccountId` — souvent vide en données réelles, ce champ n'étant renseigné que sur de rares échéances), le délai de retour (`CfgTranche.WithdrawalDelay`) et se termine par un encadré \"Cadre réservé à la banque\" à faire remplir et signer. Le \"Responsable Commercial\" affiché est `ComFolder.CfgCommercialId` (pas de session utilisateur en jeu ici, contrairement à l'app desktop legacy). PDF uniquement — pas de variante Word pour ce document.",
-        "operationId": "getAutorisationVersement",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "echeanceId",
-            "in": "path",
-            "description": "Identifiant de l'échéance (ComDocument.PKey).",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "PDF généré.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Dossier introuvable, échéance introuvable, ou échéance non rattachée à ce dossier.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
                 }
               }
             }

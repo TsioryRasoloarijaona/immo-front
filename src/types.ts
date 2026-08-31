@@ -1203,6 +1203,43 @@ export interface UtilisateurCourantDto {
   roles?: string[];
   mustChangePassword?: boolean;
   profileCompleted?: boolean;
+  /** true si le périmètre commercial s'applique réellement à ce compte —
+   * au moins un projet affecté ET aucun rôle d'exemption (Administrateur,
+   * Direction Générale). Quand true, les listes ET les détails de
+   * prospections/pré-prospections/dossiers/encaissements sont filtrés
+   * côté serveur sur `projetsAutorises` (une ressource hors périmètre
+   * renvoie 404, y compris sur ses routes imbriquées), de même que tous
+   * les agrégats du tableau de bord, GET /api/devis et les sous-listes
+   * des fiches client/prospect/hotline. Le front ne doit jamais refiltrer
+   * lui-même — il affiche ce que l'API renvoie. */
+  perimetreRestreint?: boolean;
+  /** Projets du périmètre, uniquement peuplé quand `perimetreRestreint`
+   * vaut true (toujours vide sinon — un périmètre vide signifie "aucune
+   * restriction", jamais "ne voit rien"). Sert à afficher le bandeau
+   * "Périmètre limité à : …". */
+  projetsAutorises?: ProjetPerimetreDto[];
+}
+
+/** Un projet du périmètre commercial d'un utilisateur (CfgProject) — forme
+ * minimale, volontairement distincte de ProjetListItemDto/ProjetDetailDto.
+ * Utilisée par GET/PUT /api/utilisateurs/{admUserId}/projets et par
+ * UtilisateurCourantDto.projetsAutorises. */
+export interface ProjetPerimetreDto {
+  id: UUID;
+  /** Code court du projet (CfgProject.Code), ex. "ARS", "MBR" — c'est ce
+   * code que le bandeau "Périmètre limité à : ARS, MBR" affiche. */
+  code?: string;
+  /** Libellé du projet (CfgProject.Description). */
+  libelle?: string;
+}
+
+/** Corps de PUT /api/utilisateurs/{admUserId}/projets — remplacement
+ * intégral du périmètre projet d'un utilisateur (état final des cases à
+ * cocher, pas un delta). `projetIds` est obligatoire : un tableau vide `[]`
+ * retire toute restriction, mais un champ absent/`null` est refusé en 400 —
+ * ne jamais envoyer `undefined` ici. */
+export interface AffecterProjetsRequest {
+  projetIds: UUID[];
 }
 
 export interface ChangerMotDePasseRequest {
@@ -1249,6 +1286,13 @@ export interface UtilisateurListItemDto {
   /** true si le profil de première connexion a déjà été complété. */
   profileCompleted?: boolean;
   dateCreation?: string;
+  /** Nombre de projets affectés à ce compte (périmètre commercial) — pour
+   * afficher l'état d'affectation directement dans la liste sans un appel
+   * par ligne. 0 = aucune restriction (voit tout). Le détail des projets
+   * s'obtient par GET /api/utilisateurs/{admUserId}/projets. Ne tient pas
+   * compte des rôles d'exemption : un Administrateur affecté à 2 projets
+   * affiche 2 mais n'est de fait jamais filtré. */
+  nombreProjets?: number;
 }
 
 export interface ReinitialiserMotDePasseResponse {

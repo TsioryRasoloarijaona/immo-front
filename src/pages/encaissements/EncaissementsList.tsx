@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RotateCcw, Search, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import { Badge, Card, EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listEncaissements, type EncaissementChampDate } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useAuth } from '../../lib/auth';
 import { referentielItems, useComptesReferentiel, useDepotsReferentiel, useEntitesReferentiel, useTypesReglement } from '../../lib/referentiels';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { ENCAISSEMENT_ETAT_LABELS, encaissementEtatLabel, encaissementEtatTone } from '../../lib/domain';
@@ -35,6 +36,8 @@ const COMPTABILISE_ITEMS: { label: string; value: ComptabiliseFilter }[] = [
 
 export default function EncaissementsList() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const entites = useEntitesReferentiel();
   const types = useTypesReglement();
   const comptes = useComptesReferentiel();
@@ -125,6 +128,8 @@ export default function EncaissementsList() {
           Règlements de Dossiers de vente (/api/encaissements), toutes échéances confondues — reprend
           l'écran "Encaissements Vente" de l'ancien système.
         </p>
+
+        <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
 
         <Card padded={false} className="shrink-0">
           <div className="flex flex-col gap-2.5 p-3">
