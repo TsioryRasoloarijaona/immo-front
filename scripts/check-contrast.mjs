@@ -15,8 +15,25 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import postcss from 'postcss';
 
 const ROOT = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
+
+// --- 0. Le fichier est-il seulement du CSS valide ? ------------------------
+// `npm run build` NE DETECTE PAS les erreurs de syntaxe de ce fichier : il sort
+// en code 0 et emet quand meme un bundle. Une erreur reelle (un `*/` accidentel
+// au milieu d'un commentaire, ferme par `.badge-*/`) n'est apparue que dans
+// l'overlay du serveur de dev, c'est-a-dire dans le navigateur. Ce controle
+// remet un vrai garde-fou en amont.
+{
+  const raw = fs.readFileSync(path.join(ROOT, 'src/index.css'), 'utf8');
+  try {
+    postcss.parse(raw, { from: 'src/index.css' });
+  } catch (err) {
+    console.error(`\nsrc/index.css : erreur de syntaxe CSS\n  ${err.message}\n`);
+    process.exit(1);
+  }
+}
 // Les commentaires sont retirés AVANT toute analyse : ce fichier documente ses
 // tokens abondamment, et une prose du type « ... aliase --brand: une seule
 // couleur ... churn; » se fait sinon capturer comme une déclaration réelle et

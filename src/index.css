@@ -30,7 +30,7 @@
      ----------------------------------------------------------------------- */
   --text: #55535e;
   /* Aligné sur --muted-foreground (5,4:1) — il était à 3,41:1, même échec AA,
-     et il sert encore les classes héritées .badge-*/.sidebar-* ci-dessous. */
+     et il sert encore les classes héritées (badge, sidebar) plus bas. */
   --text-muted: #6b6975;
   --text-h: #17151f;
   --bg: #f7f7f9;
