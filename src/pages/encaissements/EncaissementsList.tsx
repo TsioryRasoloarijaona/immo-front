@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RotateCcw, Search, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -12,12 +11,15 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listEncaissements, type EncaissementChampDate } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useUrlEnum, useUrlNullable, useUrlPage, useUrlString, useUrlStringArray } from '../../lib/useUrlState';
 import { useAuth } from '../../lib/auth';
 import { referentielItems, useComptesReferentiel, useDepotsReferentiel, useEntitesReferentiel, useTypesReglement } from '../../lib/referentiels';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { ENCAISSEMENT_ETAT_LABELS, encaissementEtatLabel, encaissementEtatTone } from '../../lib/domain';
 
-type ComptabiliseFilter = 'all' | 'yes' | 'no';
+const COMPTABILISE_VALUES = ['all', 'yes', 'no'] as const;
+type ComptabiliseFilter = (typeof COMPTABILISE_VALUES)[number];
+const CHAMP_DATE_VALUES = ['DATE_PIECE', 'DATE_ECHEANCE', 'DATE_REGLEMENT'] as const satisfies readonly EncaissementChampDate[];
 type ChampDate = EncaissementChampDate;
 
 const ETAT_ITEMS: { label: string; value: string }[] = Object.entries(ENCAISSEMENT_ETAT_LABELS).map(([value, label]) => ({ label, value }));
@@ -43,21 +45,21 @@ export default function EncaissementsList() {
   const comptes = useComptesReferentiel();
   const depots = useDepotsReferentiel();
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useUrlString('q');
   const debouncedSearch = useDebouncedValue(search);
-  const [reference, setReference] = useState('');
-  const [entiteId, setEntiteId] = useState<string[]>([]);
-  const [typeId, setTypeId] = useState<string[]>([]);
-  const [etat, setEtat] = useState<string[]>([]);
-  const [compteId, setCompteId] = useState<string | null>(null);
-  const [depotId, setDepotId] = useState<string | null>(null);
-  const [comptabilise, setComptabilise] = useState<ComptabiliseFilter>('all');
-  const [champDate, setChampDate] = useState<ChampDate>('DATE_PIECE');
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
-  const [montantDe, setMontantDe] = useState('');
-  const [montantA, setMontantA] = useState('');
-  const [page, setPage] = useState(0);
+  const [reference, setReference] = useUrlString('reference');
+  const [entiteId, setEntiteId] = useUrlStringArray('entite');
+  const [typeId, setTypeId] = useUrlStringArray('type');
+  const [etat, setEtat] = useUrlStringArray('etat');
+  const [compteId, setCompteId] = useUrlNullable('compte');
+  const [depotId, setDepotId] = useUrlNullable('depot');
+  const [comptabilise, setComptabilise] = useUrlEnum<ComptabiliseFilter>('comptabilise', COMPTABILISE_VALUES, 'all');
+  const [champDate, setChampDate] = useUrlEnum<ChampDate>('champDate', CHAMP_DATE_VALUES, 'DATE_PIECE');
+  const [dateDebut, setDateDebut] = useUrlString('du');
+  const [dateFin, setDateFin] = useUrlString('au');
+  const [montantDe, setMontantDe] = useUrlString('montantDe');
+  const [montantA, setMontantA] = useUrlString('montantA');
+  const [page, setPage] = useUrlPage();
 
   function resetAndSet<T>(setter: (v: T) => void, v: T) {
     setPage(0);
@@ -139,13 +141,13 @@ export default function EncaissementsList() {
                   <Search />
                 </InputGroupAddon>
                 <InputGroupInput
-                  placeholder="Recherche multi-critère — référence, tiers…"
+                  placeholder="Recherche multi-critère — référence, tiers…" aria-label="Rechercher un encaissement"
                   value={search}
                   onChange={(e) => resetAndSet(setSearch, e.target.value)}
                 />
               </InputGroup>
               <Input
-                placeholder="Référence"
+                placeholder="Référence" aria-label="Référence"
                 className="w-35"
                 value={reference}
                 onChange={(e) => resetAndSet(setReference, e.target.value)}
@@ -159,7 +161,7 @@ export default function EncaissementsList() {
             </div>
             <div className="flex flex-wrap items-center gap-2.5">
               <Select items={compteItems} value={compteId} onValueChange={(v) => resetAndSet(setCompteId, v as string | null)}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger aria-label="Compte" className="w-40">
                   <SelectValue placeholder="Compte…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -171,7 +173,7 @@ export default function EncaissementsList() {
                 </SelectContent>
               </Select>
               <Select items={depotItems} value={depotId} onValueChange={(v) => resetAndSet(setDepotId, v as string | null)}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger aria-label="Dépôt" className="w-40">
                   <SelectValue placeholder="Dépôt…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -183,7 +185,7 @@ export default function EncaissementsList() {
                 </SelectContent>
               </Select>
               <Select items={COMPTABILISE_ITEMS} value={comptabilise} onValueChange={(v) => resetAndSet(setComptabilise, v as ComptabiliseFilter)}>
-                <SelectTrigger className="w-45">
+                <SelectTrigger aria-label="Comptabilisé" className="w-45">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -195,7 +197,7 @@ export default function EncaissementsList() {
                 </SelectContent>
               </Select>
               <Select items={CHAMP_DATE_ITEMS} value={champDate} onValueChange={(v) => resetAndSet(setChampDate, v as ChampDate)}>
-                <SelectTrigger className="w-38">
+                <SelectTrigger aria-label="Champ de date filtré" className="w-38">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -215,8 +217,8 @@ export default function EncaissementsList() {
                 </InputGroup>
               </div>
               <div className="flex items-center gap-1.5">
-                <Input type="number" placeholder="Montant de" className="w-30" value={montantDe} onChange={(e) => resetAndSet(setMontantDe, e.target.value)} />
-                <Input type="number" placeholder="à" className="w-24" value={montantA} onChange={(e) => resetAndSet(setMontantA, e.target.value)} />
+                <Input type="number" placeholder="Montant de" aria-label="Montant minimum" className="w-30" value={montantDe} onChange={(e) => resetAndSet(setMontantDe, e.target.value)} />
+                <Input type="number" placeholder="à" aria-label="Montant maximum" className="w-24" value={montantA} onChange={(e) => resetAndSet(setMontantA, e.target.value)} />
               </div>
             </div>
           </div>

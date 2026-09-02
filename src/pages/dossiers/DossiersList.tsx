@@ -20,6 +20,7 @@ import {
   type DossierChampDate,
 } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useUrlEnum, useUrlPage, useUrlString, useUrlStringArray } from '../../lib/useUrlState';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { formatCurrency, formatDate } from '../../lib/format';
@@ -75,6 +76,13 @@ async function fetchDossiersWithStatusWorkaround(
   };
 }
 
+// Doit rester aligné sur `DossierChampDate` (lib/api.ts) — `satisfies` fait
+// échouer la compilation si une valeur y est ajoutée ou renommée.
+const CHAMP_DATE_VALUES = [
+  'RESERVATION', 'CONCRETISATION', 'COMPROMIS', 'ENVOI_NOTAIRE', 'CREDIT_DEBLOQUE',
+  'MINUTE', 'REMISE_DES_CLES', 'FORMALISATION', 'ANNULATION',
+] as const satisfies readonly DossierChampDate[];
+
 const CHAMP_DATE_ITEMS: { label: string; value: DossierChampDate }[] = [
   { label: 'Date de réservation', value: 'RESERVATION' },
   { label: 'Date de concrétisation', value: 'CONCRETISATION' },
@@ -93,15 +101,17 @@ export default function DossiersList() {
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const { commerciaux } = useAppData();
 
-  const [search, setSearch] = useState('');
+  // Filtres, recherche et pagination dans l'URL — partageable, et conservé
+  // au rechargement comme au retour depuis une fiche dossier.
+  const [search, setSearch] = useUrlString('q');
   const debouncedSearch = useDebouncedValue(search);
-  const [status, setStatus] = useState<string[]>([]);
-  const [trancheIds, setTrancheIds] = useState<string[]>([]);
-  const [champDate, setChampDate] = useState<DossierChampDate>('RESERVATION');
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
-  const [commercial, setCommercial] = useState('all');
-  const [page, setPage] = useState(0);
+  const [status, setStatus] = useUrlStringArray('statut');
+  const [trancheIds, setTrancheIds] = useUrlStringArray('tranche');
+  const [champDate, setChampDate] = useUrlEnum<DossierChampDate>('champDate', CHAMP_DATE_VALUES, 'RESERVATION');
+  const [dateDebut, setDateDebut] = useUrlString('du');
+  const [dateFin, setDateFin] = useUrlString('au');
+  const [commercial, setCommercial] = useUrlString('commercial', 'all');
+  const [page, setPage] = useUrlPage();
 
   // Batch document generation (POST /api/dossiers/documents/{kind}) — the
   // selection lives independently of `search`/`status`/etc. below and of
@@ -239,7 +249,7 @@ export default function DossiersList() {
                 <Search />
               </InputGroupAddon>
               <InputGroupInput
-                placeholder="Recherche multi-critère — client, code de dossier…"
+                placeholder="Recherche multi-critère — client, code de dossier…" aria-label="Rechercher un dossier"
                 value={search}
                 onChange={(e) => resetAndSet(setSearch, e.target.value)}
               />
@@ -264,7 +274,7 @@ export default function DossiersList() {
                 value={champDate}
                 onValueChange={(v) => resetAndSet(setChampDate, v as DossierChampDate)}
               >
-                <SelectTrigger>
+                <SelectTrigger aria-label="Champ de date filtré">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -293,7 +303,7 @@ export default function DossiersList() {
               </InputGroup>
             </div>
             <Select items={commercialItems} value={commercial} onValueChange={(v) => resetAndSet(setCommercial, v as string)}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Commercial">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -317,7 +327,7 @@ export default function DossiersList() {
               value={batchDocKind}
               onValueChange={(v) => setBatchDocKind((v as DossierBatchDocKind) || null)}
             >
-              <SelectTrigger className="w-65">
+              <SelectTrigger aria-label="Générer un document en lot" className="w-65">
                 <SelectValue placeholder="Générer un document…" />
               </SelectTrigger>
               <SelectContent>
@@ -354,7 +364,7 @@ export default function DossiersList() {
                     Vider la sélection
                   </Button>
                 )}
-                {batchError && <span className="text-body text-destructive">{batchError}</span>}
+                {batchError && <span role="alert" className="text-body text-destructive">{batchError}</span>}
               </>
             )}
           </div>

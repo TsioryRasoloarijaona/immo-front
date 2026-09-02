@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Building2, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { listProjets, listProjetTranches } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { useUrlString } from '../../lib/useUrlState';
 import { formatDate } from '../../lib/format';
 import type { TrancheListItemDto } from '../../types';
 
@@ -20,7 +21,7 @@ const AGGREGATE_PAGE_SIZE = 200;
 
 export default function TranchesList() {
   const projets = useApi(() => listProjets({ page: 0, size: AGGREGATE_PAGE_SIZE }), []);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useUrlString('q');
 
   const projetIds = useMemo(() => (projets.data?.content ?? []).map((p) => p.id), [projets.data]);
   const tranchesByProjet = useApi(
@@ -75,7 +76,7 @@ export default function TranchesList() {
             <Search />
           </InputGroupAddon>
           <InputGroupInput
-            placeholder="Rechercher un projet, une ville, un code…"
+            placeholder="Rechercher un projet, une ville, un code…" aria-label="Rechercher une tranche"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

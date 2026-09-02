@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { creerDevis, DEFAULT_PAGE_SIZE, downloadDevisDocument, getProspection, listOffres, listProspections, listTranches, viewDevisDocument } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useUrlEnum, useUrlPage, useUrlString, useUrlStringArray } from '../../lib/useUrlState';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { cn } from '../../lib/utils';
@@ -24,7 +25,8 @@ import type { CreerDevisRequest, DevisDto } from '../../types';
  * fait que pré-remplir `dateDebut`/`dateFin`, envoyés ensuite comme une
  * plage normale. Reproduit le sélecteur "Période" de l'ancien Omran
  * (`Vente > Offres`) sans rien demander de plus au backend. */
-type PeriodePreset = 'custom' | 'mois-courant' | 'mois-dernier' | 'annee-courante';
+const PERIODE_VALUES = ['custom', 'mois-courant', 'mois-dernier', 'annee-courante'] as const;
+type PeriodePreset = (typeof PERIODE_VALUES)[number];
 
 const PERIODE_ITEMS: { label: string; value: PeriodePreset }[] = [
   { label: 'Toutes les périodes', value: 'custom' },
@@ -63,14 +65,14 @@ function rangeForPreset(preset: PeriodePreset): { dateDebut: string; dateFin: st
 export default function OffresList() {
   const { commerciaux } = useAppData();
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useUrlString('q');
   const debouncedSearch = useDebouncedValue(search);
-  const [trancheIds, setTrancheIds] = useState<string[]>([]);
-  const [commercial, setCommercial] = useState('all');
-  const [periode, setPeriode] = useState<PeriodePreset>('custom');
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
-  const [page, setPage] = useState(0);
+  const [trancheIds, setTrancheIds] = useUrlStringArray('tranche');
+  const [commercial, setCommercial] = useUrlString('commercial', 'all');
+  const [periode, setPeriode] = useUrlEnum<PeriodePreset>('periode', PERIODE_VALUES, 'custom');
+  const [dateDebut, setDateDebut] = useUrlString('du');
+  const [dateFin, setDateFin] = useUrlString('au');
+  const [page, setPage] = useUrlPage();
   // Le clic sur une ligne déplie ses montants HT/TTC sur place — pas de
   // redirection vers la fiche prospection (demande explicite : cette liste
   // doit rester consultable sans quitter la page).
@@ -172,7 +174,7 @@ export default function OffresList() {
                 <Search />
               </InputGroupAddon>
               <InputGroupInput
-                placeholder="Recherche multi-critère — code, prospect, article…"
+                placeholder="Recherche multi-critère — code, prospect, article…" aria-label="Rechercher une offre"
                 value={search}
                 onChange={(e) => resetAndSet(setSearch, e.target.value)}
               />
@@ -186,7 +188,7 @@ export default function OffresList() {
             />
             <div className="flex items-center gap-1.5">
               <Select items={PERIODE_ITEMS} value={periode} onValueChange={(v) => handlePeriodeChange(v as PeriodePreset)}>
-                <SelectTrigger>
+                <SelectTrigger aria-label="Période">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -215,7 +217,7 @@ export default function OffresList() {
               </InputGroup>
             </div>
             <Select items={commercialItems} value={commercial} onValueChange={(v) => resetAndSet(setCommercial, v as string)}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Commercial">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -345,7 +347,7 @@ function NouvelleOffreDialog({ onClose, onCreated }: { onClose: () => void; onCr
               <InputGroupAddon>
                 <Search />
               </InputGroupAddon>
-              <InputGroupInput
+              <InputGroupInput name="offre-prospection-search" 
                 id="offre-prospection-search"
                 placeholder="Rechercher par nom, code…"
                 value={search}
@@ -512,7 +514,7 @@ function OffreRows({
                 <Download className="size-3" />
               </Button>
             </div>
-            {genError && <span className="text-micro text-destructive">{genError}</span>}
+            {genError && <span role="alert" className="text-micro text-destructive">{genError}</span>}
           </div>
         </TableCell>
       </TableRow>

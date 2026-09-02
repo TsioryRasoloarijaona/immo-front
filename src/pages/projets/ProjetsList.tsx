@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutGrid, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -8,10 +7,11 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listProjets } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { useUrlPage, useUrlString } from '../../lib/useUrlState';
 
 export default function ProjetsList() {
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(0);
+  const [search, setSearch] = useUrlString('q');
+  const [page, setPage] = useUrlPage();
   const { data, loading, error } = useApi(() => listProjets({ page, size: DEFAULT_PAGE_SIZE }), [page]);
   const navigate = useNavigate();
 
@@ -36,7 +36,7 @@ export default function ProjetsList() {
           <InputGroupAddon>
             <Search />
           </InputGroupAddon>
-          <InputGroupInput placeholder="Rechercher un projet, une ville…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <InputGroupInput placeholder="Rechercher un projet, une ville…" aria-label="Rechercher un projet" value={search} onChange={(e) => setSearch(e.target.value)} />
         </InputGroup>
       </div>
       {search && (

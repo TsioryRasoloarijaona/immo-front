@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Contact, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -10,6 +9,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listProspects } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useUrlPage, useUrlString, useUrlStringArray } from '../../lib/useUrlState';
 import { useTierTypes } from '../../lib/referentiels';
 import { personDisplayName } from '../../lib/domain';
 
@@ -17,10 +17,10 @@ export default function ProspectsList() {
   const navigate = useNavigate();
   const tierTypes = useTierTypes();
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useUrlString('q');
   const debouncedSearch = useDebouncedValue(search);
-  const [type, setType] = useState<string[]>([]);
-  const [page, setPage] = useState(0);
+  const [type, setType] = useUrlStringArray('type');
+  const [page, setPage] = useUrlPage();
 
   function resetAndSet<T>(setter: (v: T) => void, v: T) {
     setPage(0);
@@ -76,7 +76,7 @@ export default function ProspectsList() {
                 <Search />
               </InputGroupAddon>
               <InputGroupInput
-                placeholder="Recherche multi-critère — nom, téléphone, email…"
+                placeholder="Recherche multi-critère — nom, téléphone, email…" aria-label="Rechercher un prospect"
                 value={search}
                 onChange={(e) => resetAndSet(setSearch, e.target.value)}
               />

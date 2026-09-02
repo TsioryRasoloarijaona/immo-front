@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listUtilisateurs } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useUrlEnum, useUrlPage, useUrlString } from '../../lib/useUrlState';
 import { formatDate } from '../../lib/format';
 import AdminGuard from './AdminGuard';
 import AffecterProjetsDialog from './AffecterProjetsDialog';
@@ -26,7 +27,8 @@ function perimetreBadge(count: number, roles?: string[]) {
   return <Badge tone="progress">{count} projet{count > 1 ? 's' : ''}</Badge>;
 }
 
-type DisabledFilter = 'all' | 'active' | 'disabled';
+const DISABLED_VALUES = ['all', 'active', 'disabled'] as const;
+type DisabledFilter = (typeof DISABLED_VALUES)[number];
 
 const DISABLED_ITEMS: { label: string; value: DisabledFilter }[] = [
   { label: 'Tous les comptes', value: 'all' },
@@ -46,10 +48,10 @@ function employeeName(row: { employeePrenom?: string; employeeNom?: string }): s
 export default function UtilisateursList() {
   const navigate = useNavigate();
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useUrlString('q');
   const debouncedSearch = useDebouncedValue(search);
-  const [disabledFilter, setDisabledFilter] = useState<DisabledFilter>('all');
-  const [page, setPage] = useState(0);
+  const [disabledFilter, setDisabledFilter] = useUrlEnum<DisabledFilter>('statut', DISABLED_VALUES, 'all');
+  const [page, setPage] = useUrlPage();
 
   const [dialogUser, setDialogUser] = useState<{ id: string; label: string; roles?: string[] } | null>(null);
 
@@ -93,13 +95,13 @@ export default function UtilisateursList() {
                 <Search />
               </InputGroupAddon>
               <InputGroupInput
-                placeholder="Recherche — identifiant, description, email…"
+                placeholder="Recherche — identifiant, description, email…" aria-label="Rechercher un utilisateur"
                 value={search}
                 onChange={(e) => resetAndSet(setSearch, e.target.value)}
               />
             </InputGroup>
             <Select items={DISABLED_ITEMS} value={disabledFilter} onValueChange={(v) => resetAndSet(setDisabledFilter, v as DisabledFilter)}>
-              <SelectTrigger className="w-45">
+              <SelectTrigger aria-label="Statut du compte" className="w-45">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

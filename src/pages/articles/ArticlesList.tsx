@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { getTranchesReferentiel, listArticles } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useUrlEnum, useUrlNullable, useUrlPage, useUrlString, useUrlStringArray } from '../../lib/useUrlState';
 import {
   useCategoriesBien,
   useEntitesReferentiel,
@@ -25,6 +26,7 @@ import { formatCurrency, formatPercent } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import type { ArticleListItemDto, ArticleStatut, ReferentielItemDto } from '../../types';
 
+const STATUT_VALUES = ['all', 'DISPONIBLE', 'OCCUPE'] as const satisfies readonly StatutFilter[];
 type StatutFilter = ArticleStatut | 'all';
 
 const STATUT_ITEMS: { label: string; value: StatutFilter }[] = [
@@ -58,21 +60,21 @@ export default function ArticlesList() {
   const [tranches, setTranches] = useState<ReferentielItemDto[]>([]);
   const [tranchesLoading, setTranchesLoading] = useState(true);
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useUrlString('q');
   const debouncedSearch = useDebouncedValue(search);
-  const [trancheId, setTrancheId] = useState<string[]>([]);
-  const [statut, setStatut] = useState<StatutFilter>('all');
-  const [categorieId, setCategorieId] = useState<string[]>([]);
-  const [typeId, setTypeId] = useState<string[]>([]);
-  const [entiteId, setEntiteId] = useState<string | null>(null);
-  const [natureId, setNatureId] = useState<string | null>(null);
-  const [vocationId, setVocationId] = useState<string | null>(null);
-  const [etageId, setEtageId] = useState<string | null>(null);
-  const [prixDe, setPrixDe] = useState('');
-  const [prixA, setPrixA] = useState('');
-  const [surfaceDe, setSurfaceDe] = useState('');
-  const [surfaceA, setSurfaceA] = useState('');
-  const [page, setPage] = useState(0);
+  const [trancheId, setTrancheId] = useUrlStringArray('tranche');
+  const [statut, setStatut] = useUrlEnum<StatutFilter>('statut', STATUT_VALUES, 'all');
+  const [categorieId, setCategorieId] = useUrlStringArray('categorie');
+  const [typeId, setTypeId] = useUrlStringArray('type');
+  const [entiteId, setEntiteId] = useUrlNullable('entite');
+  const [natureId, setNatureId] = useUrlNullable('nature');
+  const [vocationId, setVocationId] = useUrlNullable('vocation');
+  const [etageId, setEtageId] = useUrlNullable('etage');
+  const [prixDe, setPrixDe] = useUrlString('prixDe');
+  const [prixA, setPrixA] = useUrlString('prixA');
+  const [surfaceDe, setSurfaceDe] = useUrlString('surfaceDe');
+  const [surfaceA, setSurfaceA] = useUrlString('surfaceA');
+  const [page, setPage] = useUrlPage();
 
   useEffect(() => {
     let cancelled = false;
@@ -196,7 +198,7 @@ export default function ArticlesList() {
                 <Search />
               </InputGroupAddon>
               <InputGroupInput
-                placeholder="Recherche — code, description…"
+                placeholder="Recherche — code, description…" aria-label="Rechercher un article"
                 value={search}
                 onChange={(e) => resetAndSet(setSearch, e.target.value)}
               />
@@ -209,7 +211,7 @@ export default function ArticlesList() {
               items={trancheItems}
             />
             <Select items={STATUT_ITEMS} value={statut} onValueChange={(v) => resetAndSet(setStatut, v as StatutFilter)}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger aria-label="Statut de l'article" className="w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -223,7 +225,7 @@ export default function ArticlesList() {
             <MultiSelectDropdown label="Catégorie" placeholder="Toutes" value={categorieId} onChange={(v) => resetAndSet(setCategorieId, v)} items={categorieItems} />
             <MultiSelectDropdown label="Type" placeholder="Tous" value={typeId} onChange={(v) => resetAndSet(setTypeId, v)} items={typeItems} />
             <Select items={entiteItems} value={entiteId} onValueChange={(v) => resetAndSet(setEntiteId, v as string | null)}>
-              <SelectTrigger className="w-38">
+              <SelectTrigger aria-label="Entité" className="w-38">
                 <SelectValue placeholder={entites.loading ? 'Chargement…' : 'Entité…'} />
               </SelectTrigger>
               <SelectContent>
@@ -235,7 +237,7 @@ export default function ArticlesList() {
               </SelectContent>
             </Select>
             <Select items={natureItems} value={natureId} onValueChange={(v) => resetAndSet(setNatureId, v as string | null)}>
-              <SelectTrigger className="w-34">
+              <SelectTrigger aria-label="Nature" className="w-34">
                 <SelectValue placeholder={natures.loading ? 'Chargement…' : 'Nature…'} />
               </SelectTrigger>
               <SelectContent>
@@ -247,7 +249,7 @@ export default function ArticlesList() {
               </SelectContent>
             </Select>
             <Select items={vocationItems} value={vocationId} onValueChange={(v) => resetAndSet(setVocationId, v as string | null)}>
-              <SelectTrigger className="w-38">
+              <SelectTrigger aria-label="Vocation" className="w-38">
                 <SelectValue placeholder={vocations.loading ? 'Chargement…' : 'Vocation…'} />
               </SelectTrigger>
               <SelectContent>
@@ -259,7 +261,7 @@ export default function ArticlesList() {
               </SelectContent>
             </Select>
             <Select items={etageItems} value={etageId} onValueChange={(v) => resetAndSet(setEtageId, v as string | null)}>
-              <SelectTrigger className="w-34">
+              <SelectTrigger aria-label="Étage" className="w-34">
                 <SelectValue placeholder={etages.loading ? 'Chargement…' : 'Étage…'} />
               </SelectTrigger>
               <SelectContent>
@@ -271,12 +273,12 @@ export default function ArticlesList() {
               </SelectContent>
             </Select>
             <div className="flex items-center gap-1.5">
-              <Input type="number" placeholder="Prix de" className="w-27.5" value={prixDe} onChange={(e) => resetAndSet(setPrixDe, e.target.value)} />
-              <Input type="number" placeholder="à" className="w-22" value={prixA} onChange={(e) => resetAndSet(setPrixA, e.target.value)} />
+              <Input type="number" placeholder="Prix de" aria-label="Prix minimum" className="w-27.5" value={prixDe} onChange={(e) => resetAndSet(setPrixDe, e.target.value)} />
+              <Input type="number" placeholder="à" aria-label="Prix maximum" className="w-22" value={prixA} onChange={(e) => resetAndSet(setPrixA, e.target.value)} />
             </div>
             <div className="flex items-center gap-1.5">
-              <Input type="number" placeholder="Surface de" className="w-27.5" value={surfaceDe} onChange={(e) => resetAndSet(setSurfaceDe, e.target.value)} />
-              <Input type="number" placeholder="à" className="w-22" value={surfaceA} onChange={(e) => resetAndSet(setSurfaceA, e.target.value)} />
+              <Input type="number" placeholder="Surface de" aria-label="Surface minimum" className="w-27.5" value={surfaceDe} onChange={(e) => resetAndSet(setSurfaceDe, e.target.value)} />
+              <Input type="number" placeholder="à" aria-label="Surface maximum" className="w-22" value={surfaceA} onChange={(e) => resetAndSet(setSurfaceA, e.target.value)} />
             </div>
             <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
               <RotateCcw data-icon="inline-start" /> Réinitialiser

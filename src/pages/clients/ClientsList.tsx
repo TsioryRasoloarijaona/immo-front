@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RotateCcw, Search, UserCheck } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -9,6 +8,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listClients } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useUrlPage, useUrlString } from '../../lib/useUrlState';
 import { formatCurrency } from '../../lib/format';
 
 // "Clients" — a person-centric view distinct from the Dossiers list (per
@@ -25,9 +25,9 @@ import { formatCurrency } from '../../lib/format';
 // under "Clients" (ProspectDetail detects the /clients prefix and adapts).
 export default function ClientsList() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useUrlString('q');
   const debouncedSearch = useDebouncedValue(search);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useUrlPage();
 
   const { data, loading, error } = useApi(
     () => listClients({ search: debouncedSearch || undefined }, { page, size: DEFAULT_PAGE_SIZE }),
@@ -56,7 +56,7 @@ export default function ClientsList() {
               <Search />
             </InputGroupAddon>
             <InputGroupInput
-              placeholder="Rechercher un nom, téléphone, email…"
+              placeholder="Rechercher un nom, téléphone, email…" aria-label="Rechercher un client"
               value={search}
               onChange={(e) => resetAndSet(setSearch, e.target.value)}
             />
@@ -88,12 +88,12 @@ export default function ClientsList() {
             />
           ) : (
             <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-              <Table className="min-w-190">
+              <Table className="w-full min-w-190 table-fixed">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead>Code</TableHead>
-                    <TableHead>Affiché comme</TableHead>
-                    <TableHead>Mobile</TableHead>
+                    <TableHead className="w-[10%]">Code</TableHead>
+                    <TableHead className="w-[22%]">Affiché comme</TableHead>
+                    <TableHead className="w-[11%]">Mobile</TableHead>
                     <TableHead>Téléphone</TableHead>
                     <TableHead>Ville</TableHead>
                     <TableHead>Email</TableHead>
@@ -116,12 +116,12 @@ export default function ClientsList() {
                         if (e.key === 'Enter') navigate(`/clients/${r.id}`);
                       }}
                     >
-                      <TableCell className="text-muted-foreground">{r.code || '—'}</TableCell>
-                      <TableCell className="font-medium text-foreground">{r.nomAffiche || '—'}</TableCell>
+                      <TableCell className="truncate text-muted-foreground" title={r.code || undefined}>{r.code || '—'}</TableCell>
+                      <TableCell className="truncate font-medium text-foreground" title={r.nomAffiche || undefined}>{r.nomAffiche || '—'}</TableCell>
                       <TableCell className="text-muted-foreground">{r.mobile || '—'}</TableCell>
                       <TableCell className="text-muted-foreground">{r.telephone || '—'}</TableCell>
-                      <TableCell className="text-muted-foreground">{r.ville || '—'}</TableCell>
-                      <TableCell className="text-muted-foreground">{r.email || '—'}</TableCell>
+                      <TableCell className="truncate text-muted-foreground" title={r.ville || undefined}>{r.ville || '—'}</TableCell>
+                      <TableCell className="truncate text-muted-foreground" title={r.email || undefined}>{r.email || '—'}</TableCell>
                       <TableCell className="text-right tabular-nums text-muted-foreground">{r.nbDossiers ?? '—'}</TableCell>
                       <TableCell className="text-right tabular-nums text-foreground">{formatCurrency(r.totalAPayer)}</TableCell>
                       <TableCell className="text-right tabular-nums text-(--success)">{formatCurrency(r.totalRegle)}</TableCell>

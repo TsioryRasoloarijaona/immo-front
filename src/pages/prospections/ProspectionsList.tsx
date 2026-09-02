@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCcw, Users } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -9,6 +9,7 @@ import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listProspections, listTranches } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useUrlFilters, useUrlPage } from '../../lib/useUrlState';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { useOriginesProspection } from '../../lib/referentiels';
@@ -35,13 +36,23 @@ export default function ProspectionsList() {
   const { commerciaux } = useAppData();
   const origines = useOriginesProspection();
 
-  const [filters, setFilters] = useState<ProspectionFilterBarState>(emptyProspectionFilters());
+  // Filtres et pagination dans l'URL : une vue filtrée est partageable et
+  // survit au rechargement.
+  const [filters, setFilterParam] = useUrlFilters<ProspectionFilterBarState>(emptyProspectionFilters());
   const debouncedSearch = useDebouncedValue(filters.search);
-  const [page, setPage] = useState(0);
+  const [page, setPage] = useUrlPage();
 
   function setFilter<K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) {
     setPage(0);
-    setFilters((f) => ({ ...f, [key]: value }));
+    setFilterParam(key, value);
+  }
+
+  function resetFilters() {
+    setPage(0);
+    const empty = emptyProspectionFilters();
+    for (const key of Object.keys(empty) as (keyof ProspectionFilterBarState)[]) {
+      setFilterParam(key, empty[key]);
+    }
   }
 
   const { data, loading, error } = useApi(
@@ -135,7 +146,7 @@ export default function ProspectionsList() {
                 }
                 action={
                   hasActiveProspectionFilters(filters) ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => setFilters(emptyProspectionFilters())}>
+                    <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
                       <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
                     </Button>
                   ) : undefined
