@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ConfirmContext, type ConfirmOptions } from '../lib/confirmContext';
 import {
   AlertDialog,
@@ -19,22 +19,27 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<ConfirmOptions | null>(null);
   const resolver = useRef<((value: boolean) => void) | null>(null);
 
-  function confirm(opts: ConfirmOptions | string) {
+  const confirm = useCallback((opts: ConfirmOptions | string) => {
     const normalized = typeof opts === 'string' ? { message: opts } : opts;
     setPending(normalized);
     return new Promise<boolean>((resolve) => {
       resolver.current = resolve;
     });
-  }
+  }, []);
 
-  function respond(value: boolean) {
+  const respond = useCallback((value: boolean) => {
     setPending(null);
     resolver.current?.(value);
     resolver.current = null;
-  }
+  }, []);
+
+  // `ConfirmProvider` enveloppe tout l'arbre applicatif (App.tsx) : sans ce
+  // `useMemo`, chaque ouverture/fermeture de la boîte re-rendrait tous les
+  // consommateurs de `useConfirm()`.
+  const value = useMemo(() => ({ confirm }), [confirm]);
 
   return (
-    <ConfirmContext.Provider value={{ confirm }}>
+    <ConfirmContext.Provider value={value}>
       {children}
       <AlertDialog open={!!pending} onOpenChange={(open) => !open && respond(false)}>
         <AlertDialogContent>

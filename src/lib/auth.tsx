@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ApiError,
+  clearApiCache,
   changerMotDePasse as apiChangerMotDePasse,
   completerProfil as apiCompleterProfil,
   connexion as apiConnexion,
@@ -66,6 +67,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // (see the endpoint's own doc note); just drop local state.
       if (!(err instanceof ApiError)) throw err;
     }
+    // Le cache GET de `api.ts` vit 30 s et n'est vidé que par une mutation
+    // réussie : sans ce purge, un second utilisateur se connectant dans le
+    // même onglet pourrait lire les réponses du précédent pendant ce délai.
+    clearApiCache();
     setUser(null);
     setStatus('unauthenticated');
   }, []);
@@ -80,11 +85,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   }, []);
 
-  return (
-    <AuthContext.Provider value={{ status, user, login, logout, changePassword, completeProfile }}>
-      {children}
-    </AuthContext.Provider>
+  // Les quatre actions sont déjà stables (`useCallback` ci-dessus) — sans ce
+  // `useMemo`, l'objet littéral les redéclarerait à chaque rendu et ferait
+  // re-rendre tous les consommateurs de `useAuth()`, c'est-à-dire tout l'arbre.
+  const value = useMemo(
+    () => ({ status, user, login, logout, changePassword, completeProfile }),
+    [status, user, login, logout, changePassword, completeProfile],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth(): AuthContextValue {
