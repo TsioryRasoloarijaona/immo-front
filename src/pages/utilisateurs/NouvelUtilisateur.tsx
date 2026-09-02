@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Copy } from 'lucide-react';
 import { Card, Field, FieldGrid } from '../../components/ui';
 import { Button } from '../../components/ui/button';
@@ -15,6 +15,16 @@ import AdminGuard from './AdminGuard';
 // employee.
 function TempPasswordBox({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false);
+  // Même défaut que les toasts (voir lib/useToast) : sans nettoyage, quitter
+  // la page dans les 1,5 s laissait le minuteur écrire dans un composant
+  // démonté. Trop spécifique pour justifier un hook partagé.
+  const copiedTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current);
+    },
+    [],
+  );
   return (
     <div className="rounded-md border border-(--warning)/30 bg-(--warning-bg) p-3">
       <div className="mb-1 text-micro font-medium text-(--warning)">{label}</div>
@@ -29,7 +39,11 @@ function TempPasswordBox({ label, value }: { label: string; value: string }) {
           onClick={() => {
             void navigator.clipboard.writeText(value);
             setCopied(true);
-            setTimeout(() => setCopied(false), 1500);
+            if (copiedTimer.current !== null) window.clearTimeout(copiedTimer.current);
+            copiedTimer.current = window.setTimeout(() => {
+              setCopied(false);
+              copiedTimer.current = null;
+            }, 1500);
           }}
         >
           <Copy />

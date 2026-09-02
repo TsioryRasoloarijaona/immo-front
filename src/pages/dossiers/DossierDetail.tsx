@@ -68,6 +68,7 @@ import {
   type DossierPdfOnlyDocKind,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { useToast } from '../../lib/useToast';
 import { useConfirm } from '../../lib/confirmContext';
 import type { CreerEcheanceRequest, CreerReglementRequest, EcheanceDto, PieceJointeDto, ReglementDto } from '../../types';
 
@@ -1309,7 +1310,7 @@ export default function DossierDetail() {
   const [historiquePage, setHistoriquePage] = useState(0);
   const historique = useApi(() => listHistoriqueDossier(id!, { page: historiquePage, size: 20 }), [id, historiquePage]);
   const navigate = useNavigate();
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast } = useToast();
   const [searchParams] = useSearchParams();
   // Landing here right after "Créer le dossier" (see NewDossier.tsx) — jump
   // straight to Financier with the "Ajouter une échéance" row pre-opened and
@@ -1317,11 +1318,6 @@ export default function DossierDetail() {
   // API's CreerDossierRequest has no way to seed it at creation time).
   const fromCreation = searchParams.get('nouveau') === '1';
   const [tab, setTab] = useState<DossierTab>(fromCreation ? 'financier' : 'apercu');
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3600);
-  }
 
   if (loading) return <PageShell title="Dossier de vente"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Dossier de vente"><ErrorState message={error} /></PageShell>;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, UserPlus, Users, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -62,6 +62,7 @@ import {
   type ArticleReferentielFilters,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { useToast } from '../../lib/useToast';
 import {
   referentielItems,
   useActionsCommerciales,
@@ -73,7 +74,7 @@ import {
   useTypesContactProspection,
   useVocations,
 } from '../../lib/referentiels';
-import type { DevisDto, ModifierProspectionRequest } from '../../types';
+import type { ArticleDetailDto, DevisDto, ModifierProspectionRequest } from '../../types';
 
 type ProspectionTab = 'apercu' | 'prospect' | 'article' | 'devis' | 'historique';
 
@@ -213,7 +214,7 @@ export default function ProspectionDetail() {
   // logged-in employee actually is one of the assignable commerciaux.
   const ownCommercial = commerciaux.find((c) => c.id === user?.employeeId) ?? null;
   const navigate = useNavigate();
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast } = useToast();
   const [showCreateProspect, setShowCreateProspect] = useState(false);
   const [showInteractionForm, setShowInteractionForm] = useState(false);
   const [transformCommercial, setTransformCommercial] = useState<string | null>(null);
@@ -241,11 +242,6 @@ export default function ProspectionDetail() {
   const autresTranches = useApi(() => (id ? listProspectionAutresTranches(id) : Promise.resolve([])), [id]);
   const [devisPage, setDevisPage] = useState(0);
   const devis = useApi(() => listDevis(id!, { page: devisPage, size: 20 }), [id, devisPage]);
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3600);
-  }
 
   if (loading) return <PageShell title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><LoadingState /></PageShell>;
   if (error) return <PageShell title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><ErrorState message={error} /></PageShell>;
@@ -1237,18 +1233,22 @@ function ChoixArticleSection({
 function ArticleAssocieRow({
   prospectionId,
   item,
+  article,
+  articleLoading,
   onRemove,
   onEdited,
   navigate,
 }: {
   prospectionId: string;
   item: { id: string; trancheId?: string; tranche?: string; articleId?: string; article?: string };
+  /** Résolu en lot par le parent — voir `ArticlesAssociesSection`. */
+  article: ArticleDetailDto | null;
+  articleLoading: boolean;
   onRemove: (itemId: string) => Promise<void>;
   onEdited: () => Promise<void>;
   navigate: (path: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const article = useApi(() => (item.articleId ? getArticle(item.articleId) : Promise.resolve(null)), [item.articleId]);
 
   return (
     <div className="rounded-md border border-border px-3 py-2">
@@ -1270,7 +1270,7 @@ function ArticleAssocieRow({
       </div>
       {item.articleId ? (
         <div className="mt-1.5">
-          <ArticleCompactPreview article={article.data ?? null} loading={article.loading} bare />
+          <ArticleCompactPreview article={article} loading={articleLoading} bare />
         </div>
       ) : (
         item.article && <span className="mt-1 block text-body text-muted-foreground">{item.article}</span>
@@ -1312,12 +1312,38 @@ function ArticlesAssociesSection({
   onEdited: () => Promise<void>;
   navigate: (path: string) => void;
 }) {
+  // Les détails d'article sont résolus ici, en un seul `Promise.all`, plutôt
+  // qu'un `useApi` par ligne : chaque ligne déclenchait sa propre requête, soit
+  // N requêtes pour N articles associés. Même forme que `articleDetails` dans
+  // DossierDetail.tsx, y compris la clé `join(',')` qui évite de refetcher
+  // quand seule l'identité du tableau change.
+  const articleIds = items.map((t) => t.articleId).filter((v): v is string => !!v);
+  const articleIdsKey = articleIds.join(',');
+  const articles = useApi(
+    () => (articleIds.length > 0 ? Promise.all(articleIds.map((aId) => getArticle(aId))) : Promise.resolve([])),
+    [articleIdsKey],
+  );
+  const articleById = useMemo(() => {
+    const m = new Map<string, ArticleDetailDto>();
+    for (const a of articles.data ?? []) if (a) m.set(a.id, a);
+    return m;
+  }, [articles.data]);
+
   return (
     <Card title="Articles associés">
       <div className="flex flex-col gap-2">
         {items.length === 0 && <span className="text-body text-muted-foreground">Aucun article associé pour l'instant.</span>}
         {items.map((t) => (
-          <ArticleAssocieRow key={t.id} prospectionId={prospectionId} item={t} onRemove={onRemove} onEdited={onEdited} navigate={navigate} />
+          <ArticleAssocieRow
+            key={t.id}
+            prospectionId={prospectionId}
+            item={t}
+            article={t.articleId ? (articleById.get(t.articleId) ?? null) : null}
+            articleLoading={articles.loading}
+            onRemove={onRemove}
+            onEdited={onEdited}
+            navigate={navigate}
+          />
         ))}
       </div>
     </Card>

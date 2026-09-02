@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { getDossier, getProspection, rechercherHotline } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { useToast } from '../../lib/useToast';
 import { etapeBadgeTone, interactionIcon, personDisplayName, prospectionDisplayName } from '../../lib/domain';
 import { toneForStatus } from '../../lib/dossierStatus';
 import { formatCurrency, formatDate } from '../../lib/format';
@@ -425,17 +426,12 @@ export default function Hotline() {
   const [query, setQuery] = useState('');
   const [refreshToken, setRefreshToken] = useState(0);
   const [createForProspectionId, setCreateForProspectionId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const { toast, showToast } = useToast();
 
   const { data, loading, error } = useApi(
     () => (query ? rechercherHotline(query) : Promise.resolve(null)),
     [query, refreshToken],
   );
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3600);
-  }
 
   function submit() {
     setQuery(input.trim());
