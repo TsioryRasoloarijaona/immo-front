@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import SearchableSelect from './SearchableSelect';
 
 /** Single-select over a référentiel list (`{ label, value }[]`, see
@@ -33,7 +34,15 @@ export default function RefSelect({
    * look). */
   label?: string;
 }) {
-  const allItems = [{ label: placeholder ?? '— Non renseigné —', value: '' }, ...items];
+  // Sans mémoïsation, ce tableau change d'identité à chaque rendu : le
+  // `useMemo` de `SearchableSelect` (`selected`) n'aboutissait jamais et la
+  // `Combobox` sous-jacente voyait une nouvelle liste à chaque frappe. Ce
+  // composant est utilisé une trentaine de fois, dont onze dans le seul
+  // `CreateProspectForm`.
+  const allItems = useMemo(
+    () => [{ label: placeholder ?? '— Non renseigné —', value: '' }, ...items],
+    [placeholder, items],
+  );
   return (
     <SearchableSelect
       id={id}

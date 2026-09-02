@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCcw, Users } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -76,13 +76,21 @@ export default function ProspectionsList() {
   // Aggregate fetches for the filter dropdowns — independent of the
   // prospections query above.
   const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), []);
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  // Chargé par page de 500 — mémoïsé pour ne pas reconstruire la liste à
+  // chaque frappe dans la barre de recherche.
+  const trancheItems = useMemo(
+    () => (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
+    [tranches.data],
+  );
   // `origine` on ProspectionListItemDto stores the référentiel *code*, not
   // necessarily `description` — same code/description mismatch as tier-types
   // on ProspectsList (e.g. "Bouche à Oreille" vs "BOUCHE À OREILLE"). Filter
   // on `code` for correctness even where the two happen to match today.
   const origineItems = origines.data.map((o) => ({ label: o.description || o.code || o.id, value: o.code || o.id }));
-  const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
+  const commercialItems = useMemo(
+    () => commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id })),
+    [commerciaux],
+  );
 
   return (
     <PageShell

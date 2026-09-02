@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Download, FileText, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, ResultsRegion } from '../../components/ui';
@@ -102,15 +102,24 @@ export default function OffresList() {
   const totalPageTTC = data?.sommePrixVenteTTCPage ?? 0;
 
   const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), []);
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({
-    label: t.description || t.code || t.id,
-    value: t.id,
-  }));
+  // `tranches` est chargé par page de 500 : sans mémoïsation ce tableau était
+  // reconstruit à chaque frappe dans la recherche.
+  const trancheItems = useMemo(
+    () =>
+      (tranches.data?.content ?? []).map((t) => ({
+        label: t.description || t.code || t.id,
+        value: t.id,
+      })),
+    [tranches.data],
+  );
 
-  const commercialItems = [
-    { label: 'Tous les commerciaux', value: 'all' },
-    ...commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id })),
-  ];
+  const commercialItems = useMemo(
+    () => [
+      { label: 'Tous les commerciaux', value: 'all' },
+      ...commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id })),
+    ],
+    [commerciaux],
+  );
 
   function resetAndSet<T>(setter: (v: T) => void, v: T) {
     setPage(0);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, Eye, Folder, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -142,10 +142,16 @@ export default function DossiersList() {
   // Aggregate fetch (once, 16 tranches in the real portfolio per CLAUDE.md) —
   // populates the Tranche dropdown. Independent of the dossiers query above.
   const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), []);
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({
-    label: t.description || t.code || t.id,
-    value: t.id,
-  }));
+  // `tranches` est chargé par page de 500 : sans mémoïsation ce tableau était
+  // reconstruit à chaque frappe dans la recherche.
+  const trancheItems = useMemo(
+    () =>
+      (tranches.data?.content ?? []).map((t) => ({
+        label: t.description || t.code || t.id,
+        value: t.id,
+      })),
+    [tranches.data],
+  );
 
   function resetAndSet<T>(setter: (v: T) => void, v: T) {
     setPage(0);
@@ -167,10 +173,13 @@ export default function DossiersList() {
   const hasActiveFilters =
     !!search || status.length > 0 || trancheIds.length > 0 || champDate !== 'RESERVATION' || !!dateDebut || !!dateFin || commercial !== 'all';
 
-  const commercialItems = [
-    { label: 'Tous les commerciaux', value: 'all' },
-    ...commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id })),
-  ];
+  const commercialItems = useMemo(
+    () => [
+      { label: 'Tous les commerciaux', value: 'all' },
+      ...commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id })),
+    ],
+    [commerciaux],
+  );
 
   function toggleSelected(d: DossierListItemDto) {
     setSelectedIds((prev) => {

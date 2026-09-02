@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -161,7 +161,12 @@ export default function ArticlesList() {
   );
   const rows = data?.content ?? [];
 
-  const trancheItems = tranches.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  // Seule liste volumineuse de cette barre de filtres ; les six référentiels
+  // courts qui suivent restent volontairement non mémoïsés.
+  const trancheItems = useMemo(
+    () => tranches.map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
+    [tranches],
+  );
   const categorieItems = referentielItems(categories.data);
   const typeItems = referentielItems(types.data);
   const entiteItems = referentielItems(entites.data);

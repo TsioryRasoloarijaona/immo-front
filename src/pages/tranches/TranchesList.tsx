@@ -41,7 +41,13 @@ export default function TranchesList() {
     return m;
   }, [projets.data]);
 
-  const allTranches: (TrancheListItemDto & { _projetId: string })[] = (tranchesByProjet.data ?? []).flat();
+  // `.flat()` rendait un tableau neuf à chaque rendu, donc le `useMemo` de
+  // `filtered` ci-dessous n'aboutissait jamais : chaque frappe re-filtrait
+  // l'agrégat complet (jusqu'à 200 projets × 200 tranches).
+  const allTranches = useMemo<(TrancheListItemDto & { _projetId: string })[]>(
+    () => (tranchesByProjet.data ?? []).flat(),
+    [tranchesByProjet.data],
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

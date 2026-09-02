@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Search, TrendingUp, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -18,7 +18,7 @@ import {
   listProspects,
   listTrancheArticles,
 } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { personDisplayName } from '../../lib/domain';
 import {
@@ -53,9 +53,16 @@ function ProspectPicker({
   selectedProspect: ProspectListItemDto | null;
 }) {
   const [search, setSearch] = useState('');
+  // Sans debounce, ce `useApi` partait à chaque caractère saisi — c'est la
+  // convention appliquée partout ailleurs dans l'app (DossiersList,
+  // ArticlesList, OffresList…), ce champ était le seul à y échapper.
+  const debouncedSearch = useDebouncedValue(search, 300);
   const results = useApi(
-    () => (mode === 'existing' && search.trim() ? listProspects({ search: search.trim() }, { page: 0, size: 20 }) : Promise.resolve(null)),
-    [mode, search],
+    () =>
+      mode === 'existing' && debouncedSearch.trim()
+        ? listProspects({ search: debouncedSearch.trim() }, { page: 0, size: 20 })
+        : Promise.resolve(null),
+    [mode, debouncedSearch],
   );
   const [newForm, setNewForm] = useState<CreerProspectRequest>(EMPTY_NEW_PROSPECT);
   const tierTypes = useTierTypes();
@@ -202,9 +209,21 @@ export default function NewProspection() {
     () => (trancheId ? listTrancheArticles(trancheId, {}, { page: 0, size: 200 }) : Promise.resolve(null)),
     [trancheId],
   );
-  const projetItems = (projets.data?.content ?? []).map((p) => ({ label: p.description || p.code || p.id, value: p.id }));
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
-  const articleItems = (articles.data?.content ?? []).map((a) => ({ label: a.code || a.description || a.id, value: a.id }));
+  // Ces trois listes sont chargées par pages de 200 : sans mémoïsation, jusqu'à
+  // 600 objets étaient reconstruits à chaque caractère tapé dans les Notes.
+  // Les référentiels courts ci-dessous restent volontairement non mémoïsés.
+  const projetItems = useMemo(
+    () => (projets.data?.content ?? []).map((p) => ({ label: p.description || p.code || p.id, value: p.id })),
+    [projets.data],
+  );
+  const trancheItems = useMemo(
+    () => (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
+    [tranches.data],
+  );
+  const articleItems = useMemo(
+    () => (articles.data?.content ?? []).map((a) => ({ label: a.code || a.description || a.id, value: a.id })),
+    [articles.data],
+  );
 
   const [origineId, setOrigineId] = useState<string | null>(null);
   const [origineSupportId, setOrigineSupportId] = useState<string | null>(null);

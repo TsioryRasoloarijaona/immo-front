@@ -32,6 +32,15 @@ import type { ArticleDetailDto, ArticleListItemDto } from '../../types';
 
 const EMPTY_ARTICLES = { content: [] as ArticleListItemDto[], page: 0, size: 0, totalElements: 0, totalPages: 0 };
 
+// Liste constante : au niveau module, elle garde la même identité pour toute
+// la durée de vie de l'app (même convention que `STATUS_ITEMS` dans
+// DossiersList.tsx).
+const STATUT_ITEMS: { label: string; value: 'DISPONIBLE' | 'OCCUPE' | 'all' }[] = [
+  { label: 'Tous', value: 'all' },
+  { label: 'Disponible', value: 'DISPONIBLE' },
+  { label: 'Occupé', value: 'OCCUPE' },
+];
+
 // Single-form dossier creation — the real API's CreerDossierRequest is just
 // {prospectionId, articleIds, prix, notes}, far simpler than the multi-step
 // financing wizard the prototype used to have (that whole échéancier/plan de
@@ -197,14 +206,34 @@ export default function NewDossier() {
   const autoNotes = latestDevis?.notes || prospection?.notes || '';
   const notesValue = notesTouched ? notes : autoNotes || notes;
 
-  const selectedArticles: ArticleDetailDto[] = (selectedArticleDetails.data ?? []).filter((a): a is ArticleDetailDto => !!a);
+  const selectedArticles = useMemo<ArticleDetailDto[]>(
+    () => (selectedArticleDetails.data ?? []).filter((a): a is ArticleDetailDto => !!a),
+    [selectedArticleDetails.data],
+  );
   // Nothing to show yet → the picker has to be visible; otherwise it stays
   // tucked behind "Modifier" until asked for.
   const showPicker = editingArticles || selectedArticles.length === 0;
   // Auto-fill Prix — prefer the latest devis' own prix (an actual quote
   // already drafted for this prospection) over the sum of selected
   // articles' prix de vente, as long as the user hasn't overridden it by hand.
-  const autoPrixFromArticles = selectedArticles.reduce((sum, a) => sum + (a.salePrice ?? 0), 0);
+  const autoPrixFromArticles = useMemo(
+    () => selectedArticles.reduce((sum, a) => sum + (a.salePrice ?? 0), 0),
+    [selectedArticles],
+  );
+
+  // Déclarés ici, et non près de leur usage dans le JSX plus bas : ce
+  // composant fait des retours anticipés (chargement / prospection
+  // introuvable / déjà convertie) et un hook placé après ceux-ci violerait
+  // l'ordre des hooks. Ces deux listes sont chargées par pages de 200 et
+  // étaient reconstruites à chaque frappe dans Prix, Remise, CIN ou Notes.
+  const projetItems = useMemo(
+    () => (projets.data?.content ?? []).map((p) => ({ label: p.description || p.code || p.id, value: p.id })),
+    [projets.data],
+  );
+  const trancheItems = useMemo(
+    () => (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
+    [tranches.data],
+  );
   const autoPrix = latestDevis?.montants?.prixVenteTTC || autoPrixFromArticles;
   const prixValue = priceTouched ? prix : autoPrix > 0 ? String(autoPrix) : prix;
 
@@ -309,14 +338,6 @@ export default function NewDossier() {
     }
   }
 
-  const projetItems = (projets.data?.content ?? []).map((p) => ({ label: p.description || p.code || p.id, value: p.id }));
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
-  const statutItems: { label: string; value: 'DISPONIBLE' | 'OCCUPE' | 'all' }[] = [
-    { label: 'Tous', value: 'all' },
-    { label: 'Disponible', value: 'DISPONIBLE' },
-    { label: 'Occupé', value: 'OCCUPE' },
-  ];
-
   return (
     <PageShell
       title="Nouveau dossier de vente"
@@ -411,13 +432,13 @@ export default function NewDossier() {
                 </FormField>
                 <FormField>
                   <FieldLabel htmlFor="f-statut">État</FieldLabel>
-                  <Select items={statutItems} value={statutFilter} onValueChange={(v) => setStatutFilter(v as 'DISPONIBLE' | 'OCCUPE' | 'all')}>
+                  <Select items={STATUT_ITEMS} value={statutFilter} onValueChange={(v) => setStatutFilter(v as 'DISPONIBLE' | 'OCCUPE' | 'all')}>
                     <SelectTrigger id="f-statut" className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectGroup>
-                        {statutItems.map((item) => (
+                        {STATUT_ITEMS.map((item) => (
                           <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
                         ))}
                       </SelectGroup>
