@@ -1,12 +1,18 @@
 /* ===========================================================================
    Ayad Développement — design tokens & global styles
-   Simple color space: one achromatic "ink" accent (no hue at all — pure
-   near-black/near-white at descending lightness) on plain neutral grays,
-   matching the monochrome dashboard reference the design direction moved
-   to (no colored brand mark anymore — the sidebar/login wordmark is styled
-   text, see Layout.tsx / AuthScreen.tsx). Dense, information-forward sales
-   CRM layout (tight spacing/radius) so more of the pipeline is visible
-   without scrolling.
+
+   Colour model: ONE brand accent (Ayad purple #5d396e, PRODUCT.md) carrying
+   every action, focus ring and section-identity chip, over plain neutral
+   grays, plus a small reserved set of status hues for state. Nothing else
+   gets a colour. Entities are told apart by icon *shape*, never by hue —
+   an earlier per-entity rainbow proved that unreadable.
+
+   Dense, information-forward sales CRM layout (tight spacing/radius) so more
+   of the pipeline is visible without scrolling — this is an operator tool
+   measured against a legacy Windows grid, so density is a feature.
+
+   Every colour below is chosen to clear WCAG AA *in the pairing it is
+   actually used in* (badge text on its own tint, not merely on white).
    =========================================================================== */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -23,38 +29,52 @@
      new usages, prefer the shadcn semantic vars underneath instead.
      ----------------------------------------------------------------------- */
   --text: #55535e;
-  --text-muted: #8b8a94;
+  /* Aligné sur --muted-foreground (5,4:1) — il était à 3,41:1, même échec AA,
+     et il sert encore les classes héritées (badge, sidebar) plus bas. */
+  --text-muted: #6b6975;
   --text-h: #17151f;
   --bg: #f7f7f9;
   --surface: #ffffff;
   --surface-hover: #fafafa;
   --border-strong: #d7d6dd;
 
-  /* Monochrome "ink" accent — near-black, no hue — the app's one accent
-     color; everything else stays plain neutral gray. Replaces the earlier
-     brand-purple sampled from the (now-removed) logo mark. Hover brightens
-     rather than darkens: darkening an already near-black color is
-     imperceptible, so this is the one place the light/dark hover direction
-     intentionally breaks from the rest of the palette (which darkens on
-     hover in light mode). */
-  --brand: #18181b;
-  --brand-hover: #313033;
-  --brand-bg: rgba(24, 24, 27, 0.06);
-  --brand-border: rgba(24, 24, 27, 0.18);
+  /* THE brand accent — Ayad purple, sampled from the identity mark and
+     declared binding in PRODUCT.md. It was briefly replaced by an achromatic
+     near-black "ink" while a per-entity rainbow was being unwound; that move
+     solved the rainbow but left the app with no brand colour at all (the
+     accent was literally Tailwind zinc-900) and, worse, with a *second*
+     structural accent (--sec-accent plum) competing with it. One accent,
+     used with discipline, replaces both — see --sec-accent below.
+     9.2:1 on white, so white-on-brand fills pass AA comfortably.
+     Hover darkens in light mode, matching the rest of the palette (the old
+     "hover brightens" exception existed only because near-black cannot get
+     visibly darker). */
+  --brand: #5d396e;
+  --brand-hover: #4c2e5b;
+  --brand-bg: rgba(93, 57, 110, 0.08);
+  --brand-border: rgba(93, 57, 110, 0.22);
   /* Foreground color for text/icons sitting on a solid --brand fill. */
   --brand-contrast: #fff;
 
-  --success: #17803d;
-  --success-bg: rgba(23, 128, 61, 0.1);
-  --success-border: rgba(23, 128, 61, 0.28);
+  /* Status hues. Each value below is chosen so the text passes AA *on its own
+     tinted background* (the badge case), not merely on white — the previous
+     --success/--amber pairings cleared white but failed at 4.38:1 / 4.08:1
+     against their own tints, which is where they are actually used. */
+  --success: #146c34;
+  --success-bg: rgba(20, 108, 52, 0.1);
+  --success-border: rgba(20, 108, 52, 0.28);
 
-  --warning: #c0361c;
-  --warning-bg: rgba(192, 54, 28, 0.1);
-  --warning-border: rgba(192, 54, 28, 0.28);
+  /* Deal OUTCOME red — "Annulé", "Désistement", overdue relances. A dossier
+     dying is a business fact, not an application error; it must not look
+     identical to a failed form. Kept distinctly lighter and warmer than
+     --destructive below. */
+  --warning: #b02012;
+  --warning-bg: rgba(176, 32, 18, 0.1);
+  --warning-border: rgba(176, 32, 18, 0.28);
 
-  --amber: #a3650b;
-  --amber-bg: rgba(163, 101, 11, 0.12);
-  --amber-border: rgba(163, 101, 11, 0.28);
+  --amber: #92580a;
+  --amber-bg: rgba(146, 88, 10, 0.12);
+  --amber-border: rgba(146, 88, 10, 0.28);
 
   --info: #1c5fc0;
   --info-bg: rgba(28, 95, 192, 0.1);
@@ -64,20 +84,24 @@
   --neutral-border: rgba(85, 83, 94, 0.22);
 
   /* ---------------------------------------------------------------------
-     Section-identity accent — now that --brand is achromatic ink (see top
-     comment), every icon chip (PageShell header, sidebar nav in
-     Layout.tsx), card relief (Card's `accent` prop) and pipeline stepper
-     (ProspectionDetail, DossierStatusStepper) draws from this ONE color,
-     not a different hue per entity — a first pass gave every entity its
-     own hue family and it read as too scattered/noisy, then a plain
-     indigo read as too close to a "blue = link/info" affordance; a sober,
-     muted plum/wine (validated CVD-safe against the reserved status hues
-     above) reads as "the app has one quiet accent for structure, plus
-     status colors for state" instead of a rainbow. All --sec-* names are
-     kept as aliases to this single color so call sites don't need to
-     change if the palette is revisited again later. */
-  --sec-accent: #823060;
-  --sec-accent-bg: rgba(130, 48, 96, 0.1);
+     Section-identity accent — icon chips (PageShell header, sidebar nav in
+     Layout.tsx), card relief (Card's `accent` prop) and the pipeline
+     steppers (ProspectionDetail, DossierStatusStepper).
+
+     History: every entity first got its own hue, which read as a rainbow;
+     that was collapsed to a single plum #823060 aliased to all eight
+     entity names. The collapse was right, the colour was not — it left the
+     app with TWO unrelated accents (ink for actions, plum for structure)
+     so neither read as "the app's colour", which is why primary actions
+     were hard to find. It now aliases --brand: one accent, used for both
+     actions and structure.
+
+     The eight --sec-* names below are kept as aliases so the 80 call sites
+     across 25 files don't have to churn; they all resolve here. Do not
+     reintroduce a per-entity hue — icon *shape* identifies the entity, and
+     colour is reserved for state. */
+  --sec-accent: var(--brand);
+  --sec-accent-bg: var(--brand-bg);
 
   --sec-prospection: var(--sec-accent);
   --sec-preprospection: var(--sec-accent);
@@ -130,21 +154,33 @@
   --secondary: #f0f0f3;
   --secondary-foreground: #17151f;
   --muted: #f0f0f3;
-  --muted-foreground: #8b8a94;
+  /* 5.4:1 on --card, up from #8b8a94's 3.41:1 — a straight AA failure at the
+     11px this is mostly used at. It is the colour of every Field label, every
+     breadcrumb, every secondary table cell and every helper caption, so this
+     single value is the app's largest accessibility lever. */
+  --muted-foreground: #6b6975;
   --accent: var(--brand-bg);
   --accent-foreground: var(--brand);
-  --destructive: #c0361c;
+  /* ERRORS ONLY — deliberately deeper and less orange than --warning above,
+     which carries deal outcomes. The two were byte-identical (#c0361c), so a
+     cancelled 1.5 M DH sale rendered in exactly the hue of a failed form and
+     users had no way to tell "this deal died" from "your input is invalid". */
+  --destructive: #7f1d1d;
   --destructive-foreground: #fff;
   --border: #e6e5ea;
   --input: #d7d6dd;
   --ring: var(--brand);
-  /* Simple/monochrome — one hue (the brand purple) at descending
-     lightness, not a rainbow of unrelated chart colors. */
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /* Categorical ramp derived from the brand hue, walking hue as well as
+     lightness so adjacent series stay separable — the previous ramp was
+     `oklch(L 0 0)` (chroma ZERO: five greys), identical in light and dark,
+     with chart-1 at L=0.87 landing around 1.4:1 on a white card. Nothing
+     consumes these yet; they are fixed now so the first chart added doesn't
+     ship an invisible series. */
+  --chart-1: oklch(0.52 0.12 320);
+  --chart-2: oklch(0.60 0.11 265);
+  --chart-3: oklch(0.62 0.10 200);
+  --chart-4: oklch(0.58 0.11 150);
+  --chart-5: oklch(0.55 0.12 95);
   --radius: 0.5rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #55535e;
@@ -167,7 +203,8 @@
   color-scheme: dark;
 
   --text: #a7a5b3;
-  --text-muted: #75737f;
+  /* Aligné sur --muted-foreground, cf. la note en mode clair. */
+  --text-muted: #8f8d99;
   --text-h: #f2f1f6;
   --bg: #111014;
   --surface: #18171d;
@@ -175,23 +212,25 @@
   --border: #2a2932;
   --border-strong: #38363f;
 
-  /* Same achromatic accent, inverted to near-white for contrast against a
-     dark surface — still no hue, just the light end of the same ink scale. */
-  --brand: #e4e4e7;
-  --brand-hover: #f4f4f5;
-  --brand-bg: rgba(228, 228, 231, 0.12);
-  --brand-border: rgba(228, 228, 231, 0.3);
-  /* --brand is now light, so a solid fill needs a dark foreground instead
-     (white-on-near-white fails contrast). */
+  /* Same brand purple, lightened for contrast against a dark surface —
+     8.4:1 on --card. Still one hue, just the light end of the brand ramp. */
+  --brand: #c9a6d6;
+  --brand-hover: #dcc0e6;
+  --brand-bg: rgba(201, 166, 214, 0.14);
+  --brand-border: rgba(201, 166, 214, 0.32);
+  /* --brand is light here, so a solid fill needs a dark foreground instead
+     (white-on-light-purple fails contrast). 8.9:1. */
   --brand-contrast: #111014;
 
   --success: #4ade80;
   --success-bg: rgba(74, 222, 128, 0.12);
   --success-border: rgba(74, 222, 128, 0.3);
 
-  --warning: #f87171;
-  --warning-bg: rgba(248, 113, 113, 0.12);
-  --warning-border: rgba(248, 113, 113, 0.3);
+  /* Deal outcome — see the light-mode note. Kept clearly lighter/warmer than
+     --destructive so the two stay separable in dark mode too. */
+  --warning: #fca5a5;
+  --warning-bg: rgba(252, 165, 165, 0.12);
+  --warning-border: rgba(252, 165, 165, 0.3);
 
   --amber: #fbbf24;
   --amber-bg: rgba(251, 191, 36, 0.12);
@@ -204,10 +243,11 @@
   --neutral-bg: rgba(167, 165, 179, 0.1);
   --neutral-border: rgba(167, 165, 179, 0.22);
 
-  /* Same single section-identity accent as :root, lightened for contrast
-     against the dark surface. */
-  --sec-accent: #b8608f;
-  --sec-accent-bg: rgba(184, 96, 143, 0.16);
+  /* Aliases --brand, exactly as in :root — one accent, not two. The old
+     standalone plum also failed contrast here: 3.71:1 for the stepper's
+     past-step numerals and 4.11:1 for white on the current-step fill. */
+  --sec-accent: var(--brand);
+  --sec-accent-bg: var(--brand-bg);
 
   --sec-prospection: var(--sec-accent);
   --sec-preprospection: var(--sec-accent);
@@ -241,18 +281,26 @@
   --secondary: #1e1d24;
   --secondary-foreground: #f2f1f6;
   --muted: #1e1d24;
-  --muted-foreground: #75737f;
+  /* 5.5:1 on --card, up from #75737f's 3.83:1 — the dark theme failed AA on
+     the label colour too, so switching themes was never an escape hatch. */
+  --muted-foreground: #8f8d99;
   --accent: var(--brand-bg);
   --accent-foreground: var(--brand);
-  --destructive: #f87171;
+  /* ERRORS ONLY, and visibly hotter/more saturated than --warning's soft rose
+     above — the inverse of the light-mode relationship, because on a dark
+     surface it is saturation rather than depth that separates them. */
+  --destructive: #f26d6d;
   --destructive-foreground: #111014;
   --input: #38363f;
   --ring: var(--brand);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  /* Lighter than the light-mode ramp — the previous values were byte-identical
+     across both themes, which left chart-5 (L=0.269) near-invisible on a
+     #18171d card. */
+  --chart-1: oklch(0.72 0.13 320);
+  --chart-2: oklch(0.75 0.12 265);
+  --chart-3: oklch(0.78 0.11 200);
+  --chart-4: oklch(0.76 0.12 150);
+  --chart-5: oklch(0.74 0.13 95);
   --sidebar: #18171d;
   --sidebar-foreground: #a7a5b3;
   --sidebar-primary: var(--brand);
@@ -441,45 +489,17 @@ table {
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/* Class-strategy fallback: only takes effect if something adds .dark to the
-   document (no toggle wires this today — dark mode is system-preference
-   driven via the @media block above). Kept brand-correct so it never
-   regresses to shadcn's stock grayscale if a future toggle or a
-   dark:-prefixed utility from a shadcn component reaches for it. */
-.dark {
-  --background: #111014;
-  --foreground: #f2f1f6;
-  --card: #18171d;
-  --card-foreground: #f2f1f6;
-  --popover: #18171d;
-  --popover-foreground: #f2f1f6;
-  --primary: #e4e4e7;
-  --primary-foreground: #111014;
-  --secondary: #1e1d24;
-  --secondary-foreground: #f2f1f6;
-  --muted: #1e1d24;
-  --muted-foreground: #75737f;
-  --accent: rgba(228, 228, 231, 0.12);
-  --accent-foreground: #e4e4e7;
-  --destructive: #f87171;
-  --destructive-foreground: #111014;
-  --border: #2a2932;
-  --input: #38363f;
-  --ring: #e4e4e7;
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: #18171d;
-  --sidebar-foreground: #a7a5b3;
-  --sidebar-primary: #e4e4e7;
-  --sidebar-primary-foreground: #111014;
-  --sidebar-accent: rgba(228, 228, 231, 0.12);
-  --sidebar-accent-foreground: #e4e4e7;
-  --sidebar-border: #2a2932;
-  --sidebar-ring: #e4e4e7;
-}
+/* NOTE — a second `.dark` block used to live here, duplicating all 32 tokens
+   from the block above with hardcoded literals instead of `var(--brand)`
+   aliases. Identical selector, later in source order, so it WON the cascade
+   and silently shadowed the real one: editing --brand would have changed
+   nothing in dark mode for --primary, --accent, --ring or any --sidebar-*.
+   Its comment also claimed "no toggle wires this today — dark mode is
+   system-preference driven via the @media block above", which was false on
+   both counts (there is no @media block — `prefers-color-scheme` appears
+   nowhere in this file — and ThemeToggle renders on every page via
+   PageShell). Deleted; the block above is now genuinely the only place dark
+   values live, as its own comment always claimed. */
 
 @layer base {
   * {
