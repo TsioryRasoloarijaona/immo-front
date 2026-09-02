@@ -1,20 +1,34 @@
 // Formatting helpers shared across list & detail views.
 // Currency: Moroccan Dirham, space thousands separator, comma decimal, "DH" suffix.
 // Dates: JSON gives "YYYY-MM-DD" or null; display as "DD/MM/YYYY".
+//
+// Les séparateurs sont des espaces **insécables**, pas des espaces ordinaires :
+// `1 350 000,00 DH` en espaces ordinaires offre quatre points de coupure, et un
+// montant coupé en `1 350` / `000,00 DH` en fin de ligne se lit comme deux
+// nombres. Visible dans `Field` (`components/ui.tsx`), qui pose `break-words`
+// dans une grille de colonnes de 190 px.
+//
+// U+202F (espace fine insécable) pour les milliers et U+00A0 (espace insécable)
+// devant l'unité : c'est ce que produit `Intl.NumberFormat('fr-FR')`. On ne
+// passe pas à `Intl` pour autant — la locale `fr-MA` de CLDR groupe avec des
+// points (`1.350.000,00`) et rend MAD en code ISO, ce qui changerait
+// silencieusement tous les montants de l'application.
+const MILLIERS = ' ';
+const AVANT_UNITE = ' ';
 
 export function formatCurrency(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
   const parts = value.toFixed(2).split('.');
   const intPart = parts[0].replace(/^-/, '');
   const sign = value < 0 ? '-' : '';
-  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  return `${sign}${grouped},${parts[1]} DH`;
+  const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, MILLIERS);
+  return `${sign}${grouped},${parts[1]}${AVANT_UNITE}DH`;
 }
 
 export function formatNumber(value: number | null | undefined, decimals = 0): string {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
   const parts = value.toFixed(decimals).split('.');
-  const grouped = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const grouped = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, MILLIERS);
   return decimals > 0 ? `${grouped},${parts[1]}` : grouped;
 }
 
@@ -23,7 +37,10 @@ export function formatNumber(value: number | null | undefined, decimals = 0): st
  * pourcentage — voir `formatPercentValue`. */
 export function formatPercent(ratio: number | null | undefined, decimals = 1): string {
   if (ratio === null || ratio === undefined || Number.isNaN(ratio)) return '—';
-  return `${(ratio * 100).toFixed(decimals).replace(/\.0$/, '')}%`;
+  // Espace insécable avant le `%`, comme `formatPercentValue` : les deux
+  // rendaient auparavant deux conventions différentes (`12,5%` ici, `12,50 %`
+  // là), parfois sur la même page.
+  return `${(ratio * 100).toFixed(decimals).replace(/\.0$/, '')}${AVANT_UNITE}%`;
 }
 
 /** Pour une valeur **déjà exprimée en pourcentage (0–100)** :
@@ -34,7 +51,7 @@ export function formatPercent(ratio: number | null | undefined, decimals = 1): s
  * convention typographique française déjà utilisée sur les offres. */
 export function formatPercentValue(value: number | null | undefined, decimals = 2): string {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
-  return `${formatNumber(value, decimals)} %`;
+  return `${formatNumber(value, decimals)}${AVANT_UNITE}%`;
 }
 
 export function formatDate(value: string | null | undefined): string {

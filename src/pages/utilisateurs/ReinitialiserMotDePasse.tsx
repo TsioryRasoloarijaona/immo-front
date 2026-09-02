@@ -69,7 +69,7 @@ function ReinitialiserMotDePasseCard() {
         <div className="flex flex-wrap items-end gap-3">
           <FormField className="min-w-70 flex-1">
             <FieldLabel htmlFor="rp-admuserid">Id du compte (admUserId)</FieldLabel>
-            <Input id="rp-admuserid" autoFocus placeholder="UUID du compte à réinitialiser" value={admUserId} onChange={(e) => setAdmUserId(e.target.value)} required />
+            <Input autoComplete="off" name="rp-admuserid" autoCapitalize="off" autoCorrect="off" spellCheck={false} id="rp-admuserid" autoFocus placeholder="UUID du compte à réinitialiser" value={admUserId} onChange={(e) => setAdmUserId(e.target.value)} required />
           </FormField>
           <Button type="submit" disabled={submitting || !admUserId.trim()}>
             {submitting ? 'Réinitialisation…' : 'Réinitialiser'}

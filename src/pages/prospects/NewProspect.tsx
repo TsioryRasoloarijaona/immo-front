@@ -98,31 +98,31 @@ export default function NewProspect() {
               </FormField>
               <FormField>
                 <FieldLabel htmlFor="p-prenom">Prénom {!isMorale && '*'}</FieldLabel>
-                <Input id="p-prenom" value={form.prenom ?? ''} onChange={(e) => set('prenom', e.target.value || undefined)} />
+                <Input autoComplete="given-name" name="p-prenom" id="p-prenom" value={form.prenom ?? ''} onChange={(e) => set('prenom', e.target.value || undefined)} />
               </FormField>
               <FormField>
                 <FieldLabel htmlFor="p-nom">Nom {!isMorale && '*'}</FieldLabel>
-                <Input id="p-nom" value={form.nom ?? ''} onChange={(e) => set('nom', e.target.value || undefined)} />
+                <Input autoComplete="family-name" name="p-nom" id="p-nom" value={form.nom ?? ''} onChange={(e) => set('nom', e.target.value || undefined)} />
               </FormField>
               <FormField className="sm:col-span-2">
                 <FieldLabel htmlFor="p-raisonSociale">Raison sociale (si personne morale)</FieldLabel>
-                <Input id="p-raisonSociale" value={form.raisonSociale ?? ''} onChange={(e) => set('raisonSociale', e.target.value || undefined)} />
+                <Input name="p-raisonSociale" id="p-raisonSociale" value={form.raisonSociale ?? ''} onChange={(e) => set('raisonSociale', e.target.value || undefined)} />
               </FormField>
               <FormField>
                 <FieldLabel htmlFor="p-telephone">Téléphone</FieldLabel>
-                <Input id="p-telephone" value={form.telephone ?? ''} onChange={(e) => set('telephone', e.target.value || undefined)} />
+                <Input autoComplete="tel" name="p-telephone" type="tel" id="p-telephone" value={form.telephone ?? ''} onChange={(e) => set('telephone', e.target.value || undefined)} />
               </FormField>
               <FormField>
                 <FieldLabel htmlFor="p-mobile">Mobile</FieldLabel>
-                <Input id="p-mobile" value={form.mobile ?? ''} onChange={(e) => set('mobile', e.target.value || undefined)} />
+                <Input name="p-mobile" type="tel" id="p-mobile" value={form.mobile ?? ''} onChange={(e) => set('mobile', e.target.value || undefined)} />
               </FormField>
               <FormField className="sm:col-span-2">
                 <FieldLabel htmlFor="p-email">Email</FieldLabel>
-                <Input id="p-email" type="email" value={form.email ?? ''} onChange={(e) => set('email', e.target.value || undefined)} />
+                <Input autoComplete="email" name="p-email" id="p-email" type="email" value={form.email ?? ''} onChange={(e) => set('email', e.target.value || undefined)} />
               </FormField>
               <FormField className="sm:col-span-2">
                 <FieldLabel htmlFor="p-ville">Ville</FieldLabel>
-                <Input id="p-ville" value={form.ville ?? ''} onChange={(e) => set('ville', e.target.value || undefined)} />
+                <Input name="p-ville" id="p-ville" value={form.ville ?? ''} onChange={(e) => set('ville', e.target.value || undefined)} />
               </FormField>
             </div>
             {!canCreate && (
@@ -137,7 +137,7 @@ export default function NewProspect() {
           </FieldGroup>
         </Card>
 
-        {submitError && <p className="text-body text-destructive">{submitError}</p>}
+        {submitError && <p role="alert" className="text-body text-destructive">{submitError}</p>}
 
         <div className="flex items-center justify-end border-t border-border pt-4">
           <Button type="button" onClick={handleCreate} disabled={!canCreate || submitting}>

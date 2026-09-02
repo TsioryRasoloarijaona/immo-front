@@ -49,13 +49,13 @@ export default function ProspectionFilterBar({
             <Search />
           </InputGroupAddon>
           <InputGroupInput
-            placeholder="Recherche multi-critère — nom, code…"
+            placeholder="Recherche multi-critère — nom, code…" aria-label="Rechercher une prospection"
             value={state.search}
             onChange={(e) => onChange('search', e.target.value)}
           />
         </InputGroup>
         <Select items={ouvertesItems} value={state.ouvertes} onValueChange={(v) => onChange('ouvertes', v as ProspectionFilterBarState['ouvertes'])}>
-          <SelectTrigger>
+          <SelectTrigger aria-label="Prospections ouvertes ou clôturées">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

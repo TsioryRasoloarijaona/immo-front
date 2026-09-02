@@ -25,13 +25,16 @@ import {
   updateProspect,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { useConfirm } from '../../lib/confirmContext';
+import { useUrlEnum } from '../../lib/useUrlState';
 import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
 import { toneForStatus } from '../../lib/dossierStatus';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { referentielItems, useTypesRelationContact } from '../../lib/referentiels';
 import type { DossierListItemDto, ModifierProspectRequest, ProspectionListItemDto } from '../../types';
 
-type ProspectTab = 'general' | 'contacts' | 'prospections' | 'dossiers' | 'reglements' | 'historique';
+const PROSPECT_TABS = ['general', 'contacts', 'prospections', 'dossiers', 'reglements', 'historique'] as const;
+type ProspectTab = (typeof PROSPECT_TABS)[number];
 
 function AddContactRow({ onAdd }: { onAdd: (prospectId: string, relationTypeId: string | null) => Promise<void> }) {
   const [open, setOpen] = useState(false);
@@ -53,7 +56,7 @@ function AddContactRow({ onAdd }: { onAdd: (prospectId: string, relationTypeId: 
     <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/30 p-3">
       <div className="flex flex-col gap-1">
         <label className="text-micro text-muted-foreground" htmlFor="contact-id">ID prospect à lier</label>
-        <Input id="contact-id" className="w-55" placeholder="UUID du prospect" value={contactId} onChange={(e) => setContactId(e.target.value)} />
+        <Input autoComplete="off" name="contact-id" autoCapitalize="off" autoCorrect="off" spellCheck={false} id="contact-id" className="w-55" placeholder="UUID du prospect" value={contactId} onChange={(e) => setContactId(e.target.value)} />
       </div>
       <div className="flex flex-col gap-1">
         <label className="text-micro text-muted-foreground" htmlFor="relation-type">Relation</label>
@@ -111,12 +114,14 @@ export default function ProspectDetail() {
     [id, isClientContext],
   );
   const navigate = useNavigate();
-  const [tab, setTab] = useState<ProspectTab>('general');
+  // Onglet dans l'URL : partageable, et conservé au rechargement.
+  const [tab, setTab] = useUrlEnum<ProspectTab>('onglet', PROSPECT_TABS, 'general');
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<ModifierProspectRequest | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  const confirm = useConfirm();
   const contacts = useApi(() => (id ? listProspectContacts(id) : Promise.resolve([])), [id]);
   const [prospectionsPage, setProspectionsPage] = useState(0);
   const prospections = useApi(() => listProspectProspections(id!, { page: prospectionsPage, size: 20 }), [id, prospectionsPage]);
@@ -231,37 +236,37 @@ export default function ProspectDetail() {
                 <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                   <FormField>
                     <FieldLabel htmlFor="e-prenom">Prénom</FieldLabel>
-                    <Input id="e-prenom" value={form.prenom ?? ''} onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
+                    <Input autoComplete="off" name="e-prenom" id="e-prenom" value={form.prenom ?? ''} onChange={(e) => setForm({ ...form, prenom: e.target.value })} />
                   </FormField>
                   <FormField>
                     <FieldLabel htmlFor="e-nom">Nom</FieldLabel>
-                    <Input id="e-nom" value={form.nom ?? ''} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
+                    <Input autoComplete="off" name="e-nom" id="e-nom" value={form.nom ?? ''} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
                   </FormField>
                   <FormField>
                     <FieldLabel htmlFor="e-telephone">Téléphone</FieldLabel>
-                    <Input id="e-telephone" value={form.telephone ?? ''} onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
+                    <Input autoComplete="off" name="e-telephone" type="tel" id="e-telephone" value={form.telephone ?? ''} onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
                   </FormField>
                   <FormField>
                     <FieldLabel htmlFor="e-mobile">Mobile</FieldLabel>
-                    <Input id="e-mobile" value={form.mobile ?? ''} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
+                    <Input autoComplete="off" name="e-mobile" type="tel" id="e-mobile" value={form.mobile ?? ''} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
                   </FormField>
                   <FormField>
                     <FieldLabel htmlFor="e-email">Email</FieldLabel>
-                    <Input id="e-email" type="email" value={form.email ?? ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+                    <Input autoComplete="off" name="e-email" id="e-email" type="email" value={form.email ?? ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />
                   </FormField>
                   <FormField>
                     <FieldLabel htmlFor="e-ville">Ville</FieldLabel>
-                    <Input id="e-ville" value={form.ville ?? ''} onChange={(e) => setForm({ ...form, ville: e.target.value })} />
+                    <Input autoComplete="off" name="e-ville" id="e-ville" value={form.ville ?? ''} onChange={(e) => setForm({ ...form, ville: e.target.value })} />
                   </FormField>
                   <FormField className="sm:col-span-2">
                     <FieldLabel htmlFor="e-adresse">Adresse</FieldLabel>
-                    <Input id="e-adresse" value={form.adresse ?? ''} onChange={(e) => setForm({ ...form, adresse: e.target.value })} />
+                    <Input autoComplete="off" name="e-adresse" id="e-adresse" value={form.adresse ?? ''} onChange={(e) => setForm({ ...form, adresse: e.target.value })} />
                   </FormField>
                   <FormField>
                     <FieldLabel htmlFor="e-codePostal">Code postal</FieldLabel>
-                    <Input id="e-codePostal" value={form.codePostal ?? ''} onChange={(e) => setForm({ ...form, codePostal: e.target.value })} />
+                    <Input autoComplete="off" name="e-codePostal" id="e-codePostal" value={form.codePostal ?? ''} onChange={(e) => setForm({ ...form, codePostal: e.target.value })} />
                   </FormField>
-                  {saveError && <p className="text-body text-destructive sm:col-span-2">{saveError}</p>}
+                  {saveError && <p role="alert" className="text-body text-destructive sm:col-span-2">{saveError}</p>}
                 </div>
               ) : (
                 <FieldGrid>
@@ -333,8 +338,15 @@ export default function ProspectDetail() {
                       type="button"
                       variant="ghost"
                       size="icon-sm"
-                      aria-label="Retirer"
+                      aria-label={`Retirer le contact ${c.nomContact}`}
                       onClick={async () => {
+                        const ok = await confirm({
+                          title: 'Retirer le contact',
+                          message: `Retirer « ${c.nomContact} » des contacts de cette fiche ? La suppression est immédiate et définitive.`,
+                          confirmLabel: 'Retirer',
+                          cancelLabel: 'Annuler',
+                        });
+                        if (!ok) return;
                         await removeProspectContact(person.id, c.id);
                         contacts.refetch();
                       }}

@@ -39,7 +39,7 @@ export default function Login() {
         <FieldGroup>
           <Field data-invalid={!!error}>
             <FieldLabel htmlFor="login-username">Nom d'utilisateur</FieldLabel>
-            <Input
+            <Input name="login-username" autoCapitalize="off" autoCorrect="off" spellCheck={false}
               id="login-username"
               autoComplete="username"
               autoFocus
@@ -50,7 +50,7 @@ export default function Login() {
           </Field>
           <Field data-invalid={!!error}>
             <FieldLabel htmlFor="login-password">Mot de passe</FieldLabel>
-            <Input
+            <Input name="login-password"
               id="login-password"
               type="password"
               autoComplete="current-password"

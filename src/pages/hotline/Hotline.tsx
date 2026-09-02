@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { getDossier, getProspection, rechercherHotline } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { useUrlEnum } from '../../lib/useUrlState';
 import { useToast } from '../../lib/useToast';
 import { etapeBadgeTone, interactionIcon, personDisplayName, prospectionDisplayName } from '../../lib/domain';
 import { toneForStatus } from '../../lib/dossierStatus';
@@ -26,7 +27,8 @@ import type { DossierListItemDto, HotlineFicheDto, ProspectionListItemDto } from
 // pour voir qui il a au bout du fil. "Voir la fiche complète" reste
 // disponible seulement pour éditer la fiche ou aller plus loin.
 
-type HotlineTab = 'general' | 'prospections' | 'dossiers' | 'reglements' | 'interactions' | 'historique';
+const HOTLINE_TABS = ['general', 'prospections', 'dossiers', 'reglements', 'interactions', 'historique'] as const;
+type HotlineTab = (typeof HOTLINE_TABS)[number];
 
 /** One row of the fiche's "Prospections" tab — expands in place instead of
  * navigating away (the agent is on a live call, they shouldn't lose the
@@ -178,7 +180,8 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
   // Tabs instead of one long stacked page — an agent mid-call needs to jump
   // straight to "Dossiers" or "Prospections" without scrolling past
   // identity fields and a full historique first.
-  const [tab, setTab] = useState<HotlineTab>('general');
+  // Onglet dans l'URL : partageable, et conservé au rechargement.
+  const [tab, setTab] = useUrlEnum<HotlineTab>('onglet', HOTLINE_TABS, 'general');
   const [expandedProspectionId, setExpandedProspectionId] = useState<string | null>(null);
   const [expandedDossierId, setExpandedDossierId] = useState<string | null>(null);
 
@@ -454,7 +457,7 @@ export default function Hotline() {
             <label htmlFor="hotline-tel" className="text-micro font-medium text-muted-foreground">
               Numéro de téléphone de l'appelant
             </label>
-            <Input
+            <Input name="hotline-tel" type="tel"
               id="hotline-tel"
               autoFocus
               inputMode="tel"

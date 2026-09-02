@@ -27,6 +27,8 @@ function ComboboxTrigger({
    * own editable text, so it never gets typed over while searching. */
   label?: string
 }) {
+  const reactId = React.useId()
+  const labelId = `${reactId}-label`
   return (
     <ComboboxPrimitive.InputGroup
       data-slot="combobox-trigger"
@@ -37,10 +39,19 @@ function ComboboxTrigger({
         className
       )}
     >
-      {label && <span className="shrink-0 text-muted-foreground">{label} :</span>}
+      {label && (
+        <span id={labelId} className="shrink-0 text-muted-foreground">
+          {label} :
+        </span>
+      )}
       <ComboboxPrimitive.Input
         data-slot="combobox-input"
         placeholder={placeholder}
+        // Le `<span>` ci-dessus n'est qu'un voisin visuel : sans
+        // `aria-labelledby`, l'input restait sans nom accessible et un lecteur
+        // d'écran n'annonçait que la valeur courante. `aria-label` prend le
+        // relais quand le libellé n'est pas affiché mais fourni par l'appelant.
+        aria-labelledby={label ? labelId : undefined}
         className="w-full min-w-0 grow bg-transparent text-sm outline-none placeholder:text-muted-foreground data-placeholder:text-muted-foreground"
         {...props}
       />

@@ -62,6 +62,8 @@ import {
   type ArticleReferentielFilters,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { useConfirm } from '../../lib/confirmContext';
+import { useUrlEnum } from '../../lib/useUrlState';
 import { useToast } from '../../lib/useToast';
 import {
   referentielItems,
@@ -76,7 +78,8 @@ import {
 } from '../../lib/referentiels';
 import type { ArticleDetailDto, DevisDto, ModifierProspectionRequest } from '../../types';
 
-type ProspectionTab = 'apercu' | 'prospect' | 'article' | 'devis' | 'historique';
+const PROSPECTION_TABS = ['apercu', 'prospect', 'article', 'devis', 'historique'] as const;
+type ProspectionTab = (typeof PROSPECTION_TABS)[number];
 
 const PROSPECTION_DOC_LABELS: Record<ProspectionPdfDocKind, string> = {
   nda: 'NDA',
@@ -164,7 +167,7 @@ function ProspectionDocumentButtons({ prospectionId, hasProspect }: { prospectio
         />
         <ProspectionDocCell prospectionId={prospectionId} kind="fiche" divider onError={setError} />
       </div>
-      {error && <span className="text-micro text-destructive">{error}</span>}
+      {error && <span role="alert" className="text-micro text-destructive">{error}</span>}
     </div>
   );
 }
@@ -223,7 +226,8 @@ export default function ProspectionDetail() {
   const [raisonId, setRaisonId] = useState<string | null>(null);
   const [raisonTexte, setRaisonTexte] = useState('');
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<ProspectionTab>('apercu');
+  // Onglet dans l'URL : partageable, et conservé au rechargement.
+  const [tab, setTab] = useUrlEnum<ProspectionTab>('onglet', PROSPECTION_TABS, 'apercu');
   const [editingInfo, setEditingInfo] = useState(false);
   const [infoForm, setInfoForm] = useState<ModifierProspectionRequest | null>(null);
   const [saving, setSaving] = useState(false);
@@ -418,7 +422,7 @@ export default function ProspectionDetail() {
             ) : (
               <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center">
                 <Select items={commercialItems} value={transformCommercial} onValueChange={(v) => setTransformCommercial(v as string | null)}>
-                  <SelectTrigger size="sm" className="w-full sm:w-auto">
+                  <SelectTrigger aria-label="Commercial" size="sm" className="w-full sm:w-auto">
                     <SelectValue placeholder="Commercial…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -643,35 +647,35 @@ export default function ProspectionDetail() {
                       </FormField>
                       <FormField>
                         <FieldLabel htmlFor="f-prix">Prix min (DH)</FieldLabel>
-                        <Input id="f-prix" type="number" value={infoForm.prix ?? ''} onChange={(e) => setInfoForm({ ...infoForm, prix: Number(e.target.value) || undefined })} />
+                        <Input name="f-prix" id="f-prix" type="number" value={infoForm.prix ?? ''} onChange={(e) => setInfoForm({ ...infoForm, prix: Number(e.target.value) || undefined })} />
                       </FormField>
                       <FormField>
                         <FieldLabel htmlFor="f-prixJusqua">Prix max (DH)</FieldLabel>
-                        <Input id="f-prixJusqua" type="number" value={infoForm.prixJusqua ?? ''} onChange={(e) => setInfoForm({ ...infoForm, prixJusqua: Number(e.target.value) || undefined })} />
+                        <Input name="f-prixJusqua" id="f-prixJusqua" type="number" value={infoForm.prixJusqua ?? ''} onChange={(e) => setInfoForm({ ...infoForm, prixJusqua: Number(e.target.value) || undefined })} />
                       </FormField>
                       <FormField>
                         <FieldLabel htmlFor="f-surface">Superficie min (m²)</FieldLabel>
-                        <Input id="f-surface" type="number" value={infoForm.surface ?? ''} onChange={(e) => setInfoForm({ ...infoForm, surface: Number(e.target.value) || undefined })} />
+                        <Input name="f-surface" id="f-surface" type="number" value={infoForm.surface ?? ''} onChange={(e) => setInfoForm({ ...infoForm, surface: Number(e.target.value) || undefined })} />
                       </FormField>
                       <FormField>
                         <FieldLabel htmlFor="f-surfaceJusqua">Superficie max (m²)</FieldLabel>
-                        <Input id="f-surfaceJusqua" type="number" value={infoForm.surfaceJusqua ?? ''} onChange={(e) => setInfoForm({ ...infoForm, surfaceJusqua: Number(e.target.value) || undefined })} />
+                        <Input name="f-surfaceJusqua" id="f-surfaceJusqua" type="number" value={infoForm.surfaceJusqua ?? ''} onChange={(e) => setInfoForm({ ...infoForm, surfaceJusqua: Number(e.target.value) || undefined })} />
                       </FormField>
                       <FormField>
                         <FieldLabel htmlFor="f-avance">Avance (DH)</FieldLabel>
-                        <Input id="f-avance" type="number" value={infoForm.avance ?? ''} onChange={(e) => setInfoForm({ ...infoForm, avance: Number(e.target.value) || undefined })} />
+                        <Input name="f-avance" id="f-avance" type="number" value={infoForm.avance ?? ''} onChange={(e) => setInfoForm({ ...infoForm, avance: Number(e.target.value) || undefined })} />
                       </FormField>
                       <FormField>
                         <FieldLabel htmlFor="f-fondsPropres">Fonds propres (DH)</FieldLabel>
-                        <Input id="f-fondsPropres" type="number" value={infoForm.financementFondsPropres ?? ''} onChange={(e) => setInfoForm({ ...infoForm, financementFondsPropres: Number(e.target.value) || undefined })} />
+                        <Input name="f-fondsPropres" id="f-fondsPropres" type="number" value={infoForm.financementFondsPropres ?? ''} onChange={(e) => setInfoForm({ ...infoForm, financementFondsPropres: Number(e.target.value) || undefined })} />
                       </FormField>
                       <FormField>
                         <FieldLabel htmlFor="f-credit">Crédit (DH)</FieldLabel>
-                        <Input id="f-credit" type="number" value={infoForm.financementCredit ?? ''} onChange={(e) => setInfoForm({ ...infoForm, financementCredit: Number(e.target.value) || undefined })} />
+                        <Input name="f-credit" id="f-credit" type="number" value={infoForm.financementCredit ?? ''} onChange={(e) => setInfoForm({ ...infoForm, financementCredit: Number(e.target.value) || undefined })} />
                       </FormField>
                       <FormField>
                         <FieldLabel htmlFor="f-autre">Autre financement (DH)</FieldLabel>
-                        <Input id="f-autre" type="number" value={infoForm.financementAutre ?? ''} onChange={(e) => setInfoForm({ ...infoForm, financementAutre: Number(e.target.value) || undefined })} />
+                        <Input name="f-autre" id="f-autre" type="number" value={infoForm.financementAutre ?? ''} onChange={(e) => setInfoForm({ ...infoForm, financementAutre: Number(e.target.value) || undefined })} />
                       </FormField>
                     </div>
                     <FormField className="mt-3.5">
@@ -1121,7 +1125,7 @@ function ArticleCascadePicker({
             : 'Tranche différente de la tranche principale — utilisez « Ajouter » pour l\'associer comme intérêt secondaire.'}
         </p>
       )}
-      {error && <p className="text-body text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-body text-destructive">{error}</p>}
     </div>
   );
 }
@@ -1249,6 +1253,7 @@ function ArticleAssocieRow({
   navigate: (path: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const confirm = useConfirm();
 
   return (
     <div className="rounded-md border border-border px-3 py-2">
@@ -1263,7 +1268,21 @@ function ArticleAssocieRow({
           <Button type="button" variant="ghost" size="sm" onClick={() => setEditing((v) => !v)}>
             <Pencil data-icon="inline-start" /> Modifier
           </Button>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label="Retirer" onClick={() => onRemove(item.id)}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`Retirer ${item.article || item.tranche || 'cet article associé'}`}
+            onClick={async () => {
+              const ok = await confirm({
+                title: 'Retirer l’article associé',
+                message: `Retirer « ${item.article || item.tranche || 'cet article'} » des articles associés ? La suppression est immédiate et définitive.`,
+                confirmLabel: 'Retirer',
+                cancelLabel: 'Annuler',
+              });
+              if (ok) await onRemove(item.id);
+            }}
+          >
             <X className="text-destructive" />
           </Button>
         </div>
@@ -1282,8 +1301,21 @@ function ArticleAssocieRow({
             initialArticleId={item.articleId}
             onCancel={() => setEditing(false)}
             onModifier={async (tId, aId) => {
+              // L'API n'expose pas de mise à jour : « Modifier » est en réalité
+              // une suppression suivie d'une création. Si la création échoue,
+              // l'association d'origine est déjà perdue — on tente donc de la
+              // rétablir, et on remonte l'erreur au lieu de l'avaler.
               await removeProspectionAutreTranche(prospectionId, item.id);
-              await addProspectionAutreTranche(prospectionId, { trancheId: tId, articleId: aId });
+              try {
+                await addProspectionAutreTranche(prospectionId, { trancheId: tId, articleId: aId });
+              } catch (err) {
+                await addProspectionAutreTranche(prospectionId, {
+                  trancheId: item.trancheId,
+                  articleId: item.articleId,
+                }).catch(() => {});
+                await onEdited();
+                throw err;
+              }
               setEditing(false);
               await onEdited();
             }}
@@ -1391,7 +1423,7 @@ function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: 
           <span className="text-label font-semibold tabular-nums text-foreground">
             {m?.prixVenteTTC != null ? formatCurrency(m.prixVenteTTC) : '—'}
           </span>
-          {genError && <span className="text-micro text-destructive">{genError}</span>}
+          {genError && <span role="alert" className="text-micro text-destructive">{genError}</span>}
           <Button type="button" variant="outline" size="sm" className="h-6 gap-1 px-1.5 text-body" disabled={!!generating} onClick={() => handleGenerateFiche('view')}>
             <FileText className="size-3" />
             {generating === 'view' ? 'Génération…' : 'Fiche offre'}

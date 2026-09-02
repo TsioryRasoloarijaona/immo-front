@@ -212,31 +212,31 @@ export default function CreateProspectForm({
             <RefSelect id="sexe" label="Sexe" value={sexeId} onChange={setSexeId} items={referentielItems(sexes.data)} />
             <FormField>
               <FieldLabel htmlFor="prenom">Prénom</FieldLabel>
-              <Input id="prenom" value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
+              <Input autoComplete="off" name="prenom" id="prenom" value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="nom">Nom</FieldLabel>
-              <Input id="nom" value={nom} onChange={(e) => setNom(e.target.value)} required />
+              <Input autoComplete="off" name="nom" id="nom" value={nom} onChange={(e) => setNom(e.target.value)} required />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="filsDe">Fils de</FieldLabel>
-              <Input id="filsDe" value={filsDe} onChange={(e) => setFilsDe(e.target.value)} />
+              <Input name="filsDe" id="filsDe" value={filsDe} onChange={(e) => setFilsDe(e.target.value)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="etDe">Et de</FieldLabel>
-              <Input id="etDe" value={etDe} onChange={(e) => setEtDe(e.target.value)} />
+              <Input name="etDe" id="etDe" value={etDe} onChange={(e) => setEtDe(e.target.value)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="telephone">Téléphone</FieldLabel>
-              <Input id="telephone" value={telephone} onChange={(e) => setTelephone(e.target.value)} required />
+              <Input autoComplete="off" name="telephone" type="tel" id="telephone" value={telephone} onChange={(e) => setTelephone(e.target.value)} required />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="mobile">Mobile</FieldLabel>
-              <Input id="mobile" value={mobile} onChange={(e) => setMobile(e.target.value)} />
+              <Input autoComplete="off" name="mobile" type="tel" id="mobile" value={mobile} onChange={(e) => setMobile(e.target.value)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="email">Email</FieldLabel>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <Input autoComplete="off" name="email" id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </FormField>
           </div>
         </FieldGroup>
@@ -246,26 +246,26 @@ export default function CreateProspectForm({
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             <FormField>
               <FieldLabel htmlFor="ville">Ville</FieldLabel>
-              <Input id="ville" value={ville} onChange={(e) => setVille(e.target.value)} />
+              <Input autoComplete="off" name="ville" id="ville" value={ville} onChange={(e) => setVille(e.target.value)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="codePostal">Code postal</FieldLabel>
-              <Input id="codePostal" value={codePostal} onChange={(e) => setCodePostal(e.target.value)} />
+              <Input autoComplete="off" name="codePostal" id="codePostal" value={codePostal} onChange={(e) => setCodePostal(e.target.value)} />
             </FormField>
             <FormField className="sm:col-span-2 lg:col-span-1">
               <FieldLabel htmlFor="adresse">Adresse</FieldLabel>
-              <Input id="adresse" value={adresse} onChange={(e) => setAdresse(e.target.value)} />
+              <Input autoComplete="off" name="adresse" id="adresse" value={adresse} onChange={(e) => setAdresse(e.target.value)} />
             </FormField>
             <RefSelect id="pays" label="Pays" value={paysId} onChange={setPaysId} items={paysItems} />
             <RefSelect id="paysResidence" label="Pays de résidence" value={paysResidenceId} onChange={setPaysResidenceId} items={paysItems} />
             <RefSelect id="nationalite" label="Nationalité" value={nationaliteId} onChange={setNationaliteId} items={referentielItems(nationalites.data)} />
             <FormField>
               <FieldLabel htmlFor="dateNaissance">Date de naissance</FieldLabel>
-              <Input id="dateNaissance" type="date" value={dateNaissance} onChange={(e) => setDateNaissance(e.target.value)} />
+              <Input name="dateNaissance" id="dateNaissance" type="date" value={dateNaissance} onChange={(e) => setDateNaissance(e.target.value)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="lieuNaissance">Lieu de naissance</FieldLabel>
-              <Input id="lieuNaissance" value={lieuNaissance} onChange={(e) => setLieuNaissance(e.target.value)} />
+              <Input name="lieuNaissance" id="lieuNaissance" value={lieuNaissance} onChange={(e) => setLieuNaissance(e.target.value)} />
             </FormField>
           </div>
         </FieldGroup>
@@ -276,18 +276,18 @@ export default function CreateProspectForm({
             <RefSelect id="situationFamiliale" label="Situation familiale" value={situationFamilialeId} onChange={setSituationFamilialeId} items={referentielItems(situations.data)} />
             <FormField>
               <FieldLabel htmlFor="nombreEnfants">Enfants</FieldLabel>
-              <Input id="nombreEnfants" type="number" min={0} value={nombreEnfants} onChange={(e) => setNombreEnfants(e.target.value)} />
+              <Input name="nombreEnfants" id="nombreEnfants" type="number" min={0} value={nombreEnfants} onChange={(e) => setNombreEnfants(e.target.value)} />
             </FormField>
             <RefSelect id="regimeMatrimonial" label="Régime matrimonial" value={regimeMatrimonialId} onChange={setRegimeMatrimonialId} items={referentielItems(regimes.data)} />
             <RefSelect id="typeResidence" label="Type de résidence" value={typeResidenceId} onChange={setTypeResidenceId} items={referentielItems(typesResidence.data)} />
             <RefSelect id="salaire" label="Salaire" value={salaireId} onChange={setSalaireId} items={referentielItems(salaires.data)} />
             <FormField>
               <FieldLabel htmlFor="employeur">Employeur</FieldLabel>
-              <Input id="employeur" value={employeur} onChange={(e) => setEmployeur(e.target.value)} />
+              <Input name="employeur" id="employeur" value={employeur} onChange={(e) => setEmployeur(e.target.value)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="anciennete">Ancienneté (années)</FieldLabel>
-              <Input id="anciennete" type="number" min={0} value={anciennete} onChange={(e) => setAnciennete(e.target.value)} />
+              <Input name="anciennete" id="anciennete" type="number" min={0} value={anciennete} onChange={(e) => setAnciennete(e.target.value)} />
             </FormField>
             <RefSelect id="tierType" label="Type de tiers" value={tierTypeId} onChange={(v) => { setTierTypeId(v); setTierKindId(null); }} items={referentielItems(tierTypes.data)} />
             <RefSelect id="tierKind" label="Nature du tiers" value={tierKindId} onChange={setTierKindId} items={referentielItems(tierKinds.data ?? [])} disabled={!tierTypeId} />
@@ -300,28 +300,28 @@ export default function CreateProspectForm({
             <RefSelect id="pieceType" label="Type de pièce" value={pieceTypeId} onChange={setPieceTypeId} items={referentielItems(typesPiece.data)} />
             <FormField>
               <FieldLabel htmlFor="pieceNumero">Numéro</FieldLabel>
-              <Input id="pieceNumero" value={pieceNumero} onChange={(e) => setPieceNumero(e.target.value)} />
+              <Input autoComplete="off" name="pieceNumero" id="pieceNumero" value={pieceNumero} onChange={(e) => setPieceNumero(e.target.value)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pieceDelivreeLe">Délivrée le</FieldLabel>
-              <Input id="pieceDelivreeLe" type="date" value={pieceDelivreeLe} onChange={(e) => setPieceDelivreeLe(e.target.value)} />
+              <Input name="pieceDelivreeLe" id="pieceDelivreeLe" type="date" value={pieceDelivreeLe} onChange={(e) => setPieceDelivreeLe(e.target.value)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pieceLieuDelivrance">Lieu de délivrance</FieldLabel>
-              <Input id="pieceLieuDelivrance" value={pieceLieuDelivrance} onChange={(e) => setPieceLieuDelivrance(e.target.value)} />
+              <Input autoComplete="off" name="pieceLieuDelivrance" id="pieceLieuDelivrance" value={pieceLieuDelivrance} onChange={(e) => setPieceLieuDelivrance(e.target.value)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pieceValideJusquau">Valide jusqu'au</FieldLabel>
-              <Input id="pieceValideJusquau" type="date" value={pieceValideJusquau} onChange={(e) => setPieceValideJusquau(e.target.value)} />
+              <Input name="pieceValideJusquau" id="pieceValideJusquau" type="date" value={pieceValideJusquau} onChange={(e) => setPieceValideJusquau(e.target.value)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pieceLieuValidite">Lieu de validité</FieldLabel>
-              <Input id="pieceLieuValidite" value={pieceLieuValidite} onChange={(e) => setPieceLieuValidite(e.target.value)} />
+              <Input autoComplete="off" name="pieceLieuValidite" id="pieceLieuValidite" value={pieceLieuValidite} onChange={(e) => setPieceLieuValidite(e.target.value)} />
             </FormField>
           </div>
         </FieldGroup>
 
-        {error && <p className="mt-3 text-body text-destructive">{error}</p>}
+        {error && <p role="alert" className="mt-3 text-body text-destructive">{error}</p>}
 
         <DialogFooter className="mt-5">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Annuler</Button>

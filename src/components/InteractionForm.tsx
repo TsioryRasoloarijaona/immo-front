@@ -98,7 +98,7 @@ export default function InteractionForm({
           {isRdv && (
             <FormField>
               <FieldLabel htmlFor="action-date-rdv">Date du rendez-vous</FieldLabel>
-              <Input id="action-date-rdv" type="date" value={dateRdv} onChange={(e) => setDateRdv(e.target.value)} required />
+              <Input name="action-date-rdv" id="action-date-rdv" type="date" value={dateRdv} onChange={(e) => setDateRdv(e.target.value)} required />
             </FormField>
           )}
 
@@ -107,7 +107,7 @@ export default function InteractionForm({
               Date alerte
               {selectedResultat?.alerteRecommandee && <span className="ml-1.5 text-micro font-normal text-muted-foreground">(recommandée pour ce résultat)</span>}
             </FieldLabel>
-            <Input id="action-date-alerte" type="date" value={dateAlerte} onChange={(e) => setDateAlerte(e.target.value)} />
+            <Input name="action-date-alerte" id="action-date-alerte" type="date" value={dateAlerte} onChange={(e) => setDateAlerte(e.target.value)} />
           </FormField>
 
           <FormField>

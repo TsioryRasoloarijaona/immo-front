@@ -50,7 +50,7 @@ export default function ChangePasswordGate() {
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="cp-ancien">Mot de passe actuel</FieldLabel>
-            <Input
+            <Input name="cp-ancien"
               id="cp-ancien"
               type="password"
               autoComplete="current-password"
@@ -62,7 +62,7 @@ export default function ChangePasswordGate() {
           </Field>
           <Field data-invalid={tooShort}>
             <FieldLabel htmlFor="cp-nouveau">Nouveau mot de passe</FieldLabel>
-            <Input
+            <Input name="cp-nouveau"
               id="cp-nouveau"
               type="password"
               autoComplete="new-password"
@@ -74,7 +74,7 @@ export default function ChangePasswordGate() {
           </Field>
           <Field data-invalid={mismatch}>
             <FieldLabel htmlFor="cp-confirmation">Confirmer le nouveau mot de passe</FieldLabel>
-            <Input
+            <Input name="cp-confirmation"
               id="cp-confirmation"
               type="password"
               autoComplete="new-password"

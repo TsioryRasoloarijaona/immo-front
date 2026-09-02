@@ -428,7 +428,7 @@ export default function NewDossier() {
                 </FormField>
                 <FormField>
                   <FieldLabel htmlFor="f-code">Code</FieldLabel>
-                  <Input id="f-code" placeholder="Code ou description" value={codeFilter} onChange={(e) => setCodeFilter(e.target.value)} />
+                  <Input name="f-code" id="f-code" placeholder="Code ou description" value={codeFilter} onChange={(e) => setCodeFilter(e.target.value)} />
                 </FormField>
                 <FormField>
                   <FieldLabel htmlFor="f-statut">État</FieldLabel>
@@ -477,11 +477,11 @@ export default function NewDossier() {
                 </FormField>
                 <FormField>
                   <FieldLabel htmlFor="f-superficieMin">Superficie min (m²)</FieldLabel>
-                  <Input id="f-superficieMin" type="number" min={0} value={superficieMin} onChange={(e) => setSuperficieMin(e.target.value)} />
+                  <Input name="f-superficieMin" id="f-superficieMin" type="number" min={0} value={superficieMin} onChange={(e) => setSuperficieMin(e.target.value)} />
                 </FormField>
                 <FormField>
                   <FieldLabel htmlFor="f-superficieMax">Superficie max (m²)</FieldLabel>
-                  <Input id="f-superficieMax" type="number" min={0} value={superficieMax} onChange={(e) => setSuperficieMax(e.target.value)} />
+                  <Input name="f-superficieMax" id="f-superficieMax" type="number" min={0} value={superficieMax} onChange={(e) => setSuperficieMax(e.target.value)} />
                 </FormField>
               </div>
 
@@ -582,7 +582,7 @@ export default function NewDossier() {
                 <FieldLabel htmlFor="prix">
                   {remiseRenseignee ? 'Prix avant remise (DH) *' : 'Prix retenu (DH) *'}
                 </FieldLabel>
-                <Input
+                <Input name="prix"
                   id="prix"
                   type="number"
                   min={0}
@@ -607,7 +607,7 @@ export default function NewDossier() {
                   </p>
                 )}
                 {!priceTouched && autoPrix === 0 && selectedIds.length > 0 && (
-                  <p className="mt-1 text-micro text-destructive">
+                  <p role="alert" className="mt-1 text-micro text-destructive">
                     Aucun prix de vente sur les lots sélectionnés — saisissez le prix manuellement.
                   </p>
                 )}
@@ -615,7 +615,7 @@ export default function NewDossier() {
               <FormField>
                 <FieldLabel htmlFor="remise">Remise commerciale</FieldLabel>
                 <InputGroup>
-                  <InputGroupInput
+                  <InputGroupInput name="remise" 
                     id="remise"
                     type="number"
                     min={0}
@@ -630,7 +630,7 @@ export default function NewDossier() {
                   </InputGroupAddon>
                 </InputGroup>
                 {remiseHorsBornes ? (
-                  <p className="mt-1 text-micro text-destructive">La remise doit être comprise entre 0 et 100 %.</p>
+                  <p role="alert" className="mt-1 text-micro text-destructive">La remise doit être comprise entre 0 et 100 %.</p>
                 ) : remiseInhabituelle ? (
                   <p className="mt-1 text-micro text-(--amber)">
                     Remise inhabituelle (supérieure à 30 %) — à vérifier avant de valider.
@@ -643,7 +643,7 @@ export default function NewDossier() {
               </FormField>
               <FormField>
                 <FieldLabel htmlFor="cin">CIN du client *</FieldLabel>
-                <Input
+                <Input name="cin"
                   id="cin"
                   value={cinValue}
                   onChange={(e) => {
@@ -756,7 +756,7 @@ export default function NewDossier() {
           )}
         </Card>
 
-        {submitError && <p className="text-body text-destructive">{submitError}</p>}
+        {submitError && <p role="alert" className="text-body text-destructive">{submitError}</p>}
 
         <div className="flex items-center justify-end border-t border-border pt-4">
           <Button type="button" onClick={handleCreate} disabled={!canCreate || submitting}>

@@ -48,7 +48,7 @@ export default function ArticleResultsList({
               role="button"
               className={cn('cursor-pointer', selectedId === null && 'bg-primary/10')}
               onClick={() => onSelect(null)}
-              onKeyDown={(e) => { if (e.key === 'Enter') onSelect(null); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(null); } }}
             >
               <TableCell colSpan={7} className="text-muted-foreground">{noneLabel}</TableCell>
             </TableRow>
@@ -60,7 +60,7 @@ export default function ArticleResultsList({
               role="button"
               className={cn('cursor-pointer', selectedId === a.id && 'bg-primary/10')}
               onClick={() => onSelect(a.id)}
-              onKeyDown={(e) => { if (e.key === 'Enter') onSelect(a.id); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(a.id); } }}
             >
               <TableCell className="font-medium text-foreground">{a.code}</TableCell>
               <TableCell className="text-muted-foreground">{a.description || '—'}</TableCell>

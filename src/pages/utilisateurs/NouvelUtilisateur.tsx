@@ -134,24 +134,24 @@ function CreerEmployeCard() {
         <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
           <FormField>
             <FieldLabel htmlFor="ce-prenom">Prénom</FieldLabel>
-            <Input id="ce-prenom" autoFocus value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
+            <Input autoComplete="off" name="ce-prenom" id="ce-prenom" autoFocus value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
           </FormField>
           <FormField>
             <FieldLabel htmlFor="ce-nom">Nom</FieldLabel>
-            <Input id="ce-nom" value={nom} onChange={(e) => setNom(e.target.value)} required />
+            <Input autoComplete="off" name="ce-nom" id="ce-nom" value={nom} onChange={(e) => setNom(e.target.value)} required />
           </FormField>
           <FormField>
             <FieldLabel htmlFor="ce-identifiant">Identifiant</FieldLabel>
-            <Input id="ce-identifiant" placeholder="ex : j.dupont" value={identifiant} onChange={(e) => setIdentifiant(e.target.value)} required />
+            <Input autoComplete="off" name="ce-identifiant" autoCapitalize="off" autoCorrect="off" spellCheck={false} id="ce-identifiant" placeholder="ex : j.dupont" value={identifiant} onChange={(e) => setIdentifiant(e.target.value)} required />
             <FieldDescription>Nom d'utilisateur du compte — doit être unique.</FieldDescription>
           </FormField>
           <FormField>
             <FieldLabel htmlFor="ce-email">Email</FieldLabel>
-            <Input id="ce-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input autoComplete="off" name="ce-email" id="ce-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </FormField>
           <FormField>
             <FieldLabel htmlFor="ce-mobile">Mobile <span className="font-normal text-muted-foreground">(optionnel)</span></FieldLabel>
-            <Input id="ce-mobile" type="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} />
+            <Input autoComplete="off" name="ce-mobile" id="ce-mobile" type="tel" value={mobile} onChange={(e) => setMobile(e.target.value)} />
           </FormField>
           <FormField>
             <FieldLabel htmlFor="ce-type">Type d'employé</FieldLabel>

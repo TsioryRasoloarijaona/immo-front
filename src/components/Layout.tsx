@@ -283,7 +283,16 @@ export default function Layout({ children }: { children: ReactNode }) {
         <SidebarRail />
       </Sidebar>
 
-      <SidebarInset>{children}</SidebarInset>
+      {/* Lien d'évitement : la barre latérale compte une quinzaine de liens
+          qu'un utilisateur au clavier traversait à chaque changement de page.
+          Invisible tant qu'il n'a pas le focus. */}
+      <a
+        href="#contenu-principal"
+        className="sr-only rounded-md bg-primary px-3 py-2 text-primary-foreground focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50"
+      >
+        Aller au contenu principal
+      </a>
+      <SidebarInset id="contenu-principal">{children}</SidebarInset>
     </SidebarProvider>
   );
 }

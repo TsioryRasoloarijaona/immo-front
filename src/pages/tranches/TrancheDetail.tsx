@@ -195,7 +195,7 @@ export default function TrancheDetail() {
                 setStatut(v as ArticleStatut | 'all');
               }}
             >
-              <SelectTrigger size="sm">
+              <SelectTrigger aria-label="Statut de l'article" size="sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

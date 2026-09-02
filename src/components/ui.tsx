@@ -131,7 +131,10 @@ export function Card({
     >
       {title && (
         <CardHeader className="gap-0 border-b border-border py-1.75">
-          <CardTitle className="flex items-center gap-1.5 text-label">
+          {/* `CardTitle` rend un <div> : sans `render`, les ~80 titres de
+              section de l'app étaient invisibles à la navigation par titres,
+              et un lecteur d'écran passait du <h1> de la page à rien. */}
+          <CardTitle as="h2" className="flex items-center gap-1.5 text-label">
             {accent && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: accent }} />}
             {title}
           </CardTitle>

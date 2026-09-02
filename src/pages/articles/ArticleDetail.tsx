@@ -49,7 +49,7 @@ function ArticlePieceJointeRow({ articleId, piece }: { articleId: string; piece:
       <TableCell className="text-right text-muted-foreground">{formatDate(piece.dateCreation)}</TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
-          {error && <span className="text-micro text-destructive">{error}</span>}
+          {error && <span role="alert" className="text-micro text-destructive">{error}</span>}
           <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
             <Eye data-icon="inline-start" /> {busyAction === 'view' ? 'Ouverture…' : 'Voir'}
           </Button>

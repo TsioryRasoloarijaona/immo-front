@@ -51,24 +51,24 @@ export default function CompleteProfileGate() {
           <div className="grid grid-cols-2 gap-3">
             <Field>
               <FieldLabel htmlFor="cpl-prenom">Prénom</FieldLabel>
-              <Input id="cpl-prenom" autoFocus value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
+              <Input autoComplete="given-name" name="cpl-prenom" id="cpl-prenom" autoFocus value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
             </Field>
             <Field>
               <FieldLabel htmlFor="cpl-nom">Nom</FieldLabel>
-              <Input id="cpl-nom" value={nom} onChange={(e) => setNom(e.target.value)} required />
+              <Input autoComplete="family-name" name="cpl-nom" id="cpl-nom" value={nom} onChange={(e) => setNom(e.target.value)} required />
             </Field>
           </div>
           <Field>
             <FieldLabel htmlFor="cpl-telephone">Téléphone mobile</FieldLabel>
-            <Input id="cpl-telephone" type="tel" value={telephone} onChange={(e) => setTelephone(e.target.value)} required />
+            <Input autoComplete="tel" name="cpl-telephone" id="cpl-telephone" type="tel" value={telephone} onChange={(e) => setTelephone(e.target.value)} required />
           </Field>
           <Field>
             <FieldLabel htmlFor="cpl-email">Email</FieldLabel>
-            <Input id="cpl-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input autoComplete="email" name="cpl-email" id="cpl-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </Field>
           <Field>
             <FieldLabel htmlFor="cpl-date-naissance">Date de naissance</FieldLabel>
-            <Input
+            <Input autoComplete="bday" name="cpl-date-naissance"
               id="cpl-date-naissance"
               type="date"
               value={dateNaissance}
@@ -78,7 +78,7 @@ export default function CompleteProfileGate() {
           </Field>
           <Field>
             <FieldLabel htmlFor="cpl-adresse">Adresse <span className="font-normal text-muted-foreground">(optionnel)</span></FieldLabel>
-            <Input id="cpl-adresse" value={adresse} onChange={(e) => setAdresse(e.target.value)} />
+            <Input autoComplete="street-address" name="cpl-adresse" id="cpl-adresse" value={adresse} onChange={(e) => setAdresse(e.target.value)} />
           </Field>
           {error && <FieldError>{error}</FieldError>}
           <Button type="submit" className="w-full" disabled={submitting || !canSubmit}>

@@ -315,6 +315,34 @@
   box-sizing: border-box;
 }
 
+/* Supprime le délai de ~300 ms que les navigateurs tactiles réservent pour
+   détecter un double-tap. Ciblé sur les seuls éléments réellement activables :
+   sur `*`, on désactiverait aussi le double-tap-pour-zoomer partout, ce qui
+   retirerait une aide d'accessibilité. Les lignes de tableau cliquables des
+   listes portent `role="link"`, d'où leur présence ici. */
+button,
+a,
+label,
+summary,
+[role='button'],
+[role='link'],
+[role='tab'] {
+  touch-action: manipulation;
+}
+
+/* Empêche le défilement d'un conteneur d'entraîner celui de la page une fois
+   arrivé en butée (et, sur mobile, de déclencher le pull-to-refresh) : boîtes
+   de dialogue, listes déroulantes et corps de tableaux défilants. */
+[data-slot='dialog-content'],
+[data-slot='alert-dialog-content'],
+[data-slot='popover-content'],
+[data-slot='dropdown-menu-content'],
+[data-slot='select-content'],
+[data-slot='combobox-content'],
+[data-scroll-contain] {
+  overscroll-behavior: contain;
+}
+
 /* ---------------------------------------------------------------------------
    Reduced motion
    ---------------------------------------------------------------------------
@@ -332,11 +360,16 @@
    decoration. WCAG's motion criteria target non-essential animation, and
    freezing the one indicator that says "still working" would leave a reduced-
    motion user staring at what looks like a hung screen.
+
+   `.animate-pulse` is exempt for exactly the same reason: a skeleton is the
+   same "still working" signal as a spinner. Figé, il retombe sur la dernière
+   image-clé (`opacity: 1`) et devient un bloc gris inerte, impossible à
+   distinguer d'un conteneur réellement vide.
    --------------------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
-  *:not(.animate-spin),
-  *:not(.animate-spin)::before,
-  *:not(.animate-spin)::after {
+  *:not(.animate-spin):not(.animate-pulse),
+  *:not(.animate-spin):not(.animate-pulse)::before,
+  *:not(.animate-spin):not(.animate-pulse)::after {
     animation-duration: 0.01ms !important;
     animation-delay: 0.01ms !important;
     animation-iteration-count: 1 !important;

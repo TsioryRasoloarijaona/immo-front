@@ -101,7 +101,7 @@ function ProspectPicker({
           <>
             <FormField>
               <FieldLabel htmlFor="pp-search">Rechercher un prospect</FieldLabel>
-              <Input id="pp-search" placeholder="Nom, téléphone, email…" value={search} onChange={(e) => setSearch(e.target.value)} />
+              <Input name="pp-search" id="pp-search" placeholder="Nom, téléphone, email…" value={search} onChange={(e) => setSearch(e.target.value)} />
             </FormField>
             {results.loading && <LoadingState />}
             {!results.loading && search.trim() && (results.data?.content.length ?? 0) === 0 && (
@@ -154,27 +154,27 @@ function ProspectPicker({
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pp-prenom">Prénom {!newForm.raisonSociale?.trim() && '*'}</FieldLabel>
-              <Input id="pp-prenom" value={newForm.prenom ?? ''} onChange={(e) => setNew('prenom', e.target.value || undefined)} />
+              <Input autoComplete="off" name="pp-prenom" id="pp-prenom" value={newForm.prenom ?? ''} onChange={(e) => setNew('prenom', e.target.value || undefined)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pp-nom">Nom {!newForm.raisonSociale?.trim() && '*'}</FieldLabel>
-              <Input id="pp-nom" value={newForm.nom ?? ''} onChange={(e) => setNew('nom', e.target.value || undefined)} />
+              <Input autoComplete="off" name="pp-nom" id="pp-nom" value={newForm.nom ?? ''} onChange={(e) => setNew('nom', e.target.value || undefined)} />
             </FormField>
             <FormField className="sm:col-span-2">
               <FieldLabel htmlFor="pp-raisonSociale">Raison sociale (si personne morale)</FieldLabel>
-              <Input id="pp-raisonSociale" value={newForm.raisonSociale ?? ''} onChange={(e) => setNew('raisonSociale', e.target.value || undefined)} />
+              <Input autoComplete="off" name="pp-raisonSociale" id="pp-raisonSociale" value={newForm.raisonSociale ?? ''} onChange={(e) => setNew('raisonSociale', e.target.value || undefined)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pp-telephone">Téléphone</FieldLabel>
-              <Input id="pp-telephone" value={newForm.telephone ?? ''} onChange={(e) => setNew('telephone', e.target.value || undefined)} />
+              <Input autoComplete="off" name="pp-telephone" type="tel" id="pp-telephone" value={newForm.telephone ?? ''} onChange={(e) => setNew('telephone', e.target.value || undefined)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pp-mobile">Mobile</FieldLabel>
-              <Input id="pp-mobile" value={newForm.mobile ?? ''} onChange={(e) => setNew('mobile', e.target.value || undefined)} />
+              <Input autoComplete="off" name="pp-mobile" type="tel" id="pp-mobile" value={newForm.mobile ?? ''} onChange={(e) => setNew('mobile', e.target.value || undefined)} />
             </FormField>
             <FormField className="sm:col-span-2">
               <FieldLabel htmlFor="pp-email">Email</FieldLabel>
-              <Input id="pp-email" type="email" value={newForm.email ?? ''} onChange={(e) => setNew('email', e.target.value || undefined)} />
+              <Input autoComplete="off" name="pp-email" id="pp-email" type="email" value={newForm.email ?? ''} onChange={(e) => setNew('email', e.target.value || undefined)} />
             </FormField>
           </div>
         </FieldGroup>
@@ -390,7 +390,7 @@ export default function NewProspection() {
           </FormField>
         </Card>
 
-        {submitError && <p className="text-body text-destructive">{submitError}</p>}
+        {submitError && <p role="alert" className="text-body text-destructive">{submitError}</p>}
 
         <div className="flex items-center justify-end border-t border-border pt-4">
           <Button type="button" onClick={handleCreate} disabled={!canCreate || submitting}>

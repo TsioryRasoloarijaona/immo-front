@@ -227,14 +227,14 @@ export default function DevisFormSection({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <FormField>
               <FieldLabel htmlFor="devis-prix">Prix TTC</FieldLabel>
-              <Input id="devis-prix" type="number" value={prix} onChange={(e) => setPrix(e.target.value)} placeholder={isLibre ? 'Obligatoire' : 'Optionnel'} />
+              <Input name="devis-prix" id="devis-prix" type="number" value={prix} onChange={(e) => setPrix(e.target.value)} placeholder={isLibre ? 'Obligatoire' : 'Optionnel'} />
               <FieldDescription className="text-micro">
                 {isLibre ? 'Requis — offre libre, sans article.' : 'Remplace le prix commercial de l’article.'}
               </FieldDescription>
             </FormField>
             <FormField>
               <FieldLabel htmlFor="devis-remise">Remise (%)</FieldLabel>
-              <Input id="devis-remise" type="number" value={remisePercent} onChange={(e) => setRemisePercent(e.target.value)} placeholder="0" />
+              <Input name="devis-remise" id="devis-remise" type="number" value={remisePercent} onChange={(e) => setRemisePercent(e.target.value)} placeholder="0" />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="devis-mode">Mode de paiement</FieldLabel>
@@ -242,7 +242,7 @@ export default function DevisFormSection({
             </FormField>
             <FormField className="sm:col-span-2 lg:col-span-1">
               <FieldLabel htmlFor="devis-notes">Notes</FieldLabel>
-              <Input id="devis-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+              <Input name="devis-notes" id="devis-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
             </FormField>
           </div>
 
@@ -250,7 +250,7 @@ export default function DevisFormSection({
             <Button type="button" size="sm" disabled={!trancheId || busy} onClick={handleCreate}>
               {busy ? 'Création…' : 'Créer l’offre'}
             </Button>
-            {error && <p className="text-body text-destructive">{error}</p>}
+            {error && <p role="alert" className="text-body text-destructive">{error}</p>}
           </div>
         </div>
       )}

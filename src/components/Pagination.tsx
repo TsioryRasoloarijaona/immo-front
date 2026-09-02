@@ -42,7 +42,7 @@ export default function Pagination({
           type="button"
           variant="outline"
           size="icon-sm"
-          className="h-6.5 w-6.5"
+          className="relative h-6.5 w-6.5 after:absolute after:-inset-2 after:content-['']"
           disabled={page <= 0}
           aria-label="Page précédente"
           onClick={() => onPageChange(page - 1)}
@@ -60,7 +60,7 @@ export default function Pagination({
               type="button"
               variant={p === page ? 'default' : 'outline'}
               size="icon-sm"
-              className={cn('h-6.5 w-6.5 text-body tabular-nums', p === page && 'pointer-events-none')}
+              className={cn('h-6.5 w-6.5 text-body tabular-nums', "relative after:absolute after:-inset-2 after:content-['']", p === page && 'pointer-events-none')}
               aria-label={`Page ${p + 1}`}
               aria-current={p === page ? 'page' : undefined}
               onClick={() => onPageChange(p)}
@@ -73,7 +73,7 @@ export default function Pagination({
           type="button"
           variant="outline"
           size="icon-sm"
-          className="h-6.5 w-6.5"
+          className="relative h-6.5 w-6.5 after:absolute after:-inset-2 after:content-['']"
           disabled={page >= totalPages - 1}
           aria-label="Page suivante"
           onClick={() => onPageChange(page + 1)}

@@ -142,7 +142,7 @@ export default function AffecterProjetsDialog({
           </>
         )}
 
-        {saveError && <p className="text-micro text-destructive">{saveError}</p>}
+        {saveError && <p role="alert" className="text-micro text-destructive">{saveError}</p>}
       </div>
 
       <DialogFooter className="mt-4">

@@ -68,11 +68,13 @@ import {
   type DossierPdfOnlyDocKind,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { useUrlEnum } from '../../lib/useUrlState';
 import { useToast } from '../../lib/useToast';
 import { useConfirm } from '../../lib/confirmContext';
 import type { CreerEcheanceRequest, CreerReglementRequest, EcheanceDto, PieceJointeDto, ReglementDto } from '../../types';
 
-type DossierTab = 'apercu' | 'financier' | 'documents' | 'historique' | 'admin';
+const DOSSIER_TABS = ['apercu', 'prospection', 'financier', 'documents', 'historique', 'admin'] as const;
+type DossierTab = (typeof DOSSIER_TABS)[number];
 
 function AddEcheanceRow({
   onAdd,
@@ -150,15 +152,15 @@ function AddEcheanceRow({
           </FormField>
           <FormField>
             <FieldLabel htmlFor="new-montant">Montant</FieldLabel>
-            <Input id="new-montant" type="number" value={montant} onChange={(e) => setMontant(e.target.value)} />
+            <Input name="new-montant" id="new-montant" type="number" value={montant} onChange={(e) => setMontant(e.target.value)} />
           </FormField>
           <FormField>
             <FieldLabel htmlFor="new-date">Échéance</FieldLabel>
-            <Input id="new-date" type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
+            <Input name="new-date" id="new-date" type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
           </FormField>
           <FormField>
             <FieldLabel htmlFor="new-desc">Description</FieldLabel>
-            <Input id="new-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Input name="new-desc" id="new-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
           </FormField>
         </FieldGroup>
         <DialogFooter className="mt-5">
@@ -204,7 +206,7 @@ function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJ
       <TableCell className="text-right text-muted-foreground">{formatDate(piece.dateCreation)}</TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
-          {error && <span className="text-micro text-destructive">{error}</span>}
+          {error && <span role="alert" className="text-micro text-destructive">{error}</span>}
           <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
             <Eye data-icon="inline-start" /> {busyAction === 'view' ? 'Ouverture…' : 'Voir'}
           </Button>
@@ -466,13 +468,13 @@ function AddPieceJointeRow({
         <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>
       <Input
-        placeholder="Description (optionnel)"
+        placeholder="Description (optionnel)" aria-label="Description de la pièce jointe"
         className="w-45"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
       <Select items={typesPieceJointeItems} value={typeId} onValueChange={(v) => setTypeId(v as string | null)}>
-        <SelectTrigger size="sm" className="w-45">
+        <SelectTrigger aria-label="Type de pièce jointe" size="sm" className="w-45">
           <SelectValue placeholder={typesPieceJointe.loading ? 'Chargement…' : 'Type (optionnel)'} />
         </SelectTrigger>
         <SelectContent>
@@ -483,7 +485,7 @@ function AddPieceJointeRow({
           </SelectGroup>
         </SelectContent>
       </Select>
-      {error && <span className="text-micro text-destructive">{error}</span>}
+      {error && <span role="alert" className="text-micro text-destructive">{error}</span>}
       <Button
         type="button"
         size="sm"
@@ -623,11 +625,11 @@ function AddReglementRow({
         <FieldGroup>
           <FormField>
             <FieldLabel htmlFor="reg-montant">Montant</FieldLabel>
-            <Input id="reg-montant" type="number" min={0} step="0.01" value={montant} onChange={(e) => setMontant(e.target.value)} />
+            <Input name="reg-montant" id="reg-montant" type="number" min={0} step="0.01" value={montant} onChange={(e) => setMontant(e.target.value)} />
             {montantInvalide ? (
-              <p className="mt-1 text-micro text-destructive">Le montant doit être strictement positif.</p>
+              <p role="alert" className="mt-1 text-micro text-destructive">Le montant doit être strictement positif.</p>
             ) : montantDepasse ? (
-              <p className="mt-1 text-micro text-destructive">
+              <p role="alert" className="mt-1 text-micro text-destructive">
                 Dépasse le reste à régler sur cette échéance ({formatCurrency(reste)}).
               </p>
             ) : reste !== undefined ? (
@@ -636,7 +638,7 @@ function AddReglementRow({
           </FormField>
           <FormField>
             <FieldLabel htmlFor="reg-date-echeance">Date d'échéance</FieldLabel>
-            <Input id="reg-date-echeance" type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
+            <Input name="reg-date-echeance" id="reg-date-echeance" type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
           </FormField>
           <FormField>
             <FieldLabel htmlFor="reg-payeur">Réglé par</FieldLabel>
@@ -653,7 +655,7 @@ function AddReglementRow({
               </SelectContent>
             </Select>
             {aucunPayeur && (
-              <p className="mt-1 text-micro text-destructive">
+              <p role="alert" className="mt-1 text-micro text-destructive">
                 Ce dossier n'a aucun acquéreur rattaché : impossible d'enregistrer un règlement.
               </p>
             )}
@@ -700,11 +702,11 @@ function AddReglementRow({
           {referenceRequired && (
             <FormField>
               <FieldLabel htmlFor="reg-reference">Référence (n° de chèque…)</FieldLabel>
-              <Input id="reg-reference" value={reference} onChange={(e) => setReference(e.target.value)} required />
+              <Input name="reg-reference" id="reg-reference" value={reference} onChange={(e) => setReference(e.target.value)} required />
             </FormField>
           )}
         </FieldGroup>
-        {error && <p className="mt-3 text-micro text-destructive">{error}</p>}
+        {error && <p role="alert" className="mt-3 text-micro text-destructive">{error}</p>}
         <DialogFooter className="mt-5">
           <Button type="button" variant="outline" onClick={reset}>Annuler</Button>
           <Button
@@ -751,11 +753,11 @@ function ReglementRecuButton({ dossierId, reglementId }: { dossierId: string; re
 
   return (
     <span className="flex shrink-0 items-center gap-0.5">
-      {error && <span className="text-micro text-destructive">{error}</span>}
-      <Button type="button" variant="ghost" size="icon-xs" title="Voir le reçu" disabled={!!busy} onClick={() => handle('view')}>
+      {error && <span role="alert" className="text-micro text-destructive">{error}</span>}
+      <Button type="button" variant="ghost" size="icon-xs" title="Voir le reçu" aria-label="Voir le reçu" disabled={!!busy} onClick={() => handle('view')}>
         <Eye />
       </Button>
-      <Button type="button" variant="ghost" size="icon-xs" title="Télécharger le reçu" disabled={!!busy} onClick={() => handle('download')}>
+      <Button type="button" variant="ghost" size="icon-xs" title="Télécharger le reçu" aria-label="Télécharger le reçu" disabled={!!busy} onClick={() => handle('download')}>
         <Download />
       </Button>
     </span>
@@ -787,11 +789,11 @@ function AutorisationVersementButton({ dossierId, reglementId }: { dossierId: st
 
   return (
     <span className="flex shrink-0 items-center gap-0.5">
-      {error && <span className="text-micro text-destructive">{error}</span>}
-      <Button type="button" variant="ghost" size="icon-xs" title="Voir l'autorisation d'encaissement" disabled={!!busy} onClick={() => handle('view')}>
+      {error && <span role="alert" className="text-micro text-destructive">{error}</span>}
+      <Button type="button" variant="ghost" size="icon-xs" title="Voir l'autorisation d'encaissement" aria-label="Voir l'autorisation d'encaissement" disabled={!!busy} onClick={() => handle('view')}>
         <Eye />
       </Button>
-      <Button type="button" variant="ghost" size="icon-xs" title="Télécharger l'autorisation d'encaissement" disabled={!!busy} onClick={() => handle('download')}>
+      <Button type="button" variant="ghost" size="icon-xs" title="Télécharger l'autorisation d'encaissement" aria-label="Télécharger l'autorisation d'encaissement" disabled={!!busy} onClick={() => handle('download')}>
         <Download />
       </Button>
     </span>
@@ -836,7 +838,7 @@ function ReglementPieceUpload({
         <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>
       <Input
-        placeholder="Légende (ex. Chèque BMCE n° 123)"
+        placeholder="Légende (ex. Chèque BMCE n° 123)" aria-label="Légende de la preuve de paiement"
         className="w-55"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
@@ -863,7 +865,7 @@ function ReglementPieceUpload({
       >
         {busy ? 'Envoi…' : 'Déposer'}
       </Button>
-      {error && <span className="text-micro text-destructive">{error}</span>}
+      {error && <span role="alert" className="text-micro text-destructive">{error}</span>}
     </div>
   );
 }
@@ -889,7 +891,7 @@ function ReglementPiecesJointesPanel({
     <div className="mt-1.5 flex flex-col gap-2 rounded-md border border-border bg-background/60 px-2.5 py-2">
       <span className="text-micro font-medium text-muted-foreground">Preuves de paiement</span>
       {pieces.loading && <span className="text-micro text-muted-foreground">Chargement…</span>}
-      {pieces.error && <span className="text-micro text-destructive">{pieces.error}</span>}
+      {pieces.error && <span role="alert" className="text-micro text-destructive">{pieces.error}</span>}
       {pieces.data && pieces.data.length === 0 && (
         <span className="text-micro text-muted-foreground">Aucune preuve déposée.</span>
       )}
@@ -934,12 +936,12 @@ function ReglementPieceJointeRow({
       <span className="min-w-0 truncate text-foreground">{piece.description || filename}</span>
       {piece.dateCreation && <span className="shrink-0 text-muted-foreground">{formatDate(piece.dateCreation)}</span>}
       {piece.creePar && <span className="shrink-0 text-muted-foreground">{piece.creePar}</span>}
-      {error && <span className="shrink-0 text-destructive">{error}</span>}
+      {error && <span role="alert" className="shrink-0 text-destructive">{error}</span>}
       <span className="ml-auto flex shrink-0 items-center gap-0.5">
-        <Button type="button" variant="ghost" size="icon-xs" title="Voir la preuve" disabled={!!busy} onClick={() => handle('view')}>
+        <Button type="button" variant="ghost" size="icon-xs" title="Voir la preuve" aria-label="Voir la preuve" disabled={!!busy} onClick={() => handle('view')}>
           <Eye />
         </Button>
-        <Button type="button" variant="ghost" size="icon-xs" title="Télécharger la preuve" disabled={!!busy} onClick={() => handle('download')}>
+        <Button type="button" variant="ghost" size="icon-xs" title="Télécharger la preuve" aria-label="Télécharger la preuve" disabled={!!busy} onClick={() => handle('download')}>
           <Download />
         </Button>
       </span>
@@ -988,7 +990,7 @@ function PointerReglementModal({
         <FieldGroup>
           <FormField>
             <FieldLabel htmlFor="pointage-date">Date d'encaissement</FieldLabel>
-            <Input
+            <Input name="pointage-date"
               id="pointage-date"
               type="date"
               value={dateReglement}
@@ -1000,7 +1002,7 @@ function PointerReglementModal({
         <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-2">
           <span className="text-micro font-medium text-muted-foreground">Preuve de paiement</span>
           {pieces.loading && <span className="text-micro text-muted-foreground">Chargement…</span>}
-          {pieces.error && <span className="text-micro text-destructive">{pieces.error}</span>}
+          {pieces.error && <span role="alert" className="text-micro text-destructive">{pieces.error}</span>}
           {sansPreuve && (
             <span className="text-micro text-(--amber)">
               Déposez d'abord une preuve de paiement (chèque scanné, avis de virement…) : elle est
@@ -1017,7 +1019,7 @@ function PointerReglementModal({
           />
         </div>
 
-        {error && <p className="text-micro text-destructive">{error}</p>}
+        {error && <p role="alert" className="text-micro text-destructive">{error}</p>}
       </div>
       <DialogFooter className="mt-5">
         <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Annuler</Button>
@@ -1121,7 +1123,7 @@ function ReglementRow({
           type="button"
           variant="ghost"
           size="icon-xs"
-          title="Preuves de paiement"
+          title="Preuves de paiement" aria-label="Preuves de paiement"
           aria-expanded={piecesOuvertes}
           onClick={() => setPiecesOuvertes((o) => !o)}
         >
@@ -1140,7 +1142,7 @@ function ReglementRow({
           </>
         )}
       </div>
-      {error && <p className="mt-1 text-micro text-destructive">{error}</p>}
+      {error && <p role="alert" className="mt-1 text-micro text-destructive">{error}</p>}
       {piecesOuvertes && (
         <ReglementPiecesJointesPanel
           dossierId={dossierId}
@@ -1179,7 +1181,7 @@ function EcheanceReglementsHistory({
   const { data, loading, error } = useApi(() => listEcheanceReglements(dossierId, echeanceId), [dossierId, echeanceId, refreshKey]);
 
   if (loading) return <span className="text-body text-muted-foreground">Chargement…</span>;
-  if (error) return <span className="text-body text-destructive">{error}</span>;
+  if (error) return <span role="alert" className="text-body text-destructive">{error}</span>;
   if (data && data.length === 0) return <span className="text-body text-muted-foreground">Aucun règlement enregistré.</span>;
 
   return (
@@ -1317,7 +1319,16 @@ export default function DossierDetail() {
   // pre-filled, since the schéma de financement always starts empty (the
   // API's CreerDossierRequest has no way to seed it at creation time).
   const fromCreation = searchParams.get('nouveau') === '1';
-  const [tab, setTab] = useState<DossierTab>(fromCreation ? 'financier' : 'apercu');
+  // L'onglet vit dans l'URL : un lien vers l'onglet Documents d'un dossier est
+  // désormais partageable, et un rechargement ne renvoie plus sur Aperçu.
+  // `?nouveau=1` ne sert plus qu'à choisir l'onglet initial *si* aucun onglet
+  // n'est déjà dans l'URL — auparavant il forçait Financier à chaque
+  // rechargement, quel que soit l'onglet consulté.
+  const [tab, setTab] = useUrlEnum<DossierTab>(
+    'onglet',
+    DOSSIER_TABS,
+    fromCreation ? 'financier' : 'apercu',
+  );
 
   if (loading) return <PageShell title="Dossier de vente"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Dossier de vente"><ErrorState message={error} /></PageShell>;

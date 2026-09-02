@@ -29,7 +29,8 @@ export default function AuthScreen({
         </div>
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">{title}</CardTitle>
+            {/* Ces écrans sont hors du Layout/PageShell, donc c'est le seul <h1> de la page. */}
+            <CardTitle as="h1" className="text-lg">{title}</CardTitle>
             {description && <CardDescription>{description}</CardDescription>}
           </CardHeader>
           <CardContent>{children}</CardContent>

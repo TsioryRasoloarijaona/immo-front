@@ -91,23 +91,23 @@ function InformationsPersonnelles() {
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <FormField>
               <FieldLabel htmlFor="p-prenom">Prénom</FieldLabel>
-              <Input id="p-prenom" autoFocus value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
+              <Input autoComplete="given-name" name="p-prenom" id="p-prenom" autoFocus value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="p-nom">Nom</FieldLabel>
-              <Input id="p-nom" value={nom} onChange={(e) => setNom(e.target.value)} required />
+              <Input autoComplete="family-name" name="p-nom" id="p-nom" value={nom} onChange={(e) => setNom(e.target.value)} required />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="p-telephone">Téléphone mobile</FieldLabel>
-              <Input id="p-telephone" type="tel" value={telephone} onChange={(e) => setTelephone(e.target.value)} required />
+              <Input autoComplete="tel" name="p-telephone" id="p-telephone" type="tel" value={telephone} onChange={(e) => setTelephone(e.target.value)} required />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="p-email">Email</FieldLabel>
-              <Input id="p-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+              <Input autoComplete="email" name="p-email" id="p-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="p-date-naissance">Date de naissance</FieldLabel>
-              <Input
+              <Input autoComplete="bday" name="p-date-naissance"
                 id="p-date-naissance"
                 type="date"
                 value={dateNaissance}
@@ -117,7 +117,7 @@ function InformationsPersonnelles() {
             </FormField>
             <FormField>
               <FieldLabel htmlFor="p-adresse">Adresse <span className="font-normal text-muted-foreground">(optionnel)</span></FieldLabel>
-              <Input id="p-adresse" value={adresse} onChange={(e) => setAdresse(e.target.value)} />
+              <Input autoComplete="street-address" name="p-adresse" id="p-adresse" value={adresse} onChange={(e) => setAdresse(e.target.value)} />
             </FormField>
             <FieldDescription className="sm:col-span-2">
               L'API ne renvoie pas le téléphone, la date de naissance ni l'adresse actuellement enregistrés — merci
@@ -180,7 +180,7 @@ function Securite() {
         <div className="grid grid-cols-1 gap-3.5 sm:max-w-md">
           <FormField>
             <FieldLabel htmlFor="s-ancien">Mot de passe actuel</FieldLabel>
-            <Input
+            <Input name="s-ancien"
               id="s-ancien"
               type="password"
               autoComplete="current-password"
@@ -191,7 +191,7 @@ function Securite() {
           </FormField>
           <FormField data-invalid={tooShort}>
             <FieldLabel htmlFor="s-nouveau">Nouveau mot de passe</FieldLabel>
-            <Input
+            <Input name="s-nouveau"
               id="s-nouveau"
               type="password"
               autoComplete="new-password"
@@ -203,7 +203,7 @@ function Securite() {
           </FormField>
           <FormField data-invalid={mismatch}>
             <FieldLabel htmlFor="s-confirmation">Confirmer le nouveau mot de passe</FieldLabel>
-            <Input
+            <Input name="s-confirmation"
               id="s-confirmation"
               type="password"
               autoComplete="new-password"

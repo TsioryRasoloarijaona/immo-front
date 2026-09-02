@@ -33,9 +33,17 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+/** `as` rend le titre avec la bonne balise sémantique. Par défaut un <div>,
+ * comme à l'origine — mais un titre de section doit être un vrai <h2> pour
+ * apparaître dans la navigation par titres d'un lecteur d'écran (voir
+ * `Card` dans components/ui.tsx). */
+function CardTitle({
+  className,
+  as: Tag = "div",
+  ...props
+}: React.ComponentProps<"div"> & { as?: "div" | "h1" | "h2" | "h3" }) {
   return (
-    <div
+    <Tag
       data-slot="card-title"
       className={cn(
         "font-heading text-base leading-snug font-medium group-data-[size=sm]/card:text-sm",

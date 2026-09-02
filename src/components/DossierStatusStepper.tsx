@@ -122,7 +122,7 @@ function ConfirmPopoverBody({
         </label>
       )}
       <Textarea
-        placeholder="Motif / note (optionnel)"
+        placeholder="Motif / note (optionnel)" aria-label="Motif ou note"
         value={note}
         onChange={(e) => setNote(e.target.value)}
         className="min-h-17.5 text-label"
@@ -206,7 +206,7 @@ function StepNode({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={<button type="button" aria-label={`Passer au statut ${label}`} />}
-        className="flex flex-col items-center outline-none"
+        className="flex flex-col items-center outline-none rounded-md focus-visible:ring-3 focus-visible:ring-ring/50"
       >
         {circle}
         {textLabel}
@@ -251,7 +251,7 @@ function ExitChip({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger render={<button type="button" aria-label={`Passer au statut ${label}`} />} className="outline-none">
+      <PopoverTrigger render={<button type="button" aria-label={`Passer au statut ${label}`} />} className="outline-none rounded-md focus-visible:ring-3 focus-visible:ring-ring/50">
         {chip}
       </PopoverTrigger>
       <PopoverContent>
