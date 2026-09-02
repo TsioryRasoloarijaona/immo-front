@@ -18,9 +18,23 @@ export function formatNumber(value: number | null | undefined, decimals = 0): st
   return decimals > 0 ? `${grouped},${parts[1]}` : grouped;
 }
 
+/** Pour un **ratio 0–1** (`DossierDetailDto.remise`, `probabiliteFinalisation`,
+ * `tauxTVA`…) : multiplie par 100. Ne pas utiliser sur une valeur déjà en
+ * pourcentage — voir `formatPercentValue`. */
 export function formatPercent(ratio: number | null | undefined, decimals = 1): string {
   if (ratio === null || ratio === undefined || Number.isNaN(ratio)) return '—';
   return `${(ratio * 100).toFixed(decimals).replace(/\.0$/, '')}%`;
+}
+
+/** Pour une valeur **déjà exprimée en pourcentage (0–100)** :
+ * `CreerDossierRequest.remisePercent`, `MontantsOffreDto.remisePercent`,
+ * `PayeurDto.quotePart`. Aucune conversion — la confondre avec
+ * `formatPercent` donne un facteur 100, l'erreur exacte que les sites
+ * d'affichage de remise ont déjà connue. Espace insécable avant le `%`,
+ * convention typographique française déjà utilisée sur les offres. */
+export function formatPercentValue(value: number | null | undefined, decimals = 2): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—';
+  return `${formatNumber(value, decimals)} %`;
 }
 
 export function formatDate(value: string | null | undefined): string {
