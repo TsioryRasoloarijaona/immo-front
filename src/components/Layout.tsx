@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { NavLink, Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import PreloadNavLink from './PreloadNavLink';
 import { Building2, Calendar, Contact, FileText, Folder, Home, KeyRound, LayoutDashboard, LayoutGrid, LogOut, Phone, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
 import {
   Sidebar,
@@ -71,7 +72,7 @@ export default function Layout({ children }: { children: ReactNode }) {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  render={<NavLink to="/" end />}
+                  render={<PreloadNavLink to="/" end />}
                   isActive={location.pathname === '/'}
                   tooltip="Dashboard"
                 >
@@ -94,55 +95,55 @@ export default function Layout({ children }: { children: ReactNode }) {
               <SidebarGroupLabel>Ventes</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/hotline" />} isActive={location.pathname.startsWith('/hotline')} tooltip="Hotline">
+                  <SidebarMenuButton render={<PreloadNavLink to="/hotline" />} isActive={location.pathname.startsWith('/hotline')} tooltip="Hotline">
                     <Phone />
                     Hotline
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/calendrier" />} isActive={location.pathname.startsWith('/calendrier')} tooltip="Calendrier">
+                  <SidebarMenuButton render={<PreloadNavLink to="/calendrier" />} isActive={location.pathname.startsWith('/calendrier')} tooltip="Calendrier">
                     <Calendar />
                     Calendrier
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/prospections" />} isActive={location.pathname.startsWith('/prospections')} tooltip="Prospections">
+                  <SidebarMenuButton render={<PreloadNavLink to="/prospections" />} isActive={location.pathname.startsWith('/prospections')} tooltip="Prospections">
                     <Users style={{ color: 'var(--sec-prospection)' }} />
                     Prospections
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/pre-prospections" />} isActive={location.pathname.startsWith('/pre-prospections')} tooltip="Pré-prospections">
+                  <SidebarMenuButton render={<PreloadNavLink to="/pre-prospections" />} isActive={location.pathname.startsWith('/pre-prospections')} tooltip="Pré-prospections">
                     <UserPlus style={{ color: 'var(--sec-preprospection)' }} />
                     Pré-prospections
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/prospects" />} isActive={location.pathname.startsWith('/prospects')} tooltip="Prospects">
+                  <SidebarMenuButton render={<PreloadNavLink to="/prospects" />} isActive={location.pathname.startsWith('/prospects')} tooltip="Prospects">
                     <Contact style={{ color: 'var(--sec-prospect)' }} />
                     Prospects
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/clients" />} isActive={location.pathname.startsWith('/clients')} tooltip="Clients">
+                  <SidebarMenuButton render={<PreloadNavLink to="/clients" />} isActive={location.pathname.startsWith('/clients')} tooltip="Clients">
                     <UserCheck style={{ color: 'var(--sec-client)' }} />
                     Clients
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/dossiers" />} isActive={location.pathname.startsWith('/dossiers')} tooltip="Dossiers de vente">
+                  <SidebarMenuButton render={<PreloadNavLink to="/dossiers" />} isActive={location.pathname.startsWith('/dossiers')} tooltip="Dossiers de vente">
                     <Folder style={{ color: 'var(--sec-dossier)' }} />
                     Dossiers de vente
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/offres" />} isActive={location.pathname.startsWith('/offres')} tooltip="Offres">
+                  <SidebarMenuButton render={<PreloadNavLink to="/offres" />} isActive={location.pathname.startsWith('/offres')} tooltip="Offres">
                     <FileText style={{ color: 'var(--sec-offre)' }} />
                     Offres
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/encaissements" />} isActive={location.pathname.startsWith('/encaissements')} tooltip="Encaissements">
+                  <SidebarMenuButton render={<PreloadNavLink to="/encaissements" />} isActive={location.pathname.startsWith('/encaissements')} tooltip="Encaissements">
                     <Wallet style={{ color: 'var(--sec-dossier)' }} />
                     Encaissements
                   </SidebarMenuButton>
@@ -156,19 +157,19 @@ export default function Layout({ children }: { children: ReactNode }) {
               <SidebarGroupLabel>Patrimoine</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/projets" />} isActive={location.pathname.startsWith('/projets')} tooltip="Projets">
+                  <SidebarMenuButton render={<PreloadNavLink to="/projets" />} isActive={location.pathname.startsWith('/projets')} tooltip="Projets">
                     <LayoutGrid style={{ color: 'var(--sec-projet)' }} />
                     Projets
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/tranches" />} isActive={location.pathname.startsWith('/tranches')} tooltip="Tranches">
+                  <SidebarMenuButton render={<PreloadNavLink to="/tranches" />} isActive={location.pathname.startsWith('/tranches')} tooltip="Tranches">
                     <Building2 style={{ color: 'var(--sec-tranche)' }} />
                     Tranches
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/articles" />} isActive={location.pathname.startsWith('/articles')} tooltip="Articles">
+                  <SidebarMenuButton render={<PreloadNavLink to="/articles" />} isActive={location.pathname.startsWith('/articles')} tooltip="Articles">
                     <Home style={{ color: 'var(--sec-tranche)' }} />
                     Articles
                   </SidebarMenuButton>
@@ -187,7 +188,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               <SidebarGroupLabel>Profil</SidebarGroupLabel>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/profil" />} isActive={location.pathname.startsWith('/profil')} tooltip="Mon profil">
+                  <SidebarMenuButton render={<PreloadNavLink to="/profil" />} isActive={location.pathname.startsWith('/profil')} tooltip="Mon profil">
                     <UserCircle />
                     Mon profil
                   </SidebarMenuButton>
@@ -224,7 +225,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    render={<NavLink to="/utilisateurs" />}
+                    render={<PreloadNavLink to="/utilisateurs" />}
                     isActive={location.pathname === '/utilisateurs'}
                     tooltip="Comptes utilisateurs"
                   >
@@ -234,7 +235,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    render={<NavLink to="/utilisateurs/nouveau" />}
+                    render={<PreloadNavLink to="/utilisateurs/nouveau" />}
                     isActive={location.pathname.startsWith('/utilisateurs/nouveau')}
                     tooltip="Nouvel utilisateur"
                   >
@@ -244,7 +245,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    render={<NavLink to="/utilisateurs/reinitialiser-mot-de-passe" />}
+                    render={<PreloadNavLink to="/utilisateurs/reinitialiser-mot-de-passe" />}
                     isActive={location.pathname.startsWith('/utilisateurs/reinitialiser-mot-de-passe')}
                     tooltip="Réinitialiser un mot de passe"
                   >

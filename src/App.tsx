@@ -1,14 +1,25 @@
 import { lazy, Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
 import { ConfirmProvider } from './components/ConfirmModal';
 import { PreviewProvider } from './components/PreviewProvider';
-import { LoadingState } from './components/ui';
+// Importé depuis son propre module, pas depuis `./components/ui` : ce dernier
+// était l'unique import *eager* de ce fichier de 300 lignes, qu'il tirait
+// entièrement (badge, card, empty, avatar, cva, tailwind-merge) dans le chunk
+// d'entrée pour un composant de 24 lignes.
+import { LoadingState } from './components/ui/loading-state';
 import { AppDataProvider } from './lib/appData';
 import { AuthProvider, useAuth } from './lib/auth';
-import Login from './pages/auth/Login';
-import ChangePasswordGate from './pages/auth/ChangePasswordGate';
-import CompleteProfileGate from './pages/auth/CompleteProfileGate';
+import { ROUTE_MODULES } from './lib/routeModules';
+
+// Les trois écrans d'authentification ne s'affichent que dans les branches
+// non authentifié / mot de passe à changer / profil incomplet — mutuellement
+// exclusives avec `AuthenticatedApp`. Statiquement importés, ils voyageaient
+// dans le chunk d'entrée de chaque utilisateur déjà connecté.
+const Login = lazy(() => import('./pages/auth/Login'));
+const ChangePasswordGate = lazy(() => import('./pages/auth/ChangePasswordGate'));
+const CompleteProfileGate = lazy(() => import('./pages/auth/CompleteProfileGate'));
 
 // Every routed page is code-split behind React.lazy — none of them are
 // needed for the first paint (auth gates above render before any route
@@ -16,32 +27,32 @@ import CompleteProfileGate from './pages/auth/CompleteProfileGate';
 // warned about. Splitting per-route means a session only ever downloads the
 // pages it actually visits, and repeat visits hit the browser cache per
 // chunk instead of invalidating one monolithic bundle on every deploy.
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Profil = lazy(() => import('./pages/profil/Profil'));
-const UtilisateursList = lazy(() => import('./pages/utilisateurs/UtilisateursList'));
-const NouvelUtilisateur = lazy(() => import('./pages/utilisateurs/NouvelUtilisateur'));
-const ReinitialiserMotDePasse = lazy(() => import('./pages/utilisateurs/ReinitialiserMotDePasse'));
-const Calendrier = lazy(() => import('./pages/calendrier/Calendrier'));
-const Hotline = lazy(() => import('./pages/hotline/Hotline'));
-const ProspectionsList = lazy(() => import('./pages/prospections/ProspectionsList'));
-const PreProspectionsList = lazy(() => import('./pages/prospections/PreProspectionsList'));
+const Dashboard = lazy(ROUTE_MODULES['/']);
+const Profil = lazy(ROUTE_MODULES['/profil']);
+const UtilisateursList = lazy(ROUTE_MODULES['/utilisateurs']);
+const NouvelUtilisateur = lazy(ROUTE_MODULES['/utilisateurs/nouveau']);
+const ReinitialiserMotDePasse = lazy(ROUTE_MODULES['/utilisateurs/reinitialiser-mot-de-passe']);
+const Calendrier = lazy(ROUTE_MODULES['/calendrier']);
+const Hotline = lazy(ROUTE_MODULES['/hotline']);
+const ProspectionsList = lazy(ROUTE_MODULES['/prospections']);
+const PreProspectionsList = lazy(ROUTE_MODULES['/pre-prospections']);
 const ProspectionDetail = lazy(() => import('./pages/prospections/ProspectionDetail'));
 const NewProspection = lazy(() => import('./pages/prospections/NewProspection'));
-const OffresList = lazy(() => import('./pages/prospections/OffresList'));
-const EncaissementsList = lazy(() => import('./pages/encaissements/EncaissementsList'));
+const OffresList = lazy(ROUTE_MODULES['/offres']);
+const EncaissementsList = lazy(ROUTE_MODULES['/encaissements']);
 const EncaissementDetail = lazy(() => import('./pages/encaissements/EncaissementDetail'));
-const ProspectsList = lazy(() => import('./pages/prospects/ProspectsList'));
+const ProspectsList = lazy(ROUTE_MODULES['/prospects']);
 const NewProspect = lazy(() => import('./pages/prospects/NewProspect'));
 const ProspectDetail = lazy(() => import('./pages/prospects/ProspectDetail'));
-const ClientsList = lazy(() => import('./pages/clients/ClientsList'));
+const ClientsList = lazy(ROUTE_MODULES['/clients']);
 const NewDossier = lazy(() => import('./pages/dossiers/NewDossier'));
-const DossiersList = lazy(() => import('./pages/dossiers/DossiersList'));
+const DossiersList = lazy(ROUTE_MODULES['/dossiers']);
 const DossierDetail = lazy(() => import('./pages/dossiers/DossierDetail'));
-const ProjetsList = lazy(() => import('./pages/projets/ProjetsList'));
+const ProjetsList = lazy(ROUTE_MODULES['/projets']);
 const ProjetDetail = lazy(() => import('./pages/projets/ProjetDetail'));
-const TranchesList = lazy(() => import('./pages/tranches/TranchesList'));
+const TranchesList = lazy(ROUTE_MODULES['/tranches']);
 const TrancheDetail = lazy(() => import('./pages/tranches/TrancheDetail'));
-const ArticlesList = lazy(() => import('./pages/articles/ArticlesList'));
+const ArticlesList = lazy(ROUTE_MODULES['/articles']);
 const ArticleDetail = lazy(() => import('./pages/articles/ArticleDetail'));
 const ComingSoon = lazy(() => import('./pages/ComingSoon'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -57,8 +68,12 @@ function AuthenticatedApp() {
       <ConfirmProvider>
         <PreviewProvider>
           <Layout>
-            <Suspense fallback={<LoadingState />}>
-              <Routes>
+            {/* L'ErrorBoundary est à l'intérieur du Layout : une page qui
+                échoue laisse la barre latérale en place, donc l'utilisateur
+                peut naviguer ailleurs sans recharger. */}
+            <ErrorBoundary>
+              <Suspense fallback={<LoadingState />}>
+                <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/profil" element={<Profil />} />
                 <Route path="/utilisateurs" element={<UtilisateursList />} />
@@ -90,8 +105,9 @@ function AuthenticatedApp() {
                 <Route path="/articles/:id" element={<ArticleDetail />} />
                 <Route path="/bientot/:module" element={<ComingSoon />} />
                 <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
           </Layout>
         </PreviewProvider>
       </ConfirmProvider>
@@ -124,7 +140,16 @@ function AuthGate() {
 function App() {
   return (
     <AuthProvider>
-      <AuthGate />
+      {/* Les trois écrans d'authentification sont paresseux : sans ce
+          `Suspense`, `AuthGate` suspendrait sans limite et l'application
+          resterait blanche au lieu d'afficher la connexion. Le `fallback` est
+          vide, comme l'état `loading` d'`AuthGate` — un spinner qui clignote
+          le temps d'un petit chunk local est plus gênant qu'utile. */}
+      <ErrorBoundary>
+        <Suspense fallback={null}>
+          <AuthGate />
+        </Suspense>
+      </ErrorBoundary>
     </AuthProvider>
   );
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Building2, Loader2 } from 'lucide-react';
+import { Building2 } from 'lucide-react';
 import type { BadgeTone } from '../types';
 import { Badge as ShadcnBadge } from './ui/badge';
 import { Card as ShadcnCard, CardAction, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -143,14 +143,10 @@ export function Card({
   );
 }
 
-export function LoadingState() {
-  return (
-    <Empty className="border-none py-17.5">
-      <Loader2 className="size-6 animate-spin text-muted-foreground" />
-      <p className="text-label text-muted-foreground">Chargement des données…</p>
-    </Empty>
-  );
-}
+// Défini dans son propre module pour que `App.tsx` puisse l'importer sans
+// tirer tout ce fichier dans le chunk d'entrée ; ré-exporté ici pour que les
+// importeurs existants (`from '../../components/ui'`) restent inchangés.
+export { LoadingState } from './ui/loading-state';
 
 /** Wrapper for a list page's results block (count + table + pagination) that
  * keeps the previous page of data on screen while the next one loads, instead
