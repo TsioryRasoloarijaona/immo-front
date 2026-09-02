@@ -209,3 +209,59 @@ Follow **Linear / Stripe Dashboard / Attio** as the visual references —
 - PDF/document generation
 - Real API integration — that's the next phase after this prototype is
   validated
+
+## Graphify — when to use it, when not to
+
+`graphify-out/graph.json` is an AST-derived structure graph (functions, files,
+calls, imports) plus semantic edges over the Markdown. It is **orientation and
+verification, not lookup**. Rules below are drawn from sessions where it was
+actually used, not from the tool's own description.
+
+### Use it
+
+- **Reloading context** on an area you haven't touched recently. `/graphify
+  load` gives the architecture in one command — communities, god nodes,
+  cross-cutting edges — where grep would take several rounds.
+- **Before refactoring a shared abstraction**, to size the blast radius. A god
+  node with 100+ edges (`request()`, `cn()`, `useApi()`) means every change is
+  a wide change.
+- **After a structural change**, run `--update` and read the node diff. It is
+  independent confirmation that what landed matches what was intended — a
+  refactor that adds nodes you didn't expect is a refactor that did something
+  you didn't mean.
+- **"What connects to what"** across many files, and **doc↔code links** the
+  semantic pass surfaces (e.g. `SESSION_MEMORY.md` prose ↔ its implementation).
+  Grep cannot find those.
+
+### Do not use it
+
+- **To locate a known symbol or file.** Grep/Glob is faster and always current.
+- **Below function granularity** — dataflow inside a function, a dependency
+  array, a specific line. Not modelled.
+- **For attribute or pattern sweeps** (`aria-label`, `className`,
+  `transition-all`, a JSX prop). Not modelled.
+- **For anything driven by the OpenAPI spec.** `docs/api-docsV4.json` produces
+  **zero AST nodes** — the contract this whole app is built against is
+  invisible to the graph. Use `git diff docs/api-docsV4.json`, which is the
+  standing rule anyway.
+- **As a substitute for `SESSION_MEMORY.md`.** The graph holds *where*, never
+  *why*. Decisions and rationale are not in it.
+- **When it is stale relative to `HEAD`** and the question is about recent
+  code. Check `built_at_commit` first; reasoning over a stale graph means
+  reasoning about code that no longer exists.
+
+### Keeping it current
+
+- **Automatic:** a `post-commit` hook (`graphify hook install`) re-runs AST
+  extraction on the files each commit touched. Code-only, so it costs **zero
+  LLM tokens** and takes a second or two. This covers the common case.
+- **Manual `/graphify --update`** when `*.md` under `docs/` or `instructions/`
+  changes. The hook deliberately skips docs: they need semantic extraction,
+  which dispatches subagents and costs tokens, so it should be a decision, not
+  a side effect of committing.
+- **Full rebuild** only after editing `.graphifyignore`, or when clustering has
+  drifted enough that community labels no longer describe reality.
+- **Precondition:** keep `.graphifyignore` excluding `.claude/`, `.agents/` and
+  `graphify-out/`. Without it the graph is majority tooling internals and the
+  god nodes / suggested questions describe the skill machinery instead of this
+  application.
