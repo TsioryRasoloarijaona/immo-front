@@ -26,6 +26,8 @@ dist-ssr
 omaran_visual
 instructions
 .env
+.claude
+.agents
 
 
 
