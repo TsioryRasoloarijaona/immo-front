@@ -7,6 +7,7 @@ import ArticleCompactPreview from '../../components/ArticleCompactPreview';
 import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from '../../components/ui/input-group';
 import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -23,8 +24,8 @@ import {
   listTrancheArticles,
   simulerSchemaFinancement,
 } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
-import { formatCurrency, formatPercent } from '../../lib/format';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { formatCurrency, formatPercent, formatPercentValue } from '../../lib/format';
 import { prospectionDisplayName } from '../../lib/domain';
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../../lib/referentiels';
 import type { ArticleDetailDto, ArticleListItemDto } from '../../types';
@@ -168,6 +169,7 @@ export default function NewDossier() {
   }, [devisQuery.data]);
 
   const [prix, setPrix] = useState('');
+  const [remise, setRemise] = useState('');
   const [priceTouched, setPriceTouched] = useState(false);
   const [notes, setNotes] = useState('');
   const [notesTouched, setNotesTouched] = useState(false);
@@ -206,18 +208,46 @@ export default function NewDossier() {
   const autoPrix = latestDevis?.montants?.prixVenteTTC || autoPrixFromArticles;
   const prixValue = priceTouched ? prix : autoPrix > 0 ? String(autoPrix) : prix;
 
+  // Remise commerciale — `remisePercent` est un **pourcentage 0–100**, pas un
+  // ratio (contrairement à `DossierDetailDto.remise`, lu en 0–1 sur la fiche
+  // dossier). Les deux champs sont indépendants : `prix` est la base *avant*
+  // remise, `remisePercent` s'applique dessus. Omettre la remise conserve
+  // exactement le comportement historique, où `prix` est le prix négocié.
+  const remiseNumber = remise.trim() === '' ? null : Number(remise.replace(',', '.'));
+  const remiseRenseignee = remiseNumber !== null && !Number.isNaN(remiseNumber);
+  const remiseHorsBornes = remiseRenseignee && (remiseNumber < 0 || remiseNumber > 100);
+  // Au-delà de 30 %, on alerte sans bloquer : cette version de l'API n'expose
+  // aucun plafond conseillé par article, donc le seuil est forcément générique.
+  const remiseInhabituelle = remiseRenseignee && !remiseHorsBornes && remiseNumber > 30;
+
   // Preview step — "Schéma de financement" the real `POST /api/dossiers`
-  // would generate for this exact selection/prix, recomputed on every
-  // article/prix change, without creating or persisting anything
-  // server-side. Only called once both inputs are actually usable.
+  // would generate for this exact selection/prix/remise, without creating or
+  // persisting anything server-side. Debounced: `prixValue` and `remise` are
+  // raw input strings, so without this the simulation fired once per
+  // keystroke (and a second numeric field would have doubled it).
   const prixNumber = prixValue ? Number(prixValue) : undefined;
+  const debouncedPrixNumber = useDebouncedValue(prixNumber, 400);
+  const debouncedRemise = useDebouncedValue(remiseRenseignee && !remiseHorsBornes ? remiseNumber : null, 400);
   const schemaFinancement = useApi(
     () =>
-      selectedIds.length > 0 && prixNumber && prixNumber > 0
-        ? simulerSchemaFinancement({ articleIds: selectedIds, prix: prixNumber })
+      selectedIds.length > 0 && debouncedPrixNumber && debouncedPrixNumber > 0
+        ? simulerSchemaFinancement({
+            articleIds: selectedIds,
+            prix: debouncedPrixNumber,
+            ...(debouncedRemise !== null ? { remisePercent: debouncedRemise } : {}),
+          })
         : Promise.resolve(null),
-    [selectedIds, prixNumber],
+    [selectedIds, debouncedPrixNumber, debouncedRemise],
   );
+
+  // `SchemaFinancementDto` ne renvoie aucune arithmétique de remise — c'est
+  // au client de l'afficher. Attention : le total du schéma n'est pas
+  // `prix × (1 − r)`, les FRAIS SYNDIC venant du barème de la tranche ne sont
+  // jamais remisés.
+  const prixAvantRemise = prixNumber && prixNumber > 0 ? prixNumber : null;
+  const montantRemise =
+    prixAvantRemise !== null && remiseRenseignee && !remiseHorsBornes ? (prixAvantRemise * remiseNumber) / 100 : null;
+  const prixApresRemise = prixAvantRemise !== null && montantRemise !== null ? prixAvantRemise - montantRemise : null;
 
   if (loading) return <PageShell title="Nouveau dossier"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Nouveau dossier"><ErrorState message={error} /></PageShell>;
@@ -245,7 +275,14 @@ export default function NewDossier() {
   // creates a dossier with a blank Prix that can never be fixed afterwards
   // (there's no PATCH /api/dossiers/{id} to edit it post-creation) — so it's
   // enforced client-side instead of just auto-filled-and-forgotten.
-  const canCreate = selectedIds.length > 0 && prixValue.trim().length > 0 && cinValue.trim().length > 0 && !!modePaieId;
+  const canCreate =
+    selectedIds.length > 0 &&
+    prixValue.trim().length > 0 &&
+    cinValue.trim().length > 0 &&
+    !!modePaieId &&
+    // `remisePercent` hors de [0 ; 100] est un 400 côté serveur — autant le
+    // bloquer ici, le champ étant purement facultatif.
+    !remiseHorsBornes;
 
   async function handleCreate() {
     if (!canCreate) return;
@@ -256,6 +293,10 @@ export default function NewDossier() {
         prospectionId: prospection!.id,
         articleIds: selectedIds,
         prix: prixValue ? Number(prixValue) : undefined,
+        // Omise quand le champ est vide : le serveur retombe alors sur le
+        // comportement historique (prix = prix négocié, remise déduite de
+        // l'écart avec le prix commercial de l'article).
+        ...(remiseRenseignee && !remiseHorsBornes ? { remisePercent: remiseNumber } : {}),
         notes: notesValue || undefined,
         cin: cinValue.trim(),
         modePaieId: modePaieId!,
@@ -513,11 +554,13 @@ export default function NewDossier() {
           )}
         </Card>
 
-        <Card title="Prix & notes">
+        <Card title="Prix & remise">
           <FieldGroup>
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <FormField>
-                <FieldLabel htmlFor="prix">Prix retenu (DH) *</FieldLabel>
+                <FieldLabel htmlFor="prix">
+                  {remiseRenseignee ? 'Prix avant remise (DH) *' : 'Prix retenu (DH) *'}
+                </FieldLabel>
                 <Input
                   id="prix"
                   type="number"
@@ -530,6 +573,11 @@ export default function NewDossier() {
                   }}
                   required
                 />
+                {remiseRenseignee && (
+                  <p className="mt-1 text-micro text-muted-foreground">
+                    Base de calcul de la remise — le prix réellement dû est affiché ci-dessous.
+                  </p>
+                )}
                 {!priceTouched && autoPrix > 0 && (
                   <p className="mt-1 text-micro text-muted-foreground">
                     {latestDevis?.montants?.prixVenteTTC
@@ -540,6 +588,35 @@ export default function NewDossier() {
                 {!priceTouched && autoPrix === 0 && selectedIds.length > 0 && (
                   <p className="mt-1 text-micro text-destructive">
                     Aucun prix de vente sur les lots sélectionnés — saisissez le prix manuellement.
+                  </p>
+                )}
+              </FormField>
+              <FormField>
+                <FieldLabel htmlFor="remise">Remise commerciale</FieldLabel>
+                <InputGroup>
+                  <InputGroupInput
+                    id="remise"
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.01"
+                    placeholder="0"
+                    value={remise}
+                    onChange={(e) => setRemise(e.target.value)}
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupText>%</InputGroupText>
+                  </InputGroupAddon>
+                </InputGroup>
+                {remiseHorsBornes ? (
+                  <p className="mt-1 text-micro text-destructive">La remise doit être comprise entre 0 et 100 %.</p>
+                ) : remiseInhabituelle ? (
+                  <p className="mt-1 text-micro text-(--amber)">
+                    Remise inhabituelle (supérieure à 30 %) — à vérifier avant de valider.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-micro text-muted-foreground">
+                    Facultatif. Laissée vide, le prix ci-contre est le prix négocié.
                   </p>
                 )}
               </FormField>
@@ -591,6 +668,22 @@ export default function NewDossier() {
               )}
             </FormField>
           </FieldGroup>
+          {montantRemise !== null && prixApresRemise !== null && (
+            <div className="mt-4 flex flex-col gap-1.5 border-t border-border pt-3">
+              <div className="flex items-center justify-between text-body">
+                <span className="text-muted-foreground">Montant de la remise ({formatPercentValue(remiseNumber)})</span>
+                <span className="tabular-nums text-foreground">− {formatCurrency(montantRemise)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-label font-semibold text-foreground">Prix après remise</span>
+                <span className="text-title font-semibold tabular-nums text-foreground">{formatCurrency(prixApresRemise)}</span>
+              </div>
+              <p className="text-micro text-muted-foreground">
+                C'est ce montant qui sera dû. Les frais de syndic, issus du barème de la tranche, ne sont
+                jamais remisés et s'ajoutent au schéma de financement ci-dessous.
+              </p>
+            </div>
+          )}
         </Card>
 
         <Card title="Schéma de financement">

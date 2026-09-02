@@ -608,7 +608,22 @@ export interface DossierDetailDto {
 export interface CreerDossierRequest {
   prospectionId: UUID;
   articleIds: UUID[];
+  /** Prix de vente TTC. Le sens dépend de `remisePercent` :
+   * - avec `remisePercent` : prix **avant** remise, base de calcul à la place
+   *   du prix commercial de l'article (même rôle que le `prix` d'une Offre) ;
+   * - sans `remisePercent` (mode historique) : prix négocié **après** remise,
+   *   et `remise`/`remiseMontant` sont déduits de l'écart avec le prix
+   *   commercial. */
   prix?: number;
+  /** Remise commerciale en **pourcentage (0 à 100)**, pas un ratio — à ne pas
+   * confondre avec `DossierDetailDto.remise`, qui reste un ratio 0–1 en
+   * lecture. Optionnel : fournie, elle s'applique sur le prix avant remise
+   * (article principal + annexes) et se répercute sur `prixApresRemise`,
+   * `totalAPayer` et sur le schéma de financement (AVANCE /
+   * AUTO-FINANCEMENT calculés sur le prix après remise ; les FRAIS SYNDIC
+   * viennent du barème de la tranche et ne sont jamais remisés). Hors de
+   * [0 ; 100] ⇒ 400. */
+  remisePercent?: number;
   notes?: string;
   /** Both added in api-docsV2 — the backend rejects the request without
    * them (no `required` marker in the OpenAPI schema itself, but a 400
@@ -627,7 +642,15 @@ export interface CreerDossierRequest {
  * nothing gets reserved by this call. */
 export interface SimulerSchemaFinancementRequest {
   articleIds: UUID[];
+  /** Obligatoire. Avec `remisePercent` : prix **avant** remise. Sans :
+   * prix négocié, utilisé tel quel. */
   prix: number;
+  /** Remise commerciale en % (0 à 100), optionnelle — mêmes règles que
+   * `CreerDossierRequest.remisePercent`, pour que la simulation calcule
+   * exactement ce que la création produira. Hors de [0 ; 100] ⇒ 400.
+   * La réponse (`SchemaFinancementDto`) ne renvoie **aucune** arithmétique
+   * de remise : le prix après remise est calculé côté client. */
+  remisePercent?: number;
 }
 export interface LigneSchemaFinancementDto {
   categorie?: string;
@@ -703,9 +726,17 @@ export interface ReglementDto {
   /** Date d'échéance du règlement (StlSettlement.EcheanceDate) — quasi
    * toujours renseignée, défaut à maintenant si absente à la création. */
   dateEcheance?: string | null;
-  /** Date de règlement effectif (encaissement réel/valeur bancaire) —
-   * optionnelle, renseignée a posteriori, quasi jamais connue à la saisie. */
+  /** Date de règlement effectif (encaissement réel/valeur bancaire) — jamais
+   * renseignée à la création, écrite au passage à `POINTED` via
+   * `PATCH .../reglements/{reglementId}/statut`. Statut et date d'encaissement
+   * sont deux encodages du même fait et n'ont jamais divergé en base. */
   dateReglement?: string | null;
+  /** `StlSettlement.Status` — `IN_WORK` à la création, puis `POINTED`
+   * (encaissement constaté) ou `CANCELED`, tous deux terminaux. Typé `string`
+   * et non union parce que la spec ne l'énumère pas sur ce DTO : normaliser à
+   * l'affichage via `reglementStatutLabel`/`reglementStatutTone`, comme pour
+   * `EncaissementDto.etat` (même colonne). */
+  statut?: string;
   montant?: number;
   typeId?: UUID;
   typeCode?: string;
@@ -759,22 +790,78 @@ export interface EncaissementDto {
   notes?: string;
 }
 
+/** Saisie d'un règlement. Le règlement naît toujours au statut `IN_WORK`.
+ *
+ * **Saisie complète obligatoire** (400 sur chaque manquement) : `montant`,
+ * `dateEcheance`, `typeId` et `payeurId`. `typeId`/`payeurId` sont exigés
+ * parce qu'ils alimentent le « Mode de versement » et le « Versement effectué
+ * par » de l'autorisation d'encaissement, éditable juste après création.
+ *
+ * `dateReglement` est **absente de ce type volontairement** : la fournir vaut
+ * 400. Elle se renseigne au passage à `POINTED`, qui exige d'abord une preuve
+ * de paiement — impossible avant que le règlement existe. Pour saisir un
+ * règlement déjà encaissé : ce POST, puis `POST .../pieces-jointes`, puis
+ * `PATCH .../statut`. */
 export interface CreerReglementRequest {
-  montant?: number;
-  /** Date d'échéance du règlement — défaut : maintenant, si absente. */
-  dateEcheance?: string | null;
-  /** Date de règlement effectif — optionnelle, aucune valeur par défaut
-   * (rarement connue à la saisie). */
-  dateReglement?: string | null;
-  typeId?: UUID;
+  /** Strictement positif, et au plus égal au reste à payer de l'échéance
+   * (400 sinon — le message indique le reste disponible). */
+  montant: number;
+  /** Requise — il n'y a plus de valeur par défaut côté serveur. */
+  dateEcheance: string | null;
+  /** Requis. Voir `GET /api/referentiels/types-reglement`. */
+  typeId: UUID;
+  /** Requise dès que le type choisi a `TypeReglementDto.banqueObligatoire`
+   * (400 sinon) ; facultative sinon, typiquement ESPÈCES. Ce flag était
+   * annoncé mais pas appliqué avant cette version de l'API. */
   banqueId?: UUID;
   /** N° de chèque, de virement... Requise si `TypeReglementDto.referenceObligatoire`
-   * est vrai pour le type choisi (400 sinon). */
+   * est vrai pour le type choisi (400 sinon) : CHÈQUE / CHEQUE NOTAIRE /
+   * SYNDIC / BANQUE / CERTIFIÉ / EFFET ; libre pour ESPÈCES. */
   reference?: string;
-  /** Tiers ayant effectivement réglé ("réglé par") — peut différer de
-   * l'acquéreur principal. Optionnel, pas de valeur par défaut. */
-  payeurId?: UUID;
+  /** Tiers ayant effectivement réglé (« réglé par ») — peut différer de
+   * l'acquéreur principal. **Requis** : voir `GET /api/dossiers/{id}/payeurs`
+   * pour la liste des candidats. */
+  payeurId: UUID;
   notes?: string;
+}
+
+/** `PATCH /api/dossiers/{id}/reglements/{reglementId}/statut` — pointage ou
+ * annulation. Transitions autorisées : `IN_WORK → POINTED` et
+ * `IN_WORK → CANCELED`, les deux cibles étant terminales (409 sinon, avec la
+ * liste `transitionsAutorisees` dans le corps ProblemDetail).
+ *
+ * Pointer exige **au moins une pièce jointe** sur le règlement (409 sinon).
+ * La règle ne vaut qu'au moment de la transition : les règlements legacy déjà
+ * pointés sans pièce jointe restent valides, et retirer une pièce jointe ne
+ * dépointe rien. */
+export interface ModifierStatutReglementRequest {
+  statut: 'POINTED' | 'CANCELED';
+  /** **Requise** pour `POINTED` (400 sinon) ; ignorée pour `CANCELED`, qui
+   * laisse la date d'encaissement à `null`. */
+  dateReglement?: string | null;
+}
+
+/** Une ligne de `GET /api/dossiers/{id}/payeurs` — candidat au champ
+ * « Réglé par » d'un règlement : l'acquéreur principal du dossier puis ses
+ * co-acquéreurs, la même liste que le bloc « Nom et prénom des clients » de
+ * l'autorisation d'encaissement.
+ *
+ * **Liste indicative, pas fermée** : sur 654 règlements réels portant un
+ * payeur, 651 sont l'acquéreur principal, 1 un co-acquéreur et 2 un tiers
+ * payeur. La création n'exige pas que `payeurId` appartienne à cette liste,
+ * seulement que le tiers existe — mais faute de recherche de tiers dans cette
+ * app, c'est la seule source disponible côté UI. */
+export interface PayeurDto {
+  /** `CfgTier.PKey` — à envoyer tel quel comme `CreerReglementRequest.payeurId`. */
+  id: UUID;
+  nom?: string;
+  role?: 'ACQUEREUR_PRINCIPAL' | 'CO_ACQUEREUR';
+  /** Au format de l'autorisation d'encaissement (`CIN: E400556`) — sert à
+   * distinguer deux homonymes dans la liste. `null` si non renseignée. */
+  pieceIdentite?: string | null;
+  /** Quote-part du co-acquéreur en pourcentage (0–100). Toujours `null` pour
+   * l'acquéreur principal. */
+  quotePart?: number | null;
 }
 
 export interface CategorieMontantDto {

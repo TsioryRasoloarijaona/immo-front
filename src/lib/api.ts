@@ -47,11 +47,13 @@ import type {
   ModifierEcheanceRequest,
   ModifierProspectRequest,
   ModifierProspectionRequest,
+  ModifierStatutReglementRequest,
   ModifierTranchePrincipaleRequest,
   MontantsDossierDto,
   OrigineProspectionDto,
   PageDto,
   Pageable,
+  PayeurDto,
   PaysDto,
   PieceJointeDto,
   ProfilCategorieDto,
@@ -118,11 +120,43 @@ export const API_BASE_URL: string =
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** Corps ProblemDetail (RFC 7807) parsé, quand la réponse en portait un.
+   * Sans lui, un 409 métier n'est qu'une phrase : `PATCH .../statut` renvoie
+   * par exemple `transitionsAutorisees` à côté de `detail`, et c'est la seule
+   * façon de proposer les cibles réellement possibles à l'utilisateur. */
+  problem?: Record<string, unknown>;
+  constructor(status: number, message: string, problem?: Record<string, unknown>) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.problem = problem;
   }
+}
+
+/** Lit le corps d'erreur une seule fois et en tire (message lisible, corps
+ * ProblemDetail). Spring renvoie `{detail, title, status, …}` : on affiche
+ * `detail` (ou `title`) plutôt que de déverser le JSON brut, tout en gardant
+ * l'objet parsé pour les appelants qui ont besoin d'un champ métier précis.
+ * Partagé par `performRequest` et l'upload multipart — les deux seuls
+ * endroits qui construisent une `ApiError` à partir d'une réponse HTTP. */
+async function readErrorBody(res: Response, fallback: string): Promise<{ message: string; problem?: Record<string, unknown> }> {
+  let text: string;
+  try {
+    text = await res.text();
+  } catch {
+    return { message: fallback };
+  }
+  if (!text) return { message: fallback };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { message: `${fallback} — ${text.slice(0, 300)}` };
+  }
+  const problem = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
+  const detail =
+    typeof problem?.detail === 'string' ? problem.detail : typeof problem?.title === 'string' ? problem.title : null;
+  return { message: detail || `${fallback} — ${text.slice(0, 300)}`, problem };
 }
 
 type QueryValue = string | number | boolean | string[] | undefined | null;
@@ -214,29 +248,8 @@ async function performRequest<T>(
     throw new ApiError(0, `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`);
   }
   if (!res.ok) {
-    // Spring's default error body is a ProblemDetail ({detail, title, status, …}) —
-    // surface `detail` (or `title`) directly instead of dumping raw JSON.
-    let message = `${method} ${url} a échoué (${res.status})`;
-    try {
-      const text = await res.text();
-      if (text) {
-        try {
-          const parsed: unknown = JSON.parse(text);
-          const detail =
-            parsed && typeof parsed === 'object' && 'detail' in parsed && typeof (parsed as { detail?: unknown }).detail === 'string'
-              ? (parsed as { detail: string }).detail
-              : parsed && typeof parsed === 'object' && 'title' in parsed && typeof (parsed as { title?: unknown }).title === 'string'
-                ? (parsed as { title: string }).title
-                : null;
-          message = detail || `${message} — ${text.slice(0, 300)}`;
-        } catch {
-          message = `${message} — ${text.slice(0, 300)}`;
-        }
-      }
-    } catch {
-      // ignore — fall back to the status-only message
-    }
-    throw new ApiError(res.status, message);
+    const { message, problem } = await readErrorBody(res, `${method} ${url} a échoué (${res.status})`);
+    throw new ApiError(res.status, message, problem);
   }
   if (res.status === 204) return undefined as T;
   const text = await res.text();
@@ -586,19 +599,19 @@ export function listPiecesJointes(dossierId: UUID): Promise<PieceJointeDto[]> {
   return request('GET', `/api/dossiers/${dossierId}/pieces-jointes`);
 }
 
-/** `POST /api/dossiers/{id}/pieces-jointes` — multipart/form-data upload,
- * so it can't go through `request()` (always JSON-encodes the body). Same
- * error-message extraction as `performRequest` (Spring's ProblemDetail
- * `detail`/`title`), just inlined since this is the one non-JSON mutation
- * in the app. `description` is a free caption — absent = backend falls
- * back to the original filename. `typeId` (AdmAttachedFileType.PKey, see
- * `getTypesPieceJointe`) is optional — absent = type non renseigné.
- * Clears the GET cache on success like every other mutation, so the
- * pièces-jointes list refetches fresh. */
-export async function uploadPieceJointe(dossierId: UUID, file: File, description?: string, typeId?: UUID): Promise<PieceJointeDto> {
+/** Dépôt d'un fichier en `multipart/form-data` — ne peut pas passer par
+ * `request()`, qui encode toujours le corps en JSON. Deux endpoints
+ * l'utilisent (pièces jointes de dossier, preuves de paiement d'un
+ * règlement) ; ils partagent la même convention côté serveur : le fichier
+ * est le champ de formulaire `fichier`, tandis que `description` et `typeId`
+ * voyagent en **query string**, pas dans le corps. Aucun `Content-Type`
+ * n'est posé à la main — le navigateur doit générer la boundary lui-même.
+ * Vide le cache GET au succès, comme toute mutation, pour que la liste des
+ * pièces jointes se rafraîchisse. */
+async function postMultipart<T>(path: string, file: File, query?: Record<string, QueryValue>): Promise<T> {
   const form = new FormData();
   form.set('fichier', file);
-  const url = `${API_BASE_URL}/api/dossiers/${dossierId}/pieces-jointes${buildQuery({ description, typeId })}`;
+  const url = `${API_BASE_URL}${path}${buildQuery(query)}`;
   let res: Response;
   try {
     res = await fetch(url, { method: 'POST', body: form, credentials: 'include' });
@@ -606,30 +619,19 @@ export async function uploadPieceJointe(dossierId: UUID, file: File, description
     throw new ApiError(0, `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`);
   }
   if (!res.ok) {
-    let message = `POST ${url} a échoué (${res.status})`;
-    try {
-      const text = await res.text();
-      if (text) {
-        try {
-          const parsed: unknown = JSON.parse(text);
-          const detail =
-            parsed && typeof parsed === 'object' && 'detail' in parsed && typeof (parsed as { detail?: unknown }).detail === 'string'
-              ? (parsed as { detail: string }).detail
-              : parsed && typeof parsed === 'object' && 'title' in parsed && typeof (parsed as { title?: unknown }).title === 'string'
-                ? (parsed as { title: string }).title
-                : null;
-          message = detail || `${message} — ${text.slice(0, 300)}`;
-        } catch {
-          message = `${message} — ${text.slice(0, 300)}`;
-        }
-      }
-    } catch {
-      // ignore — fall back to the status-only message
-    }
-    throw new ApiError(res.status, message);
+    const { message, problem } = await readErrorBody(res, `POST ${url} a échoué (${res.status})`);
+    throw new ApiError(res.status, message, problem);
   }
   clearApiCache();
-  return res.json() as Promise<PieceJointeDto>;
+  return res.json() as Promise<T>;
+}
+
+/** `POST /api/dossiers/{id}/pieces-jointes`. `description` est une légende
+ * libre — absente, le backend retombe sur le nom de fichier d'origine.
+ * `typeId` (AdmAttachedFileType.PKey, voir `getTypesPieceJointe`) est
+ * optionnel — absent = type non renseigné. */
+export function uploadPieceJointe(dossierId: UUID, file: File, description?: string, typeId?: UUID): Promise<PieceJointeDto> {
+  return postMultipart<PieceJointeDto>(`/api/dossiers/${dossierId}/pieces-jointes`, file, { description, typeId });
 }
 
 const EXTENSION_MIME: Record<string, string> = {
@@ -1023,6 +1025,92 @@ export function addReglement(dossierId: UUID, echeanceId: UUID, body: CreerRegle
  * paginé côté API (tableau simple). */
 export function listEcheanceReglements(dossierId: UUID, echeanceId: UUID): Promise<ReglementDto[]> {
   return request('GET', `/api/dossiers/${dossierId}/echeancier/${echeanceId}/reglements`);
+}
+
+/** `GET /api/dossiers/{id}/payeurs` — candidats du champ « Réglé par »
+ * (`CreerReglementRequest.payeurId`, obligatoire) : acquéreur principal du
+ * dossier puis co-acquéreurs. Liste vide si le dossier n'a aucun acquéreur
+ * rattaché — auquel cas aucun règlement n'est saisissable. Noter que la
+ * liste est indicative et non fermée côté serveur (un tiers payeur est
+ * accepté) ; faute de recherche de tiers dans cette app, c'est néanmoins la
+ * seule source de l'UI. */
+export function listPayeurs(dossierId: UUID): Promise<PayeurDto[]> {
+  return request('GET', `/api/dossiers/${dossierId}/payeurs`);
+}
+
+/** `GET .../reglements/{reglementId}/pieces-jointes` — les preuves de
+ * paiement d'un règlement (chèques scannés, avis de virement, reçus), plus
+ * récente d'abord. Leur présence est ce qui autorise le passage à `POINTED`. */
+export function listReglementPiecesJointes(dossierId: UUID, reglementId: UUID): Promise<PieceJointeDto[]> {
+  return request('GET', `/api/dossiers/${dossierId}/reglements/${reglementId}/pieces-jointes`);
+}
+
+/** `POST .../reglements/{reglementId}/pieces-jointes` — dépose un justificatif
+ * d'encaissement. `typeId` est facultatif et laissé vide en pratique : les
+ * preuves de paiement réelles n'en portent aucune. `creePar` est déduit du
+ * token côté serveur, jamais envoyé d'ici. */
+export function uploadReglementPieceJointe(
+  dossierId: UUID,
+  reglementId: UUID,
+  file: File,
+  description?: string,
+  typeId?: UUID,
+): Promise<PieceJointeDto> {
+  return postMultipart<PieceJointeDto>(
+    `/api/dossiers/${dossierId}/reglements/${reglementId}/pieces-jointes`,
+    file,
+    { description, typeId },
+  );
+}
+
+function fetchReglementPieceJointeBlob(
+  dossierId: UUID,
+  reglementId: UUID,
+  pieceId: UUID,
+  extension: string | undefined,
+): Promise<Blob> {
+  const url = `${API_BASE_URL}/api/dossiers/${dossierId}/reglements/${reglementId}/pieces-jointes/${pieceId}/fichier`;
+  return fetchByteEndpointBlob(url, mimeForExtension(extension));
+}
+
+export async function downloadReglementPieceJointe(
+  dossierId: UUID,
+  reglementId: UUID,
+  pieceId: UUID,
+  filename: string,
+  extension?: string,
+): Promise<void> {
+  const blob = await fetchReglementPieceJointeBlob(dossierId, reglementId, pieceId, extension);
+  triggerBlobDownload(blob, filename);
+}
+
+export async function viewReglementPieceJointe(
+  dossierId: UUID,
+  reglementId: UUID,
+  pieceId: UUID,
+  extension?: string,
+): Promise<void> {
+  const win = window.open('', '_blank');
+  try {
+    const blob = await fetchReglementPieceJointeBlob(dossierId, reglementId, pieceId, extension);
+    showBlobInTab(win, blob);
+  } catch (err) {
+    win?.close();
+    throw err;
+  }
+}
+
+/** `PATCH .../reglements/{reglementId}/statut` — pointage (`POINTED`) ou
+ * annulation (`CANCELED`) depuis `IN_WORK`. Les deux cibles sont terminales :
+ * repartir de l'une d'elles renvoie 409, avec `transitionsAutorisees` dans le
+ * corps ProblemDetail (lisible via `ApiError.problem`). Pointer sans aucune
+ * pièce jointe renvoie également 409. */
+export function modifierStatutReglement(
+  dossierId: UUID,
+  reglementId: UUID,
+  body: ModifierStatutReglementRequest,
+): Promise<ReglementDto> {
+  return request('PATCH', `/api/dossiers/${dossierId}/reglements/${reglementId}/statut`, { body });
 }
 
 // ---------------------------------------------------------------------------

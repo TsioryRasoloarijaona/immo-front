@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, ChevronDown, ChevronRight, ClipboardCheck, Coins, Download, Eye, FileDown, FileSignature, FileStack, FileText, Folder, Landmark, Loader2, Phone, Plus, Receipt, TrendingUp, Upload, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Ban, ChevronDown, ChevronRight, ClipboardCheck, Coins, Download, Eye, FileDown, FileSignature, FileStack, FileText, Folder, Landmark, Loader2, Paperclip, Phone, Plus, Receipt, TrendingUp, Upload, Wallet } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, StatCard } from '../../components/ui';
@@ -27,10 +27,20 @@ import {
   etapeBadgeTone,
   pieceJointeTypeTone,
   prospectionDisplayName,
+  reglementModifiable,
+  reglementStatutLabel,
+  reglementStatutTone,
 } from '../../lib/domain';
 import {
+  ApiError,
   addEcheance,
   addReglement,
+  listPayeurs,
+  listReglementPiecesJointes,
+  modifierStatutReglement,
+  uploadReglementPieceJointe,
+  downloadReglementPieceJointe,
+  viewReglementPieceJointe,
   changerStatutDossier,
   getArticle,
   getClient,
@@ -58,7 +68,8 @@ import {
   type DossierPdfOnlyDocKind,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import type { CreerEcheanceRequest, CreerReglementRequest, EcheanceDto, PieceJointeDto } from '../../types';
+import { useConfirm } from '../../lib/confirmContext';
+import type { CreerEcheanceRequest, CreerReglementRequest, EcheanceDto, PieceJointeDto, ReglementDto } from '../../types';
 
 type DossierTab = 'apercu' | 'financier' | 'documents' | 'historique' | 'admin';
 
@@ -502,41 +513,77 @@ function AddPieceJointeRow({
  * `GET /api/referentiels/types-reglement`/`/banques` — distinct tables from
  * `modes-paiement` (StlSettlementType vs ComPaymentMethod), confirmed live
  * (see instructions/from_front.md, backend repo). Banque is only shown once
- * a type with `banqueObligatoire` is picked, per `TypeReglementDto`. Two
- * distinct dates, per the same DTO: `dateEcheance` (quasi toujours
- * renseignée, prefilled to today) and `dateReglement` (encaissement réel,
- * rarement connu à la saisie — left blank, no default). `reference` is
- * shown, and enforced client-side too, only once a type with
- * `referenceObligatoire` is picked — 400s server-side otherwise.
- * `payeurId` ("réglé par") has no UI yet: no tiers-search picker exists in
- * this prototype to resolve it against, so it's simply omitted (optional,
- * no server default) rather than guessed. */
-function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (echeanceId: string, body: CreerReglementRequest) => Promise<void> }) {
+ * a type with `banqueObligatoire` is picked, per `TypeReglementDto`, and
+ * `reference` only once a type with `referenceObligatoire` is picked — les
+ * deux sont désormais réellement appliqués côté serveur (400 sinon).
+ *
+ * La saisie est maintenant complète et obligatoire : `montant`,
+ * `dateEcheance`, `typeId` et `payeurId`. `payeurId` a enfin une source —
+ * `GET /api/dossiers/{id}/payeurs` (acquéreur principal + co-acquéreurs) —
+ * là où il était auparavant simplement omis faute de sélecteur de tiers.
+ * Limite connue : cette liste est *indicative et non fermée* côté serveur (un
+ * tiers payeur extérieur au dossier est accepté, 2 règlements réels sur 654),
+ * mais l'app n'a pas de recherche de tiers, donc ces cas ne sont pas
+ * saisissables ici.
+ *
+ * Il n'y a **pas** de champ « date de règlement effectif » : la fournir à la
+ * création vaut 400. Elle se saisit au pointage (`PointerReglementModal`),
+ * qui exige d'abord une preuve de paiement. */
+function AddReglementRow({
+  dossierId,
+  echeanceId,
+  reste,
+  onAdd,
+}: {
+  dossierId: string;
+  echeanceId: string;
+  reste: number | undefined;
+  onAdd: (echeanceId: string, body: CreerReglementRequest) => Promise<void>;
+}) {
   const [open, setOpen] = useState(false);
   const [montant, setMontant] = useState('');
   const [dateEcheance, setDateEcheance] = useState(todayISO());
-  const [dateReglement, setDateReglement] = useState('');
   const [typeId, setTypeId] = useState<string | null>(null);
   const [banqueId, setBanqueId] = useState<string | null>(null);
+  const [payeurId, setPayeurId] = useState<string | null>(null);
   const [reference, setReference] = useState('');
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const typesReglement = useTypesReglement();
   const banques = useBanques();
+  // Une instance d'`AddReglementRow` existe par ligne d'échéance, donc ce hook
+  // part autant de fois qu'il y a d'échéances affichées — mais toutes visent
+  // la même URL, et le cache GET de `request()` (30 s, avec déduplication des
+  // requêtes en vol) les réduit à un seul appel réseau. Pas de remontée dans
+  // le composant parent : les payeurs ne servent qu'à ce formulaire.
+  const payeurs = useApi(() => listPayeurs(dossierId), [dossierId]);
   const typesReglementItems = typesReglement.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   const banquesItems = referentielItems(banques.data);
+  const payeursItems = (payeurs.data ?? []).map((p) => ({
+    label: [p.nom || p.id, p.pieceIdentite].filter(Boolean).join(' · '),
+    value: p.id,
+  }));
+  const aucunPayeur = !!payeurs.data && payeurs.data.length === 0;
   const selectedType = typesReglement.data.find((t) => t.id === typeId);
   const banqueRequired = selectedType?.banqueObligatoire ?? false;
   const referenceRequired = selectedType?.referenceObligatoire ?? false;
+
+  // Le serveur refuse un montant nul/négatif ou supérieur au reste à payer de
+  // l'échéance. On le dit avant l'aller-retour plutôt que de traduire un 400.
+  const montantNumber = montant.trim() === '' ? null : Number(montant);
+  const montantInvalide = montantNumber !== null && (Number.isNaN(montantNumber) || montantNumber <= 0);
+  const montantDepasse = montantNumber !== null && reste !== undefined && montantNumber > reste;
 
   function reset() {
     setOpen(false);
     setMontant('');
     setDateEcheance(todayISO());
-    setDateReglement('');
     setTypeId(null);
     setBanqueId(null);
+    setPayeurId(null);
     setReference('');
+    setError(null);
   }
 
   if (!open) {
@@ -552,17 +599,21 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
       <form
         onSubmit={async (e) => {
           e.preventDefault();
+          if (!typeId || !payeurId || montantNumber === null) return;
           setBusy(true);
+          setError(null);
           try {
             await onAdd(echeanceId, {
-              montant: Number(montant) || 0,
+              montant: montantNumber,
               dateEcheance: toApiDateTime(dateEcheance) ?? null,
-              dateReglement: toApiDateTime(dateReglement) ?? null,
-              typeId: typeId || undefined,
+              typeId,
+              payeurId,
               banqueId: banqueRequired ? banqueId || undefined : undefined,
               reference: reference || undefined,
             });
             reset();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Échec de l'enregistrement.");
           } finally {
             setBusy(false);
           }
@@ -571,18 +622,40 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
         <FieldGroup>
           <FormField>
             <FieldLabel htmlFor="reg-montant">Montant</FieldLabel>
-            <Input id="reg-montant" type="number" value={montant} onChange={(e) => setMontant(e.target.value)} />
+            <Input id="reg-montant" type="number" min={0} step="0.01" value={montant} onChange={(e) => setMontant(e.target.value)} />
+            {montantInvalide ? (
+              <p className="mt-1 text-micro text-destructive">Le montant doit être strictement positif.</p>
+            ) : montantDepasse ? (
+              <p className="mt-1 text-micro text-destructive">
+                Dépasse le reste à régler sur cette échéance ({formatCurrency(reste)}).
+              </p>
+            ) : reste !== undefined ? (
+              <p className="mt-1 text-micro text-muted-foreground">Reste à régler : {formatCurrency(reste)}</p>
+            ) : null}
           </FormField>
           <FormField>
             <FieldLabel htmlFor="reg-date-echeance">Date d'échéance</FieldLabel>
             <Input id="reg-date-echeance" type="date" value={dateEcheance} onChange={(e) => setDateEcheance(e.target.value)} />
           </FormField>
           <FormField>
-            <FieldLabel htmlFor="reg-date-reglement">
-              Date de règlement effectif
-              <span className="ml-1.5 text-micro font-normal text-muted-foreground">(si connue)</span>
-            </FieldLabel>
-            <Input id="reg-date-reglement" type="date" value={dateReglement} onChange={(e) => setDateReglement(e.target.value)} />
+            <FieldLabel htmlFor="reg-payeur">Réglé par</FieldLabel>
+            <Select items={payeursItems} value={payeurId} onValueChange={(v) => setPayeurId(v as string | null)} disabled={aucunPayeur}>
+              <SelectTrigger id="reg-payeur" className="w-full">
+                <SelectValue placeholder={payeurs.loading ? 'Chargement…' : aucunPayeur ? 'Aucun acquéreur rattaché' : 'Acquéreur ou co-acquéreur'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {payeursItems.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            {aucunPayeur && (
+              <p className="mt-1 text-micro text-destructive">
+                Ce dossier n'a aucun acquéreur rattaché : impossible d'enregistrer un règlement.
+              </p>
+            )}
           </FormField>
           <FormField>
             <FieldLabel htmlFor="reg-type">Type de règlement</FieldLabel>
@@ -630,9 +703,24 @@ function AddReglementRow({ echeanceId, onAdd }: { echeanceId: string; onAdd: (ec
             </FormField>
           )}
         </FieldGroup>
+        {error && <p className="mt-3 text-micro text-destructive">{error}</p>}
         <DialogFooter className="mt-5">
           <Button type="button" variant="outline" onClick={reset}>Annuler</Button>
-          <Button type="submit" disabled={busy || !montant || (banqueRequired && !banqueId) || (referenceRequired && !reference)}>Ok</Button>
+          <Button
+            type="submit"
+            disabled={
+              busy ||
+              montantNumber === null ||
+              montantInvalide ||
+              montantDepasse ||
+              !typeId ||
+              !payeurId ||
+              (banqueRequired && !banqueId) ||
+              (referenceRequired && !reference)
+            }
+          >
+            Ok
+          </Button>
         </DialogFooter>
       </form>
     </Modal>
@@ -709,11 +797,384 @@ function AutorisationVersementButton({ dossierId, reglementId }: { dossierId: st
   );
 }
 
+// Le fond de la ligne suit le statut du règlement au lieu d'être vert en dur :
+// un règlement `IN_WORK` n'est pas encore un encaissement, et un `CANCELED` ne
+// doit surtout pas se lire comme un succès. Le vert est conservé pour
+// `POINTED`, donc rien ne change visuellement sur les règlements déjà pointés.
+const REGLEMENT_ROW_TONE: Record<string, { wrap: string; montant: string }> = {
+  success: { wrap: 'border-(--success-border) bg-(--success-bg)', montant: 'text-(--success)' },
+  info: { wrap: 'border-(--info-border) bg-(--info-bg)', montant: 'text-foreground' },
+  neutral: { wrap: 'border-border bg-muted/30', montant: 'text-muted-foreground line-through' },
+};
+
+/** Dépôt d'une preuve de paiement sur un règlement — même coquille que
+ * `AddPieceJointeRow` (input fichier masqué derrière un label pointillé),
+ * en plus compact : ni type ni description obligatoires, les justificatifs
+ * réels n'en portent pas. Partagé par le panneau « Preuves de paiement » et
+ * la boîte de pointage, pour que déposer une preuve se fasse au même endroit
+ * qu'on l'exige. */
+function ReglementPieceUpload({
+  dossierId,
+  reglementId,
+  onAdded,
+}: {
+  dossierId: string;
+  reglementId: string;
+  onAdded: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [description, setDescription] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="flex h-8 min-w-0 max-w-60 flex-1 cursor-pointer items-center gap-2 truncate rounded-md border border-dashed border-input px-2.5 text-body text-muted-foreground hover:border-ring">
+        <Upload className="size-3.5 shrink-0" />
+        <span className="truncate">{file ? file.name : 'Choisir un fichier…'}</span>
+        <input type="file" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+      </label>
+      <Input
+        placeholder="Légende (ex. Chèque BMCE n° 123)"
+        className="w-55"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+      />
+      <Button
+        type="button"
+        size="sm"
+        disabled={busy || !file}
+        onClick={async () => {
+          if (!file) return;
+          setBusy(true);
+          setError(null);
+          try {
+            await uploadReglementPieceJointe(dossierId, reglementId, file, description.trim() || undefined);
+            setFile(null);
+            setDescription('');
+            onAdded();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Échec de l'envoi.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? 'Envoi…' : 'Déposer'}
+      </Button>
+      {error && <span className="text-micro text-destructive">{error}</span>}
+    </div>
+  );
+}
+
+/** Les justificatifs d'encaissement d'un règlement (chèque scanné, avis de
+ * virement, reçu). Toujours consultable, quel que soit le statut : les
+ * règlements legacy pointés sans pièce jointe restent parfaitement valides —
+ * la règle de preuve ne s'applique qu'au moment de la transition. */
+function ReglementPiecesJointesPanel({
+  dossierId,
+  reglementId,
+  refreshKey,
+  onChanged,
+}: {
+  dossierId: string;
+  reglementId: string;
+  refreshKey: number;
+  onChanged: () => void;
+}) {
+  const pieces = useApi(() => listReglementPiecesJointes(dossierId, reglementId), [dossierId, reglementId, refreshKey]);
+
+  return (
+    <div className="mt-1.5 flex flex-col gap-2 rounded-md border border-border bg-background/60 px-2.5 py-2">
+      <span className="text-micro font-medium text-muted-foreground">Preuves de paiement</span>
+      {pieces.loading && <span className="text-micro text-muted-foreground">Chargement…</span>}
+      {pieces.error && <span className="text-micro text-destructive">{pieces.error}</span>}
+      {pieces.data && pieces.data.length === 0 && (
+        <span className="text-micro text-muted-foreground">Aucune preuve déposée.</span>
+      )}
+      {pieces.data?.map((p) => (
+        <ReglementPieceJointeRow key={p.id} dossierId={dossierId} reglementId={reglementId} piece={p} />
+      ))}
+      <ReglementPieceUpload dossierId={dossierId} reglementId={reglementId} onAdded={onChanged} />
+    </div>
+  );
+}
+
+function ReglementPieceJointeRow({
+  dossierId,
+  reglementId,
+  piece,
+}: {
+  dossierId: string;
+  reglementId: string;
+  piece: PieceJointeDto;
+}) {
+  const [busy, setBusy] = useState<'view' | 'download' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const ext = piece.extension?.replace(/^\./, '') || '';
+  const filename = `${piece.description || 'preuve-paiement'}${ext ? `.${ext}` : ''}`;
+
+  async function handle(action: 'view' | 'download') {
+    setBusy(action);
+    setError(null);
+    try {
+      if (action === 'view') await viewReglementPieceJointe(dossierId, reglementId, piece.id, piece.extension);
+      else await downloadReglementPieceJointe(dossierId, reglementId, piece.id, filename, piece.extension);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de l'opération.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-2 text-micro">
+      <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 truncate text-foreground">{piece.description || filename}</span>
+      {piece.dateCreation && <span className="shrink-0 text-muted-foreground">{formatDate(piece.dateCreation)}</span>}
+      {piece.creePar && <span className="shrink-0 text-muted-foreground">{piece.creePar}</span>}
+      {error && <span className="shrink-0 text-destructive">{error}</span>}
+      <span className="ml-auto flex shrink-0 items-center gap-0.5">
+        <Button type="button" variant="ghost" size="icon-xs" title="Voir la preuve" disabled={!!busy} onClick={() => handle('view')}>
+          <Eye />
+        </Button>
+        <Button type="button" variant="ghost" size="icon-xs" title="Télécharger la preuve" disabled={!!busy} onClick={() => handle('download')}>
+          <Download />
+        </Button>
+      </span>
+    </div>
+  );
+}
+
+/** Pointage d'un règlement : `IN_WORK → POINTED`.
+ *
+ * Deux règles serveur, toutes deux exposées ici plutôt que subies :
+ * `dateReglement` est obligatoire (400 sinon), et le règlement doit porter au
+ * moins une pièce jointe (409 sinon). Plutôt que d'envoyer la requête pour en
+ * récolter un 409, on lit d'abord les pièces jointes et on propose le dépôt
+ * dans la boîte elle-même — c'est exactement la séquence décrite par la spec
+ * (créer → déposer la preuve → pointer). Le 409 reste géré en dernier recours
+ * (course, ou ligne legacy), en affichant les `transitionsAutorisees` du
+ * ProblemDetail quand le serveur en fournit. */
+function PointerReglementModal({
+  dossierId,
+  reglement,
+  onClose,
+  onPointed,
+}: {
+  dossierId: string;
+  reglement: ReglementDto;
+  onClose: () => void;
+  onPointed: () => Promise<void>;
+}) {
+  const [dateReglement, setDateReglement] = useState(todayISO());
+  const [piecesVersion, setPiecesVersion] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const pieces = useApi(() => listReglementPiecesJointes(dossierId, reglement.id), [dossierId, reglement.id, piecesVersion]);
+  const sansPreuve = !!pieces.data && pieces.data.length === 0;
+
+  return (
+    <Modal title="Pointer le règlement" onClose={onClose} width={480}>
+      <div className="flex flex-col gap-4">
+        <p className="text-body text-muted-foreground">
+          Constater l'encaissement de <span className="font-semibold text-foreground">{formatCurrency(reglement.montant)}</span>
+          {reglement.typeLibelle ? ` (${reglement.typeLibelle})` : ''}
+          {reglement.payeurNom ? `, réglé par ${reglement.payeurNom}` : ''}. Le règlement passera à
+          « Pointé », un état définitif.
+        </p>
+
+        <FieldGroup>
+          <FormField>
+            <FieldLabel htmlFor="pointage-date">Date d'encaissement</FieldLabel>
+            <Input
+              id="pointage-date"
+              type="date"
+              value={dateReglement}
+              onChange={(e) => setDateReglement(e.target.value)}
+            />
+          </FormField>
+        </FieldGroup>
+
+        <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-2">
+          <span className="text-micro font-medium text-muted-foreground">Preuve de paiement</span>
+          {pieces.loading && <span className="text-micro text-muted-foreground">Chargement…</span>}
+          {pieces.error && <span className="text-micro text-destructive">{pieces.error}</span>}
+          {sansPreuve && (
+            <span className="text-micro text-(--amber)">
+              Déposez d'abord une preuve de paiement (chèque scanné, avis de virement…) : elle est
+              obligatoire pour pointer.
+            </span>
+          )}
+          {pieces.data?.map((p) => (
+            <ReglementPieceJointeRow key={p.id} dossierId={dossierId} reglementId={reglement.id} piece={p} />
+          ))}
+          <ReglementPieceUpload
+            dossierId={dossierId}
+            reglementId={reglement.id}
+            onAdded={() => setPiecesVersion((v) => v + 1)}
+          />
+        </div>
+
+        {error && <p className="text-micro text-destructive">{error}</p>}
+      </div>
+      <DialogFooter className="mt-5">
+        <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Annuler</Button>
+        <Button
+          type="button"
+          disabled={busy || !dateReglement || sansPreuve || pieces.loading}
+          onClick={async () => {
+            setBusy(true);
+            setError(null);
+            try {
+              await modifierStatutReglement(dossierId, reglement.id, {
+                statut: 'POINTED',
+                dateReglement: toApiDateTime(dateReglement) ?? null,
+              });
+              await onPointed();
+              onClose();
+            } catch (err) {
+              setError(messageErreurStatut(err));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <ClipboardCheck data-icon="inline-start" /> Pointer
+        </Button>
+      </DialogFooter>
+    </Modal>
+  );
+}
+
+/** Un 409 sur un changement de statut porte `transitionsAutorisees` à côté du
+ * `detail` — les afficher évite le classique « ça a échoué » sans issue.
+ * `ApiError.problem` est le corps ProblemDetail parsé (voir lib/api.ts). */
+function messageErreurStatut(err: unknown): string {
+  const base = err instanceof Error ? err.message : "Échec de l'opération.";
+  if (!(err instanceof ApiError) || err.status !== 409) return base;
+  const permises = err.problem?.transitionsAutorisees;
+  if (!Array.isArray(permises) || permises.length === 0) return base;
+  const libelles = permises.map((t) => reglementStatutLabel(String(t))).join(', ');
+  return `${base} Transitions possibles : ${libelles}.`;
+}
+
+/** Une ligne de règlement dans le détail d'une échéance. Porte son statut,
+ * ses preuves de paiement (repliées par défaut) et, tant qu'il est `IN_WORK`,
+ * les deux actions terminales : pointer ou annuler. */
+function ReglementRow({
+  dossierId,
+  reglement,
+  onChanged,
+}: {
+  dossierId: string;
+  reglement: ReglementDto;
+  onChanged: () => Promise<void>;
+}) {
+  const [piecesOuvertes, setPiecesOuvertes] = useState(false);
+  const [piecesVersion, setPiecesVersion] = useState(0);
+  const [pointageOuvert, setPointageOuvert] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const confirm = useConfirm();
+
+  const tone = reglementStatutTone(reglement.statut);
+  const rowTone = REGLEMENT_ROW_TONE[tone] ?? REGLEMENT_ROW_TONE.neutral;
+  const modifiable = reglementModifiable(reglement.statut);
+
+  async function annuler() {
+    const ok = await confirm({
+      title: 'Annuler le règlement',
+      message: `Annuler définitivement ce règlement de ${formatCurrency(reglement.montant)} ? Cet état est terminal : il ne pourra plus être pointé.`,
+      confirmLabel: 'Annuler le règlement',
+      cancelLabel: 'Revenir',
+    });
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await modifierStatutReglement(dossierId, reglement.id, { statut: 'CANCELED' });
+      await onChanged();
+    } catch (err) {
+      setError(messageErreurStatut(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className={`rounded-md border px-2.5 py-1.5 text-body ${rowTone.wrap}`}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
+        <Badge tone={tone}>{reglementStatutLabel(reglement.statut)}</Badge>
+        <span className="font-medium text-foreground">{reglement.typeLibelle || '—'}</span>
+        {reglement.banqueNom && <span className="text-muted-foreground">{reglement.banqueNom}</span>}
+        {reglement.reference && <span className="text-muted-foreground">Réf. {reglement.reference}</span>}
+        {reglement.payeurNom && <span className="text-muted-foreground">Payeur : {reglement.payeurNom}</span>}
+        <span className="text-muted-foreground">
+          Échéance {formatDate(reglement.dateEcheance)}
+          {reglement.dateReglement ? ` · Encaissé le ${formatDate(reglement.dateReglement)}` : ''}
+        </span>
+        {reglement.notes && <span className="text-muted-foreground italic">{reglement.notes}</span>}
+        <span className={`ml-auto font-semibold tabular-nums ${rowTone.montant}`}>{formatCurrency(reglement.montant)}</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          title="Preuves de paiement"
+          aria-expanded={piecesOuvertes}
+          onClick={() => setPiecesOuvertes((o) => !o)}
+        >
+          <Paperclip />
+        </Button>
+        <ReglementRecuButton dossierId={dossierId} reglementId={reglement.id} />
+        <AutorisationVersementButton dossierId={dossierId} reglementId={reglement.id} />
+        {modifiable && (
+          <>
+            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setPointageOuvert(true)}>
+              <ClipboardCheck data-icon="inline-start" /> Pointer
+            </Button>
+            <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={annuler}>
+              <Ban data-icon="inline-start" /> Annuler
+            </Button>
+          </>
+        )}
+      </div>
+      {error && <p className="mt-1 text-micro text-destructive">{error}</p>}
+      {piecesOuvertes && (
+        <ReglementPiecesJointesPanel
+          dossierId={dossierId}
+          reglementId={reglement.id}
+          refreshKey={piecesVersion}
+          onChanged={() => setPiecesVersion((v) => v + 1)}
+        />
+      )}
+      {pointageOuvert && (
+        <PointerReglementModal
+          dossierId={dossierId}
+          reglement={reglement}
+          onClose={() => setPointageOuvert(false)}
+          onPointed={onChanged}
+        />
+      )}
+    </div>
+  );
+}
+
 /** `GET .../echeancier/{echeanceId}/reglements` — détail ligne par ligne
  * derrière le seul total `montantRegle`/`reste` de l'échéance, rendu dans la
  * ligne dépliée d'`EcheanceRow`. `refreshKey` force un refetch quand un
  * nouveau règlement vient d'être ajouté pendant que la ligne est dépliée. */
-function EcheanceReglementsHistory({ dossierId, echeanceId, refreshKey }: { dossierId: string; echeanceId: string; refreshKey: number }) {
+function EcheanceReglementsHistory({
+  dossierId,
+  echeanceId,
+  refreshKey,
+  onChanged,
+}: {
+  dossierId: string;
+  echeanceId: string;
+  refreshKey: number;
+  onChanged: () => Promise<void>;
+}) {
   const { data, loading, error } = useApi(() => listEcheanceReglements(dossierId, echeanceId), [dossierId, echeanceId, refreshKey]);
 
   if (loading) return <span className="text-body text-muted-foreground">Chargement…</span>;
@@ -723,20 +1184,7 @@ function EcheanceReglementsHistory({ dossierId, echeanceId, refreshKey }: { doss
   return (
     <div className="flex flex-col gap-1">
       {data?.map((r) => (
-        <div key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md border border-(--success-border) bg-(--success-bg) px-2.5 py-1.5 text-body">
-          <span className="font-medium text-foreground">{r.typeLibelle || '—'}</span>
-          {r.banqueNom && <span className="text-muted-foreground">{r.banqueNom}</span>}
-          {r.reference && <span className="text-muted-foreground">Réf. {r.reference}</span>}
-          {r.payeurNom && <span className="text-muted-foreground">Payeur : {r.payeurNom}</span>}
-          <span className="text-muted-foreground">
-            Échéance {formatDate(r.dateEcheance)}
-            {r.dateReglement ? ` · Réglé le ${formatDate(r.dateReglement)}` : ''}
-          </span>
-          {r.notes && <span className="text-muted-foreground italic">{r.notes}</span>}
-          <span className="ml-auto font-semibold tabular-nums text-(--success)">{formatCurrency(r.montant)}</span>
-          <ReglementRecuButton dossierId={dossierId} reglementId={r.id} />
-          <AutorisationVersementButton dossierId={dossierId} reglementId={r.id} />
-        </div>
+        <ReglementRow key={r.id} dossierId={dossierId} reglement={r} onChanged={onChanged} />
       ))}
     </div>
   );
@@ -752,10 +1200,12 @@ function EcheanceRow({
   dossierId,
   echeance,
   onReglementAdded,
+  onReglementChanged,
 }: {
   dossierId: string;
   echeance: EcheanceDto;
   onReglementAdded: (echeanceId: string, body: CreerReglementRequest) => Promise<void>;
+  onReglementChanged: () => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [reglementsVersion, setReglementsVersion] = useState(0);
@@ -795,7 +1245,9 @@ function EcheanceRow({
         <TableCell onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-end gap-1">
             <AddReglementRow
+              dossierId={dossierId}
               echeanceId={echeance.id}
+              reste={echeance.reste}
               onAdd={async (echeanceId, body) => {
                 await onReglementAdded(echeanceId, body);
                 setReglementsVersion((v) => v + 1);
@@ -808,7 +1260,18 @@ function EcheanceRow({
       {expanded && (
         <TableRow className="hover:bg-transparent">
           <TableCell colSpan={6} className="bg-muted/30 py-3">
-            <EcheanceReglementsHistory dossierId={dossierId} echeanceId={echeance.id} refreshKey={reglementsVersion} />
+            <EcheanceReglementsHistory
+              dossierId={dossierId}
+              echeanceId={echeance.id}
+              refreshKey={reglementsVersion}
+              onChanged={async () => {
+                // Pointer ou annuler change le montant réglé de l'échéance et
+                // les totaux du dossier : on rafraîchit la ligne ET le reste,
+                // comme après l'ajout d'un règlement.
+                setReglementsVersion((v) => v + 1);
+                await onReglementChanged();
+              }}
+            />
           </TableCell>
         </TableRow>
       )}
@@ -1147,6 +1610,10 @@ export default function DossierDetail() {
                           echeance={l}
                           onReglementAdded={async (echeanceId, body) => {
                             await addReglement(d.id, echeanceId, body);
+                            await echeances.refetch();
+                            await montants.refetch();
+                          }}
+                          onReglementChanged={async () => {
                             await echeances.refetch();
                             await montants.refetch();
                           }}

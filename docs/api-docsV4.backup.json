@@ -24,8 +24,8 @@
       "description": "Connexion/déconnexion par cookie JWT httpOnly."
     },
     {
-      "name": "Utilisateurs (admin)",
-      "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur."
+      "name": "Tableau de bord",
+      "description": "Agrégats de la page d'accueil : valeur du pipeline, panier moyen, répartition des dossiers par étape, relances en retard et compteurs de prospections."
     },
     {
       "name": "Hotline",
@@ -60,11 +60,162 @@
       "description": "Leads bruts non encore qualifiés (ComProspection sans CfgProspectId ni CfgCommercialId) — même forme que /api/prospections."
     },
     {
+      "name": "Utilisateurs (admin)",
+      "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur : liste des comptes, création d'employé, réinitialisation de mot de passe, et affectation des projets qui composent le périmètre commercial d'un utilisateur."
+    },
+    {
       "name": "Dossiers",
       "description": "Dossiers de vente (ComFolder) — cycle de vie, échéancier, pièces jointes et génération de documents."
     }
   ],
   "paths": {
+    "/api/utilisateurs/{admUserId}/projets": {
+      "get": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Projets affectés à un utilisateur (périmètre commercial)",
+        "description": "Les projets (CfgProject) qui composent le périmètre commercial de ce compte. Un utilisateur restreint ne voit que les prospections, pré-prospections, dossiers et encaissements rattachés à ces projets, et le tableau de bord n'agrège que ceux-ci — le filtrage est intégralement côté serveur. Liste vide = aucune restriction : ce compte voit tout (un périmètre vide ne signifie jamais \"ne voit rien\"). La liste des projets sélectionnables s'obtient par GET /api/projets (8 projets en tout, ni recherche ni pagination nécessaires).\n\nRenvoie les affectations **brutes**, pas le périmètre effectivement appliqué : un compte portant un rôle d'exemption (Administrateur, Direction Générale) continue de tout voir même si cette liste est non vide. Une liste non vide ne prouve donc pas qu'un compte est restreint — pour l'état réellement appliqué, voir `perimetreRestreint` sur GET /api/mon-compte. Réservé au rôle Administrateur.",
+        "operationId": "getProjets",
+        "parameters": [
+          {
+            "name": "admUserId",
+            "in": "path",
+            "description": "Id de l'AdmUser dont on consulte le périmètre.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Projets affectés (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjetPerimetreDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjetPerimetreDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun AdmUser avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjetPerimetreDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Remplace les projets affectés à un utilisateur (périmètre commercial)",
+        "description": "**Remplacement intégral** du périmètre projet : le corps porte l'état final des cases à cocher, pas un delta. `projetIds` est obligatoire ; envoyer une liste **vide** retire toute restriction à ce compte (il voit alors tout) et n'est pas une erreur, alors qu'un corps sans `projetIds` (`{}` ou `null`) est refusé en 400 — une levée de restriction doit être explicite, jamais la conséquence d'un corps tronqué. Prise en compte immédiate, sans reconnexion : le périmètre est relu en base à chaque requête et n'est jamais embarqué dans le jeton. Les identifiants répétés sont dédoublonnés.\n\nSeule la portée **projet** est remplacée. `AdmUserHabilitation` est polymorphe et une même ligne peut porter plusieurs portées à la fois : une ligne qui ne porte qu'un projet est supprimée, tandis qu'une ligne mixte (portant aussi une société, une tranche ou un projet-travaux) est **conservée**, seul son projet étant retiré. Aucune habilitation société / tranche / projet-travaux n'est donc jamais perdue — elles appartiennent à l'application de bureau légataire, toujours en service.\n\nDeux comportements à connaître côté écran d'affectation : les comptes portant un rôle d'exemption (Administrateur, Direction Générale) restent non filtrés même après affectation ; et le sélecteur d'utilisateurs devrait filtrer sur `disabled=false` (la grande majorité des comptes legacy sont désactivés). Réservé au rôle Administrateur.",
+        "operationId": "remplacerProjets",
+        "parameters": [
+          {
+            "name": "admUserId",
+            "in": "path",
+            "description": "Id de l'AdmUser dont on redéfinit le périmètre.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AffecterProjetsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Périmètre remplacé — renvoie le nouvel état.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjetPerimetreDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`projetIds` absent ou null (envoyez `[]` pour retirer la restriction), ou au moins un `projetId` ne correspond à aucun CfgProject.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjetPerimetreDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjetPerimetreDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun AdmUser avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProjetPerimetreDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/utilisateurs": {
       "get": {
         "tags": [
@@ -395,7 +546,7 @@
           "Prospections"
         ],
         "summary": "Liste paginée des prospections",
-        "description": "Filtre optionnellement par étape/origine/commercial (multi-sélection, une valeur pour un seul choix se comporte comme avant), tranche(s) visée(s), plage de dates sur la date du document, et recherche libre. Exclut les pré-prospections (voir GET /api/pre-prospections). Voir instructions/filtres-avances.md pour le détail des filtres avancés.",
+        "description": "Filtre optionnellement par étape/origine/commercial (multi-sélection, une valeur pour un seul choix se comporte comme avant), tranche(s) visée(s), plage de dates sur la date du document, et recherche libre. Exclut les pré-prospections (voir GET /api/pre-prospections). Voir instructions/filtres-avances.md pour le détail des filtres avancés.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), cette liste ne contient que les prospections de ses projets affectés — filtrage côté serveur, en plus des filtres ci-dessus. Le projet d'une prospection est celui de sa tranche visée ; celles sans tranche restent visibles de tous.",
         "operationId": "findAll_2",
         "parameters": [
           {
@@ -540,6 +691,16 @@
           },
           "400": {
             "description": "`prospectId` manquant, ou un id fourni (prospect/commercial/tranche/article/origine/...) est introuvable, ou l'article fourni n'appartient pas à la tranche fournie.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Le projet de la `trancheId` fournie n'est pas dans le périmètre commercial de l'appelant (403 et non 404 : c'est l'appelant qui a nommé la tranche).",
             "content": {
               "*/*": {
                 "schema": {
@@ -1296,7 +1457,7 @@
           "Dossiers"
         ],
         "summary": "Liste paginée des dossiers de vente",
-        "description": "Filtre optionnellement par statut (multi-sélection, une valeur pour un seul statut se comporte comme avant), commercial, entité (projet), tranche(s), plage de dates sur un jalon au choix, et recherche libre sur le code du dossier OU le nom/prénom/raison sociale du client lié. Voir instructions/filtres-avances.md pour le détail des filtres avancés.",
+        "description": "Filtre optionnellement par statut (multi-sélection, une valeur pour un seul statut se comporte comme avant), commercial, entité (projet), tranche(s), plage de dates sur un jalon au choix, et recherche libre sur le code du dossier OU le nom/prénom/raison sociale du client lié. Voir instructions/filtres-avances.md pour le détail des filtres avancés.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), cette liste ne contient que les dossiers de ses projets affectés — filtrage côté serveur, appliqué en plus des filtres ci-dessus. Le front ne doit pas refiltrer par projet lui-même. Les dossiers dont le projet ne se résout pas restent visibles de tous.",
         "operationId": "findAll_3",
         "parameters": [
           {
@@ -1424,7 +1585,7 @@
           "Dossiers"
         ],
         "summary": "Crée un dossier de vente à partir d'une prospection",
-        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant cet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté automatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient utilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\" d'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier (`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.",
+        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant cet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté automatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient utilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\" d'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier (`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à l'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à cacher). Le projet est déduit du premier article via sa tranche.",
         "operationId": "create_1",
         "requestBody": {
           "content": {
@@ -1437,8 +1598,28 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Dossier créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Prospection/article/mode de paiement introuvable, prospection sans prospect lié, article déjà occupé, ou `modePaieId`/`cin` manquant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Le projet de l'article n'est pas dans le périmètre commercial de l'appelant.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2299,11 +2480,14 @@
         "tags": [
           "Prospections"
         ],
+        "summary": "Détail d'une prospection (ou d'une pré-prospection)",
+        "description": "Sert aussi bien une prospection qualifiée qu'une pré-prospection : `GET /api/pre-prospections` n'expose pas de route de détail propre, les deux partagent cette fiche.\n\n**Périmètre commercial** : une prospection hors du périmètre de l'appelant renvoie **404**, et non 403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants. Même règle pour toutes les routes imbriquées (interactions, devis, qualification, documents).",
         "operationId": "findById_1",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant de la prospection (ComProspection.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -2313,7 +2497,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Prospection trouvée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id, ou prospection hors du périmètre commercial de l'appelant — les deux cas sont volontairement indiscernables. Également renvoyé (plutôt qu'un 400) lorsque l'identifiant fourni n'est pas un UUID valide.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2372,7 +2566,7 @@
           "Prospections"
         ],
         "summary": "Remplace la tranche/l'article principal",
-        "description": "Seul endpoint qui modifie `trancheId`/`articleId` d'une prospection. `trancheId` est obligatoire ; `articleId` est optionnel mais, s'il est fourni, DOIT appartenir à `trancheId` (l'API renvoie 400 sinon — un article d'une autre tranche ne peut pas devenir article principal). Si `articleId` est omis et que l'article actuellement assigné n'appartient plus à la nouvelle tranche, il est automatiquement désassigné (jamais laissé dans un état incohérent). Distinct de `POST /api/prospections/{id}/autres-tranches` (intérêts secondaires, indépendants) — voir le guide sur le tag.",
+        "description": "Seul endpoint qui modifie `trancheId`/`articleId` d'une prospection. `trancheId` est obligatoire ; `articleId` est optionnel mais, s'il est fourni, DOIT appartenir à `trancheId` (l'API renvoie 400 sinon — un article d'une autre tranche ne peut pas devenir article principal). Si `articleId` est omis et que l'article actuellement assigné n'appartient plus à la nouvelle tranche, il est automatiquement désassigné (jamais laissé dans un état incohérent). Distinct de `POST /api/prospections/{id}/autres-tranches` (intérêts secondaires, indépendants) — voir le guide sur le tag.\n\n**Périmètre commercial** : rattacher la prospection à une tranche dont le projet n'est pas affecté à l'appelant renvoie **403** — sans quoi le périmètre se contournerait en déplaçant la ressource hors de son projet.",
         "operationId": "modifierTranchePrincipale",
         "parameters": [
           {
@@ -2416,8 +2610,18 @@
               }
             }
           },
+          "403": {
+            "description": "Le projet de la tranche cible n'est pas dans le périmètre commercial de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Aucune prospection avec cet id.",
+            "description": "Aucune prospection avec cet id, ou prospection hors du périmètre commercial de l'appelant.",
             "content": {
               "*/*": {
                 "schema": {
@@ -3498,7 +3702,7 @@
         ],
         "summary": "Dropdown \"Projet\"",
         "description": "Tous les projets (CfgProject), pour peupler un sélecteur par nom/code plutôt que par id — premier maillon de la cascade Projet → Tranche → Article.",
-        "operationId": "getProjets",
+        "operationId": "getProjets_1",
         "responses": {
           "200": {
             "description": "OK",
@@ -4011,11 +4215,14 @@
         "tags": [
           "prospect-controller"
         ],
+        "summary": "Règlements d'un prospect, tous dossiers confondus",
+        "description": "Triés par date de pièce décroissante par défaut.\n\n**Périmètre commercial** : si l'appelant est restreint, seuls les règlements rattachés à un dossier de ses projets affectés sont renvoyés (plus ceux dont aucune ligne ne résout de projet) ; le prospect lui-même n'est pas filtré. `totalElements` reflète le nombre filtré.",
         "operationId": "getReglements_1",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant du prospect (CfgTier.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -4033,7 +4240,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Règlements du prospect (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoReglementProspectDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun prospect avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -4050,11 +4267,14 @@
         "tags": [
           "prospect-controller"
         ],
+        "summary": "Prospections d'un prospect",
+        "description": "Mêmes `ProspectionListItemDto` que GET /api/prospections.\n\n**Périmètre commercial** : si l'appelant est restreint, seules les prospections de ses projets affectés sont renvoyées. Le prospect, lui, n'est pas filtré — sa fiche reste accessible et la liste peut simplement revenir vide ou partielle. `totalElements` reflète le nombre filtré.",
         "operationId": "getProspections",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant du prospect (CfgTier.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -4072,7 +4292,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Prospections du prospect (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoProspectionListItemDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun prospect avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -4128,11 +4358,14 @@
         "tags": [
           "prospect-controller"
         ],
+        "summary": "Dossiers de vente d'un prospect",
+        "description": "Mêmes `DossierListItemDto` que GET /api/dossiers.\n\n**Périmètre commercial** : si l'appelant est restreint, seuls les dossiers de ses projets affectés sont renvoyés ; le prospect lui-même n'est pas filtré. `totalElements` reflète le nombre filtré.",
         "operationId": "getDossiers",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant du prospect (CfgTier.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -4150,7 +4383,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Dossiers du prospect (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoDossierListItemDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun prospect avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -4505,7 +4748,7 @@
           "Pré-prospections"
         ],
         "summary": "Liste paginée des pré-prospections",
-        "description": "Mêmes filtres que GET /api/prospections (étape, origine, commercial, tranche(s), plage de dates, recherche libre, ouvertes) appliqués aux leads non encore qualifiés. Voir instructions/filtres-avances.md point 5.",
+        "description": "Mêmes filtres que GET /api/prospections (étape, origine, commercial, tranche(s), plage de dates, recherche libre, ouvertes) appliqués aux leads non encore qualifiés. Voir instructions/filtres-avances.md point 5.\n\n**Périmètre commercial** : si l'appelant est restreint, cette liste ne contient que les pré-prospections de ses projets affectés. À noter — une pré-prospection n'a par construction **aucun commercial** (c'est justement ce qui la définit) : seul le projet de sa tranche visée peut la scoper, le filtre `commercial` ne renverra jamais rien ici. Les pré-prospections sans tranche restent visibles de tous.",
         "operationId": "findAll_6",
         "parameters": [
           {
@@ -4645,7 +4888,7 @@
           "Hotline"
         ],
         "summary": "Recherche complète par numéro de téléphone",
-        "description": "Recherche, en une seule requête, tout ce que le système sait sur un numéro de téléphone donné :\n\n1. **Fiches existantes** — toute personne (CfgTier : prospect, client, contact...) dont un des numéros enregistrés (Phone, Phone1, Phone2, Mobile) correspond. Pour chacune : informations générales, prospections, dossiers de vente, règlements, interactions et historique de statut.\n\n2. **Appels sans fiche** — pré-prospections (premiers contacts jamais convertis en fiche) dont le numéro renseigné à l'époque correspond, signalant un appelant déjà contacté par le passé mais jamais créé formellement.\n\nLa comparaison ignore les espaces, tirets, parenthèses et l'indicatif pays : \"+212 6 12 34 56 78\", \"212612345678\" et \"0612345678\" sont considérés comme le même numéro. Ne renvoie jamais 404 : si personne ne correspond, `connu` vaut `false` et les listes sont vides — c'est au front de proposer la création d'une nouvelle fiche dans ce cas.",
+        "description": "Recherche, en une seule requête, tout ce que le système sait sur un numéro de téléphone donné :\n\n1. **Fiches existantes** — toute personne (CfgTier : prospect, client, contact...) dont un des numéros enregistrés (Phone, Phone1, Phone2, Mobile) correspond. Pour chacune : informations générales, prospections, dossiers de vente, règlements, interactions et historique de statut.\n\n2. **Appels sans fiche** — pré-prospections (premiers contacts jamais convertis en fiche) dont le numéro renseigné à l'époque correspond, signalant un appelant déjà contacté par le passé mais jamais créé formellement.\n\nLa comparaison ignore les espaces, tirets, parenthèses et l'indicatif pays : \"+212 6 12 34 56 78\", \"212612345678\" et \"0612345678\" sont considérés comme le même numéro. Ne renvoie jamais 404 : si personne ne correspond, `connu` vaut `false` et les listes sont vides — c'est au front de proposer la création d'une nouvelle fiche dans ce cas.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), les listes imbriquées de chaque fiche (prospections, dossiers, règlements, interactions) ainsi que `appelsSansFiche` ne contiennent que les lignes de ses projets affectés. La **fiche elle-même n'est pas masquée** : le tier reste identifiable — c'est le but de cet écran, un agent doit pouvoir dire qui appelle — mais son activité sur les autres projets ne lui est pas montrée. Un appelant peut donc apparaître `connu` avec des listes vides.",
         "operationId": "rechercher",
         "parameters": [
           {
@@ -4689,7 +4932,7 @@
           "Encaissements"
         ],
         "summary": "Liste paginée des encaissements (règlements de Dossiers de vente)",
-        "description": "Toujours restreint aux règlements liés à au moins une échéance de Dossier de vente (les règlements d'achat/location, s'il y en a, ne remontent jamais ici). `montantBrutRestant` (calculé : montant brut moins la part déjà affectée à une échéance) et `montantNet` (montant brut moins retenue source/timbre) sont calculés côté serveur, jamais stockés. `etat` accepte les 3 valeurs confirmées sur données réelles (IN_WORK, POINTED, CANCELED) — l'écran legacy propose aussi \"Impayé(e)\"/\"Perdu(e)\" comme filtres mais aucune ligne réelle ne les porte à ce jour ; passés tel quel (comparaison insensible à la casse), donc utilisables dès qu'un vrai code sera confirmé, sans changement d'API.",
+        "description": "Toujours restreint aux règlements liés à au moins une échéance de Dossier de vente (les règlements d'achat/location, s'il y en a, ne remontent jamais ici). `montantBrutRestant` (calculé : montant brut moins la part déjà affectée à une échéance) et `montantNet` (montant brut moins retenue source/timbre) sont calculés côté serveur, jamais stockés. `etat` accepte les 3 valeurs confirmées sur données réelles (IN_WORK, POINTED, CANCELED) — l'écran legacy propose aussi \"Impayé(e)\"/\"Perdu(e)\" comme filtres mais aucune ligne réelle ne les porte à ce jour ; passés tel quel (comparaison insensible à la casse), donc utilisables dès qu'un vrai code sera confirmé, sans changement d'API.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), cette liste ne contient que les règlements portant au moins une ligne rattachée à un dossier d'un de ses projets affectés. Les règlements dont aucune ligne ne résout de projet restent visibles de tous.",
         "operationId": "findAll_7",
         "parameters": [
           {
@@ -4882,7 +5125,7 @@
           "Encaissements"
         ],
         "summary": "Détail d'un encaissement (règlement)",
-        "description": "Même forme que les lignes de `GET /api/encaissements` — alimente le panneau détail \"Pièce de règlement\" côté front (`EncaissementDetail.tsx`). `montantBrutRestant` et `montantNet` sont recalculés côté serveur, jamais stockés, comme sur la liste.",
+        "description": "Même forme que les lignes de `GET /api/encaissements` — alimente le panneau détail \"Pièce de règlement\" côté front (`EncaissementDetail.tsx`). `montantBrutRestant` et `montantNet` sont recalculés côté serveur, jamais stockés, comme sur la liste.\n\n**Périmètre commercial** : un encaissement hors du périmètre de l'appelant renvoie **404**, et non 403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants.",
         "operationId": "findById_4",
         "parameters": [
           {
@@ -4908,7 +5151,7 @@
             }
           },
           "404": {
-            "description": "Aucun StlSettlement pour cet id.",
+            "description": "Aucun StlSettlement pour cet id, ou encaissement hors du périmètre commercial de l'appelant — les deux cas sont volontairement indiscernables. Également renvoyé (plutôt qu'un 400) lorsque l'identifiant fourni n'est pas un UUID valide.",
             "content": {
               "*/*": {
                 "schema": {
@@ -4925,11 +5168,14 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Détail d'un dossier de vente",
+        "description": "Fiche complète du dossier : statut courant et étapes atteignables, client/commercial/notaire, articles liés, ventilation des montants et prospection d'origine.\n\n**Périmètre commercial** : un dossier hors du périmètre de l'appelant renvoie **404**, et non 403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants. La même règle s'applique à *toutes* les routes imbriquées de ce dossier (échéancier, règlements, pièces jointes, historique, générateurs de documents).",
         "operationId": "findById_5",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -4939,7 +5185,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Dossier trouvé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun dossier avec cet id, ou dossier hors du périmètre commercial de l'appelant — les deux cas sont volontairement indiscernables. Également renvoyé (plutôt qu'un 400) lorsque l'identifiant fourni n'est pas un UUID valide : sur les collections soumises au périmètre, un identifiant non résoluble est refusé sans être transmis au contrôleur.",
             "content": {
               "*/*": {
                 "schema": {
@@ -5474,7 +5730,7 @@
           "Devis"
         ],
         "summary": "Liste paginée de toutes les offres (devis), tous prospections confondues",
-        "description": "Filtre optionnellement par recherche libre sur le code de l'offre, tranche(s), commercial, et plage de dates sur la date de l'offre (dateDocument). Chaque ligne porte prospectionId/prospectionCode pour la colonne \"Prospection\" et le lien cliquable vers la prospection d'origine. sommePrixVenteTTCPage est calculé uniquement sur la page renvoyée, pas sur l'ensemble des résultats filtrés — voir la description du champ.",
+        "description": "Filtre optionnellement par recherche libre sur le code de l'offre, tranche(s), commercial, et plage de dates sur la date de l'offre (dateDocument). Chaque ligne porte prospectionId/prospectionCode pour la colonne \"Prospection\" et le lien cliquable vers la prospection d'origine. sommePrixVenteTTCPage est calculé uniquement sur la page renvoyée, pas sur l'ensemble des résultats filtrés — voir la description du champ.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seules les offres portant une tranche d'un de ses projets affectés sont renvoyées (plus celles sans tranche, dont le projet ne se résout pas). Ce filtre s'ajoute aux filtres ci-dessus : demander explicitement une `trancheId` hors périmètre renvoie une page vide, pas une erreur. `sommePrixVenteTTCPage` porte donc sur les seules lignes visibles.",
         "operationId": "findAll_8",
         "parameters": [
           {
@@ -5557,12 +5813,14 @@
     "/api/dashboard": {
       "get": {
         "tags": [
-          "dashboard-controller"
+          "Tableau de bord"
         ],
+        "summary": "Agrégats du tableau de bord",
+        "description": "Tous les chiffres sont calculés côté serveur à la volée, jamais stockés. `valeurPipeline` et `nombre de dossiers actifs` (qui donne le `panierMoyen`) excluent les dossiers en statut de sortie (annulation, désistement...). `relancesEnRetard` liste les dossiers dont une date de validité de relance est dépassée. `prospectionsOuvertes`/`prospectionsTotal` excluent les pré-prospections.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), *tous* les agrégats ci-dessus ne portent que sur ses projets affectés — un chiffre d'affaires global serait précisément la donnée que le périmètre masque. Les dossiers et prospections dont le projet ne se résout pas restent comptés pour tout le monde.",
         "operationId": "get",
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Agrégats calculés. Des listes vides et des montants à zéro signifient qu'aucun dossier n'entre dans le périmètre de l'appelant, pas une erreur.",
             "content": {
               "*/*": {
                 "schema": {
@@ -5678,11 +5936,14 @@
         "tags": [
           "client-controller"
         ],
+        "summary": "Dossiers de vente d'un client",
+        "description": "Les dossiers dont ce tier est l'acquéreur — mêmes `DossierListItemDto` que GET /api/dossiers.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seuls les dossiers de ses projets affectés sont renvoyés. Le **client**, lui, n'est pas filtré : sa fiche reste accessible, la liste peut simplement revenir vide ou partielle. `totalElements` reflète le nombre filtré, pas le total réel.",
         "operationId": "getDossiers_1",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant du client (CfgTier.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -5700,7 +5961,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Dossiers du client (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoDossierListItemDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun tier avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -6364,6 +6635,44 @@
   },
   "components": {
     "schemas": {
+      "AffecterProjetsRequest": {
+        "type": "object",
+        "description": "Corps de PUT /api/utilisateurs/{admUserId}/projets — remplacement intégral du périmètre projet d'un utilisateur (le front envoie l'état final de ses cases à cocher, pas un delta).",
+        "properties": {
+          "projetIds": {
+            "type": "array",
+            "description": "Identifiants des projets (CfgProject.PKey) désormais affectés à ce compte. **Obligatoire** : une liste explicitement vide `[]` retire toute restriction (le compte voit tout — un périmètre vide signifie \"voit tout\", jamais \"ne voit rien\"), mais un champ absent ou `null` est refusé en 400, pour qu'un corps tronqué ne puisse pas lever une restriction en silence. Les doublons sont ignorés. 400 également si un identifiant ne correspond à aucun projet.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "required": [
+          "projetIds"
+        ]
+      },
+      "ProjetPerimetreDto": {
+        "type": "object",
+        "description": "Un projet du périmètre commercial d'un utilisateur (CfgProject). Forme volontairement minimale — pour la fiche complète d'un projet, voir GET /api/projets.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du projet (CfgProject.PKey) — la valeur à renvoyer dans `projetIds` de PUT /api/utilisateurs/{admUserId}/projets."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code court du projet (CfgProject.Code), ex. \"ARS\", \"MBR\" — c'est ce code que le bandeau \"Périmètre limité à : ARS, MBR\" affiche côté front.",
+            "example": "ARS"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé du projet (CfgProject.Description).",
+            "example": "AYAD RESIDENCE BEL AIR"
+          }
+        }
+      },
       "CreerEmployeRequest": {
         "type": "object",
         "description": "Corps de la création d'un nouvel employé par un administrateur — crée en une fois la fiche personne (CfgTier), le compte de connexion (AdmUser) et ses identifiants web.",
@@ -7640,6 +7949,17 @@
           "profileCompleted": {
             "type": "boolean",
             "description": "false tant que le formulaire de première connexion (infos personnelles) n'a pas été soumis — mêmes conséquences que mustChangePassword."
+          },
+          "perimetreRestreint": {
+            "type": "boolean",
+            "description": "true si le périmètre commercial s'applique réellement à ce compte, c'est-à-dire si au moins un projet lui a été affecté par un administrateur ET qu'il ne porte aucun rôle d'exemption (Administrateur, Direction Générale).\n\nQuand il vaut true, sont filtrés côté serveur sur ces projets : les listes ET les détails de prospections, pré-prospections, dossiers et encaissements (une ressource hors périmètre renvoie 404, y compris sur toutes leurs routes imbriquées — échéancier, règlements, pièces jointes, documents PDF) ; tous les agrégats du tableau de bord ; la liste des offres GET /api/devis ; et les sous-ressources des fiches tiers — GET /api/clients/{id}/dossiers, GET /api/prospects/{id}/{dossiers,prospections,reglements} et GET /api/hotline/recherche. Dans ces dernières, ce sont les **lignes** qui sont masquées : le client, le prospect et la fiche hotline eux-mêmes restent accessibles, seul leur contenu hors périmètre disparaît.\n\nNe sont volontairement PAS filtrés : le patrimoine (projets/tranches/articles), le calendrier, et les listes de tiers elles-mêmes (GET /api/clients, GET /api/prospects).\n\nLe front ne doit surtout pas refiltrer lui-même : il affiche ce que l'API renvoie. Ce champ existe pour qu'un commercial restreint ne confonde jamais restriction et perte de données (bandeau \"Périmètre limité à : …\")."
+          },
+          "projetsAutorises": {
+            "type": "array",
+            "description": "Les projets du périmètre, quand perimetreRestreint vaut true. Toujours vide si perimetreRestreint vaut false — un périmètre vide signifie \"aucune restriction\", jamais \"ne voit rien\".",
+            "items": {
+              "$ref": "#/components/schemas/ProjetPerimetreDto"
+            }
           }
         }
       },
@@ -8458,6 +8778,12 @@
             "type": "string",
             "format": "date-time",
             "description": "Date de création du compte (AdmUser.UserCreateDateTime)."
+          },
+          "nombreProjets": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de projets affectés à ce compte (périmètre commercial), pour afficher l'état d'affectation directement dans la liste d'administration sans un appel par ligne. 0 = aucune restriction : ce compte voit tout (un périmètre vide signifie \"pas de restriction\", jamais \"ne voit rien\"). Le détail des projets s'obtient par GET /api/utilisateurs/{admUserId}/projets. À noter : ce compteur ne tient pas compte des rôles d'exemption — un Administrateur affecté à 2 projets affiche 2 mais n'est de fait jamais filtré.",
+            "example": 2
           }
         }
       },
