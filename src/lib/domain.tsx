@@ -65,6 +65,23 @@ export function encaissementEtatTone(etat: string | undefined): BadgeTone {
   }
 }
 
+// `ReglementDto.statut` et `EncaissementDto.etat` lisent la même colonne
+// `StlSettlement.Status` — un encaissement *est* un règlement, vu depuis le
+// catalogue transverse plutôt que depuis son échéance. Ces alias existent
+// pour que le code de la fiche dossier se lise dans son propre vocabulaire
+// sans dupliquer le mapping (ni renommer les originaux, utilisés par les
+// écrans Encaissements).
+export const reglementStatutLabel = encaissementEtatLabel;
+export const reglementStatutTone = encaissementEtatTone;
+
+/** Un règlement n'est modifiable (pointage/annulation) que depuis `IN_WORK` :
+ * `POINTED` et `CANCELED` sont terminaux. Un statut absent (DTO legacy servi
+ * sans la colonne) est traité comme non modifiable — mieux vaut masquer une
+ * action possible que d'en proposer une qui finira en 409. */
+export function reglementModifiable(statut: string | undefined): boolean {
+  return statut?.toUpperCase() === 'IN_WORK';
+}
+
 // `PieceJointeDto.type` is free-text off the legacy `AdmAttachedFileType`
 // référentiel (no stable enum/id exposed by the API) — keyword-matched
 // here purely for a scannable badge color per document family, not a
