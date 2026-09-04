@@ -709,11 +709,6 @@ async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestIn
   return blob;
 }
 
-function fetchPieceJointeBlob(dossierId: UUID, pieceId: UUID, extension: string | undefined): Promise<Blob> {
-  const url = `${API_BASE_URL}/api/dossiers/${dossierId}/pieces-jointes/${pieceId}/fichier`;
-  return fetchByteEndpointBlob(url, mimeForExtension(extension));
-}
-
 /** `GET /api/articles/{id}/pieces-jointes` — read-only counterpart of the
  * dossier's pièces jointes: mostly plans (PLAN/PLAN_ARCHITECTE/PLAN_ETAGE),
  * same `PieceJointeDto` shape, but no upload endpoint exists for articles
@@ -722,25 +717,11 @@ export function listArticlePiecesJointes(articleId: UUID): Promise<PieceJointeDt
   return request('GET', `/api/articles/${articleId}/pieces-jointes`);
 }
 
-function fetchArticlePieceJointeBlob(articleId: UUID, pieceId: UUID, extension: string | undefined): Promise<Blob> {
-  const url = `${API_BASE_URL}/api/articles/${articleId}/pieces-jointes/${pieceId}/fichier`;
-  return fetchByteEndpointBlob(url, mimeForExtension(extension));
-}
-
-export async function downloadArticlePieceJointe(articleId: UUID, pieceId: UUID, filename: string, extension?: string): Promise<void> {
-  const blob = await fetchArticlePieceJointeBlob(articleId, pieceId, extension);
-  triggerBlobDownload(blob, filename);
-}
-
-export async function viewArticlePieceJointe(articleId: UUID, pieceId: UUID, extension?: string): Promise<void> {
-  const win = window.open('', '_blank');
-  try {
-    const blob = await fetchArticlePieceJointeBlob(articleId, pieceId, extension);
-    showBlobInTab(win, blob);
-  } catch (err) {
-    win?.close();
-    throw err;
-  }
+/** `GET /api/articles/{id}/pieces-jointes/{pieceId}/fichier` — plan ou autre
+ * pièce de l'article. Redirection `302` vers le stockage, cf.
+ * {@link openStoredFileInTab}. */
+export function openArticlePieceJointeFichier(articleId: UUID, pieceId: UUID): void {
+  openStoredFileInTab(`${API_BASE_URL}/api/articles/${articleId}/pieces-jointes/${pieceId}/fichier`);
 }
 
 /** Shared by the dossier's generated-document endpoints that offer both
@@ -833,20 +814,36 @@ function showBlobInTab(win: Window | null, blob: Blob): void {
   // off a still-open preview.
 }
 
-export async function downloadPieceJointe(dossierId: UUID, pieceId: UUID, filename: string, extension?: string): Promise<void> {
-  const blob = await fetchPieceJointeBlob(dossierId, pieceId, extension);
-  triggerBlobDownload(blob, filename);
+/** Ouvre un fichier stocké sur S3/MinIO. Les endpoints `.../fichier` des
+ * pièces jointes ne renvoient pas de binaire : ils répondent `302` vers une
+ * URL présignée, valable quelques minutes (cf. `docs/api-docsV4.json`).
+ *
+ * On ne peut donc pas les `fetch` comme les documents générés : la
+ * redirection conserve `credentials: 'include'`, or ni S3 ni MinIO ne renvoie
+ * `Access-Control-Allow-Credentials`, et le CORS rejette la réponse. Une
+ * navigation, elle, n'est pas soumise au CORS et envoie quand même le cookie
+ * JWT (même site — seul le port diffère). D'où l'ouverture d'un onglet.
+ *
+ * Conséquence assumée : « Voir » et « Télécharger » déclenchent la même
+ * navigation. C'est le `Content-Disposition` du stockage qui décide de
+ * l'affichage ou de l'enregistrement, et aucun paramètre `download` n'existe
+ * côté API pour l'influencer. Le nom du fichier vient lui aussi du stockage,
+ * qui reprend la description de la pièce.
+ *
+ * L'onglet est ouvert de façon synchrone, sans `await` en amont, pour rester
+ * rattaché au geste utilisateur et ne pas être bloqué comme popup. */
+function openStoredFileInTab(url: string): void {
+  const win = window.open('', '_blank');
+  if (!win) {
+    throw new ApiError(0, "Le navigateur a bloqué l'ouverture d'un nouvel onglet.");
+  }
+  win.location.href = url;
 }
 
-export async function viewPieceJointe(dossierId: UUID, pieceId: UUID, extension?: string): Promise<void> {
-  const win = window.open('', '_blank');
-  try {
-    const blob = await fetchPieceJointeBlob(dossierId, pieceId, extension);
-    showBlobInTab(win, blob);
-  } catch (err) {
-    win?.close();
-    throw err;
-  }
+/** `GET /api/dossiers/{id}/pieces-jointes/{pieceId}/fichier` — redirection
+ * `302` vers le stockage, cf. {@link openStoredFileInTab}. */
+export function openPieceJointeFichier(dossierId: UUID, pieceId: UUID): void {
+  openStoredFileInTab(`${API_BASE_URL}/api/dossiers/${dossierId}/pieces-jointes/${pieceId}/fichier`);
 }
 
 export async function downloadFicheReservation(dossierId: UUID, filename: string, format: 'pdf' | 'docx' = 'pdf'): Promise<void> {
@@ -1063,41 +1060,13 @@ export function uploadReglementPieceJointe(
   );
 }
 
-function fetchReglementPieceJointeBlob(
-  dossierId: UUID,
-  reglementId: UUID,
-  pieceId: UUID,
-  extension: string | undefined,
-): Promise<Blob> {
-  const url = `${API_BASE_URL}/api/dossiers/${dossierId}/reglements/${reglementId}/pieces-jointes/${pieceId}/fichier`;
-  return fetchByteEndpointBlob(url, mimeForExtension(extension));
-}
-
-export async function downloadReglementPieceJointe(
-  dossierId: UUID,
-  reglementId: UUID,
-  pieceId: UUID,
-  filename: string,
-  extension?: string,
-): Promise<void> {
-  const blob = await fetchReglementPieceJointeBlob(dossierId, reglementId, pieceId, extension);
-  triggerBlobDownload(blob, filename);
-}
-
-export async function viewReglementPieceJointe(
-  dossierId: UUID,
-  reglementId: UUID,
-  pieceId: UUID,
-  extension?: string,
-): Promise<void> {
-  const win = window.open('', '_blank');
-  try {
-    const blob = await fetchReglementPieceJointeBlob(dossierId, reglementId, pieceId, extension);
-    showBlobInTab(win, blob);
-  } catch (err) {
-    win?.close();
-    throw err;
-  }
+/** `GET .../reglements/{reglementId}/pieces-jointes/{pieceId}/fichier` — la
+ * preuve de paiement. Redirection `302` vers le stockage, cf.
+ * {@link openStoredFileInTab}. */
+export function openReglementPieceJointeFichier(dossierId: UUID, reglementId: UUID, pieceId: UUID): void {
+  openStoredFileInTab(
+    `${API_BASE_URL}/api/dossiers/${dossierId}/reglements/${reglementId}/pieces-jointes/${pieceId}/fichier`,
+  );
 }
 
 /** `PATCH .../reglements/{reglementId}/statut` — pointage (`POINTED`) ou

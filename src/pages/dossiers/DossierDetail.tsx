@@ -39,8 +39,7 @@ import {
   listReglementPiecesJointes,
   modifierStatutReglement,
   uploadReglementPieceJointe,
-  downloadReglementPieceJointe,
-  viewReglementPieceJointe,
+  openReglementPieceJointeFichier,
   changerStatutDossier,
   getArticle,
   getClient,
@@ -53,7 +52,6 @@ import {
   downloadAutorisationVersement,
   downloadFicheReservation,
   downloadDossierPdfOnlyDocument,
-  downloadPieceJointe,
   downloadRecuReglement,
   getEtapesSuivantes,
   listHistoriqueDossier,
@@ -63,7 +61,7 @@ import {
   viewAutorisationVersement,
   viewFicheReservation,
   viewDossierPdfOnlyDocument,
-  viewPieceJointe,
+  openPieceJointeFichier,
   viewRecuReglement,
   type DossierPdfOnlyDocKind,
 } from '../../lib/api';
@@ -170,21 +168,18 @@ function AddEcheanceRow({
 }
 
 function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJointeDto }) {
-  const [busyAction, setBusyAction] = useState<'view' | 'download' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ext = piece.extension?.replace(/^\./, '') || '';
   const filename = `${piece.description || 'document'}${ext ? `.${ext}` : ''}`;
 
-  async function handle(action: 'view' | 'download') {
-    setBusyAction(action);
+  // Une simple ouverture d'onglet : le fichier vit sur le stockage, pas
+  // derrière un fetch. Rien d'asynchrone, donc pas d'état « en cours ».
+  function handle() {
     setError(null);
     try {
-      if (action === 'view') await viewPieceJointe(dossierId, piece.id, piece.extension);
-      else await downloadPieceJointe(dossierId, piece.id, filename, piece.extension);
+      openPieceJointeFichier(dossierId, piece.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Échec de l\'opération.');
-    } finally {
-      setBusyAction(null);
     }
   }
 
@@ -204,11 +199,11 @@ function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJ
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
           {error && <span className="text-micro text-destructive">{error}</span>}
-          <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
-            <Eye data-icon="inline-start" /> {busyAction === 'view' ? 'Ouverture…' : 'Voir'}
+          <Button type="button" variant="ghost" size="sm" onClick={handle}>
+            <Eye data-icon="inline-start" /> Voir
           </Button>
-          <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('download')}>
-            <Download data-icon="inline-start" /> {busyAction === 'download' ? 'Téléchargement…' : 'Télécharger'}
+          <Button type="button" variant="ghost" size="sm" onClick={handle}>
+            <Download data-icon="inline-start" /> Télécharger
           </Button>
         </div>
       </TableCell>
@@ -909,21 +904,17 @@ function ReglementPieceJointeRow({
   reglementId: string;
   piece: PieceJointeDto;
 }) {
-  const [busy, setBusy] = useState<'view' | 'download' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ext = piece.extension?.replace(/^\./, '') || '';
   const filename = `${piece.description || 'preuve-paiement'}${ext ? `.${ext}` : ''}`;
 
-  async function handle(action: 'view' | 'download') {
-    setBusy(action);
+  // Cf. PieceJointeRow : navigation vers le stockage, rien d'asynchrone.
+  function handle() {
     setError(null);
     try {
-      if (action === 'view') await viewReglementPieceJointe(dossierId, reglementId, piece.id, piece.extension);
-      else await downloadReglementPieceJointe(dossierId, reglementId, piece.id, filename, piece.extension);
+      openReglementPieceJointeFichier(dossierId, reglementId, piece.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de l'opération.");
-    } finally {
-      setBusy(null);
     }
   }
 
@@ -935,10 +926,10 @@ function ReglementPieceJointeRow({
       {piece.creePar && <span className="shrink-0 text-muted-foreground">{piece.creePar}</span>}
       {error && <span className="shrink-0 text-destructive">{error}</span>}
       <span className="ml-auto flex shrink-0 items-center gap-0.5">
-        <Button type="button" variant="ghost" size="icon-xs" title="Voir la preuve" disabled={!!busy} onClick={() => handle('view')}>
+        <Button type="button" variant="ghost" size="icon-xs" title="Voir la preuve" onClick={handle}>
           <Eye />
         </Button>
-        <Button type="button" variant="ghost" size="icon-xs" title="Télécharger la preuve" disabled={!!busy} onClick={() => handle('download')}>
+        <Button type="button" variant="ghost" size="icon-xs" title="Télécharger la preuve" onClick={handle}>
           <Download />
         </Button>
       </span>
