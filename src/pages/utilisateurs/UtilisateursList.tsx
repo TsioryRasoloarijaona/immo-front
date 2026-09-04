@@ -68,6 +68,7 @@ export default function UtilisateursList() {
         { page, size: DEFAULT_PAGE_SIZE },
       ),
     [debouncedSearch, disabledFilter, page],
+    'utilisateurs',
   );
   const rows = data?.content ?? [];
 

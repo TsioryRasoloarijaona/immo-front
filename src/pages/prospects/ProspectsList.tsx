@@ -40,6 +40,7 @@ export default function ProspectsList() {
   const { data, loading, error } = useApi(
     () => listProspects({ search: debouncedSearch || undefined, type: type.length > 0 ? type : undefined }, { page, size: DEFAULT_PAGE_SIZE }),
     [debouncedSearch, type.join(','), page],
+    'prospects',
   );
   const rows = data?.content ?? [];
 

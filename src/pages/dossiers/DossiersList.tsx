@@ -136,12 +136,13 @@ export default function DossiersList() {
         DEFAULT_PAGE_SIZE,
       ),
     [debouncedSearch, status.join(','), trancheIds.join(','), champDate, dateDebut, dateFin, commercial, page],
+    'dossiers',
   );
   const dossiers = data?.content ?? [];
 
   // Aggregate fetch (once, 16 tranches in the real portfolio per CLAUDE.md) —
   // populates the Tranche dropdown. Independent of the dossiers query above.
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), []);
+  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
   const trancheItems = (tranches.data?.content ?? []).map((t) => ({
     label: t.description || t.code || t.id,
     value: t.id,

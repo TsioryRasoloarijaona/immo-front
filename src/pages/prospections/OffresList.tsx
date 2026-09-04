@@ -95,13 +95,14 @@ export default function OffresList() {
         { page, size: DEFAULT_PAGE_SIZE, sort: ['docDate,desc'] },
       ),
     [debouncedSearch, trancheIds.join(','), commercial, dateDebut, dateFin, page],
+    'offres',
   );
   const offres = data?.content ?? [];
   // Somme des prix TTC de la page chargée uniquement (pas un total
   // plein-filtre) — `sommePrixVenteTTCPage`, calculée côté backend.
   const totalPageTTC = data?.sommePrixVenteTTCPage ?? 0;
 
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), []);
+  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
   const trancheItems = (tranches.data?.content ?? []).map((t) => ({
     label: t.description || t.code || t.id,
     value: t.id,

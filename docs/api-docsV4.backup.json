@@ -16,12 +16,24 @@
       "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
     },
     {
+      "name": "Dossiers",
+      "description": "Dossiers de vente (ComFolder) — cycle de vie, échéancier, pièces jointes et génération de documents.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de dossier — y compris les routes imbriquées (échéancier, règlements, pièces jointes, historique, générateurs de documents) — un dossier hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte."
+    },
+    {
       "name": "Articles",
       "description": "Articles et sous-articles (StkItem) — lots vendables d'une tranche, avec leur disponibilité et leurs éventuels sous-lots (cave/parking annexés)."
     },
     {
       "name": "Authentification",
       "description": "Connexion/déconnexion par cookie JWT httpOnly."
+    },
+    {
+      "name": "Encaissements",
+      "description": "Règlements (StlSettlement) rattachés à un Dossier de vente — reproduit l'écran legacy \"Encaissements Vente\" (module Vente d'OMRAN Estate). Pour l'historique des règlements d'une seule échéance, voir plutôt `GET /api/dossiers/{id}/echeancier/{echeanceId}/reglements`, endpoint plus léger et déjà scopé à un dossier — celui-ci est la vue transverse \"tous les encaissements\" avec les mêmes filtres que le tableau legacy (entité, type, état, période, compte, dépôt...).\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, un encaissement hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte."
+    },
+    {
+      "name": "Prospections",
+      "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte."
     },
     {
       "name": "Tableau de bord",
@@ -40,8 +52,8 @@
       "description": "Profil de l'utilisateur authentifié — les seules routes accessibles (avec /api/auth/**) tant que mustChangePassword/profileCompleted bloquent le reste de l'API."
     },
     {
-      "name": "Encaissements",
-      "description": "Règlements (StlSettlement) rattachés à un Dossier de vente — reproduit l'écran legacy \"Encaissements Vente\" (module Vente d'OMRAN Estate). Pour l'historique des règlements d'une seule échéance, voir plutôt `GET /api/dossiers/{id}/echeancier/{echeanceId}/reglements`, endpoint plus léger et déjà scopé à un dossier — celui-ci est la vue transverse \"tous les encaissements\" avec les mêmes filtres que le tableau legacy (entité, type, état, période, compte, dépôt...)."
+      "name": "Pré-prospections",
+      "description": "Leads bruts non encore qualifiés (ComProspection sans CfgProspectId ni CfgCommercialId) — même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte."
     },
     {
       "name": "Tranches",
@@ -52,20 +64,8 @@
       "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front."
     },
     {
-      "name": "Prospections",
-      "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables."
-    },
-    {
-      "name": "Pré-prospections",
-      "description": "Leads bruts non encore qualifiés (ComProspection sans CfgProspectId ni CfgCommercialId) — même forme que /api/prospections."
-    },
-    {
       "name": "Utilisateurs (admin)",
       "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur : liste des comptes, création d'employé, réinitialisation de mot de passe, et affectation des projets qui composent le périmètre commercial d'un utilisateur."
-    },
-    {
-      "name": "Dossiers",
-      "description": "Dossiers de vente (ComFolder) — cycle de vie, échéancier, pièces jointes et génération de documents."
     }
   ],
   "paths": {
@@ -1373,11 +1373,14 @@
         "tags": [
           "Pré-prospections"
         ],
+        "summary": "Crée la fiche prospect d'une pré-prospection et la lui rattache",
+        "description": "Première étape de qualification d'un lead brut : crée un `CfgTier` à partir des informations fournies et le pose comme prospect de la pré-prospection. Valide uniquement sur une pré-prospection (aucun prospect déjà lié) — 400 sinon. L'étape suivante est `POST /api/prospections/{id}/transformer`, qui assigne le commercial et achève la transformation en prospection.\n\n**Périmètre commercial** : une pré-prospection hors du périmètre de l'appelant renvoie 404, comme partout ailleurs.",
         "operationId": "creerProspect",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant de la pré-prospection (ComProspection.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -1396,8 +1399,28 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Prospect créé et rattaché.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Cette prospection a déjà un prospect lié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune pré-prospection avec cet id, ou pré-prospection hors du périmètre commercial de l'appelant — les deux cas sont volontairement indiscernables. Également renvoyé (plutôt qu'un 400) lorsque l'identifiant fourni n'est pas un UUID valide.",
             "content": {
               "*/*": {
                 "schema": {
@@ -1585,7 +1608,7 @@
           "Dossiers"
         ],
         "summary": "Crée un dossier de vente à partir d'une prospection",
-        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant cet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté automatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient utilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\" d'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier (`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à l'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à cacher). Le projet est déduit du premier article via sa tranche.",
+        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant cet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté automatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient utilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\" d'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier (`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à l'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à cacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le prix **avant** remise et sert de base à la place du prix commercial de l'article ; les annexes (articles suivants de `articleIds`) s'y ajoutent ; la remise est appliquée sur ce total et se répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix commercial de l'article.",
         "operationId": "create_1",
         "requestBody": {
           "content": {
@@ -1609,7 +1632,7 @@
             }
           },
           "400": {
-            "description": "Prospection/article/mode de paiement introuvable, prospection sans prospect lié, article déjà occupé, ou `modePaieId`/`cin` manquant.",
+            "description": "Champ requis manquant (`prospectionId`, `articleIds`, `modePaieId`, `cin`), prospection/article/mode de paiement introuvable, prospection sans prospect lié, article déjà occupé, ou `remisePercent` hors de [0 ; 100].",
             "content": {
               "*/*": {
                 "schema": {
@@ -1624,6 +1647,162 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/reglements/{reglementId}/pieces-jointes": {
+      "get": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Liste les preuves de paiement d'un règlement",
+        "description": "Pièces jointes rattachées au règlement (`AdmAttachedFile.CategoryId = StlSettlement.PKey`), plus récente d'abord. Ce sont les justificatifs d'encaissement — chèques scannés, avis de virement, reçus : 452 règlements réels en portent déjà. C'est leur présence qui autorise le passage à `POINTED`. Liste vide si aucune pièce jointe.",
+        "operationId": "getPiecesJointesReglement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reglementId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des pièces jointes (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PieceJointeDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou règlement introuvable, ou règlement non rattaché à ce dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PieceJointeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Dépose une preuve de paiement sur un règlement",
+        "description": "Téléverse un justificatif (multipart/form-data) et l'associe au règlement. `description` est une légende libre (ex. \"Chèque BMCE n° 123\", \"Avis de virement\") ; si absente, le nom de fichier original est utilisé. `typeId` est facultatif et vaut `null` par défaut — les preuves de paiement réelles n'en portent aucune. `creePar` est déduit du token, jamais demandé au front.\n\nUne fois au moins une pièce déposée, le règlement peut passer à `POINTED` via `PATCH .../reglements/{reglementId}/statut`.",
+        "operationId": "uploadPieceJointeReglement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reglementId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "description": "Légende libre. Absent = nom de fichier original.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Type de document (AdmAttachedFileType.PKey). Absent = non renseigné, cas normal ici.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Contenu du fichier à déposer."
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Pièce jointe créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fichier absent ou vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou règlement introuvable, règlement non rattaché à ce dossier, ou `typeId` inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
                 }
               }
             }
@@ -1910,7 +2089,7 @@
           "Dossiers"
         ],
         "summary": "Enregistre un règlement sur une échéance",
-        "description": "Crée un `StlSettlement` + sa `StlSettlementLine` de rattachement à l'échéance `echeanceId`. `montant` est requis (400 sinon). Porte deux dates distinctes, confirmées sur données réelles — voir `CreerReglementRequest` : `dateEcheance` (\"date d'échéance\", quasi toujours renseignée, défaut à maintenant si absente) et `dateReglement` (\"date de règlement effectif\", encaissement réel — optionnelle, aucun défaut, quasi jamais connue à la saisie). `reference` (n° de chèque...) est requise dès que le type de règlement choisi a `TypeReglementDto.referenceObligatoire=true` (ex. CHÈQUE, EFFET) — 400 sinon. `payeurId` (\"réglé par\", peut différer de l'acquéreur principal) est optionnel, sans valeur par défaut.",
+        "description": "Crée un `StlSettlement` + sa `StlSettlementLine` de rattachement à l'échéance `echeanceId`. Le règlement naît toujours au statut `IN_WORK`.\n\n**Saisie complète obligatoire** (400 sur chaque manquement) : `montant` (strictement positif et au plus égal au reste à payer de l'échéance), `dateEcheance`, `typeId` et `payeurId`. `reference` (n° de chèque...) est requise dès que le type choisi a `TypeReglementDto.referenceObligatoire=true` (CHÈQUE, EFFET...) ; `banqueId` est requise dès que `TypeReglementDto.banqueObligatoire=true` — ce flag était annoncé mais pas appliqué jusqu'ici.\n\n`typeId` et `payeurId` sont exigés parce qu'ils alimentent le « Mode de versement » et le « Versement effectué par » de l'**autorisation d'encaissement**, à ouvrir juste après création via `GET /api/dossiers/{id}/reglements/{reglementId}/documents/autorisation-versement` (le `reglementId` est l'`id` renvoyé ici).\n\n`dateReglement` et `statut=POINTED` sont **refusés** (400) : pointer un règlement exige une preuve de paiement, impossible à fournir avant que le règlement existe. Pour saisir un règlement déjà encaissé, enchaîner : ce `POST`, puis `POST .../reglements/{reglementId}/pieces-jointes`, puis `PATCH .../reglements/{reglementId}/statut`.",
         "operationId": "addReglement",
         "parameters": [
           {
@@ -1944,7 +2123,7 @@
         },
         "responses": {
           "201": {
-            "description": "Règlement enregistré.",
+            "description": "Règlement enregistré, au statut `IN_WORK`.",
             "content": {
               "*/*": {
                 "schema": {
@@ -1954,7 +2133,7 @@
             }
           },
           "400": {
-            "description": "`montant` absent, ou `reference` absente alors que le type de règlement la requiert.",
+            "description": "Champ obligatoire absent (`montant`, `dateEcheance`, `typeId`, `payeurId`), montant négatif/nul ou dépassant le reste à payer, `reference`/`banqueId` absente alors que le type la requiert, ou `dateReglement`/`statut=POINTED` fournis.",
             "content": {
               "*/*": {
                 "schema": {
@@ -1982,7 +2161,7 @@
           "Dossiers"
         ],
         "summary": "Prévisualise le schéma de financement (étape avant création du dossier)",
-        "description": "Calcule le \"Schéma de financement\" (AUTO-FINANCEMENT / AVANCE / FRAIS SYNDIC) que `POST /api/dossiers` générerait pour ce(s) article(s) et ce prix, **sans rien créer ni persister** — ni dossier, ni échéance. Étape de simulation dans l'assistant de création : le front appelle cet endpoint à chaque changement de prix/article pour afficher le récapitulatif avant validation finale via `POST /api/dossiers`. `articleIds` accepte le même format que la création réelle (le premier article détermine la tranche — barème AVANCE/SYNDIC — et la vocation — catégorie d'échéance). Les articles n'ont pas besoin d'être DISPONIBLE ici : rien n'est réservé.",
+        "description": "Calcule le \"Schéma de financement\" (AUTO-FINANCEMENT / AVANCE / FRAIS SYNDIC) que `POST /api/dossiers` générerait pour ce(s) article(s) et ce prix, **sans rien créer ni persister** — ni dossier, ni échéance. Étape de simulation dans l'assistant de création : le front appelle cet endpoint à chaque changement de prix/article pour afficher le récapitulatif avant validation finale via `POST /api/dossiers`. `articleIds` accepte le même format que la création réelle (le premier article détermine la tranche — barème AVANCE/SYNDIC — et la vocation — catégorie d'échéance). Les articles n'ont pas besoin d'être DISPONIBLE ici : rien n'est réservé. Si `remisePercent` est fourni, AVANCE et AUTO-FINANCEMENT sont calculés sur le prix **après** remise (`prix` étant alors le prix avant remise, articles suivants comptés comme annexes) — mêmes montants que ceux que `POST /api/dossiers` persistera pour les mêmes paramètres. FRAIS SYNDIC ne dépend pas du prix (barème de la tranche) et n'est donc jamais remisé.",
         "operationId": "simulerSchemaFinancement",
         "requestBody": {
           "content": {
@@ -2006,7 +2185,7 @@
             }
           },
           "400": {
-            "description": "`articleIds` manquant/vide, `prix` manquant, ou un des articles est introuvable.",
+            "description": "`articleIds` manquant/vide, `prix` manquant, `remisePercent` hors de [0 ; 100], ou un des articles est introuvable.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2791,6 +2970,90 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/reglements/{reglementId}/statut": {
+      "patch": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Change le statut d'un règlement (pointage / annulation)",
+        "description": "Fait évoluer `StlSettlement.Status`. Transitions autorisées : `IN_WORK → POINTED` et `IN_WORK → CANCELED` — les deux cibles sont terminales, donc toute transition partant de `POINTED` ou `CANCELED` renvoie 409 avec la liste `transitionsAutorisees`.\n\n**Pointer exige une preuve de paiement** : au moins une pièce jointe doit être présente sur le règlement (409 sinon). Déposez-la d'abord via `POST /api/dossiers/{id}/reglements/{reglementId}/pieces-jointes`. Cette règle ne s'applique qu'**au moment de la transition** : les règlements legacy déjà pointés sans pièce jointe restent lisibles, et retirer une pièce jointe ne dépointe rien.\n\n`dateReglement` est **requise** pour `POINTED` (400 sinon) et écrit `StlSettlement.SettlementDate` : statut et date d'encaissement sont deux encodages du même fait et n'ont jamais divergé sur les 3 244 règlements réels. `CANCELED` laisse cette date à `null`.",
+        "operationId": "modifierStatutReglement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reglementId",
+            "in": "path",
+            "description": "Identifiant du règlement (StlSettlement.PKey), tel que renvoyé par `ReglementDto.id`.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierStatutReglementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Statut modifié ; le règlement à jour est renvoyé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`statut` absent ou inconnu, ou `dateReglement` absente alors que la cible est `POINTED`.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou règlement introuvable, ou règlement non rattaché à ce dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Transition interdite (corps : `transitionsAutorisees`), ou passage à `POINTED` sans aucune pièce jointe.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDto"
                 }
               }
             }
@@ -5241,6 +5504,53 @@
         }
       }
     },
+    "/api/dossiers/{id}/reglements/{reglementId}/pieces-jointes/{pieceId}/fichier": {
+      "get": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Télécharge une preuve de paiement",
+        "description": "**Renvoie une redirection `302` vers une URL présignée**, pas le contenu binaire : le fichier est stocké sur S3/MinIO et transite directement entre le client et le stockage, sans passer par le backend.\n\nL'URL signée est valable quelques minutes et vaut autorisation d'accès ; elle n'est délivrée qu'après vérification que le règlement appartient à ce dossier et que la pièce appartient à ce règlement.",
+        "operationId": "getFichierReglement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reglementId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pieceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirection vers l'URL présignée du fichier."
+          },
+          "404": {
+            "description": "Règlement non rattaché à ce dossier, pièce jointe introuvable pour ce règlement, ou aucun fichier stocké."
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/reglements/{reglementId}/documents/recu": {
       "get": {
         "tags": [
@@ -5356,6 +5666,8 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Télécharge une pièce jointe du dossier",
+        "description": "**Renvoie une redirection `302` vers une URL présignée**, pas le contenu binaire : le fichier est stocké sur S3/MinIO et transite directement entre le client et le stockage, sans passer par le backend.\n\nL'en-tête `Location` porte une URL signée, valable quelques minutes (`app.stockage.presign-minutes`), qui vaut autorisation d'accès : elle n'est délivrée qu'après vérification que la pièce appartient bien à ce dossier, et ne doit pas être journalisée ni partagée.\n\n`Content-Type` et `Content-Disposition` sont portés par la réponse du stockage, le nom de téléchargement reprenant la description de la pièce.",
         "operationId": "getFichier",
         "parameters": [
           {
@@ -5378,13 +5690,58 @@
           }
         ],
         "responses": {
+          "302": {
+            "description": "Redirection vers l'URL présignée du fichier."
+          },
+          "404": {
+            "description": "Dossier introuvable, pièce jointe introuvable pour ce dossier, ou aucun fichier stocké pour cette pièce."
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/payeurs": {
+      "get": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Payeurs possibles d'un règlement de ce dossier",
+        "description": "Alimente le champ « Réglé par » (`CreerReglementRequest.payeurId`, obligatoire) : l'acquéreur principal du dossier (`ComFolder.CfgCustomerId`, rôle `ACQUEREUR_PRINCIPAL`) suivi de ses co-acquéreurs (`ComFolderCustomer`, rôle `CO_ACQUEREUR`, avec leur quote-part). C'est la même liste que le bloc « Nom et prénom des clients » de l'autorisation d'encaissement.\n\n**Liste indicative, pas fermée** : sur 654 règlements réels portant un payeur, 651 sont l'acquéreur principal, 1 un co-acquéreur et 2 ni l'un ni l'autre (tiers payeur). La création n'exige donc pas que `payeurId` appartienne à cette liste, seulement que le tiers existe.\n\nListe vide si le dossier n'a aucun acquéreur rattaché.",
+        "operationId": "getPayeurs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
           "200": {
-            "description": "OK",
+            "description": "Payeurs possibles (peut être vide).",
             "content": {
               "*/*": {
                 "schema": {
-                  "type": "string",
-                  "format": "byte"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PayeurDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PayeurDto"
+                  }
                 }
               }
             }
@@ -6384,7 +6741,7 @@
           "Articles"
         ],
         "summary": "Télécharge/affiche une pièce jointe de l'article (ex. un plan)",
-        "description": "Retourne le contenu binaire brut de la pièce jointe, avec le content-type déduit de son extension stockée (`application/octet-stream` si extension inconnue/absente).",
+        "description": "**Renvoie une redirection `302` vers une URL présignée**, pas le contenu binaire : le fichier est stocké sur S3/MinIO et transite directement entre le client et le stockage, sans passer par le backend.\n\nL'URL signée est valable quelques minutes et vaut autorisation d'accès ; elle n'est délivrée qu'après vérification que la pièce appartient bien à cet article.",
         "operationId": "getFichier_1",
         "parameters": [
           {
@@ -6409,27 +6766,11 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Contenu du fichier.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
+          "302": {
+            "description": "Redirection vers l'URL présignée du fichier."
           },
           "404": {
-            "description": "Article introuvable, pièce jointe introuvable pour cet article, ou aucun fichier attaché.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
+            "description": "Article introuvable, pièce jointe introuvable pour cet article, ou aucun fichier stocké pour cette pièce."
           }
         }
       }
@@ -7978,7 +8319,14 @@
             }
           },
           "prix": {
-            "type": "number"
+            "type": "number",
+            "description": "Prix de vente TTC. **Avec `remisePercent`** : prix AVANT remise (remplace le prix commercial de l'article principal comme base de calcul, même rôle que le `prix` d'une Offre) — le prix réellement dû est recalculé en appliquant la remise. **Sans `remisePercent`** (mode historique) : prix négocié APRÈS remise, et la remise est alors déduite de l'écart avec le prix commercial de l'article. Optionnel : sans lui, aucun montant n'est calculé et aucun schéma de financement n'est généré.",
+            "example": 1000000
+          },
+          "remisePercent": {
+            "type": "number",
+            "description": "Remise commerciale en pourcentage (0 à 100), saisie par le commercial. Optionnel. Fournie ⇒ elle est appliquée telle quelle sur le prix avant remise (article principal + annexes) et se répercute sur `prixApresRemise`, `totalAPayer` **et** sur le schéma de financement généré (AVANCE / AUTO-FINANCEMENT calculés sur le prix après remise). Absente ⇒ comportement historique inchangé, la remise est déduite du prix négocié.",
+            "example": 10
           },
           "notes": {
             "type": "string"
@@ -8223,43 +8571,59 @@
         "properties": {
           "montant": {
             "type": "number",
-            "description": "Montant du règlement.",
+            "description": "Montant du règlement. **Requis**, strictement positif, et au plus égal au reste à payer de l'échéance (400 sinon — le message indique le reste disponible).",
             "example": 50000
           },
           "dateEcheance": {
             "type": "string",
             "format": "date-time",
-            "description": "Date d'échéance du règlement (StlSettlement.EcheanceDate) — défaut : maintenant, si absent."
-          },
-          "dateReglement": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de règlement effectif (StlSettlement.SettlementDate) — encaissement réel/valeur bancaire, renseignée a posteriori. Optionnelle, aucune valeur par défaut (rarement connue à la saisie)."
+            "description": "Date d'échéance du règlement (`StlSettlement.EcheanceDate`). **Requise** — il n'y a plus de valeur par défaut."
           },
           "typeId": {
             "type": "string",
             "format": "uuid",
-            "description": "Type de règlement (StlSettlementType.PKey) — voir GET /api/referentiels/types-reglement."
+            "description": "Type de règlement (`StlSettlementType.PKey`) — voir `GET /api/referentiels/types-reglement`. **Requis** : alimente le « Mode de versement » de l'autorisation d'encaissement."
           },
           "banqueId": {
             "type": "string",
             "format": "uuid",
-            "description": "Banque (CfgTier.PKey, type BAN) — voir GET /api/referentiels/banques. Pertinent seulement si le type le requiert (TypeReglementDto.banqueObligatoire)."
+            "description": "Banque (`CfgTier.PKey`, type BAN) — voir `GET /api/referentiels/banques`. **Requise si** le type choisi a `banqueObligatoire = true` (400 sinon) ; facultative pour les autres types, typiquement ESPÈCES."
           },
           "reference": {
             "type": "string",
-            "description": "Référence du règlement (StlSettlement.Code) — n° de chèque, de virement... Requise si TypeReglementDto.referenceObligatoire est vrai pour le type choisi (400 sinon).",
+            "description": "Référence du règlement (`StlSettlement.Code`) — n° de chèque, de virement... **Requise si** le type choisi a `referenceObligatoire = true` (400 sinon), c'est-à-dire pour CHÈQUE / CHEQUE NOTAIRE / SYNDIC / BANQUE / CERTIFIÉ / EFFET ; libre pour ESPÈCES.",
             "example": "CHQ-000123"
           },
           "payeurId": {
             "type": "string",
             "format": "uuid",
-            "description": "Tiers ayant effectivement réglé (StlSettlement.TierId) — \"réglé par\", peut différer de l'acquéreur principal (co-acquéreur, tiers payeur...). Confirmé quasi toujours renseigné en données réelles (>99%). Optionnel : reste null si absent, pas de valeur par défaut (pas de tiers \"acquéreur principal\" implicite côté serveur)."
+            "description": "Tiers ayant effectivement réglé (`StlSettlement.TierId`) — « réglé par », peut différer de l'acquéreur principal (co-acquéreur, tiers payeur...). **Requis** : alimente le bloc « Versement effectué par » de l'autorisation d'encaissement. Confirmé renseigné sur >99% des règlements réels."
           },
           "notes": {
-            "type": "string"
+            "type": "string",
+            "description": "Commentaire libre. Facultatif."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Statut à la création. Seul `IN_WORK` est accepté (ou l'absence de valeur, équivalente). **`POINTED` est refusé (400)** : pointer un règlement exige une preuve de paiement, or aucune pièce jointe ne peut exister avant que le règlement existe. Le parcours « saisir directement en pointé » s'obtient en enchaînant trois appels : créer ici, déposer la preuve sur `POST .../reglements/{reglementId}/pieces-jointes`, puis `PATCH .../reglements/{reglementId}/statut`.",
+            "enum": [
+              "IN_WORK"
+            ],
+            "example": "IN_WORK"
+          },
+          "dateReglement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "**Refusée à la création** (400 si fournie) — voir la description de cette requête. Se renseigne au passage à `POINTED`.",
+            "readOnly": true
           }
-        }
+        },
+        "required": [
+          "dateEcheance",
+          "montant",
+          "payeurId",
+          "typeId"
+        ]
       },
       "ReglementDto": {
         "type": "object",
@@ -8316,6 +8680,9 @@
           },
           "notes": {
             "type": "string"
+          },
+          "statut": {
+            "type": "string"
           }
         }
       },
@@ -8330,7 +8697,14 @@
             }
           },
           "prix": {
-            "type": "number"
+            "type": "number",
+            "description": "Prix de vente TTC envisagé. Avec `remisePercent` : prix AVANT remise. Sans `remisePercent` : prix négocié, utilisé tel quel. Obligatoire.",
+            "example": 1000000
+          },
+          "remisePercent": {
+            "type": "number",
+            "description": "Remise commerciale en % (0 à 100), optionnelle. Fournie ⇒ le schéma est calculé sur le prix APRÈS remise (article principal + annexes − remise), exactement comme le fera `POST /api/dossiers` avec les mêmes paramètres.",
+            "example": 10
           }
         }
       },
@@ -8630,6 +9004,27 @@
           },
           "note": {
             "type": "string"
+          }
+        }
+      },
+      "ModifierStatutReglementRequest": {
+        "type": "object",
+        "description": "Changement de statut d'un règlement.",
+        "properties": {
+          "statut": {
+            "type": "string",
+            "description": "Statut cible. Valeurs acceptées : `POINTED` (encaissement constaté) ou `CANCELED` (règlement annulé). Depuis `IN_WORK` uniquement — les deux états sont terminaux, donc toute transition partant de `POINTED` ou `CANCELED` renvoie 409.",
+            "enum": [
+              "POINTED",
+              "CANCELED"
+            ],
+            "example": "POINTED"
+          },
+          "dateReglement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'encaissement effectif (`StlSettlement.SettlementDate`). **Requise** pour `POINTED`, ignorée pour `CANCELED` (qui laisse la colonne à `null`, conformément aux données réelles).",
+            "example": "2026-09-01T10:00:00"
           }
         }
       },
@@ -10094,6 +10489,39 @@
           },
           "confiance": {
             "type": "string"
+          }
+        }
+      },
+      "PayeurDto": {
+        "type": "object",
+        "description": "Payeur possible d'un règlement : acquéreur principal ou co-acquéreur du dossier.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "`CfgTier.PKey` — à envoyer tel quel comme `payeurId` à `POST /api/dossiers/{id}/echeancier/{echeanceId}/reglements`."
+          },
+          "nom": {
+            "type": "string",
+            "description": "Nom d'affichage du tiers.",
+            "example": "Fouad EL IHFADI"
+          },
+          "role": {
+            "type": "string",
+            "description": "Rôle sur ce dossier. `ACQUEREUR_PRINCIPAL` (`ComFolder.CfgCustomerId`, au plus un) ou `CO_ACQUEREUR` (`ComFolderCustomer`).",
+            "enum": [
+              "ACQUEREUR_PRINCIPAL",
+              "CO_ACQUEREUR"
+            ]
+          },
+          "pieceIdentite": {
+            "type": "string",
+            "description": "Pièce d'identité, au même format que sur l'« Autorisation d'encaissement » (`CIN: E400556`) — utile pour distinguer deux homonymes dans une liste déroulante. `null` si ni le type ni le numéro ne sont renseignés.",
+            "example": "CIN: E400556"
+          },
+          "quotePart": {
+            "type": "number",
+            "description": "Quote-part du co-acquéreur en pourcentage (`ComFolderCustomer.PartPercent`). Toujours `null` pour l'acquéreur principal, qui n'a pas de ligne `ComFolderCustomer`."
           }
         }
       },

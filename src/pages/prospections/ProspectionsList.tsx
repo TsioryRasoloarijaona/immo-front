@@ -70,12 +70,13 @@ export default function ProspectionsList() {
       filters.ouvertes,
       page,
     ],
+    'prospections',
   );
   const rows = data?.content ?? [];
 
   // Aggregate fetches for the filter dropdowns — independent of the
   // prospections query above.
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), []);
+  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
   const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   // `origine` on ProspectionListItemDto stores the référentiel *code*, not
   // necessarily `description` — same code/description mismatch as tier-types

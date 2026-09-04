@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Folder, Home } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Eye, FileText, Folder, Home } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { downloadArticlePieceJointe, getArticle, getDossier, listArticlePiecesJointes, viewArticlePieceJointe } from '../../lib/api';
+import { getArticle, getDossier, listArticlePiecesJointes, openArticlePieceJointeFichier } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { formatCurrency, formatDate, formatPercent } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
@@ -14,23 +14,21 @@ import type { PieceJointeDto } from '../../types';
 
 /** Read-only counterpart of `PieceJointeRow` in `DossierDetail.tsx` — same
  * row shape (Fichier/Déposé par/Type/Date/Actions), but no upload endpoint
- * exists for articles, so no add-row/delete affordance, view+download only. */
+ * exists for articles, so no add-row/delete affordance — and a single open
+ * action rather than a view/download pair, for the reason spelled out on
+ * `PieceJointeRow`. */
 function ArticlePieceJointeRow({ articleId, piece }: { articleId: string; piece: PieceJointeDto }) {
-  const [busyAction, setBusyAction] = useState<'view' | 'download' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ext = piece.extension?.replace(/^\./, '') || '';
   const filename = `${piece.description || 'document'}${ext ? `.${ext}` : ''}`;
 
-  async function handle(action: 'view' | 'download') {
-    setBusyAction(action);
+  // Cf. PieceJointeRow (DossierDetail) : navigation vers le stockage.
+  function handle() {
     setError(null);
     try {
-      if (action === 'view') await viewArticlePieceJointe(articleId, piece.id, piece.extension);
-      else await downloadArticlePieceJointe(articleId, piece.id, filename, piece.extension);
+      openArticlePieceJointeFichier(articleId, piece.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de l'opération.");
-    } finally {
-      setBusyAction(null);
     }
   }
 
@@ -50,11 +48,8 @@ function ArticlePieceJointeRow({ articleId, piece }: { articleId: string; piece:
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
           {error && <span className="text-micro text-destructive">{error}</span>}
-          <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
-            <Eye data-icon="inline-start" /> {busyAction === 'view' ? 'Ouverture…' : 'Voir'}
-          </Button>
-          <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('download')}>
-            <Download data-icon="inline-start" /> {busyAction === 'download' ? 'Téléchargement…' : 'Télécharger'}
+          <Button type="button" variant="ghost" size="sm" onClick={handle}>
+            <Eye data-icon="inline-start" /> Ouvrir <ArrowUpRight data-icon="inline-end" />
           </Button>
         </div>
       </TableCell>

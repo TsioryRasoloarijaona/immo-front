@@ -5509,8 +5509,8 @@
         "tags": [
           "Dossiers"
         ],
-        "summary": "Télécharge une preuve de paiement",
-        "description": "Renvoie le contenu binaire de la pièce jointe, avec le `Content-Type` déduit de son extension (PDF et images en pratique).",
+        "summary": "Affiche ou télécharge une preuve de paiement",
+        "description": "**Renvoie une redirection `302` vers une URL présignée**, pas le contenu binaire : le fichier est stocké sur S3/MinIO et transite directement entre le client et le stockage, sans passer par le backend.\n\nL'URL signée est valable quelques minutes et vaut autorisation d'accès ; elle n'est délivrée qu'après vérification que le règlement appartient à ce dossier et que la pièce appartient à ce règlement.\n\n**La disposition est `inline`** : le chèque ou l'avis de virement s'affiche dans un onglet ou une visionneuse sans être téléchargé. Le nom proposé reprend la description de la pièce.",
         "operationId": "getFichierReglement",
         "parameters": [
           {
@@ -5542,27 +5542,11 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Contenu du fichier.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
+          "302": {
+            "description": "Redirection vers l'URL présignée du fichier."
           },
           "404": {
-            "description": "Pièce jointe introuvable pour ce règlement, ou sans fichier attaché.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
+            "description": "Règlement non rattaché à ce dossier, pièce jointe introuvable pour ce règlement, ou aucun fichier stocké."
           }
         }
       }
@@ -5682,6 +5666,8 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Affiche ou télécharge une pièce jointe du dossier",
+        "description": "**Renvoie une redirection `302` vers une URL présignée**, pas le contenu binaire : le fichier est stocké sur S3/MinIO et transite directement entre le client et le stockage, sans passer par le backend.\n\nL'en-tête `Location` porte une URL signée, valable quelques minutes (`app.stockage.presign-minutes`), qui vaut autorisation d'accès : elle n'est délivrée qu'après vérification que la pièce appartient bien à ce dossier, et ne doit pas être journalisée ni partagée.\n\n`Content-Type` et `Content-Disposition` sont portés par la réponse du stockage. **La disposition est `inline`** : les PDF et les images s'affichent dans un onglet ou une visionneuse sans être téléchargés ; les types que le navigateur ne sait pas rendre (`.docx`, `.xlsx`) retombent d'eux-mêmes sur le téléchargement. Le nom proposé reprend la description de la pièce.",
         "operationId": "getFichier",
         "parameters": [
           {
@@ -5704,16 +5690,11 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
+          "302": {
+            "description": "Redirection vers l'URL présignée du fichier."
+          },
+          "404": {
+            "description": "Dossier introuvable, pièce jointe introuvable pour ce dossier, ou aucun fichier stocké pour cette pièce."
           }
         }
       }
@@ -6759,8 +6740,8 @@
         "tags": [
           "Articles"
         ],
-        "summary": "Télécharge/affiche une pièce jointe de l'article (ex. un plan)",
-        "description": "Retourne le contenu binaire brut de la pièce jointe, avec le content-type déduit de son extension stockée (`application/octet-stream` si extension inconnue/absente).",
+        "summary": "Affiche ou télécharge une pièce jointe de l'article (ex. un plan)",
+        "description": "**Renvoie une redirection `302` vers une URL présignée**, pas le contenu binaire : le fichier est stocké sur S3/MinIO et transite directement entre le client et le stockage, sans passer par le backend.\n\nL'URL signée est valable quelques minutes et vaut autorisation d'accès ; elle n'est délivrée qu'après vérification que la pièce appartient bien à cet article.\n\n**La disposition est `inline`** : le plan s'affiche dans un onglet ou une visionneuse sans être téléchargé, ce qui est l'usage courant ici. Le nom proposé reprend la description de la pièce.",
         "operationId": "getFichier_1",
         "parameters": [
           {
@@ -6785,27 +6766,11 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Contenu du fichier.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
+          "302": {
+            "description": "Redirection vers l'URL présignée du fichier."
           },
           "404": {
-            "description": "Article introuvable, pièce jointe introuvable pour cet article, ou aucun fichier attaché.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
+            "description": "Article introuvable, pièce jointe introuvable pour cet article, ou aucun fichier stocké pour cette pièce."
           }
         }
       }

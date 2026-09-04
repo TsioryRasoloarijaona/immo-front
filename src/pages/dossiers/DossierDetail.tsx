@@ -39,8 +39,7 @@ import {
   listReglementPiecesJointes,
   modifierStatutReglement,
   uploadReglementPieceJointe,
-  downloadReglementPieceJointe,
-  viewReglementPieceJointe,
+  openReglementPieceJointeFichier,
   changerStatutDossier,
   getArticle,
   getClient,
@@ -53,7 +52,6 @@ import {
   downloadAutorisationVersement,
   downloadFicheReservation,
   downloadDossierPdfOnlyDocument,
-  downloadPieceJointe,
   downloadRecuReglement,
   getEtapesSuivantes,
   listHistoriqueDossier,
@@ -63,7 +61,7 @@ import {
   viewAutorisationVersement,
   viewFicheReservation,
   viewDossierPdfOnlyDocument,
-  viewPieceJointe,
+  openPieceJointeFichier,
   viewRecuReglement,
   type DossierPdfOnlyDocKind,
 } from '../../lib/api';
@@ -170,21 +168,25 @@ function AddEcheanceRow({
 }
 
 function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJointeDto }) {
-  const [busyAction, setBusyAction] = useState<'view' | 'download' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ext = piece.extension?.replace(/^\./, '') || '';
   const filename = `${piece.description || 'document'}${ext ? `.${ext}` : ''}`;
 
-  async function handle(action: 'view' | 'download') {
-    setBusyAction(action);
+  // Une simple ouverture d'onglet : le fichier vit sur le stockage, pas
+  // derrière un fetch. Rien d'asynchrone, donc pas d'état « en cours ».
+  //
+  // Une seule action, et pas la paire « Voir / Télécharger » : l'URL présignée
+  // est servie en `Content-Disposition: inline` (cf. `docs/api-docsV4.json`).
+  // Les PDF et images s'affichent donc dans l'onglet, et les types que le
+  // navigateur ne sait pas rendre (.docx, .xlsx) se téléchargent seuls — un
+  // bouton « Télécharger » ferait exactement la même chose en mentant.
+  // Le différencier demanderait un paramètre `download` côté API.
+  function handle() {
     setError(null);
     try {
-      if (action === 'view') await viewPieceJointe(dossierId, piece.id, piece.extension);
-      else await downloadPieceJointe(dossierId, piece.id, filename, piece.extension);
+      openPieceJointeFichier(dossierId, piece.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Échec de l\'opération.');
-    } finally {
-      setBusyAction(null);
     }
   }
 
@@ -204,11 +206,8 @@ function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJ
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
           {error && <span className="text-micro text-destructive">{error}</span>}
-          <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('view')}>
-            <Eye data-icon="inline-start" /> {busyAction === 'view' ? 'Ouverture…' : 'Voir'}
-          </Button>
-          <Button type="button" variant="ghost" size="sm" disabled={!!busyAction} onClick={() => handle('download')}>
-            <Download data-icon="inline-start" /> {busyAction === 'download' ? 'Téléchargement…' : 'Télécharger'}
+          <Button type="button" variant="ghost" size="sm" onClick={handle}>
+            <Eye data-icon="inline-start" /> Ouvrir <ArrowUpRight data-icon="inline-end" />
           </Button>
         </div>
       </TableCell>
@@ -909,21 +908,17 @@ function ReglementPieceJointeRow({
   reglementId: string;
   piece: PieceJointeDto;
 }) {
-  const [busy, setBusy] = useState<'view' | 'download' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ext = piece.extension?.replace(/^\./, '') || '';
   const filename = `${piece.description || 'preuve-paiement'}${ext ? `.${ext}` : ''}`;
 
-  async function handle(action: 'view' | 'download') {
-    setBusy(action);
+  // Cf. PieceJointeRow : navigation vers le stockage, rien d'asynchrone.
+  function handle() {
     setError(null);
     try {
-      if (action === 'view') await viewReglementPieceJointe(dossierId, reglementId, piece.id, piece.extension);
-      else await downloadReglementPieceJointe(dossierId, reglementId, piece.id, filename, piece.extension);
+      openReglementPieceJointeFichier(dossierId, reglementId, piece.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de l'opération.");
-    } finally {
-      setBusy(null);
     }
   }
 
@@ -935,11 +930,8 @@ function ReglementPieceJointeRow({
       {piece.creePar && <span className="shrink-0 text-muted-foreground">{piece.creePar}</span>}
       {error && <span className="shrink-0 text-destructive">{error}</span>}
       <span className="ml-auto flex shrink-0 items-center gap-0.5">
-        <Button type="button" variant="ghost" size="icon-xs" title="Voir la preuve" disabled={!!busy} onClick={() => handle('view')}>
+        <Button type="button" variant="ghost" size="icon-xs" title="Ouvrir la preuve dans un onglet" onClick={handle}>
           <Eye />
-        </Button>
-        <Button type="button" variant="ghost" size="icon-xs" title="Télécharger la preuve" disabled={!!busy} onClick={() => handle('download')}>
-          <Download />
         </Button>
       </span>
     </div>
@@ -1281,16 +1273,16 @@ function EcheanceRow({
 
 export default function DossierDetail() {
   const { id } = useParams();
-  const { data: d, loading, error, refetch } = useApi(() => getDossier(id!), [id]);
+  const { data: d, loading, error, refetch } = useApi(() => getDossier(id!), [id], 'dossier');
   // Cascade reference up to the originating Prospection — same
   // reference-the-previous-pipeline-stage convention as Prospection's own
   // "Prospect" tab. `prospectionId` isn't in the API yet (see the field's
   // comment in types.ts); this stays dormant (tab hidden) until it is.
-  const linkedProspection = useApi(() => (d?.prospectionId ? getProspection(d.prospectionId) : Promise.resolve(null)), [d?.prospectionId]);
+  const linkedProspection = useApi(() => (d?.prospectionId ? getProspection(d.prospectionId) : Promise.resolve(null)), [d?.prospectionId], 'dossier-prospection');
   // Full contact details for the "Client" card — DossierDetailDto only
   // carries clientId/clientNom, same reason the Prospection/Prospect
   // cascade tabs needed their own fetch.
-  const linkedClient = useApi(() => (d?.clientId ? getClient(d.clientId) : Promise.resolve(null)), [d?.clientId]);
+  const linkedClient = useApi(() => (d?.clientId ? getClient(d.clientId) : Promise.resolve(null)), [d?.clientId], 'dossier-client');
   // Full article detail (catégorie/type/tranche/superficie/titre foncier/…)
   // for "Article(s) réservé(s)" — DossierDetailDto.articles is only the
   // summary shape (id/code/description/area/price), same gap as
@@ -1299,15 +1291,16 @@ export default function DossierDetail() {
   const articleDetails = useApi(
     () => (d?.articles && d.articles.length > 0 ? Promise.all(d.articles.map((a) => getArticle(a.id))) : Promise.resolve([])),
     [articleIds],
+    'dossier-articles',
   );
-  const nextSteps = useApi(() => getEtapesSuivantes(id!), [id]);
-  const montants = useApi(() => getMontantsDossier(id!), [id]);
+  const nextSteps = useApi(() => getEtapesSuivantes(id!), [id], 'dossier-etapes');
+  const montants = useApi(() => getMontantsDossier(id!), [id], 'dossier-montants');
   const [echeancesPage, setEcheancesPage] = useState(0);
-  const echeances = useApi(() => listEcheances(id!, { page: echeancesPage, size: 20 }), [id, echeancesPage]);
-  const pieces = useApi(() => listPiecesJointes(id!), [id]);
+  const echeances = useApi(() => listEcheances(id!, { page: echeancesPage, size: 20 }), [id, echeancesPage], 'dossier-echeances');
+  const pieces = useApi(() => listPiecesJointes(id!), [id], 'dossier-pieces');
   const [addPieceOpen, setAddPieceOpen] = useState(false);
   const [historiquePage, setHistoriquePage] = useState(0);
-  const historique = useApi(() => listHistoriqueDossier(id!, { page: historiquePage, size: 20 }), [id, historiquePage]);
+  const historique = useApi(() => listHistoriqueDossier(id!, { page: historiquePage, size: 20 }), [id, historiquePage], 'dossier-historique');
   const navigate = useNavigate();
   const [toast, setToast] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
@@ -1323,7 +1316,9 @@ export default function DossierDetail() {
     setTimeout(() => setToast(null), 3600);
   }
 
-  if (loading) return <PageShell title="Dossier de vente"><LoadingState /></PageShell>;
+  // `!d` : avec une valeur en cache (cf. `useApi(..., 'dossier')`), on repeint
+  // le dossier connu et la revalidation se fait en fond, sans écran de chargement.
+  if (loading && !d) return <PageShell title="Dossier de vente"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Dossier de vente"><ErrorState message={error} /></PageShell>;
   if (!d) {
     return (
@@ -1422,7 +1417,7 @@ export default function DossierDetail() {
                   )
                 }
               >
-                {linkedClient.loading && <LoadingState />}
+                {linkedClient.loading && !linkedClient.data && <LoadingState />}
                 {linkedClient.error && <ErrorState message={linkedClient.error} />}
                 <FieldGrid>
                   <Field label="Nom" value={d.clientNom} />
@@ -1443,7 +1438,7 @@ export default function DossierDetail() {
               <Card title={`Article(s) réservé(s) (${d.articles?.length ?? 0})`}>
                 {!d.articles || d.articles.length === 0 ? (
                   <p className="text-label text-muted-foreground">Aucun article lié.</p>
-                ) : articleDetails.loading ? (
+                ) : articleDetails.loading && !articleDetails.data ? (
                   <LoadingState />
                 ) : articleDetails.error ? (
                   <ErrorState message={articleDetails.error} />
@@ -1481,7 +1476,7 @@ export default function DossierDetail() {
                 </Link>
               }
             >
-              {linkedProspection.loading && <LoadingState />}
+              {linkedProspection.loading && !linkedProspection.data && <LoadingState />}
               {linkedProspection.error && <ErrorState message={linkedProspection.error} />}
               {linkedProspection.data && (
                 <FieldGrid>
@@ -1584,7 +1579,7 @@ export default function DossierDetail() {
                 />
               }
             >
-              {echeances.loading && <LoadingState />}
+              {echeances.loading && !echeances.data && <LoadingState />}
               {echeances.error && <ErrorState message={echeances.error} />}
               {echeances.data && echeances.data.content.length === 0 && (
                 <p className="text-label text-muted-foreground">Aucune ligne dans le schéma de financement pour ce dossier.</p>
@@ -1659,7 +1654,7 @@ export default function DossierDetail() {
               )
             }
           >
-            {pieces.loading && <LoadingState />}
+            {pieces.loading && !pieces.data && <LoadingState />}
             {pieces.error && <ErrorState message={pieces.error} />}
             <AddPieceJointeRow
               dossierId={d.id}
@@ -1699,7 +1694,7 @@ export default function DossierDetail() {
 
         <TabsContent value="historique">
           <Card title="Historique">
-            {historique.loading && <LoadingState />}
+            {historique.loading && !historique.data && <LoadingState />}
             {historique.error && <ErrorState message={historique.error} />}
             {historique.data && historique.data.content.length === 0 && (
               <EmptyState title="Aucun historique" message="Aucun événement n'a encore été enregistré pour ce dossier." />
