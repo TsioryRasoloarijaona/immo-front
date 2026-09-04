@@ -5510,7 +5510,7 @@
           "Dossiers"
         ],
         "summary": "Télécharge une preuve de paiement",
-        "description": "Renvoie le contenu binaire de la pièce jointe, avec le `Content-Type` déduit de son extension (PDF et images en pratique).",
+        "description": "**Renvoie une redirection `302` vers une URL présignée**, pas le contenu binaire : le fichier est stocké sur S3/MinIO et transite directement entre le client et le stockage, sans passer par le backend.\n\nL'URL signée est valable quelques minutes et vaut autorisation d'accès ; elle n'est délivrée qu'après vérification que le règlement appartient à ce dossier et que la pièce appartient à ce règlement.",
         "operationId": "getFichierReglement",
         "parameters": [
           {
@@ -5542,27 +5542,11 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Contenu du fichier.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
+          "302": {
+            "description": "Redirection vers l'URL présignée du fichier."
           },
           "404": {
-            "description": "Pièce jointe introuvable pour ce règlement, ou sans fichier attaché.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
+            "description": "Règlement non rattaché à ce dossier, pièce jointe introuvable pour ce règlement, ou aucun fichier stocké."
           }
         }
       }
@@ -5682,6 +5666,8 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Télécharge une pièce jointe du dossier",
+        "description": "**Renvoie une redirection `302` vers une URL présignée**, pas le contenu binaire : le fichier est stocké sur S3/MinIO et transite directement entre le client et le stockage, sans passer par le backend.\n\nL'en-tête `Location` porte une URL signée, valable quelques minutes (`app.stockage.presign-minutes`), qui vaut autorisation d'accès : elle n'est délivrée qu'après vérification que la pièce appartient bien à ce dossier, et ne doit pas être journalisée ni partagée.\n\n`Content-Type` et `Content-Disposition` sont portés par la réponse du stockage, le nom de téléchargement reprenant la description de la pièce.",
         "operationId": "getFichier",
         "parameters": [
           {
@@ -5704,16 +5690,11 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
+          "302": {
+            "description": "Redirection vers l'URL présignée du fichier."
+          },
+          "404": {
+            "description": "Dossier introuvable, pièce jointe introuvable pour ce dossier, ou aucun fichier stocké pour cette pièce."
           }
         }
       }
@@ -6760,7 +6741,7 @@
           "Articles"
         ],
         "summary": "Télécharge/affiche une pièce jointe de l'article (ex. un plan)",
-        "description": "Retourne le contenu binaire brut de la pièce jointe, avec le content-type déduit de son extension stockée (`application/octet-stream` si extension inconnue/absente).",
+        "description": "**Renvoie une redirection `302` vers une URL présignée**, pas le contenu binaire : le fichier est stocké sur S3/MinIO et transite directement entre le client et le stockage, sans passer par le backend.\n\nL'URL signée est valable quelques minutes et vaut autorisation d'accès ; elle n'est délivrée qu'après vérification que la pièce appartient bien à cet article.",
         "operationId": "getFichier_1",
         "parameters": [
           {
@@ -6785,27 +6766,11 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "Contenu du fichier.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
+          "302": {
+            "description": "Redirection vers l'URL présignée du fichier."
           },
           "404": {
-            "description": "Article introuvable, pièce jointe introuvable pour cet article, ou aucun fichier attaché.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "string",
-                  "format": "byte"
-                }
-              }
-            }
+            "description": "Article introuvable, pièce jointe introuvable pour cet article, ou aucun fichier stocké pour cette pièce."
           }
         }
       }

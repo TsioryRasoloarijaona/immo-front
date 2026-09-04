@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Folder, Home } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Eye, FileText, Folder, Home } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
@@ -14,7 +14,9 @@ import type { PieceJointeDto } from '../../types';
 
 /** Read-only counterpart of `PieceJointeRow` in `DossierDetail.tsx` — same
  * row shape (Fichier/Déposé par/Type/Date/Actions), but no upload endpoint
- * exists for articles, so no add-row/delete affordance, view+download only. */
+ * exists for articles, so no add-row/delete affordance — and a single open
+ * action rather than a view/download pair, for the reason spelled out on
+ * `PieceJointeRow`. */
 function ArticlePieceJointeRow({ articleId, piece }: { articleId: string; piece: PieceJointeDto }) {
   const [error, setError] = useState<string | null>(null);
   const ext = piece.extension?.replace(/^\./, '') || '';
@@ -47,10 +49,7 @@ function ArticlePieceJointeRow({ articleId, piece }: { articleId: string; piece:
         <div className="flex items-center justify-end gap-1">
           {error && <span className="text-micro text-destructive">{error}</span>}
           <Button type="button" variant="ghost" size="sm" onClick={handle}>
-            <Eye data-icon="inline-start" /> Voir
-          </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={handle}>
-            <Download data-icon="inline-start" /> Télécharger
+            <Eye data-icon="inline-start" /> Ouvrir <ArrowUpRight data-icon="inline-end" />
           </Button>
         </div>
       </TableCell>

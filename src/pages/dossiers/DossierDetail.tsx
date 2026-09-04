@@ -174,6 +174,13 @@ function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJ
 
   // Une simple ouverture d'onglet : le fichier vit sur le stockage, pas
   // derrière un fetch. Rien d'asynchrone, donc pas d'état « en cours ».
+  //
+  // Une seule action, et pas la paire « Voir / Télécharger » : l'URL présignée
+  // est servie en `Content-Disposition: inline` (cf. `docs/api-docsV4.json`).
+  // Les PDF et images s'affichent donc dans l'onglet, et les types que le
+  // navigateur ne sait pas rendre (.docx, .xlsx) se téléchargent seuls — un
+  // bouton « Télécharger » ferait exactement la même chose en mentant.
+  // Le différencier demanderait un paramètre `download` côté API.
   function handle() {
     setError(null);
     try {
@@ -200,10 +207,7 @@ function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJ
         <div className="flex items-center justify-end gap-1">
           {error && <span className="text-micro text-destructive">{error}</span>}
           <Button type="button" variant="ghost" size="sm" onClick={handle}>
-            <Eye data-icon="inline-start" /> Voir
-          </Button>
-          <Button type="button" variant="ghost" size="sm" onClick={handle}>
-            <Download data-icon="inline-start" /> Télécharger
+            <Eye data-icon="inline-start" /> Ouvrir <ArrowUpRight data-icon="inline-end" />
           </Button>
         </div>
       </TableCell>
@@ -926,11 +930,8 @@ function ReglementPieceJointeRow({
       {piece.creePar && <span className="shrink-0 text-muted-foreground">{piece.creePar}</span>}
       {error && <span className="shrink-0 text-destructive">{error}</span>}
       <span className="ml-auto flex shrink-0 items-center gap-0.5">
-        <Button type="button" variant="ghost" size="icon-xs" title="Voir la preuve" onClick={handle}>
+        <Button type="button" variant="ghost" size="icon-xs" title="Ouvrir la preuve dans un onglet" onClick={handle}>
           <Eye />
-        </Button>
-        <Button type="button" variant="ghost" size="icon-xs" title="Télécharger la preuve" onClick={handle}>
-          <Download />
         </Button>
       </span>
     </div>
