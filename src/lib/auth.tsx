@@ -5,6 +5,7 @@ import {
   completerProfil as apiCompleterProfil,
   connexion as apiConnexion,
   deconnexion as apiDeconnexion,
+  clearApiCache,
   getMonCompte,
 } from './api';
 import type { ChangerMotDePasseRequest, CompleterProfilRequest, ConnexionRequest, UtilisateurCourantDto } from '../types';
@@ -66,6 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // (see the endpoint's own doc note); just drop local state.
       if (!(err instanceof ApiError)) throw err;
     }
+    // Les caches GET (api.ts) et de valeurs (apiCache) vivent au niveau module,
+    // pas dans l'arbre React : la déconnexion ne rechargeant pas la page, sans
+    // vidage explicite les données du compte précédent survivraient à une
+    // reconnexion dans le même onglet. Le POST ci-dessus le fait déjà quand il
+    // réussit — mais on déconnecte aussi quand il échoue.
+    clearApiCache();
     setUser(null);
     setStatus('unauthenticated');
   }, []);

@@ -78,10 +78,11 @@ export default function PreProspectionsList() {
       filters.ouvertes,
       page,
     ],
+    'pre-prospections',
   );
   const rows = data?.content ?? [];
 
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), []);
+  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
   const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   // See ProspectionsList.tsx — filter on `code`, not `description`.
   const origineItems = origines.data.map((o) => ({ label: o.description || o.code || o.id, value: o.code || o.id }));

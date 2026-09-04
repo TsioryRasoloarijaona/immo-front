@@ -32,6 +32,7 @@ export default function ClientsList() {
   const { data, loading, error } = useApi(
     () => listClients({ search: debouncedSearch || undefined }, { page, size: DEFAULT_PAGE_SIZE }),
     [debouncedSearch, page],
+    'clients',
   );
   const rows = data?.content ?? [];
 

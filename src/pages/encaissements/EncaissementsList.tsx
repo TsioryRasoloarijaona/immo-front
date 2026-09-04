@@ -106,6 +106,7 @@ export default function EncaissementsList() {
         { page, size: DEFAULT_PAGE_SIZE },
       ),
     [debouncedSearch, reference, entiteId.join(','), typeId.join(','), etat.join(','), compteId, depotId, comptabilise, champDate, dateDebut, dateFin, montantDe, montantA, page],
+    'encaissements',
   );
   const rows = data?.content ?? [];
 

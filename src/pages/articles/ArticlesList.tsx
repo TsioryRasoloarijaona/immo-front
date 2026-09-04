@@ -158,6 +158,7 @@ export default function ArticlesList() {
       surfaceA,
       page,
     ],
+    'articles',
   );
   const rows = data?.content ?? [];
 

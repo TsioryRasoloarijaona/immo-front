@@ -189,21 +189,21 @@ export default function ProspectionDetail() {
   // of the plain black-on-white the monochrome --brand would otherwise
   // give every page.
   const sectionAccent = isPreRoute ? 'var(--sec-preprospection)' : 'var(--sec-prospection)';
-  const { data: p, loading, error, refetch } = useApi(() => getProspection(id!), [id]);
+  const { data: p, loading, error, refetch } = useApi(() => getProspection(id!), [id], 'prospection');
   // Cascade reference down to the linked Prospect — same pipeline-chain
   // convention as Dossier's own "Prospection" reference: each stage links
   // to the one before it. Only fetched once the prospection actually
   // resolved to a prospect (unset while still a pré-prospection).
-  const linkedProspect = useApi(() => (p?.prospectId ? getProspect(p.prospectId) : Promise.resolve(null)), [p?.prospectId]);
+  const linkedProspect = useApi(() => (p?.prospectId ? getProspect(p.prospectId) : Promise.resolve(null)), [p?.prospectId], 'prospection-prospect');
   const [interactionsPage, setInteractionsPage] = useState(0);
-  const interactions = useApi(() => listInteractions(id!, { page: interactionsPage, size: 20 }), [id, interactionsPage]);
+  const interactions = useApi(() => listInteractions(id!, { page: interactionsPage, size: 20 }), [id, interactionsPage], 'prospection-interactions');
   // Parcours pré-prospect → prospect → prospection — GET
   // /api/prospections/{id}/historique, distinct from the interactions/
   // "Actions" timeline above: this one is the two transitions the API
   // writes automatically ("Prospect créé et lié", "Transformée en
   // prospection"), not manually-logged calls/visits/notes.
   const [parcoursPage, setParcoursPage] = useState(0);
-  const parcours = useApi(() => listProspectionHistorique(id!, { page: parcoursPage, size: 20 }), [id, parcoursPage]);
+  const parcours = useApi(() => listProspectionHistorique(id!, { page: parcoursPage, size: 20 }), [id, parcoursPage], 'prospection-parcours');
   const { commerciaux } = useAppData();
   const { user } = useAuth();
   // A commercial assigning themselves doesn't need the "pick a commercial"
@@ -236,18 +236,21 @@ export default function ProspectionDetail() {
   const supports = useApi(
     () => (infoForm?.origineId ? getSupportsForOrigine(infoForm.origineId) : Promise.resolve([])),
     [infoForm?.origineId],
+    'prospection-supports',
   );
 
-  const autresTranches = useApi(() => (id ? listProspectionAutresTranches(id) : Promise.resolve([])), [id]);
+  const autresTranches = useApi(() => (id ? listProspectionAutresTranches(id) : Promise.resolve([])), [id], 'prospection-autres-tranches');
   const [devisPage, setDevisPage] = useState(0);
-  const devis = useApi(() => listDevis(id!, { page: devisPage, size: 20 }), [id, devisPage]);
+  const devis = useApi(() => listDevis(id!, { page: devisPage, size: 20 }), [id, devisPage], 'prospection-devis');
 
   function showToast(msg: string) {
     setToast(msg);
     setTimeout(() => setToast(null), 3600);
   }
 
-  if (loading) return <PageShell title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><LoadingState /></PageShell>;
+  // `!p` : cf. DossierDetail — une prospection déjà vue se repeint depuis le
+  // cache, la revalidation restant invisible.
+  if (loading && !p) return <PageShell title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><LoadingState /></PageShell>;
   if (error) return <PageShell title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><ErrorState message={error} /></PageShell>;
   if (!p) {
     return (
@@ -728,7 +731,7 @@ export default function ProspectionDetail() {
                   </Link>
                 }
               >
-                {linkedProspect.loading && <LoadingState />}
+                {linkedProspect.loading && !linkedProspect.data && <LoadingState />}
                 {linkedProspect.error && <ErrorState message={linkedProspect.error} />}
                 {linkedProspect.data && (
                   <FieldGrid>
@@ -776,7 +779,7 @@ export default function ProspectionDetail() {
               />
 
               <Card title={`Offres (${devis.data?.totalElements ?? 0})`}>
-                {devis.loading && <LoadingState />}
+                {devis.loading && !devis.data && <LoadingState />}
                 {devis.error && <ErrorState message={devis.error} />}
                 {devis.data && devis.data.content.length === 0 && <EmptyState title="Aucune offre" message="Créez une offre ci-dessus pour en voir apparaître ici." />}
                 {devis.data && devis.data.content.length > 0 && (
@@ -796,7 +799,7 @@ export default function ProspectionDetail() {
           <TabsContent value="historique">
             <div className="flex flex-col gap-3">
               <Card title={`Parcours (${parcours.data?.totalElements ?? 0})`}>
-                {parcours.loading && <LoadingState />}
+                {parcours.loading && !parcours.data && <LoadingState />}
                 {parcours.error && <ErrorState message={parcours.error} />}
                 {parcours.data && parcours.data.content.length === 0 && (
                   <p className="text-label text-muted-foreground">
@@ -832,7 +835,7 @@ export default function ProspectionDetail() {
               </Card>
 
               <Card title={`Actions (${interactions.data?.totalElements ?? 0})`}>
-                {interactions.loading && <LoadingState />}
+                {interactions.loading && !interactions.data && <LoadingState />}
                 {interactions.error && <ErrorState message={interactions.error} />}
                 {interactions.data && interactions.data.content.length === 0 && (
                   <p className="text-label text-muted-foreground">Aucune action enregistrée pour cette prospection.</p>

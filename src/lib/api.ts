@@ -2,6 +2,7 @@
 // docs/api-docsV0.json. No more static JSON / mock mutation layer: every
 // function here issues an actual HTTP request.
 
+import { clearCachedValues } from './apiCache';
 import type {
   AffecterProjetsRequest,
   AjouterAutreTrancheRequest,
@@ -201,6 +202,7 @@ const getCache = new Map<string, CacheEntry>();
  * the cache automatically. */
 export function clearApiCache(): void {
   getCache.clear();
+  clearCachedValues();
 }
 
 async function request<T>(
@@ -223,7 +225,7 @@ async function request<T>(
   }
 
   const result = await performRequest<T>(method, url, opts);
-  getCache.clear();
+  clearApiCache();
   return result;
 }
 

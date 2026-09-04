@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from './api';
+import { readCachedValue, writeCachedValue } from './apiCache';
 
 /** Trailing-edge debounce for a value fed into a `useApi` dependency array.
  *
@@ -45,9 +46,30 @@ function errorMessage(err: unknown): string {
  * Runs `fetcher` whenever `deps` changes and exposes {data, loading, error}.
  * Ignores results from a stale in-flight call (e.g. deps changed again
  * before the first request resolved) and from calls made after unmount.
+ *
+ * `cacheKey` — nom logique de la requête (« dossiers », « prospection-devis »),
+ * pas une URL. Quand il est fourni, la dernière valeur obtenue est mémorisée
+ * dans `apiCache` sous cette clé + les dépendances, puis relue *pendant le
+ * premier rendu* du montage suivant. Revenir sur une page repeint donc
+ * immédiatement les données connues au lieu de repasser par `LoadingState`,
+ * la revalidation restant visible via `loading` (zone grisée par
+ * `ResultsRegion`). Sans clé : comportement d'origine, chaque montage repart
+ * de zéro.
  */
-export function useApi<T>(fetcher: () => Promise<T>, deps: React.DependencyList): ApiState<T> {
-  const [data, setData] = useState<T | null>(null);
+export function useApi<T>(
+  fetcher: () => Promise<T>,
+  deps: React.DependencyList,
+  cacheKey?: string,
+): ApiState<T> {
+  // Les dépendances font partie de la clé : une autre page ou un autre filtre
+  // sont d'autres requêtes. Rien n'est calculé quand aucune clé n'est donnée.
+  const key = cacheKey === undefined ? null : `${cacheKey}:${JSON.stringify(deps)}`;
+  const keyRef = useRef(key);
+  const [data, setData] = useState<T | null>(() => {
+    if (key === null) return null;
+    const cached = readCachedValue(key);
+    return cached.hit ? (cached.value as T) : null;
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const callId = useRef(0);
@@ -59,16 +81,25 @@ export function useApi<T>(fetcher: () => Promise<T>, deps: React.DependencyList)
   // deps-effect below fires (effects run in declaration order).
   useEffect(() => {
     fetcherRef.current = fetcher;
+    keyRef.current = key;
   });
 
   const run = useCallback(() => {
     const id = ++callId.current;
+    const activeKey = keyRef.current;
+    // Changement de dépendances : la valeur affichée est celle de la clé
+    // précédente, on repeint celle de la nouvelle si on l'a déjà vue.
+    if (activeKey !== null) {
+      const cached = readCachedValue(activeKey);
+      if (cached.hit) setData(cached.value as T);
+    }
     setLoading(true);
     setError(null);
     fetcherRef
       .current()
       .then((result) => {
         if (callId.current !== id) return;
+        if (activeKey !== null) writeCachedValue(activeKey, result);
         setData(result);
         setLoading(false);
       })
