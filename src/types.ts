@@ -1,5 +1,5 @@
 // Shapes mirror the real backend's OpenAPI contract — docs/api-docsV0.json
-// (Spring Boot API, base url configured via VITE_API_BASE_URL). Field names
+// (Spring Boot API, base url configured via back_end_url). Field names
 // are kept exactly as the DTOs define them (French, camelCase) so the app
 // never needs a translation layer between what the wire sends and what the
 // UI reads.
