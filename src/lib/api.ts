@@ -103,8 +103,12 @@ function withPageable(
   };
 }
 
-// `VITE_API_BASE_URL` (if set — see .env) always wins, for pointing at a
-// specific/remote backend. Otherwise, fall back to the *same host the page
+// `back_end_url` (if set — see .env) always wins, for pointing at a
+// specific/remote backend. The name has no `VITE_` prefix on purpose (Vercel
+// rejected that one), so `vite.config.ts` declares an `envPrefix` entry for
+// it — without that, Vite would not inject it and this would silently be
+// `undefined` in the production bundle.
+// Otherwise, fall back to the *same host the page
 // was loaded from*, port 8080 — not a hardcoded 'localhost'. A hardcoded
 // localhost default works fine when both frontend and backend run on the
 // developer's own machine, but breaks for anyone else on the network: a
@@ -116,7 +120,7 @@ function withPageable(
 // this page, so it's correct in every case: localhost, 127.0.0.1, or a LAN
 // IP — no per-device/per-network configuration needed.
 export const API_BASE_URL: string =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ||
+  (import.meta.env.back_end_url as string | undefined)?.replace(/\/$/, '') ||
   `${window.location.protocol}//${window.location.hostname}:8080`;
 
 export class ApiError extends Error {
