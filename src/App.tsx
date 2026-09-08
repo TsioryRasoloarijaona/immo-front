@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import RouteErrorBoundary from './components/RouteErrorBoundary';
 import { ConfirmProvider } from './components/ConfirmModal';
 import { PreviewProvider } from './components/PreviewProvider';
 import { LoadingState } from './components/ui';
@@ -54,48 +55,57 @@ const NotFound = lazy(() => import('./pages/NotFound'));
 // unconditional listCommerciaux() call, for instance, would otherwise 401
 // during the brief window before login).
 function AuthenticatedApp() {
+  const { pathname } = useLocation();
+
   return (
     <AppDataProvider>
       <ConfirmProvider>
         <PreviewProvider>
           <Layout>
-            <Suspense fallback={<LoadingState />}>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/profil" element={<Profil />} />
-                <Route path="/utilisateurs" element={<UtilisateursList />} />
-                <Route path="/utilisateurs/nouveau" element={<NouvelUtilisateur />} />
-                <Route path="/utilisateurs/reinitialiser-mot-de-passe" element={<ReinitialiserMotDePasse />} />
-                <Route path="/performances" element={<PerformancesCommerciaux />} />
-                <Route path="/mes-performances" element={<MesPerformances />} />
-                <Route path="/hotline" element={<Hotline />} />
-                <Route path="/calendrier" element={<Calendrier />} />
-                <Route path="/prospections" element={<ProspectionsList />} />
-                <Route path="/prospections/nouveau" element={<NewProspection />} />
-                <Route path="/pre-prospections" element={<PreProspectionsList />} />
-                <Route path="/pre-prospections/:id" element={<ProspectionDetail />} />
-                <Route path="/prospections/:id" element={<ProspectionDetail />} />
-                <Route path="/prospections/:id/nouveau-dossier" element={<NewDossier />} />
-                <Route path="/offres" element={<OffresList />} />
-                <Route path="/encaissements" element={<EncaissementsList />} />
-                <Route path="/encaissements/:id" element={<EncaissementDetail />} />
-                <Route path="/prospects" element={<ProspectsList />} />
-                <Route path="/prospects/nouveau" element={<NewProspect />} />
-                <Route path="/prospects/:id" element={<ProspectDetail />} />
-                <Route path="/clients" element={<ClientsList />} />
-                <Route path="/clients/:id" element={<ProspectDetail />} />
-                <Route path="/dossiers" element={<DossiersList />} />
-                <Route path="/dossiers/:id" element={<DossierDetail />} />
-                <Route path="/projets" element={<ProjetsList />} />
-                <Route path="/projets/:id" element={<ProjetDetail />} />
-                <Route path="/tranches" element={<TranchesList />} />
-                <Route path="/tranches/:id" element={<TrancheDetail />} />
-                <Route path="/articles" element={<ArticlesList />} />
-                <Route path="/articles/:id" element={<ArticleDetail />} />
-                <Route path="/bientot/:module" element={<ComingSoon />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
+            {/* La frontière enveloppe le Suspense, et non l’inverse : un module
+                de page qui ne se télécharge pas rejette la promesse que Suspense
+                attendait, et sans elle l’arbre entier se démonte — écran blanc.
+                La clé de réinitialisation est le chemin courant, pour qu’une page
+                en échec n’emprisonne pas les suivantes. */}
+            <RouteErrorBoundary resetKey={pathname}>
+              <Suspense fallback={<LoadingState />}>
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/profil" element={<Profil />} />
+                  <Route path="/utilisateurs" element={<UtilisateursList />} />
+                  <Route path="/utilisateurs/nouveau" element={<NouvelUtilisateur />} />
+                  <Route path="/utilisateurs/reinitialiser-mot-de-passe" element={<ReinitialiserMotDePasse />} />
+                  <Route path="/performances" element={<PerformancesCommerciaux />} />
+                  <Route path="/mes-performances" element={<MesPerformances />} />
+                  <Route path="/hotline" element={<Hotline />} />
+                  <Route path="/calendrier" element={<Calendrier />} />
+                  <Route path="/prospections" element={<ProspectionsList />} />
+                  <Route path="/prospections/nouveau" element={<NewProspection />} />
+                  <Route path="/pre-prospections" element={<PreProspectionsList />} />
+                  <Route path="/pre-prospections/:id" element={<ProspectionDetail />} />
+                  <Route path="/prospections/:id" element={<ProspectionDetail />} />
+                  <Route path="/prospections/:id/nouveau-dossier" element={<NewDossier />} />
+                  <Route path="/offres" element={<OffresList />} />
+                  <Route path="/encaissements" element={<EncaissementsList />} />
+                  <Route path="/encaissements/:id" element={<EncaissementDetail />} />
+                  <Route path="/prospects" element={<ProspectsList />} />
+                  <Route path="/prospects/nouveau" element={<NewProspect />} />
+                  <Route path="/prospects/:id" element={<ProspectDetail />} />
+                  <Route path="/clients" element={<ClientsList />} />
+                  <Route path="/clients/:id" element={<ProspectDetail />} />
+                  <Route path="/dossiers" element={<DossiersList />} />
+                  <Route path="/dossiers/:id" element={<DossierDetail />} />
+                  <Route path="/projets" element={<ProjetsList />} />
+                  <Route path="/projets/:id" element={<ProjetDetail />} />
+                  <Route path="/tranches" element={<TranchesList />} />
+                  <Route path="/tranches/:id" element={<TrancheDetail />} />
+                  <Route path="/articles" element={<ArticlesList />} />
+                  <Route path="/articles/:id" element={<ArticleDetail />} />
+                  <Route path="/bientot/:module" element={<ComingSoon />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+            </RouteErrorBoundary>
           </Layout>
         </PreviewProvider>
       </ConfirmProvider>
