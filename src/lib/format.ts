@@ -90,6 +90,18 @@ export function daysBetween(a: string | null | undefined, b: string | null | und
   return Math.round((db - da) / 86400000);
 }
 
+/** Numéro précédé de son indicatif, quand il y en a un : `+212 612345678`.
+ *
+ * Purement typographique — on n'ajoute qu'un « + » et une espace, sans toucher
+ * au numéro. Les champs `telephone`/`indicatifTelephone` n'ont aucune
+ * annotation dans la spec : rien n'y dit si le numéro perd son zéro initial
+ * une fois l'indicatif renseigné, donc le recomposer ici reviendrait à
+ * inventer une règle. On affiche les deux morceaux tels qu'ils arrivent. */
+export function formatTelephone(numero: string | null | undefined, indicatif?: string | null): string {
+  if (!numero) return '—';
+  return indicatif ? `+${indicatif} ${numero}` : numero;
+}
+
 export function initials(name: string | null | undefined): string {
   if (!name) return '?';
   const parts = name.trim().split(/\s+/).filter(Boolean);

@@ -10,9 +10,13 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { createProspect } from '../../lib/api';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { referentielItems, useTierTypes } from '../../lib/referentiels';
+import TelephoneField, { INDICATIF_MAROC } from '../../components/TelephoneField';
 import type { CreerProspectRequest } from '../../types';
 
-const EMPTY: CreerProspectRequest = {};
+// Les indicatifs partent renseignés : c'est leur absence qui produit les
+// numéros que le canal WhatsApp rejette, et la quasi-totalité des prospects
+// sont marocains. L'utilisateur reste libre d'en choisir un autre.
+const EMPTY: CreerProspectRequest = { indicatifTelephone: INDICATIF_MAROC, indicatifMobile: INDICATIF_MAROC };
 
 // Minimal quick-add form — CreerProspectRequest (POST /api/prospects) has
 // no `required` fields at all per the OpenAPI schema (confirmed: neither
@@ -108,14 +112,22 @@ export default function NewProspect() {
                 <FieldLabel htmlFor="p-raisonSociale">Raison sociale (si personne morale)</FieldLabel>
                 <Input id="p-raisonSociale" value={form.raisonSociale ?? ''} onChange={(e) => set('raisonSociale', e.target.value || undefined)} />
               </FormField>
-              <FormField>
-                <FieldLabel htmlFor="p-telephone">Téléphone</FieldLabel>
-                <Input id="p-telephone" value={form.telephone ?? ''} onChange={(e) => set('telephone', e.target.value || undefined)} />
-              </FormField>
-              <FormField>
-                <FieldLabel htmlFor="p-mobile">Mobile</FieldLabel>
-                <Input id="p-mobile" value={form.mobile ?? ''} onChange={(e) => set('mobile', e.target.value || undefined)} />
-              </FormField>
+              <TelephoneField
+                id="p-telephone"
+                label="Téléphone"
+                numero={form.telephone ?? ''}
+                indicatif={form.indicatifTelephone ?? null}
+                onNumeroChange={(v) => set('telephone', v || undefined)}
+                onIndicatifChange={(v) => set('indicatifTelephone', v ?? undefined)}
+              />
+              <TelephoneField
+                id="p-mobile"
+                label="Mobile"
+                numero={form.mobile ?? ''}
+                indicatif={form.indicatifMobile ?? null}
+                onNumeroChange={(v) => set('mobile', v || undefined)}
+                onIndicatifChange={(v) => set('indicatifMobile', v ?? undefined)}
+              />
               <FormField className="sm:col-span-2">
                 <FieldLabel htmlFor="p-email">Email</FieldLabel>
                 <Input id="p-email" type="email" value={form.email ?? ''} onChange={(e) => set('email', e.target.value || undefined)} />

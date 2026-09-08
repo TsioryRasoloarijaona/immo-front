@@ -13,7 +13,7 @@ import { getDossier, getProspection, rechercherHotline } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { etapeBadgeTone, interactionIcon, personDisplayName, prospectionDisplayName } from '../../lib/domain';
 import { toneForStatus } from '../../lib/dossierStatus';
-import { formatCurrency, formatDate, formatDateTime } from '../../lib/format';
+import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../../lib/format';
 import type { DossierListItemDto, HotlineFicheDto, ProspectionListItemDto } from '../../types';
 
 // Hotline — recherche instantanée "qui m'appelle ?" par numéro de téléphone,
@@ -227,8 +227,8 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
           <TabsContent value="general">
             <div className="flex flex-col gap-5">
               <FieldGrid>
-                <Field label="Mobile" value={tier.mobile} />
-                <Field label="Téléphone" value={tier.telephone} />
+                <Field label="Mobile" value={formatTelephone(tier.mobile, tier.indicatifMobile)} />
+                <Field label="Téléphone" value={formatTelephone(tier.telephone, tier.indicatifTelephone)} />
                 <Field label="Téléphone 2" value={tier.telephone2} />
                 <Field label="Email" value={tier.email} />
                 <Field label="Commercial référent" value={tier.commercialNom} />
