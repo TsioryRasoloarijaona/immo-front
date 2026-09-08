@@ -380,7 +380,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
                         </span>
                       }
                       meta={`${formatDateTime(c.date)} · ${c.employeNom || 'Système'}`}
-                      note={c.description}
+                      note={c.note}
                       badges={
                         (c.dateRdv || c.dateAlerte) && (
                           <>

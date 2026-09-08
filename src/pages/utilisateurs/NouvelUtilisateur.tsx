@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Copy } from 'lucide-react';
-import { Card, Field, FieldGrid } from '../../components/ui';
+import { Card, EnvoiMailNotice, Field, FieldGrid } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldLabel, FieldError, FieldDescription } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
@@ -197,6 +197,7 @@ function CreerEmployeCard() {
           {result.motDePasseTemporaire && (
             <TempPasswordBox label="Mot de passe temporaire" value={result.motDePasseTemporaire} />
           )}
+          <EnvoiMailNotice envoye={result.emailEnvoye} destinataire={result.destinataire} />
         </div>
       )}
     </Card>

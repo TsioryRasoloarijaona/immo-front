@@ -288,6 +288,35 @@ export function PerimetreBanner({ projets }: { projets: { code: string }[] }) {
   );
 }
 
+/** Sort de l'envoi du mot de passe temporaire, sur les deux écrans qui en
+ * génèrent un.
+ *
+ * `emailEnvoye === false` veut dire que le service d'envoi est inactif : le
+ * mot de passe affiché juste à côté est alors **le seul exemplaire existant**,
+ * et l'administrateur doit le transmettre lui-même. Sans ce mot, il referme
+ * l'écran en supposant que l'employé a reçu son accès, et personne ne
+ * s'aperçoit de rien avant que celui-ci ne tente de se connecter.
+ *
+ * `true` ne promet pas la remise, seulement le déclenchement — l'expédition
+ * est asynchrone. Le libellé le dit ainsi plutôt que d'affirmer « envoyé ». */
+export function EnvoiMailNotice({ envoye, destinataire }: { envoye?: boolean; destinataire?: string }) {
+  if (envoye === undefined) return null;
+  if (!envoye) {
+    return (
+      <p role="alert" className="rounded-md border border-(--warning-border) bg-(--warning-bg) px-3 py-2 text-body text-(--warning)">
+        Aucun mail n'a pu être envoyé (service d'envoi inactif). Communiquez vous-même le mot de passe
+        ci-dessus : il ne sera plus jamais affiché.
+      </p>
+    );
+  }
+  return (
+    <p role="status" className="rounded-md border border-(--info-border) bg-(--info-bg) px-3 py-2 text-body text-(--info)">
+      Envoi déclenché{destinataire ? ` vers ${destinataire}` : ''}. La remise n'est pas garantie : gardez le
+      mot de passe ci-dessus sous la main jusqu'à confirmation.
+    </p>
+  );
+}
+
 export function Avatar({ name, small }: { name: string | null | undefined; small?: boolean }) {
   const initials = (() => {
     if (!name) return '?';
