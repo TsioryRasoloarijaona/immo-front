@@ -75,6 +75,7 @@ import type {
   ReglementDto,
   ReglementProspectDto,
   ReinitialiserMotDePasseResponse,
+  ResultatEnvoiVisiteDto,
   ResultatInteractionDto,
   SchemaFinancementDto,
   SimulerSchemaFinancementRequest,
@@ -429,6 +430,19 @@ export function createProspection(body: CreerProspectionRequest): Promise<Prospe
  * date de création du pré-prospect n'est pas dupliquée ici, elle reste sur
  * ProspectionDetailDto.dateDocument. Le stade "Dossier de vente" a son
  * propre historique séparé, voir listHistoriqueDossier. */
+/** `POST .../interactions/{interactionId}/email-visite` — réexpédie au
+ * prospect la confirmation de visite déjà envoyée à la création de
+ * l'interaction. Le contenu est **recalculé** à chaque appel, jamais rejoué :
+ * une adresse de projet corrigée ou un plan déposé entre-temps y figureront.
+ *
+ * **Un envoi qui n'a pas lieu n'est pas une erreur** : un prospect sans
+ * adresse donne un 200 avec `envoye: false` et un `motif`. Ne réserver le
+ * traitement d'erreur qu'au 404 (introuvable ou hors périmètre) et au 409
+ * (l'interaction ne planifie aucun rendez-vous). */
+export function renvoyerEmailVisite(prospectionId: UUID, interactionId: UUID): Promise<ResultatEnvoiVisiteDto> {
+  return request('POST', `/api/prospections/${prospectionId}/interactions/${interactionId}/email-visite`);
+}
+
 export function listProspectionHistorique(id: UUID, pageable?: Pageable): Promise<PageDto<HistoriqueDto>> {
   return request('GET', `/api/prospections/${id}/historique`, { query: withPageable(undefined, pageable) });
 }

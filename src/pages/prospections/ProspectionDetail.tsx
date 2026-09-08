@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, UserPlus, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Mail, Minus, Pencil, Phone, Plus, UserPlus, Users, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
@@ -54,6 +54,7 @@ import {
   modifierProspection,
   modifierTranchePrincipale,
   removeProspectionAutreTranche,
+  renvoyerEmailVisite,
   transformerProspection,
   viewDevisDocument,
   downloadDevisDocument,
@@ -71,10 +72,11 @@ import {
   useOriginesProspection,
   useRaisonsCloture,
   useTypesBienReferentiel,
+  useResultatsInteraction,
   useTypesContactProspection,
   useVocations,
 } from '../../lib/referentiels';
-import type { DevisDto, ModifierProspectionRequest } from '../../types';
+import type { DevisDto, ModifierProspectionRequest, ResultatEnvoiVisiteDto } from '../../types';
 
 type ProspectionTab = 'apercu' | 'prospect' | 'article' | 'devis' | 'historique';
 
@@ -169,6 +171,62 @@ function ProspectionDocumentButtons({ prospectionId, hasProspect }: { prospectio
   );
 }
 
+/** Renvoi de la confirmation de visite, sur une interaction qui planifie un
+ * rendez-vous.
+ *
+ * L'issue s'affiche en ligne plutôt qu'en toast : elle porte l'adresse retenue,
+ * que le commercial doit pouvoir relire, et un motif qui lui dit quoi faire
+ * ensuite. Un toast disparaîtrait avant qu'il ait vérifié l'adresse.
+ *
+ * `envoye: false` n'est **pas** rendu comme une erreur : c'est un 200, et le
+ * cas le plus courant (`DESTINATAIRE_ABSENT`) se corrige en deux gestes. */
+function EmailVisiteButton({ prospectionId, interactionId }: { prospectionId: string; interactionId: string }) {
+  const [busy, setBusy] = useState(false);
+  const [resultat, setResultat] = useState<ResultatEnvoiVisiteDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function envoyer() {
+    setBusy(true);
+    setError(null);
+    setResultat(null);
+    try {
+      setResultat(await renvoyerEmailVisite(prospectionId, interactionId));
+    } catch (err) {
+      // Ne restent ici que les vraies erreurs : 404 (introuvable ou hors
+      // périmètre) et 409 (aucun rendez-vous à confirmer).
+      setError(err instanceof Error ? err.message : "Échec de l'envoi.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button type="button" variant="outline" size="sm" disabled={busy} onClick={envoyer}>
+        <Mail data-icon="inline-start" /> {busy ? 'Envoi…' : 'Renvoyer la confirmation'}
+      </Button>
+      {error && <span className="text-micro text-destructive">{error}</span>}
+      {resultat && (resultat.envoye ? (
+        <span className="text-micro text-(--success)">
+          Envoi déclenché vers {resultat.destinataire || 'le prospect'}
+          {(resultat.nombrePiecesJointes ?? 0) > 0
+            ? ` avec ${resultat.nombrePiecesJointes} plan${(resultat.nombrePiecesJointes ?? 0) > 1 ? 's' : ''}`
+            : ''}
+          .
+        </span>
+      ) : (
+        <span className="text-micro text-(--amber)">
+          {resultat.motif === 'DESTINATAIRE_ABSENT'
+            ? "Aucune adresse email pour ce prospect — renseignez-la sur sa fiche, puis relancez l'envoi."
+            : resultat.motif === 'SERVICE_INACTIF'
+              ? "Le service d'envoi est inactif : prévenez l'administrateur, le message n'est pas parti."
+              : `Rien n'a été envoyé (${resultat.motif || 'motif non précisé'}).`}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function ProspectionDetail() {
   const { id } = useParams();
   // Reused for both `/prospections/:id` and `/pre-prospections/:id` — Omran
@@ -198,6 +256,18 @@ export default function ProspectionDetail() {
   const linkedProspect = useApi(() => (p?.prospectId ? getProspect(p.prospectId) : Promise.resolve(null)), [p?.prospectId], 'prospection-prospect');
   const [interactionsPage, setInteractionsPage] = useState(0);
   const interactions = useApi(() => listInteractions(id!, { page: interactionsPage, size: 20 }), [id, interactionsPage], 'prospection-interactions');
+
+  // L'endpoint email-visite n'accepte que les interactions qui planifient un
+  // rendez-vous, et répond 409 sinon. `necessiteDateRdv` du référentiel porte
+  // exactement cette liste (« Rendez vous pris », « RDV reporté », « Le prospect
+  // veut faire une visite du projet ») — s'y adosser évite de coder ces
+  // libellés métier en dur, et couvre le cas « visite » que `dateRdv` seul
+  // manquerait puisque celui-ci ne vaut que pour les deux premiers.
+  const resultatsInteraction = useResultatsInteraction();
+  const resultatsAvecRdv = useMemo(
+    () => new Set((resultatsInteraction.data ?? []).filter((r) => r.necessiteDateRdv).map((r) => r.id)),
+    [resultatsInteraction.data],
+  );
   // Parcours pré-prospect → prospect → prospection — GET
   // /api/prospections/{id}/historique, distinct from the interactions/
   // "Actions" timeline above: this one is the two transitions the API
@@ -859,6 +929,11 @@ export default function ProspectionDetail() {
                               {c.dateAlerte && <Badge tone="warning">Alerte jusqu'au {formatDate(c.dateAlerte)}</Badge>}
                             </>
                           )
+                        }
+                        actions={
+                          c.resultatId && resultatsAvecRdv.has(c.resultatId) ? (
+                            <EmailVisiteButton prospectionId={p.id} interactionId={c.id} />
+                          ) : undefined
                         }
                       />
                     ))}

@@ -29,6 +29,7 @@ export function TimelineRow({
   meta,
   note,
   badges,
+  actions,
   dernier,
 }: {
   /** Ligne de titre. Reçoit du JSX et non une chaîne : la forme
@@ -40,6 +41,9 @@ export function TimelineRow({
   note?: string | null;
   /** Badges de pied de ligne (RDV, alerte). */
   badges?: ReactNode;
+  /** Actions propres à la ligne, sous les badges. Optionnel : seules les
+   * interactions qui planifient un rendez-vous en portent une. */
+  actions?: ReactNode;
   /** Coupe le trait de liaison sous la dernière ligne. */
   dernier: boolean;
 }) {
@@ -63,6 +67,7 @@ export function TimelineRow({
           <div className="mt-1 whitespace-pre-line break-words text-body text-foreground">{note}</div>
         )}
         {badges && <div className="mt-1.5 flex flex-wrap gap-1.5">{badges}</div>}
+        {actions && <div className="mt-1.5">{actions}</div>}
       </div>
     </div>
   );

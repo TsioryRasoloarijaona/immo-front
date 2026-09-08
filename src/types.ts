@@ -568,6 +568,32 @@ export interface InteractionDto {
   dateRdv?: string | null;
 }
 
+/** Issue d'un renvoi de la confirmation de visite.
+ *
+ * **Renvoyé avec un 200 même quand rien n'est parti.** Un prospect sans
+ * adresse email n'est pas une erreur d'appel, et le commercial a besoin de
+ * savoir *pourquoi* le message n'a pas été expédié pour pouvoir y remédier —
+ * ce qu'un 4xx générique ne dirait pas. Ne pas traiter `envoye: false` comme
+ * un échec technique. */
+export interface ResultatEnvoiVisiteDto {
+  /** Vrai si le message a été remis au service d'envoi. Faux n'implique
+   * aucune anomalie technique : voir `motif`. */
+  envoye?: boolean;
+  /** `DESTINATAIRE_ABSENT` se corrige en saisissant l'email du prospect puis
+   * en rappelant l'endpoint ; `SERVICE_INACTIF` relève de la configuration du
+   * serveur. D'autres valeurs peuvent apparaître : afficher le motif brut
+   * plutôt que de le taire. */
+  motif?: string;
+  /** Adresse retenue, en clair — le commercial doit pouvoir vérifier qu'elle
+   * est la bonne. `null` quand aucune adresse exploitable n'a été trouvée. */
+  destinataire?: string | null;
+  /** Plans effectivement joints. **Vaut le plus souvent 0** : le lot précis
+   * n'est connu que dans 3 % des prises de rendez-vous et aucune plaquette
+   * n'est encore déposée au niveau des projets. Zéro n'est donc pas un
+   * symptôme. */
+  nombrePiecesJointes?: number;
+}
+
 /** GET /api/referentiels/resultats-interaction — un résultat possible pour
  * une interaction, avec les indications nécessaires pour adapter le
  * formulaire (afficher le sélecteur de date de RDV, suggérer une alerte)
