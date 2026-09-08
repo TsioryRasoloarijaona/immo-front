@@ -4,6 +4,7 @@ import { ArrowLeft, ChevronDown, ChevronRight, Contact, Plus, UserCheck, X } fro
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
+import { TimelineList, TimelineRow } from '../../components/Timeline';
 import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
@@ -27,7 +28,7 @@ import {
 import { useApi } from '../../lib/useApi';
 import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
 import { toneForStatus } from '../../lib/dossierStatus';
-import { formatCurrency, formatDate } from '../../lib/format';
+import { formatCurrency, formatDate, formatDateTime } from '../../lib/format';
 import { referentielItems, useTypesRelationContact } from '../../lib/referentiels';
 import type { DossierListItemDto, ModifierProspectRequest, ProspectionListItemDto } from '../../types';
 
@@ -465,21 +466,17 @@ export default function ProspectDetail() {
             {historique.error && <ErrorState message={historique.error} />}
             {historique.data && historique.data.content.length === 0 && <EmptyState title="Aucun historique" />}
             {historique.data && historique.data.content.length > 0 && (
-              <div className="flex flex-col">
+              <TimelineList>
                 {historique.data.content.map((h, i) => (
-                  <div className="relative flex gap-3 pb-4.5 last:pb-0" key={h.id}>
-                    <div className="flex shrink-0 flex-col items-center">
-                      <div className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" />
-                      {i < historique.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
-                    </div>
-                    <div className="min-w-0 flex-1 pb-0.5">
-                      <div className="text-label font-semibold text-foreground">{h.workflowDescription || h.statutDescription || 'Événement'}</div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(h.date)} · {h.utilisateur || 'Système'}</div>
-                      {h.description && <div className="mt-1 text-body text-foreground">{h.description}</div>}
-                    </div>
-                  </div>
+                  <TimelineRow
+                    key={h.id}
+                    dernier={i === historique.data!.content.length - 1}
+                    titre={h.workflowDescription || h.statutDescription || 'Événement'}
+                    meta={`${formatDateTime(h.date)} · ${h.utilisateur || 'Système'}`}
+                    note={h.description}
+                  />
                 ))}
-              </div>
+              </TimelineList>
             )}
             {historique.data && (
               <Pagination page={historique.data.page} totalPages={historique.data.totalPages} totalElements={historique.data.totalElements} onPageChange={setHistoriquePage} />

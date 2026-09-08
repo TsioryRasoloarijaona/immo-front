@@ -10,6 +10,7 @@ import DevisFormSection from '../../components/DevisFormSection';
 import InteractionForm from '../../components/InteractionForm';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
+import { TimelineList, TimelineRow } from '../../components/Timeline';
 import RefSelect from '../../components/RefSelect';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -19,7 +20,7 @@ import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { cn } from '../../lib/utils';
-import { formatCurrency, formatDate } from '../../lib/format';
+import { formatCurrency, formatDate, formatDateTime } from '../../lib/format';
 import {
   PIPELINE_STAGES,
   PIPELINE_STAGE_SHORT,
@@ -808,21 +809,17 @@ export default function ProspectionDetail() {
                   </p>
                 )}
                 {parcours.data && parcours.data.content.length > 0 && (
-                  <div className="flex flex-col">
-                    {parcours.data.content.map((h, i) => (
-                      <div className="relative flex gap-3 pb-4.5 last:pb-0" key={h.id}>
-                        <div className="flex shrink-0 flex-col items-center">
-                          <div className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" />
-                          {i < parcours.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
-                        </div>
-                        <div className="min-w-0 flex-1 pb-0.5">
-                          <div className="text-label font-semibold text-foreground">{h.workflowDescription || h.statutDescription || 'Événement'}</div>
-                          <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(h.date)} · {h.utilisateur || 'Système'}</div>
-                          {h.description && <div className="mt-1 text-body text-foreground">{h.description}</div>}
-                        </div>
-                      </div>
+                  <TimelineList>
+                    {parcours.data!.content.map((h, i) => (
+                      <TimelineRow
+                        key={h.id}
+                        dernier={i === parcours.data!.content.length - 1}
+                        titre={h.workflowDescription || h.statutDescription || 'Événement'}
+                        meta={`${formatDateTime(h.date)} · ${h.utilisateur || 'Système'}`}
+                        note={h.description}
+                      />
                     ))}
-                  </div>
+                  </TimelineList>
                 )}
                 {parcours.data && (
                   <Pagination
@@ -841,31 +838,31 @@ export default function ProspectionDetail() {
                   <p className="text-label text-muted-foreground">Aucune action enregistrée pour cette prospection.</p>
                 )}
                 {interactions.data && interactions.data.content.length > 0 && (
-                  <div className="flex flex-col">
+                  <TimelineList>
                     {interactions.data.content.map((c, i) => (
-                      <div className="relative flex gap-3 pb-4.5 last:pb-0" key={c.id}>
-                        <div className="flex shrink-0 flex-col items-center">
-                          <div className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" />
-                          {i < interactions.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
-                        </div>
-                        <div className="min-w-0 flex-1 pb-0.5">
-                          <div className="flex flex-wrap items-center gap-1.5 text-label font-semibold text-foreground">
+                      <TimelineRow
+                        key={c.id}
+                        dernier={i === interactions.data!.content.length - 1}
+                        titre={
+                          <span className="flex flex-wrap items-center gap-1.5">
                             <span className="inline-flex text-(--brand)">{interactionIcon(c.entrante)}</span>
                             {c.actionType || (c.entrante ? 'Entrant' : 'Sortant')}
                             {c.resultat && <Badge tone={c.dateRdv ? 'success' : 'neutral'}>{c.resultat}</Badge>}
-                          </div>
-                          <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(c.date)} · {c.employeNom || 'Système'}</div>
-                          {c.description && <div className="mt-1 text-body text-foreground">{c.description}</div>}
-                          {(c.dateRdv || c.dateAlerte) && (
-                            <div className="mt-1.5 flex flex-wrap gap-1.5">
-                              {c.dateRdv && <Badge tone="success">RDV le {formatDate(c.dateRdv)}</Badge>}
+                          </span>
+                        }
+                        meta={`${formatDateTime(c.date)} · ${c.employeNom || 'Système'}`}
+                        note={c.description}
+                        badges={
+                          (c.dateRdv || c.dateAlerte) && (
+                            <>
+                              {c.dateRdv && <Badge tone="success">RDV le {formatDateTime(c.dateRdv)}</Badge>}
                               {c.dateAlerte && <Badge tone="warning">Alerte jusqu'au {formatDate(c.dateAlerte)}</Badge>}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                            </>
+                          )
+                        }
+                      />
                     ))}
-                  </div>
+                  </TimelineList>
                 )}
                 {interactions.data && (
                   <Pagination
