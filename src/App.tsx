@@ -1,5 +1,5 @@
-import { lazy, Suspense } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import { ConfirmProvider } from './components/ConfirmModal';
 import { PreviewProvider } from './components/PreviewProvider';
@@ -105,6 +105,27 @@ function AuthenticatedApp() {
 
 function AuthGate() {
   const { status, user } = useAuth();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+
+  // La déconnexion ne navigue pas : elle échange l'arbre React contre
+  // <Login />, et le routeur reste sur l'URL de la page consultée. Sans ce
+  // nettoyage, la connexion suivante y revient — et avec un autre compte on
+  // atterrit sur la dernière page du précédent, à laquelle le nouvel
+  // utilisateur n'a peut-être même pas accès.
+  //
+  // Placé ici plutôt que dans les gestionnaires de déconnexion : il y en a
+  // trois (Layout, ChangePasswordGate, CompleteProfileGate), et surtout la
+  // session peut aussi tomber d'elle-même (401). Le statut est le seul point
+  // par lequel tous ces chemins passent.
+  //
+  // `replace` et non `push` : la page quittée ne doit pas davantage revenir
+  // d'un retour arrière juste après la reconnexion.
+  useEffect(() => {
+    if (status === 'unauthenticated' && pathname !== '/') {
+      navigate('/', { replace: true });
+    }
+  }, [status, pathname, navigate]);
 
   if (status === 'loading') {
     // Deliberately blank rather than a spinner — this resolves in one
