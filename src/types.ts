@@ -568,30 +568,49 @@ export interface InteractionDto {
   dateRdv?: string | null;
 }
 
-/** Issue d'un renvoi de la confirmation de visite.
+/** Issue de l'envoi sur **un** canal (email ou WhatsApp).
+ *
+ * Les deux canaux sont indépendants : l'un peut aboutir pendant que l'autre
+ * échoue, et c'est le cas attendu plus d'une fois sur deux — 99 % des
+ * prospects ont un numéro exploitable, seulement 57 % une adresse email. */
+export interface CanalEnvoiDto {
+  /** Vrai si le message est parti sur ce canal. */
+  envoye?: boolean;
+  /** Raison de l'issue sur ce canal. Trois valeurs connues, deux d'entre
+   * elles appelant des gestes **différents** du commercial :
+   * `DESTINATAIRE_ABSENT` — aucune coordonnée, il faut l'obtenir ;
+   * `NUMERO_INEXPLOITABLE` — un numéro existe mais est à réparer dans la
+   * fiche (43 cas réels : longueurs anormales, numéros fixes) ;
+   * `SERVICE_INACTIF` — configuration serveur.
+   * D'autres valeurs peuvent apparaître : afficher le motif brut plutôt que
+   * de le taire. */
+  motif?: string;
+  /** Destinataire retenu, en clair — le commercial doit pouvoir vérifier que
+   * c'est le bon. Adresse email ou numéro au format international selon le
+   * canal. `null` si aucun destinataire exploitable. */
+  destinataire?: string | null;
+  /** Plans joints. **Toujours 0 sur WhatsApp** : l'envoi d'un document par
+   * UltraMsg exige une URL publique, or celles du stockage expirent en quinze
+   * minutes. Sur le canal email, vaut le plus souvent 0 également — le lot
+   * précis n'est connu que dans 3 % des prises de rendez-vous. Zéro n'est
+   * donc pas un symptôme. */
+  nombrePiecesJointes?: number;
+}
+
+/** Issue d'un renvoi de la confirmation de visite, **sur les deux canaux**.
  *
  * **Renvoyé avec un 200 même quand rien n'est parti.** Un prospect sans
- * adresse email n'est pas une erreur d'appel, et le commercial a besoin de
- * savoir *pourquoi* le message n'a pas été expédié pour pouvoir y remédier —
- * ce qu'un 4xx générique ne dirait pas. Ne pas traiter `envoye: false` comme
- * un échec technique. */
+ * coordonnée exploitable n'est pas une erreur d'appel, et le commercial a
+ * besoin de savoir *pourquoi* pour y remédier — ce qu'un 4xx générique ne
+ * dirait pas. Ne pas traiter `envoye: false` comme un échec technique. */
 export interface ResultatEnvoiVisiteDto {
-  /** Vrai si le message a été remis au service d'envoi. Faux n'implique
-   * aucune anomalie technique : voir `motif`. */
+  /** Vrai dès qu'**au moins un** des deux canaux a abouti — la lecture utile
+   * pour un affichage binaire « prévenu / pas prévenu », et rien de plus :
+   * l'asymétrie entre les deux canaux étant la norme, s'y limiter reviendrait
+   * à taire une fois sur deux que l'email n'est pas parti. */
   envoye?: boolean;
-  /** `DESTINATAIRE_ABSENT` se corrige en saisissant l'email du prospect puis
-   * en rappelant l'endpoint ; `SERVICE_INACTIF` relève de la configuration du
-   * serveur. D'autres valeurs peuvent apparaître : afficher le motif brut
-   * plutôt que de le taire. */
-  motif?: string;
-  /** Adresse retenue, en clair — le commercial doit pouvoir vérifier qu'elle
-   * est la bonne. `null` quand aucune adresse exploitable n'a été trouvée. */
-  destinataire?: string | null;
-  /** Plans effectivement joints. **Vaut le plus souvent 0** : le lot précis
-   * n'est connu que dans 3 % des prises de rendez-vous et aucune plaquette
-   * n'est encore déposée au niveau des projets. Zéro n'est donc pas un
-   * symptôme. */
-  nombrePiecesJointes?: number;
+  email?: CanalEnvoiDto;
+  whatsapp?: CanalEnvoiDto;
 }
 
 /** GET /api/referentiels/resultats-interaction — un résultat possible pour

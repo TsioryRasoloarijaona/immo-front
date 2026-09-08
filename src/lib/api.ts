@@ -435,10 +435,16 @@ export function createProspection(body: CreerProspectionRequest): Promise<Prospe
  * l'interaction. Le contenu est **recalculé** à chaque appel, jamais rejoué :
  * une adresse de projet corrigée ou un plan déposé entre-temps y figureront.
  *
+ * Le chemin dit `email-visite` mais l'envoi part sur **deux canaux tentés
+ * indépendamment**, email et WhatsApp — la réponse porte un bloc par canal, et
+ * son `envoye` racine vaut vrai dès qu'au moins un a abouti. Les plans ne
+ * partent que par email (UltraMsg exige une URL publique, or celles du
+ * stockage expirent en quinze minutes).
+ *
  * **Un envoi qui n'a pas lieu n'est pas une erreur** : un prospect sans
- * adresse donne un 200 avec `envoye: false` et un `motif`. Ne réserver le
- * traitement d'erreur qu'au 404 (introuvable ou hors périmètre) et au 409
- * (l'interaction ne planifie aucun rendez-vous). */
+ * coordonnée donne un 200 avec `envoye: false` et un motif par canal. Ne
+ * réserver le traitement d'erreur qu'au 404 (introuvable ou hors périmètre) et
+ * au 409 (l'interaction ne planifie aucun rendez-vous). */
 export function renvoyerEmailVisite(prospectionId: UUID, interactionId: UUID): Promise<ResultatEnvoiVisiteDto> {
   return request('POST', `/api/prospections/${prospectionId}/interactions/${interactionId}/email-visite`);
 }

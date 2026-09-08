@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Mail, Minus, Pencil, Phone, Plus, UserPlus, Users, X } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, Send, UserPlus, Users, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
@@ -76,7 +76,7 @@ import {
   useTypesContactProspection,
   useVocations,
 } from '../../lib/referentiels';
-import type { DevisDto, ModifierProspectionRequest, ResultatEnvoiVisiteDto } from '../../types';
+import type { CanalEnvoiDto, DevisDto, ModifierProspectionRequest, ResultatEnvoiVisiteDto } from '../../types';
 
 type ProspectionTab = 'apercu' | 'prospect' | 'article' | 'devis' | 'historique';
 
@@ -171,16 +171,57 @@ function ProspectionDocumentButtons({ prospectionId, hasProspect }: { prospectio
   );
 }
 
+/** Une ligne d'issue, pour un canal.
+ *
+ * Chaque canal a son état propre et **l'asymétrie est la norme** : 99 % des
+ * prospects portent un numéro exploitable contre 57 % une adresse email, donc
+ * « parti sur WhatsApp, pas par email » est le cas courant. N'afficher que le
+ * `envoye` d'ensemble reviendrait à le taire une fois sur deux.
+ *
+ * Les motifs ne sont pas interchangeables : `DESTINATAIRE_ABSENT` demande
+ * d'obtenir la coordonnée, `NUMERO_INEXPLOITABLE` de réparer celle qui existe.
+ * Deux gestes différents, donc deux phrases différentes. */
+function LigneCanal({ nom, canal }: { nom: 'Email' | 'WhatsApp'; canal?: CanalEnvoiDto }) {
+  if (!canal) return null;
+
+  if (canal.envoye) {
+    const plans = canal.nombrePiecesJointes ?? 0;
+    return (
+      <span className="text-micro text-(--success)">
+        {nom} : envoyé à {canal.destinataire || 'ce prospect'}
+        {plans > 0 ? ` avec ${plans} plan${plans > 1 ? 's' : ''}` : ''}.
+      </span>
+    );
+  }
+
+  const explication =
+    canal.motif === 'DESTINATAIRE_ABSENT'
+      ? nom === 'Email'
+        ? "aucune adresse email sur la fiche — renseignez-la, puis relancez."
+        : 'aucun numéro sur la fiche — renseignez-le, puis relancez.'
+      : canal.motif === 'NUMERO_INEXPLOITABLE'
+        ? 'le numéro de la fiche est inutilisable (longueur anormale ou ligne fixe) — corrigez-le, puis relancez.'
+        : canal.motif === 'SERVICE_INACTIF'
+          ? "service d'envoi inactif — prévenez l'administrateur."
+          : `non envoyé (${canal.motif || 'motif non précisé'}).`;
+
+  return (
+    <span className="text-micro text-(--amber)">
+      {nom} : {explication}
+    </span>
+  );
+}
+
 /** Renvoi de la confirmation de visite, sur une interaction qui planifie un
- * rendez-vous.
+ * rendez-vous. Le message part sur **deux canaux tentés indépendamment**,
+ * email et WhatsApp : l'échec de l'un n'empêche jamais l'autre.
  *
- * L'issue s'affiche en ligne plutôt qu'en toast : elle porte l'adresse retenue,
- * que le commercial doit pouvoir relire, et un motif qui lui dit quoi faire
- * ensuite. Un toast disparaîtrait avant qu'il ait vérifié l'adresse.
+ * L'issue s'affiche en ligne plutôt qu'en toast : elle porte les destinataires
+ * retenus, que le commercial doit pouvoir relire, et un motif par canal qui lui
+ * dit quoi faire ensuite. Un toast disparaîtrait avant qu'il ait vérifié.
  *
- * `envoye: false` n'est **pas** rendu comme une erreur : c'est un 200, et le
- * cas le plus courant (`DESTINATAIRE_ABSENT`) se corrige en deux gestes. */
-function EmailVisiteButton({ prospectionId, interactionId }: { prospectionId: string; interactionId: string }) {
+ * `envoye: false` n'est **pas** rendu comme une erreur : c'est un 200. */
+function ConfirmationVisiteButton({ prospectionId, interactionId }: { prospectionId: string; interactionId: string }) {
   const [busy, setBusy] = useState(false);
   const [resultat, setResultat] = useState<ResultatEnvoiVisiteDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -201,28 +242,19 @@ function EmailVisiteButton({ prospectionId, interactionId }: { prospectionId: st
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button type="button" variant="outline" size="sm" disabled={busy} onClick={envoyer}>
-        <Mail data-icon="inline-start" /> {busy ? 'Envoi…' : 'Renvoyer la confirmation'}
-      </Button>
-      {error && <span className="text-micro text-destructive">{error}</span>}
-      {resultat && (resultat.envoye ? (
-        <span className="text-micro text-(--success)">
-          Envoi déclenché vers {resultat.destinataire || 'le prospect'}
-          {(resultat.nombrePiecesJointes ?? 0) > 0
-            ? ` avec ${resultat.nombrePiecesJointes} plan${(resultat.nombrePiecesJointes ?? 0) > 1 ? 's' : ''}`
-            : ''}
-          .
-        </span>
-      ) : (
-        <span className="text-micro text-(--amber)">
-          {resultat.motif === 'DESTINATAIRE_ABSENT'
-            ? "Aucune adresse email pour ce prospect — renseignez-la sur sa fiche, puis relancez l'envoi."
-            : resultat.motif === 'SERVICE_INACTIF'
-              ? "Le service d'envoi est inactif : prévenez l'administrateur, le message n'est pas parti."
-              : `Rien n'a été envoyé (${resultat.motif || 'motif non précisé'}).`}
-        </span>
-      ))}
+    <div className="flex flex-col gap-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" size="sm" disabled={busy} onClick={envoyer}>
+          <Send data-icon="inline-start" /> {busy ? 'Envoi…' : 'Renvoyer la confirmation'}
+        </Button>
+        {error && <span className="text-micro text-destructive">{error}</span>}
+      </div>
+      {resultat && (
+        <div className="flex flex-col gap-0.5">
+          <LigneCanal nom="Email" canal={resultat.email} />
+          <LigneCanal nom="WhatsApp" canal={resultat.whatsapp} />
+        </div>
+      )}
     </div>
   );
 }
@@ -932,7 +964,7 @@ export default function ProspectionDetail() {
                         }
                         actions={
                           c.resultatId && resultatsAvecRdv.has(c.resultatId) ? (
-                            <EmailVisiteButton prospectionId={p.id} interactionId={c.id} />
+                            <ConfirmationVisiteButton prospectionId={p.id} interactionId={c.id} />
                           ) : undefined
                         }
                       />

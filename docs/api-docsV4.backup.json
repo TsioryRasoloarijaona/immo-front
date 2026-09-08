@@ -1046,7 +1046,7 @@
           "Prospections"
         ],
         "summary": "Ajoute une interaction à une prospection",
-        "description": "Journalise un appel/message/visite/note sur cette prospection. `actionTypeId` (\"Action\") et `resultatId` (\"Résultat\") sont optionnels mais recommandés pour un suivi exploitable — voir GET /api/referentiels/types-contact-prospection et GET /api/referentiels/resultats-interaction. Si le résultat choisi est \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\", `dateRdv` devient obligatoire et une entrée calendrier est créée, visible ensuite via GET /api/calendrier/evenements.\n\n**Le corps de requête ne change pas** : `description` reste le champ d'entrée et reste obligatoire. Seule sa destination en base a été corrigée — il alimente désormais le champ `note` de la réponse, et non plus le libellé. Le libellé `description` de la réponse est **généré par le serveur** (`JJ/MM/AAAA HH:MM <auteur>`) et ne peut pas être imposé : c'est ce qui rend les interactions créées ici indiscernables de celles de l'application de bureau.\n\nL'**auteur** est déduit du jeton d'authentification, jamais du corps : le laisser choisir fausserait les KPI de performance commerciale.",
+        "description": "Journalise un appel/message/visite/note sur cette prospection. `actionTypeId` (\"Action\") et `resultatId` (\"Résultat\") sont optionnels mais recommandés pour un suivi exploitable — voir GET /api/referentiels/types-contact-prospection et GET /api/referentiels/resultats-interaction. Si le résultat choisi est \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\", `dateRdv` devient obligatoire et une entrée calendrier est créée, visible ensuite via GET /api/calendrier/evenements.\n\n**Un email de confirmation part alors automatiquement au prospect** (date, heure, adresse du projet, conseiller, et les plans quand nous en avons). L'envoi a lieu après validation de la transaction et hors du temps de réponse : il ne peut ni retarder ni faire échouer cet appel, et la réponse ne dit pas s'il a abouti. Il n'a pas lieu si le prospect n'a aucune adresse email — c'est le cas de **43 %** des prises de rendez-vous. Pour connaître l'issue, ou pour renvoyer après avoir saisi l'adresse, voir POST /api/prospections/{id}/interactions/{interactionId}/email-visite.\n\n**Le corps de requête ne change pas** : `description` reste le champ d'entrée et reste obligatoire. Seule sa destination en base a été corrigée — il alimente désormais le champ `note` de la réponse, et non plus le libellé. Le libellé `description` de la réponse est **généré par le serveur** (`JJ/MM/AAAA HH:MM <auteur>`) et ne peut pas être imposé : c'est ce qui rend les interactions créées ici indiscernables de celles de l'application de bureau.\n\nL'**auteur** est déduit du jeton d'authentification, jamais du corps : le laisser choisir fausserait les KPI de performance commerciale.",
         "operationId": "addInteraction",
         "parameters": [
           {
@@ -1097,6 +1097,70 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/InteractionDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections/{id}/interactions/{interactionId}/email-visite": {
+      "post": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Renvoie au prospect l'email de confirmation de sa visite",
+        "description": "Réexpédie la confirmation déjà envoyée automatiquement à la création de l'interaction. Deux usages : le prospect n'avait pas d'adresse email au moment de la prise de rendez-vous et vient d'en fournir une, ou il déclare n'avoir rien reçu.\n\nLe contenu est **recalculé à chaque appel**, jamais rejoué : une adresse de projet corrigée ou un plan déposé depuis la prise de rendez-vous seront donc bien dans le message renvoyé.\n\n**Un envoi qui n'a pas lieu n'est pas une erreur.** Un prospect sans adresse exploitable donne **200** avec `envoye = false` et `motif = DESTINATAIRE_ABSENT` : le commercial doit voir pourquoi rien n'est parti, ce qu'un code 4xx ne dirait pas. Seuls l'introuvable (404) et l'interaction qui ne planifie aucun rendez-vous (409) sont des erreurs.\n\n**Contenu du message** : date et heure du rendez-vous, projet visité, adresse (celle de la tranche si elle est renseignée, sinon celle du projet — le bloc est omis plutôt qu'approximatif quand la donnée n'est pas exploitable), nom et mobile du conseiller, et les plans en pièce jointe. Les plans sont ceux du lot lorsqu'il est connu — ce qui n'est le cas que dans **3 %** des prises de rendez-vous — sinon ceux déposés au niveau du projet. `nombrePiecesJointes = 0` est donc la valeur normale aujourd'hui.",
+        "operationId": "renvoyerEmailVisite",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la prospection.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "interactionId",
+            "in": "path",
+            "description": "Id de l'interaction portant le rendez-vous — celle dont le résultat vaut \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\".",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tentative effectuée — lire `envoye` et `motif` pour en connaître l'issue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatEnvoiVisiteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id, prospection hors du périmètre commercial de l'appelant, ou interaction inconnue / rattachée à une autre prospection.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatEnvoiVisiteDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Cette interaction ne planifie aucun rendez-vous : il n'y a rien à confirmer.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatEnvoiVisiteDto"
                 }
               }
             }
@@ -8211,6 +8275,40 @@
             "type": "string",
             "format": "date-time",
             "description": "Date du rendez-vous, présente uniquement quand resultat est \"Rendez vous pris\" ou \"RDV reporté\" et qu'une date a été fournie à la création. null sinon."
+          }
+        }
+      },
+      "ResultatEnvoiVisiteDto": {
+        "type": "object",
+        "description": "Issue d'un envoi de la confirmation de visite. Renvoyé avec un code 200 même lorsque rien\nn'est parti : un prospect sans adresse email n'est pas une erreur d'appel, et le\ncommercial a besoin de savoir *pourquoi* le message n'a pas été expédié pour pouvoir y\nremédier — ce qu'un code 4xx générique ne dirait pas.",
+        "properties": {
+          "envoye": {
+            "type": "boolean",
+            "description": "Vrai si le message a été remis au service d'envoi. Faux n'implique aucune anomalie technique : voir `motif`.",
+            "example": true
+          },
+          "motif": {
+            "type": "string",
+            "description": "Raison de l'issue. `DESTINATAIRE_ABSENT` se corrige en saisissant l'email du prospect puis en rappelant cet endpoint ; `SERVICE_INACTIF` relève de la configuration du serveur.",
+            "enum": [
+              "ENVOYE",
+              "DESTINATAIRE_ABSENT",
+              "SERVICE_INACTIF"
+            ]
+          },
+          "destinataire": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Adresse retenue, en clair — le commercial doit pouvoir vérifier qu'elle est la bonne. `null` lorsque aucune adresse exploitable n'a été trouvée.",
+            "example": "client@exemple.ma"
+          },
+          "nombrePiecesJointes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de plans effectivement joints au message. Vaut le plus souvent 0 : le lot précis n'est connu que dans 3 % des prises de rendez-vous, et aucune plaquette n'est encore déposée au niveau des projets.",
+            "example": 1
           }
         }
       },
