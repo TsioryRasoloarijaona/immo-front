@@ -12,7 +12,7 @@ import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { useOriginesProspection } from '../../lib/referentiels';
-import { formatCurrency, formatDate } from '../../lib/format';
+import { formatCurrency, formatDate, isPastOrToday } from '../../lib/format';
 import {
   PIPELINE_STAGES,
   emptyProspectionFilters,
@@ -138,15 +138,18 @@ export default function PreProspectionsList() {
               />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <Table className="w-full min-w-160 table-fixed">
+                <Table className="w-full min-w-320 table-fixed">
                   <TableHeader>
                     <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
-                      <TableHead className="w-[28%]">Prospect</TableHead>
-                      <TableHead className="w-[16%]">Étape</TableHead>
-                      <TableHead className="w-[16%]">Origine</TableHead>
-                      <TableHead className="w-[18%]">Commercial</TableHead>
-                      <TableHead className="w-[12%] text-right">Prix</TableHead>
-                      <TableHead className="w-[10%]">Date</TableHead>
+                      <TableHead className="w-[17%]">Prospect</TableHead>
+                      <TableHead className="w-[10%]">Étape</TableHead>
+                      <TableHead className="w-[10%]">Origine</TableHead>
+                      <TableHead className="w-[11%]">Commercial</TableHead>
+                      <TableHead className="w-[11%] text-right">Prix</TableHead>
+                      <TableHead className="w-[9%]">Date</TableHead>
+                      <TableHead className="w-[10%]">Téléphone</TableHead>
+                      <TableHead className="w-[12%]">Email</TableHead>
+                      <TableHead className="w-[10%]">Relance</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -176,6 +179,31 @@ export default function PreProspectionsList() {
                           {p.prix ? formatCurrency(p.prix) : <span className="font-normal text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell className="truncate text-muted-foreground">{formatDate(p.dateDocument)}</TableCell>
+                        {/* Le numéro retombe sur celui du premier contact quand la fiche
+                            n'en porte pas : 8 591 des 8 613 prospections ouvertes sont
+                            joignables ainsi, contre 5 034 par la seule fiche. */}
+                        <TableCell className="truncate tabular-nums text-muted-foreground" title={p.telephone || undefined}>
+                          {p.telephone || <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        {/* Absent dans 45 % des cas : un tiret neutre, pas un signal d'alerte. */}
+                        <TableCell className="truncate text-muted-foreground" title={p.email || undefined}>
+                          {p.email || <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        {/* Le message de l'alerte passe en infobulle plutôt qu'en colonne :
+                            c'est une note libre, de longueur imprévisible, qui ferait éclater
+                            la largeur du tableau. La date, elle, se compare d'un coup d'œil. */}
+                        <TableCell
+                          className="truncate text-muted-foreground"
+                          title={p.derniereAlerteMessage || undefined}
+                        >
+                          {p.derniereAlerteDate ? (
+                            <Badge tone={isPastOrToday(p.derniereAlerteDate) ? 'warning' : 'neutral'}>
+                              {formatDate(p.derniereAlerteDate)}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

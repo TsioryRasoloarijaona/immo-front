@@ -251,6 +251,27 @@ export interface ProspectionListItemDto {
   prix?: number;
   surface?: number;
   trancheId?: UUID;
+  /** Présents dans la spec mais absents de ce type jusqu'ici — la liste
+   * pouvait déjà nommer la tranche sans refaire d'appel. */
+  trancheCode?: string;
+  trancheDescription?: string;
+  /** Téléphone du prospect : mobile de sa fiche, à défaut fixe, à défaut le
+   * numéro saisi au premier contact. Le repli n'est pas décoratif — sur les
+   * 8 613 prospections ouvertes : 5 034 joignables par la fiche, 7 596 par le
+   * champ de premier contact, **8 591 par l'une ou l'autre**. */
+  telephone?: string | null;
+  /** Email du prospect, même règle de repli. Renseigné sur 4 752 des 8 613
+   * prospections ouvertes (55 %) : `null` est un cas courant, pas une
+   * anomalie — à afficher « — », jamais comme une donnée manquante. */
+  email?: string | null;
+  /** Date de validité de la dernière alerte de relance posée sur cette
+   * prospection (3 236 des 8 613 ouvertes en ont une). L'alerte vient
+   * **toujours d'une interaction** : la colonne d'alerte portée par la
+   * prospection elle-même est morte en base, 0 ligne sur 8 613. */
+  derniereAlerteDate?: string | null;
+  /** Message de cette alerte — en pratique la note du commercial sur
+   * l'interaction qui l'a posée. `null` si aucune alerte. */
+  derniereAlerteMessage?: string | null;
 }
 
 export interface ProspectionDetailDto {
