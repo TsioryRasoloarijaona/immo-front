@@ -1,31 +1,34 @@
 # Session Memory
-_Last updated: 2026-09-07T10:00:00Z_
+_Last updated: 2026-09-08T18:00:00Z_
 _Project: crm-prototype (Ayad Estate — CRM frontend), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
 
 ## 🎯 Current Objective
-Three unrelated pieces of maintenance on the deployed app: fix the Vercel SPA deep-link 404 (`vercel.json`, merged as PR #10), resolve the 8-file merge conflict from bringing `main` into `refractor/best-practice`, and diff the latest `docs/api-docsV4.json` update to see whether it introduced a new document generator (**it did not**).
+Consommer, écran par écran, les endpoints V4 que le backend livre au fil de l'eau (suppression de pièces jointes, KPI commerciaux, note d'interaction, recherche hotline par nom), et corriger les bugs UX rencontrés en chemin (redirection après reconnexion, session expirée, historiques).
 
 ---
 
 ## ✅ What Worked
 
-1. **Reading the whole component before resolving a conflict, not just the hunk.** Decisive on the pièces-jointes conflicts: everything *outside* the markers was already main's post-S3 version, so HEAD's side referenced `busyAction`/`busy` (state that no longer exists), called `handle('view')` (now zero-arg), and used `Download` (not even imported in `ArticleDetail`). It could not compile. The hunk alone looked like a legitimate two-sides choice; the surrounding 40 lines proved one side was dead.
-2. **Attributing each conflict to the commit that caused it** — `git log --oneline HEAD..MERGE_HEAD -- <file>` per conflicted file. Collapsed 10 hunks into exactly 2 causes (`939e8e7 perf(cache)` on 6 files, the S3 pièces-jointes pair on 2), which made the resolutions mechanical instead of case-by-case.
-3. **Recognising complementary, not competing, changes.** The 4 `tranches` hunks: main added a cache key (`useApi(…, [], 'tranches-filtre')`), the branch added `useMemo` around `trancheItems`. Correct resolution was **both**, not either. Taking "main's side" wholesale would have silently dropped the branch's memoization.
-4. **`tsc -b --force` after resolving, not plain `tsc -b`.** The incremental build info masked errors; `--force` caught the real one (duplicate `clearApiCache` import).
-5. **Grepping for markers *and* asking git separately.** `grep -rn '^<<<<<<<'` returned "none" while `git diff --diff-filter=U` still listed all 8 files as unresolved — markers gone ≠ staged. Both checks are needed.
-6. **Structural spec diff instead of reading raw JSON.** A ~40-line node script comparing route sets / operation bodies / schema keys between `git show HEAD:docs/api-docsV4.json` and the working tree gave `152 → 152, +0/-0, 2 modified ops` in one shot.
+1. **Diff structurel de la spec avant d'écrire une ligne** — un script node de ~20 lignes qui compare les jeux d'opérations, les schémas et **les descriptions champ par champ** entre `git show HEAD:docs/api-docsV4.json` et l'arbre de travail. C'est ce qui a trouvé, à chaque fois, le vrai contenu de la mise à jour : 2 DELETE, puis `InteractionDto.note`, puis `telephone`/`nom` exclusifs. Trois fois sur quatre, le titre de la mise à jour ne disait pas ce qui avait réellement changé.
+2. **Vérifier la prémisse de l'utilisateur avant de coder.** Sur « les notes ne s'affichent pas », l'exploration a montré que `description` **était** déjà rendu aux six endroits ; le vrai problème était que le backend y mettait un tampon. Coder tout de suite aurait produit un correctif inutile.
+3. **Scripts de patch écrits dans un fichier scratchpad puis lancés avec `node`** — jamais en heredoc. Voir « What Failed » : le transport du Bash tool mange les antislashs et interprète les backticks.
+4. **Ancres de remplacement avec compteur d'occurrences** (`if (n !== 1) throw`) et `writeFileSync` **après** toutes les substitutions du fichier : un patch partiel n'est jamais écrit sur disque.
+5. **Harnais HTML statiques servis en HTTP** pour valider le rendu quand l'authentification est impossible. Trois fois utile (marques KPI, frise, hotline). `file:` est bloqué par Playwright → petit serveur `node -e` en tâche de fond.
+6. **Replier un 404 métier dans la valeur de succès** (union discriminée) plutôt que réécrire un hook de chargement : garde `useApi`, évite la règle `react-hooks/set-state-in-effect`.
+7. **`git-flow start` + préservation des docs** : copier `docs/*.json` dans le scratchpad → `git checkout -- docs/` → `start` → recopier. Le `start` exige un arbre propre et refuse sinon.
 
 ---
 
 ## ❌ What Failed / Course-corrections
 
-- **I told the user the merge resolutions were "gone" — that was wrong.** After the user switched to a new branch, the working tree showed main's version of `ProspectionsList.tsx` etc., and I read that as a revert. It was simply a *different branch* (`feat/resevation-model`, cut from main). The merge had in fact been committed as `fe5a204 "fix merge"` and every resolution survived. **Lesson: before concluding work was lost, check the branch it lived on (`git log <branch>`, `git grep <probe> <branch>`), not the current working tree.**
-- **The user's premise on the docs update didn't hold.** Asked to check a "new file generator" in the spec update; there is none — 152 routes before and after, identical route set, zero schema changes. The réservation generators already existed and were already fully wired. Said so plainly rather than inventing a finding.
-- **`$schema` key in `vercel.json`** → removed. Functionally useless to Vercel and it made VS Code emit "Unable to load schema … untrusted".
-- **`git-flow.mjs` has no merge command** (`start`/`commit`/`push`/`sync`/`status` only). Its `commit` does `git add -A` + a normal commit, which is the wrong shape for concluding a merge and would have re-staged the 180 files just removed from the index.
+- **Heredoc `<<'EOF'` + `node -e` : le transport collapse `\\` → `\` et exécute les backticks.** Symptômes vus : une ancre regex `/^\\./` devenue `/^./` (0 correspondance), et un commentaire `` `replace` et non `push` `` remplacé par « No files replaced et non ». **Toujours passer par un fichier `.cjs` écrit avec l'outil Write.**
+- **Accents supprimés par excès de prudence** dans un premier patch (« piece jointe », « Echec ») → il a fallu une seconde passe de correction. L'outil Write gère parfaitement l'UTF-8 : écrire le français correct du premier coup.
+- **Commentaire JSX `{/* */}` placé entre deux attributs** d'un élément → `TS1005: '...' expected`. Il n'est valide qu'en position d'enfant.
+- **`feature-index.mjs add` avant le commit** → « Nothing to record » : il lit `main..HEAD`. Ordre correct : **commit → add → generate → push**.
+- **Palette `--chart-1..5` inutilisable en catégoriel** (voir Key Points).
+- **La question à choix multiples a reçu deux réponses contradictoires** (« Afficher l'heure » + « ni l'un ni l'autre ») ; j'ai retenu le choix explicite et l'ai dit.
 
 ---
 
@@ -33,69 +36,73 @@ Three unrelated pieces of maintenance on the deployed app: fix the Vercel SPA de
 
 | # | Error / Bug | Status | Fix applied |
 |---|-------------|--------|-------------|
-| 1-81 | See prior sessions' memory (rotated out) | — | — |
-| 82 | **Vercel 404 on every deep link** — `immo.tsiory.tech/pre-prospections` returned Vercel's `NOT_FOUND`; only entering via `/` worked, F5 broke the app | Fixed | Added `vercel.json` with a catch-all `{"source": "/(.*)", "destination": "/index.html"}` rewrite. Rewrites run *after* the filesystem check, so hashed `dist/assets/*` still serve normally. Merged as PR #10 |
-| 83 | 8 files / 10 hunks conflicted merging `main` into `refractor/best-practice` | Fixed | See "Key Points" for the per-cause resolution rules. Committed as `fe5a204` |
-| 84 | **`clearApiCache` imported twice in `auth.tsx`** — both sides added it at different positions in the same import block, so git auto-merged *both* with no conflict marker. `TS2300: Duplicate identifier` | Fixed | Removed the second occurrence. **This is the dangerous class: a silent auto-merge defect outside every marker** — only `tsc` caught it |
-| 85 | Merge re-added **180** `.agents/` + `.claude/skills/` files that the branch had just untracked (`7d0733a`) and gitignored (`4dfbf39`) — they were *new on main* via `3df77e1 "egent"`, so the branch's deletion didn't cover them | Fixed | `git rm -r --cached .agents .claude` before concluding the merge. User confirmed the choice |
-| 86 | Expected a "new file generator" in the docs update — none exists | Not a bug | Spec unchanged structurally (152→152 routes, 0 new schemas); update is 3 description edits + 6 in the backup |
-| 87 | **`SameSite=Strict` blocks auth from any non-`tsiory.tech` origin** — per the new `POST /api/auth/connexion` description, the browser won't attach the cookie, so every post-login call goes anonymous | Open (constraint) | Not fixable frontend-side. Means **`*.vercel.app` preview deploys cannot log in**. Only the `tsiory.tech` production domain authenticates |
-| 88 | `GET /api/dossiers/{id}/documents/fiche-reservation` and `.../acte-reservation` have **empty `summary` + `description`** — the only 2 of 27 document endpoints undocumented | Open (backend) | Springdoc annotation gap. Why those two tiles' UI copy had to be hand-written. Candidate for `immo-crm/instructions/from_front.md` |
-| 89 | 9 pre-existing eslint errors | Open (pre-existing) | Was 10 last session; the branch's `useApi` refactor fixed the `set-state-in-effect` there. Remaining: 8× `react-refresh/only-export-components` (`badge`/`button`/`sidebar`/`tabs`/`appData`×2/`auth`/`theme`) + 1× `set-state-in-effect` (`use-mobile.ts:14`) |
+| 1-89 | Sessions antérieures (rotées) | — | — |
+| 90 | Pièces jointes non supprimables depuis l'UI | Fixed | PR #12 — `removePieceJointe` / `removeReglementPieceJointe`, confirmation via `useConfirm`, garde-fou POINTED + rattrapage du 409 |
+| 91 | 2 endpoints KPI sans consommateur | Fixed | PR #13 — `/performances` (admin) et `/mes-performances` (commercial) |
+| 92 | **Après déconnexion, la reconnexion revient sur la page du compte précédent** | Fixed | PR #14/15 — effet dans `AuthGate` : `navigate('/', {replace:true})` quand `status === 'unauthenticated'` |
+| 93 | **Après quelques minutes d'inactivité l'interface « bugge », il faut rafraîchir** | Fixed | PR #15 — le JWT expirait sans que rien ne le détecte : `AuthProvider` n'interrogeait `/api/mon-compte` qu'au montage. Accroche 401 globale + re-sonde au retour d'onglet |
+| 94 | Note d'interaction absente du journal | Fixed | PR #17 — le backend a ajouté `InteractionDto.note` ; `description` est un tampon généré. Bascule sur `note` |
+| 95 | Retours à la ligne des mémos écrasés en un seul paragraphe | Fixed | PR #16 — `whitespace-pre-line` + `break-words` dans `TimelineRow` |
+| 96 | `formatDateTime` était un alias de `formatDate` — heure supprimée partout | Fixed | PR #16 — implémenté pour de bon (`DD/MM/YYYY HH:mm`). Était du **code mort**, aucun appelant |
+| 97 | Recherche hotline limitée au téléphone | Fixed | PR #18 — `nom` exclusif de `telephone`, bandeau `tronque` |
+| 98 | `emailEnvoye: false` (SMTP inactif) invisible : l'admin croit l'employé servi | Fixed | PR #17 — `EnvoiMailNotice` sur les deux écrans d'administration |
+| 99 | **`--chart-1..5` échoue la validation catégorielle** dans les deux thèmes | Open (constat) | Contourné : les marques KPI n'utilisent qu'**une** teinte. À re-échelonner avant toute vraie série multiple |
+| 100 | `workflowDescription \|\| statutDescription` masque le statut | Open (différé) | L'utilisateur a choisi de ne pas y toucher |
+| 101 | 9 erreurs eslint préexistantes | Open (préexistant) | 8× `react-refresh/only-export-components` + 1× `set-state-in-effect` (`use-mobile.ts:14`) |
 
 ---
 
 ## 🔑 Key Points to Remember
 
-- **`vercel.json` now exists and must not be deleted.** Without the catch-all rewrite every route except `/` 404s in production. It is the whole fix for #82.
-- **The backend cookie is `SameSite=Strict`** → the frontend *must* be served from `tsiory.tech`. Preview/staging on another domain will look "randomly broken": login appears to succeed, then everything 401s. Documented in the spec's `connexion` description as of this update.
-- **Merge-conflict resolution rules established this session** (they will recur — `refractor/best-practice` is a 10-commit perf/a11y branch against a moving `main`):
-  - `useApi` **cache key + `useMemo` are complementary** — keep both, never pick a side.
-  - Anything on the branch side touching pièces-jointes is **pre-S3 dead code**. Main's single "Ouvrir" action is deliberate: the presigned URL is served `Content-Disposition: inline`, so a separate "Télécharger" would do the same thing while lying. Take main's structure, **graft the branch's a11y** (`role="alert"`, `aria-label`) onto it.
-  - `showToast` was extracted to `lib/useToast` (`d6679a7`, timer-leak fix). **Never reintroduce a local `function showToast` with a bare `setTimeout`** from main's side of a conflict.
-- **After resolving, always `tsc -b --force`** — plain `tsc -b` can skip stale-but-broken files, and the worst defects (#84) sit *outside* the conflict markers where git auto-merged both sides.
-- **`.claude` and `.agents` are gitignored on `refractor/best-practice`.** Any future merge from `main` will keep trying to re-add them until main drops them too — re-run `git rm -r --cached .agents .claude` before concluding.
-- **Diffing the spec before frontend work remains the standing rule** and stays cheap via the structural-diff script. This time it disproved an assumption rather than catching breakage — equally valuable.
-- **`GET /api/dossiers` `trancheId` semantics widened**: now matches "au moins un article lié — **ou l'article principal**". Same filter can return *more* dossiers than before. `projet` is now "résolu par la tranche de l'article principal".
-- **Branch protocol held**: asked before cutting `fix/vercel-spa-rewrite`, and asked before dropping the 180 files. Both were the user's call.
+- **Le Bash tool abîme les antislashs et les backticks.** Tout patch de code passe par un `.cjs` écrit avec Write, exécuté par `node`. Les fichiers sont en **CRLF** : normaliser les ancres (`t.replace(/\r?\n/g,'\r\n')`).
+- **Portes de validation** : `npx tsc -b --force` (le `--force` est obligatoire, `tsc -b` a déjà masqué de vraies erreurs), `npx eslint src` → **doit rester à 9**, `npm run build`, plus `npm run check:contrast` quand on touche aux couleurs.
+- **Aucune vérification authentifiée n'est possible** : pas d'identifiants, extension Chrome non connectée, Playwright part sans session. Le correctif #92 renvoie même tout visiteur anonyme vers `/`, donc les pages internes sont inatteignables. **Méthode de repli : harnais HTML statique servi en HTTP.** Les captures Playwright atterrissent à la racine du dépôt → les déplacer dans le scratchpad (`.playwright-mcp/` est gitignoré, pas la capture).
+- **`InteractionDto` : asymétrie écriture/lecture.** On écrit dans `description` (`CreerInteractionRequest`), on lit dans **`note`**. Le `description` renvoyé est un libellé généré `JJ/MM/AAAA HH:MM <auteur>` sur 46 546 lignes sur 46 546 — **ne jamais l'afficher**. Les `HistoriqueDto` / `HistoriqueEvenementDto`, eux, ont un `description` qui est un vrai contenu.
+- **Hotline : `telephone` XOR `nom`.** Les deux ou aucun → 400. Nom : sous-chaîne insensible casse+accents, 2 caractères mini, **plafond 20 fiches** et `tronque` **à afficher** (« MOHAMED » = 555 fiches). Sur une recherche par nom, `telephoneRecherche`/`telephoneNormalise` valent `null`.
+- **Palette de graphiques** : `--chart-1..5` échoue la séparation daltonienne (ΔE 6,7) **et** la séparation en vision normale (ΔE 9,9) en clair ; en sombre elle échoue aussi la bande de luminosité. Chaque teinte passe le contraste ≥3:1 isolément. Les écrans KPI n'utilisent donc que `--chart-1` + `--chart-1-track` (ajouté), parce qu'ils encodent une **grandeur**, pas une identité. Validateur : `scripts/validate_palette.js` du skill `dataviz` (n'accepte que du hex → convertir l'OKLCH).
+- **`useApi` aplatit les erreurs en chaîne et jette le `status`.** Pour distinguer un 404 métier : replier le cas dans la valeur de succès (union discriminée), pas un hook maison.
+- **Le seuil de re-sonde de session (60 s) doit rester au-dessus du TTL du cache GET (30 s)** dans `api.ts`, sinon la sonde relit une promesse en cache et ne détecte jamais l'expiration.
+- **Ordre de publication** : commit → `feature-index add` → `generate` → `push` → attendre la fusion → `sync`. `add` lit `main..HEAD`.
+- **Protocole de branche tenu tout du long** : demander avant chaque `start`, toujours couper de `main` fraîchement tiré.
+- Le cookie est `SameSite=Strict` → seul `tsiory.tech` (et localhost) authentifie ; les prévisualisations `*.vercel.app` ne peuvent pas se connecter.
 
 ---
 
 ## 📁 Important Files & Paths
 
-- `vercel.json` — **new, merged to main via PR #10.** 8 lines, rewrites-only (no `$schema`, no cache headers — deliberately minimal).
-- `docs/api-docsV4.json` + `.backup.json` — **modified, uncommitted** on `feat/resevation-model`. 3 + 6 description edits, no structural change.
-- `src/lib/auth.tsx` — merge kept main's `clearApiCache` comment (it describes *both* caches and the failed-POST path); duplicate import removed.
-- `src/pages/{dossiers/DossiersList,prospections/OffresList,prospections/ProspectionsList,prospections/PreProspectionsList}.tsx` — all four now `useApi(…, [], 'tranches-filtre')` **and** `useMemo`'d `trancheItems`.
-- `src/pages/prospections/ProspectionDetail.tsx` — main's `if (loading && !p)` guard kept; main's leaky `showToast` dropped in favour of `useToast`.
-- `src/pages/articles/ArticleDetail.tsx`, `src/pages/dossiers/DossierDetail.tsx` — single "Ouvrir" action + `role="alert"` / `aria-label` grafted on.
-- `/tmp/specdiff.mjs`, `/tmp/showconf.mjs` — throwaway helpers (structural OpenAPI diff; conflict-region printer). Worth recreating, not preserved.
+- `src/components/Timeline.tsx` — **nouveau**, `TimelineList` / `TimelineRow`. Point unique des six historiques ; c'est là que vivent les règles « note » et « heure ».
+- `src/components/kpi/{KpiMarks,PeriodeFilterBar,periode}.tsx|ts` — **nouveaux**. `periode.ts` est séparé exprès (un fichier ne peut exporter composant **et** fonction sans casser le Fast Refresh).
+- `src/pages/kpi/{PerformancesCommerciaux,MesPerformances}.tsx` — **nouveaux**. Routes `/performances` (admin, via `AdminGuard`) et `/mes-performances`.
+- `src/lib/auth.tsx` — accroche 401 + re-sonde au retour d'onglet + `sessionExpiree`.
+- `src/lib/api.ts` — `setUnauthorizedHandler`, `removePieceJointe*`, KPI, `rechercherHotline(CritereHotline)`.
+- `src/lib/format.ts` — `formatDateTime` réel, `formatHeures`.
+- `src/lib/modules.ts`, `src/components/Layout.tsx`, `src/App.tsx` — la nav se modifie **aux trois endroits** : `modules.ts` ne mappe qu'un préfixe d'URL, le sous-menu est du JSX écrit à la main dans `Layout.tsx`.
+- `src/index.css` — `--chart-1-track` ajouté (clair + sombre + binding Tailwind).
+- `docs/api-docsV4.json` — le contrat. **Le diffusier avant toute écriture front.**
 
 ---
 
 ## 🔧 Environment & Config
 
-- Windows 11, PowerShell primary + Bash tool. **Files are CRLF** — git warns `LF will be replaced by CRLF` on the docs files; harmless.
-- Stack unchanged: React 19 + TS + Vite + Tailwind v4 + shadcn/Base UI, React Router v7.
-- Verification used: `npx tsc -b --force`, `npx eslint src`, `npx vite build` (~1.7–3 s). All green at session end.
-- Git: `main` = `07bd958`. `refractor/best-practice` = `fe5a204` (**merge commit, 2 parents, 10 commits ahead of its remote — NOT pushed**). `feat/resevation-model` = local only, never pushed, off `07bd958`.
-- `git-flow.mjs` commands: `status` / `start` / `commit` / `push` / `sync` only — **no merge support**; conclude merges with plain git.
+- Windows 11, PowerShell + Bash. Fichiers **CRLF**.
+- React 19 + TS + Vite 8 + Tailwind v4 + shadcn/Base UI, React Router v7. **Aucune bibliothèque de graphiques** — marques faites main en CSS.
+- Backend Spring sur `:8080` — **était up** en fin de session (`/api-docs` → 200). SQL Server requis.
+- Serveurs de dev : ports 5173-5177 occupés en fin de session (plusieurs `npm run dev` laissés par les vérifications ; les miens ont été arrêtés).
+- Scratchpad de session : `C:\Users\tsiory\AppData\Local\Temp\claude\C--Users-tsiory-...\3e849c97-...\scratchpad` — contient les scripts de patch et les harnais, réutilisables comme modèles.
 
 ---
 
 ## ⏭️ Next Step
-> Decide what `feat/resevation-model` is actually for. The branch is cut but carries only the 2 modified docs files. If a réservation-document generator was expected on the backend, restart it and re-run `npm run docs:update` — the current spec has **no new endpoint** (152→152 routes), so either the backend wasn't rebuilt or the endpoint lacks springdoc annotations. Otherwise commit the 2 docs files as a `docs: sync api-docsV4` commit and state the branch's real goal.
+> Tout est fusionné (PR #12 à #18) et `main` est à jour ; il ne reste qu'à `node ../.claude/scripts/git-flow.mjs sync front`. Ensuite, **la dette réelle est la vérification** : rien de cette session n'a été cliqué sur données réelles authentifiées. Dérouler en priorité les scénarios listés dans le backlog ci-dessous, en commençant par la note d'interaction (#94) — c'est le seul dont on ignore encore s'il affiche bien quelque chose.
 
-### Backlog (carried over / accumulated)
-- [ ] **Push `refractor/best-practice`** — 10 commits ahead of its remote including the merge `fe5a204`; PR not opened. Ask first.
-- [ ] Report to `immo-crm/instructions/from_front.md`: `fiche-reservation` / `acte-reservation` missing `@Operation` summary+description (bug #88).
-- [ ] Confirm the widened `trancheId` semantics (#87 note) don't break any frontend assumption about dossier counts per tranche.
-- [ ] **Audit #6** — active-filter chips: filter state invisible once set; add dismissible chips + "N filtres actifs".
-- [ ] **Audit #3 — mobile: a scope DECISION, not a bug.** 18/27 pages have zero breakpoints; filter bars break at 375px. Responsive, or explicitly desk-only? **Ask the user.**
-- [ ] DossiersList batch-document toolbar → contextual selection bar (needs a design decision on real usage).
-- [ ] `Skeleton` exists in `ui/skeleton.tsx` but only `sidebar.tsx` uses it — consider skeleton rows for first load.
-- [ ] from_front.md request #4 (Articles columns/filters: Type Présentation, Superficie Sous Articles, TVA, prix/surface range filters).
-- [ ] Étape filter on `/prospections` / `/pre-prospections` (`ETAPE_ITEMS`) still hardcoded — should reuse `/api/referentiels/etapes-prospection`.
-- [ ] `MultiSelectDropdown.tsx` search input (typing to filter) — long planned, never built.
-- [ ] Remaining raw `<Select items={…}>` → `SearchableSelect` swaps (only `InteractionForm.tsx` done).
-- [ ] 9 pre-existing eslint errors (#89) — fix opportunistically.
+### Backlog (par priorité)
+- [ ] **Vérifier sur données réelles** : note d'interaction (`note` non vide ?), suppression de pièce jointe + garde POINTED, `/performances` et `/mes-performances` (403 non-admin, 404 sans fiche employé), session expirée (baisser `app.jwt.expiration-minutes` à 1 pour tester), hotline par nom accentué + bandeau `tronque`, `EnvoiMailNotice` avec et sans SMTP.
+- [ ] **Ré-échelonner `--chart-1..5`** avant toute série catégorielle réelle (bug #99).
+- [ ] `statutDescription` masqué par `workflowDescription` (bug #100) — décision différée.
+- [ ] Le Calendrier n'affiche ni note ni heure : `EvenementCalendrierDto` n'a pas de champ note (il a `interactionId`, mais aucun `GET /api/interactions/{id}` n'existe). Demande backend à formuler.
+- [ ] Audit #6 — chips de filtres actifs (état de filtrage invisible une fois posé).
+- [ ] Audit #3 — mobile : 18/27 pages sans breakpoint. **Décision de périmètre à prendre avec l'utilisateur.**
+- [ ] 25 endpoints backend sans appelant front (voir `FEATURES.md`).
+- [ ] 9 erreurs eslint préexistantes (#101) — à traiter à l'occasion.
+- [ ] Étape filter `/prospections` encore codée en dur (`ETAPE_ITEMS`) au lieu de `/api/referentiels/etapes-prospection`.
+- [ ] `MultiSelectDropdown.tsx` — champ de recherche jamais construit.
