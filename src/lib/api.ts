@@ -1324,8 +1324,24 @@ export function listCommerciaux(pageable?: Pageable): Promise<PageDto<Commercial
 // même un numéro inconnu répond 200 avec `connu: false` et des listes vides.
 // ---------------------------------------------------------------------------
 
-export function rechercherHotline(telephone: string): Promise<HotlineResultDto> {
-  return request('GET', '/api/hotline/recherche', { query: { telephone } });
+/** Critère de recherche hotline. **Exactement un des deux** : le serveur
+ * répond 400 si les deux sont fournis, comme s'il n'y en a aucun. Le type en
+ * union plutôt qu'un objet à deux champs optionnels rend cette exclusivité
+ * impossible à violer depuis l'appelant. */
+export type CritereHotline = { telephone: string } | { nom: string };
+
+/** `GET /api/hotline/recherche` — tout ce que le système sait d'un appelant,
+ * en une requête.
+ *
+ * Par téléphone : espaces, tirets, parenthèses et indicatif sont ignorés, et
+ * la recherche n'est pas plafonnée. Par nom : sous-chaîne insensible à la
+ * casse et aux accents, **2 caractères minimum** (400 en deçà) et **plafond de
+ * 20 fiches** — au-delà, `tronque` vaut true et doit être montré à l'agent.
+ *
+ * Ne renvoie jamais 404 : un critère sans correspondance répond 200 avec
+ * `connu: false` et des listes vides. */
+export function rechercherHotline(critere: CritereHotline): Promise<HotlineResultDto> {
+  return request('GET', '/api/hotline/recherche', { query: { ...critere } });
 }
 
 // ---------------------------------------------------------------------------

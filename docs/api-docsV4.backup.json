@@ -288,7 +288,7 @@
           "Utilisateurs (admin)"
         ],
         "summary": "Crée un nouvel employé",
-        "description": "Crée en une seule opération la fiche personne (CfgTier), le compte de connexion (AdmUser) qui lui est lié, les rôles demandés (AdmUserRole), et génère un mot de passe temporaire renvoyé une seule fois dans la réponse (à communiquer par un canal hors-bande — jamais stocké en clair). Le compte devra changer ce mot de passe et compléter son profil à sa première connexion (mustChangePassword=true, profileCompleted=false — voir GET /api/mon-compte). Réservé au rôle Administrateur.",
+        "description": "Crée en une seule opération la fiche personne (CfgTier), le compte de connexion (AdmUser) qui lui est lié, les rôles demandés (AdmUserRole), et génère un mot de passe temporaire **envoyé par email à l'employé** et renvoyé une seule fois dans la réponse. Le compte devra changer ce mot de passe et compléter son profil à sa première connexion (mustChangePassword=true, profileCompleted=false — voir GET /api/mon-compte).\n\n**`email` est désormais réellement obligatoire et doit être une adresse valide**, alors qu'il était jusqu'ici accepté vide malgré sa mention REQUIRED : c'est à cette adresse qu'est expédié le mot de passe, et elle est écrite à la fois sur la fiche personne et sur le compte. Le formulaire doit donc la valider avant envoi.\n\nL'envoi est **asynchrone** et postérieur au commit : `emailEnvoye=true` signifie qu'il a été déclenché sans obstacle, pas qu'il a été remis. C'est pourquoi `motDePasseTemporaire` reste dans la réponse et doit continuer d'être affiché à l'administrateur. Réservé au rôle Administrateur.",
         "operationId": "creerEmploye",
         "requestBody": {
           "content": {
@@ -302,7 +302,7 @@
         },
         "responses": {
           "201": {
-            "description": "Employé créé.",
+            "description": "Employé créé et envoi déclenché.",
             "content": {
               "*/*": {
                 "schema": {
@@ -312,7 +312,7 @@
             }
           },
           "400": {
-            "description": "Champ requis manquant, ou typeEmployeCode/rôle référençant un code inconnu en base.",
+            "description": "Champ requis manquant, `email` absent ou malformé, ou typeEmployeCode/rôle référençant un code inconnu en base.",
             "content": {
               "*/*": {
                 "schema": {
@@ -350,7 +350,7 @@
           "Utilisateurs (admin)"
         ],
         "summary": "Réinitialise le mot de passe d'un utilisateur",
-        "description": "Génère un mot de passe temporaire, le renvoie une seule fois dans la réponse (à communiquer par un canal hors-bande — jamais stocké en clair), et force l'utilisateur à le changer à sa prochaine connexion (mustChangePassword=true). Invalide immédiatement tous les tokens déjà émis pour ce compte, sur tous les appareils. Crée l'enregistrement d'identifiants web si ce compte legacy (AdmUser) ne s'était encore jamais connecté à l'application web. Réservé au rôle Administrateur.",
+        "description": "Génère un mot de passe temporaire, **l'envoie par email à l'utilisateur**, le renvoie une seule fois dans la réponse, et force son changement à la prochaine connexion (mustChangePassword=true). Invalide immédiatement tous les tokens déjà émis pour ce compte, sur tous les appareils. Crée l'enregistrement d'identifiants web si ce compte legacy (AdmUser) ne s'était encore jamais connecté à l'application web.\n\n**Le compte doit avoir une adresse email, sinon 400.** L'adresse est cherchée sur `AdmUser.Email` puis, à défaut, sur la fiche employé liée (`CfgTier`). Le refus intervient **avant toute écriture** : aucun mot de passe n'est généré et les sessions en cours ne sont pas invalidées, le compte reste donc strictement intact. Cas fréquent sur les comptes hérités — au 08/09/2026, 5 des 15 comptes actifs sont dans ce cas.\n\nL'envoi est **asynchrone** et postérieur au commit : `emailEnvoye=true` signifie qu'il a été déclenché sans obstacle, pas qu'il a été remis. C'est pourquoi `motDePasseTemporaire` reste dans la réponse et doit continuer d'être affiché à l'administrateur. Réservé au rôle Administrateur.",
         "operationId": "reinitialiserMotDePasse",
         "parameters": [
           {
@@ -366,7 +366,17 @@
         ],
         "responses": {
           "200": {
-            "description": "Mot de passe temporaire généré.",
+            "description": "Mot de passe temporaire généré et envoi déclenché.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReinitialiserMotDePasseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Le compte n'a aucune adresse email (ni sur AdmUser, ni sur sa fiche employé) : le mot de passe ne peut être envoyé. Le message serveur nomme le remède — renseigner l'email de l'utilisateur — et peut être affiché tel quel.",
             "content": {
               "*/*": {
                 "schema": {
@@ -986,7 +996,7 @@
           "Prospections"
         ],
         "summary": "Journal des interactions d'une prospection",
-        "description": "Historique des interactions (appels, messages, notes, visites...) loggées sur cette prospection, les plus récentes en premier.",
+        "description": "Historique des interactions (appels, messages, notes, visites...) loggées sur cette prospection, les plus récentes en premier.\n\n**Afficher `note`, pas `description`.** `note` porte le texte saisi par le commercial. `description` est un libellé généré valant `JJ/MM/AAAA HH:MM <auteur>` sur 100 % des lignes réelles — soit exactement `date` + `employeNom`, déjà renvoyés séparément. Il n'est conservé que pour ne rien casser.",
         "operationId": "findInteractions",
         "parameters": [
           {
@@ -1036,7 +1046,7 @@
           "Prospections"
         ],
         "summary": "Ajoute une interaction à une prospection",
-        "description": "Journalise un appel/message/visite/note sur cette prospection. `actionTypeId` (\"Action\") et `resultatId` (\"Résultat\") sont optionnels mais recommandés pour un suivi exploitable — voir GET /api/referentiels/types-contact-prospection et GET /api/referentiels/resultats-interaction. Si le résultat choisi est \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\", `dateRdv` devient obligatoire et une entrée calendrier est créée, visible ensuite via GET /api/calendrier/evenements.",
+        "description": "Journalise un appel/message/visite/note sur cette prospection. `actionTypeId` (\"Action\") et `resultatId` (\"Résultat\") sont optionnels mais recommandés pour un suivi exploitable — voir GET /api/referentiels/types-contact-prospection et GET /api/referentiels/resultats-interaction. Si le résultat choisi est \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\", `dateRdv` devient obligatoire et une entrée calendrier est créée, visible ensuite via GET /api/calendrier/evenements.\n\n**Le corps de requête ne change pas** : `description` reste le champ d'entrée et reste obligatoire. Seule sa destination en base a été corrigée — il alimente désormais le champ `note` de la réponse, et non plus le libellé. Le libellé `description` de la réponse est **généré par le serveur** (`JJ/MM/AAAA HH:MM <auteur>`) et ne peut pas être imposé : c'est ce qui rend les interactions créées ici indiscernables de celles de l'application de bureau.\n\nL'**auteur** est déduit du jeton d'authentification, jamais du corps : le laisser choisir fausserait les KPI de performance commerciale.",
         "operationId": "addInteraction",
         "parameters": [
           {
@@ -7276,7 +7286,11 @@
             "example": "j.dupont"
           },
           "email": {
-            "type": "string"
+            "type": "string",
+            "format": "email",
+            "description": "Adresse email de l'employé, obligatoire et vérifiée : elle sert à lui expédier son mot de passe temporaire.",
+            "example": "j.dupont@exemple.ma",
+            "minLength": 1
           },
           "mobile": {
             "type": "string"
@@ -7330,7 +7344,17 @@
           },
           "motDePasseTemporaire": {
             "type": "string",
-            "description": "Mot de passe temporaire généré, à communiquer à l'employé par un canal hors-bande (jamais renvoyé une seconde fois — ni stocké en clair côté serveur). Le compte devra le changer dès sa première connexion (mustChangePassword=true)."
+            "description": "Mot de passe temporaire généré, envoyé par email à l'employé et renvoyé ici une seule fois (jamais une seconde, ni stocké en clair côté serveur). Le compte devra le changer dès sa première connexion (mustChangePassword=true). **À continuer d'afficher à l'administrateur** : l'envoi du mail est asynchrone et peut échouer, ce champ est le filet."
+          },
+          "emailEnvoye": {
+            "type": "boolean",
+            "description": "L'envoi du mail a été **déclenché**. L'expédition étant asynchrone, `true` ne prouve pas la remise — seulement qu'aucun obstacle n'a été rencontré côté serveur. `false` signifie que le service d'envoi est inactif (configuration SMTP absente ou incomplète) : le mot de passe doit alors être communiqué à la main.",
+            "example": true
+          },
+          "destinataire": {
+            "type": "string",
+            "description": "Adresse de destination, masquée — permet de vérifier d'un coup d'œil que le message part au bon endroit.",
+            "example": "j***@exemple.ma"
           }
         }
       },
@@ -7348,7 +7372,17 @@
           },
           "motDePasseTemporaire": {
             "type": "string",
-            "description": "Mot de passe temporaire généré, à communiquer à l'utilisateur par un canal hors-bande (jamais renvoyé une seconde fois — ni stocké en clair côté serveur). Le compte devra le changer dès sa prochaine connexion (mustChangePassword=true)."
+            "description": "Mot de passe temporaire généré, envoyé par email à l'utilisateur et renvoyé ici une seule fois (jamais une seconde, ni stocké en clair côté serveur). Le compte devra le changer dès sa prochaine connexion (mustChangePassword=true). **À continuer d'afficher à l'administrateur** : l'envoi du mail est asynchrone et peut échouer, ce champ est le filet."
+          },
+          "emailEnvoye": {
+            "type": "boolean",
+            "description": "L'envoi du mail a été **déclenché**. L'expédition étant asynchrone, `true` ne prouve pas la remise — seulement qu'aucun obstacle n'a été rencontré côté serveur. `false` signifie que le service d'envoi est inactif (configuration SMTP absente ou incomplète) : le mot de passe doit alors être communiqué à la main.",
+            "example": true
+          },
+          "destinataire": {
+            "type": "string",
+            "description": "Adresse de destination, masquée — permet de vérifier d'un coup d'œil que le message part au bon endroit. Résolue depuis `AdmUser.Email`, à défaut depuis l'email de la fiche employé (`CfgTier`).",
+            "example": "j***@exemple.ma"
           }
         }
       },
@@ -8074,7 +8108,8 @@
         "properties": {
           "description": {
             "type": "string",
-            "description": "Texte libre décrivant l'interaction."
+            "description": "Texte libre décrivant l'interaction — ce que le commercial a constaté ou fait. **Ressort dans le champ `note` de la réponse**, pas dans `description` : ce dernier est un libellé `JJ/MM/AAAA HH:MM <auteur>` généré par le serveur, que l'appelant ne peut pas imposer.",
+            "example": "la cliente cherche 2 chambres et salon, rdv mercredi 10h"
           },
           "entrante": {
             "type": "boolean",
@@ -8118,8 +8153,15 @@
             "format": "date-time",
             "description": "Date/heure de l'interaction."
           },
+          "note": {
+            "type": "string",
+            "description": "**Le texte saisi par le commercial — c'est ce qu'il faut afficher dans le journal.** Stocké dans `ComActionMessage.AlertMessage`, qui malgré son nom ne relève pas des relances : 6 502 interactions portent une note sans aucune date d'alerte. `null` quand rien n'a été saisi (3,4 % des lignes réelles).",
+            "example": "la cliente cherche 2 chambres et salon, rdv mercredi 10h"
+          },
           "description": {
-            "type": "string"
+            "type": "string",
+            "description": "**Libellé généré, pas un contenu.** Vaut `JJ/MM/AAAA HH:MM <auteur>` sur 100 % des lignes réelles (46 546 sur 46 546, zéro exception), c'est-à-dire exactement `date` + `employeNom`, déjà présents ci-dessus. Conservé pour ne rien casser, mais **l'afficher revient à répéter trois fois la même information** — utilisez `note`.",
+            "example": "07/09/2026 17:13 Khadija ELKORRI"
           },
           "entrante": {
             "type": "boolean",
@@ -10601,7 +10643,7 @@
           "prospectionsPrisesEnCharge": {
             "type": "integer",
             "format": "int64",
-            "description": "Parmi les prospections assignées, celles ayant reçu au moins une interaction — de lui ou de quelqu'un d'autre. Le complément est le nombre de leads jamais contactés, qui vaut 32 % sur l'ensemble de la base.",
+            "description": "Parmi les prospections assignées, celles ayant reçu au moins une interaction — de lui ou de quelqu'un d'autre. Le complément est le nombre de leads confiés puis laissés sans contact : 259 sur 4 555 en données réelles (5,7 %). À ne pas confondre avec les 32 % de leads jamais contactés de la base entière, dont l'essentiel n'est assigné à personne et n'entre donc dans le compteur d'aucun commercial.",
             "example": 104
           },
           "tauxPriseEnCharge": {

@@ -28,6 +28,9 @@ import type { DossierListItemDto, HotlineFicheDto, ProspectionListItemDto } from
 
 type HotlineTab = 'general' | 'prospections' | 'dossiers' | 'reglements' | 'interactions' | 'historique';
 
+/** Les deux critères exclusifs de GET /api/hotline/recherche. */
+type CritereMode = 'telephone' | 'nom';
+
 /** One row of the fiche's "Prospections" tab — expands in place instead of
  * navigating away (the agent is on a live call, they shouldn't lose the
  * fiche to look at one linked prospection). The full detail
@@ -422,15 +425,23 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
 }
 
 export default function Hotline() {
+  // Le critère fait partie de la requête lancée, pas seulement de la saisie :
+  // basculer le sélecteur après coup ne doit pas réinterpréter un résultat
+  // déjà affiché comme s'il venait de l'autre critère.
+  const [mode, setMode] = useState<CritereMode>('telephone');
   const [input, setInput] = useState('');
   const [query, setQuery] = useState('');
+  const [queryMode, setQueryMode] = useState<CritereMode>('telephone');
   const [refreshToken, setRefreshToken] = useState(0);
   const [createForProspectionId, setCreateForProspectionId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const { data, loading, error } = useApi(
-    () => (query ? rechercherHotline(query) : Promise.resolve(null)),
-    [query, refreshToken],
+    () =>
+      query
+        ? rechercherHotline(queryMode === 'nom' ? { nom: query } : { telephone: query })
+        : Promise.resolve(null),
+    [query, queryMode, refreshToken],
   );
 
   function showToast(msg: string) {
@@ -438,8 +449,22 @@ export default function Hotline() {
     setTimeout(() => setToast(null), 3600);
   }
 
+  // Le serveur refuse un nom de moins de 2 caractères (400) ; on ne l'envoie
+  // pas pour ça. Le téléphone, lui, n'a pas de longueur minimale — c'est la
+  // présence d'au moins un chiffre exploitable qui compte, et le serveur est
+  // seul juge de ce qu'il sait normaliser.
+  const saisie = input.trim();
+  const saisieValide = mode === 'nom' ? saisie.length >= 2 : saisie.length > 0;
+
   function submit() {
-    setQuery(input.trim());
+    if (!saisieValide) return;
+    setQueryMode(mode);
+    setQuery(saisie);
+  }
+
+  function changerMode(suivant: CritereMode) {
+    setMode(suivant);
+    setInput('');
   }
 
   const fiches = data?.fiches ?? [];
@@ -456,32 +481,62 @@ export default function Hotline() {
           }}
         >
           <div className="flex min-w-65 flex-1 flex-col gap-1">
-            <label htmlFor="hotline-tel" className="text-micro font-medium text-muted-foreground">
-              Numéro de téléphone de l'appelant
+            <label htmlFor="hotline-critere" className="text-micro font-medium text-muted-foreground">
+              {mode === 'nom' ? "Nom de l'appelant" : "Numéro de téléphone de l'appelant"}
             </label>
             <Input
-              id="hotline-tel"
+              id="hotline-critere"
               autoFocus
-              inputMode="tel"
-              placeholder="06 12 34 56 78"
+              inputMode={mode === 'nom' ? 'text' : 'tel'}
+              placeholder={mode === 'nom' ? 'Ex. Benani' : '06 12 34 56 78'}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               className="h-10 text-title"
             />
           </div>
-          <Button type="submit" size="lg" disabled={!input.trim()}>
+          <div className="flex items-center gap-1 self-end rounded-md border border-border p-0.5">
+            {(['telephone', 'nom'] as const).map((m) => (
+              <Button
+                key={m}
+                type="button"
+                variant={mode === m ? 'default' : 'ghost'}
+                size="sm"
+                aria-pressed={mode === m}
+                onClick={() => changerMode(m)}
+              >
+                {m === 'telephone' ? 'Téléphone' : 'Nom'}
+              </Button>
+            ))}
+          </div>
+          <Button type="submit" size="lg" disabled={!saisieValide}>
             <Search data-icon="inline-start" /> Rechercher
           </Button>
         </form>
         <p className="mt-2.5 text-body text-muted-foreground">
-          Espaces, tirets, parenthèses et indicatif pays sont ignorés — "+212 6 12 34 56 78", "212612345678" et
-          "0612345678" sont reconnus comme le même numéro.
+          {mode === 'nom' ? (
+            <>
+              Recherche sur une partie du nom, sans tenir compte de la casse ni des accents — « hejer » trouve
+              « Héjér ». Deux caractères minimum, et les 20 premières fiches seulement.
+            </>
+          ) : (
+            <>
+              Espaces, tirets, parenthèses et indicatif pays sont ignorés — "+212 6 12 34 56 78", "212612345678" et
+              "0612345678" sont reconnus comme le même numéro.
+            </>
+          )}
         </p>
       </Card>
 
       {!query && (
         <div className="mt-4">
-          <EmptyState title="En attente d'un numéro" message="Saisissez le numéro de l'appelant pour voir instantanément qui il est." />
+          <EmptyState
+            title={mode === 'nom' ? "En attente d'un nom" : "En attente d'un numéro"}
+            message={
+              mode === 'nom'
+                ? "Saisissez tout ou partie du nom de l'appelant pour retrouver sa fiche."
+                : "Saisissez le numéro de l'appelant pour voir instantanément qui il est."
+            }
+          />
         </div>
       )}
 
@@ -499,18 +554,53 @@ export default function Hotline() {
                   <PhoneOff className="size-4.5 text-muted-foreground" />
                 )}
                 <div>
-                  <div className="text-title font-semibold text-foreground">{data.telephoneRecherche || query}</div>
-                  <div className="text-micro text-muted-foreground">Numéro normalisé : {data.telephoneNormalise || '—'}</div>
+                  <div className="text-title font-semibold text-foreground">
+                    {data.nomRecherche || data.telephoneRecherche || query}
+                  </div>
+                  {/* Sur une recherche par nom le serveur renvoie
+                      telephoneNormalise: null — afficher « Numéro normalisé : — »
+                      laisserait croire à une donnée manquante alors qu'il n'y a
+                      simplement pas de numéro dans cette recherche. */}
+                  {data.critere !== 'NOM' && (
+                    <div className="text-micro text-muted-foreground">
+                      Numéro normalisé : {data.telephoneNormalise || '—'}
+                    </div>
+                  )}
                 </div>
               </div>
-              <Badge tone={data.connu ? 'success' : 'neutral'}>{data.connu ? 'Numéro connu' : 'Numéro inconnu'}</Badge>
+              <Badge tone={data.connu ? 'success' : 'neutral'}>
+                {data.critere === 'NOM'
+                  ? data.connu
+                    ? `${fiches.length} fiche${fiches.length > 1 ? 's' : ''} trouvée${fiches.length > 1 ? 's' : ''}`
+                    : 'Nom inconnu'
+                  : data.connu
+                    ? 'Numéro connu'
+                    : 'Numéro inconnu'}
+              </Badge>
             </div>
           </Card>
+
+          {/* Explicitement demandé par la spec. Le plafond de 20 est invisible
+              autrement : l'agent lit une liste complète, n'y trouve pas sa
+              personne et en conclut qu'elle n'existe pas. */}
+          {data.tronque && (
+            <p
+              role="status"
+              className="rounded-md border border-(--warning-border) bg-(--warning-bg) px-3 py-2 text-body text-(--warning)"
+            >
+              Plus de 20 fiches portent ce nom : seules les 20 premières sont affichées. Précisez votre recherche
+              (nom complet, ou recherche par téléphone) pour trouver la bonne personne.
+            </p>
+          )}
 
           {fiches.length === 0 && (
             <EmptyState
               title="Aucune fiche existante"
-              message="Personne n'est enregistré avec ce numéro dans le système."
+              message={
+                data.critere === 'NOM'
+                  ? "Aucune fiche ne porte ce nom dans le système."
+                  : "Personne n'est enregistré avec ce numéro dans le système."
+              }
             />
           )}
 
@@ -549,7 +639,7 @@ export default function Hotline() {
       {createForProspectionId && (
         <CreateProspectForm
           preProspectionId={createForProspectionId}
-          initial={{ phone: data?.telephoneRecherche }}
+          initial={{ phone: data?.telephoneRecherche ?? undefined }}
           onClose={() => setCreateForProspectionId(null)}
           onSubmit={() => {
             setCreateForProspectionId(null);
