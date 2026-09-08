@@ -202,6 +202,39 @@ interface CacheEntry {
 
 const getCache = new Map<string, CacheEntry>();
 
+/** Point unique par lequel remonte l'expiration de session.
+ *
+ * Le cookie JWT est `httpOnly` : le front ne peut ni le lire ni connaître sa
+ * date d'expiration, et la spec n'expose aucun endpoint de rafraîchissement.
+ * Un 401 sur un appel quelconque est donc le **seul** signal disponible pour
+ * savoir que la session est morte.
+ *
+ * Sans cet accrochage, `AuthProvider` — qui n'interroge `/api/mon-compte` qu'au
+ * montage — restait indéfiniment sur `status: 'authenticated'` après
+ * l'expiration : chaque page affichait son propre bandeau d'erreur, les
+ * référentiels se vidaient, et seul un rafraîchissement complet finissait par
+ * ramener l'écran de connexion.
+ *
+ * `auth.tsx` s'abonne au montage ; l'abonné est unique, il n'y a qu'un
+ * `AuthProvider`. */
+type UnauthorizedHandler = () => void;
+
+let unauthorizedHandler: UnauthorizedHandler | null = null;
+
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  unauthorizedHandler = handler;
+}
+
+/** Un 401 sur le formulaire de connexion n'est pas une expiration : c'est un
+ * mauvais identifiant, et il doit rester au formulaire — le transformer en
+ * « session expirée » afficherait un message absurde à quelqu'un qui n'a
+ * jamais été connecté. */
+function signalerSiSessionExpiree(url: string, status: number): void {
+  if (status !== 401) return;
+  if (url.includes('/api/auth/connexion')) return;
+  unauthorizedHandler?.();
+}
+
 /** Escape hatch for callers that need a guaranteed-fresh read (e.g. after an
  * out-of-band change). Not needed for normal use — mutations already clear
  * the cache automatically. */
@@ -255,6 +288,7 @@ async function performRequest<T>(
     throw new ApiError(0, `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`);
   }
   if (!res.ok) {
+    signalerSiSessionExpiree(url, res.status);
     const { message, problem } = await readErrorBody(res, `${method} ${url} a échoué (${res.status})`);
     throw new ApiError(res.status, message, problem);
   }
@@ -626,6 +660,7 @@ async function postMultipart<T>(path: string, file: File, query?: Record<string,
     throw new ApiError(0, `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`);
   }
   if (!res.ok) {
+    signalerSiSessionExpiree(url, res.status);
     const { message, problem } = await readErrorBody(res, `POST ${url} a échoué (${res.status})`);
     throw new ApiError(res.status, message, problem);
   }
