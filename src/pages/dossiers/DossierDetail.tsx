@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Ban, ChevronDown, ChevronRight, ClipboardCheck, Coins, Download, Eye, FileDown, FileSignature, FileStack, FileText, Folder, Landmark, Loader2, Paperclip, Phone, Plus, Receipt, TrendingUp, Upload, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Ban, ChevronDown, ChevronRight, ClipboardCheck, Coins, Download, Eye, FileDown, FileSignature, FileStack, FileText, Folder, Landmark, Loader2, Paperclip, Phone, Plus, Receipt, Trash2, TrendingUp, Upload, Wallet } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, StatCard } from '../../components/ui';
@@ -38,6 +38,7 @@ import {
   listPayeurs,
   listReglementPiecesJointes,
   modifierStatutReglement,
+  removeReglementPieceJointe,
   uploadReglementPieceJointe,
   openReglementPieceJointeFichier,
   changerStatutDossier,
@@ -56,6 +57,7 @@ import {
   getEtapesSuivantes,
   listHistoriqueDossier,
   listPiecesJointes,
+  removePieceJointe,
   uploadPieceJointe,
   viewActeReservation,
   viewAutorisationVersement,
@@ -167,8 +169,18 @@ function AddEcheanceRow({
   );
 }
 
-function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJointeDto }) {
+function PieceJointeRow({
+  dossierId,
+  piece,
+  onDeleted,
+}: {
+  dossierId: string;
+  piece: PieceJointeDto;
+  onDeleted: () => void;
+}) {
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
   const ext = piece.extension?.replace(/^\./, '') || '';
   const filename = `${piece.description || 'document'}${ext ? `.${ext}` : ''}`;
 
@@ -190,6 +202,31 @@ function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJ
     }
   }
 
+  // Suppression **logique** côté serveur : la pièce sort de la liste et son
+  // fichier n'est plus servi, mais elle reste récupérable en base — jamais
+  // via l'API. Irréversible du point de vue de l'utilisateur, donc
+  // confirmation préalable, avec le même dialogue partagé que
+  // l'annulation d'un règlement.
+  async function handleDelete() {
+    const ok = await confirm({
+      title: 'Supprimer la pièce jointe',
+      message: `Supprimer « ${filename} » du dossier ? Cette suppression est irréversible depuis l’application.`,
+      confirmLabel: 'Supprimer',
+      cancelLabel: 'Annuler',
+    });
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await removePieceJointe(dossierId, piece.id);
+      onDeleted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de la suppression.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <TableRow className="hover:bg-muted/40">
       <TableCell>
@@ -208,6 +245,17 @@ function PieceJointeRow({ dossierId, piece }: { dossierId: string; piece: PieceJ
           {error && <span className="text-micro text-destructive">{error}</span>}
           <Button type="button" variant="ghost" size="sm" onClick={handle}>
             <Eye data-icon="inline-start" /> Ouvrir <ArrowUpRight data-icon="inline-end" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            title="Supprimer la pièce jointe"
+            aria-label={`Supprimer ${filename}`}
+            disabled={busy}
+            onClick={handleDelete}
+          >
+            <Trash2 />
           </Button>
         </div>
       </TableCell>
@@ -873,15 +921,27 @@ function ReglementPieceUpload({
 function ReglementPiecesJointesPanel({
   dossierId,
   reglementId,
+  statut,
   refreshKey,
   onChanged,
 }: {
   dossierId: string;
   reglementId: string;
+  /** Optionnel comme sur ReglementDto : une ligne legacy peut ne pas en porter. */
+  statut?: string;
   refreshKey: number;
   onChanged: () => void;
 }) {
   const pieces = useApi(() => listReglementPiecesJointes(dossierId, reglementId), [dossierId, reglementId, refreshKey]);
+
+  // Miroir exact du garde-fou de `PointerReglementModal` : plutôt que d'envoyer
+  // la requête pour en récolter un 409, on désactive la suppression dans le seul
+  // cas où le serveur la refuse — la dernière preuve d'un règlement pointé. Pour
+  // la remplacer : déposer la nouvelle d'abord, supprimer l'ancienne ensuite.
+  const dernierePreuveVerrouillee = statut === 'POINTED' && pieces.data?.length === 1;
+  const raisonBlocage = dernierePreuveVerrouillee
+    ? 'Un règlement pointé ne peut pas perdre sa dernière preuve de paiement. Déposez la nouvelle avant de supprimer celle-ci.'
+    : undefined;
 
   return (
     <div className="mt-1.5 flex flex-col gap-2 rounded-md border border-border bg-background/60 px-2.5 py-2">
@@ -892,7 +952,14 @@ function ReglementPiecesJointesPanel({
         <span className="text-micro text-muted-foreground">Aucune preuve déposée.</span>
       )}
       {pieces.data?.map((p) => (
-        <ReglementPieceJointeRow key={p.id} dossierId={dossierId} reglementId={reglementId} piece={p} />
+        <ReglementPieceJointeRow
+          key={p.id}
+          dossierId={dossierId}
+          reglementId={reglementId}
+          piece={p}
+          onDeleted={onChanged}
+          raisonBlocage={raisonBlocage}
+        />
       ))}
       <ReglementPieceUpload dossierId={dossierId} reglementId={reglementId} onAdded={onChanged} />
     </div>
@@ -903,12 +970,20 @@ function ReglementPieceJointeRow({
   dossierId,
   reglementId,
   piece,
+  onDeleted,
+  raisonBlocage,
 }: {
   dossierId: string;
   reglementId: string;
   piece: PieceJointeDto;
+  onDeleted: () => void;
+  /** Renseignée quand la suppression est interdite : sert de motif affiché et
+   * désactive le bouton. Le parent décide, la ligne se contente d'obéir. */
+  raisonBlocage?: string;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const confirm = useConfirm();
   const ext = piece.extension?.replace(/^\./, '') || '';
   const filename = `${piece.description || 'preuve-paiement'}${ext ? `.${ext}` : ''}`;
 
@@ -922,6 +997,30 @@ function ReglementPieceJointeRow({
     }
   }
 
+  // Le garde-fou `raisonBlocage` désactive déjà le bouton dans le cas connu
+  // (dernière preuve d'un règlement pointé) ; le 409 reste rattrapé ici pour
+  // les courses et les lignes rafraîchies entre-temps. Son `detail` est déjà
+  // porté par `ApiError.message`, on le montre tel quel.
+  async function handleDelete() {
+    const ok = await confirm({
+      title: 'Supprimer la preuve de paiement',
+      message: `Supprimer « ${piece.description || filename} » ? Cette suppression est irréversible depuis l’application.`,
+      confirmLabel: 'Supprimer',
+      cancelLabel: 'Annuler',
+    });
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await removeReglementPieceJointe(dossierId, reglementId, piece.id);
+      onDeleted();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de la suppression.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="flex min-w-0 items-center gap-2 text-micro">
       <FileText className="size-3.5 shrink-0 text-muted-foreground" />
@@ -932,6 +1031,17 @@ function ReglementPieceJointeRow({
       <span className="ml-auto flex shrink-0 items-center gap-0.5">
         <Button type="button" variant="ghost" size="icon-xs" title="Ouvrir la preuve dans un onglet" onClick={handle}>
           <Eye />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          title={raisonBlocage ?? 'Supprimer la preuve de paiement'}
+          aria-label="Supprimer la preuve de paiement"
+          disabled={busy || !!raisonBlocage}
+          onClick={handleDelete}
+        >
+          <Trash2 />
         </Button>
       </span>
     </div>
@@ -999,7 +1109,13 @@ function PointerReglementModal({
             </span>
           )}
           {pieces.data?.map((p) => (
-            <ReglementPieceJointeRow key={p.id} dossierId={dossierId} reglementId={reglement.id} piece={p} />
+            <ReglementPieceJointeRow
+              key={p.id}
+              dossierId={dossierId}
+              reglementId={reglement.id}
+              piece={p}
+              onDeleted={() => setPiecesVersion((v) => v + 1)}
+            />
           ))}
           <ReglementPieceUpload
             dossierId={dossierId}
@@ -1136,6 +1252,7 @@ function ReglementRow({
         <ReglementPiecesJointesPanel
           dossierId={dossierId}
           reglementId={reglement.id}
+          statut={reglement.statut}
           refreshKey={piecesVersion}
           onChanged={() => setPiecesVersion((v) => v + 1)}
         />
@@ -1682,7 +1799,7 @@ export default function DossierDetail() {
                   </TableHeader>
                   <TableBody>
                     {pieces.data.map((p) => (
-                      <PieceJointeRow key={p.id} dossierId={d.id} piece={p} />
+                      <PieceJointeRow key={p.id} dossierId={d.id} piece={p} onDeleted={pieces.refetch} />
                     ))}
                   </TableBody>
                 </Table>
