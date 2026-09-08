@@ -8,6 +8,7 @@ import ArticleCompactPreview from '../../components/ArticleCompactPreview';
 import DossierStatusStepper from '../../components/DossierStatusStepper';
 import Modal from '../../components/Modal';
 import Pagination from '../../components/Pagination';
+import { TimelineList, TimelineRow } from '../../components/Timeline';
 import { Button } from '../../components/ui/button';
 import { DialogFooter } from '../../components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
@@ -17,7 +18,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { referentielItems, useBanques, useCategoriesEcheance, useTypesPieceJointe, useTypesReglement } from '../../lib/referentiels';
-import { formatCurrency, formatDate, formatPercent, toApiDateTime, todayISO } from '../../lib/format';
+import { formatCurrency, formatDate, formatDateTime, formatPercent, toApiDateTime, todayISO } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import {
   ECHEANCE_STATUT_LABELS,
@@ -1817,21 +1818,17 @@ export default function DossierDetail() {
               <EmptyState title="Aucun historique" message="Aucun événement n'a encore été enregistré pour ce dossier." />
             )}
             {historique.data && historique.data.content.length > 0 && (
-              <div className="flex flex-col">
+              <TimelineList>
                 {historique.data.content.map((h, i) => (
-                  <div className="relative flex gap-3 pb-4.5 last:pb-0" key={`${h.date}-${i}`}>
-                    <div className="flex shrink-0 flex-col items-center">
-                      <div className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" />
-                      {i < historique.data!.content.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
-                    </div>
-                    <div className="min-w-0 flex-1 pb-0.5">
-                      <div className="text-label font-semibold text-foreground">{h.type || 'Événement'}</div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(h.date)} · {h.utilisateur || 'Système'}</div>
-                      {h.description && <div className="mt-1 text-body text-foreground">{h.description}</div>}
-                    </div>
-                  </div>
+                  <TimelineRow
+                    key={`${h.date}-${i}`}
+                    dernier={i === historique.data!.content.length - 1}
+                    titre={h.type || 'Événement'}
+                    meta={`${formatDateTime(h.date)} · ${h.utilisateur || 'Système'}`}
+                    note={h.description}
+                  />
                 ))}
-              </div>
+              </TimelineList>
             )}
             {historique.data && (
               <Pagination

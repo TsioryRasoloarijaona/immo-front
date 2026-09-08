@@ -45,8 +45,22 @@ export function formatDate(value: string | null | undefined): string {
   return `${d}/${mo}/${y}`;
 }
 
+/** `DD/MM/YYYY HH:mm` pour un champ `date-time`.
+ *
+ * C'était jusqu'ici un alias de `formatDate`, donc l'heure était supprimée
+ * partout où elle existait — un appel, un rendez-vous et un changement de
+ * statut s'affichaient tous à la journée près. Sur un historique où plusieurs
+ * actions tombent le même jour, l'ordre devenait illisible.
+ *
+ * Retombe sur la date seule quand la valeur n'en porte pas (`YYYY-MM-DD`
+ * nu) : une échéance n'a pas d'heure et « 00:00 » serait une invention. */
 export function formatDateTime(value: string | null | undefined): string {
-  return formatDate(value);
+  if (!value) return '—';
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(value);
+  if (!m) return value;
+  const [, y, mo, d, h, min] = m;
+  const jour = `${d}/${mo}/${y}`;
+  return h !== undefined ? `${jour} ${h}:${min}` : jour;
 }
 
 // Date `<input type="date">` fields give plain "YYYY-MM-DD" strings, but

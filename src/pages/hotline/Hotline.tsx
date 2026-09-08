@@ -8,11 +8,12 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import { TimelineList, TimelineRow } from '../../components/Timeline';
 import { getDossier, getProspection, rechercherHotline } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { etapeBadgeTone, interactionIcon, personDisplayName, prospectionDisplayName } from '../../lib/domain';
 import { toneForStatus } from '../../lib/dossierStatus';
-import { formatCurrency, formatDate } from '../../lib/format';
+import { formatCurrency, formatDate, formatDateTime } from '../../lib/format';
 import type { DossierListItemDto, HotlineFicheDto, ProspectionListItemDto } from '../../types';
 
 // Hotline — recherche instantanée "qui m'appelle ?" par numéro de téléphone,
@@ -365,30 +366,32 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {interactions.length === 0 ? (
               <EmptyState title="Aucune interaction" />
             ) : (
-              <div className="flex flex-col rounded-md border border-border p-3">
-                {interactions.map((c, i) => (
-                  <div className="relative flex gap-3 pb-3.5 last:pb-0" key={c.id}>
-                    <div className="flex shrink-0 flex-col items-center">
-                      <div className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" />
-                      {i < interactions.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
-                    </div>
-                    <div className="min-w-0 flex-1 pb-0.5">
-                      <div className="flex flex-wrap items-center gap-1.5 text-label font-semibold text-foreground">
-                        <span className="inline-flex text-(--brand)">{interactionIcon(c.entrante)}</span>
-                        {c.actionType || (c.entrante ? 'Entrant' : 'Sortant')}
-                        {c.resultat && <Badge tone={c.dateRdv ? 'success' : 'neutral'}>{c.resultat}</Badge>}
-                      </div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(c.date)} · {c.employeNom || 'Système'}</div>
-                      {c.description && <div className="mt-1 text-body text-foreground">{c.description}</div>}
-                      {(c.dateRdv || c.dateAlerte) && (
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {c.dateRdv && <Badge tone="success">RDV le {formatDate(c.dateRdv)}</Badge>}
-                          {c.dateAlerte && <Badge tone="warning">Alerte jusqu'au {formatDate(c.dateAlerte)}</Badge>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="rounded-md border border-border p-3">
+                <TimelineList>
+                  {interactions.map((c, i) => (
+                    <TimelineRow
+                      key={c.id}
+                      dernier={i === interactions.length - 1}
+                      titre={
+                        <span className="flex flex-wrap items-center gap-1.5">
+                          <span className="inline-flex text-(--brand)">{interactionIcon(c.entrante)}</span>
+                          {c.actionType || (c.entrante ? 'Entrant' : 'Sortant')}
+                          {c.resultat && <Badge tone={c.dateRdv ? 'success' : 'neutral'}>{c.resultat}</Badge>}
+                        </span>
+                      }
+                      meta={`${formatDateTime(c.date)} · ${c.employeNom || 'Système'}`}
+                      note={c.description}
+                      badges={
+                        (c.dateRdv || c.dateAlerte) && (
+                          <>
+                            {c.dateRdv && <Badge tone="success">RDV le {formatDateTime(c.dateRdv)}</Badge>}
+                            {c.dateAlerte && <Badge tone="warning">Alerte jusqu'au {formatDate(c.dateAlerte)}</Badge>}
+                          </>
+                        )
+                      }
+                    />
+                  ))}
+                </TimelineList>
               </div>
             )}
           </TabsContent>
@@ -397,20 +400,18 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {historique.length === 0 ? (
               <EmptyState title="Aucun historique" />
             ) : (
-              <div className="flex flex-col rounded-md border border-border p-3">
-                {historique.map((h, i) => (
-                  <div className="relative flex gap-3 pb-3.5 last:pb-0" key={h.id}>
-                    <div className="flex shrink-0 flex-col items-center">
-                      <div className="mt-1 size-2.5 shrink-0 rounded-full bg-primary" />
-                      {i < historique.length - 1 && <div className="mt-1 w-0.5 flex-1 bg-border" />}
-                    </div>
-                    <div className="min-w-0 flex-1 pb-0.5">
-                      <div className="text-label font-semibold text-foreground">{h.workflowDescription || h.statutDescription || 'Événement'}</div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">{formatDate(h.date)} · {h.utilisateur || 'Système'}</div>
-                      {h.description && <div className="mt-1 text-body text-foreground">{h.description}</div>}
-                    </div>
-                  </div>
-                ))}
+              <div className="rounded-md border border-border p-3">
+                <TimelineList>
+                  {historique.map((h, i) => (
+                    <TimelineRow
+                      key={h.id}
+                      dernier={i === historique.length - 1}
+                      titre={h.workflowDescription || h.statutDescription || 'Événement'}
+                      meta={`${formatDateTime(h.date)} · ${h.utilisateur || 'Système'}`}
+                      note={h.description}
+                    />
+                  ))}
+                </TimelineList>
               </div>
             )}
           </TabsContent>
