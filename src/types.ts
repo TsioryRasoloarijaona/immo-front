@@ -1454,9 +1454,27 @@ export interface HotlineFicheDto {
   historique?: HistoriqueDto[];
 }
 
+/** Résultat de `GET /api/hotline/recherche`, pour l'un ou l'autre des deux
+ * critères. La forme est identique dans les deux cas — un seul écran suffit,
+ * seul le champ de saisie change. */
 export interface HotlineResultDto {
-  telephoneRecherche?: string;
-  telephoneNormalise?: string;
+  /** Quel critère a produit ce résultat. Détermine lesquels des champs
+   * `telephone*` / `nomRecherche` sont renseignés — les autres valent `null`. */
+  critere?: 'TELEPHONE' | 'NOM';
+  /** Numéro tel que saisi. `null` pour une recherche par nom. */
+  telephoneRecherche?: string | null;
+  /** Numéro normalisé réellement utilisé : chiffres seuls, 9 derniers
+   * conservés (indicatif ignoré). Utile pour comprendre pourquoi deux numéros
+   * écrits différemment se sont — ou non — rejoints. `null` par nom. */
+  telephoneNormalise?: string | null;
+  /** Terme recherché tel que saisi. `null` pour une recherche par téléphone. */
+  nomRecherche?: string | null;
+  /** **À afficher.** `true` quand plus de 20 fiches correspondent au nom et
+   * que la liste a été coupée. Sans cette mention l'agent conclut que la
+   * personne n'existe pas alors qu'elle est seulement au-delà du plafond —
+   * « MOHAMED » remonte 555 fiches en base réelle. Toujours `false` pour une
+   * recherche par téléphone, qui n'est pas plafonnée. */
+  tronque?: boolean;
   connu?: boolean;
   fiches?: HotlineFicheDto[];
   /** Pré-prospections dont le numéro de l'époque correspond mais qui n'ont
