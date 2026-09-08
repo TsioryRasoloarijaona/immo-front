@@ -30,9 +30,15 @@ import {
   useTypesContactProspection,
   useVocations,
 } from '../../lib/referentiels';
+import TelephoneField, { INDICATIF_MAROC } from '../../components/TelephoneField';
 import type { CreerProspectRequest, CreerProspectionRequest, ProspectListItemDto } from '../../types';
 
-const EMPTY_NEW_PROSPECT: CreerProspectRequest = {};
+// Indicatifs pré-remplis, comme sur les autres formulaires de création : c'est
+// leur absence qui produit les numéros que le canal WhatsApp rejette.
+const EMPTY_NEW_PROSPECT: CreerProspectRequest = {
+  indicatifTelephone: INDICATIF_MAROC,
+  indicatifMobile: INDICATIF_MAROC,
+};
 
 /** "Prospect" half of the combined form — either pick an existing prospect
  * (search + click a row, same pattern as NewDossier.tsx's article picker)
@@ -157,14 +163,22 @@ function ProspectPicker({
               <FieldLabel htmlFor="pp-raisonSociale">Raison sociale (si personne morale)</FieldLabel>
               <Input id="pp-raisonSociale" value={newForm.raisonSociale ?? ''} onChange={(e) => setNew('raisonSociale', e.target.value || undefined)} />
             </FormField>
-            <FormField>
-              <FieldLabel htmlFor="pp-telephone">Téléphone</FieldLabel>
-              <Input id="pp-telephone" value={newForm.telephone ?? ''} onChange={(e) => setNew('telephone', e.target.value || undefined)} />
-            </FormField>
-            <FormField>
-              <FieldLabel htmlFor="pp-mobile">Mobile</FieldLabel>
-              <Input id="pp-mobile" value={newForm.mobile ?? ''} onChange={(e) => setNew('mobile', e.target.value || undefined)} />
-            </FormField>
+            <TelephoneField
+              id="pp-telephone"
+              label="Téléphone"
+              numero={newForm.telephone ?? ''}
+              indicatif={newForm.indicatifTelephone ?? null}
+              onNumeroChange={(v) => setNew('telephone', v || undefined)}
+              onIndicatifChange={(v) => setNew('indicatifTelephone', v ?? undefined)}
+            />
+            <TelephoneField
+              id="pp-mobile"
+              label="Mobile"
+              numero={newForm.mobile ?? ''}
+              indicatif={newForm.indicatifMobile ?? null}
+              onNumeroChange={(v) => setNew('mobile', v || undefined)}
+              onIndicatifChange={(v) => setNew('indicatifMobile', v ?? undefined)}
+            />
             <FormField className="sm:col-span-2">
               <FieldLabel htmlFor="pp-email">Email</FieldLabel>
               <Input id="pp-email" type="email" value={newForm.email ?? ''} onChange={(e) => setNew('email', e.target.value || undefined)} />

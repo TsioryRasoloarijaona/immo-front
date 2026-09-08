@@ -20,7 +20,7 @@ import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { cn } from '../../lib/utils';
-import { formatCurrency, formatDate, formatDateTime } from '../../lib/format';
+import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../../lib/format';
 import {
   PIPELINE_STAGES,
   PIPELINE_STAGE_SHORT,
@@ -840,7 +840,14 @@ export default function ProspectionDetail() {
                   <FieldGrid>
                     <Field label="Nom" value={p.prospectNom || `${linkedProspect.data.prenom || ''} ${linkedProspect.data.nom || ''}`.trim()} />
                     <Field label="Type" value={linkedProspect.data.type} />
-                    <Field label="Téléphone" value={linkedProspect.data.telephone || linkedProspect.data.mobile} />
+                    <Field
+                      label="Téléphone"
+                      value={
+                        linkedProspect.data.telephone
+                          ? formatTelephone(linkedProspect.data.telephone, linkedProspect.data.indicatifTelephone)
+                          : formatTelephone(linkedProspect.data.mobile, linkedProspect.data.indicatifMobile)
+                      }
+                    />
                     <Field label="Email" value={linkedProspect.data.email} />
                     <Field label="Ville" value={linkedProspect.data.ville} />
                     <Field label="Commercial" value={linkedProspect.data.commercialNom} />
