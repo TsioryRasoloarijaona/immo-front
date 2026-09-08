@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ApiError,
   changerMotDePasse as apiChangerMotDePasse,
@@ -7,6 +7,7 @@ import {
   deconnexion as apiDeconnexion,
   clearApiCache,
   getMonCompte,
+  setUnauthorizedHandler,
 } from './api';
 import type { ChangerMotDePasseRequest, CompleterProfilRequest, ConnexionRequest, UtilisateurCourantDto } from '../types';
 
@@ -22,6 +23,11 @@ export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 export interface AuthContextValue {
   status: AuthStatus;
   user: UtilisateurCourantDto | null;
+  /** Vrai quand la session s'est éteinte toute seule (JWT expiré) plutôt que
+   * sur une déconnexion volontaire. Sert à distinguer les deux messages sur
+   * l'écran de connexion : « vous avez été déconnecté » n'est pas la même
+   * information que « vous êtes déconnecté ». */
+  sessionExpiree: boolean;
   login: (body: ConnexionRequest) => Promise<void>;
   logout: () => Promise<void>;
   changePassword: (body: ChangerMotDePasseRequest) => Promise<void>;
@@ -33,6 +39,66 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<UtilisateurCourantDto | null>(null);
+  const [sessionExpiree, setSessionExpiree] = useState(false);
+
+  // Le statut est lu depuis des rappels non-React (l'accroche 401 d'api.ts, un
+  // écouteur d'évènement) : une ref évite de les réabonner à chaque transition.
+  const statusRef = useRef(status);
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  // Expiration détectée en réaction : tout 401 hors formulaire de connexion
+  // ferme la session ici, une seule fois, au lieu de laisser chaque page
+  // afficher son propre message d'échec.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      // Seule une session que l'on croyait vivante peut « expirer ». Au
+      // montage le statut vaut 'loading' et le 401 de /api/mon-compte veut
+      // juste dire « personne n'est connecté » : le laisser passer ici
+      // afficherait « session expirée » à qui vient d'ouvrir l'application.
+      if (statusRef.current !== 'authenticated') return;
+      clearApiCache();
+      setUser(null);
+      setSessionExpiree(true);
+      setStatus('unauthenticated');
+    });
+    return () => setUnauthorizedHandler(null);
+  }, []);
+
+  // …et vérification à la reprise. Le cas décrit est « je reviens après
+  // quelques minutes » : sans cela l'écran resterait figé sur des données
+  // périmées jusqu'au premier clic, qui échouerait. On ne sonde qu'au retour
+  // sur l'onglet, et au plus une fois par minute, pour ne pas transformer
+  // chaque alt-tab en requête.
+  //
+  // La minute n’est pas un chiffre rond arbitraire : les GET sont mémorisés
+  // 30 s par URL dans api.ts (CACHE_TTL_MS). Sonder plus souvent relirait la
+  // promesse en cache — un succès périmé — et ne toucherait jamais le réseau,
+  // donc ne détecterait jamais l’expiration. Ce seuil doit rester au-dessus
+  // de ce TTL.
+  useEffect(() => {
+    let dernierControle = Date.now();
+
+    function verifier() {
+      if (document.visibilityState !== 'visible') return;
+      if (statusRef.current !== 'authenticated') return;
+      if (Date.now() - dernierControle < 60_000) return;
+      dernierControle = Date.now();
+      // En cas d'échec on ne fait rien : un 401 est déjà traité par l'accroche
+      // ci-dessus, et une coupure réseau passagère ne doit pas déconnecter.
+      getMonCompte()
+        .then(setUser)
+        .catch(() => {});
+    }
+
+    document.addEventListener('visibilitychange', verifier);
+    window.addEventListener('focus', verifier);
+    return () => {
+      document.removeEventListener('visibilitychange', verifier);
+      window.removeEventListener('focus', verifier);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (body: ConnexionRequest) => {
     const u = await apiConnexion(body);
     setUser(u);
+    setSessionExpiree(false);
     setStatus('authenticated');
   }, []);
 
@@ -74,6 +141,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // réussit — mais on déconnecte aussi quand il échoue.
     clearApiCache();
     setUser(null);
+    // Déconnexion volontaire : surtout pas le message d'expiration.
+    setSessionExpiree(false);
     setStatus('unauthenticated');
   }, []);
 
@@ -88,7 +157,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ status, user, login, logout, changePassword, completeProfile }}>
+    <AuthContext.Provider value={{ status, user, sessionExpiree, login, logout, changePassword, completeProfile }}>
       {children}
     </AuthContext.Provider>
   );
