@@ -33,10 +33,12 @@ import {
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { useAuth } from '../../lib/auth';
 import {
+  ApiError,
   addInteraction,
   addProspectionAutreTranche,
   archiverProspection,
   changerEtapeProspection,
+  envoyerOffrePrix,
   creerDevis,
   getArticle,
   getArticlesReferentiel,
@@ -69,6 +71,7 @@ import {
   useActionsCommerciales,
   useCategoriesBien,
   useEtapesProspection,
+  useModesPaiement,
   useOriginesProspection,
   useRaisonsCloture,
   useTypesBienReferentiel,
@@ -76,7 +79,14 @@ import {
   useTypesContactProspection,
   useVocations,
 } from '../../lib/referentiels';
-import type { CanalEnvoiDto, DevisDto, ModifierProspectionRequest, ResultatEnvoiVisiteDto } from '../../types';
+import type {
+  CanalEnvoiDto,
+  DevisDto,
+  EnvoyerOffrePrixRequest,
+  ModifierProspectionRequest,
+  ResultatEnvoiOffreDto,
+  ResultatEnvoiVisiteDto,
+} from '../../types';
 
 type ProspectionTab = 'apercu' | 'prospect' | 'article' | 'devis' | 'historique';
 
@@ -253,6 +263,194 @@ function ConfirmationVisiteButton({ prospectionId, interactionId }: { prospectio
         <div className="flex flex-col gap-0.5">
           <LigneCanal nom="Email" canal={resultat.email} />
           <LigneCanal nom="WhatsApp" canal={resultat.whatsapp} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Nombre saisi au clavier français : la virgule décimale est acceptée, et un
+ * champ vide vaut « non renseigné » plutôt que 0 — la distinction compte, le
+ * backend traitant l'absence de `prix` comme « partir du prix catalogue ». */
+function nombreSaisi(v: string): number | undefined {
+  const t = v.trim().replace(',', '.');
+  if (!t) return undefined;
+  const n = Number(t);
+  return Number.isFinite(n) ? n : undefined;
+}
+
+/** Envoi de l'**offre de prix** — second temps de l'après-visite, là où le
+ * remerciement, lui, part tout seul au passage à l'étape « 4 APRES VISITES ».
+ * L'offre demande un prix qu'un humain doit arrêter, d'où ce formulaire.
+ *
+ * **Le garde-fou du lot est l'essentiel de cet écran.** Le montant vient du
+ * lot, et le lot n'est renseigné que sur 7 % des prospections de cette étape
+ * (94 sur 1 266) : sans lui l'appel répond 409. Plutôt que de laisser partir
+ * neuf clics sur dix pour rien, le bouton reste visible mais inactif, avec le
+ * geste à faire et un lien vers l'onglet « Article » — qui porte déjà le
+ * rattachement (`ChoixArticleSection`). Le 409 est tout de même rattrapé : le
+ * serveur reste seul juge, et l'étape peut changer sous nos pieds.
+ *
+ * Rendu sous le sélecteur d'étape et **seulement à partir de l'étape 4** :
+ * avant, un bouton perpétuellement grisé ne serait que du bruit. */
+function OffrePrixSection({
+  prospectionId,
+  articleId,
+  onVoirArticle,
+}: {
+  prospectionId: string;
+  articleId?: string;
+  onVoirArticle: () => void;
+}) {
+  const modes = useModesPaiement();
+  const [ouvert, setOuvert] = useState(false);
+  const [remise, setRemise] = useState('');
+  const [prix, setPrix] = useState('');
+  const [modePaiementId, setModePaiementId] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [resultat, setResultat] = useState<ResultatEnvoiOffreDto | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const sansLot = !articleId;
+  const remiseVal = nombreSaisi(remise);
+  const prixVal = nombreSaisi(prix);
+  const remiseInvalide = remiseVal !== undefined && (remiseVal < 0 || remiseVal > 100);
+  const prixInvalide = prixVal !== undefined && prixVal <= 0;
+
+  async function envoyer() {
+    setBusy(true);
+    setError(null);
+    setResultat(null);
+    // Champs vides omis : un corps vide est un appel valide qui signifie
+    // « plein tarif du lot ». Envoyer `remisePercent: 0` reviendrait au même
+    // montant mais interdirait la réutilisation d'une offre existante, le
+    // backend ne réutilisant que si l'appel n'impose ni remise ni prix.
+    const body: EnvoyerOffrePrixRequest = {};
+    if (remiseVal !== undefined) body.remisePercent = remiseVal;
+    if (prixVal !== undefined) body.prix = prixVal;
+    if (modePaiementId) body.modePaiementId = modePaiementId;
+    if (notes.trim()) body.notes = notes.trim();
+    try {
+      setResultat(await envoyerOffrePrix(prospectionId, body));
+    } catch (err) {
+      // Le 409 n'est pas une panne : lot manquant, ou étape qui n'est plus la
+      // bonne. Le message du backend porte déjà le geste à faire.
+      setError(
+        err instanceof ApiError && err.status === 409
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Échec de l'envoi de l'offre.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 8 prospects sur 10 n'ont pas d'adresse à cette étape (19,7 % contre 99,7 %
+  // de numéros exploitables) : sans ce rappel, l'avertissement ambre de
+  // `LigneCanal` se lit comme un incident alors que c'est la normale.
+  const emailAbsentMaisWhatsappParti =
+    resultat?.email?.envoye === false && resultat.email.motif === 'DESTINATAIRE_ABSENT' && resultat.whatsapp?.envoye === true;
+
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      <div className="flex flex-col items-stretch gap-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+        <span className="text-micro font-medium text-muted-foreground">Offre de prix :</span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full sm:w-auto"
+          disabled={sansLot}
+          onClick={() => setOuvert((o) => !o)}
+        >
+          <Send data-icon="inline-start" /> {ouvert ? 'Fermer' : "Envoyer l'offre au prospect"}
+        </Button>
+        {sansLot && (
+          <span className="text-micro text-muted-foreground">
+            Rattachez d'abord un lot —{' '}
+            <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={onVoirArticle}>
+              choisir l'article
+            </button>
+            .
+          </span>
+        )}
+      </div>
+
+      {ouvert && !sansLot && (
+        <div className="mt-3 flex flex-col gap-3">
+          <p className="text-micro text-muted-foreground">
+            Sans remise ni prix imposé, l'offre part au plein tarif du lot — et une offre déjà établie est alors
+            réexpédiée telle quelle plutôt que renumérotée.
+          </p>
+          <div className="flex flex-col flex-wrap items-stretch gap-3 sm:flex-row sm:items-end">
+            <div className="w-full sm:w-36">
+              <div className="mb-1 text-micro font-medium text-muted-foreground">Remise (%)</div>
+              <Input inputMode="decimal" placeholder="0" value={remise} onChange={(e) => setRemise(e.target.value)} />
+            </div>
+            <div className="w-full sm:w-44">
+              <div className="mb-1 text-micro font-medium text-muted-foreground">Prix imposé TTC</div>
+              <Input inputMode="decimal" placeholder="Prix du lot" value={prix} onChange={(e) => setPrix(e.target.value)} />
+            </div>
+            <div className="w-full sm:w-55">
+              <div className="mb-1 text-micro font-medium text-muted-foreground">Mode de paiement</div>
+              <RefSelect
+                id="offre-mode-paiement"
+                value={modePaiementId}
+                onChange={setModePaiementId}
+                items={referentielItems(modes.data)}
+                placeholder="Optionnel…"
+              />
+            </div>
+          </div>
+          <div>
+            <div className="mb-1 text-micro font-medium text-muted-foreground">Note reprise sur l'offre (optionnel)</div>
+            <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+          {(remiseInvalide || prixInvalide) && (
+            <span className="text-micro text-destructive">
+              {remiseInvalide ? 'La remise doit être comprise entre 0 et 100 %.' : 'Le prix imposé doit être positif.'}
+            </span>
+          )}
+          <div>
+            <Button
+              type="button"
+              size="sm"
+              className="w-full sm:w-auto"
+              disabled={busy || remiseInvalide || prixInvalide}
+              onClick={envoyer}
+            >
+              {busy ? 'Envoi…' : "Établir et envoyer l'offre"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {error && <p className="mt-2 text-micro text-destructive">{error}</p>}
+
+      {resultat && (
+        <div className="mt-3 flex flex-col gap-0.5 rounded-md border border-border bg-background p-3">
+          {/* L'offre est créée avant l'envoi et le reste quoi qu'il arrive :
+              son numéro s'affiche donc même quand les deux canaux échouent,
+              sans quoi le commercial la croirait perdue et en régénérerait une
+              sous un autre numéro. */}
+          <span className="text-label font-medium text-foreground">
+            Offre {resultat.offreCode || '—'}
+            {resultat.prixFinalTTC !== undefined ? ` · ${formatCurrency(resultat.prixFinalTTC)}` : ''}
+          </span>
+          {resultat.offreReutilisee && (
+            <span className="text-micro text-muted-foreground">Offre existante réexpédiée, sans renumérotation.</span>
+          )}
+          <LigneCanal nom="Email" canal={resultat.email} />
+          <LigneCanal nom="WhatsApp" canal={resultat.whatsapp} />
+          {emailAbsentMaisWhatsappParti && (
+            <span className="text-micro text-muted-foreground">
+              À cette étape, 8 prospects sur 10 n'ont pas d'adresse email : le WhatsApp est le canal principal, et il
+              porte le montant.
+            </span>
+          )}
         </div>
       )}
     </div>
@@ -628,6 +826,15 @@ export default function ProspectionDetail() {
                 Appliquer
               </Button>
             </div>
+
+            {/* L'offre de prix n'a de sens qu'après les visites : la placer
+                ici, sous le sélecteur d'étape, rend la séquence lisible — le
+                remerciement part au passage à l'étape 4, l'offre se déclenche
+                à la main juste en dessous. Masquée avant, où elle ne serait
+                qu'un bouton grisé de plus. */}
+            {stageIdx >= PIPELINE_STAGES.indexOf('4 APRES VISITES') && (
+              <OffrePrixSection prospectionId={p.id} articleId={p.articleId} onVoirArticle={() => setTab('article')} />
+            )}
           </Card>
         )}
 

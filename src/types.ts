@@ -629,6 +629,58 @@ export interface ResultatEnvoiVisiteDto {
   whatsapp?: CanalEnvoiDto;
 }
 
+/** Corps de `POST /api/prospections/{id}/offre-prix`. **Tout est facultatif** :
+ * un corps vide signifie « plein tarif du lot », et c'est un appel valide. */
+export interface EnvoyerOffrePrixRequest {
+  /** Taux de remise en **pourcentage** (5 pour 5 %), pas un ratio 0–1 —
+   * contrairement à `DossierDetailDto.discount`. Défaut 0. La remise est le
+   * cas courant : 195 des 298 offres réelles en portent une. */
+  remisePercent?: number;
+  /** Prix de vente TTC imposé, qui **remplace** le prix commercial du lot
+   * comme base de calcul. Laisser vide pour partir du prix catalogue. */
+  prix?: number;
+  /** Mode de paiement envisagé, repris sur l'offre. Voir `getModesPaiement()`. */
+  modePaiementId?: UUID;
+  /** Note libre reprise sur l'offre. */
+  notes?: string;
+}
+
+/** Issue de `POST /api/prospections/{id}/offre-prix`, **sur les deux canaux**.
+ *
+ * Même contrat que `ResultatEnvoiVisiteDto` — 200 même quand rien n'est parti,
+ * `envoye` racine vrai dès qu'un canal a abouti — avec deux différences qui
+ * changent l'affichage :
+ *
+ * 1. **L'offre existe indépendamment de l'envoi.** Elle est créée (ou
+ *    réutilisée) *avant* la tentative et le reste quoi qu'il arrive :
+ *    `offreId` et `offreCode` sont donc toujours renseignés, y compris quand
+ *    les deux canaux échouent. Ne pas conditionner leur affichage à `envoye`,
+ *    sinon le commercial croit l'offre perdue alors qu'elle est numérotée.
+ * 2. **L'asymétrie des canaux s'inverse à cette étape** : 19,7 % des prospects
+ *    y ont une adresse email contre 99,7 % un numéro exploitable — là où la
+ *    confirmation de visite est à 57 %/99 %. Un email non parti est donc ici
+ *    le cas *ordinaire*, et le WhatsApp porte le montant en clair pour cette
+ *    raison. Les chiffres cités sur `CanalEnvoiDto` sont ceux de la visite. */
+export interface ResultatEnvoiOffreDto {
+  /** Vrai dès qu'**au moins un** des deux canaux a abouti. */
+  envoye?: boolean;
+  /** Identifiant de l'offre créée ou réutilisée (`StlQuote`). */
+  offreId?: UUID;
+  /** Numéro de l'offre, au format legacy `{année}/{numéro}`. */
+  offreCode?: string;
+  /** Vrai si une offre existante a été réexpédiée plutôt qu'une nouvelle
+   * créée. N'arrive que si l'appel ne demandait ni remise ni prix — réécrire
+   * les montants modifierait un document que le prospect détient déjà. */
+  offreReutilisee?: boolean;
+  /** Prix de vente TTC après remise, tel qu'annoncé au prospect sur les deux
+   * canaux. C'est le montant à réafficher, pas celui saisi dans le formulaire. */
+  prixFinalTTC?: number;
+  /** Issue du canal email. **Seul canal à porter le PDF de l'offre.** */
+  email?: CanalEnvoiDto;
+  /** Issue du canal WhatsApp. Porte le montant en texte, jamais de document. */
+  whatsapp?: CanalEnvoiDto;
+}
+
 /** GET /api/referentiels/resultats-interaction — un résultat possible pour
  * une interaction, avec les indications nécessaires pour adapter le
  * formulaire (afficher le sélecteur de date de RDV, suggérer une alerte)

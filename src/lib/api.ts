@@ -76,6 +76,8 @@ import type {
   ReglementProspectDto,
   ReinitialiserMotDePasseResponse,
   ResultatEnvoiVisiteDto,
+  EnvoyerOffrePrixRequest,
+  ResultatEnvoiOffreDto,
   ResultatInteractionDto,
   SchemaFinancementDto,
   SimulerSchemaFinancementRequest,
@@ -447,6 +449,34 @@ export function createProspection(body: CreerProspectionRequest): Promise<Prospe
  * au 409 (l'interaction ne planifie aucun rendez-vous). */
 export function renvoyerEmailVisite(prospectionId: UUID, interactionId: UUID): Promise<ResultatEnvoiVisiteDto> {
   return request('POST', `/api/prospections/${prospectionId}/interactions/${interactionId}/email-visite`);
+}
+
+/** `POST /api/prospections/{id}/offre-prix` — **second temps de l'après-visite.**
+ * Le remerciement, lui, part tout seul au passage à l'étape « 4 APRES VISITES »
+ * (`changerEtapeProspection`) ; l'offre exige un prix qu'un humain doit arrêter,
+ * d'où cet appel explicite. Il crée une offre `StlQuote` numérotée comme le
+ * legacy, rend la Fiche Offre en PDF, puis expédie sur les deux canaux.
+ *
+ * `body` est **entièrement facultatif** : sans lui, plein tarif du lot. Et
+ * `remisePercent` est un pourcentage (5 = 5 %), pas un ratio.
+ *
+ * **Le 409 est le cas majoritaire, pas une panne.** Le montant vient du lot, et
+ * le lot n'est renseigné que sur 7 % des prospections de cette étape (94 sur
+ * 1 266) — d'où le garde-fou côté écran, qui n'active le bouton qu'une fois le
+ * lot rattaché. Le 409 restant est un filet, à rendre comme une étape de
+ * parcours (« rattachez d'abord un lot ») et non comme une erreur rouge.
+ *
+ * **Le corps du 409 n'est pas vérifiable.** La spec le déclare en
+ * `ResultatEnvoiOffreDto` sous un content-type générique — signature typique de
+ * springdoc quand l'`@ApiResponse` n'a pas de bloc `content`, alors que la
+ * convention du projet
+ * est un ProblemDetail. Impossible de trancher sans session (401 hors
+ * authentification). `ApiError.problem` porte le corps parsé quelle que soit sa
+ * forme : lire le message d'`ApiError` et ne rien déduire de sa structure.
+ *
+ * Comme pour la visite, `envoye: false` sur un 200 n'est pas un échec d'appel. */
+export function envoyerOffrePrix(id: UUID, body?: EnvoyerOffrePrixRequest): Promise<ResultatEnvoiOffreDto> {
+  return request('POST', `/api/prospections/${id}/offre-prix`, { body: body ?? {} });
 }
 
 export function listProspectionHistorique(id: UUID, pageable?: Pageable): Promise<PageDto<HistoriqueDto>> {
