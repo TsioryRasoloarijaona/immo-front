@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { getProspect } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { personDisplayName } from '../lib/domain';
+import { formatTelephone } from '../lib/format';
 import { formatDate } from '../lib/format';
 
 // Fiche Prospect (contact) preview — fetched by id from /api/prospects/{id}.
@@ -20,8 +21,8 @@ export default function ProspectPreviewDialog({ id, onClose }: { id: string; onC
         <div className="flex flex-col gap-3">
           <FieldGrid>
             <Field label="Code" value={person.code} />
-            <Field label="Téléphone" value={person.telephone} />
-            <Field label="Mobile" value={person.mobile} />
+            <Field label="Téléphone" value={formatTelephone(person.telephone, person.indicatifTelephone)} />
+            <Field label="Mobile" value={formatTelephone(person.mobile, person.indicatifMobile)} />
             <Field label="Email" value={person.email} />
             <Field label="Ville" value={person.ville} />
             <Field label="Adresse" value={person.adresse} />

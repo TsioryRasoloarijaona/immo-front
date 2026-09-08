@@ -28,8 +28,9 @@ import {
 import { useApi } from '../../lib/useApi';
 import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
 import { toneForStatus } from '../../lib/dossierStatus';
-import { formatCurrency, formatDate, formatDateTime } from '../../lib/format';
+import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../../lib/format';
 import { referentielItems, useTypesRelationContact } from '../../lib/referentiels';
+import TelephoneField from '../../components/TelephoneField';
 import type { DossierListItemDto, ModifierProspectRequest, ProspectionListItemDto } from '../../types';
 
 type ProspectTab = 'general' | 'contacts' | 'prospections' | 'dossiers' | 'reglements' | 'historique';
@@ -149,7 +150,12 @@ export default function ProspectDetail() {
       prenom: person!.prenom,
       nom: person!.nom,
       telephone: person!.telephone,
+      // Reconduits explicitement : le formulaire renvoie tout le corps, donc
+      // un indicatif omis ici serait absent de la requête et risquerait
+      // d’effacer celui déjà enregistré.
+      indicatifTelephone: person!.indicatifTelephone,
       mobile: person!.mobile,
+      indicatifMobile: person!.indicatifMobile,
       email: person!.email,
       adresse: person!.adresse,
       ville: person!.ville,
@@ -238,14 +244,22 @@ export default function ProspectDetail() {
                     <FieldLabel htmlFor="e-nom">Nom</FieldLabel>
                     <Input id="e-nom" value={form.nom ?? ''} onChange={(e) => setForm({ ...form, nom: e.target.value })} />
                   </FormField>
-                  <FormField>
-                    <FieldLabel htmlFor="e-telephone">Téléphone</FieldLabel>
-                    <Input id="e-telephone" value={form.telephone ?? ''} onChange={(e) => setForm({ ...form, telephone: e.target.value })} />
-                  </FormField>
-                  <FormField>
-                    <FieldLabel htmlFor="e-mobile">Mobile</FieldLabel>
-                    <Input id="e-mobile" value={form.mobile ?? ''} onChange={(e) => setForm({ ...form, mobile: e.target.value })} />
-                  </FormField>
+                  <TelephoneField
+                    id="e-telephone"
+                    label="Téléphone"
+                    numero={form.telephone ?? ''}
+                    indicatif={form.indicatifTelephone ?? null}
+                    onNumeroChange={(v) => setForm({ ...form, telephone: v })}
+                    onIndicatifChange={(v) => setForm({ ...form, indicatifTelephone: v ?? undefined })}
+                  />
+                  <TelephoneField
+                    id="e-mobile"
+                    label="Mobile"
+                    numero={form.mobile ?? ''}
+                    indicatif={form.indicatifMobile ?? null}
+                    onNumeroChange={(v) => setForm({ ...form, mobile: v })}
+                    onIndicatifChange={(v) => setForm({ ...form, indicatifMobile: v ?? undefined })}
+                  />
                   <FormField>
                     <FieldLabel htmlFor="e-email">Email</FieldLabel>
                     <Input id="e-email" type="email" value={form.email ?? ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />
@@ -268,9 +282,9 @@ export default function ProspectDetail() {
                 <FieldGrid>
                   <Field label="Titre" value={person.titre} />
                   <Field label="Sexe" value={person.sexe} />
-                  <Field label="Téléphone" value={person.telephone} />
+                  <Field label="Téléphone" value={formatTelephone(person.telephone, person.indicatifTelephone)} />
                   <Field label="Téléphone 2" value={person.telephone2} />
-                  <Field label="Mobile" value={person.mobile} />
+                  <Field label="Mobile" value={formatTelephone(person.mobile, person.indicatifMobile)} />
                   <Field label="Email" value={person.email} />
                   <Field label="Ville" value={person.ville} />
                   <Field label="Adresse" value={person.adresse} />

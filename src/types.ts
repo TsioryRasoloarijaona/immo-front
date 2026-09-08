@@ -67,9 +67,14 @@ export interface ProspectDetailDto {
   nom?: string;
   raisonSociale?: string;
   telephone?: string;
+  /** Indicatif pays du telephone, sans le signe plus (ex. 212). Voir
+   * CreerProspectRequest.indicatifTelephone. */
+  indicatifTelephone?: string;
   telephone1?: string;
   telephone2?: string;
   mobile?: string;
+  /** Indicatif du mobile, sans le signe plus. */
+  indicatifMobile?: string;
   fax?: string;
   email?: string;
   siteWeb?: string;
@@ -122,7 +127,18 @@ export interface CreerProspectRequest {
   nom?: string;
   raisonSociale?: string;
   telephone?: string;
+  /** Indicatif pays du numéro, sans « + » (ex. "212"). Séparé du numéro par
+   * le back parce qu'un numéro sans indicatif n'est pas expédiable par
+   * WhatsApp — voir `CanalEnvoiDto.motif = NUMERO_INEXPLOITABLE`. La liste
+   * vient de `PaysDto.indicatifTelephone` (`/api/referentiels/pays`).
+   *
+   * **Non documenté côté spec** : rien n'y dit si `telephone` doit perdre
+   * son zéro initial une fois ce champ renseigné. Le front ne reformate donc
+   * rien et laisse le serveur composer. */
+  indicatifTelephone?: string;
   mobile?: string;
+  /** Indicatif du mobile — même convention que `indicatifTelephone`. */
+  indicatifMobile?: string;
   email?: string;
   adresse?: string;
   ville?: string;

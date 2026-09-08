@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { referentielItems, useBanques, useCategoriesEcheance, useTypesPieceJointe, useTypesReglement } from '../../lib/referentiels';
-import { formatCurrency, formatDate, formatDateTime, formatPercent, toApiDateTime, todayISO } from '../../lib/format';
+import { formatCurrency, formatDate, formatDateTime, formatPercent, formatTelephone, toApiDateTime, todayISO } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import {
   ECHEANCE_STATUT_LABELS,
@@ -1543,7 +1543,14 @@ export default function DossierDetail() {
                   <Field label="Avocat" value={d.avocatNom} />
                   {linkedClient.data && (
                     <>
-                      <Field label="Téléphone" value={linkedClient.data.telephone || linkedClient.data.mobile} />
+                      <Field
+                        label="Téléphone"
+                        value={
+                          linkedClient.data.telephone
+                            ? formatTelephone(linkedClient.data.telephone, linkedClient.data.indicatifTelephone)
+                            : formatTelephone(linkedClient.data.mobile, linkedClient.data.indicatifMobile)
+                        }
+                      />
                       <Field label="Email" value={linkedClient.data.email} />
                       <Field label="Ville" value={linkedClient.data.ville} />
                       <Field label="Adresse" value={linkedClient.data.adresse} />

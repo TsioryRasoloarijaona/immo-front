@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Modal from './Modal';
+import TelephoneField, { INDICATIF_MAROC } from './TelephoneField';
 import type { CreerProspectRequest, ProspectionDetailDto } from '../types';
 import { Button } from './ui/button';
 import { DialogFooter } from './ui/dialog';
@@ -91,7 +92,9 @@ export default function CreateProspectForm({
   const [prenom, setPrenom] = useState(initial?.firstName ?? '');
   const [nom, setNom] = useState(initial?.lastName ?? '');
   const [telephone, setTelephone] = useState(initial?.phone ?? '');
+  const [indicatifTelephone, setIndicatifTelephone] = useState<string | null>(INDICATIF_MAROC);
   const [mobile, setMobile] = useState('');
+  const [indicatifMobile, setIndicatifMobile] = useState<string | null>(INDICATIF_MAROC);
   const [email, setEmail] = useState(initial?.email ?? '');
   const [ville, setVille] = useState('');
   const [adresse, setAdresse] = useState('');
@@ -146,7 +149,11 @@ export default function CreateProspectForm({
       prenom: prenom.trim(),
       nom: nom.trim(),
       telephone: telephone.trim(),
+      // L'indicatif n'accompagne le numéro que si celui-ci existe : l'envoyer
+      // seul décrirait un correspondant qu'on ne sait pas joindre.
+      indicatifTelephone: telephone.trim() ? indicatifTelephone ?? undefined : undefined,
       mobile: mobile.trim() || undefined,
+      indicatifMobile: mobile.trim() ? indicatifMobile ?? undefined : undefined,
       email: email.trim() || undefined,
       ville: ville.trim() || undefined,
       adresse: adresse.trim() || undefined,
@@ -226,14 +233,23 @@ export default function CreateProspectForm({
               <FieldLabel htmlFor="etDe">Et de</FieldLabel>
               <Input id="etDe" value={etDe} onChange={(e) => setEtDe(e.target.value)} />
             </FormField>
-            <FormField>
-              <FieldLabel htmlFor="telephone">Téléphone</FieldLabel>
-              <Input id="telephone" value={telephone} onChange={(e) => setTelephone(e.target.value)} required />
-            </FormField>
-            <FormField>
-              <FieldLabel htmlFor="mobile">Mobile</FieldLabel>
-              <Input id="mobile" value={mobile} onChange={(e) => setMobile(e.target.value)} />
-            </FormField>
+            <TelephoneField
+              id="telephone"
+              label="Téléphone"
+              numero={telephone}
+              indicatif={indicatifTelephone}
+              onNumeroChange={setTelephone}
+              onIndicatifChange={setIndicatifTelephone}
+              required
+            />
+            <TelephoneField
+              id="mobile"
+              label="Mobile"
+              numero={mobile}
+              indicatif={indicatifMobile}
+              onNumeroChange={setMobile}
+              onIndicatifChange={setIndicatifMobile}
+            />
             <FormField>
               <FieldLabel htmlFor="email">Email</FieldLabel>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
