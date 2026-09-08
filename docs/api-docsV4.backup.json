@@ -1509,7 +1509,7 @@
           {
             "name": "projet",
             "in": "query",
-            "description": "Id de l'entité/projet (CfgProject.id), matché via l'article principal du dossier.",
+            "description": "Id de l'entité/projet (CfgProject.id), résolu par la tranche de l'article principal du dossier.",
             "required": false,
             "schema": {
               "type": "string",
@@ -1519,7 +1519,7 @@
           {
             "name": "trancheId",
             "in": "query",
-            "description": "Id(s) de tranche (CfgTranche.id, StkItem.stkHierarchy). Répéter le paramètre pour plusieurs tranches. Renvoie les dossiers dont au moins un article appartient à une des tranches demandées.",
+            "description": "Id(s) de tranche (CfgTranche.id, StkItem.stkHierarchy). Répéter le paramètre pour plusieurs tranches. Renvoie les dossiers dont au moins un article lié — ou l'article principal — appartient à une des tranches demandées.",
             "required": false,
             "schema": {
               "type": "array",
@@ -2548,7 +2548,7 @@
           "Authentification"
         ],
         "summary": "Connexion",
-        "description": "Vérifie username/password contre AppUserCredential (bcrypt) et pose un cookie JWT httpOnly `access_token` (Secure, SameSite=Strict) valable app.jwt.expiration-minutes. Le corps de réponse contient le profil et les rôles, jamais le token lui-même. Si `mustChangePassword`/`profileCompleted` sont défavorables, seules les routes /api/auth/** et /api/mon-compte/** restent accessibles tant que l'utilisateur n'a pas régularisé sa situation.",
+        "description": "Vérifie username/password contre AppUserCredential (bcrypt) et pose un cookie JWT httpOnly `access_token` (Secure, SameSite=Strict) valable app.jwt.expiration-minutes. Chaque appel doit partir avec `credentials: 'include'`, et l'origine appelante doit figurer dans `CorsConfig` : `allowCredentials(true)` interdit le joker `*`. Le cookie étant SameSite=Strict, le frontend doit être servi depuis le domaine `tsiory.tech` — depuis un autre domaine, le navigateur ne l'attacherait pas et tout appel suivant la connexion repartirait anonyme. Le corps de réponse contient le profil et les rôles, jamais le token lui-même. Si `mustChangePassword`/`profileCompleted` sont défavorables, seules les routes /api/auth/** et /api/mon-compte/** restent accessibles tant que l'utilisateur n'a pas régularisé sa situation.",
         "operationId": "connexion",
         "requestBody": {
           "content": {

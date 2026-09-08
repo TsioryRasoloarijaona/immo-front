@@ -640,6 +640,17 @@ export function uploadPieceJointe(dossierId: UUID, file: File, description?: str
   return postMultipart<PieceJointeDto>(`/api/dossiers/${dossierId}/pieces-jointes`, file, { description, typeId });
 }
 
+/** `DELETE /api/dossiers/{id}/pieces-jointes/{pieceId}` — suppression
+ * **logique** : la pièce disparaît de `listPiecesJointes` et son `.../fichier`
+ * renvoie désormais 404, mais le fichier reste sur le stockage en attendant un
+ * balayage hors ligne. Récupérable en base, jamais via l'API — d'où la
+ * confirmation exigée côté UI. L'auteur de la suppression est déduit du token,
+ * jamais envoyé d'ici. Réponse `204` sans corps ; rejouer le `DELETE` renvoie
+ * 404, la pièce n'étant plus visible. */
+export function removePieceJointe(dossierId: UUID, pieceId: UUID): Promise<void> {
+  return request('DELETE', `/api/dossiers/${dossierId}/pieces-jointes/${pieceId}`);
+}
+
 const EXTENSION_MIME: Record<string, string> = {
   pdf: 'application/pdf',
   png: 'image/png',
@@ -1073,6 +1084,19 @@ export function openReglementPieceJointeFichier(dossierId: UUID, reglementId: UU
   openStoredFileInTab(
     `${API_BASE_URL}/api/dossiers/${dossierId}/reglements/${reglementId}/pieces-jointes/${pieceId}/fichier`,
   );
+}
+
+/** `DELETE .../reglements/{reglementId}/pieces-jointes/{pieceId}` — retire un
+ * justificatif d'encaissement. Mêmes effets que {@link removePieceJointe}
+ * (suppression logique, `204` sans corps), **plus une règle propre au
+ * règlement** : un règlement `POINTED` ne peut pas perdre sa *dernière* preuve
+ * (409). C'est elle qui a autorisé le pointage ; un règlement pointé sans
+ * justificatif serait un trou d'audit. Supprimer une pièce parmi plusieurs, ou
+ * n'importe quelle pièce d'un règlement `IN_WORK`/`CANCELED`, passe
+ * normalement. Pour remplacer l'unique preuve d'un règlement pointé : déposer
+ * la nouvelle d'abord, supprimer l'ancienne ensuite. */
+export function removeReglementPieceJointe(dossierId: UUID, reglementId: UUID, pieceId: UUID): Promise<void> {
+  return request('DELETE', `/api/dossiers/${dossierId}/reglements/${reglementId}/pieces-jointes/${pieceId}`);
 }
 
 /** `PATCH .../reglements/{reglementId}/statut` — pointage (`POINTED`) ou
