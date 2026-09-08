@@ -83,3 +83,16 @@ export function initials(name: string | null | undefined): string {
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
+
+/** Délai en heures → libellé court. `null` quand il n’y a rien à mesurer
+ * (aucune prospection prise en charge), jamais « 0 h » qui se lirait comme une
+ * réponse instantanée. Sous 24 h on reste en heures ; au-delà on passe en
+ * jours + heures, un « 109 h » étant illisible. */
+export function formatHeures(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined || Number.isNaN(hours)) return '—';
+  const h = Math.round(hours);
+  if (h < 24) return `${h} h`;
+  const jours = Math.floor(h / 24);
+  const reste = h % 24;
+  return reste === 0 ? `${jours} j` : `${jours} j ${reste} h`;
+}

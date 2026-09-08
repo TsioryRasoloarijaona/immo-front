@@ -60,6 +60,7 @@ import type {
   ProfilCategorieDto,
   ProjetDetailDto,
   ProjetListItemDto,
+  PerformanceCommercialDto,
   ProjetPerimetreDto,
   ProspectDetailDto,
   ProspectListItemDto,
@@ -1433,4 +1434,41 @@ export function getProjetsUtilisateur(admUserId: UUID): Promise<ProjetPerimetreD
 export function remplacerProjetsUtilisateur(admUserId: UUID, projetIds: UUID[]): Promise<ProjetPerimetreDto[]> {
   const body: AffecterProjetsRequest = { projetIds };
   return request('PUT', `/api/utilisateurs/${admUserId}/projets`, { body });
+}
+
+// ---------------------------------------------------------------------------
+// KPI commerciaux — indicateurs de performance sur une période.
+//
+// `du`/`au` sont des dates **nues** (`YYYY-MM-DD`, format: date dans la spec),
+// pas des date-time. Ne PAS leur appliquer le gabarit `T00:00:00`/`T23:59:59`
+// des listes (ProspectionsList, EncaissementsList) : ces endpoints-là filtrent
+// sur des colonnes date-time, ceux-ci non, et une valeur suffixée repart en 400
+// « date non parsable ». La valeur d’un <input type="date"> passe telle quelle.
+//
+// Les deux paramètres sont optionnels ; omis, le serveur retient les 30 derniers
+// jours, `au` inclus jusqu’à 23:59:59.
+// ---------------------------------------------------------------------------
+
+/** `GET /api/kpi/commerciaux` — classement des commerciaux sur la période, les
+ * plus performants d’abord (dossiers créés décroissant, puis appels passés).
+ * **403 hors rôle `Administrateur`.**
+ *
+ * Seuls les commerciaux ayant au moins une ligne sur la période apparaissent :
+ * ne jamais présenter cette liste comme l’effectif complet de
+ * `GET /api/commerciaux` (60 des 75 comptes réels sont désactivés). Un tableau
+ * vide est une réponse normale, pas une erreur. 400 si `du` est postérieure à
+ * `au` ou si une date n’est pas parsable. */
+export function listPerformancesCommerciaux(params?: { du?: string; au?: string }): Promise<PerformanceCommercialDto[]> {
+  return request('GET', '/api/kpi/commerciaux', { query: { du: params?.du, au: params?.au } });
+}
+
+/** `GET /api/kpi/commerciaux/moi` — les indicateurs du commercial rattaché au
+ * compte connecté.
+ *
+ * **200 avec tous les compteurs à zéro** quand rien n’a été fait sur la période
+ * — ce n’est pas une erreur et cela ne doit pas s’afficher comme un état vide.
+ * Le **404 est réservé** au compte non rattaché à un employé : il n’y a alors
+ * aucun commercial dont parler, ce qui mérite son propre message. */
+export function getMesPerformances(params?: { du?: string; au?: string }): Promise<PerformanceCommercialDto> {
+  return request('GET', '/api/kpi/commerciaux/moi', { query: { du: params?.du, au: params?.au } });
 }

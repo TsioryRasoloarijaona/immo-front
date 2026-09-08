@@ -42,7 +42,13 @@ export function moduleForPath(pathname: string): string | null {
   if (pathname.startsWith('/tranches') || pathname.startsWith('/articles') || pathname.startsWith('/projets')) {
     return 'patrimoine';
   }
-  if (pathname.startsWith('/utilisateurs')) {
+  // `/performances` (classement des commerciaux) est une page d'administration
+  // sans être sous /utilisateurs. Sans cette ligne le sous-menu Administration
+  // ne s'affiche pas : Layout.tsx le conditionne à `activeModule ===
+  // 'administration'`, et la page s'ouvrirait sans navigation autour d'elle.
+  // `/mes-performances` n'en relève pas : elle est destinée au commercial, dont
+  // les groupes de sidebar ne dépendent pas de la route.
+  if (pathname.startsWith('/utilisateurs') || pathname.startsWith('/performances')) {
     return 'administration';
   }
   if (pathname.startsWith('/bientot/')) {

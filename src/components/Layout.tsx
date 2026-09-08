@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Building2, Calendar, Contact, FileText, Folder, Home, KeyRound, LayoutDashboard, LayoutGrid, LogOut, Phone, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
+import { Building2, Calendar, Contact, FileText, Folder, Gauge, Home, KeyRound, LayoutDashboard, LayoutGrid, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -192,6 +192,16 @@ export default function Layout({ children }: { children: ReactNode }) {
                     Mon profil
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/mes-performances" />}
+                    isActive={location.pathname.startsWith('/mes-performances')}
+                    tooltip="Mes performances"
+                  >
+                    <Gauge />
+                    Mes performances
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroup>
           )}
@@ -250,6 +260,16 @@ export default function Layout({ children }: { children: ReactNode }) {
                   >
                     <KeyRound />
                     Réinitialiser un mot de passe
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/performances" />}
+                    isActive={location.pathname.startsWith('/performances')}
+                    tooltip="Performances commerciales"
+                  >
+                    <Trophy />
+                    Performances commerciales
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

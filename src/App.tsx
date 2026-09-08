@@ -21,6 +21,8 @@ const Profil = lazy(() => import('./pages/profil/Profil'));
 const UtilisateursList = lazy(() => import('./pages/utilisateurs/UtilisateursList'));
 const NouvelUtilisateur = lazy(() => import('./pages/utilisateurs/NouvelUtilisateur'));
 const ReinitialiserMotDePasse = lazy(() => import('./pages/utilisateurs/ReinitialiserMotDePasse'));
+const PerformancesCommerciaux = lazy(() => import('./pages/kpi/PerformancesCommerciaux'));
+const MesPerformances = lazy(() => import('./pages/kpi/MesPerformances'));
 const Calendrier = lazy(() => import('./pages/calendrier/Calendrier'));
 const Hotline = lazy(() => import('./pages/hotline/Hotline'));
 const ProspectionsList = lazy(() => import('./pages/prospections/ProspectionsList'));
@@ -64,6 +66,8 @@ function AuthenticatedApp() {
                 <Route path="/utilisateurs" element={<UtilisateursList />} />
                 <Route path="/utilisateurs/nouveau" element={<NouvelUtilisateur />} />
                 <Route path="/utilisateurs/reinitialiser-mot-de-passe" element={<ReinitialiserMotDePasse />} />
+                <Route path="/performances" element={<PerformancesCommerciaux />} />
+                <Route path="/mes-performances" element={<MesPerformances />} />
                 <Route path="/hotline" element={<Hotline />} />
                 <Route path="/calendrier" element={<Calendrier />} />
                 <Route path="/prospections" element={<ProspectionsList />} />
