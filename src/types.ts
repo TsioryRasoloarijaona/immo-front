@@ -502,6 +502,10 @@ export interface DevisPageDto {
 }
 
 export interface CreerInteractionRequest {
+  /** Texte libre saisi par le commercial. Attention à l'asymétrie : ce champ
+   * s'appelle `description` en écriture mais **ressort dans `note` en
+   * lecture** — le `description` de `InteractionDto` est un libellé généré que
+   * l'appelant ne peut pas imposer. */
   description: string;
   entrante?: boolean;
   /** Nature de l'interaction (Instruction, Mail entrant/Sortant, Message
@@ -520,6 +524,17 @@ export interface CreerInteractionRequest {
 export interface InteractionDto {
   id: UUID;
   date?: string | null;
+  /** **Le texte saisi par le commercial — c'est ce qu'il faut afficher.**
+   * Stocké dans `ComActionMessage.AlertMessage`, qui malgré son nom ne relève
+   * pas des relances : 6 502 interactions portent une note sans aucune date
+   * d'alerte. `null` quand rien n'a été saisi (3,4 % des lignes réelles). */
+  note?: string | null;
+  /** **Libellé généré par le serveur, pas un contenu.** Vaut
+   * `JJ/MM/AAAA HH:MM <auteur>` sur 46 546 lignes réelles sur 46 546 — c'est
+   * exactement `date` + `employeNom`, déjà affichés à côté. Ne pas le rendre :
+   * ce serait écrire trois fois la même information, et c'est précisément ce
+   * qui faisait croire que les notes étaient perdues. Conservé au contrat pour
+   * ne rien casser ; la saisie utilisateur est dans `note`. */
   description?: string;
   entrante?: boolean;
   employeId?: UUID;
@@ -1387,6 +1402,14 @@ export interface ReinitialiserMotDePasseResponse {
   username?: string;
   /** Renvoyé une seule fois — jamais stocké en clair côté serveur. */
   motDePasseTemporaire?: string;
+  /** L'envoi du mail a été **déclenché**. L'expédition étant asynchrone,
+   * `true` ne prouve pas la remise. `false` signifie que le service d'envoi
+   * est inactif (SMTP absent ou incomplet) : le mot de passe doit alors être
+   * communiqué de la main à la main. */
+  emailEnvoye?: boolean;
+  /** Adresse de destination, masquée — permet de vérifier d'un coup d'œil que
+   * le message part au bon endroit. */
+  destinataire?: string;
 }
 
 /** Tous les champs sont obligatoires sauf `mobile`. Réservé au rôle
@@ -1412,6 +1435,11 @@ export interface CreerEmployeResponse {
   roles?: string[];
   /** Renvoyé une seule fois — jamais stocké en clair côté serveur. */
   motDePasseTemporaire?: string;
+  /** L'envoi du mail a été **déclenché** — voir
+   * {@link ReinitialiserMotDePasseResponse.emailEnvoye}. */
+  emailEnvoye?: boolean;
+  /** Adresse de destination, masquée. */
+  destinataire?: string;
 }
 
 /** Fiche complète d'une personne déjà connue (CfgTier) trouvée par numéro de
