@@ -12,12 +12,12 @@
   ],
   "tags": [
     {
-      "name": "Référentiels",
-      "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
+      "name": "Devis",
+      "description": "Offres de prix (\"devis\") faites aux prospects — vue globale tous prospections confondues. Voir aussi POST/GET /api/prospections/{id}/devis pour la vue nestée sur une seule prospection.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les devis dont la tranche relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un devis sans tranche reste visible."
     },
     {
-      "name": "Dossiers",
-      "description": "Dossiers de vente (ComFolder) — cycle de vie, échéancier, pièces jointes et génération de documents.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de dossier — y compris les routes imbriquées (échéancier, règlements, pièces jointes, historique, générateurs de documents) — un dossier hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte."
+      "name": "Référentiels",
+      "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
     },
     {
       "name": "Articles",
@@ -28,44 +28,48 @@
       "description": "Connexion/déconnexion par cookie JWT httpOnly."
     },
     {
-      "name": "Encaissements",
-      "description": "Règlements (StlSettlement) rattachés à un Dossier de vente — reproduit l'écran legacy \"Encaissements Vente\" (module Vente d'OMRAN Estate). Pour l'historique des règlements d'une seule échéance, voir plutôt `GET /api/dossiers/{id}/echeancier/{echeanceId}/reglements`, endpoint plus léger et déjà scopé à un dossier — celui-ci est la vue transverse \"tous les encaissements\" avec les mêmes filtres que le tableau legacy (entité, type, état, période, compte, dépôt...).\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, un encaissement hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte."
-    },
-    {
-      "name": "Prospections",
-      "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte."
-    },
-    {
-      "name": "Tableau de bord",
-      "description": "Agrégats de la page d'accueil : valeur du pipeline, panier moyen, répartition des dossiers par étape, relances en retard et compteurs de prospections."
+      "name": "Calendrier",
+      "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front.\n\n**Entités juridiques en exploitation.** Seuls les événements rattachés — par leur prospection ou par leur dossier — à une entité juridique active (`CfgCompany.IsActive`) sont renvoyés : aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un événement qu'aucune prospection ni aucun dossier ne rattache à une entité reste affiché."
     },
     {
       "name": "Hotline",
-      "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM."
+      "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
     },
     {
-      "name": "Devis",
-      "description": "Offres de prix (\"devis\") faites aux prospects — vue globale tous prospections confondues. Voir aussi POST/GET /api/prospections/{id}/devis pour la vue nestée sur une seule prospection."
+      "name": "Encaissements",
+      "description": "Règlements (StlSettlement) rattachés à un Dossier de vente — reproduit l'écran legacy \"Encaissements Vente\" (module Vente d'OMRAN Estate). Pour l'historique des règlements d'une seule échéance, voir plutôt `GET /api/dossiers/{id}/echeancier/{echeanceId}/reglements`, endpoint plus léger et déjà scopé à un dossier — celui-ci est la vue transverse \"tous les encaissements\" avec les mêmes filtres que le tableau legacy (entité, type, état, période, compte, dépôt...).\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, un encaissement hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les règlements portés par une entité juridique active (`StlSettlement.CfgCompanyId` → `CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Un règlement masqué renvoie 404 sur toutes les routes portant son identifiant."
     },
     {
       "name": "Mon compte",
       "description": "Profil de l'utilisateur authentifié — les seules routes accessibles (avec /api/auth/**) tant que mustChangePassword/profileCompleted bloquent le reste de l'API."
     },
     {
-      "name": "Pré-prospections",
-      "description": "Leads bruts non encore qualifiés (ComProspection sans CfgProspectId ni CfgCommercialId) — même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte."
-    },
-    {
       "name": "Tranches",
       "description": "Tranches (CfgTranche) — phases d'un projet immobilier, leurs conditions commerciales et leurs articles."
     },
     {
-      "name": "Calendrier",
-      "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front."
+      "name": "Dossiers",
+      "description": "Dossiers de vente (ComFolder) — cycle de vie, échéancier, pièces jointes et génération de documents.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de dossier — y compris les routes imbriquées (échéancier, règlements, pièces jointes, historique, générateurs de documents) — un dossier hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Cette collection ne renvoie que les dossiers rattachés à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, y compris aux rôles qui en sont exemptés (dont Administrateur). Un dossier masqué renvoie 404 sur toutes les routes portant son identifiant, exactement comme un dossier inexistant."
+    },
+    {
+      "name": "Pré-prospections",
+      "description": "Leads bruts non encore qualifiés (ComProspection sans CfgProspectId ni CfgCommercialId) — même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
+    },
+    {
+      "name": "Prospections",
+      "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
     {
       "name": "Utilisateurs (admin)",
       "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur : liste des comptes, création d'employé, réinitialisation de mot de passe, et affectation des projets qui composent le périmètre commercial d'un utilisateur."
+    },
+    {
+      "name": "Clients",
+      "description": "Tiers ayant acheté — un `CfgTier` référencé par au moins un dossier de vente. Il n'y a pas d'entité Client distincte dans le schéma : la fiche et ses sous-ressources sont celles de /api/prospects.\n\n**Entités juridiques en exploitation.** La qualité de client se juge sur les seuls dossiers rattachés à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un tier dont tous les dossiers relèvent d'une entité hors exploitation n'est donc plus un client au sens de cet endpoint et disparaît de la liste ; les agrégats `nombreDossiers`, `totalAPayer` et `totalRegle` suivent la même assiette, pour qu'ils concordent avec GET /api/clients/{id}/dossiers."
+    },
+    {
+      "name": "Tableau de bord",
+      "description": "Agrégats de la page d'accueil : valeur du pipeline, panier moyen, répartition des dossiers par étape, relances en retard et compteurs de prospections.\n\n**Entités juridiques en exploitation.** Tous les agrégats ne portent que sur les entités juridiques actives (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. L'assiette du tableau de bord est donc la même que celle de GET /api/dossiers et de GET /api/prospections ; les totaux ne sont pas comparables à ceux d'avant cette restriction."
     }
   ],
   "paths": {
@@ -6222,17 +6226,21 @@
     "/api/clients": {
       "get": {
         "tags": [
-          "client-controller"
+          "Clients"
         ],
+        "summary": "Liste des clients",
+        "description": "Les tiers portant au moins un dossier de vente sur une entité juridique en exploitation, avec leurs agrégats calculés côté serveur (nombre de dossiers, total à payer, total réglé). Une page vide signifie qu'aucun client ne correspond, pas une erreur.",
         "operationId": "findAll_10",
         "parameters": [
           {
             "name": "search",
             "in": "query",
+            "description": "Recherche insensible à la casse sur le code, le nom, le prénom, la raison sociale ou l'e-mail.",
             "required": false,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "benali"
           },
           {
             "name": "pageable",
@@ -6260,7 +6268,7 @@
     "/api/clients/{id}": {
       "get": {
         "tags": [
-          "client-controller"
+          "Clients"
         ],
         "operationId": "findById_6",
         "parameters": [
@@ -6291,7 +6299,7 @@
     "/api/clients/{id}/dossiers": {
       "get": {
         "tags": [
-          "client-controller"
+          "Clients"
         ],
         "summary": "Dossiers de vente d'un client",
         "description": "Les dossiers dont ce tier est l'acquéreur — mêmes `DossierListItemDto` que GET /api/dossiers.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seuls les dossiers de ses projets affectés sont renvoyés. Le **client**, lui, n'est pas filtré : sa fiche reste accessible, la liste peut simplement revenir vide ou partielle. `totalElements` reflète le nombre filtré, pas le total réel.",
@@ -6969,6 +6977,99 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/reglements/{reglementId}/pieces-jointes/{pieceId}": {
+      "delete": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Supprime une preuve de paiement d'un règlement",
+        "description": "Retire le justificatif du règlement. **Suppression logique**, mêmes effets que pour une pièce jointe de dossier : disparition immédiate de la liste, 404 sur `.../fichier`, fichier conservé sur le stockage en attendant un balayage hors ligne.\n\n**Un règlement `POINTED` ne peut pas perdre sa dernière preuve** (409) : c'est la pièce jointe qui a autorisé le pointage (voir `PATCH .../reglements/{reglementId}/statut`), et un règlement pointé sans justificatif serait un trou d'audit. La règle ne vise que ce cas — supprimer une pièce parmi plusieurs, ou n'importe quelle pièce d'un règlement `IN_WORK` ou `CANCELED`, passe normalement. Pour remplacer l'unique preuve d'un règlement pointé : déposer la nouvelle d'abord, supprimer l'ancienne ensuite.\n\n**Réponse vide (204)** — ne rien tenter de désérialiser.",
+        "operationId": "deletePieceJointeReglement",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reglementId",
+            "in": "path",
+            "description": "Identifiant du règlement (StlSettlement.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pieceId",
+            "in": "path",
+            "description": "Identifiant de la pièce jointe (AdmAttachedFile.PKey), tel que renvoyé par `PieceJointeDto.id`.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Preuve de paiement supprimée."
+          },
+          "404": {
+            "description": "Dossier ou règlement introuvable, règlement non rattaché à ce dossier, pièce jointe introuvable pour ce règlement, ou pièce déjà supprimée."
+          },
+          "409": {
+            "description": "Dernière preuve de paiement d'un règlement au statut `POINTED`."
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/pieces-jointes/{pieceId}": {
+      "delete": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Supprime une pièce jointe du dossier",
+        "description": "Retire la pièce du dossier. **Suppression logique** : la pièce disparaît immédiatement de `GET /api/dossiers/{id}/pieces-jointes`, son `.../fichier` renvoie désormais 404, mais le fichier reste sur le stockage en attendant un balayage hors ligne — une suppression accidentelle est donc récupérable côté base, jamais via l'API.\n\nL'auteur de la suppression est déduit du token de l'utilisateur connecté et enregistré (`AppFileObject.DeletedBy`) ; il n'est jamais demandé au front.\n\n**Réponse vide (204)** — ne rien tenter de désérialiser. Rejouer le `DELETE` sur la même pièce renvoie 404, la pièce n'étant plus visible.",
+        "operationId": "deletePieceJointe",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pieceId",
+            "in": "path",
+            "description": "Identifiant de la pièce jointe (AdmAttachedFile.PKey), tel que renvoyé par `PieceJointeDto.id`.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Pièce jointe supprimée."
+          },
+          "404": {
+            "description": "Dossier introuvable, pièce jointe introuvable pour ce dossier, ou pièce déjà supprimée."
           }
         }
       }

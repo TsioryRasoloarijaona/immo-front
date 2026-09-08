@@ -1436,3 +1436,71 @@ export interface HotlineResultDto {
    * par le passé mais jamais formellement créé comme prospect/client. */
   appelsSansFiche?: ProspectionListItemDto[];
 }
+
+/** Performance d’un commercial sur une période — `GET /api/kpi/commerciaux`
+ * et `GET /api/kpi/commerciaux/moi`. Trois familles : l’activité réalisée,
+ * le portefeuille confié et le résultat.
+ *
+ * **Deux attributions cohabitent volontairement.** L’activité est comptée pour
+ * *celui qui l’a faite* — un chef qui appelle sur la prospection d’un
+ * commercial voit l’appel chez lui. Le portefeuille est compté pour *le
+ * commercial assigné*, qu’il ait ou non passé les appels. Les deux coïncident
+ * dans 86 % des cas réels ; l’écart est exactement ce qu’on veut voir.
+ *
+ * Tous les compteurs respectent la visibilité par entité juridique et le
+ * périmètre commercial de l’appelant. */
+export interface PerformanceCommercialDto {
+  /** `CfgTier.PKey` du commercial, **pas** l’id de son compte utilisateur —
+   * un même employé peut porter deux comptes, additionnés ici. */
+  commercialId?: UUID;
+  commercialNom?: string;
+  du?: string;
+  au?: string;
+
+  // --- Activité réalisée : comptée pour celui qui l’a saisie ---
+  appelsPasses?: number;
+  appelsRecus?: number;
+  /** Visites effectivement consignées — à ne pas confondre avec
+   * `visitesDecrochees`. */
+  visitesRealisees?: number;
+  /** Visites **décrochées** : appels dont le résultat est « le prospect veut
+   * faire une visite ». Un engagement obtenu, pas une visite réalisée. */
+  visitesDecrochees?: number;
+  rdvObtenus?: number;
+  interactionsTotal?: number;
+
+  // --- Portefeuille confié : compté pour le commercial assigné ---
+  /** Prospections **distinctes** sur lesquelles il a saisi au moins une
+   * interaction, quel qu’en soit l’assigné. Mesure le travail réellement fait. */
+  prospectionsTraitees?: number;
+  /** Prospections créées sur la période et assignées à ce commercial. Les
+   * pré-prospections, sans commercial par construction, n’y figurent jamais. */
+  prospectionsAssignees?: number;
+  prospectionsCloturees?: number;
+  /** Parmi les assignées, celles ayant reçu au moins une interaction — de lui
+   * ou d’un autre. Le complément est le nombre de leads jamais contactés. */
+  prospectionsPrisesEnCharge?: number;
+  /** `prospectionsPrisesEnCharge / prospectionsAssignees`, 0–1.
+   * **`null` si aucune prospection assignée** — jamais 0, qui se lirait comme
+   * un échec là où il n’y a rien à mesurer. */
+  tauxPriseEnCharge?: number | null;
+  /** Médiane — et non moyenne — du délai création → première interaction, en
+   * heures : quelques leads repris des mois plus tard suffisent à rendre une
+   * moyenne illisible. `null` si aucune prospection prise en charge.
+   * **Non agrégeable** : une médiane de médianes ne veut rien dire. */
+  delaiMedianPremiereReponseHeures?: number | null;
+
+  // --- Résultat ---
+  dossiersCrees?: number;
+  /** Somme des `TotalToPay` de ces dossiers, en dirhams. */
+  montantTotal?: number;
+  /** `montantTotal / dossiersCrees`. `null` si aucun dossier. */
+  panierMoyen?: number | null;
+  /** `rdvObtenus / appelsPasses`, 0–1 — l’efficacité au téléphone.
+   * `null` si aucun appel passé. */
+  tauxAppelVersRdv?: number | null;
+  /** `dossiersCrees / prospectionsAssignees`, 0–1. `null` si aucune
+   * prospection assignée. **À lire avec son effectif** : sur une période
+   * courte le dénominateur est faible et le taux très bruyant. */
+  tauxProspectionVersDossier?: number | null;
+}
