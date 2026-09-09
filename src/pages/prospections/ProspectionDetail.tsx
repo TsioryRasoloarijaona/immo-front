@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, Send, UserPlus, Users, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
+import { ActiviteCard, DossierIssuBanner, InactiviteBadge } from '../../components/ActiviteProspection';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
 import ArticleResultsList from '../../components/ArticleResultsList';
 import CreateProspectForm, { type CreateProspectInitial } from '../../components/CreateProspectForm';
@@ -89,6 +90,13 @@ import type {
 } from '../../types';
 
 type ProspectionTab = 'apercu' | 'prospect' | 'article' | 'devis' | 'historique';
+
+/** Valeur de `InteractionDto.categorie` qui n'apprend rien dans le journal
+ * d'une prospection. Les trois autres valeurs réelles — « Dossier de vente
+ * (Réservation) », « (Livraison) », « Réclamation » — sont, elles, des
+ * exceptions à signaler. Chaîne littérale parce que la catégorie n'est pas
+ * exposée en référentiel : c'est le libellé que porte la vue légataire. */
+const CATEGORIE_INTERACTION_ORDINAIRE = 'Prospection';
 
 const PROSPECTION_DOC_LABELS: Record<ProspectionPdfDocKind, string> = {
   nda: 'NDA',
@@ -572,6 +580,19 @@ export default function ProspectionDetail() {
   const showStepper = !p.fermee && !isSideTrackEtape(p.etape) && stageIdx >= 0;
   const isPre = !p.prospectId;
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
+  // Dossier déjà issu de cette prospection, s'il existe. Le lien vit dans
+  // `activite` (vue légataire), pas au premier niveau du DTO. Hoisté ici parce
+  // que le narrowing d'un `p.activite?.dossierId` testé en JSX ne survit pas
+  // jusqu'au closure du onClick.
+  const dossierIssu = p.activite?.dossierId
+    ? { id: p.activite.dossierId, code: p.activite.dossierCode }
+    : null;
+  // Rang 1 du guide : les deux seuls indicateurs de l'en-tête, donc toujours
+  // visibles quand ils existent. Hoistés pour la même raison que `dossierIssu`
+  // — et parce que `null` doit rester distinct de `0` : « aucune interaction »
+  // et « bloc d'activité absent » ne se disent pas de la même façon.
+  const joursInactivite = typeof p.activite?.joursInactivite === 'number' ? p.activite.joursInactivite : null;
+  const nbInteractions = typeof p.activite?.nbInteractions === 'number' ? p.activite.nbInteractions : null;
 
   async function handleTransform(commercialId: string) {
     setBusy(true);
@@ -668,10 +689,12 @@ export default function ProspectionDetail() {
             <h2 className="text-hero font-semibold tracking-tight text-foreground break-words">{name}</h2>
             {isPre && <Badge tone="amber">Pré-prospection · Non qualifiée</Badge>}
             <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge>
+            {joursInactivite !== null && <InactiviteBadge jours={joursInactivite} />}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-label text-muted-foreground">
             {p.code && <>Code {p.code} · </>}
             Créée le {formatDate(p.dateDocument)} · Commercial : {p.commercialNom || '— non assigné —'}
+            {nbInteractions !== null && <> · {nbInteractions} interaction{nbInteractions > 1 ? 's' : ''}</>}
           </div>
         </div>
         {/* Utility actions (documents, log an action, close the lead) group
@@ -742,14 +765,13 @@ export default function ProspectionDetail() {
                 </Button>
               </div>
             )
-          ) : p.dossierId ? (
-            // Already converted — go straight to the existing dossier
-            // instead of the creation form. `dossierId` isn't in the API
-            // yet (see the field's comment in types.ts); this branch stays
-            // dormant, falling through to "Créer un dossier" below, until
-            // the backend adds it — nothing to change here once it does.
-            <Button className="w-full sm:w-auto" onClick={() => navigate(`/dossiers/${p.dossierId}`)}>
-              Ouvrir le dossier {p.dossierCode ? `${p.dossierCode}` : ''}
+          ) : dossierIssu ? (
+            // Prospection déjà transformée — on ouvre le dossier existant
+            // plutôt que le formulaire de création. `null` sur 98 % des
+            // prospections : c'est le taux de conversion réel, pas une donnée
+            // manquante.
+            <Button className="w-full sm:w-auto" onClick={() => navigate(`/dossiers/${dossierIssu.id}`)}>
+              Ouvrir le dossier {dossierIssu.code ?? ''}
             </Button>
           ) : (
             <Button className="w-full sm:w-auto" onClick={() => navigate(`/prospections/${p.id}/nouveau-dossier`)} disabled={p.fermee}>
@@ -778,6 +800,16 @@ export default function ProspectionDetail() {
       )}
 
       <div className="mt-4 flex flex-col gap-3">
+        {/* Au-dessus de tout le reste : quand elle est là, la conversion est le
+            fait le plus important de la fiche. Le bouton d'en-tête reste
+            l'action ; ce bandeau est l'état, avec le statut du dossier que le
+            bouton ne peut pas porter. */}
+        <DossierIssuBanner
+          dossierId={p.activite?.dossierId}
+          dossierCode={p.activite?.dossierCode}
+          statutDossier={p.activite?.statutDossier}
+        />
+
         {!p.fermee && (
           <Card>
             {showStepper && (
@@ -883,6 +915,12 @@ export default function ProspectionDetail() {
 
           <TabsContent value="apercu">
             <div className="flex flex-col gap-3">
+              {/* En tête de l'aperçu, y compris dans son état « non disponible » :
+                  la position ne bouge pas d'une fiche à l'autre, et sur une
+                  pré-prospection le message vaut mieux qu'un silence, qui se
+                  lirait comme une absence d'activité (guide §2.1). */}
+              <ActiviteCard activite={p.activite} accent={sectionAccent} />
+
               <Card title="Contact" accent={sectionAccent}>
                 <FieldGrid>
                   <Field label="Nom" value={p.prospectNom} />
@@ -1004,6 +1042,11 @@ export default function ProspectionDetail() {
                       <Field label="Vocation" value={p.vocation} />
                       <Field label="Type de contact" value={p.typeContact} />
                       <Field label="Action commerciale" value={p.actionCommerciale} />
+                      {/* Servis par l'API depuis le début, jamais affichés : la
+                          fiche n'avait que les identifiants et laissait
+                          l'onglet Article seul à nommer le lot. */}
+                      <Field label="Tranche" value={p.trancheDescription || p.trancheCode} />
+                      <Field label="Article" value={p.articleDescription || p.articleCode} />
                       <Field label="Prix min" value={p.prix ? formatCurrency(p.prix) : undefined} />
                       <Field label="Prix max" value={p.prixJusqua ? formatCurrency(p.prixJusqua) : undefined} />
                       <Field label="Superficie min" value={p.surface ? `${p.surface} m²` : undefined} />
@@ -1164,9 +1207,41 @@ export default function ProspectionDetail() {
                             <span className="inline-flex text-(--brand)">{interactionIcon(c.entrante)}</span>
                             {c.actionType || (c.entrante ? 'Entrant' : 'Sortant')}
                             {c.resultat && <Badge tone={c.dateRdv ? 'success' : 'neutral'}>{c.resultat}</Badge>}
+                            {/* `categorie` est renseignée à 100 % et sert de
+                                discriminant — mais dans le journal d'une
+                                prospection, la valeur ordinaire est justement
+                                « Prospection » (46 666 lignes sur 48 160). La
+                                badger sur chaque ligne serait 20 fois le même
+                                mot par page. On ne montre donc que l'exception :
+                                une réclamation ou une action de dossier remontée
+                                dans ce fil se voit immédiatement.
+                                À revoir sur une prospection réellement
+                                transformée, seul cas où le fil peut mélanger
+                                les catégories — invérifiable d'ici. */}
+                            {c.categorie && c.categorie !== CATEGORIE_INTERACTION_ORDINAIRE && (
+                              <Badge tone="info">{c.categorie}</Badge>
+                            )}
                           </span>
                         }
-                        meta={`${formatDateTime(c.date)} · ${c.employeNom || 'Système'}`}
+                        meta={
+                          <span className="flex flex-wrap items-center gap-x-1.5">
+                            <span>
+                              {formatDateTime(c.date)} · {c.employeNom || 'Système'}
+                            </span>
+                            {/* Même règle : la tranche de l'interaction est
+                                presque toujours celle de la prospection, et la
+                                répéter à chaque ligne n'apprend rien. Affichée
+                                seulement quand elle diverge — ou quand la
+                                prospection n'en porte aucune, où elle devient
+                                la seule indication de ce dont il est question. */}
+                            {c.trancheId && c.trancheId !== p.trancheId && (
+                              <span>
+                                · {c.projetCode ? `${c.projetCode} — ` : ''}
+                                {c.trancheLibelle || c.trancheCode}
+                              </span>
+                            )}
+                          </span>
+                        }
                         note={c.note}
                         badges={
                           (c.dateRdv || c.dateAlerte) && (
