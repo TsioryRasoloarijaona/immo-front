@@ -259,12 +259,11 @@ export default function NewDossier() {
     );
   }
   // Already converted — bounce straight to the existing dossier instead of
-  // showing the creation form again (covers a stale link/back-button visit
-  // to this URL after conversion, on top of ProspectionDetail's own button
-  // already routing here instead of there — see `dossierId`'s comment in
-  // types.ts, dormant until the backend adds the field).
-  if (prospection.dossierId) {
-    return <Navigate to={`/dossiers/${prospection.dossierId}`} replace />;
+  // showing the creation form again (covers a stale link/back-button visit to
+  // this URL after conversion). Le lien vit dans `activite`, alimenté par la
+  // vue légataire, et non au premier niveau du DTO.
+  if (prospection.activite?.dossierId) {
+    return <Navigate to={`/dossiers/${prospection.activite.dossierId}`} replace />;
   }
 
   function toggleArticle(articleId: string) {

@@ -290,6 +290,56 @@ export interface ProspectionListItemDto {
   derniereAlerteMessage?: string | null;
 }
 
+/** Indicateurs d'activité d'une prospection, calculés par la base légataire
+ * (`ComSaleProspectionView`) et non stockés.
+ *
+ * **Le bloc entier vaut `null` sur une pré-prospection** : la vue qui le
+ * produit exclut par construction les 3 817 pré-prospections, qui ont la leur.
+ * Afficher « 0 interaction » dans ce cas serait faux — l'absence du bloc
+ * signifie « non disponible », jamais « zéro ». */
+export interface ActiviteProspectionDto {
+  /** Jours écoulés depuis la dernière action. C'est le critère de tri des
+   * relances du logiciel de bureau. Renseigné sur 100 % des prospections. */
+  joursInactivite?: number;
+  /** Nombre d'interactions journalisées sur la prospection. 97 %. */
+  nbInteractions?: number;
+  /** Dernière action, tous types confondus. 97 %. */
+  derniereActionDate?: string | null;
+  /** Dernière communication avec le prospect. 90 %. */
+  derniereCommunicationDate?: string | null;
+  /** Résultat de la dernière communication. `null` si aucune — la vue rend une
+   * chaîne vide, normalisée en `null` ici. 90 %. */
+  derniereCommunicationResultat?: string | null;
+  /** Texte de la dernière communication. Même normalisation du vide. 90 %. */
+  derniereCommunicationMessage?: string | null;
+  /** Date de la relance en cours. `null` si aucune relance active — c'est le
+   * cas de 75 % des prospections. */
+  alerteActiveDate?: string | null;
+  /** Motif de la relance en cours. `null` si aucune. 25 %. */
+  alerteActiveRaison?: string | null;
+  /** Visites effectuées. 20 %, ce qui correspond aux prospections ayant
+   * atteint l'étape visite. */
+  nbVisites?: number;
+  premiereVisiteDate?: string | null;
+  derniereVisiteDate?: string | null;
+  /** Projet. Renseigné sur 99 % — la fiche n'exposait jusqu'ici que la tranche. */
+  projetId?: UUID | null;
+  projetCode?: string | null;
+  projetLibelle?: string | null;
+  /** CIN du prospect, telle que la porte la vue. 99 %. */
+  cin?: string | null;
+  /** **Le lien de conversion**, jusqu'ici absent de l'API. `null` tant que la
+   * prospection n'a pas été transformée, ce qui est le cas de 98 % d'entre
+   * elles : c'est le taux de conversion réel (358 dossiers pour 14 118
+   * prospections), pas une donnée manquante. */
+  dossierId?: UUID | null;
+  dossierCode?: string | null;
+  /** Client, une fois la prospection transformée. `null` sinon. */
+  clientId?: UUID | null;
+  /** Statut du dossier issu de la prospection. `null` si non transformée. */
+  statutDossier?: string | null;
+}
+
 export interface ProspectionDetailDto {
   id: UUID;
   code?: string;
@@ -332,18 +382,11 @@ export interface ProspectionDetailDto {
   ancienClient?: boolean;
   trancheId?: UUID;
   articleId?: UUID;
-  /** NOT YET IN docs/api-docsV4.json — proposed addition so
-   * ProspectionDetail.tsx's "Créer / ouvrir dossier" button can tell
-   * whether this prospection has already been converted, without a
-   * separate lookup. Today no read DTO links a Dossier back to the
-   * Prospection it was created from (only DevisDto carries
-   * prospectionId/prospectionCode) — POST /api/dossiers takes
-   * CreerDossierRequest.prospectionId but that link isn't surfaced
-   * anywhere afterwards. Wired defensively (see ProspectionDetail.tsx):
-   * stays undefined until the backend adds it, at which point the button
-   * starts working without further frontend changes. */
-  dossierId?: UUID;
-  dossierCode?: string;
+  /** Bloc d'indicateurs d'activité calculés par la base légataire. Porte
+   * notamment `dossierId` — le lien de conversion, que ce DTO n'a jamais eu au
+   * premier niveau malgré une déclaration d'espoir restée ici longtemps.
+   * **`null` en entier sur une pré-prospection** (voir le type). */
+  activite?: ActiviteProspectionDto | null;
 }
 
 export interface TransformerProspectionRequest {
@@ -582,6 +625,25 @@ export interface InteractionDto {
   resultat?: string | null;
   dateAlerte?: string | null;
   dateRdv?: string | null;
+  /** Id de la **catégorie** de l'interaction — à ne pas confondre avec
+   * `resultatId`, qui est la sous-catégorie. Renseignée sur 100 % des 48 160
+   * interactions réelles. */
+  categorieId?: UUID | null;
+  /** Libellé de la catégorie. Sert de discriminant : `Prospection` (46 666
+   * lignes), `Dossier de vente (Réservation)` (1 325), `Dossier de vente
+   * (Livraison)` (167), `Réclamation` (2). */
+  categorie?: string | null;
+  /** Tranche de rattachement, déduite comme le fait le logiciel de bureau : la
+   * tranche de la **prospection** quand `categorie` vaut "Prospection", celle
+   * du **lot** sinon. Renseignée sur 96 % ; `null` quand ni l'une ni l'autre
+   * n'en porte. */
+  trancheId?: UUID | null;
+  trancheCode?: string | null;
+  trancheLibelle?: string | null;
+  /** Projet, déduit de la tranche. 96 %. `null` si `trancheId` est `null`. */
+  projetId?: UUID | null;
+  projetCode?: string | null;
+  projetLibelle?: string | null;
 }
 
 /** Issue de l'envoi sur **un** canal (email ou WhatsApp).
@@ -746,10 +808,9 @@ export interface DossierDetailDto {
   probabiliteFinalisation?: number;
   modePaie?: string;
   /** Prospection à l'origine du dossier (ComFolder.ComProspectionId) —
-   * powers DossierDetail.tsx's "Prospection" cascade-reference tab. The
-   * reverse link (ProspectionDetailDto.dossierId) is still not in the API —
-   * see that field's comment — so "Ouvrir le dossier" from a prospection
-   * still falls back to the "Créer un dossier" flow. */
+   * powers DossierDetail.tsx's "Prospection" cascade-reference tab. Le lien
+   * inverse existe désormais, mais imbriqué : `ProspectionDetailDto.activite
+   * .dossierId`, alimenté par la vue légataire. */
   prospectionId?: UUID;
   prospectionCode?: string;
 }

@@ -572,6 +572,13 @@ export default function ProspectionDetail() {
   const showStepper = !p.fermee && !isSideTrackEtape(p.etape) && stageIdx >= 0;
   const isPre = !p.prospectId;
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
+  // Dossier déjà issu de cette prospection, s'il existe. Le lien vit dans
+  // `activite` (vue légataire), pas au premier niveau du DTO. Hoisté ici parce
+  // que le narrowing d'un `p.activite?.dossierId` testé en JSX ne survit pas
+  // jusqu'au closure du onClick.
+  const dossierIssu = p.activite?.dossierId
+    ? { id: p.activite.dossierId, code: p.activite.dossierCode }
+    : null;
 
   async function handleTransform(commercialId: string) {
     setBusy(true);
@@ -742,14 +749,13 @@ export default function ProspectionDetail() {
                 </Button>
               </div>
             )
-          ) : p.dossierId ? (
-            // Already converted — go straight to the existing dossier
-            // instead of the creation form. `dossierId` isn't in the API
-            // yet (see the field's comment in types.ts); this branch stays
-            // dormant, falling through to "Créer un dossier" below, until
-            // the backend adds it — nothing to change here once it does.
-            <Button className="w-full sm:w-auto" onClick={() => navigate(`/dossiers/${p.dossierId}`)}>
-              Ouvrir le dossier {p.dossierCode ? `${p.dossierCode}` : ''}
+          ) : dossierIssu ? (
+            // Prospection déjà transformée — on ouvre le dossier existant
+            // plutôt que le formulaire de création. `null` sur 98 % des
+            // prospections : c'est le taux de conversion réel, pas une donnée
+            // manquante.
+            <Button className="w-full sm:w-auto" onClick={() => navigate(`/dossiers/${dossierIssu.id}`)}>
+              Ouvrir le dossier {dossierIssu.code ?? ''}
             </Button>
           ) : (
             <Button className="w-full sm:w-auto" onClick={() => navigate(`/prospections/${p.id}/nouveau-dossier`)} disabled={p.fermee}>
