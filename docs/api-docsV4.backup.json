@@ -670,6 +670,19 @@
             }
           },
           {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes à renvoyer. Répétable ou séparé par des virgules. **Absent = comportement historique à l'identique** : les colonnes du groupe `ACTIVITE` sont omises et la vue légataire n'est pas interrogée. `id` est toujours renvoyé, demandé ou non. Un nom hors catalogue renvoie 400 — voir `GET /api/referentiels/colonnes/prospections` pour la liste exacte.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,prospectNom,joursInactivite,nbInteractions"
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -679,8 +692,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
+          "400": {
+            "description": "Un nom passé à `colonnes` ne figure pas au catalogue. Le corps (ProblemDetail) porte `colonne` et `colonnesValides`.",
             "content": {
               "*/*": {
                 "schema": {
@@ -4482,6 +4495,31 @@
         }
       }
     },
+    "/api/referentiels/colonnes/prospections": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Catalogue des colonnes de la liste des prospections",
+        "description": "Alimente le **sélecteur de colonnes** de `GET /api/prospections`. Chaque entrée donne le nom technique à passer dans `?colonnes=`, son libellé français, son groupe d'affichage, son type (pour aligner et formater), et si elle fait partie de la sélection par défaut.\n\nLe front n'a ainsi aucune liste de colonnes à coder en dur, et le catalogue est la même source que la liste blanche qui valide `?colonnes=` — les deux ne peuvent pas diverger.\n\nLes colonnes du groupe `ACTIVITE` (et `CONVERSION`) proviennent d'une vue de la base légataire : les demander déclenche une requête supplémentaire, mesurée à 7 ms pour une page de 20. Ne pas les demander n'en déclenche aucune.\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
+        "operationId": "getColonnesProspections",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ColonneDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/categories-echeance": {
       "get": {
         "tags": [
@@ -8039,6 +8077,107 @@
           }
         }
       },
+      "ActiviteProspectionDto": {
+        "type": "object",
+        "description": "Indicateurs d'activité d'une prospection, calculés par la base légataire (`ComSaleProspectionView`) et non stockés.\n\n**Le bloc entier vaut `null` sur une pré-prospection** : la vue qui le produit exclut par construction les 3 817 pré-prospections, qui ont la leur. Afficher « 0 interaction » dans ce cas serait faux — il faut afficher « non disponible ».",
+        "properties": {
+          "joursInactivite": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de jours écoulés depuis la dernière action. C'est le critère de tri des relances du logiciel de bureau. Renseigné sur 100 % des prospections de vente.",
+            "example": 1688
+          },
+          "nbInteractions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'interactions journalisées sur la prospection. 97 %.",
+            "example": 12
+          },
+          "derniereActionDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière action, tous types confondus. 97 %."
+          },
+          "derniereCommunicationDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière communication avec le prospect. 90 %."
+          },
+          "derniereCommunicationResultat": {
+            "type": "string",
+            "description": "Résultat de la dernière communication. `null` si aucune — la vue rend une chaîne vide, normalisée en `null` ici. 90 %.",
+            "example": "Prospect n'est plus intéressé par un appartement"
+          },
+          "derniereCommunicationMessage": {
+            "type": "string",
+            "description": "Texte de la dernière communication. Même normalisation du vide en `null`. 90 %.",
+            "example": "client voulait juste des informations"
+          },
+          "alerteActiveDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la relance en cours. `null` si aucune relance active — c'est le cas de 75 % des prospections."
+          },
+          "alerteActiveRaison": {
+            "type": "string",
+            "description": "Motif de la relance en cours. `null` si aucune. 25 %."
+          },
+          "nbVisites": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de visites effectuées. 20 %, ce qui correspond aux prospections ayant atteint l'étape visite.",
+            "example": 2
+          },
+          "premiereVisiteDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la première visite. `null` si aucune visite."
+          },
+          "derniereVisiteDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière visite. `null` si aucune visite."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du projet. Renseigné sur 99 % des prospections de vente — la fiche n'exposait jusqu'ici que la tranche."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet. 99 %.",
+            "example": "CITEB"
+          },
+          "projetLibelle": {
+            "type": "string",
+            "description": "Libellé du projet. 99 %."
+          },
+          "cin": {
+            "type": "string",
+            "description": "CIN du prospect, telle que la porte la vue. **Rare : 2,7 %** (387 lignes sur 14 118). Une mesure initiale annonçait 99 %, en comptant les non-`NULL` d'une colonne qui porte des chaînes vides — à afficher conditionnellement, jamais comme une donnée d'identité fiable."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du dossier de vente issu de cette prospection — **le lien de conversion**, jusqu'ici absent de l'API. `null` tant que la prospection n'a pas été transformée, ce qui est le cas de 98 % d'entre elles : c'est le taux de conversion réel (358 dossiers pour 14 118 prospections), pas une donnée manquante."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code du dossier issu de la prospection. `null` si non transformée.",
+            "example": "26/00314"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du client, une fois la prospection transformée. `null` sinon."
+          },
+          "statutDossier": {
+            "type": "string",
+            "description": "Statut du dossier issu de la prospection. `null` si non transformée.",
+            "example": "CONCRETISATION"
+          }
+        }
+      },
       "ProspectionDetailDto": {
         "type": "object",
         "properties": {
@@ -8129,28 +8268,36 @@
             "type": "string"
           },
           "surface": {
-            "type": "number"
+            "type": "number",
+            "description": "Surface recherchée. **Mesurée morte : 0 ligne renseignée sur 14 114.** Conservée pour compatibilité — ne pas afficher."
           },
           "surfaceJusqua": {
-            "type": "number"
+            "type": "number",
+            "description": "Borne haute de surface. **Morte : 0 ligne.** Ne pas afficher."
           },
           "prix": {
-            "type": "number"
+            "type": "number",
+            "description": "Budget déclaré. **Mesuré mort : 4 lignes sur 14 114**, et `0` — jamais `null` — ailleurs. Conservé pour compatibilité ; ne pas afficher."
           },
           "prixJusqua": {
-            "type": "number"
+            "type": "number",
+            "description": "Borne haute de budget. **Morte : 0 ligne.** Ne pas afficher."
           },
           "avance": {
-            "type": "number"
+            "type": "number",
+            "description": "Avance envisagée. **Morte : 0 ligne.** Ne pas afficher."
           },
           "financementFondsPropres": {
-            "type": "number"
+            "type": "number",
+            "description": "Financement sur fonds propres. **Mort : 0 ligne.** Ne pas afficher."
           },
           "financementCredit": {
-            "type": "number"
+            "type": "number",
+            "description": "Financement par crédit. **Mort : 0 ligne.** Ne pas afficher."
           },
           "financementAutre": {
-            "type": "number"
+            "type": "number",
+            "description": "Autre financement. **Mort : 0 ligne.** Ne pas afficher."
           },
           "fermee": {
             "type": "boolean"
@@ -8191,6 +8338,10 @@
           },
           "articleDescription": {
             "type": "string"
+          },
+          "activite": {
+            "$ref": "#/components/schemas/ActiviteProspectionDto",
+            "description": "Bloc d'indicateurs d'activité calculés par la base légataire (nombre d'interactions, inactivité, dernière communication, visites, relance en cours, projet, et le lien vers le dossier issu de la prospection).\n\n**Vaut `null` en entier sur une pré-prospection** : ces indicateurs viennent de `ComSaleProspectionView`, qui exclut les pré-prospections. L'absence du bloc signifie « non disponible », jamais « zéro »."
           }
         }
       },
@@ -8484,6 +8635,44 @@
             "type": "string",
             "format": "date-time",
             "description": "Date du rendez-vous, présente uniquement quand resultat est \"Rendez vous pris\" ou \"RDV reporté\" et qu'une date a été fournie à la création. null sinon."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la **catégorie** de l'interaction — à ne pas confondre avec `resultatId`, qui est la sous-catégorie. Renseignée sur 100 % des 48 160 interactions réelles."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Libellé de la catégorie. Sert de discriminant : `Prospection` (46 666 lignes), `Dossier de vente (Réservation)` (1 325), `Dossier de vente (Livraison)` (167), `Réclamation` (2).",
+            "example": "Prospection"
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la tranche de rattachement. Déduite comme le fait le logiciel de bureau : la tranche de la **prospection** quand `categorie` vaut \"Prospection\", celle du **lot** sinon. Renseignée sur 96 % des interactions ; `null` quand ni l'une ni l'autre n'en porte."
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Code de la tranche. null si trancheId est null.",
+            "example": "CITEB2"
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Libellé de la tranche. null si trancheId est null."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du projet, déduit de la tranche. 96 %. null si trancheId est null."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet. null si projetId est null.",
+            "example": "CITEB"
+          },
+          "projetLibelle": {
+            "type": "string",
+            "description": "Libellé du projet. null si projetId est null."
           }
         }
       },
@@ -10363,6 +10552,52 @@
           }
         }
       },
+      "ColonneDto": {
+        "type": "object",
+        "description": "Description d'une colonne sélectionnable. Le front construit son sélecteur à partir de cette liste plutôt que d'en coder une en dur — quand une colonne est ajoutée ou renommée côté serveur, le sélecteur suit sans redéploiement.",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "description": "Nom technique, à passer tel quel dans `?colonnes=`.",
+            "example": "joursInactivite"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé d'en-tête, en français, prêt à afficher.",
+            "example": "Jours d'inactivité"
+          },
+          "groupe": {
+            "type": "string",
+            "description": "Regroupement pour présenter le sélecteur par sections.",
+            "enum": [
+              "IDENTITE",
+              "CONTACT",
+              "CONTEXTE",
+              "FINANCIER",
+              "ACTIVITE",
+              "CONVERSION"
+            ],
+            "example": "ACTIVITE"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type d'affichage — permet d'aligner et de formater sans table de correspondance côté front.",
+            "enum": [
+              "TEXTE",
+              "NOMBRE",
+              "MONTANT",
+              "DATE",
+              "BOOLEEN"
+            ],
+            "example": "NOMBRE"
+          },
+          "parDefaut": {
+            "type": "boolean",
+            "description": "Vraie pour les colonnes renvoyées quand `?colonnes=` est absent. L'ensemble des colonnes `parDefaut` reproduit exactement la réponse historique de la liste.",
+            "example": false
+          }
+        }
+      },
       "PageDtoProspectListItemDto": {
         "type": "object",
         "properties": {
@@ -10554,10 +10789,12 @@
             "type": "boolean"
           },
           "prix": {
-            "type": "number"
+            "type": "number",
+            "description": "Budget déclaré du prospect. **Mesuré mort : renseigné sur 4 lignes sur 14 114**, et valant `0` — jamais `null` — partout ailleurs. Retiré de la sélection par défaut pour cette raison ; reste demandable via `?colonnes=prix`. Ne pas afficher comme un budget : ce serait annoncer « 0,00 DH » sur tout le portefeuille."
           },
           "surface": {
-            "type": "number"
+            "type": "number",
+            "description": "Surface recherchée. **Mesurée morte : 0 ligne renseignée** sur 14 114. Même traitement que `prix`."
           },
           "trancheId": {
             "type": "string",
@@ -10588,6 +10825,162 @@
             "type": "string",
             "description": "Message de cette dernière alerte — en pratique la note du commercial sur l'interaction qui l'a posée. `null` si aucune alerte.",
             "example": "rappeler la cliente lundi matin"
+          },
+          "joursInactivite": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours écoulés depuis la dernière action — le tri de relance du logiciel de bureau. Renseigné sur 100 % des prospections de vente.",
+            "example": 1688
+          },
+          "nbInteractions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'interactions journalisées. 97 %.",
+            "example": 12
+          },
+          "derniereActionDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière action, tous types confondus. 97 %."
+          },
+          "derniereCommunicationDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du dernier échange avec le prospect. 90 %."
+          },
+          "derniereCommunicationResultat": {
+            "type": "string",
+            "description": "Résultat du dernier échange. 90 %.",
+            "example": "Prospect n'est plus intéressé par un appartement"
+          },
+          "nbVisites": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de visites effectuées. 20 %.",
+            "example": 2
+          },
+          "derniereVisiteDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière visite. `null` si aucune visite."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du projet — la liste n'exposait que la tranche. 99 %."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet. 99 %.",
+            "example": "CITEB"
+          },
+          "projetLibelle": {
+            "type": "string",
+            "description": "Libellé du projet. 99 %."
+          },
+          "cin": {
+            "type": "string",
+            "description": "CIN du prospect. 99 %."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du dossier issu de la prospection. `null` sur 98 % des lignes : c'est le taux de conversion réel, pas une donnée manquante."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code du dossier issu de la prospection. `null` si non transformée.",
+            "example": "26/00314"
+          },
+          "statutDossier": {
+            "type": "string",
+            "description": "Statut du dossier issu de la prospection. `null` si non transformée.",
+            "example": "CONCRETISATION"
+          },
+          "prospectCode": {
+            "type": "string",
+            "description": "Code du prospect (`CfgTier.Code`). 100 %."
+          },
+          "mobileProspect": {
+            "type": "string",
+            "description": "Mobile **brut de la fiche prospect**, sans le repli sur le numéro de premier contact qu'applique `telephone`. 99,8 %. Utile pour éditer ou dédoublonner, là où `telephone` sert à appeler."
+          },
+          "indicatifMobile": {
+            "type": "string",
+            "description": "Indicatif pays du mobile. 100 %.",
+            "example": "212"
+          },
+          "emailFiche": {
+            "type": "string",
+            "description": "Email **brut de la fiche**, sans le repli appliqué par `email`. 59,1 %."
+          },
+          "commercialCode": {
+            "type": "string",
+            "description": "Code du commercial (`CfgTier.Code`). 99,3 % — la liste n'exposait que son nom."
+          },
+          "ancienClient": {
+            "type": "boolean",
+            "description": "Le prospect est un ancien client. 100 %. Déjà en fiche, absent de la liste jusqu'ici."
+          },
+          "dateFermeture": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de clôture de la prospection. 62,9 %."
+          },
+          "raisonFermeture": {
+            "type": "string",
+            "description": "Motif de clôture. 60,5 %.",
+            "example": "Hors budget"
+          },
+          "typeProspect": {
+            "type": "string",
+            "description": "Type du prospect (`CfgTierType`). 100 %.",
+            "example": "PRO"
+          },
+          "origineSupport": {
+            "type": "string",
+            "description": "Support de l'origine. 50,2 %.",
+            "example": "FACEBOOK"
+          },
+          "actionCommerciale": {
+            "type": "string",
+            "description": "Action commerciale (campagne) rattachée. 40,2 %."
+          },
+          "pays": {
+            "type": "string",
+            "description": "Pays du prospect. 27,3 %."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la société / entité juridique. 99,8 %. Elle filtre déjà les résultats côté serveur (seules les sociétés actives sont servies) sans avoir jamais été renvoyée."
+          },
+          "societeCode": {
+            "type": "string",
+            "description": "Code de la société. 99,8 %.",
+            "example": "ADMOD"
+          },
+          "societeLibelle": {
+            "type": "string",
+            "description": "Libellé de la société. 99,8 %."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création. **34,3 % seulement** — les prospections créées par notre API n'en portent pas (bug #41)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création. 100 %."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification. 100 %."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de dernière modification. 100 %."
           }
         }
       },

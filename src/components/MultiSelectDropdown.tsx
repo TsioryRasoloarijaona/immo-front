@@ -13,6 +13,7 @@ import { cn } from '../lib/utils';
  */
 export default function MultiSelectDropdown({
   label,
+  ariaLabel,
   placeholder,
   value,
   onChange,
@@ -21,7 +22,14 @@ export default function MultiSelectDropdown({
   badge,
   className,
 }: {
-  label: string;
+  /** Préfixe « Étiquette : » dans le déclencheur, pour une barre de filtres
+   * où le contrôle doit se nommer lui-même. À omettre quand l'étiquette est
+   * déjà posée à côté — dans le volet de filtres avancés, la répéter donnait
+   * « Projet » au-dessus de « Projet : Tous ». */
+  label?: string;
+  /** Nom accessible du déclencheur, quand `label` est omis : sans lui un
+   * lecteur d'écran n'annoncerait que « Tous ». */
+  ariaLabel?: string;
   placeholder: string;
   value?: string[];
   onChange?: (values: string[]) => void;
@@ -47,12 +55,13 @@ export default function MultiSelectDropdown({
     <DropdownMenu>
       <DropdownMenuTrigger
         disabled={disabled}
+        aria-label={label ? undefined : ariaLabel}
         className={cn(
           'flex h-8 max-w-55 items-center gap-1.5 rounded-lg border border-input bg-transparent px-2.5 text-sm whitespace-nowrap outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30 dark:hover:bg-input/50',
           className,
         )}
       >
-        <span className="shrink-0 text-muted-foreground">{label} :</span>
+        {label && <span className="shrink-0 text-muted-foreground">{label} :</span>}
         <span className={cn('truncate', selected.length > 0 ? 'font-medium text-foreground' : 'text-muted-foreground')}>
           {triggerLabel}
         </span>

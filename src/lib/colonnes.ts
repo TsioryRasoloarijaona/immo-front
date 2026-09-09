@@ -1,149 +1,254 @@
 import { useCallback, useState } from 'react';
+import type { ColonneDto, GroupeColonne } from '../types';
 
-/** Type d'une colonne — reprend les cinq valeurs que renverra
- * `GET /api/referentiels/colonnes/prospections`. Il porte l'alignement et le
- * formatage, ce qui évite une table de correspondance côté front. */
-export type TypeColonne = 'texte' | 'nombre' | 'date' | 'montant' | 'booleen';
+/** Libellés des groupes du sélecteur. Le serveur envoie des clés
+ * d'énumération (`IDENTITE`…), pas des libellés : la traduction est une
+ * décision d'affichage, elle reste ici. Un groupe inconnu — le serveur en
+ * ajoutera — retombe sur sa clé brute plutôt que de disparaître. */
+export const LIBELLES_GROUPE: Record<GroupeColonne, string> = {
+  IDENTITE: 'Identité',
+  CONTACT: 'Contact',
+  CONTEXTE: 'Contexte',
+  FINANCIER: 'Financier',
+  ACTIVITE: 'Activité',
+  CONVERSION: 'Conversion',
+};
 
-/** Une colonne sélectionnable.
- *
- * Les cinq premiers champs sont exactement ceux du référentiel serveur décrit
- * au §5.3 du `GUIDE-FRONT-fiche-prospection.md`, pour que le jour où
- * l'endpoint existe, la bascule soit un remplacement de source et non une
- * réécriture. Les deux derniers sont des ajouts front, additifs :
- *
- * - `champs` existe parce qu'une colonne d'écran ne vaut pas toujours un champ
- *   de DTO — « Tranche » lit `trancheDescription` avec repli sur `trancheCode`,
- *   comme partout ailleurs dans l'application. C'est aussi ce qu'il faudra
- *   envoyer dans `?colonnes=` : `colonnes.flatMap((c) => c.champs)`.
- * - `poids` remplace les pourcentages en dur du `table-fixed` : avec une
- *   sélection variable, une largeur absolue ne tient plus. Les valeurs
- *   reprennent les pourcentages actuels, normalisés à l'affichage. */
-export interface ColonneDefinition {
-  nom: string;
-  libelle: string;
-  groupe: string;
-  type: TypeColonne;
-  parDefaut: boolean;
-  champs: string[];
-  poids: number;
+export function libelleGroupe(groupe: string): string {
+  return LIBELLES_GROUPE[groupe as GroupeColonne] ?? groupe;
 }
 
-/** Catalogue des colonnes de prospection.
+/** Minuscules sans accents. Distinct de `normalizeStatus` de `dossierStatus.ts`,
+ * qui supprime aussi les espaces : ici ils séparent les mots de la recherche. */
+function sansAccents(texte: string): string {
+  return texte
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
+
+/** Recherche dans le catalogue de colonnes.
  *
- * Limité aux 20 champs que `ProspectionListItemDto` sert **aujourd'hui**
- * (guide §4). Les colonnes réellement intéressantes — `joursInactivite`,
- * `nbInteractions`, `derniereCommunicationDate`, `nbVisites`, `dossierCode` —
- * n'y sont pas : elles vivent dans le bloc `activite` du DTO de *détail*, et
- * les servir en liste sans sélection de colonnes coûte 5 942 ms à la page 250
- * contre 123 ms. C'est précisément ce que le mécanisme du §5 doit débloquer.
+ * Multi-mots et non sous-chaîne unique : les mots saisis doivent tous
+ * apparaître, dans n'importe quel ordre. « date com » trouve donc « Dernière
+ * communication », ce qu'un simple `includes` sur la chaîne entière raterait.
  *
- * `parDefaut` reproduit à l'identique les neuf colonnes affichées jusqu'ici :
- * le jour où le serveur prendra `?colonnes=` en compte, personne ne verra son
- * écran changer (guide §5.4.2).
+ * Trois cibles par colonne : le libellé, le **nom technique** — quelqu'un qui a
+ * lu la spec cherchera `joursInactivite` avant « Inactivité » — et le libellé du
+ * groupe, ce qui fait de « activité » un moyen d'afficher la section entière. */
+export function filtrerColonnes(catalogue: ColonneDto[], requete: string): ColonneDto[] {
+  const mots = sansAccents(requete).split(/\s+/).filter(Boolean);
+  if (mots.length === 0) return catalogue;
+  return catalogue.filter((c) => {
+    const cible = sansAccents(`${c.libelle} ${c.nom} ${libelleGroupe(c.groupe)}`);
+    return mots.every((mot) => cible.includes(mot));
+  });
+}
+
+/** Ordre d'affichage des colonnes connues, et **rien d'autre** : ni la liste
+ * des colonnes, ni lesquelles sont par défaut, qui viennent maintenant du
+ * serveur. Les colonnes hors de cette liste s'affichent après, dans l'ordre
+ * du catalogue — une colonne ajoutée côté serveur apparaît donc sans qu'on
+ * touche à ce fichier, simplement en fin de tableau.
  *
- * Sont volontairement absents du catalogue les champs déjà rendus par une
- * autre colonne : `fermee` (le badge d'étape affiche « Clôturée »),
- * `tempDescription` (repli du nom du prospect), `derniereAlerteMessage`
- * (infobulle de la colonne Relance), et les identifiants techniques.
- *
- * **L'ordre du tableau est l'ordre d'affichage**, pas l'ordre des sections du
- * sélecteur : il reproduit exactement celui des neuf colonnes d'avant, d'où un
- * `groupe` qui n'est pas contigu (Date et Code sont tous deux « Identité » mais
- * séparés). Le sélecteur regroupe par `groupe` de son côté, donc rien ne
- * l'oblige à l'être ici — et c'est bien l'affichage qui doit rester stable. */
-export const COLONNES_PROSPECTION: ColonneDefinition[] = [
-  { nom: 'code', libelle: 'Code', groupe: 'Identité', type: 'texte', parDefaut: false, champs: ['code'], poids: 9 },
-  { nom: 'prospectNom', libelle: 'Prospect', groupe: 'Identité', type: 'texte', parDefaut: true, champs: ['prospectNom', 'tempDescription', 'code'], poids: 17 },
-  { nom: 'etape', libelle: 'Étape', groupe: 'Suivi', type: 'texte', parDefaut: true, champs: ['etape', 'fermee'], poids: 10 },
-  { nom: 'origine', libelle: 'Origine', groupe: 'Suivi', type: 'texte', parDefaut: true, champs: ['origine'], poids: 10 },
-  { nom: 'commercialNom', libelle: 'Commercial', groupe: 'Suivi', type: 'texte', parDefaut: true, champs: ['commercialNom'], poids: 11 },
-  { nom: 'tranche', libelle: 'Tranche', groupe: 'Bien', type: 'texte', parDefaut: false, champs: ['trancheDescription', 'trancheCode'], poids: 12 },
-  { nom: 'prix', libelle: 'Prix', groupe: 'Bien', type: 'montant', parDefaut: true, champs: ['prix'], poids: 11 },
-  { nom: 'surface', libelle: 'Superficie', groupe: 'Bien', type: 'nombre', parDefaut: false, champs: ['surface'], poids: 9 },
-  { nom: 'dateDocument', libelle: 'Date', groupe: 'Identité', type: 'date', parDefaut: true, champs: ['dateDocument'], poids: 9 },
-  { nom: 'telephone', libelle: 'Téléphone', groupe: 'Contact', type: 'texte', parDefaut: true, champs: ['telephone'], poids: 10 },
-  { nom: 'email', libelle: 'Email', groupe: 'Contact', type: 'texte', parDefaut: true, champs: ['email'], poids: 12 },
-  { nom: 'derniereAlerteDate', libelle: 'Relance', groupe: 'Suivi', type: 'date', parDefaut: true, champs: ['derniereAlerteDate', 'derniereAlerteMessage'], poids: 10 },
+ * Les huit premières reproduisent l'ordre historique de la liste, pour que le
+ * passage à la sélection serveur ne déplace rien à l'écran. `prix` n'y est
+ * plus par défaut — mesuré mort, 4 lignes sur 14 114 — mais garde son rang au
+ * cas où on le coche. */
+const ORDRE = [
+  // Identité du lead et de son prospect
+  'code',
+  'prospectCode',
+  'prospectNom',
+  'typeProspect',
+  'ancienClient',
+  // Suivi commercial
+  'etape',
+  'origine',
+  'origineSupport',
+  'actionCommerciale',
+  'commercialNom',
+  'commercialCode',
+  // Rattachements
+  'societeCode',
+  'societeLibelle',
+  'trancheCode',
+  'trancheDescription',
+  'projetCode',
+  'projetLibelle',
+  // Financier — mesuré mort, hors défauts, mais gardé à son rang historique
+  'prix',
+  'surface',
+  'dateDocument',
+  // Contact. `telephone`/`email` appliquent un repli ; les variantes « fiche »
+  // sont les valeurs brutes, utiles pour éditer ou dédoublonner.
+  'telephone',
+  'indicatifMobile',
+  'mobileProspect',
+  'email',
+  'emailFiche',
+  'pays',
+  'cin',
+  // Relance et clôture
+  'derniereAlerteDate',
+  'dateFermeture',
+  'raisonFermeture',
+  // Activité, servie par la vue légataire
+  'joursInactivite',
+  'nbInteractions',
+  'derniereActionDate',
+  'derniereCommunicationDate',
+  'derniereCommunicationResultat',
+  'nbVisites',
+  'derniereVisiteDate',
+  // Conversion
+  'dossierCode',
+  'statutDossier',
+  // Traçabilité, en dernier : utile ponctuellement, jamais au quotidien
+  'creeLe',
+  'creePar',
+  'modifieLe',
+  'modifiePar',
 ];
+
+/** Largeurs relatives, normalisées à l'affichage. Le serveur ne porte pas
+ * cette information et n'a pas à la porter : c'est de la mise en page. Les
+ * valeurs reprennent les pourcentages en dur d'avant le sélecteur. */
+const POIDS: Record<string, number> = {
+  code: 9,
+  prospectCode: 9,
+  prospectNom: 17,
+  typeProspect: 10,
+  ancienClient: 8,
+  etape: 10,
+  origine: 10,
+  origineSupport: 11,
+  actionCommerciale: 12,
+  commercialNom: 11,
+  commercialCode: 9,
+  societeCode: 9,
+  societeLibelle: 12,
+  trancheCode: 9,
+  trancheDescription: 12,
+  projetCode: 9,
+  projetLibelle: 12,
+  prix: 11,
+  surface: 9,
+  dateDocument: 9,
+  telephone: 10,
+  indicatifMobile: 7,
+  mobileProspect: 10,
+  email: 12,
+  emailFiche: 12,
+  pays: 9,
+  cin: 9,
+  derniereAlerteDate: 10,
+  dateFermeture: 9,
+  raisonFermeture: 12,
+  creeLe: 9,
+  creePar: 10,
+  modifieLe: 9,
+  modifiePar: 10,
+  joursInactivite: 9,
+  nbInteractions: 8,
+  derniereActionDate: 10,
+  derniereCommunicationDate: 11,
+  derniereCommunicationResultat: 12,
+  nbVisites: 8,
+  derniereVisiteDate: 10,
+  dossierCode: 10,
+  statutDossier: 11,
+};
+
+const POIDS_DEFAUT = 10;
+
+export function poidsColonne(nom: string): number {
+  return POIDS[nom] ?? POIDS_DEFAUT;
+}
+
+function rang(nom: string): number {
+  const i = ORDRE.indexOf(nom);
+  return i === -1 ? ORDRE.length : i;
+}
 
 const PREFIXE_STOCKAGE = 'ayad.colonnes.';
 
-function defauts(catalogue: ColonneDefinition[]): string[] {
-  return catalogue.filter((c) => c.parDefaut).map((c) => c.nom);
-}
-
-/** Relit la sélection stockée en la confrontant au catalogue.
- *
- * Le filtrage contre les noms connus n'est pas de la prudence gratuite : le
- * catalogue va dériver (c'est la raison d'être du référentiel serveur du
- * §5.3), et une préférence enregistrée il y a six mois peut nommer une colonne
- * qui n'existe plus. Sans ce tri, elle ferait planter le rendu ; avec, elle
- * disparaît en silence, ce qui est le bon comportement.
- *
- * Une sélection vide retombe sur les défauts plutôt que d'afficher un tableau
- * sans colonne — cas atteignable en éditant `localStorage` à la main. */
-function lireSelection(cle: string, catalogue: ColonneDefinition[]): string[] {
+function lireStockees(cle: string): string[] | null {
   try {
     const brut = window.localStorage.getItem(PREFIXE_STOCKAGE + cle);
-    if (!brut) return defauts(catalogue);
+    if (!brut) return null;
     const parsed: unknown = JSON.parse(brut);
-    if (!Array.isArray(parsed)) return defauts(catalogue);
-    const connus = new Set(catalogue.map((c) => c.nom));
-    const retenues = parsed.filter((n): n is string => typeof n === 'string' && connus.has(n));
-    return retenues.length > 0 ? retenues : defauts(catalogue);
+    if (!Array.isArray(parsed)) return null;
+    return parsed.filter((n): n is string => typeof n === 'string');
   } catch {
-    return defauts(catalogue);
+    return null;
   }
 }
 
 /** Sélection de colonnes persistée par écran.
  *
  * `localStorage` et non le serveur : aucune table légataire ne stocke de
- * disposition de colonnes — le logiciel de bureau les garde sur le poste
- * client (guide §5.4.1). Retrouver son affichage d'un poste à l'autre est une
- * décision métier distincte, à demander via `from_front.md` si elle se pose.
+ * disposition de colonnes, le logiciel de bureau les garde sur le poste
+ * client. Retrouver son affichage d'un poste à l'autre serait une décision
+ * métier distincte.
  *
- * L'ordre d'affichage est celui du catalogue, jamais celui de la sélection :
- * cocher puis décocher une colonne ne doit pas la déplacer. */
-export function useColonnesVisibles(cle: string, catalogue: ColonneDefinition[]) {
-  const [visibles, setVisibles] = useState<string[]>(() => lireSelection(cle, catalogue));
+ * **Rien n'est stocké tant que l'utilisateur n'a rien changé**, et
+ * « réinitialiser » efface l'entrée au lieu d'y écrire les défauts du jour :
+ * l'écran suit ainsi le `parDefaut` du serveur, qui peut évoluer — `prix`
+ * vient précisément d'en sortir.
+ *
+ * Le catalogue arrive de façon asynchrone : tant qu'il est vide, `colonnes`
+ * l'est aussi, et l'appelant doit attendre avant de dessiner un tableau. Une
+ * préférence enregistrée nommant une colonne disparue du catalogue est ignorée
+ * en silence — c'est le bon comportement, pas un plantage. */
+export function useColonnesVisibles(cle: string, catalogue: ColonneDto[]) {
+  const [stockees, setStockees] = useState<string[] | null>(() => lireStockees(cle));
 
   const enregistrer = useCallback(
-    (noms: string[]) => {
-      setVisibles(noms);
+    (noms: string[] | null) => {
+      setStockees(noms);
       try {
-        window.localStorage.setItem(PREFIXE_STOCKAGE + cle, JSON.stringify(noms));
+        if (noms === null) window.localStorage.removeItem(PREFIXE_STOCKAGE + cle);
+        else window.localStorage.setItem(PREFIXE_STOCKAGE + cle, JSON.stringify(noms));
       } catch {
-        // Navigation privée ou quota plein : la sélection reste valable pour
-        // la session, elle ne survivra simplement pas au rechargement. Rien à
-        // signaler à l'utilisateur, qui n'y peut rien.
+        // Navigation privée ou quota plein : la sélection vaut pour la session
+        // et ne survivra pas au rechargement. L'utilisateur n'y peut rien, on
+        // ne l'en informe pas.
       }
     },
     [cle],
   );
 
+  const connus = new Set(catalogue.map((c) => c.nom));
+  const retenues = (stockees ?? []).filter((n) => connus.has(n));
+  const selection = new Set(
+    retenues.length > 0 ? retenues : catalogue.filter((c) => c.parDefaut).map((c) => c.nom),
+  );
+
+  const colonnes = catalogue
+    .filter((c) => selection.has(c.nom))
+    .sort((a, b) => rang(a.nom) - rang(b.nom));
+  const visibles = colonnes.map((c) => c.nom);
+
   const basculer = useCallback(
     (nom: string) => {
-      // Le garde-fou du dernier décochage vit ici plutôt que dans l'UI : c'est
-      // l'invariant « un tableau a au moins une colonne », pas une règle
-      // d'affichage.
-      if (visibles.includes(nom)) {
-        if (visibles.length === 1) return;
-        enregistrer(visibles.filter((n) => n !== nom));
-      } else {
-        enregistrer([...visibles, nom]);
-      }
+      const suivantes = visibles.includes(nom)
+        // Un tableau sans colonne n'a pas de sens : la dernière cochée se
+        // verrouille. L'invariant vit ici et non dans l'UI.
+        ? visibles.length === 1
+          ? null
+          : visibles.filter((n) => n !== nom)
+        : [...visibles, nom];
+      if (suivantes) enregistrer(suivantes);
     },
     [visibles, enregistrer],
   );
 
-  const reinitialiser = useCallback(() => enregistrer(defauts(catalogue)), [enregistrer, catalogue]);
+  const reinitialiser = useCallback(() => enregistrer(null), [enregistrer]);
 
-  const selection = new Set(visibles);
-  const colonnes = catalogue.filter((c) => selection.has(c.nom));
-  const parDefaut = defauts(catalogue);
-  const estDefaut = colonnes.length === parDefaut.length && parDefaut.every((n) => selection.has(n));
+  const parDefaut = catalogue.filter((c) => c.parDefaut).map((c) => c.nom);
+  const estDefaut =
+    stockees === null || (visibles.length === parDefaut.length && parDefaut.every((n) => selection.has(n)));
 
   return { colonnes, visibles, basculer, reinitialiser, estDefaut };
 }

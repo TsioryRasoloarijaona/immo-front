@@ -264,7 +264,12 @@ export interface ProspectionListItemDto {
   origine?: string;
   etape?: string;
   fermee?: boolean;
+  /** **Mort : renseigné sur 4 lignes sur 14 114**, et valant `0` — jamais
+   * `null` — partout ailleurs. Le backend l'a retiré des colonnes par défaut
+   * pour cette raison ; il reste demandable via `?colonnes=prix`. L'afficher
+   * revient à annoncer « 0,00 DH » sur tout le portefeuille. */
   prix?: number;
+  /** **Morte : 0 ligne renseignée sur 14 114.** Même traitement que `prix`. */
   surface?: number;
   trancheId?: UUID;
   /** Présents dans la spec mais absents de ce type jusqu'ici — la liste
@@ -288,6 +293,167 @@ export interface ProspectionListItemDto {
   /** Message de cette alerte — en pratique la note du commercial sur
    * l'interaction qui l'a posée. `null` si aucune alerte. */
   derniereAlerteMessage?: string | null;
+
+  // --- Colonnes issues des tables de base ----------------------------------
+  // Servies depuis les tables, pas de la vue légataire : contrairement au
+  // bloc ACTIVITE plus bas, les demander ne coûte pas la jointure coûteuse.
+  /** Code du prospect (`CfgTier.Code`). 100 %. */
+  prospectCode?: string | null;
+  /** Mobile **brut de la fiche prospect**, sans le repli sur le numéro de
+   * premier contact qu'applique `telephone`. 99,8 %. Sert à éditer ou
+   * dédoublonner, là où `telephone` sert à appeler. */
+  mobileProspect?: string | null;
+  /** Indicatif pays du mobile. 100 %. **Le front ne recompose rien** : il
+   * l'affiche tel quel, à côté du numéro, jamais concaténé. */
+  indicatifMobile?: string | null;
+  /** Email **brut de la fiche**, sans le repli appliqué par `email`. 59,1 %. */
+  emailFiche?: string | null;
+  /** Code du commercial (`CfgTier.Code`). 99,3 % — la liste n'exposait que son
+   * nom. */
+  commercialCode?: string | null;
+  /** Le prospect est un ancien client. 100 %. */
+  ancienClient?: boolean;
+  /** Date de clôture. 62,9 %. */
+  dateFermeture?: string | null;
+  /** Motif de clôture. 60,5 %. */
+  raisonFermeture?: string | null;
+  /** Type du prospect (`CfgTierType`). 100 %. */
+  typeProspect?: string | null;
+  /** Support de l'origine. 50,2 %. */
+  origineSupport?: string | null;
+  /** Action commerciale (campagne) rattachée. 40,2 %. */
+  actionCommerciale?: string | null;
+  /** Pays du prospect. 27,3 % — le plus creux de ce lot. */
+  pays?: string | null;
+  /** Société / entité juridique. 99,8 %. Elle filtrait déjà les résultats côté
+   * serveur — seules les sociétés actives sont servies — sans avoir jamais été
+   * renvoyée. */
+  societeId?: UUID | null;
+  societeCode?: string | null;
+  societeLibelle?: string | null;
+  /** Auteur de la création. **34,3 % seulement** : les prospections créées par
+   * cette API n'en portent pas (bug backend #41). Une colonne vide n'y veut
+   * donc pas dire « auteur inconnu » mais « créée depuis l'application ». */
+  creePar?: string | null;
+  /** Date de création. 100 %. */
+  creeLe?: string | null;
+  /** Auteur de la dernière modification. 100 %. */
+  modifiePar?: string | null;
+  /** Date de dernière modification. 100 %. */
+  modifieLe?: string | null;
+
+  // --- Colonnes des groupes ACTIVITE et CONVERSION -------------------------
+  // Elles ne sont **servies que si `?colonnes=` les demande** : sans le
+  // paramètre, le backend n'interroge pas la vue légataire du tout et ces
+  // champs sont absents de la réponse. `undefined` ici veut donc dire « non
+  // demandée », pas « vide » — c'est la même distinction que le bloc
+  // `activite` du DTO de détail, à un niveau différent.
+  /** Jours écoulés depuis la dernière action — le tri de relance du logiciel
+   * de bureau. Renseigné sur 100 % des prospections de vente. */
+  joursInactivite?: number;
+  /** Nombre d'interactions journalisées. 97 %. */
+  nbInteractions?: number;
+  /** Dernière action, tous types confondus. 97 %. */
+  derniereActionDate?: string | null;
+  /** Dernier échange avec le prospect. 90 %. */
+  derniereCommunicationDate?: string | null;
+  /** Résultat du dernier échange. 90 %. */
+  derniereCommunicationResultat?: string | null;
+  /** Nombre de visites effectuées. 20 %. */
+  nbVisites?: number;
+  derniereVisiteDate?: string | null;
+  /** Projet — la liste n'exposait que la tranche. 99 %. */
+  projetId?: UUID | null;
+  projetCode?: string | null;
+  projetLibelle?: string | null;
+  /** CIN du prospect. **Rare : 2,7 %** (387 lignes sur 14 118) — une première
+   * mesure annonçait 99 % en comptant les non-`NULL` d'une colonne qui porte
+   * des chaînes vides. Jamais une donnée d'identité fiable. */
+  cin?: string | null;
+  /** Dossier issu de la prospection. `null` sur 98 % des lignes : c'est le
+   * taux de conversion réel, pas une donnée manquante. */
+  dossierId?: UUID | null;
+  dossierCode?: string | null;
+  statutDossier?: string | null;
+}
+
+/** Filtres avancés de `GET /api/prospections`.
+ *
+ * La spec les déclare comme **un seul paramètre objet** nommé `filtres`, et
+ * marqué `required: true`. Les deux sont des artefacts de springdoc, pas le
+ * contrat réel : Spring lie ce genre d'objet depuis des paramètres de requête
+ * **plats** (`?inactiviteMin=30&projetId=a&projetId=b`), et un objet de
+ * commande sans champ obligatoire se lie vide sans erreur — l'endpoint
+ * répondait d'ailleurs sans lui la veille. C'est ainsi que le front l'envoie.
+ * **Non vérifié sur l'API réelle** : elle répond 401 sans session.
+ *
+ * Les taux de population sont ceux de la spec, mesurés sur 14 118
+ * prospections : ils disent surtout à quel point un filtre **réduit** le
+ * résultat. `nbVisitesMin ≥ 1` n'en garde que 20,8 %. */
+export interface FiltresAvancesProspection {
+  /** Projet (`CfgProject`). 99,8 % — une prospection sans tranche n'a pas de
+   * projet et **sort du résultat** dès que ce filtre est actif. */
+  projetId?: UUID[];
+  /** Société / entité juridique (`CfgCompany`). 99,8 %. Référentiel :
+   * `/api/referentiels/entites`. */
+  societeId?: UUID[];
+  vocationId?: UUID[];
+  /** Type de contact. 100 %. C'est aussi ce que la vue légataire appelle
+   * « type d'origine » — les deux colonnes sont identiques sur les 14 118
+   * lignes réelles. */
+  typeContactId?: UUID[];
+  /** Motif de clôture. 60,5 %. */
+  raisonFermetureId?: UUID[];
+  /** Pays du prospect. 27,3 % — le plus creux du lot. */
+  paysId?: UUID[];
+  /** Action commerciale (campagne). 40,2 %. */
+  actionId?: UUID[];
+  /** Support d'origine. 50,2 %. **Sans écran** : il n'existe pas de
+   * référentiel plat des supports, seulement `/api/referentiels/
+   * origines-prospection/{origineId}/supports`. Câbler ce filtre demande soit
+   * une cascade depuis l'origine choisie, soit un nouvel endpoint. */
+  origineSupportId?: UUID[];
+  ancienClient?: boolean;
+  /** Inactives depuis **au moins** N jours. Renseigné sur 100 % des lignes :
+   * c'est le critère de relance du logiciel de bureau, et le plus exploitable
+   * de cette famille. */
+  inactiviteMin?: number;
+  nbInteractionsMin?: number;
+  /** Au moins N visites. Seules 20,8 % des prospections ont atteint l'étape
+   * visite : un seuil ≥ 1 réduit fortement le résultat. */
+  nbVisitesMin?: number;
+  /** Dernier échange à partir de cette date (incluse), ISO-8601. 90,4 %. */
+  communicationDepuis?: string;
+  communicationJusqua?: string;
+  /** `true` : uniquement celles portant une relance active. `false` :
+   * uniquement celles sans. Absent : pas de filtre. 25,2 % en portent une. */
+  avecAlerteActive?: boolean;
+}
+
+/** Groupes de présentation du sélecteur de colonnes. Valeurs imposées par
+ * l'énumération serveur. */
+export type GroupeColonne = 'IDENTITE' | 'CONTACT' | 'CONTEXTE' | 'FINANCIER' | 'ACTIVITE' | 'CONVERSION';
+
+/** Type d'affichage d'une colonne — porte l'alignement et le formatage, ce qui
+ * évite une table de correspondance côté front. */
+export type TypeColonne = 'TEXTE' | 'NOMBRE' | 'MONTANT' | 'DATE' | 'BOOLEEN';
+
+/** Une colonne sélectionnable de la liste des prospections, servie par
+ * `GET /api/referentiels/colonnes/prospections`.
+ *
+ * C'est **la même source que la liste blanche qui valide `?colonnes=`** côté
+ * serveur : les deux ne peuvent pas diverger, et un catalogue codé en dur ici
+ * le pourrait — c'est d'ailleurs ce qu'il était avant ce lot. */
+export interface ColonneDto {
+  /** Nom technique, à passer tel quel dans `?colonnes=`. */
+  nom: string;
+  /** Libellé d'en-tête, en français, prêt à afficher. */
+  libelle: string;
+  groupe: GroupeColonne;
+  type: TypeColonne;
+  /** Vraie pour les colonnes renvoyées quand `?colonnes=` est absent :
+   * l'ensemble des `parDefaut` reproduit exactement la réponse historique. */
+  parDefaut: boolean;
 }
 
 /** Indicateurs d'activité d'une prospection, calculés par la base légataire
@@ -326,7 +492,10 @@ export interface ActiviteProspectionDto {
   projetId?: UUID | null;
   projetCode?: string | null;
   projetLibelle?: string | null;
-  /** CIN du prospect, telle que la porte la vue. 99 %. */
+  /** CIN du prospect. **Rare : 2,7 %** (387 lignes sur 14 118). La mesure
+   * initiale annonçait 99 % en comptant les non-`NULL` d'une colonne qui porte
+   * des chaînes vides — à afficher conditionnellement, jamais comme une donnée
+   * d'identité fiable. */
   cin?: string | null;
   /** **Le lien de conversion**, jusqu'ici absent de l'API. `null` tant que la
    * prospection n'a pas été transformée, ce qui est le cas de 98 % d'entre
@@ -366,6 +535,12 @@ export interface ProspectionDetailDto {
   actionCommercialeId?: UUID;
   actionCommerciale?: string;
   notes?: string;
+  // --- Huit champs mesurés morts -------------------------------------------
+  // 0 ligne renseignée sur 14 114, sauf `prix` (4 lignes, et `0` — jamais
+  // `null` — ailleurs). La spec dit « ne pas afficher » : la fiche ne les
+  // montre plus en consultation. **La saisie est conservée** — « 0 ligne
+  // aujourd'hui » ne veut pas dire « inutile demain », et retirer une capacité
+  // d'un formulaire est une décision métier, pas une lecture de statistique.
   surface?: number;
   surfaceJusqua?: number;
   prix?: number;

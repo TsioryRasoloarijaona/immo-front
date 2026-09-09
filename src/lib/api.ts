@@ -18,6 +18,7 @@ import type {
   ChangerMotDePasseRequest,
   ChangerStatutRequest,
   ClientListItemDto,
+  ColonneDto,
   CommercialListItemDto,
   CompleterProfilRequest,
   ConnexionRequest,
@@ -77,6 +78,7 @@ import type {
   ReinitialiserMotDePasseResponse,
   ResultatEnvoiVisiteDto,
   EnvoyerOffrePrixRequest,
+  FiltresAvancesProspection,
   ResultatEnvoiOffreDto,
   ResultatInteractionDto,
   SchemaFinancementDto,
@@ -402,11 +404,51 @@ export interface ProspectionFilterParams {
   ouvertes?: boolean;
 }
 
+/** `colonnes` n'est **pas** un filtre et ne vit donc pas dans
+ * `ProspectionFilterParams`, que `/api/pre-prospections` partage sans accepter
+ * ce paramètre. Il est passé à part, sur le seul endpoint qui le comprend.
+ *
+ * Omettre le paramètre n'est pas neutre : sans lui le backend **n'interroge pas
+ * la vue légataire du tout** et les colonnes des groupes `ACTIVITE`/
+ * `CONVERSION` sont absentes de la réponse. C'est ce qui rend la liste rapide
+ * par défaut — servir toutes les colonnes coûte 5 942 ms à la page 250 contre
+ * 123 ms. Un nom hors catalogue renvoie 400.
+ *
+ * `id` est toujours renvoyé, demandé ou non : sans lui la ligne ne serait pas
+ * cliquable. */
 export function listProspections(
   params?: ProspectionFilterParams,
   pageable?: Pageable,
+  options?: {
+    colonnes?: string[];
+    /** Aplati en paramètres de requête individuels, **pas** sérialisé comme un
+     * objet : la spec le déclare en un seul paramètre `filtres` parce que
+     * springdoc rend ainsi un objet de commande, mais Spring le lie depuis des
+     * paramètres plats. Son `required: true` est le même artefact — un objet
+     * sans champ obligatoire se lie vide. */
+    filtres?: FiltresAvancesProspection;
+  },
 ): Promise<PageDto<ProspectionListItemDto>> {
-  return request('GET', '/api/prospections', { query: withPageable(params, pageable) });
+  const query: Record<string, QueryValue> = withPageable(params, pageable);
+  if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
+  for (const [cle, valeur] of Object.entries(options?.filtres ?? {})) {
+    // `false` et `0` sont des filtres légitimes (« sans relance active »), donc
+    // seuls `undefined` et les listes vides sont écartés. `buildQuery` ignore
+    // ensuite `null` et la chaîne vide.
+    if (valeur === undefined) continue;
+    if (Array.isArray(valeur) && valeur.length === 0) continue;
+    query[cle] = valeur as QueryValue;
+  }
+  return request('GET', '/api/prospections', { query });
+}
+
+/** Catalogue des colonnes sélectionnables de la liste des prospections.
+ *
+ * Même source que la liste blanche qui valide `?colonnes=` côté serveur, donc
+ * les deux ne peuvent pas diverger — c'est la raison d'être de cet endpoint, et
+ * ce qu'un catalogue codé en dur côté front ne pouvait pas garantir. */
+export function getColonnesProspections(): Promise<ColonneDto[]> {
+  return request('GET', '/api/referentiels/colonnes/prospections');
 }
 
 export function getProspection(id: UUID): Promise<ProspectionDetailDto> {

@@ -302,7 +302,18 @@ export default function Layout({ children }: { children: ReactNode }) {
         <SidebarRail />
       </Sidebar>
 
-      <SidebarInset>{children}</SidebarInset>
+      {/* `min-w-0` : `SidebarProvider` est un conteneur flex en ligne, et
+          `SidebarInset` y est un élément flex sans largeur minimale déclarée —
+          sa `min-width: auto` vaut donc la largeur minimale de son *contenu*.
+          Un tableau large (les listes de prospection montent à ~108rem toutes
+          colonnes cochées) remonte ainsi jusqu'ici, empêche le volet principal
+          de rétrécir, et c'est la **fenêtre** qui se met à défiler
+          horizontalement : en-tête et barre de filtres coupés au bord droit.
+          Ni un `overflow` ni un `min-w-0` posés plus bas n'y changent quoi que
+          ce soit — la contrainte doit être cassée sur l'élément flex de l'axe
+          concerné, et c'est celui-ci. Avec, chaque page garde sa largeur et le
+          débordement est absorbé par son propre conteneur de défilement. */}
+      <SidebarInset className="min-w-0">{children}</SidebarInset>
     </SidebarProvider>
   );
 }
