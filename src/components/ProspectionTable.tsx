@@ -62,15 +62,29 @@ const RENDUS: Record<string, (p: ProspectionListItemDto) => ReactNode> = {
  * déduit du type. Reprend la mise en forme d'avant le sélecteur. */
 const CLASSES: Record<string, string> = {
   code: 'tabular-nums text-muted-foreground',
+  prospectCode: 'tabular-nums text-muted-foreground',
   prospectNom: 'font-medium text-foreground',
   dateDocument: 'text-muted-foreground',
   commercialNom: 'text-muted-foreground',
+  commercialCode: 'tabular-nums text-muted-foreground',
+  societeCode: 'tabular-nums text-muted-foreground',
+  societeLibelle: 'text-muted-foreground',
   derniereAlerteDate: 'text-muted-foreground',
   telephone: 'tabular-nums text-muted-foreground',
+  indicatifMobile: 'tabular-nums text-muted-foreground',
+  mobileProspect: 'tabular-nums text-muted-foreground',
   email: 'text-muted-foreground',
+  emailFiche: 'text-muted-foreground',
   cin: 'tabular-nums text-muted-foreground',
+  pays: 'text-muted-foreground',
   prix: 'font-semibold tabular-nums text-(--success)',
   dossierCode: 'tabular-nums text-foreground',
+  dateFermeture: 'text-muted-foreground',
+  raisonFermeture: 'text-muted-foreground',
+  creeLe: 'text-muted-foreground',
+  creePar: 'text-muted-foreground',
+  modifieLe: 'text-muted-foreground',
+  modifiePar: 'text-muted-foreground',
 };
 
 /** Infobulle par colonne — le texte complet de ce que `truncate` a coupé, et
@@ -85,6 +99,11 @@ const TITRES: Record<string, (p: ProspectionListItemDto) => string | undefined> 
   trancheDescription: (p) => p.trancheDescription || undefined,
   projetLibelle: (p) => p.projetLibelle || undefined,
   derniereCommunicationResultat: (p) => p.derniereCommunicationResultat || undefined,
+  societeLibelle: (p) => p.societeLibelle || undefined,
+  emailFiche: (p) => p.emailFiche || undefined,
+  raisonFermeture: (p) => p.raisonFermeture || undefined,
+  actionCommerciale: (p) => p.actionCommerciale || undefined,
+  origineSupport: (p) => p.origineSupport || undefined,
 };
 
 /** Tableau partagé par la liste des prospections et celle des

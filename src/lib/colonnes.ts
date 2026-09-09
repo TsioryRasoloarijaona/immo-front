@@ -29,22 +29,44 @@ export function libelleGroupe(groupe: string): string {
  * plus par défaut — mesuré mort, 4 lignes sur 14 114 — mais garde son rang au
  * cas où on le coche. */
 const ORDRE = [
+  // Identité du lead et de son prospect
   'code',
+  'prospectCode',
   'prospectNom',
+  'typeProspect',
+  'ancienClient',
+  // Suivi commercial
   'etape',
   'origine',
+  'origineSupport',
+  'actionCommerciale',
   'commercialNom',
+  'commercialCode',
+  // Rattachements
+  'societeCode',
+  'societeLibelle',
   'trancheCode',
   'trancheDescription',
   'projetCode',
   'projetLibelle',
+  // Financier — mesuré mort, hors défauts, mais gardé à son rang historique
   'prix',
   'surface',
   'dateDocument',
+  // Contact. `telephone`/`email` appliquent un repli ; les variantes « fiche »
+  // sont les valeurs brutes, utiles pour éditer ou dédoublonner.
   'telephone',
+  'indicatifMobile',
+  'mobileProspect',
   'email',
+  'emailFiche',
+  'pays',
   'cin',
+  // Relance et clôture
   'derniereAlerteDate',
+  'dateFermeture',
+  'raisonFermeture',
+  // Activité, servie par la vue légataire
   'joursInactivite',
   'nbInteractions',
   'derniereActionDate',
@@ -52,8 +74,14 @@ const ORDRE = [
   'derniereCommunicationResultat',
   'nbVisites',
   'derniereVisiteDate',
+  // Conversion
   'dossierCode',
   'statutDossier',
+  // Traçabilité, en dernier : utile ponctuellement, jamais au quotidien
+  'creeLe',
+  'creePar',
+  'modifieLe',
+  'modifiePar',
 ];
 
 /** Largeurs relatives, normalisées à l'affichage. Le serveur ne porte pas
@@ -61,10 +89,18 @@ const ORDRE = [
  * valeurs reprennent les pourcentages en dur d'avant le sélecteur. */
 const POIDS: Record<string, number> = {
   code: 9,
+  prospectCode: 9,
   prospectNom: 17,
+  typeProspect: 10,
+  ancienClient: 8,
   etape: 10,
   origine: 10,
+  origineSupport: 11,
+  actionCommerciale: 12,
   commercialNom: 11,
+  commercialCode: 9,
+  societeCode: 9,
+  societeLibelle: 12,
   trancheCode: 9,
   trancheDescription: 12,
   projetCode: 9,
@@ -73,9 +109,19 @@ const POIDS: Record<string, number> = {
   surface: 9,
   dateDocument: 9,
   telephone: 10,
+  indicatifMobile: 7,
+  mobileProspect: 10,
   email: 12,
+  emailFiche: 12,
+  pays: 9,
   cin: 9,
   derniereAlerteDate: 10,
+  dateFermeture: 9,
+  raisonFermeture: 12,
+  creeLe: 9,
+  creePar: 10,
+  modifieLe: 9,
+  modifiePar: 10,
   joursInactivite: 9,
   nbInteractions: 8,
   derniereActionDate: 10,

@@ -294,6 +294,54 @@ export interface ProspectionListItemDto {
    * l'interaction qui l'a posée. `null` si aucune alerte. */
   derniereAlerteMessage?: string | null;
 
+  // --- Colonnes issues des tables de base ----------------------------------
+  // Servies depuis les tables, pas de la vue légataire : contrairement au
+  // bloc ACTIVITE plus bas, les demander ne coûte pas la jointure coûteuse.
+  /** Code du prospect (`CfgTier.Code`). 100 %. */
+  prospectCode?: string | null;
+  /** Mobile **brut de la fiche prospect**, sans le repli sur le numéro de
+   * premier contact qu'applique `telephone`. 99,8 %. Sert à éditer ou
+   * dédoublonner, là où `telephone` sert à appeler. */
+  mobileProspect?: string | null;
+  /** Indicatif pays du mobile. 100 %. **Le front ne recompose rien** : il
+   * l'affiche tel quel, à côté du numéro, jamais concaténé. */
+  indicatifMobile?: string | null;
+  /** Email **brut de la fiche**, sans le repli appliqué par `email`. 59,1 %. */
+  emailFiche?: string | null;
+  /** Code du commercial (`CfgTier.Code`). 99,3 % — la liste n'exposait que son
+   * nom. */
+  commercialCode?: string | null;
+  /** Le prospect est un ancien client. 100 %. */
+  ancienClient?: boolean;
+  /** Date de clôture. 62,9 %. */
+  dateFermeture?: string | null;
+  /** Motif de clôture. 60,5 %. */
+  raisonFermeture?: string | null;
+  /** Type du prospect (`CfgTierType`). 100 %. */
+  typeProspect?: string | null;
+  /** Support de l'origine. 50,2 %. */
+  origineSupport?: string | null;
+  /** Action commerciale (campagne) rattachée. 40,2 %. */
+  actionCommerciale?: string | null;
+  /** Pays du prospect. 27,3 % — le plus creux de ce lot. */
+  pays?: string | null;
+  /** Société / entité juridique. 99,8 %. Elle filtrait déjà les résultats côté
+   * serveur — seules les sociétés actives sont servies — sans avoir jamais été
+   * renvoyée. */
+  societeId?: UUID | null;
+  societeCode?: string | null;
+  societeLibelle?: string | null;
+  /** Auteur de la création. **34,3 % seulement** : les prospections créées par
+   * cette API n'en portent pas (bug backend #41). Une colonne vide n'y veut
+   * donc pas dire « auteur inconnu » mais « créée depuis l'application ». */
+  creePar?: string | null;
+  /** Date de création. 100 %. */
+  creeLe?: string | null;
+  /** Auteur de la dernière modification. 100 %. */
+  modifiePar?: string | null;
+  /** Date de dernière modification. 100 %. */
+  modifieLe?: string | null;
+
   // --- Colonnes des groupes ACTIVITE et CONVERSION -------------------------
   // Elles ne sont **servies que si `?colonnes=` les demande** : sans le
   // paramètre, le backend n'interroge pas la vue légataire du tout et ces

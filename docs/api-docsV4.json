@@ -10896,6 +10896,91 @@
             "type": "string",
             "description": "Statut du dossier issu de la prospection. `null` si non transformée.",
             "example": "CONCRETISATION"
+          },
+          "prospectCode": {
+            "type": "string",
+            "description": "Code du prospect (`CfgTier.Code`). 100 %."
+          },
+          "mobileProspect": {
+            "type": "string",
+            "description": "Mobile **brut de la fiche prospect**, sans le repli sur le numéro de premier contact qu'applique `telephone`. 99,8 %. Utile pour éditer ou dédoublonner, là où `telephone` sert à appeler."
+          },
+          "indicatifMobile": {
+            "type": "string",
+            "description": "Indicatif pays du mobile. 100 %.",
+            "example": "212"
+          },
+          "emailFiche": {
+            "type": "string",
+            "description": "Email **brut de la fiche**, sans le repli appliqué par `email`. 59,1 %."
+          },
+          "commercialCode": {
+            "type": "string",
+            "description": "Code du commercial (`CfgTier.Code`). 99,3 % — la liste n'exposait que son nom."
+          },
+          "ancienClient": {
+            "type": "boolean",
+            "description": "Le prospect est un ancien client. 100 %. Déjà en fiche, absent de la liste jusqu'ici."
+          },
+          "dateFermeture": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de clôture de la prospection. 62,9 %."
+          },
+          "raisonFermeture": {
+            "type": "string",
+            "description": "Motif de clôture. 60,5 %.",
+            "example": "Hors budget"
+          },
+          "typeProspect": {
+            "type": "string",
+            "description": "Type du prospect (`CfgTierType`). 100 %.",
+            "example": "PRO"
+          },
+          "origineSupport": {
+            "type": "string",
+            "description": "Support de l'origine. 50,2 %.",
+            "example": "FACEBOOK"
+          },
+          "actionCommerciale": {
+            "type": "string",
+            "description": "Action commerciale (campagne) rattachée. 40,2 %."
+          },
+          "pays": {
+            "type": "string",
+            "description": "Pays du prospect. 27,3 %."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la société / entité juridique. 99,8 %. Elle filtre déjà les résultats côté serveur (seules les sociétés actives sont servies) sans avoir jamais été renvoyée."
+          },
+          "societeCode": {
+            "type": "string",
+            "description": "Code de la société. 99,8 %.",
+            "example": "ADMOD"
+          },
+          "societeLibelle": {
+            "type": "string",
+            "description": "Libellé de la société. 99,8 %."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création. **34,3 % seulement** — les prospections créées par notre API n'en portent pas (bug #41)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création. 100 %."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification. 100 %."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de dernière modification. 100 %."
           }
         }
       },
