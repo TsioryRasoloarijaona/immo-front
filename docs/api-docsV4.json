@@ -1002,6 +1002,69 @@
         }
       }
     },
+    "/api/prospections/{id}/offre-prix": {
+      "post": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Établit l'offre de prix et l'envoie au prospect (email + WhatsApp)",
+        "description": "Second temps de l'après-visite. Le **remerciement** part automatiquement au passage à l'étape « 4 APRES VISITES » (`PATCH /api/prospections/{id}/etape`) et ne demande rien ; **l'offre de prix**, elle, s'envoie explicitement par cet endpoint, parce qu'elle suppose un prix que seul un humain peut arrêter.\n\n**Pourquoi ce n'est pas automatique.** Le prix vient du lot, et le lot n'est renseigné que sur **7 %** des prospections de cette étape (94 sur 1 266). Sans lot il n'y a aucun montant à annoncer — d'où le **409** ci-dessous, qui est le cas majoritaire attendu et doit être traité comme une étape de parcours, pas comme une panne.\n\n**Ce que fait l'appel**, dans l'ordre : réutilise l'offre existante si la prospection en porte déjà une **et** que l'appel n'impose ni remise ni prix (réécrire les montants modifierait un document que le prospect détient) ; sinon crée une offre (`StlQuote`) numérotée comme le legacy ; rend la Fiche Offre en PDF ; expédie sur les deux canaux.\n\n**Le WhatsApp porte le montant en clair**, contrairement à la confirmation de visite. À cette étape le rapport s'inverse : **19,7 %** des prospects ont une adresse email contre **99,7 %** un numéro exploitable. Le PDF ne part que par email — UltraMsg exige une URL publique et les nôtres expirent en quinze minutes — et le message WhatsApp **ne mentionne le mail que s'il est réellement parti**.\n\n**Un envoi qui n'a pas lieu n'est pas une erreur** : 200 avec `envoye = false` et un motif par canal. L'offre est créée avant l'envoi et le reste quoi qu'il arrive — `offreId` et `offreCode` sont toujours renseignés.",
+        "operationId": "envoyerOffrePrix",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la prospection.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvoyerOffrePrixRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Offre établie et envoi tenté — lire `envoye` et le `motif` de chaque canal pour en connaître l'issue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatEnvoiOffreDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id, ou prospection hors du périmètre commercial de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatEnvoiOffreDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La prospection n'a pas de lot (rattachez-le via `PATCH /api/prospections/{id}/tranche-principale` puis relancez), ou elle n'est pas à l'étape « 4 APRES VISITES ».",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatEnvoiOffreDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prospections/{id}/interactions": {
       "get": {
         "tags": [
@@ -8222,6 +8285,106 @@
           }
         }
       },
+      "EnvoyerOffrePrixRequest": {
+        "type": "object",
+        "description": "Conditions de prix à appliquer à l'offre envoyée au prospect. Tout est facultatif ; un corps vide signifie « plein tarif du lot ».",
+        "properties": {
+          "remisePercent": {
+            "type": "number",
+            "description": "Taux de remise à appliquer, en %. Défaut 0. Une remise est le cas courant : 195 des 298 offres réelles en portent une.",
+            "example": 5
+          },
+          "prix": {
+            "type": "number",
+            "description": "Prix de vente TTC imposé, qui remplace le prix commercial du lot comme base de calcul. Laisser vide pour partir du prix catalogue.",
+            "example": 1350000
+          },
+          "modePaiementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Mode de paiement envisagé, repris sur l'offre. Optionnel."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Note libre reprise sur l'offre. Optionnel."
+          }
+        }
+      },
+      "CanalEnvoiDto": {
+        "type": "object",
+        "description": "Issue de l'envoi sur un canal donné (email ou WhatsApp). Les deux canaux sont indépendants : l'un peut aboutir pendant que l'autre échoue, et c'est le cas attendu plus d'une fois sur deux — 99 % des prospects ont un numéro exploitable, seulement 57 % une adresse email.",
+        "properties": {
+          "envoye": {
+            "type": "boolean",
+            "description": "Vrai si le message est parti sur ce canal.",
+            "example": true
+          },
+          "motif": {
+            "type": "string",
+            "description": "Raison de l'issue sur ce canal.",
+            "enum": [
+              "ENVOYE",
+              "DESTINATAIRE_ABSENT",
+              "NUMERO_INEXPLOITABLE",
+              "SERVICE_INACTIF",
+              "ECHEC_ENVOI"
+            ]
+          },
+          "destinataire": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Destinataire retenu, en clair — le commercial doit pouvoir vérifier que c'est le bon. Adresse email ou numéro au format international selon le canal. `null` si aucun destinataire exploitable.",
+            "example": "+212661224857"
+          },
+          "nombrePiecesJointes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de plans joints. Toujours 0 sur le canal WhatsApp : l'envoi d'un document par UltraMsg exige une URL publique, or les URL du stockage expirent en quinze minutes.",
+            "example": 1
+          }
+        }
+      },
+      "ResultatEnvoiOffreDto": {
+        "type": "object",
+        "description": "Issue de l'envoi d'une offre de prix, sur les deux canaux. Renvoyé avec un code 200 même\nlorsque rien n'est parti : un prospect sans adresse ni numéro exploitable n'est pas une\nerreur d'appel, et le commercial a besoin du motif pour y remédier.\n\nL'offre est créée (ou réutilisée) **avant** l'envoi et le reste quoi qu'il advienne de\ncelui-ci : `offreId` et `offreCode` sont donc toujours renseignés, y compris quand les\ndeux canaux échouent. C'est délibéré — l'offre existe, elle est numérotée, et la perdre\nparce que le prospect est injoignable obligerait à la régénérer sous un autre numéro.\n\nLes deux canaux sont tentés indépendamment l'un de l'autre.",
+        "properties": {
+          "envoye": {
+            "type": "boolean",
+            "description": "Vrai dès qu'**au moins un** des deux canaux a abouti.",
+            "example": true
+          },
+          "offreId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de l'offre créée ou réutilisée (`StlQuote`)."
+          },
+          "offreCode": {
+            "type": "string",
+            "description": "Numéro de l'offre, au format legacy `{année}/{numéro}`.",
+            "example": "26/00314"
+          },
+          "offreReutilisee": {
+            "type": "boolean",
+            "description": "Vrai si une offre existante a été réexpédiée plutôt qu'une nouvelle créée. N'arrive que si l'appel ne demandait ni remise ni prix.",
+            "example": false
+          },
+          "prixFinalTTC": {
+            "type": "number",
+            "description": "Prix de vente TTC après remise, tel qu'annoncé au prospect sur les deux canaux.",
+            "example": 1282500
+          },
+          "email": {
+            "$ref": "#/components/schemas/CanalEnvoiDto",
+            "description": "Issue du canal email. Seul canal à porter le PDF de l'offre."
+          },
+          "whatsapp": {
+            "$ref": "#/components/schemas/CanalEnvoiDto",
+            "description": "Issue du canal WhatsApp. Porte le montant en texte, jamais de document — et ne mentionne le mail que s'il est réellement parti."
+          }
+        }
+      },
       "CreerInteractionRequest": {
         "type": "object",
         "description": "Corps de création d'une interaction (appel, message, visite...) sur une prospection ou une fiche.",
@@ -8321,42 +8484,6 @@
             "type": "string",
             "format": "date-time",
             "description": "Date du rendez-vous, présente uniquement quand resultat est \"Rendez vous pris\" ou \"RDV reporté\" et qu'une date a été fournie à la création. null sinon."
-          }
-        }
-      },
-      "CanalEnvoiDto": {
-        "type": "object",
-        "description": "Issue de l'envoi sur un canal donné (email ou WhatsApp). Les deux canaux sont indépendants : l'un peut aboutir pendant que l'autre échoue, et c'est le cas attendu plus d'une fois sur deux — 99 % des prospects ont un numéro exploitable, seulement 57 % une adresse email.",
-        "properties": {
-          "envoye": {
-            "type": "boolean",
-            "description": "Vrai si le message est parti sur ce canal.",
-            "example": true
-          },
-          "motif": {
-            "type": "string",
-            "description": "Raison de l'issue sur ce canal.",
-            "enum": [
-              "ENVOYE",
-              "DESTINATAIRE_ABSENT",
-              "NUMERO_INEXPLOITABLE",
-              "SERVICE_INACTIF",
-              "ECHEC_ENVOI"
-            ]
-          },
-          "destinataire": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "Destinataire retenu, en clair — le commercial doit pouvoir vérifier que c'est le bon. Adresse email ou numéro au format international selon le canal. `null` si aucun destinataire exploitable.",
-            "example": "+212661224857"
-          },
-          "nombrePiecesJointes": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Nombre de plans joints. Toujours 0 sur le canal WhatsApp : l'envoi d'un document par UltraMsg exige une URL publique, or les URL du stockage expirent en quinze minutes.",
-            "example": 1
           }
         }
       },
