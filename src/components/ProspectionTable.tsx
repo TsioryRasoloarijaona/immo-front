@@ -96,6 +96,11 @@ export default function ProspectionTable({
   return (
     <Table
       className="w-full table-fixed"
+      // Le défilement, dans les deux axes, appartient au conteneur de la page
+      // (`overflow-auto` autour de ce composant) : c'est lui qui a une hauteur
+      // bornée, donc lui seul peut placer une barre horizontale visible et
+      // servir de référence au `sticky top-0` de l'en-tête.
+      containerClassName="overflow-visible"
       // Une largeur minimale en dur ne tient plus avec une sélection variable :
       // trop large à trois colonnes, trop étroite à douze. ~9rem par colonne
       // redonne les 80rem d'origine sur la sélection par défaut, qui en compte
@@ -103,11 +108,19 @@ export default function ProspectionTable({
       style={{ minWidth: `${Math.max(48, colonnesRendables.length * 9)}rem` }}
     >
       <TableHeader>
-        <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
+        <TableRow className="hover:bg-card">
           {colonnesRendables.map((c) => (
             <TableHead
               key={c.nom}
-              className={cn((c.type === 'montant' || c.type === 'nombre') && 'text-right')}
+              className={cn(
+                // `sticky` sur les cellules et non sur la ligne : la preflight
+                // Tailwind pose `border-collapse: collapse`, mode dans lequel
+                // Chrome ignore un `position: sticky` porté par un `<tr>`. Le
+                // fond opaque doit alors suivre sur chaque `<th>`, sinon les
+                // lignes défilent en transparence derrière l'en-tête.
+                'sticky top-0 z-10 bg-card',
+                (c.type === 'montant' || c.type === 'nombre') && 'text-right',
+              )}
               style={{ width: `${(c.poids / totalPoids) * 100}%` }}
             >
               {c.libelle}

@@ -149,7 +149,9 @@ export default function PreProspectionsList() {
                 }
               />
             ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
+              /* `min-w-0` : voir ProspectionsList — sans lui la largeur de la
+                 table remonte la chaîne flex et élargit la page entière. */
+              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
                 <ProspectionTable
                   rows={rows}
                   colonnes={colonnes.colonnes}

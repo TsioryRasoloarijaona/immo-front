@@ -146,7 +146,14 @@ export default function ProspectionsList() {
                 }
               />
             ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
+              /* Seul conteneur de défilement de la liste, sur les deux axes :
+                 c'est lui qui a une hauteur bornée, donc lui seul peut placer
+                 une barre horizontale visible sous les lignes plutôt qu'au pied
+                 de la table entière. `min-w-0`/`min-h-0` l'autorisent à
+                 rétrécir sous la taille de son contenu — sans quoi il grandit
+                 au lieu de défiler. (Ce qui empêche la *fenêtre* de défiler est
+                 ailleurs : le `min-w-0` de `SidebarInset`, voir Layout.tsx.) */
+              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
                 <ProspectionTable
                   rows={rows}
                   colonnes={colonnes.colonnes}

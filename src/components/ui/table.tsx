@@ -2,11 +2,26 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  containerClassName,
+  ...props
+}: React.ComponentProps<"table"> & {
+  /** Classes du conteneur de défilement qui enveloppe la `<table>`.
+   *
+   * Existe pour pouvoir **neutraliser** son `overflow-x-auto` : imbriqué dans
+   * une page qui défile déjà verticalement, ce conteneur produit sa propre
+   * barre horizontale au pied de la table entière — donc hors écran dès que la
+   * liste dépasse la hauteur du volet. Il fait aussi de lui un contexte de
+   * défilement, ce à quoi se raccroche le `sticky top-0` de la ligne d'en-tête,
+   * qui cesse alors de coller. Passer `overflow-visible` ici rend les deux axes
+   * au conteneur parent. */
+  containerClassName?: string
+}) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className={cn("relative w-full overflow-x-auto", containerClassName)}
     >
       <table
         data-slot="table"
