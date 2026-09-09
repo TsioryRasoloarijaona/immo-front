@@ -9,11 +9,11 @@ import { Button } from '../../components/ui/button';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import ProspectionTable from '../../components/ProspectionTable';
 import { DEFAULT_PAGE_SIZE, listPreProspections, listTranches } from '../../lib/api';
-import { COLONNES_PROSPECTION, useColonnesVisibles } from '../../lib/colonnes';
+import { useColonnesVisibles } from '../../lib/colonnes';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { useOriginesProspection } from '../../lib/referentiels';
+import { useColonnesProspections, useOriginesProspection } from '../../lib/referentiels';
 import {
   PIPELINE_STAGES,
   emptyProspectionFilters,
@@ -45,10 +45,16 @@ export default function PreProspectionsList() {
   const [filters, setFilters] = useState<ProspectionFilterBarState>(emptyProspectionFilters());
   const debouncedSearch = useDebouncedValue(filters.search);
   const [page, setPage] = useState(0);
-  // Clé distincte de celle des prospections : même DTO, mais une
-  // pré-prospection n'a ni tranche ni prix, et les colonnes utiles n'y sont
-  // pas les mêmes.
-  const colonnes = useColonnesVisibles('pre-prospections', COLONNES_PROSPECTION);
+  // `GET /api/pre-prospections` **n'accepte pas `?colonnes=`** : il sert
+  // toujours les colonnes historiques. Les groupes ACTIVITE et CONVERSION
+  // viennent d'une vue légataire qui exclut les pré-prospections par
+  // construction — les proposer ici serait offrir des colonnes vides. Le
+  // catalogue est donc filtré, et rien n'est envoyé au serveur.
+  const catalogue = useColonnesProspections();
+  const catalogueServi = catalogue.data.filter((c) => c.groupe !== 'ACTIVITE' && c.groupe !== 'CONVERSION');
+  // Clé distincte de celle des prospections : même DTO, mais les colonnes
+  // utiles ne sont pas les mêmes sur un lead non qualifié.
+  const colonnes = useColonnesVisibles('pre-prospections', catalogueServi);
 
   function setFilter<K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) {
     setPage(0);
@@ -124,13 +130,15 @@ export default function PreProspectionsList() {
               <div className="text-body text-muted-foreground">
                 {data?.totalElements ?? 0} pré-prospection{(data?.totalElements ?? 0) > 1 ? 's' : ''} au total
               </div>
-              <ColumnSelector
-                catalogue={COLONNES_PROSPECTION}
-                visibles={colonnes.visibles}
-                onBasculer={colonnes.basculer}
-                onReinitialiser={colonnes.reinitialiser}
-                estDefaut={colonnes.estDefaut}
-              />
+              {catalogueServi.length > 0 && (
+                <ColumnSelector
+                  catalogue={catalogueServi}
+                  visibles={colonnes.visibles}
+                  onBasculer={colonnes.basculer}
+                  onReinitialiser={colonnes.reinitialiser}
+                  estDefaut={colonnes.estDefaut}
+                />
+              )}
             </div>
             {rows.length === 0 ? (
               <EmptyState
@@ -152,12 +160,18 @@ export default function PreProspectionsList() {
               /* `min-w-0` : voir ProspectionsList — sans lui la largeur de la
                  table remonte la chaîne flex et élargit la page entière. */
               <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                <ProspectionTable
-                  rows={rows}
-                  colonnes={colonnes.colonnes}
-                  entite="pré-prospection"
-                  onOuvrir={(prospectionId) => navigate(`/pre-prospections/${prospectionId}`)}
-                />
+                {colonnes.colonnes.length > 0 ? (
+                  <ProspectionTable
+                    rows={rows}
+                    colonnes={colonnes.colonnes}
+                    entite="pré-prospection"
+                    onOuvrir={(prospectionId) => navigate(`/pre-prospections/${prospectionId}`)}
+                  />
+                ) : catalogue.error ? (
+                  <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
+                ) : (
+                  <LoadingState />
+                )}
               </div>
             )}
             <div className="shrink-0">

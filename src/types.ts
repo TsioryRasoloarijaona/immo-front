@@ -264,7 +264,12 @@ export interface ProspectionListItemDto {
   origine?: string;
   etape?: string;
   fermee?: boolean;
+  /** **Mort : renseigné sur 4 lignes sur 14 114**, et valant `0` — jamais
+   * `null` — partout ailleurs. Le backend l'a retiré des colonnes par défaut
+   * pour cette raison ; il reste demandable via `?colonnes=prix`. L'afficher
+   * revient à annoncer « 0,00 DH » sur tout le portefeuille. */
   prix?: number;
+  /** **Morte : 0 ligne renseignée sur 14 114.** Même traitement que `prix`. */
   surface?: number;
   trancheId?: UUID;
   /** Présents dans la spec mais absents de ce type jusqu'ici — la liste
@@ -288,6 +293,66 @@ export interface ProspectionListItemDto {
   /** Message de cette alerte — en pratique la note du commercial sur
    * l'interaction qui l'a posée. `null` si aucune alerte. */
   derniereAlerteMessage?: string | null;
+
+  // --- Colonnes des groupes ACTIVITE et CONVERSION -------------------------
+  // Elles ne sont **servies que si `?colonnes=` les demande** : sans le
+  // paramètre, le backend n'interroge pas la vue légataire du tout et ces
+  // champs sont absents de la réponse. `undefined` ici veut donc dire « non
+  // demandée », pas « vide » — c'est la même distinction que le bloc
+  // `activite` du DTO de détail, à un niveau différent.
+  /** Jours écoulés depuis la dernière action — le tri de relance du logiciel
+   * de bureau. Renseigné sur 100 % des prospections de vente. */
+  joursInactivite?: number;
+  /** Nombre d'interactions journalisées. 97 %. */
+  nbInteractions?: number;
+  /** Dernière action, tous types confondus. 97 %. */
+  derniereActionDate?: string | null;
+  /** Dernier échange avec le prospect. 90 %. */
+  derniereCommunicationDate?: string | null;
+  /** Résultat du dernier échange. 90 %. */
+  derniereCommunicationResultat?: string | null;
+  /** Nombre de visites effectuées. 20 %. */
+  nbVisites?: number;
+  derniereVisiteDate?: string | null;
+  /** Projet — la liste n'exposait que la tranche. 99 %. */
+  projetId?: UUID | null;
+  projetCode?: string | null;
+  projetLibelle?: string | null;
+  /** CIN du prospect. **Rare : 2,7 %** (387 lignes sur 14 118) — une première
+   * mesure annonçait 99 % en comptant les non-`NULL` d'une colonne qui porte
+   * des chaînes vides. Jamais une donnée d'identité fiable. */
+  cin?: string | null;
+  /** Dossier issu de la prospection. `null` sur 98 % des lignes : c'est le
+   * taux de conversion réel, pas une donnée manquante. */
+  dossierId?: UUID | null;
+  dossierCode?: string | null;
+  statutDossier?: string | null;
+}
+
+/** Groupes de présentation du sélecteur de colonnes. Valeurs imposées par
+ * l'énumération serveur. */
+export type GroupeColonne = 'IDENTITE' | 'CONTACT' | 'CONTEXTE' | 'FINANCIER' | 'ACTIVITE' | 'CONVERSION';
+
+/** Type d'affichage d'une colonne — porte l'alignement et le formatage, ce qui
+ * évite une table de correspondance côté front. */
+export type TypeColonne = 'TEXTE' | 'NOMBRE' | 'MONTANT' | 'DATE' | 'BOOLEEN';
+
+/** Une colonne sélectionnable de la liste des prospections, servie par
+ * `GET /api/referentiels/colonnes/prospections`.
+ *
+ * C'est **la même source que la liste blanche qui valide `?colonnes=`** côté
+ * serveur : les deux ne peuvent pas diverger, et un catalogue codé en dur ici
+ * le pourrait — c'est d'ailleurs ce qu'il était avant ce lot. */
+export interface ColonneDto {
+  /** Nom technique, à passer tel quel dans `?colonnes=`. */
+  nom: string;
+  /** Libellé d'en-tête, en français, prêt à afficher. */
+  libelle: string;
+  groupe: GroupeColonne;
+  type: TypeColonne;
+  /** Vraie pour les colonnes renvoyées quand `?colonnes=` est absent :
+   * l'ensemble des `parDefaut` reproduit exactement la réponse historique. */
+  parDefaut: boolean;
 }
 
 /** Indicateurs d'activité d'une prospection, calculés par la base légataire
@@ -326,7 +391,10 @@ export interface ActiviteProspectionDto {
   projetId?: UUID | null;
   projetCode?: string | null;
   projetLibelle?: string | null;
-  /** CIN du prospect, telle que la porte la vue. 99 %. */
+  /** CIN du prospect. **Rare : 2,7 %** (387 lignes sur 14 118). La mesure
+   * initiale annonçait 99 % en comptant les non-`NULL` d'une colonne qui porte
+   * des chaînes vides — à afficher conditionnellement, jamais comme une donnée
+   * d'identité fiable. */
   cin?: string | null;
   /** **Le lien de conversion**, jusqu'ici absent de l'API. `null` tant que la
    * prospection n'a pas été transformée, ce qui est le cas de 98 % d'entre
@@ -366,6 +434,12 @@ export interface ProspectionDetailDto {
   actionCommercialeId?: UUID;
   actionCommerciale?: string;
   notes?: string;
+  // --- Huit champs mesurés morts -------------------------------------------
+  // 0 ligne renseignée sur 14 114, sauf `prix` (4 lignes, et `0` — jamais
+  // `null` — ailleurs). La spec dit « ne pas afficher » : la fiche ne les
+  // montre plus en consultation. **La saisie est conservée** — « 0 ligne
+  // aujourd'hui » ne veut pas dire « inutile demain », et retirer une capacité
+  // d'un formulaire est une décision métier, pas une lecture de statistique.
   surface?: number;
   surfaceJusqua?: number;
   prix?: number;

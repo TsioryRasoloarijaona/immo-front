@@ -10,21 +10,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import { libelleGroupe } from '../lib/colonnes';
 import { cn } from '../lib/utils';
-import type { ColonneDefinition } from '../lib/colonnes';
+import type { ColonneDto } from '../types';
 
 /** Sélecteur de colonnes d'une liste.
  *
- * Présenté par sections, comme le prévoit le `groupe` du référentiel serveur à
- * venir (`GUIDE-FRONT-fiche-prospection.md` §5.3) : une liste plate de douze
- * cases à cocher se lit mal, et le regroupement est déjà la forme que le
- * serveur imposera.
+ * Le catalogue vient de `GET /api/referentiels/colonnes/prospections` — la même
+ * source que la liste blanche qui valide `?colonnes=`, donc les deux ne peuvent
+ * pas diverger. Rien n'est codé en dur ici : une colonne ajoutée côté serveur
+ * apparaît dans ce menu sans redéploiement.
  *
- * Le sélecteur ne modifie **que** l'affichage : `?colonnes=` n'est pas encore
- * pris en compte côté serveur, qui renvoie donc toujours les 20 champs. Rien
- * n'est filtré ni tronqué côté client au-delà du rendu — le §5.4.3 interdit
- * explicitement de charger large pour filtrer ensuite, et ce n'est pas ce qui
- * se passe ici : la requête est inchangée. */
+ * Présenté par sections, comme le prévoit le `groupe` du référentiel : une
+ * liste plate de vingt-cinq cases à cocher se lit mal.
+ *
+ * Cocher une colonne change la **requête**, pas seulement l'affichage : les
+ * groupes `ACTIVITE` et `CONVERSION` ne sont servis que s'ils sont demandés, et
+ * sans eux le backend n'interroge pas la vue légataire. C'est ce qui sépare
+ * 123 ms de 5 942 ms à la page 250 — et pourquoi on ne charge jamais tout pour
+ * filtrer ensuite côté client. */
 export default function ColumnSelector({
   catalogue,
   visibles,
@@ -33,7 +37,7 @@ export default function ColumnSelector({
   estDefaut,
   className,
 }: {
-  catalogue: ColonneDefinition[];
+  catalogue: ColonneDto[];
   visibles: string[];
   onBasculer: (nom: string) => void;
   onReinitialiser: () => void;
@@ -67,7 +71,7 @@ export default function ColumnSelector({
           <Fragment key={groupe}>
             {i > 0 && <DropdownMenuSeparator />}
             <DropdownMenuGroup>
-              <DropdownMenuLabel className="text-micro text-muted-foreground">{groupe}</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-micro text-muted-foreground">{libelleGroupe(groupe)}</DropdownMenuLabel>
               {catalogue
                 .filter((c) => c.groupe === groupe)
                 .map((c) => {

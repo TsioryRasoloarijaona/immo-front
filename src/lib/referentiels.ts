@@ -78,6 +78,12 @@ export const useComptesReferentiel = makeCachedListHook(api.getComptesReferentie
 export const useDepotsReferentiel = makeCachedListHook(api.getDepotsReferentiel);
 export const useResultatsInteraction = makeCachedListHook(api.getResultatsInteraction);
 
+/** Catalogue des colonnes de la liste des prospections. Le seul référentiel
+ * d'ici qui ne soit pas une liste `{id, code, description}` — il alimente le
+ * sélecteur de colonnes, et non un `Select`. Mis en cache comme les autres :
+ * il est petit, immuable pendant une session, et deux écrans le consomment. */
+export const useColonnesProspections = makeCachedListHook(api.getColonnesProspections);
+
 /** {id, code, description} → Select `items` shape, description preferred. */
 export function referentielItems(list: ReferentielItemDto[]): { label: string; value: string }[] {
   return list.map((r) => ({ label: r.description || r.code || r.id, value: r.id }));

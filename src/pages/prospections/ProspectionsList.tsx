@@ -9,11 +9,11 @@ import Pagination from '../../components/Pagination';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import ProspectionTable from '../../components/ProspectionTable';
 import { DEFAULT_PAGE_SIZE, listProspections, listTranches } from '../../lib/api';
-import { COLONNES_PROSPECTION, useColonnesVisibles } from '../../lib/colonnes';
+import { useColonnesVisibles } from '../../lib/colonnes';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { useOriginesProspection } from '../../lib/referentiels';
+import { useColonnesProspections, useOriginesProspection } from '../../lib/referentiels';
 import {
   PIPELINE_STAGES,
   emptyProspectionFilters,
@@ -39,7 +39,13 @@ export default function ProspectionsList() {
   const [page, setPage] = useState(0);
   // Clé de stockage distincte de celle des pré-prospections : les deux écrans
   // partagent le DTO mais pas les colonnes qu'on veut y voir.
-  const colonnes = useColonnesVisibles('prospections', COLONNES_PROSPECTION);
+  const catalogue = useColonnesProspections();
+  const colonnes = useColonnesVisibles('prospections', catalogue.data);
+  // On n'envoie `?colonnes=` que si la sélection s'écarte des défauts : le
+  // paramètre absent produit exactement la réponse par défaut, et l'omettre
+  // évite une seconde requête au moment où le catalogue finit de charger — la
+  // clé de dépendance reste alors la même avant et après.
+  const colonnesDemandees = colonnes.estDefaut ? undefined : colonnes.visibles;
 
   function setFilter<K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) {
     setPage(0);
@@ -60,6 +66,7 @@ export default function ProspectionsList() {
           ouvertes: filters.ouvertes === 'open' ? true : filters.ouvertes === 'closed' ? false : undefined,
         },
         { page, size: DEFAULT_PAGE_SIZE },
+        colonnesDemandees,
       ),
     [
       debouncedSearch,
@@ -71,6 +78,7 @@ export default function ProspectionsList() {
       filters.dateFin,
       filters.ouvertes,
       page,
+      colonnesDemandees?.join(',') ?? '',
     ],
     'prospections',
   );
@@ -121,13 +129,15 @@ export default function ProspectionsList() {
               <div className="text-body text-muted-foreground">
                 {data?.totalElements ?? 0} prospection{(data?.totalElements ?? 0) > 1 ? 's' : ''} au total
               </div>
-              <ColumnSelector
-                catalogue={COLONNES_PROSPECTION}
-                visibles={colonnes.visibles}
-                onBasculer={colonnes.basculer}
-                onReinitialiser={colonnes.reinitialiser}
-                estDefaut={colonnes.estDefaut}
-              />
+              {catalogue.data.length > 0 && (
+                <ColumnSelector
+                  catalogue={catalogue.data}
+                  visibles={colonnes.visibles}
+                  onBasculer={colonnes.basculer}
+                  onReinitialiser={colonnes.reinitialiser}
+                  estDefaut={colonnes.estDefaut}
+                />
+              )}
             </div>
             {rows.length === 0 ? (
               <EmptyState
@@ -154,11 +164,21 @@ export default function ProspectionsList() {
                  au lieu de défiler. (Ce qui empêche la *fenêtre* de défiler est
                  ailleurs : le `min-w-0` de `SidebarInset`, voir Layout.tsx.) */
               <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                <ProspectionTable
-                  rows={rows}
-                  colonnes={colonnes.colonnes}
-                  onOuvrir={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
-                />
+                {/* Le catalogue porte les libellés d'en-tête : sans lui il n'y
+                    a pas de tableau à dessiner, seulement des lignes sans
+                    colonnes. Mis en cache au niveau du module, il n'est
+                    rechargé qu'une fois par session. */}
+                {colonnes.colonnes.length > 0 ? (
+                  <ProspectionTable
+                    rows={rows}
+                    colonnes={colonnes.colonnes}
+                    onOuvrir={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
+                  />
+                ) : catalogue.error ? (
+                  <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
+                ) : (
+                  <LoadingState />
+                )}
               </div>
             )}
             <div className="shrink-0">

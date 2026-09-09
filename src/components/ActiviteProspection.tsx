@@ -156,7 +156,12 @@ export function ActiviteCard({
         <FieldGrid>
           {/* 99 % — la fiche n'exposait jusqu'ici que la tranche. */}
           <Field label="Projet" value={a.projetLibelle || a.projetCode} />
-          <Field label="CIN" value={a.cin} />
+          {/* Affiché seulement s'il existe : **2,7 %** (387 lignes sur 14 118).
+              Une première mesure annonçait 99 % en comptant les non-`NULL`
+              d'une colonne qui porte des chaînes vides. Une ligne « CIN — »
+              sur 97 % des fiches ferait croire à une donnée d'identité
+              manquante alors qu'elle n'est simplement jamais saisie. */}
+          {a.cin && <Field label="CIN" value={a.cin} />}
         </FieldGrid>
       </div>
     </Card>

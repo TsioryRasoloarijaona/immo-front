@@ -1047,14 +1047,17 @@ export default function ProspectionDetail() {
                           l'onglet Article seul à nommer le lot. */}
                       <Field label="Tranche" value={p.trancheDescription || p.trancheCode} />
                       <Field label="Article" value={p.articleDescription || p.articleCode} />
-                      <Field label="Prix min" value={p.prix ? formatCurrency(p.prix) : undefined} />
-                      <Field label="Prix max" value={p.prixJusqua ? formatCurrency(p.prixJusqua) : undefined} />
-                      <Field label="Superficie min" value={p.surface ? `${p.surface} m²` : undefined} />
-                      <Field label="Superficie max" value={p.surfaceJusqua ? `${p.surfaceJusqua} m²` : undefined} />
-                      <Field label="Avance" value={p.avance ? formatCurrency(p.avance) : undefined} />
-                      <Field label="Fonds propres" value={p.financementFondsPropres ? formatCurrency(p.financementFondsPropres) : undefined} />
-                      <Field label="Crédit" value={p.financementCredit ? formatCurrency(p.financementCredit) : undefined} />
-                      <Field label="Autre financement" value={p.financementAutre ? formatCurrency(p.financementAutre) : undefined} />
+                      {/* Budget, superficie, avance et les trois financements
+                          ne sont plus affichés : mesurés morts, 0 ligne
+                          renseignée sur 14 114 — 4 pour `prix`, et `0` plutôt
+                          que `null` partout ailleurs, ce qui affichait
+                          « 0,00 DH » comme s'il s'agissait d'un budget. Six
+                          tirets alignés faisaient passer une donnée inexistante
+                          pour une donnée manquante.
+                          **La saisie reste possible** : les champs sont
+                          toujours dans le formulaire d'édition ci-dessus. Ils
+                          réapparaîtront ici le jour où ils porteront quelque
+                          chose — voir le commentaire dans types.ts. */}
                       <Field label="Ancien client" value={p.ancienClient ? 'Oui' : 'Non'} />
                       <Field label="Proposé par" value={p.proposeurNom} />
                     </FieldGrid>
