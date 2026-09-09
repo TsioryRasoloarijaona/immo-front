@@ -18,6 +18,33 @@ export function libelleGroupe(groupe: string): string {
   return LIBELLES_GROUPE[groupe as GroupeColonne] ?? groupe;
 }
 
+/** Minuscules sans accents. Distinct de `normalizeStatus` de `dossierStatus.ts`,
+ * qui supprime aussi les espaces : ici ils séparent les mots de la recherche. */
+function sansAccents(texte: string): string {
+  return texte
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
+
+/** Recherche dans le catalogue de colonnes.
+ *
+ * Multi-mots et non sous-chaîne unique : les mots saisis doivent tous
+ * apparaître, dans n'importe quel ordre. « date com » trouve donc « Dernière
+ * communication », ce qu'un simple `includes` sur la chaîne entière raterait.
+ *
+ * Trois cibles par colonne : le libellé, le **nom technique** — quelqu'un qui a
+ * lu la spec cherchera `joursInactivite` avant « Inactivité » — et le libellé du
+ * groupe, ce qui fait de « activité » un moyen d'afficher la section entière. */
+export function filtrerColonnes(catalogue: ColonneDto[], requete: string): ColonneDto[] {
+  const mots = sansAccents(requete).split(/\s+/).filter(Boolean);
+  if (mots.length === 0) return catalogue;
+  return catalogue.filter((c) => {
+    const cible = sansAccents(`${c.libelle} ${c.nom} ${libelleGroupe(c.groupe)}`);
+    return mots.every((mot) => cible.includes(mot));
+  });
+}
+
 /** Ordre d'affichage des colonnes connues, et **rien d'autre** : ni la liste
  * des colonnes, ni lesquelles sont par défaut, qui viennent maintenant du
  * serveur. Les colonnes hors de cette liste s'affichent après, dans l'ordre
