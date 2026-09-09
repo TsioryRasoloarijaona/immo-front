@@ -381,7 +381,16 @@ export interface ProspectionDetailDto {
   raisonFermetureTexte?: string;
   ancienClient?: boolean;
   trancheId?: UUID;
+  /** Libellés de la tranche et du lot, servis par l'API depuis le début mais
+   * jamais reflétés ici : la fiche n'avait que les identifiants et devait
+   * refaire un appel pour nommer ce qu'elle affichait. Aucune description
+   * springdoc, contrairement au reste du DTO — le taux de population n'est
+   * donc pas documenté. */
+  trancheCode?: string;
+  trancheDescription?: string;
   articleId?: UUID;
+  articleCode?: string;
+  articleDescription?: string;
   /** Bloc d'indicateurs d'activité calculés par la base légataire. Porte
    * notamment `dossierId` — le lien de conversion, que ce DTO n'a jamais eu au
    * premier niveau malgré une déclaration d'espoir restée ici longtemps.
