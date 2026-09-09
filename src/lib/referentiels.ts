@@ -77,6 +77,9 @@ export const useEtages = makeCachedListHook(api.getEtages);
 export const useComptesReferentiel = makeCachedListHook(api.getComptesReferentiel);
 export const useDepotsReferentiel = makeCachedListHook(api.getDepotsReferentiel);
 export const useResultatsInteraction = makeCachedListHook(api.getResultatsInteraction);
+/** `CfgProject` — premier maillon de la cascade Projet → Tranche → Article,
+ * et source du filtre avancé `projetId` sur la liste des prospections. */
+export const useProjetsReferentiel = makeCachedListHook(api.getProjetsReferentiel);
 
 /** Catalogue des colonnes de la liste des prospections. Le seul référentiel
  * d'ici qui ne soit pas une liste `{id, code, description}` — il alimente le

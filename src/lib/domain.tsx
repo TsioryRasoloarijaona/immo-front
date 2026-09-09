@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 import { IconMessage, IconNote, IconPhoneIn, IconPhoneOut } from '../components/icons';
-import type { BadgeTone, EvenementCalendrierDto, ProspectionDetailDto, ProspectionListItemDto } from '../types';
+import type {
+  BadgeTone,
+  EvenementCalendrierDto,
+  FiltresAvancesProspection,
+  ProspectionDetailDto,
+  ProspectionListItemDto,
+} from '../types';
 
 // Best-effort ordered pipeline read off the real étape labels migrated from
 // the legacy Omran export (see CLAUDE.md) — the API only ever gives us a
@@ -190,6 +196,91 @@ export function hasActiveProspectionFilters(state: ProspectionFilterBarState): b
       ? current.length !== base.length
       : current !== base;
   });
+}
+
+/** État d'écran des filtres avancés.
+ *
+ * Distinct de `FiltresAvancesProspection`, qui est le contrat réseau : ici les
+ * nombres et les dates sont des chaînes, parce qu'ils viennent d'`<input>` et
+ * qu'un champ vidé doit valoir « pas de filtre » et non `NaN`. Les booléens
+ * sont ternaires pour la même raison — une case à cocher ne sait pas dire
+ * « indifférent », alors que `avecAlerteActive: false` veut dire « uniquement
+ * celles sans relance », ce qui n'est pas la même chose que ne pas filtrer.
+ *
+ * `origineSupportId` n'y figure pas : il n'existe pas de référentiel plat des
+ * supports, seulement une cascade sous une origine. Le champ reste dans le DTO
+ * réseau, sans écran pour l'alimenter. */
+export interface FiltresAvancesState {
+  projetId: string[];
+  societeId: string[];
+  vocationId: string[];
+  typeContactId: string[];
+  raisonFermetureId: string[];
+  paysId: string[];
+  actionId: string[];
+  ancienClient: 'all' | 'oui' | 'non';
+  avecAlerteActive: 'all' | 'oui' | 'non';
+  inactiviteMin: string;
+  nbInteractionsMin: string;
+  nbVisitesMin: string;
+  communicationDepuis: string;
+  communicationJusqua: string;
+}
+
+export function emptyFiltresAvances(): FiltresAvancesState {
+  return {
+    projetId: [],
+    societeId: [],
+    vocationId: [],
+    typeContactId: [],
+    raisonFermetureId: [],
+    paysId: [],
+    actionId: [],
+    ancienClient: 'all',
+    avecAlerteActive: 'all',
+    inactiviteMin: '',
+    nbInteractionsMin: '',
+    nbVisitesMin: '',
+    communicationDepuis: '',
+    communicationJusqua: '',
+  };
+}
+
+/** Comparaison champ par champ contre l'état vide, comme
+ * `hasActiveProspectionFilters` : un filtre ajouté plus tard est couvert sans
+ * qu'on pense à modifier cette fonction. */
+export function countActiveFiltresAvances(state: FiltresAvancesState): number {
+  const empty = emptyFiltresAvances();
+  return (Object.keys(empty) as (keyof FiltresAvancesState)[]).filter((key) => {
+    const current = state[key];
+    const base = empty[key];
+    return Array.isArray(current) && Array.isArray(base) ? current.length !== base.length : current !== base;
+  }).length;
+}
+
+/** Conversion vers le contrat réseau. Un champ inactif est **omis**, jamais
+ * envoyé à vide : le backend distingue « absent » de `false`. */
+export function toFiltresAvances(state: FiltresAvancesState): FiltresAvancesProspection | undefined {
+  if (countActiveFiltresAvances(state) === 0) return undefined;
+  const nombre = (v: string) => (v.trim() === '' ? undefined : Number(v));
+  const ternaire = (v: 'all' | 'oui' | 'non') => (v === 'all' ? undefined : v === 'oui');
+  const liste = (v: string[]) => (v.length > 0 ? v : undefined);
+  return {
+    projetId: liste(state.projetId),
+    societeId: liste(state.societeId),
+    vocationId: liste(state.vocationId),
+    typeContactId: liste(state.typeContactId),
+    raisonFermetureId: liste(state.raisonFermetureId),
+    paysId: liste(state.paysId),
+    actionId: liste(state.actionId),
+    ancienClient: ternaire(state.ancienClient),
+    avecAlerteActive: ternaire(state.avecAlerteActive),
+    inactiviteMin: nombre(state.inactiviteMin),
+    nbInteractionsMin: nombre(state.nbInteractionsMin),
+    nbVisitesMin: nombre(state.nbVisitesMin),
+    communicationDepuis: state.communicationDepuis || undefined,
+    communicationJusqua: state.communicationJusqua || undefined,
+  };
 }
 
 export function standingClass(standing: string): string {

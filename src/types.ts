@@ -377,6 +377,59 @@ export interface ProspectionListItemDto {
   statutDossier?: string | null;
 }
 
+/** Filtres avancés de `GET /api/prospections`.
+ *
+ * La spec les déclare comme **un seul paramètre objet** nommé `filtres`, et
+ * marqué `required: true`. Les deux sont des artefacts de springdoc, pas le
+ * contrat réel : Spring lie ce genre d'objet depuis des paramètres de requête
+ * **plats** (`?inactiviteMin=30&projetId=a&projetId=b`), et un objet de
+ * commande sans champ obligatoire se lie vide sans erreur — l'endpoint
+ * répondait d'ailleurs sans lui la veille. C'est ainsi que le front l'envoie.
+ * **Non vérifié sur l'API réelle** : elle répond 401 sans session.
+ *
+ * Les taux de population sont ceux de la spec, mesurés sur 14 118
+ * prospections : ils disent surtout à quel point un filtre **réduit** le
+ * résultat. `nbVisitesMin ≥ 1` n'en garde que 20,8 %. */
+export interface FiltresAvancesProspection {
+  /** Projet (`CfgProject`). 99,8 % — une prospection sans tranche n'a pas de
+   * projet et **sort du résultat** dès que ce filtre est actif. */
+  projetId?: UUID[];
+  /** Société / entité juridique (`CfgCompany`). 99,8 %. Référentiel :
+   * `/api/referentiels/entites`. */
+  societeId?: UUID[];
+  vocationId?: UUID[];
+  /** Type de contact. 100 %. C'est aussi ce que la vue légataire appelle
+   * « type d'origine » — les deux colonnes sont identiques sur les 14 118
+   * lignes réelles. */
+  typeContactId?: UUID[];
+  /** Motif de clôture. 60,5 %. */
+  raisonFermetureId?: UUID[];
+  /** Pays du prospect. 27,3 % — le plus creux du lot. */
+  paysId?: UUID[];
+  /** Action commerciale (campagne). 40,2 %. */
+  actionId?: UUID[];
+  /** Support d'origine. 50,2 %. **Sans écran** : il n'existe pas de
+   * référentiel plat des supports, seulement `/api/referentiels/
+   * origines-prospection/{origineId}/supports`. Câbler ce filtre demande soit
+   * une cascade depuis l'origine choisie, soit un nouvel endpoint. */
+  origineSupportId?: UUID[];
+  ancienClient?: boolean;
+  /** Inactives depuis **au moins** N jours. Renseigné sur 100 % des lignes :
+   * c'est le critère de relance du logiciel de bureau, et le plus exploitable
+   * de cette famille. */
+  inactiviteMin?: number;
+  nbInteractionsMin?: number;
+  /** Au moins N visites. Seules 20,8 % des prospections ont atteint l'étape
+   * visite : un seuil ≥ 1 réduit fortement le résultat. */
+  nbVisitesMin?: number;
+  /** Dernier échange à partir de cette date (incluse), ISO-8601. 90,4 %. */
+  communicationDepuis?: string;
+  communicationJusqua?: string;
+  /** `true` : uniquement celles portant une relance active. `false` :
+   * uniquement celles sans. Absent : pas de filtre. 25,2 % en portent une. */
+  avecAlerteActive?: boolean;
+}
+
 /** Groupes de présentation du sélecteur de colonnes. Valeurs imposées par
  * l'énumération serveur. */
 export type GroupeColonne = 'IDENTITE' | 'CONTACT' | 'CONTEXTE' | 'FINANCIER' | 'ACTIVITE' | 'CONVERSION';

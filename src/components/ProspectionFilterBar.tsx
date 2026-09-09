@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { RotateCcw, Search } from 'lucide-react';
 import { Card } from './ui';
 import MultiSelectDropdown from './MultiSelectDropdown';
@@ -21,6 +22,7 @@ export default function ProspectionFilterBar({
   origineItems,
   commercialItems,
   trancheItems,
+  extra,
 }: {
   state: ProspectionFilterBarState;
   /** Called with the field to patch already reset to page 0 by the caller (via `set`). */
@@ -29,6 +31,13 @@ export default function ProspectionFilterBar({
   origineItems: { label: string; value: string }[];
   commercialItems: { label: string; value: string }[];
   trancheItems: { label: string; value: string }[];
+  /** Contrôle supplémentaire, rendu juste avant « Réinitialiser ».
+   *
+   * Sert au volet de filtres avancés, qui n'existe que côté prospections :
+   * `/api/pre-prospections` n'accepte pas ces paramètres, et l'écran des
+   * pré-prospections passe donc simplement rien ici plutôt que d'afficher un
+   * bouton sans effet. */
+  extra?: ReactNode;
 }) {
   const ouvertesItems: { label: string; value: ProspectionFilterBarState['ouvertes'] }[] = [
     { label: 'Ouvertes', value: 'open' },
@@ -78,6 +87,7 @@ export default function ProspectionFilterBar({
             <InputGroupInput type="date" aria-label="Au" value={state.dateFin} onChange={(e) => onChange('dateFin', e.target.value)} />
           </InputGroup>
         </div>
+        {extra}
         <Button type="button" variant="outline" size="sm" onClick={reset}>
           <RotateCcw data-icon="inline-start" /> Réinitialiser
         </Button>

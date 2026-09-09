@@ -78,6 +78,7 @@ import type {
   ReinitialiserMotDePasseResponse,
   ResultatEnvoiVisiteDto,
   EnvoyerOffrePrixRequest,
+  FiltresAvancesProspection,
   ResultatEnvoiOffreDto,
   ResultatInteractionDto,
   SchemaFinancementDto,
@@ -418,12 +419,27 @@ export interface ProspectionFilterParams {
 export function listProspections(
   params?: ProspectionFilterParams,
   pageable?: Pageable,
-  colonnes?: string[],
+  options?: {
+    colonnes?: string[];
+    /** Aplati en paramètres de requête individuels, **pas** sérialisé comme un
+     * objet : la spec le déclare en un seul paramètre `filtres` parce que
+     * springdoc rend ainsi un objet de commande, mais Spring le lie depuis des
+     * paramètres plats. Son `required: true` est le même artefact — un objet
+     * sans champ obligatoire se lie vide. */
+    filtres?: FiltresAvancesProspection;
+  },
 ): Promise<PageDto<ProspectionListItemDto>> {
-  const query = withPageable(params, pageable);
-  return request('GET', '/api/prospections', {
-    query: colonnes && colonnes.length > 0 ? { ...query, colonnes } : query,
-  });
+  const query: Record<string, QueryValue> = withPageable(params, pageable);
+  if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
+  for (const [cle, valeur] of Object.entries(options?.filtres ?? {})) {
+    // `false` et `0` sont des filtres légitimes (« sans relance active »), donc
+    // seuls `undefined` et les listes vides sont écartés. `buildQuery` ignore
+    // ensuite `null` et la chaîne vide.
+    if (valeur === undefined) continue;
+    if (Array.isArray(valeur) && valeur.length === 0) continue;
+    query[cle] = valeur as QueryValue;
+  }
+  return request('GET', '/api/prospections', { query });
 }
 
 /** Catalogue des colonnes sélectionnables de la liste des prospections.

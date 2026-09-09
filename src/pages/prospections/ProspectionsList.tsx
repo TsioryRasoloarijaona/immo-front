@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/button';
 import ColumnSelector from '../../components/ColumnSelector';
 import Pagination from '../../components/Pagination';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
+import ProspectionFiltresAvances from '../../components/ProspectionFiltresAvances';
 import ProspectionTable from '../../components/ProspectionTable';
 import { DEFAULT_PAGE_SIZE, listProspections, listTranches } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
@@ -16,8 +17,12 @@ import { useAppData, commercialLabel } from '../../lib/appData';
 import { useColonnesProspections, useOriginesProspection } from '../../lib/referentiels';
 import {
   PIPELINE_STAGES,
+  countActiveFiltresAvances,
+  emptyFiltresAvances,
   emptyProspectionFilters,
   hasActiveProspectionFilters,
+  toFiltresAvances,
+  type FiltresAvancesState,
   type ProspectionFilterBarState,
 } from '../../lib/domain';
 
@@ -47,9 +52,23 @@ export default function ProspectionsList() {
   // clé de dépendance reste alors la même avant et après.
   const colonnesDemandees = colonnes.estDefaut ? undefined : colonnes.visibles;
 
+  const [avances, setAvances] = useState<FiltresAvancesState>(emptyFiltresAvances());
+  const filtresAvances = toFiltresAvances(avances);
+  // Sérialisée pour la clé de dépendance : quinze critères dont sept listes,
+  // qu'aucune comparaison de références ne rendrait stable d'un rendu à
+  // l'autre. `undefined` quand rien n'est actif, ce qui produit exactement la
+  // même clé qu'avant l'ouverture du volet.
+  const cleAvances = filtresAvances ? JSON.stringify(filtresAvances) : '';
+  const filtresActifs = hasActiveProspectionFilters(filters) || countActiveFiltresAvances(avances) > 0;
+
   function setFilter<K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) {
     setPage(0);
     setFilters((f) => ({ ...f, [key]: value }));
+  }
+
+  function setAvance<K extends keyof FiltresAvancesState>(key: K, value: FiltresAvancesState[K]) {
+    setPage(0);
+    setAvances((f) => ({ ...f, [key]: value }));
   }
 
   const { data, loading, error } = useApi(
@@ -66,7 +85,7 @@ export default function ProspectionsList() {
           ouvertes: filters.ouvertes === 'open' ? true : filters.ouvertes === 'closed' ? false : undefined,
         },
         { page, size: DEFAULT_PAGE_SIZE },
-        colonnesDemandees,
+        { colonnes: colonnesDemandees, filtres: filtresAvances },
       ),
     [
       debouncedSearch,
@@ -79,6 +98,7 @@ export default function ProspectionsList() {
       filters.ouvertes,
       page,
       colonnesDemandees?.join(',') ?? '',
+      cleAvances,
     ],
     'prospections',
   );
@@ -119,6 +139,16 @@ export default function ProspectionsList() {
           origineItems={origineItems}
           commercialItems={commercialItems}
           trancheItems={trancheItems}
+          extra={
+            <ProspectionFiltresAvances
+              state={avances}
+              onChange={setAvance}
+              onReset={() => {
+                setPage(0);
+                setAvances(emptyFiltresAvances());
+              }}
+            />
+          }
         />
 
         {loading && !data && <LoadingState />}
@@ -140,16 +170,30 @@ export default function ProspectionsList() {
               )}
             </div>
             {rows.length === 0 ? (
+              /* Les filtres avancés comptent ici au même titre que la barre :
+                 un résultat vide dû au seul volet, replié, s'annoncerait sinon
+                 « aucune prospection enregistrée » — et le bouton de remise à
+                 zéro ne rendrait pas la main puisqu'il ne toucherait pas au
+                 volet. Les deux sont donc réinitialisés ensemble. */
               <EmptyState
-                title={hasActiveProspectionFilters(filters) ? 'Aucun résultat' : 'Rien à afficher'}
+                title={filtresActifs ? 'Aucun résultat' : 'Rien à afficher'}
                 message={
-                  hasActiveProspectionFilters(filters)
+                  filtresActifs
                     ? 'Aucune prospection ne correspond aux filtres actifs.'
                     : "Aucune prospection n'est encore enregistrée."
                 }
                 action={
-                  hasActiveProspectionFilters(filters) ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => setFilters(emptyProspectionFilters())}>
+                  filtresActifs ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setPage(0);
+                        setFilters(emptyProspectionFilters());
+                        setAvances(emptyFiltresAvances());
+                      }}
+                    >
                       <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
                     </Button>
                   ) : undefined
