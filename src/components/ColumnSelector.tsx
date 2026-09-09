@@ -1,8 +1,10 @@
+import { Fragment } from 'react';
 import { Columns3, RotateCcw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -56,29 +58,36 @@ export default function ColumnSelector({
         <span className="font-medium text-foreground">{visibles.length}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="max-h-96 w-56" align="end">
+        {/* `DropdownMenuLabel` est un `Menu.GroupLabel` de Base UI : il lit un
+            contexte que seul `Menu.Group` fournit et jette « MenuGroupContext
+            is missing » s'il en sort. Le `DropdownMenuGroup` n'est donc pas
+            une commodité sémantique, c'est ce qui rend le titre de section
+            légal — un `<div>` à la place fait planter l'écran entier. */}
         {groupes.map((groupe, i) => (
-          <div key={groupe}>
+          <Fragment key={groupe}>
             {i > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuLabel className="text-micro text-muted-foreground">{groupe}</DropdownMenuLabel>
-            {catalogue
-              .filter((c) => c.groupe === groupe)
-              .map((c) => {
-                const coche = visibles.includes(c.nom);
-                return (
-                  <DropdownMenuCheckboxItem
-                    key={c.nom}
-                    checked={coche}
-                    // Un tableau sans colonne n'a pas de sens : la dernière
-                    // cochée se verrouille plutôt que de laisser produire une
-                    // grille vide.
-                    disabled={coche && derniere}
-                    onCheckedChange={() => onBasculer(c.nom)}
-                  >
-                    {c.libelle}
-                  </DropdownMenuCheckboxItem>
-                );
-              })}
-          </div>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-micro text-muted-foreground">{groupe}</DropdownMenuLabel>
+              {catalogue
+                .filter((c) => c.groupe === groupe)
+                .map((c) => {
+                  const coche = visibles.includes(c.nom);
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={c.nom}
+                      checked={coche}
+                      // Un tableau sans colonne n'a pas de sens : la dernière
+                      // cochée se verrouille plutôt que de laisser produire une
+                      // grille vide.
+                      disabled={coche && derniere}
+                      onCheckedChange={() => onBasculer(c.nom)}
+                    >
+                      {c.libelle}
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+            </DropdownMenuGroup>
+          </Fragment>
         ))}
         {!estDefaut && (
           <>
