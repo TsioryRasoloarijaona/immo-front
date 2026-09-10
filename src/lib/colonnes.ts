@@ -62,6 +62,12 @@ const ORDRE = [
   'prospectNom',
   'typeProspect',
   'ancienClient',
+  // Type de document légataire. Juste après `typeProspect` parce que les deux
+  // se confondent au premier coup d'œil et qu'il vaut mieux les voir côte à
+  // côte que séparés par dix colonnes. `typeProspectionId` n'est pas listé :
+  // c'est un UUID, il n'a rien à faire dans une colonne.
+  'typeProspectionCode',
+  'typeProspection',
   // Suivi commercial
   'etape',
   'origine',
@@ -119,6 +125,9 @@ const POIDS: Record<string, number> = {
   prospectCode: 9,
   prospectNom: 17,
   typeProspect: 10,
+  // `ComPreProspection` est le plus long code servi — 12 suffit sans tronquer.
+  typeProspectionCode: 12,
+  typeProspection: 11,
   ancienClient: 8,
   etape: 10,
   origine: 10,

@@ -218,6 +218,10 @@ export interface FiltresAvancesState {
   raisonFermetureId: string[];
   paysId: string[];
   actionId: string[];
+  /** Codes `StrEntity.Code`. Le seul filtre du lot avec des valeurs **connues
+   * d'avance** plutôt qu'un référentiel à charger — d'où `TYPES_PROSPECTION`
+   * ci-dessous et non un `use*Referentiel`. */
+  typeProspection: string[];
   ancienClient: 'all' | 'oui' | 'non';
   avecAlerteActive: 'all' | 'oui' | 'non';
   inactiviteMin: string;
@@ -236,6 +240,7 @@ export function emptyFiltresAvances(): FiltresAvancesState {
     raisonFermetureId: [],
     paysId: [],
     actionId: [],
+    typeProspection: [],
     ancienClient: 'all',
     avecAlerteActive: 'all',
     inactiviteMin: '',
@@ -273,6 +278,7 @@ export function toFiltresAvances(state: FiltresAvancesState): FiltresAvancesPros
     raisonFermetureId: liste(state.raisonFermetureId),
     paysId: liste(state.paysId),
     actionId: liste(state.actionId),
+    typeProspection: liste(state.typeProspection),
     ancienClient: ternaire(state.ancienClient),
     avecAlerteActive: ternaire(state.avecAlerteActive),
     inactiviteMin: nombre(state.inactiviteMin),
@@ -282,6 +288,26 @@ export function toFiltresAvances(state: FiltresAvancesState): FiltresAvancesPros
     communicationJusqua: state.communicationJusqua || undefined,
   };
 }
+
+/** Types de document légataire (`StrEntity.Code`) proposés par le filtre.
+ *
+ * En dur, et non chargés d'un référentiel : la spec énumère les valeurs
+ * connues, il n'existe pas d'endpoint qui les serve, et un code inconnu **ne
+ * lève pas d'erreur** — il ne correspond à rien et le résultat est vide, ce
+ * qui se confond avec « aucun résultat ». Une liste fermée évite donc de
+ * fabriquer ce faux négatif à la saisie.
+ *
+ * Les trois premiers sont ceux réellement observés sur cet écran ; les deux
+ * derniers existent dans la base mais relèvent d'autres modules (promotion,
+ * gestion locative) et ne devraient jamais rien ramener ici — ils restent
+ * proposés parce que les trouver vides *est* l'information utile. */
+export const TYPES_PROSPECTION: { label: string; value: string }[] = [
+  { label: 'Prospection vente', value: 'ComProspection' },
+  { label: 'Pré-prospection', value: 'ComPreProspection' },
+  { label: 'Prospection location', value: 'RntProspection' },
+  { label: 'Prospection promotion', value: 'PrmProspection' },
+  { label: 'Prospection gestion', value: 'RomProspection' },
+];
 
 export function standingClass(standing: string): string {
   const s = (standing || '').toLowerCase();

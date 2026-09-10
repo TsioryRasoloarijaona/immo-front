@@ -120,6 +120,34 @@ export interface ProspectDetailDto {
   filsDe?: string;
   etDe?: string;
   pieceIdentite?: PieceIdentiteDto;
+  /** Piste d'audit de la fiche. Renseignée sur **100 %** des 13 664 prospects
+   * réels, avec 55 auteurs distincts — c'est une vraie traçabilité métier, pas
+   * un champ technique à masquer. `modifiePar`/`modifieLe` : 99,9 %. */
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
+  /** Tranches auxquelles le prospect s'est intéressé, toutes prospections
+   * confondues — la tranche principale de chacune **et** ses intérêts
+   * secondaires, dédoublonnés.
+   *
+   * **Toujours présent, vide plutôt qu'absent** quand le prospect n'a aucune
+   * prospection : un `[]` veut dire « aucun intérêt », jamais « non
+   * disponible ». D'où le type non optionnel.
+   *
+   * Court par nature, mesuré sur les 13 664 prospects réels : 13 246 n'ont
+   * qu'une tranche, 254 en ont deux, 8 en ont trois. Pas de pagination à
+   * prévoir, pas de « voir plus » à construire. */
+  tranchesInteret: TrancheInteretDto[];
+}
+
+/** Tranche à laquelle le prospect s'est intéressé, via l'une de ses
+ * prospections — en tranche principale ou en intérêt secondaire. */
+export interface TrancheInteretDto {
+  /** `CfgTranche.PKey`, exploitable directement par `GET /api/tranches/{id}`. */
+  id: UUID;
+  code?: string;
+  description?: string;
 }
 
 export interface CreerProspectRequest {
@@ -317,8 +345,29 @@ export interface ProspectionListItemDto {
   dateFermeture?: string | null;
   /** Motif de clôture. 60,5 %. */
   raisonFermeture?: string | null;
-  /** Type du prospect (`CfgTierType`). 100 %. */
+  /** Type du **prospect** (`CfgTierType`). 100 %.
+   *
+   * Ne pas confondre avec `typeProspection*` juste en dessous : celui-ci
+   * qualifie la personne, ceux-là le document. Quatre champs de cette
+   * interface commencent par « type », c'est le piège le plus facile ici. */
   typeProspect?: string | null;
+  /** Identifiant du type de **document** légataire (`StrEntity`). 100 %, sauf
+   * 4 lignes en base réelle. */
+  typeProspectionId?: UUID | null;
+  /** Code du type de document — **c'est ce champ qu'il faut tester**, jamais
+   * le libellé. Valeurs : `ComProspection`, `ComPreProspection`,
+   * `RntProspection`.
+   *
+   * Ce champ est ce qui rend mesurable un écart connu : cette liste applique
+   * une **heuristique** (`CfgProspectId`/`CfgCommercialId`) qui n'est pas le
+   * discriminant du logiciel de bureau. Elle y laisse donc **830 lignes de
+   * code `ComPreProspection`** et 4 de `RntProspection` (location). Le champ
+   * rend l'écart visible et comptable ; **il ne le corrige pas**. */
+  typeProspectionCode?: string | null;
+  /** Libellé d'affichage du type, traduit — « Prospection vente »,
+   * « Pré-Prospection ». **Ne jamais s'en servir pour tester le type**, il est
+   * traduit et donc instable : tester `typeProspectionCode`. */
+  typeProspection?: string | null;
   /** Support de l'origine. 50,2 %. */
   origineSupport?: string | null;
   /** Action commerciale (campagne) rattachée. 40,2 %. */
@@ -428,6 +477,21 @@ export interface FiltresAvancesProspection {
   /** `true` : uniquement celles portant une relance active. `false` :
    * uniquement celles sans. Absent : pas de filtre. 25,2 % en portent une. */
   avecAlerteActive?: boolean;
+  /** Code(s) de type de document légataire (`StrEntity.Code`). Répétable.
+   *
+   * Le seul filtre de ce lot qui porte sur le **discriminant réel** du
+   * logiciel de bureau, et non sur l'heuristique que cette liste applique par
+   * ailleurs — c'est donc lui qui rend l'écart mesurable :
+   * `typeProspection=ComPreProspection` isole les **830 pré-prospections** qui
+   * traînent dans la liste de vente, `RntProspection` les 4 prospections de
+   * location. Le vrai outil de nettoyage de données de cet écran.
+   *
+   * Valeurs connues : `ComProspection`, `ComPreProspection`, `RntProspection`,
+   * `PrmProspection`, `RomProspection`. Un code inconnu **ne lève pas
+   * d'erreur** — il ne correspond à rien et le résultat est vide, ce qui se
+   * confond avec « aucun résultat ». Les 4 lignes sans `StrEntityId` sortent
+   * dès que ce filtre est actif : elles n'ont aucun type. */
+  typeProspection?: string[];
 }
 
 /** Groupes de présentation du sélecteur de colonnes. Valeurs imposées par
@@ -512,6 +576,22 @@ export interface ActiviteProspectionDto {
 export interface ProspectionDetailDto {
   id: UUID;
   code?: string;
+  /** Identifiant du type de document légataire (`StrEntity`). `null` sur les 4
+   * prospections dont `StrEntityId` n'est pas renseigné. */
+  typeProspectionId?: UUID | null;
+  /** Code du type de document — **c'est ce champ qu'il faut tester**, jamais le
+   * libellé. Valeurs observées : `ComProspection` (14 114 lignes),
+   * `ComPreProspection` (3 817), `RntProspection` (4, location).
+   *
+   * `null` ne veut pas dire « donnée manquante » mais **anomalie de
+   * création** : la prospection ne porte aucun type, et elle est alors
+   * *invisible dans le logiciel de bureau*, dont toutes les vues font un
+   * `INNER JOIN` sur `StrEntity`. 4 lignes en base réelle. Une fiche qui
+   * s'ouvre ici mais que le métier ne retrouve pas là-bas, c'est ce cas. */
+  typeProspectionCode?: string | null;
+  /** Libellé d'affichage du type, traduit. **Ne pas s'en servir pour tester le
+   * type** — voir `typeProspectionCode`. */
+  typeProspection?: string | null;
   dateDocument?: string | null;
   tempDescription?: string;
   tempTel?: string;
@@ -595,8 +675,11 @@ export interface ModifierProspectionRequest {
   financementCredit?: number;
   financementAutre?: number;
   notes?: string;
-  trancheId?: UUID;
-  articleId?: UUID;
+  /* `trancheId`/`articleId` retirés : absents du schéma spec de cette requête,
+     et jamais posés sur l'`infoForm` qui l'alimente. La tranche principale se
+     change par son propre endpoint, `PATCH .../tranche-principale`, dont le
+     corps est `ModifierTranchePrincipaleRequest`. Deux chemins pour le même
+     champ, dont un mort, c'était l'invitation à envoyer sur le mauvais. */
 }
 
 export interface ChangerEtapeRequest {
@@ -669,9 +752,16 @@ export interface AjouterAutreTrancheRequest {
 export interface ProspectionAutreTrancheDto {
   id: UUID;
   trancheId?: UUID;
+  /** Code de la tranche. */
   tranche?: string;
+  /** Libellé de la tranche. `tranche` porte le code, celui-ci le libellé — le
+   * couple suit la même convention que `trancheCode`/`trancheDescription`
+   * ailleurs, malgré des noms moins explicites ici. */
+  trancheDescription?: string;
   articleId?: UUID;
+  /** Code de l'article. */
   article?: string;
+  articleDescription?: string;
 }
 
 export interface CreerDevisRequest {
@@ -721,6 +811,13 @@ export interface MontantsOffreDto {
    * formulaire legacy. */
   prixVenteHT?: number;
   prixVenteTTC?: number;
+  /** Taux de commission, **en ratio** (0.03 = 3 %), repris de l'offre. `null`
+   * si non renseigné.
+   *
+   * Attention à l'incohérence d'unité dans ce même objet : `remisePercent` est
+   * un pourcentage entier (5 = 5 %), celui-ci un ratio. Les deux ne se
+   * formatent pas pareil. */
+  commissionPercent?: number;
 }
 
 export interface DevisDto {
@@ -749,6 +846,14 @@ export interface DevisDto {
   modePaiement?: string;
   montants?: MontantsOffreDto;
   notes?: string;
+  /** Plan de financement (AUTO-FINANCEMENT / AVANCE / FRAIS SYNDIC) calculé
+   * sur le prix de vente TTC **après remise** de l'offre — même calcul que
+   * `POST /api/dossiers/simulation-financement`. Vide si l'offre n'a pas de
+   * prix, donc à traiter comme « rien à afficher » et non comme une erreur.
+   *
+   * Réutilise `LigneSchemaFinancementDto`, déjà déclaré plus bas pour la
+   * simulation : c'est la même forme de ligne, il n'y a pas deux modèles. */
+  schemaFinancement?: LigneSchemaFinancementDto[];
 }
 
 /** Réponse de `GET /api/devis` (liste globale des offres) — même forme que
@@ -966,6 +1071,13 @@ export interface DossierListItemDto {
    * powers the "Prospection" column on DossiersList.tsx. */
   prospectionId?: UUID;
   prospectionCode?: string;
+  /** Date de concrétisation. La spec ne la documente pas au-delà du type.
+   *
+   * À ne pas confondre avec `dateDocument`, qui est la date de réservation :
+   * `lib/dossierStatus.ts` dérive « Concrétisation » de la présence de cette
+   * date-là. Elle rend donc possible un tri « par date de concrétisation »
+   * sur la liste, ce qui demandait jusqu'ici d'ouvrir chaque dossier. */
+  dateConcretisation?: string | null;
 }
 
 export interface DossierDetailDto {
@@ -1217,6 +1329,29 @@ export interface CreerReglementRequest {
    * pour la liste des candidats. */
   payeurId: UUID;
   notes?: string;
+  /** Statut à la création. **Seul `IN_WORK` est accepté** — ou l'absence de
+   * valeur, qui lui est équivalente.
+   *
+   * Typé au littéral et non `string` exprès : `POINTED` est **refusé (400)**,
+   * parce que pointer un règlement exige une preuve de paiement, or aucune
+   * pièce jointe ne peut exister avant le règlement lui-même. Le littéral rend
+   * ce 400 impossible à écrire.
+   *
+   * Le parcours « saisir directement en pointé » n'existe pas en un appel : il
+   * s'obtient en trois — créer ici, déposer la preuve sur
+   * `POST .../reglements/{reglementId}/pieces-jointes`, puis
+   * `PATCH .../reglements/{reglementId}/statut`. */
+  statut?: 'IN_WORK';
+  /* `dateReglement` est **délibérément absent de cette interface**, alors que
+     la spec le déclare sur ce schéma.
+
+     Le serveur le **refuse à la création (400 si fourni)** : il ne se renseigne
+     qu'au passage à `POINTED`. Le mirrorer ici en ferait un champ que
+     l'autocomplétion propose et que le serveur rejette — le miroir sert à
+     appeler l'API correctement, pas à reproduire la spec à l'identique.
+
+     Ne pas l'ajouter « pour compléter » : un audit spec-contre-types.ts le
+     signalera comme manquant à chaque passage, et c'est voulu. */
 }
 
 /** `PATCH /api/dossiers/{id}/reglements/{reglementId}/statut` — pointage ou
