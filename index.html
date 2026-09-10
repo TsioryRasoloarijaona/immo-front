@@ -2,16 +2,17 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/brand/favicon.png" />
-    <link rel="apple-touch-icon" href="/brand/app-icon.png" />
+    <!-- Aucun favicon : le produit n'a pas de logo, et l'ancien portait
+         l'identite Ayad. Les fichiers restent dans public/brand/, non
+         supprimes, donc le recablage est une ligne. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ayad Développement — CRM</title>
+    <title>Arpent — CRM immobilier</title>
     <script>
       // Applies the saved/system theme before first paint so there's no
       // flash of the wrong theme. Mirrors the fallback logic in src/lib/theme.tsx.
       (function () {
         try {
-          var stored = localStorage.getItem('ayad-theme');
+          var stored = localStorage.getItem('arpent-theme');
           var dark = stored ? stored === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
           if (dark) document.documentElement.classList.add('dark');
         } catch (e) {}

@@ -18,13 +18,13 @@ export default function AuthScreen({
     <div className="flex min-h-svh items-center justify-center bg-muted/30 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-center justify-center gap-2">
-          {/* Same wordmark treatment as the sidebar (Layout.tsx) — no
-              raster app-icon, just "Ayad" in a heavy, tight-tracked cut of
-              the app's own sans, colored with the (now monochrome) --brand
-              accent. */}
-          <span className="font-heading text-hero leading-none font-black tracking-tighter text-(--brand)">Ayad</span>
+          {/* Même traitement de mot-symbole que la barre latérale
+              (Layout.tsx) — pas d'icône raster, juste « Arpent » dans une
+              coupe grasse et serrée du sans de l'application, dans l'accent
+              achromatique. */}
+          <span className="font-heading text-hero leading-none font-black tracking-tighter text-(--brand)">Arpent</span>
           <div className="flex flex-col leading-tight">
-            <span className="text-xs text-muted-foreground">Développement · CRM prototype</span>
+            <span className="text-xs text-muted-foreground">CRM immobilier</span>
           </div>
         </div>
         <Card>

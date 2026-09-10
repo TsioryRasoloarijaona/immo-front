@@ -180,7 +180,7 @@ function rang(nom: string): number {
   return i === -1 ? ORDRE.length : i;
 }
 
-const PREFIXE_STOCKAGE = 'ayad.colonnes.';
+const PREFIXE_STOCKAGE = 'arpent.colonnes.';
 
 function lireStockees(cle: string): string[] | null {
   try {

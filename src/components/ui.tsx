@@ -1,11 +1,39 @@
 import type { ReactNode } from 'react';
-import { Building2, Loader2 } from 'lucide-react';
+import { AlertTriangle, Building2, Check, ChevronRight, Info, Loader2, X, type LucideIcon } from 'lucide-react';
 import type { BadgeTone } from '../types';
 import { Badge as ShadcnBadge } from './ui/badge';
 import { Card as ShadcnCard, CardAction, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty';
 import { Avatar as ShadcnAvatar, AvatarFallback } from './ui/avatar';
 import { cn } from '../lib/utils';
+
+/** Glyphe par ton — **c'est ici que vit le sens des statuts.**
+ *
+ * La palette est achromatique (voir l'en-tête d'index.css), donc la couleur ne
+ * peut plus distinguer « abouti » de « annulé ». Le pas de gris classe
+ * l'*attention* ; ce glyphe nomme le *genre*.
+ *
+ * Dérivé du ton et non du statut métier : les six fonctions de `lib/`
+ * (`toneForStatus`, `etapeBadgeTone`, `encaissementEtatTone`,
+ * `pieceJointeTypeTone`, `echeanceCategorieTone`, `echeanceStatutTone`)
+ * retournent déjà un `BadgeTone`. Une table sur les six tons couvre donc les
+ * 215 sites d'appel **sans en toucher un seul**, et un statut ajouté plus tard
+ * héritera de son glyphe gratuitement.
+ *
+ * `neutral` n'en a pas, volontairement : c'est le défaut, il concerne la
+ * majorité des lignes, et un glyphe partout ne distingue plus rien. L'absence
+ * de glyphe *est* l'information « rien à signaler ».
+ *
+ * Icônes SVG et non emoji ni caractères : à 11px un emoji rend selon la police
+ * système et casse l'alignement vertical. */
+const TONE_GLYPH: Record<BadgeTone, LucideIcon | null> = {
+  neutral: null,
+  info: Info,
+  progress: ChevronRight,
+  success: Check,
+  amber: AlertTriangle,
+  warning: X,
+};
 
 export function Badge({
   tone = 'neutral',
@@ -16,13 +44,13 @@ export function Badge({
   children: ReactNode;
   className?: string;
 }) {
+  const Glyphe = TONE_GLYPH[tone];
   return (
-    <ShadcnBadge variant={tone} className={cn('gap-1.5', className)}>
-      {/* `data-badge-dot` pour que la densité de grille puisse le masquer : le
-          point coûte 6px + 6px de gouttière, soit ~72px sur les six colonnes à
-          pastille de la liste de prospection, pour une information que la
-          couleur du fond porte déjà. Voir « Grid density » dans index.css. */}
-      <span aria-hidden data-badge-dot="" className="size-1.5 shrink-0 rounded-full bg-current" />
+    <ShadcnBadge variant={tone} className={cn('gap-1', className)}>
+      {/* `data-badge-dot` est conservé comme crochet CSS (index.css s'en sert
+          pour ajuster la pastille en cellule de tableau) même si ce n'est plus
+          un point : le renommer aurait cassé la règle sans rien apporter. */}
+      {Glyphe && <Glyphe aria-hidden data-badge-dot="" className="size-3 shrink-0" />}
       {children}
     </ShadcnBadge>
   );

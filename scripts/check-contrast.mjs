@@ -135,6 +135,15 @@ for (const [name, selector, cardRaw] of [
   // --warning (issue commerciale) et --destructive (erreur applicative) ont
   // déjà été strictement identiques : un dossier annulé s'affichait dans la
   // teinte exacte d'un formulaire en erreur.
+  //
+  // La palette étant devenue achromatique, ce garde-fou ne compare plus deux
+  // teintes mais deux **pas de gris** — et il reste utile à ce titre : les
+  // deux extrémités basses d'une rampe se compressent facilement, et rien
+  // n'empêche de les écrire égales par mégarde. Attention toutefois : ce n'est
+  // plus la séparation *principale*. Celle-ci est le glyphe (voir TONE_GLYPH
+  // dans components/ui.tsx) — un statut métier en porte un, une erreur de
+  // saisie non. Un ratio qui passe ici ne dit donc pas que les deux se
+  // distinguent à l'écran, seulement qu'ils ne sont pas confondus en valeur.
   if (t['--warning'] && t['--destructive']) {
     const w = parseColor(t['--warning'], t);
     const d = parseColor(t['--destructive'], t);

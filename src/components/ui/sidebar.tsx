@@ -27,7 +27,7 @@ import { PanelLeftIcon } from "lucide-react"
 // component originates from, so there's no server to read a cookie back on
 // the next request — localStorage is what actually survives a hard reload
 // here, read synchronously below so there's no flash of the wrong state).
-const SIDEBAR_STORAGE_KEY = "ayad-sidebar-open"
+const SIDEBAR_STORAGE_KEY = "arpent-sidebar-open"
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"

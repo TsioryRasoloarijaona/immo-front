@@ -145,9 +145,21 @@ enum, not free text. `isCredit` distinguishes debit/credit direction.
 
 Follow **Linear / Stripe Dashboard / Attio** as the visual references —
 **not** the legacy system's dense Windows-forms layout. Concretely:
-- Generous whitespace, clear typographic hierarchy, muted neutral palette
-  with one accent color for primary actions and status.
-- Status as color-coded pill/badge components, not text labels alone.
+- Generous whitespace, clear typographic hierarchy.
+- **The palette is achromatic — there is no accent colour and no brand
+  colour.** One near-black accent (`--brand: #18181b`, inverted to `#fafafa`
+  in dark) over true greys. The former `#5d396e` was sampled from the Ayad
+  identity mark and was removed with the name; the product is called
+  **Arpent** and carries no company identity. See `PRODUCT.md` §Brand
+  Commitments and the header of `src/index.css` — which also records that an
+  achromatic accent was tried and reverted once, and why that reversal does
+  not apply now.
+- **Status is carried by a glyph, not by colour.** `TONE_GLYPH` in
+  `components/ui.tsx` maps each of the six `BadgeTone` values to a lucide
+  icon; the grey step ranks attention, the glyph names the kind. Conveying
+  meaning by colour alone is a High-severity WCAG failure, and the previous
+  coloured-badge design committed it — this is stricter, not looser. Do not
+  "restore" hues to badges.
 - Cards and clean tables over the legacy system's dense multi-tab modal
   forms — collapse related fields into logical grouped sections instead of
   replicating every flat field list 1:1.
