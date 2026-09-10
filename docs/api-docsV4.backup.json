@@ -435,6 +435,19 @@
             }
           },
           {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes a serialiser, repetable ou separees par des virgules. Absent : les 10 colonnes historiques. Catalogue et liste blanche : `GET /api/referentiels/colonnes/prospects`. Un nom hors catalogue rend 400 avec la liste des noms valides. `id` est toujours servi.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,nom,prenom,cin,creePar"
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -1758,6 +1771,19 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes a serialiser, repetable ou separees par des virgules. Absent : les 13 colonnes historiques. Catalogue et liste blanche : `GET /api/referentiels/colonnes/dossiers`. Un nom hors catalogue rend 400 avec la liste des noms valides. `id` est toujours servi.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,statut,projetCode,trancheCode,creePar"
           },
           {
             "name": "pageable",
@@ -4503,6 +4529,31 @@
         }
       }
     },
+    "/api/referentiels/colonnes/prospects": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Catalogue des colonnes de la liste des prospects",
+        "description": "Alimente le **sélecteur de colonnes** de `GET /api/prospects`, sur le même contrat que celui des prospections : nom technique à passer dans `?colonnes=`, libellé français, groupe, type d'affichage, et appartenance à la sélection par défaut.\n\nLa sélection par défaut reproduit **exactement** les 10 colonnes servies avant l'introduction du paramètre — une intégration qui ignore `colonnes` ne voit aucun changement.\n\nDeux réserves utiles au moment de bâtir le sélecteur : `profession` est alimentée par une colonne **mesurée à 0 ligne sur 13 664** et sera donc toujours vide ; `kind` l'est sur 14 339 des 14 516 tiers réels. Les **tranches d'intérêt sont absentes du catalogue** : elles exigent une requête par prospect et restent réservées à la fiche.\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
+        "operationId": "getColonnesProspects",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ColonneDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/colonnes/prospections": {
       "get": {
         "tags": [
@@ -4511,6 +4562,31 @@
         "summary": "Catalogue des colonnes de la liste des prospections",
         "description": "Alimente le **sélecteur de colonnes** de `GET /api/prospections`. Chaque entrée donne le nom technique à passer dans `?colonnes=`, son libellé français, son groupe d'affichage, son type (pour aligner et formater), et si elle fait partie de la sélection par défaut.\n\nLe front n'a ainsi aucune liste de colonnes à coder en dur, et le catalogue est la même source que la liste blanche qui valide `?colonnes=` — les deux ne peuvent pas diverger.\n\nLes colonnes du groupe `ACTIVITE` (et `CONVERSION`) proviennent d'une vue de la base légataire : les demander déclenche une requête supplémentaire, mesurée à 7 ms pour une page de 20. Ne pas les demander n'en déclenche aucune.\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
         "operationId": "getColonnesProspections",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ColonneDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels/colonnes/dossiers": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Catalogue des colonnes de la liste des dossiers de vente",
+        "description": "Alimente le **sélecteur de colonnes** de `GET /api/dossiers`, sur le même contrat que les deux précédents.\n\nLa sélection par défaut reproduit **exactement** les 13 colonnes servies avant l'introduction du paramètre.\n\nLes colonnes du groupe `PATRIMOINE` traversent la chaîne article → tranche → projet → société : les demander coûte trois jointures paresseuses par ligne, ne pas les demander n'en coûte aucune. Même règle pour le groupe `ORIGINE`, qui déréférence la prospection.\n\nNe figurent pas au catalogue, et c'est délibéré : les **articles** (une requête par dossier), la **ventilation financière du légataire** (5 postes vivants sur 12, et un bloc `Agreement*` qui diverge du bloc principal sur 20 % des lignes sans qu'on sache lequel fait foi) et **`notes`** (mesurée à 0 ligne sur 358).\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
+        "operationId": "getColonnesDossiers",
         "responses": {
           "200": {
             "description": "OK",
@@ -10871,6 +10947,162 @@
           },
           "type": {
             "type": "string"
+          },
+          "cin": {
+            "type": "string",
+            "description": "CIN du prospect (`CfgTier.IDNumber`)."
+          },
+          "ice": {
+            "type": "string",
+            "description": "Identifiant Commun de l'Entreprise (`CfgTier.ICE`). Ne pas confondre avec `FiscalCode`, qui est une autre colonne et n'est pas servie."
+          },
+          "dateNaissance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de naissance."
+          },
+          "lieuNaissance": {
+            "type": "string",
+            "description": "Lieu de naissance."
+          },
+          "nombreEnfants": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'enfants déclarés."
+          },
+          "estAncienClient": {
+            "type": "boolean",
+            "description": "Le prospect est un ancien client."
+          },
+          "filsDe": {
+            "type": "string",
+            "description": "Nom du père (`FatherName`)."
+          },
+          "etDe": {
+            "type": "string",
+            "description": "Nom de la mère (`MotherName`)."
+          },
+          "indicatifTelephone": {
+            "type": "string",
+            "description": "Indicatif pays du fixe, sans le `+`.",
+            "example": "212"
+          },
+          "telephone1": {
+            "type": "string",
+            "description": "Second téléphone."
+          },
+          "telephone2": {
+            "type": "string",
+            "description": "Troisième téléphone."
+          },
+          "indicatifMobile": {
+            "type": "string",
+            "description": "Indicatif pays du mobile, sans le `+`.",
+            "example": "212"
+          },
+          "fax": {
+            "type": "string",
+            "description": "Fax. **Quasi mort en base réelle.**"
+          },
+          "siteWeb": {
+            "type": "string",
+            "description": "Site web."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Adresse."
+          },
+          "adresse2": {
+            "type": "string",
+            "description": "Complément d'adresse. Absent de la vue légataire — cette donnée n'existe que dans notre API et dans la table."
+          },
+          "adresse3": {
+            "type": "string",
+            "description": "Second complément d'adresse. Même remarque que `adresse2`."
+          },
+          "codePostal": {
+            "type": "string",
+            "description": "Code postal. Même remarque que `adresse2`."
+          },
+          "employeur": {
+            "type": "string",
+            "description": "Employeur."
+          },
+          "anciennete": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ancienneté professionnelle, en années."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Genre du tiers (`CfgTierKind`). **Quasi mort** : 14 339 des 14 516 tiers réels n'en portent aucun."
+          },
+          "titre": {
+            "type": "string",
+            "description": "Titre (M., Mme…)."
+          },
+          "sexe": {
+            "type": "string",
+            "description": "Sexe."
+          },
+          "nationalite": {
+            "type": "string",
+            "description": "Nationalité."
+          },
+          "situationFamiliale": {
+            "type": "string",
+            "description": "Situation familiale."
+          },
+          "regimeMatrimonial": {
+            "type": "string",
+            "description": "Régime matrimonial."
+          },
+          "pays": {
+            "type": "string",
+            "description": "Pays."
+          },
+          "paysResidence": {
+            "type": "string",
+            "description": "Pays de résidence."
+          },
+          "typeResidence": {
+            "type": "string",
+            "description": "Type de résidence."
+          },
+          "profession": {
+            "type": "string",
+            "description": "Profession, alimentée par `CfgTier.Quality` — **mesurée à 0 ligne sur 13 664**, donc toujours nulle. Servie pour rester cohérente avec la fiche, à ne pas proposer comme critère."
+          },
+          "salaire": {
+            "type": "string",
+            "description": "Tranche de salaire (`AdmSalary`). Rare : 0,2 % des prospects."
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du commercial affecté."
+          },
+          "commercialNom": {
+            "type": "string",
+            "description": "Nom du commercial affecté."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création. ~100 % en base réelle, 55 auteurs distincts."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création. 100 %."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification. 99,9 %."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de dernière modification. 99,9 %."
           }
         }
       },
@@ -11313,6 +11545,124 @@
           "prospectionCode": {
             "type": "string",
             "description": "Code de la prospection à l'origine du dossier — pour le lien cliquable vers la prospection depuis le dossier (`GET /api/prospections/{prospectionId}`)."
+          },
+          "prixAvantRemise": {
+            "type": "number",
+            "description": "Prix avant remise."
+          },
+          "remise": {
+            "type": "number",
+            "description": "Taux de remise, en pourcentage."
+          },
+          "remiseMontant": {
+            "type": "number",
+            "description": "Montant de la remise."
+          },
+          "prixApresRemise": {
+            "type": "number",
+            "description": "Prix après remise."
+          },
+          "montantAvance": {
+            "type": "number",
+            "description": "Montant de l'avance. Renseigné sur 41,6 % des 358 dossiers réels."
+          },
+          "probabiliteFinalisation": {
+            "type": "number",
+            "description": "Probabilité de finalisation. 100 %."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du projet. 100 %. **Provient de la tranche de l'article** — `StkItem.CfgProjectId` est nul sur les 358 articles réels."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet. 100 %.",
+            "example": "CITEB"
+          },
+          "projetLibelle": {
+            "type": "string",
+            "description": "Libellé du projet. 100 %."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la tranche. 100 %."
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Code de la tranche. 100 %."
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Libellé de la tranche. 100 %."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la société / entité juridique. 100 %."
+          },
+          "societeCode": {
+            "type": "string",
+            "description": "Code de la société. 100 %.",
+            "example": "ADMOD"
+          },
+          "societeLibelle": {
+            "type": "string",
+            "description": "Libellé de la société. 100 %."
+          },
+          "vocationCode": {
+            "type": "string",
+            "description": "Code de la vocation. 100 %."
+          },
+          "vocationLibelle": {
+            "type": "string",
+            "description": "Libellé de la vocation. 100 %."
+          },
+          "avocatId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du notaire. 19,3 %."
+          },
+          "avocatNom": {
+            "type": "string",
+            "description": "Nom du notaire. 19,3 %."
+          },
+          "modePaie": {
+            "type": "string",
+            "description": "Mode de paiement."
+          },
+          "etapeProspection": {
+            "type": "string",
+            "description": "Étape de la prospection d'origine. `null` sur les 3 dossiers (sur 358) sans prospection."
+          },
+          "origineProspection": {
+            "type": "string",
+            "description": "Origine de la prospection. 99,2 %.",
+            "example": "FACEBOOK"
+          },
+          "dateProspection": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la prospection d'origine. 99,2 %."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création. 100 % des 358 dossiers réels."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création. 100 %."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification. 100 %."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de dernière modification. 100 %."
           }
         }
       },

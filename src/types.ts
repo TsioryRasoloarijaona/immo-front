@@ -752,6 +752,64 @@ export interface ProspectionDetailDto {
   articleId?: UUID;
   articleCode?: string;
   articleDescription?: string;
+
+  // -- Enrichissement « rang 5 » : société, coordonnées, codes, audit --------
+  //
+  // La fiche était **plus pauvre que la liste** : le lot « sélection de
+  // colonnes » avait enrichi ProspectionListItemDto de 18 colonnes sans que le
+  // détail reçoive le même traitement — l'écran affichait la société en colonne
+  // puis la perdait en cliquant dessus. Les noms de champs sont **les mêmes que
+  // ceux de la liste**, volontairement.
+  //
+  // Les codes de référentiel s'**ajoutent** aux libellés déjà servis, ils ne
+  // les remplacent pas : `origine` reste le libellé, `origineCode` le code.
+
+  /** Code du tiers, ex. `26/14520`. */
+  prospectCode?: string | null;
+  /** Type du **tiers** (`PRO`, `PRORNT`). ⚠️ À un caractère près de
+   * `typeProspectionCode`, et ce n'est pas la même notion : celui-ci qualifie
+   * le prospect, l'autre le document. Le piège est hérité de la liste. */
+  typeProspect?: string | null;
+  typeProspectLibelle?: string | null;
+  /** Mobile de la fiche tiers. L'indicatif **n'a pas de `+`** — c'est `212`.
+   * L'affichage se compose. */
+  mobileProspect?: string | null;
+  indicatifMobile?: string | null;
+  /** Email de la fiche tiers, à distinguer de `tempEmail`, saisi sur la
+   * prospection elle-même. */
+  emailFiche?: string | null;
+  commercialCode?: string | null;
+  origineCode?: string | null;
+  origineSupportCode?: string | null;
+  etapeCode?: string | null;
+  vocationCode?: string | null;
+  typeContactCode?: string | null;
+  actionCommercialeCode?: string | null;
+  raisonFermetureCode?: string | null;
+  /** Entité juridique (ADMOD, GHRIZA). **Dérivée de la tranche**, jamais
+   * saisie : sans tranche, pas de société. */
+  societeId?: UUID | null;
+  societeCode?: string | null;
+  societeLibelle?: string | null;
+  /** Renseignés sur 100 % des prospections **qui portent un article**, ce qui
+   * ne fait que 5,7 % du portefeuille. */
+  articleCategorie?: string | null;
+  articleType?: string | null;
+  paysId?: UUID | null;
+  paysCode?: string | null;
+  pays?: string | null;
+
+  /* Piste d'audit. ⚠️ Le guide backend les annonce à 100 % (34,3 % pour
+     `creePar`), **mais c'est faux sur les fiches anomales** : mesuré, une fiche
+     sans bloc `activite` — celles créées par `POST /api/prospections`, sans
+     `StrEntityId` — a aussi ces quatre champs à `null`, ainsi que
+     `prospectCode` et `typeProspection*`. Le repli du §2.1 du guide ne couvre
+     donc pas assez large : ce n'est pas seulement `activite` qui manque. */
+  creePar?: string | null;
+  creeLe?: string | null;
+  modifiePar?: string | null;
+  modifieLe?: string | null;
+
   /** Bloc d'indicateurs d'activité calculés par la base légataire. Porte
    * notamment `dossierId` — le lien de conversion, que ce DTO n'a jamais eu au
    * premier niveau malgré une déclaration d'espoir restée ici longtemps.
