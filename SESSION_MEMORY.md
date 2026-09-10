@@ -1,37 +1,74 @@
 # Session Memory
-_Last updated: 2026-09-09T22:40:00Z_
-_Project: crm-prototype (Ayad Estate — CRM frontend), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
+_Last updated: 2026-09-10T18:00:00Z_
+_Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
 
 ## 🎯 Current Objective
-Consommer au fil de l'eau les endpoints V4 que le backend livre, **en rediffusant systématiquement la spec contre `HEAD` avant d'écrire une ligne de front**. La branche `feat/activite-prospection` porte toute la refonte prospection : panneau d'activité sur la fiche, journal enrichi, sélecteur de colonnes serveur, et volet de filtres avancés.
+
+Refonte visuelle en série, guidée par l'utilisateur au fil de l'eau : **densité de
+grille calée sur le logiciel légataire Omran**, puis généralisation via un
+`DataGrid` partagé, puis alignement des structures de données sur la spec V4, puis
+**dé-marquage du produit** (renommé *Arpent*) et itération de thème. Quatre lots
+fusionnés ; le cinquième est poussé, non fusionné, sans PR.
 
 ---
 
 ## ✅ What Worked
 
-1. **Le backend écrit maintenant un guide d'intégration front.** `../immo-crm/instructions/GUIDE-FRONT-fiche-prospection.md` — état réel des endpoints, ordre d'affichage recommandé avec **taux de population par champ**, pièges, et contrat des lots à venir. **Le lire avant de planifier** : il a inversé le sens d'une demande cette session.
-2. **Le diff structurel de spec contre `HEAD`, jamais l'arbre de travail.** `scratchpad/diff-spec.cjs <base> <nouveau>`, base extraite par `git show HEAD:docs/api-docsV4.json` **via le Bash tool** (PowerShell `>` ré-encode en UTF-16). Rejoué 3 fois cette session, il a tout cadré.
-3. **Le harnais React piloté par Playwright.** Page Vite temporaire à la racine (`harness-x.html` + `src/harness-x.tsx` important `./index.css`), montant un composant seul avec des données factices, servie par le serveur de dev déjà lancé. **C'est la seule chose qui trouve les bugs de composition Base UI.**
-4. **Le harnais HTML statique + `vite preview`** pour la seule mécanique CSS : reproduire la chaîne d'ancêtres, charger le CSS compilé, mesurer `scrollWidth`/`clientWidth` avec et sans le correctif.
-5. **Confronter la spec au code par script.** Un `node -e` comparant `components.schemas.X.properties` aux champs déclarés dans `types.ts` sort les manquants en une commande.
-6. **Chercher les champs typés sans consommateur** par grep : « déclaré mais jamais lu » a révélé le filtre Tranche sans colonne Tranche.
-7. **Le rendu piloté par le `type` du catalogue** : 19 colonnes livrées d'un coup n'ont coûté que des entrées d'ordre, de largeur et de classe.
+1. **Mesurer la capture de référence au pixel plutôt que d'estimer.** Le pas de
+   ligne Omran (23,77px) a donné `--row-h: 24px` ; l'écart 33px→24px vaut ~7 lignes
+   de données par écran. Toutes les décisions de densité en découlent.
+2. **Vérifier dans le CSS *compilé*, pas dans la source.** `npm run build` puis
+   `grep` sur `dist/assets/*.css`. C'est la seule chose qui a attrapé de vrais bugs
+   cette session (voir #121, #123). Une syntaxe Tailwind v4 fausse
+   (`h-(--row-h)`) n'émet **aucune classe** et le refactor no-ope en silence
+   derrière trois portes vertes.
+3. **Lire la source d'une dépendance au lieu de supposer.**
+   `node_modules/@base-ui/react/internals/getStateAttributesProps.js` confirme que
+   `state: {slot, variant}` émet `data-slot` **et** `data-variant` — ce qui a permis
+   un sélecteur CSS fiable sans toucher `ui.tsx`.
+4. **Le joint architectural : `BadgeTone` n'a que 6 valeurs**, et les 6 mappers de
+   `lib/` le retournent déjà. Une table sur les 6 tons couvre **215 sites d'appel
+   sans en toucher un seul**.
+5. **`--primary`/`--ring`/les 8 `--sec-*`/les tokens sidebar aliasent tous
+   `--brand`.** Changer une valeur propage à ~80 sites d'appel gratuitement.
+6. **Étendre le gate quand le changement invalide ce qu'il mesure.**
+   `check-contrast.mjs` a été étendu deux fois parce qu'il avait cessé de couvrir
+   le cas réel — c'est le réflexe à garder.
+7. **`git checkout main -- <fichier>` pour un revert fidèle**, plutôt que rejouer
+   les valeurs à la main.
+8. **Scripts Python écrits dans le scratchpad puis exécutés** — les heredocs
+   bloquent (`exit 143`) et cassent sur les quotes.
 
 ---
 
 ## ❌ What Failed / Course-corrections
 
-- **Trois portes vertes sur du code qui plantait au premier clic.** `tsc`, `eslint` et `npm run build` ne rendent rien. Deux bugs Base UI (#116, #120) et un bug de layout (#117) sont passés au travers. **Pour toute primitive Base UI composée à la main, monter un harnais.**
-- **Avoir proposé des colonnes en dur.** L'analyse était juste (filtre Tranche sans colonne), la conclusion fausse : le guide §4 montre que les colonnes manquantes le sont **par décision mesurée** — 5 942 ms à la page 250 contre 123 ms. La réponse était le sélecteur. **Quand un manque est aussi évident, chercher d'abord pourquoi il n'a pas été comblé.**
-- **Un catalogue de colonnes codé en dur, mort en une demi-journée.** Le serveur a livré son référentiel le lendemain. C'est exactement l'argument du §5.3.
-- **`{/* */}` dans une branche de ternaire** → `TS1005`. Ce n'est une position d'enfant ni entre deux attributs, ni entre `) : (` et l'élément. Utiliser `/* */` nu.
-- **`min-w-0` posé trop bas** (#117) : la contrainte doit être cassée sur l'élément flex de l'axe concerné, pas sur un descendant.
-- **`stopPropagation` React trop tard** (#120) : React délègue à la racine, les écouteurs natifs des ancêtres passent avant.
-- **Playwright et l'extension Chrome ne peuvent pas atteindre l'application** : la première est renvoyée sur l'écran de connexion, la seconde rend une page d'erreur sur `localhost:5173`.
-- **Le heredoc peut bloquer** (`exit 143`). Fichier `.cjs` écrit avec Write puis `node`.
-- **`feature-index.mjs add` avant le commit** → « Nothing to record » (il lit `main..HEAD`).
+- **Le thème achromatique.** Livré comme spécification délibérée, conforme AA à
+  des marges *plus larges* que la version colorée, statut porté par glyphe donc
+  rien perdu sémantiquement. Rejeté à vue : « the app looks like it died on
+  colour ». **L'en-tête d'`index.css` documentait déjà cet échec** pour une
+  tentative antérieure ; j'ai lu le précédent, argumenté que les conditions
+  différaient, et obtenu le même résultat.
+- **Dé-teinter les gris.** Retirer le voile violet des neutres a retiré la vie
+  avec. Un gris parfaitement neutre se lit *mort*, un gris teinté se lit
+  *dessiné*. **Les gris violacés de cette palette sont voulus.**
+- **Quatre accents de remplacement rejetés** : achromatique `#18181b`, violet vif
+  `#7c3aed`, teal `#0f766e` (« lu comme vert »), marine `#1e3a8a` (interrompu
+  avant commit). Retour à `#5d396e`.
+- **Backticks dans un message `git-flow commit`** → substitution de commande bash,
+  mot avalé. Arrivé **deux fois**. Corrigé par `git commit --amend -F fichier`.
+- **Littéraux Python multi-lignes sur un fichier CRLF** → aucun match. Normaliser
+  `\r\n`→`\n` en mémoire, éditer, réécrire en CRLF.
+- **Le navigateur est inatteignable** depuis la session (voir Environment).
+- **`git-flow start` refuse un arbre sale**, et `commit` refuse `main` → impasse.
+  Contournement : `git stash push <fichiers>` → `start` → `stash pop`.
+- **Supposer qu'un fetch devenu redondant est supprimable.** Le commentaire de
+  `DossierDetail` disait que le résumé d'article manquait catégorie/type ; la
+  livraison V4 les apporte, mais `ArticleCompactPreview` lit aussi `statut`,
+  `tranche*`, `salePrice*`, `titreFoncier`, `adresse` — **le N+1 reste
+  nécessaire**.
 
 ---
 
@@ -39,99 +76,145 @@ Consommer au fil de l'eau les endpoints V4 que le backend livre, **en rediffusan
 
 | # | Error / Bug | Status | Fix applied |
 |---|-------------|--------|-------------|
-| 90-108 | Sessions antérieures (pièces jointes, KPI, session expirée, hotline, DNS prod, `RouteErrorBoundary`, `ResultatEnvoiVisiteDto`, indicatifs) | Fixed | PR #12 à #23 |
-| 99 | `--chart-1..5` échoue la validation catégorielle | Open (constat) | Une seule teinte pour les marques KPI |
-| 100 | `workflowDescription \|\| statutDescription` masque le statut | Open (différé) | Choix de l'utilisateur |
-| 101 | 9 erreurs eslint préexistantes | Open | 8× `react-refresh/only-export-components` + 1× `set-state-in-effect` |
-| 109 | 4 champs `indicatif*` **sans annotation springdoc** | Open (backend) | Viole la règle 10 du projet |
-| 110 | Offre de prix sans consommateur front | Fixed | PR #24 |
-| 111 | Corps du 409 de `offre-prix` invérifiable | Open (constat) | On lit `ApiError.message`, jamais la structure |
-| 112 | Deux gardes de conversion mortes depuis toujours | Fixed | `9dcd8a2` — repointées sur `activite.dossierId` |
-| 113 | 4 champs de `ProspectionDetailDto` jamais reflétés dans `types.ts` | Fixed | `tranche*`/`article*` |
-| 114 | Filtre « Tranche » sans colonne Tranche | Fixed | Colonne cochable, pas en dur |
-| 115 | Les 8 champs d'`InteractionDto` sans consommateur | Fixed | Journal enrichi |
-| 116 | **`MenuGroupContext is missing` — écran blanc** | Fixed | `DropdownMenuLabel` est un `Menu.GroupLabel` : exige un `Menu.Group` parent, j'avais mis un `<div>` |
-| 117 | **La table élargissait la fenêtre au lieu de défiler** | Fixed | `min-w-0` sur `SidebarInset`. Mesuré : sans, 1534 px pour 1425 ; avec, 1440 pour 1440 |
-| 118 | **`GET /api/prospections` n'a plus de réponse 200 documentée** | **Open (backend)** | Ne déclare qu'un `400`, typé `PageDtoProspectionListItemDto` alors que sa description dit ProblemDetail. `@ApiResponse(responseCode="400")` sans bloc `content`, qui évince le 200. **Trois livraisons de spec sont passées sans le corriger** |
-| 119 | Huit champs de prospection affichés alors qu'ils sont morts | Fixed | Retirés de la consultation, **saisie conservée** sur décision de l'utilisateur |
-| 120 | **La recherche-par-lettre de Base UI volait les frappes** | Fixed | Écouteur **natif** sur le champ (la cible), pas React. `Escape`/flèches/`Entrée`/`Tab` continuent de remonter |
+| 90-120 | Sessions antérieures | Fixed | PR #12 à #27 |
+| 118 | `GET /api/prospections` sans réponse 200 documentée | **Open (backend)** | 4+ livraisons de spec sans correction |
+| 109 | 4 champs `indicatif*` sans springdoc | Open (backend) | Viole la règle 10 |
+| 111 | Corps du 409 d'`offre-prix` invérifiable | Open (constat) | — |
+| 101 | 9 erreurs eslint préexistantes | Open | **La référence est 9** |
+| 121 | **`display:none` périmé masquait les glyphes de statut** | Fixed | Une règle de la 1re passe de densité (sélecteur *différent* de celui modifié) survivait. Attrapée en grepant le CSS compilé, pas à l'œil |
+| 122 | Règle « pastille compacte 16px » morte depuis le dépouillement | Fixed | Retirée avec sa raison ; deux règles se disputaient la même propriété |
+| 123 | **`check-contrast` ne couvrait plus le cas réel** | Fixed ×2 | (a) pastilles dépouillées → paires ton-sur-carte ajoutées ; (b) tons redéclarés en périmètre cellule → fusion des valeurs de cellule |
+| 124 | **En-tête vide au chargement** | Fixed | `h1` en `sr-only` + les retours anticipés loading/error montent `PageShell` **sans crumbs** → repli qui affiche le titre |
+| 125 | `feat/activite-prospection` : `533d8fc` jamais dans la PR #27 | Fixed | Cherry-pické sur la branche suivante |
+| 99 | `--chart-1..5` : 5 gris ne séparent pas 5 séries | Fixed | Rouvert par la passe achromatique, refermé au revert |
 
 ---
 
 ## 🔑 Key Points to Remember
 
-### Contrat et données
-- **Rediffuser la spec contre `HEAD` à chaque « nouvelle version »**, l'utilisateur lance `docs:update` **avant** de le dire.
-- **La fiche prospection est ouverte 7 372 fois/an, sa liste 270.** Facteur 27 — l'arbitrage à refaire pour toute demande sur ces écrans.
-- **Omettre `?colonnes=` n'est pas neutre** : sans lui le backend **n'interroge pas la vue légataire** et les groupes `ACTIVITE`/`CONVERSION` sont absents. Sur `ProspectionListItemDto` (53 champs), `undefined` y veut dire « non demandée », pas « vide ». On n'envoie le paramètre que si la sélection s'écarte des défauts.
-- **Les filtres avancés sont déclarés en un paramètre objet `filtres`, `required: true`** — artefacts springdoc. Spring lie ce genre d'objet depuis des **paramètres plats**, et un objet sans champ obligatoire se lie vide. **Non vérifié (401).** Si un filtre reste sans effet en réel, c'est la première hypothèse.
-- **`activite` vaut `null` en entier sur une pré-prospection** (3 817, exclues par la vue) **et sur les 4 prospections créées par l'application** (pas de `StrEntityId`). Absence = « non disponible », jamais « zéro ». À l'intérieur d'un bloc présent, `nbVisites: 0` veut bien dire « aucune visite ».
-- **Champs mesurés morts, à ne jamais afficher** : `prix` (4 lignes sur 14 114, `0` — jamais `null` — ailleurs), `surface`, `prixJusqua`, `surfaceJusqua`, `avance`, les trois `financement*`. **`cin` vaut 2,7 %, pas 99 %** — la première mesure comptait les non-`NULL` d'une colonne à chaînes vides. **Se méfier des taux à 99 % sur une colonne texte.**
-- **`telephone`/`email` appliquent un repli et servent à joindre ; `mobileProspect` (99,8 %) et `emailFiche` (59,1 %) sont les valeurs brutes et servent à éditer ou dédoublonner.** Pas des doublons.
-- **`creePar` n'est à 34,3 %** que parce que les prospections créées par cette API n'en portent pas (bug backend #41). Vide = « créée depuis l'application ».
-- **`/api/referentiels/entites` est `CfgCompany`** — le référentiel du filtre `societeId`, malgré un nom qui évoque `StrEntity`.
-- **`?colonnes=` et `filtres` n'existent que sur `/api/prospections`.** Ni `/api/pre-prospections` ni `/api/prospects/{id}/prospections`.
-- **`origineSupportId` est le seul filtre sans écran** : pas de référentiel plat des supports, seulement `/origines-prospection/{id}/supports`.
-- **`InteractionDto` : on écrit dans `description`, on lit dans `note`** (le `description` renvoyé est un tampon). **`categorieId` ≠ `resultatId`.**
-- **Chaînes vides déjà normalisées en `null` par le backend** : un test de nullité suffit.
-- **Offre de prix** : 19,7 % d'emails contre 99,7 % de numéros ; **le 409 est le cas majoritaire** ; `offreId`/`offreCode` toujours renseignés — ne jamais conditionner leur affichage à `envoye`.
-- **`remisePercent` est un pourcentage (5 = 5 %)** ; `remisePercent: 0` force une renumérotation. Champs vides = champs **omis**.
+### Le thème — LIRE AVANT DE TOUCHER À `index.css`
+- **La palette est celle d'origine** : mauve `#5d396e` / `#c9a6d6`, gris violacés,
+  fonds `#f7f7f9` / `#111014`.
+- **« Retirer l'accent » est une impasse réglée** — deux échecs indépendants.
+- **Ne pas égaliser les composantes** de `--text`/`--text-h`/`--bg`. Le voile
+  violet est voulu.
+- Le fond gris `#f7f7f9` a été signalé comme gênant ; **le blanc pur fonctionne**
+  (cartes détachées par filet et ombre, pas par remplissage) — piste documentée.
+- **Les glyphes de statut restent** (`TONE_GLYPH` dans `components/ui.tsx`).
+  Couleur seule = échec WCAG sévérité High, que le design d'origine commettait.
 
-### Front
-- **Trois portes de validation ne rendent rien.** `npx tsc -b --force` (le `--force` est obligatoire), `npx eslint src` → **doit rester à 9**, `npm run build`, plus `npm run check:contrast` si on touche aux couleurs. **Pour toute composition Base UI, monter un harnais en plus.**
-- **Le piège flex de largeur** : un élément flex d'une **rangée** a `min-width: auto` = la largeur minimale de son contenu. Un tableau large remonte donc et élargit la page. Casser la contrainte sur l'élément flex de l'axe concerné — ici `min-w-0` sur `SidebarInset`, qui **touche toute l'application**.
-- **Base UI** : `Menu.GroupLabel` exige un `Menu.Group` parent ; la recherche-par-lettre vole les frappes d'un `<input>` interne, et seul un écouteur **natif sur le champ** l'arrête.
-- **Le narrowing d'un `p.activite?.x` testé en JSX ne survit pas au closure d'un `onClick`** — hoister.
-- **La nav se modifie à trois endroits** : `modules.ts`, `App.tsx`, `Layout.tsx`.
-- **Le seuil de re-sonde de session (60 s) doit rester au-dessus du TTL du cache GET (30 s)** dans `api.ts`.
-- **Seuils de la pastille d'inactivité : 30 j / 90 j, proposés par le guide, NON validés par le métier.** Point unique : `SEUIL_INACTIVITE_TIEDE`/`_FROID`.
-- **`--warning` est le rouge (#b02012), `--amber` l'orange (#92580a)** — pas ce que les noms laissent croire.
+### Dé-marquage — incohérence assumée
+- Nom **Arpent**, aucun logo, favicon décâblé. Les fichiers `public/brand/`
+  restent sur disque.
+- **Le mauve restauré était échantillonné de la marque Ayad.** Le dé-marquage ne
+  couvre donc plus que le nom, le logo et le favicon — **pas la palette**. C'est
+  le fil qui reste à tirer, consigné dans `PRODUCT.md`.
+- `PRODUCT.md` avait **passé outre la parole de l'utilisateur** (« no brand
+  constraints ») en se fondant sur des fichiers du dépôt. Corrigé.
+
+### Grilles
+- `DataGrid<T>` porte tout le chrome ; **un écran déclare des `ColonneGrille[]`,
+  pas du balisage**. `ProspectionTable` en est un adaptateur.
+- **Toujours poser `valeur`** quand le texte affiché n'est pas `row[nom]` — sinon
+  tri et filtre comparent un code brut (`IN_WORK`) alors que l'utilisateur voit
+  un libellé (« Pointé »).
+- Tri / Σ / filtres sont **réels mais côté client, sur la page chargée** — le
+  comportement natif de la grille DevExpress d'origine.
+- `selection` rend la gouttière *pilotée* (Dossiers, documents en lot) ;
+  `rendreDetail` ajoute le maître-détail (Offres).
+- Hors périmètre **par décision** : Dashboard, PerformancesCommerciaux, et les
+  sous-tableaux des pages de détail/formulaire (Hotline incluse).
+
+### Contrat V4
+- **Rediffuser la spec contre `HEAD`**, jamais contre l'arbre — l'utilisateur
+  lance `docs:update` avant de le dire, parfois pas du tout (arbre propre ⇒ le
+  lancer soi-même, backend sur `:8080`).
+- **`CreerReglementRequest.dateReglement` est délibérément absent de
+  `types.ts`** : le serveur le refuse à la création (400). L'audit le signalera à
+  chaque passage — c'est voulu.
+- `statut` y est typé au littéral `'IN_WORK'` : `POINTED` est refusé (400).
+- `DossierDetailDto.projetId` provient de la **tranche** de l'article, pas de
+  l'article (`StkItem.CfgProjectId` est `null` sur les 358 lignes réelles).
+- `ProspectDetailDto.tranchesInteret` est **non optionnel** — vide plutôt
+  qu'absent.
+- Quatre `*Id` sans consommateur (`categorieId`, `etageId`, `immeubleId`,
+  `societeId`) : pas d'écran cible, documenté comme voulu.
 
 ### Vérification
-- **Aucune vérification authentifiée n'est possible** : pas d'identifiants, Playwright renvoyé sur l'écran de connexion et **je ne saisis pas de mot de passe**, extension Chrome en erreur sur `localhost:5173`, 401 sur tout appel anonyme y compris les référentiels.
-- **Les captures Playwright atterrissent à la racine du dépôt** (non ignorée) → **les déplacer dans le scratchpad**.
-- **Ordre de publication** : commit → `feature-index add` → `generate` → `push` → attendre la fusion → `sync`.
-- **Commiter `SESSION_MEMORY.md` avec le reste**, jamais la laisser en attente.
+- **Portes** : `npx tsc -b --force`, `npx eslint src --ignore-pattern
+  'src/harness-densite.tsx'` → **doit rester à 9**, `npm run build`, et
+  `npm run check:contrast` dès qu'on touche aux couleurs.
+- **Les portes ne rendent rien.** Le contrôle qui trouve les bugs est le grep du
+  CSS compilé.
+- **Rien n'a été vérifié au navigateur de toute la session.**
 
 ---
 
 ## 📁 Important Files & Paths
 
-- `../immo-crm/instructions/GUIDE-FRONT-fiche-prospection.md` — **le guide d'intégration**, canal du backend vers le front.
-- `src/types.ts` — `ActiviteProspectionDto`, `ColonneDto`, `FiltresAvancesProspection`, `ProspectionListItemDto` (53 champs).
-- `src/lib/colonnes.ts` — ne porte **que** ce que le serveur n'a pas : `ORDRE`, `POIDS`, `LIBELLES_GROUPE`, `filtrerColonnes` (multi-mots, sans accents), `useColonnesVisibles`. **Rien n'est stocké tant que l'utilisateur n'a rien changé**, et « réinitialiser » *efface* l'entrée pour suivre le `parDefaut` serveur.
-- `src/components/ProspectionTable.tsx` — tableau partagé, **rendu générique piloté par le `type`** + `RENDUS`/`CLASSES`/`TITRES`.
-- `src/components/ColumnSelector.tsx` — sections, recherche multi-mots, écouteur natif anti-typeahead, dernière colonne verrouillée.
-- `src/components/ProspectionFiltresAvances.tsx` — volet des 14 filtres.
-- `src/components/ActiviteProspection.tsx` — `InactiviteBadge`, `DossierIssuBanner`, `ActiviteCard`.
-- `src/lib/domain.tsx` — `FiltresAvancesState` (chaînes pour nombres/dates, booléens ternaires), `emptyFiltresAvances`, `countActiveFiltresAvances`, `toFiltresAvances`.
-- `src/lib/referentiels.ts` — `useColonnesProspections`, `useProjetsReferentiel`.
-- `src/components/Layout.tsx` — `min-w-0` sur `SidebarInset`.
-- `src/components/ui/table.tsx` — prop `containerClassName` pour neutraliser l'`overflow-x-auto` interne.
-- `docs/api-docsV4.json` — le contrat. Scratchpad : `diff-spec.cjs`, `spec-head*.json`.
+- `src/index.css` — en-tête réécrit : historique des 4 accents rejetés, les deux
+  constats sur les gris et le fond. **À lire avant tout changement de couleur.**
+- `src/components/DataGrid.tsx` — **nouveau**, le chrome de grille partagé.
+- `src/components/ProspectionTable.tsx` — adaptateur `ColonneDto` → `ColonneGrille`.
+- `src/components/ui.tsx` — `Badge` + la table `TONE_GLYPH`.
+- `src/components/PageShell.tsx` — en-tête compact, `h1` en `sr-only` **avec
+  repli** quand il n'y a pas de crumbs.
+- `scripts/check-contrast.mjs` — étendu : paires ton-sur-carte (cas grille).
+- `src/types.ts` — aligné V4 ; porte les omissions volontaires commentées.
+- `harness-densite.html` + `src/harness-densite.tsx` — **non suivis** (dans
+  `.git/info/exclude`), toujours dans l'arbre. Servis sur
+  `http://localhost:5173/harness-densite.html`, ils mesurent et affichent leur
+  propre verdict. **À supprimer après vérification humaine.**
+- Scratchpad : `diff-spec.cjs`, `audit-types.cjs`, `theme*.py`, `fixmsg*.py`.
 
 ---
 
 ## 🔧 Environment & Config
 
-- Windows 11, PowerShell + Bash. Fichiers **CRLF**.
-- React 19 + TS + Vite 8 + Tailwind v4 + shadcn/**Base UI**, React Router v7. Aucune bibliothèque de graphiques.
-- Serveur de dev sur `:5173` (lancé par l'utilisateur), backend Spring sur `:8080` depuis IntelliJ. Prod Vercel sur `immo.tsiory.tech`.
-- Branche courante `feat/activite-prospection`, **8 commits, poussée, en attente de fusion** : `9dcd8a2`, `17ccc1c`, `61dcaf0` (correctif de l'utilisateur), `d840df0`, `6d4eb9e`, `28b22f9`, `b549548`, `7c7c7f7`.
-- Branches supprimées récupérables ~30 j : `feat/remise-dossier` = `9e2838a`, `refractor/best-practice` = `fe5a204`.
+- Windows 11, PowerShell + Git Bash. Fichiers **CRLF**.
+- Serveur de dev sur `:5173` (lancé par l'utilisateur), backend Spring sur `:8080`.
+- **`gh` CLI installé** — `C:\Program Files\GitHub CLI\gh.exe`, **pas sur le PATH**
+  des shells déjà lancés. Authentifié `TsioryRasoloarijaona`, scope `repo`.
+- **Aucun navigateur atteignable** : `claude-in-chrome` renvoie
+  `ERR_CONNECTION_REFUSED` sur le serveur de dev alors que `curl` répond 200 (son
+  Chrome n'est pas sur cette machine) ; `--dump-dom` a disparu de Chrome ; pas de
+  Playwright dans le projet. Les **URL publiques** (préviews Vercel) *naviguent*,
+  mais `javascript_tool` exige une permission de domaine.
+- **`main` à `2b7d79d`** — PR #28, #29, #30, #31 fusionnées.
 
 ---
 
 ## ⏭️ Next Step
-> Attendre la fusion GitHub de `feat/activite-prospection`, puis `node .claude/scripts/git-flow.mjs sync front`. Ne rien commencer d'autre avant.
+
+> **Vérifier au navigateur** ce qui n'a jamais été vu : l'en-tête compact sur une
+> page en chargement (le repli sans crumbs), les six glyphes de statut à 11px dans
+> une liste, le dépli d'**Offres** et la sélection en lot de **Dossiers** — les
+> deux seuls endroits où une fonctionnalité qui marchait a été touchée.
 
 ### Backlog (par priorité)
-- [ ] **Vérifier sur données réelles** — rien de la refonte prospection n'a pu l'être : (1) le volet de filtres avancés, et surtout **que le backend accepte bien les paramètres plats** ; (2) le sélecteur de colonnes sur le vrai catalogue — **les `nom` sont supposés égaux aux noms de champs du DTO**, confirmé par l'exemple de la spec sur quatre seulement ; (3) une prospection **réellement transformée** (bandeau, bouton, redirection anti-doublon, badge de catégorie du journal) ; (4) une **pré-prospection** → `ActiviteCard` en « non disponible » ; (5) modifier un prospect sans perdre son indicatif — seul scénario où une erreur **détruirait** une donnée ; (6) le 409 de l'offre de prix (#111).
-- [ ] **Demandes backend** (via `from_front.md`) : **la réponse 200 disparue de `GET /api/prospections` (#118)**, trois livraisons sans correction ; un référentiel plat des supports d'origine ; le **tri serveur par `joursInactivite`** (`Pageable.sort` sur un champ de vue, non documenté) — c'est le vrai manque UX « relances » ; les 4 champs `indicatif*` sans springdoc (#109) ; le corps du 409 (#111) ; `?colonnes=`/`filtres` sur `/api/pre-prospections`.
-- [ ] **Faire valider les seuils 30 j / 90 j** de la pastille d'inactivité par le métier.
-- [ ] **Effets de bord à surveiller** du `min-w-0` sur `SidebarInset` : les autres écrans larges (Dossiers, Encaissements, Articles) n'ont pas de conteneur `overflow-auto` comme les listes de prospection — leur contenu large sera peut-être coupé plutôt qu'étiré.
-- [ ] **Champs spec absents de `types.ts`** : `DevisDto.schemaFinancement`, `MontantsOffreDto.commissionPercent`, `ProspectionAutreTrancheDto`, `DossierListItemDto.dateConcretisation`, et surtout **`CreerReglementRequest.statut`/`dateReglement`** — seul écart *fonctionnel*.
-- [ ] **Quatre sous-collections de prospection sans écran** : villes, types de bien, profils, catégories. 12 endpoints, fonctions `api.ts` écrites, zéro appelant.
-- [ ] Ré-échelonner `--chart-1..5` (#99). Calendrier : ni note ni heure. Audit #3 mobile : 18/27 pages sans breakpoint, **décision de périmètre à prendre**.
-- [ ] Nettoyer `ModifierProspectionRequest.trancheId/articleId` (jamais envoyés).
+
+- [ ] **`refactor/theme-noir-blanc` : 8 commits, poussée, NON fusionnée, SANS PR.**
+      Nom faux (ne livre ni noir-et-blanc ni le violet). Contenu net vs `main` :
+      renommage Arpent + favicon, glyphes de statut, en-tête compact, 5
+      descriptions retirées, paires de contraste. **Décision en attente de
+      l'utilisateur** : écraser les 8 commits en un seul + ouvrir la PR sous un
+      titre exact (réécrit une branche déjà poussée).
+- [ ] Supprimer le harnais après la vérification humaine.
+- [ ] **Demandes backend** (`from_front.md`) : la réponse 200 disparue de
+      `GET /api/prospections` (#118) ; référentiel plat des supports d'origine ;
+      tri serveur par `joursInactivite` ; les 4 `indicatif*` sans springdoc
+      (#109) ; corps du 409 (#111) ; `?colonnes=`/`filtres` sur
+      `/api/pre-prospections`.
+- [ ] Vérifier sur données réelles que le backend accepte les **paramètres plats**
+      des filtres avancés, et que `typeProspection=ComPreProspection` ramène bien
+      les **830 pré-prospections**. Un code inconnu ne lève pas d'erreur — il rend
+      un résultat vide, indistinguable de « aucun résultat ».
+- [ ] Les colonnes `typeProspectionCode`/`typeProspection` apparaissent-elles dans
+      le **catalogue serveur** ? Il est servi à l'exécution, la spec ne le dit pas.
+- [ ] Faire valider les seuils 30 j / 90 j de la pastille d'inactivité.
+- [ ] Le N+1 par article de `DossierDetail` — demande serveur éventuelle.
+- [ ] Champs spec absents de `types.ts` : `MontantsOffreDto.commissionPercent` est
+      un **ratio** (0.03) quand `remisePercent` voisin est un entier (5).
+- [ ] 4 sous-collections de prospection sans écran (villes, types de bien,
+      profils, catégories) : 12 endpoints, fonctions écrites, zéro appelant.
 - [ ] 9 erreurs eslint préexistantes (#101).
