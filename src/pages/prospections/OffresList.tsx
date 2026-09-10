@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Download, FileText, Plus, RotateCcw, Search } from 'lucide-react';
+import { Download, FileText, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, ResultsRegion } from '../../components/ui';
 import DevisFormSection from '../../components/DevisFormSection';
@@ -11,12 +11,11 @@ import { DialogFooter } from '../../components/ui/dialog';
 import { Field as FormField, FieldLabel } from '../../components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import { creerDevis, DEFAULT_PAGE_SIZE, downloadDevisDocument, getProspection, listOffres, listProspections, listTranches, viewDevisDocument } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { formatCurrency, formatDate } from '../../lib/format';
-import { cn } from '../../lib/utils';
+import { formatCurrency } from '../../lib/format';
 import { prospectionDisplayName } from '../../lib/domain';
 import type { CreerDevisRequest, DevisDto } from '../../types';
 
@@ -71,10 +70,10 @@ export default function OffresList() {
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
   const [page, setPage] = useState(0);
-  // Le clic sur une ligne déplie ses montants HT/TTC sur place — pas de
-  // redirection vers la fiche prospection (demande explicite : cette liste
-  // doit rester consultable sans quitter la page).
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Le dépli des montants HT/TTC appartient maintenant à DataGrid (`rendreDetail`),
+  // qui porte l'état d'expansion. Toujours pas de redirection vers la fiche
+  // prospection au clic : demande explicite, cette liste doit rester
+  // consultable sans quitter la page — d'où l'absence de `onOuvrir`.
   const [showCreate, setShowCreate] = useState(false);
 
   const { data, loading, error, refetch } = useApi(
@@ -252,38 +251,13 @@ export default function OffresList() {
               />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <Table className="w-full min-w-240 table-fixed">
-                  <TableHeader>
-                    <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
-                      <TableHead className="w-[4%]" />
-                      <TableHead className="w-[8%]">Code</TableHead>
-                      <TableHead className="w-[7%]">Date</TableHead>
-                      <TableHead className="w-[13%]">Tranche</TableHead>
-                      <TableHead className="w-[6%]">Article</TableHead>
-                      <TableHead className="w-[11%]">Commercial</TableHead>
-                      <TableHead className="w-[11%]">Prospect</TableHead>
-                      <TableHead className="w-[8%]">Prospection</TableHead>
-                      <TableHead className="w-[10%]">Mode de paiement</TableHead>
-                      <TableHead className="w-[6%] text-right">Remise</TableHead>
-                      <TableHead className="w-[12%] text-right">Prix TTC après remise</TableHead>
-                      <TableHead className="w-[9%] text-right">Fiche</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {offres.map((o, index) => {
-                      const expanded = expandedId === o.id;
-                      return (
-                        <OffreRows
-                          key={o.id}
-                          offre={o}
-                          expanded={expanded}
-                          striped={index % 2 === 1}
-                          onToggle={() => setExpandedId(expanded ? null : o.id)}
-                        />
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                <DataGrid
+                  rows={offres}
+                  colonnes={COLONNES}
+                  minWidth="66rem"
+                  libelleLigne={(o) => `Offre ${o.code ?? ''}`.trim()}
+                  rendreDetail={detailOffre}
+                />
               </div>
             )}
             <div className="shrink-0">
@@ -410,19 +384,13 @@ function NouvelleOffreDialog({ onClose, onCreated }: { onClose: () => void; onCr
  * per-prospection `DevisRow` (`ProspectionDetail.tsx`), reused here since
  * this list has no parent prospection page context of its own to fall back
  * on. */
-function OffreRows({
-  offre: o,
-  expanded,
-  striped,
-  onToggle,
-}: {
-  offre: DevisDto;
-  expanded: boolean;
-  striped: boolean;
-  onToggle: () => void;
-}) {
-  const m = o.montants;
-  const hasRemise = (m?.remisePercent ?? 0) > 0;
+/** Actions « Fiche offre » d'une ligne.
+ *
+ * Composant a part entiere, et non un rendu inline : l'etat de generation
+ * (`generating`/`genError`) est **par ligne**. Une fonction de rendu de
+ * cellule ne peut pas porter d'etat ; un composant si. C'est ce qui permet de
+ * passer l'ecran a DataGrid sans perdre le retour d'erreur par offre. */
+function FicheOffreActions({ offre: o }: { offre: DevisDto }) {
   const [generating, setGenerating] = useState<'view' | 'download' | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
 
@@ -434,131 +402,162 @@ function OffreRows({
       if (action === 'view') await viewDevisDocument(o.prospectionId, o.id);
       else await downloadDevisDocument(o.prospectionId, o.id, `offre-${o.code}.pdf`);
     } catch (err) {
-      setGenError(err instanceof Error ? err.message : 'Échec de la génération.');
+      setGenError(err instanceof Error ? err.message : 'Echec de la generation.');
     } finally {
       setGenerating(null);
     }
   }
 
   return (
-    <>
-      <TableRow
-        tabIndex={0}
-        role="button"
-        aria-expanded={expanded}
-        aria-label={`${expanded ? 'Replier' : 'Déplier'} l'offre ${o.code}`}
-        className={cn('cursor-pointer', striped && 'bg-muted/25 hover:bg-muted/40', expanded && 'bg-(--brand-bg) hover:bg-(--brand-bg)')}
-        onClick={onToggle}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); }
-        }}
-      >
-        <TableCell>
-          {expanded ? <ChevronDown className="size-4 text-(--brand)" /> : <ChevronRight className="size-4 text-muted-foreground" />}
-        </TableCell>
-        <TableCell className="truncate" title={o.code}>
-          <Badge tone="progress" className="font-mono">{o.code ?? '—'}</Badge>
-        </TableCell>
-        <TableCell className="truncate text-muted-foreground">{formatDate(o.dateDocument)}</TableCell>
-        <TableCell className="truncate" title={o.trancheDescription || o.tranche}>
-          {(o.trancheDescription || o.tranche) ? <Badge tone="neutral">{o.trancheDescription || o.tranche}</Badge> : '—'}
-        </TableCell>
-        <TableCell className="truncate text-muted-foreground">{o.articleDescription || o.article || '—'}</TableCell>
-        <TableCell className="truncate text-muted-foreground" title={o.commercial}>{o.commercial || '—'}</TableCell>
-        <TableCell className="truncate font-medium text-foreground" title={o.prospect}>{o.prospect || '—'}</TableCell>
-        <TableCell className="truncate">
-          {o.prospectionCode ? <Badge tone="info">{o.prospectionCode}</Badge> : <span className="text-muted-foreground">—</span>}
-        </TableCell>
-        <TableCell className="truncate text-muted-foreground">{o.modePaiement || '—'}</TableCell>
-        <TableCell className="text-right">
-          {hasRemise ? <Badge tone="amber">{m!.remisePercent} %</Badge> : <span className="text-muted-foreground">0 %</span>}
-        </TableCell>
-        <TableCell className="truncate text-right font-semibold tabular-nums text-(--success)">
-          {formatCurrency(m?.prixVenteTTC)}
-        </TableCell>
-        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-          <div className="flex flex-col items-end gap-0.5">
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-6 gap-1 px-1.5 text-body"
-                disabled={!!generating || !o.prospectionId}
-                title={!o.prospectionId ? 'Prospection introuvable pour cette offre' : undefined}
-                onClick={() => handleGenerateFiche('view')}
-              >
-                <FileText className="size-3" />
-                {generating === 'view' ? 'Génération…' : 'Fiche offre'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                className="size-6"
-                disabled={!!generating || !o.prospectionId}
-                title="Télécharger la fiche offre (PDF)"
-                aria-label="Télécharger la fiche offre"
-                onClick={() => handleGenerateFiche('download')}
-              >
-                <Download className="size-3" />
-              </Button>
-            </div>
-            {genError && <span className="text-micro text-destructive">{genError}</span>}
-          </div>
-        </TableCell>
-      </TableRow>
-      {expanded && (
-        <TableRow className="hover:bg-transparent">
-          <TableCell colSpan={12} className="bg-muted/30 py-3">
-            {!m ? (
-              <p className="text-body text-muted-foreground">Aucun détail de montants pour cette offre.</p>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <div>
-                  <div className="mb-1.5 text-micro font-medium text-muted-foreground">Avant remise</div>
-                  <FieldGrid>
-                    <Field label="TVA" value={m.tvaRatio != null ? `${Math.round(m.tvaRatio * 100)} %` : undefined} />
-                    <Field label="Prix m² HT" value={m.prixM2HT != null ? formatCurrency(m.prixM2HT) : undefined} />
-                    <Field label="Prix m² TTC" value={m.prixM2TTC != null ? formatCurrency(m.prixM2TTC) : undefined} />
-                    <Field label="Article HT" value={m.prixArticleHT != null ? formatCurrency(m.prixArticleHT) : undefined} />
-                    <Field label="Article TTC" value={m.prixArticleTTC != null ? formatCurrency(m.prixArticleTTC) : undefined} />
-                    <Field label="Sous-articles HT" value={m.prixSousArticlesHT != null ? formatCurrency(m.prixSousArticlesHT) : undefined} />
-                    <Field label="Sous-articles TTC" value={m.prixSousArticlesTTC != null ? formatCurrency(m.prixSousArticlesTTC) : undefined} />
-                    <Field label="Total HT" value={m.totalHT != null ? formatCurrency(m.totalHT) : undefined} />
-                    <Field label="Total TTC" value={m.totalTTC != null ? formatCurrency(m.totalTTC) : undefined} />
-                  </FieldGrid>
-                </div>
-
-                {(m.remisePercent ?? 0) > 0 && (
-                  <div>
-                    <div className="mb-1.5 text-micro font-medium text-muted-foreground">Remise</div>
-                    <FieldGrid>
-                      <Field label="Taux" value={m.remisePercent != null ? `${m.remisePercent} %` : undefined} />
-                      <Field label="Remise HT" value={m.remiseHT != null ? formatCurrency(m.remiseHT) : undefined} />
-                      <Field label="Remise TTC" value={m.remiseTTC != null ? formatCurrency(m.remiseTTC) : undefined} />
-                      <Field label="Prix m² après remise HT" value={m.prixM2ApresRemiseHT != null ? formatCurrency(m.prixM2ApresRemiseHT) : undefined} />
-                      <Field label="Prix m² après remise TTC" value={m.prixM2ApresRemiseTTC != null ? formatCurrency(m.prixM2ApresRemiseTTC) : undefined} />
-                      <Field label="Article après remise HT" value={m.prixArticleApresRemiseHT != null ? formatCurrency(m.prixArticleApresRemiseHT) : undefined} />
-                      <Field label="Article après remise TTC" value={m.prixArticleApresRemiseTTC != null ? formatCurrency(m.prixArticleApresRemiseTTC) : undefined} />
-                      <Field label="Sous-articles après remise HT" value={m.prixSousArticlesApresRemiseHT != null ? formatCurrency(m.prixSousArticlesApresRemiseHT) : undefined} />
-                      <Field label="Sous-articles après remise TTC" value={m.prixSousArticlesApresRemiseTTC != null ? formatCurrency(m.prixSousArticlesApresRemiseTTC) : undefined} />
-                    </FieldGrid>
-                  </div>
-                )}
-
-                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-border pt-2.5">
-                  <span className="text-micro font-medium text-muted-foreground">Prix de vente final</span>
-                  <span className="text-label font-semibold text-foreground">HT {m.prixVenteHT != null ? formatCurrency(m.prixVenteHT) : '—'}</span>
-                  <span className="text-label font-semibold text-foreground">TTC {m.prixVenteTTC != null ? formatCurrency(m.prixVenteTTC) : '—'}</span>
-                </div>
-
-                {o.notes && <p className="whitespace-pre-wrap text-body text-foreground">{o.notes}</p>}
-              </div>
-            )}
-          </TableCell>
-        </TableRow>
-      )}
-    </>
+    <div className="flex flex-col items-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-5 gap-1 px-1.5 text-micro"
+          disabled={!!generating || !o.prospectionId}
+          title={!o.prospectionId ? 'Prospection introuvable pour cette offre' : undefined}
+          onClick={() => handleGenerateFiche('view')}
+        >
+          <FileText className="size-3" />
+          {generating === 'view' ? 'Generation...' : 'Fiche offre'}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          className="size-5"
+          disabled={!!generating || !o.prospectionId}
+          title="Telecharger la fiche offre (PDF)"
+          aria-label="Telecharger la fiche offre"
+          onClick={() => handleGenerateFiche('download')}
+        >
+          <Download className="size-3" />
+        </Button>
+      </div>
+      {genError && <span className="text-micro text-destructive">{genError}</span>}
+    </div>
   );
 }
+
+/** Panneau de detail d'une offre — le meme contenu qu'avant, deplace sous le
+ * `rendreDetail` de DataGrid. */
+function detailOffre(o: DevisDto) {
+  const m = o.montants;
+  if (!m) return <p className="text-body text-muted-foreground">Aucun detail de montants pour cette offre.</p>;
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <div className="mb-1.5 text-micro font-medium text-muted-foreground">Avant remise</div>
+        <FieldGrid>
+          <Field label="TVA" value={m.tvaRatio != null ? `${Math.round(m.tvaRatio * 100)} %` : undefined} />
+          <Field label="Prix m2 HT" value={m.prixM2HT != null ? formatCurrency(m.prixM2HT) : undefined} />
+          <Field label="Prix m2 TTC" value={m.prixM2TTC != null ? formatCurrency(m.prixM2TTC) : undefined} />
+          <Field label="Article HT" value={m.prixArticleHT != null ? formatCurrency(m.prixArticleHT) : undefined} />
+          <Field label="Article TTC" value={m.prixArticleTTC != null ? formatCurrency(m.prixArticleTTC) : undefined} />
+          <Field label="Sous-articles HT" value={m.prixSousArticlesHT != null ? formatCurrency(m.prixSousArticlesHT) : undefined} />
+          <Field label="Sous-articles TTC" value={m.prixSousArticlesTTC != null ? formatCurrency(m.prixSousArticlesTTC) : undefined} />
+          <Field label="Total HT" value={m.totalHT != null ? formatCurrency(m.totalHT) : undefined} />
+          <Field label="Total TTC" value={m.totalTTC != null ? formatCurrency(m.totalTTC) : undefined} />
+        </FieldGrid>
+      </div>
+
+      {(m.remisePercent ?? 0) > 0 && (
+        <div>
+          <div className="mb-1.5 text-micro font-medium text-muted-foreground">Remise</div>
+          <FieldGrid>
+            <Field label="Taux" value={m.remisePercent != null ? `${m.remisePercent} %` : undefined} />
+            <Field label="Remise HT" value={m.remiseHT != null ? formatCurrency(m.remiseHT) : undefined} />
+            <Field label="Remise TTC" value={m.remiseTTC != null ? formatCurrency(m.remiseTTC) : undefined} />
+            <Field label="Prix m2 apres remise HT" value={m.prixM2ApresRemiseHT != null ? formatCurrency(m.prixM2ApresRemiseHT) : undefined} />
+            <Field label="Prix m2 apres remise TTC" value={m.prixM2ApresRemiseTTC != null ? formatCurrency(m.prixM2ApresRemiseTTC) : undefined} />
+            <Field label="Article apres remise HT" value={m.prixArticleApresRemiseHT != null ? formatCurrency(m.prixArticleApresRemiseHT) : undefined} />
+            <Field label="Article apres remise TTC" value={m.prixArticleApresRemiseTTC != null ? formatCurrency(m.prixArticleApresRemiseTTC) : undefined} />
+            <Field label="Sous-articles apres remise HT" value={m.prixSousArticlesApresRemiseHT != null ? formatCurrency(m.prixSousArticlesApresRemiseHT) : undefined} />
+            <Field label="Sous-articles apres remise TTC" value={m.prixSousArticlesApresRemiseTTC != null ? formatCurrency(m.prixSousArticlesApresRemiseTTC) : undefined} />
+          </FieldGrid>
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-border pt-2.5">
+        <span className="text-micro font-medium text-muted-foreground">Prix de vente final</span>
+        <span className="text-label font-semibold text-foreground">HT {m.prixVenteHT != null ? formatCurrency(m.prixVenteHT) : '-'}</span>
+        <span className="text-label font-semibold text-foreground">TTC {m.prixVenteTTC != null ? formatCurrency(m.prixVenteTTC) : '-'}</span>
+      </div>
+
+      {o.notes && <p className="whitespace-pre-wrap text-body text-foreground">{o.notes}</p>}
+    </div>
+  );
+}
+
+const TIRET_MUET = <span className="text-muted-foreground">-</span>;
+
+const COLONNES: ColonneGrille<DevisDto>[] = [
+  {
+    nom: 'code',
+    libelle: 'Code',
+    largeur: 8,
+    titre: (o) => o.code,
+    rendu: (o) => (
+      <Badge tone="progress" className="font-mono">
+        {o.code ?? '-'}
+      </Badge>
+    ),
+  },
+  { nom: 'dateDocument', libelle: 'Date', type: 'DATE', largeur: 7, classe: 'text-muted-foreground' },
+  {
+    nom: 'trancheDescription',
+    libelle: 'Tranche',
+    largeur: 13,
+    valeur: (o) => o.trancheDescription || o.tranche,
+    titre: (o) => o.trancheDescription || o.tranche,
+    rendu: (o) =>
+      o.trancheDescription || o.tranche ? <Badge tone="neutral">{o.trancheDescription || o.tranche}</Badge> : TIRET_MUET,
+  },
+  {
+    nom: 'articleDescription',
+    libelle: 'Article',
+    largeur: 6,
+    classe: 'text-muted-foreground',
+    valeur: (o) => o.articleDescription || o.article,
+  },
+  { nom: 'commercial', libelle: 'Commercial', largeur: 11, classe: 'text-muted-foreground', titre: (o) => o.commercial },
+  { nom: 'prospect', libelle: 'Prospect', largeur: 11, classe: 'font-medium text-foreground', titre: (o) => o.prospect },
+  {
+    nom: 'prospectionCode',
+    libelle: 'Prospection',
+    largeur: 8,
+    rendu: (o) => (o.prospectionCode ? <Badge tone="info">{o.prospectionCode}</Badge> : TIRET_MUET),
+  },
+  { nom: 'modePaiement', libelle: 'Mode de paiement', largeur: 10, classe: 'text-muted-foreground' },
+  {
+    nom: 'remisePercent',
+    libelle: 'Remise',
+    type: 'NOMBRE',
+    largeur: 6,
+    // La remise vit dans `montants`, pas a la racine : sans `valeur` le tri et
+    // le filtre liraient un champ absent et la colonne serait inerte.
+    valeur: (o) => o.montants?.remisePercent ?? 0,
+    rendu: (o) =>
+      (o.montants?.remisePercent ?? 0) > 0 ? (
+        <Badge tone="amber">{o.montants!.remisePercent} %</Badge>
+      ) : (
+        <span className="text-muted-foreground">0 %</span>
+      ),
+  },
+  {
+    nom: 'prixVenteTTC',
+    libelle: 'Prix TTC apres remise',
+    type: 'MONTANT',
+    largeur: 12,
+    classe: 'font-semibold text-(--success)',
+    valeur: (o) => o.montants?.prixVenteTTC,
+  },
+  {
+    nom: 'fiche',
+    libelle: 'Fiche',
+    largeur: 9,
+    rendu: (o) => <FicheOffreActions offre={o} />,
+  },
+];

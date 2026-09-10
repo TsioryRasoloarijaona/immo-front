@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, Eye, Folder, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -8,7 +8,7 @@ import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import {
   DEFAULT_PAGE_SIZE,
   DOSSIER_BATCH_DOC_LABELS,
@@ -22,7 +22,8 @@ import {
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { formatCurrency, formatDate } from '../../lib/format';
+// Formatage monétaire et de date : porté par DataGrid via le `type` de
+// colonne, plus par cet écran.
 import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, canonicalStatusLabel, normalizeStatus, toneForStatus } from '../../lib/dossierStatus';
 import type { DossierListItemDto, PageDto } from '../../types';
 
@@ -172,6 +173,60 @@ export default function DossiersList() {
     { label: 'Tous les commerciaux', value: 'all' },
     ...commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id })),
   ];
+
+  /* Les colonnes vivent dans le composant et non au module : la colonne
+     « Prospection » a besoin de `navigate`, et le statut de `toneForStatus`.
+     `useMemo` sur `navigate` seul — le reste est stable. */
+  const colonnes = useMemo<ColonneGrille<DossierListItemDto>[]>(
+    () => [
+      { nom: 'clientNom', libelle: 'Client', largeur: 17, classe: 'font-medium text-foreground', titre: (d) => d.clientNom ?? undefined },
+      {
+        nom: 'code',
+        libelle: 'Code',
+        largeur: 11,
+        rendu: (d) => (
+          <Badge tone="neutral" className="font-mono">
+            {d.code}
+          </Badge>
+        ),
+        titre: (d) => d.code,
+      },
+      {
+        nom: 'prospectionCode',
+        libelle: 'Prospection',
+        largeur: 11,
+        rendu: (d) =>
+          d.prospectionId ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/prospections/${d.prospectionId}`);
+              }}
+              title="Ouvrir la prospection d'origine"
+            >
+              <Badge tone="info">{d.prospectionCode || 'Voir'}</Badge>
+            </button>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        nom: 'statut',
+        libelle: 'Statut',
+        largeur: 13,
+        // Tri et filtre sur le libellé canonique, pas sur le statut brut :
+        // c'est le libellé qui est affiché et donc tapé.
+        valeur: (d) => canonicalStatusLabel(d.statut),
+        rendu: (d) => <Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge>,
+      },
+      { nom: 'commercialNom', libelle: 'Commercial', largeur: 13, classe: 'text-muted-foreground', titre: (d) => d.commercialNom ?? undefined },
+      { nom: 'prix', libelle: 'Prix', type: 'MONTANT', largeur: 10, classe: 'text-(--info)' },
+      { nom: 'totalAPayer', libelle: 'Total à payer', type: 'MONTANT', largeur: 11, classe: 'font-semibold text-(--success)' },
+      { nom: 'dateDocument', libelle: 'Date', type: 'DATE', largeur: 9, classe: 'text-muted-foreground' },
+    ],
+    [navigate],
+  );
 
   function toggleSelected(d: DossierListItemDto) {
     setSelectedIds((prev) => {
@@ -389,71 +444,38 @@ export default function DossiersList() {
               />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <Table className="w-full min-w-160 table-fixed">
-                  <TableHeader>
-                    <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
-                      {batchDocKind && <TableHead className="w-9" />}
-                      <TableHead className="w-[17%]">Client</TableHead>
-                      <TableHead className="w-[11%]">Code</TableHead>
-                      <TableHead className="w-[11%]">Prospection</TableHead>
-                      <TableHead className="w-[13%]">Statut</TableHead>
-                      <TableHead className="w-[13%]">Commercial</TableHead>
-                      <TableHead className="w-[10%] text-right">Prix</TableHead>
-                      <TableHead className="w-[11%] text-right">Total à payer</TableHead>
-                      <TableHead className="w-[9%]">Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {dossiers.map((d) => (
-                      <TableRow
-                        key={d.id}
-                        tabIndex={0}
-                        role="link"
-                        aria-label={`Ouvrir le dossier ${d.clientNom ?? d.code}`}
-                        className={selectedIds.has(d.id) ? 'cursor-pointer bg-muted/40' : 'cursor-pointer'}
-                        onClick={() => navigate(`/dossiers/${d.id}`)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') navigate(`/dossiers/${d.id}`);
-                        }}
-                      >
-                        {batchDocKind && (
-                          <TableCell onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              className="size-3.5"
-                              aria-label={`Sélectionner ${d.clientNom ?? d.code}`}
-                              checked={selectedIds.has(d.id)}
-                              onChange={() => toggleSelected(d)}
-                            />
-                          </TableCell>
-                        )}
-                        <TableCell className="truncate font-medium text-foreground" title={d.clientNom ?? undefined}>{d.clientNom ?? '—'}</TableCell>
-                        <TableCell className="truncate" title={d.code}><Badge tone="neutral" className="font-mono">{d.code}</Badge></TableCell>
-                        <TableCell className="truncate">
-                          {d.prospectionId ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/prospections/${d.prospectionId}`);
-                              }}
-                              title="Ouvrir la prospection d'origine"
-                            >
-                              <Badge tone="info">{d.prospectionCode || 'Voir'}</Badge>
-                            </button>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="truncate"><Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge></TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={d.commercialNom ?? undefined}>{d.commercialNom ?? '—'}</TableCell>
-                        <TableCell className="truncate text-right tabular-nums text-(--info)">{formatCurrency(d.prix)}</TableCell>
-                        <TableCell className="truncate text-right font-semibold tabular-nums text-(--success)">{formatCurrency(d.totalAPayer)}</TableCell>
-                        <TableCell className="truncate text-muted-foreground">{formatDate(d.dateDocument)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <DataGrid
+                  rows={dossiers}
+                  colonnes={colonnes}
+                  minWidth="58rem"
+                  onOuvrir={(id) => navigate(`/dossiers/${id}`)}
+                  libelleLigne={(d) => `Ouvrir le dossier ${d.clientNom ?? d.code}`}
+                  // La gouttiere *est* le selecteur de lot quand un type de
+                  // document est choisi : sans ca l'ecran aurait deux colonnes
+                  // de cases, dont une decorative.
+                  selection={
+                    batchDocKind
+                      ? {
+                          ids: selectedIds,
+                          onToggle: (id) => {
+                            const d = dossiers.find((x) => x.id === id);
+                            if (d) toggleSelected(d);
+                          },
+                          onToggleAll: (ids) => {
+                            setSelectedIds(new Set(ids));
+                            setSelectedLabels((prev) => {
+                              const next = { ...prev };
+                              for (const id of ids) {
+                                const d = dossiers.find((x) => x.id === id);
+                                if (d) next[id] = d.code || d.clientNom || d.id;
+                              }
+                              return next;
+                            });
+                          },
+                        }
+                      : undefined
+                  }
+                />
               </div>
             )}
             <div className="shrink-0">

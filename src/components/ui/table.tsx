@@ -25,7 +25,7 @@ function Table({
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
+        className={cn("w-full caption-bottom text-body", className)}
         {...props}
       />
     </div>
@@ -65,12 +65,19 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   )
 }
 
+/** `h-(--row-h)` rather than cell padding is what sets the row height.
+ *
+ * In table layout `height` is a **minimum**, so the row still grows for a
+ * cell that genuinely needs it instead of clipping — and paired with
+ * `align-middle` on the cells it needs no vertical-padding arithmetic to stay
+ * centred. It also means one token governs the density of every table in the
+ * app: nothing here hardcodes 24px. */
 function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   return (
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        "h-(--row-h) border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
         className
       )}
       {...props}
@@ -78,12 +85,26 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
+/* Vertical column rules, at 60% against the horizontals' full strength.
+   At a 24px pitch with ten-plus columns the eye loses its column between two
+   adjacent date fields — which is exactly why the legacy grid draws them. The
+   asymmetry is deliberate: a row is still the primary unit (you read one lead
+   across), so horizontals lead and verticals only track. Equal weight turns
+   a dense grid into graph paper. `last:border-r-0` keeps the outer edge clean. */
+const RULE = "border-r border-border/60 last:border-r-0"
+
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       data-slot="table-head"
       className={cn(
-        "h-8 px-2 text-left align-middle text-xs font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        // Pas de fond ici : neuf écrans posent déjà le leur sur l'en-tête
+        // collant (`bg-card`/`bg-background`), et ProspectionTable le pose sur
+        // la cellule même — il gagnerait sur celui-ci. L'en-tête se distingue
+        // par son `border-b`, sa graisse et son `text-micro` contre le
+        // `text-body` du corps, sans toucher à la couleur.
+        "h-(--row-h-head) px-(--cell-px) text-left align-middle text-micro font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        RULE,
         className
       )}
       {...props}
@@ -96,7 +117,8 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "py-1.5 px-2 align-middle whitespace-nowrap text-sm [&:has([role=checkbox])]:pr-0",
+        "px-(--cell-px) py-0 align-middle whitespace-nowrap text-body [&:has([role=checkbox])]:pr-0",
+        RULE,
         className
       )}
       {...props}

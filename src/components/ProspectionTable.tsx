@@ -1,36 +1,13 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Badge } from './ui';
 import { InactiviteBadge } from './ActiviteProspection';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { formatCurrency, formatDate, formatNumber, isPastOrToday } from '../lib/format';
+import DataGrid, { type ColonneGrille } from './DataGrid';
+import { formatCurrency, formatDate, isPastOrToday } from '../lib/format';
 import { etapeBadgeTone, prospectionDisplayName } from '../lib/domain';
 import { poidsColonne } from '../lib/colonnes';
-import { cn } from '../lib/utils';
-import type { ColonneDto, ProspectionListItemDto, TypeColonne } from '../types';
+import type { ColonneDto, ProspectionListItemDto } from '../types';
 
 const TIRET = <span className="text-muted-foreground">—</span>;
-
-/** Rendu par défaut, piloté par le `type` que porte le catalogue serveur.
- *
- * C'est ce qui permet à une colonne **ajoutée côté serveur** d'apparaître sans
- * toucher à ce fichier : elle s'affiche formatée et alignée selon son type. Les
- * rendus ci-dessous ne traitent que les colonnes qui méritent mieux qu'un
- * texte — un badge, un seuil coloré. */
-function rendreParType(valeur: unknown, type: TypeColonne): ReactNode {
-  if (valeur === null || valeur === undefined || valeur === '') return TIRET;
-  switch (type) {
-    case 'MONTANT':
-      return typeof valeur === 'number' ? formatCurrency(valeur) : String(valeur);
-    case 'NOMBRE':
-      return typeof valeur === 'number' ? formatNumber(valeur) : String(valeur);
-    case 'DATE':
-      return formatDate(String(valeur));
-    case 'BOOLEEN':
-      return valeur ? 'Oui' : 'Non';
-    default:
-      return String(valeur);
-  }
-}
 
 const RENDUS: Record<string, (p: ProspectionListItemDto) => ReactNode> = {
   prospectNom: (p) => prospectionDisplayName(p),
@@ -108,7 +85,13 @@ const TITRES: Record<string, (p: ProspectionListItemDto) => string | undefined> 
 
 /** Tableau partagé par la liste des prospections et celle des
  * pré-prospections : les deux consomment le même `ProspectionListItemDto` et
- * affichaient jusqu'ici deux copies du même balisage. */
+ * affichaient jusqu'ici deux copies du même balisage.
+ *
+ * Adaptateur au-dessus de `DataGrid` : tout le chrome de grille (tri, filtres,
+ * Σ, gouttières, bandeau) y vit désormais, et ce fichier ne garde que ce qui
+ * est propre à la prospection — les rendus riches, les classes par colonne,
+ * les infobulles, et la traduction du catalogue serveur `ColonneDto` en
+ * colonnes de grille. */
 export default function ProspectionTable({
   rows,
   colonnes,
@@ -123,68 +106,30 @@ export default function ProspectionTable({
    * « pré-prospection » sur l'un et « prospection » sur l'autre. */
   entite?: 'prospection' | 'pré-prospection';
 }) {
-  const totalPoids = colonnes.reduce((somme, c) => somme + poidsColonne(c.nom), 0) || 1;
-  const aDroite = (c: ColonneDto) => c.type === 'MONTANT' || c.type === 'NOMBRE';
+  /* Le catalogue vient du serveur et peut changer à chaque livraison : la
+     traduction reste donc pilotée par `c.nom`/`c.type` et non par une liste en
+     dur. Une colonne ajoutée côté serveur apparaît formatée et alignée sans
+     toucher à ce fichier ; seuls les rendus riches sont nommés. */
+  const grille = useMemo<ColonneGrille<ProspectionListItemDto>[]>(
+    () =>
+      colonnes.map((c) => ({
+        nom: c.nom,
+        libelle: c.libelle,
+        type: c.type,
+        largeur: poidsColonne(c.nom),
+        rendu: RENDUS[c.nom],
+        classe: CLASSES[c.nom],
+        titre: TITRES[c.nom],
+      })),
+    [colonnes],
+  );
 
   return (
-    <Table
-      className="w-full table-fixed"
-      // Le défilement, dans les deux axes, appartient au conteneur de la page :
-      // c'est lui qui a une hauteur bornée, donc lui seul peut placer une barre
-      // horizontale visible et servir de référence au `sticky top-0`.
-      containerClassName="overflow-visible"
-      // Une largeur minimale en dur ne tient plus avec une sélection variable :
-      // trop large à trois colonnes, trop étroite à douze. ~9rem par colonne
-      // redonne les 80rem d'origine sur une sélection de neuf.
-      style={{ minWidth: `${Math.max(48, colonnes.length * 9)}rem` }}
-    >
-      <TableHeader>
-        <TableRow className="hover:bg-card">
-          {colonnes.map((c) => (
-            <TableHead
-              key={c.nom}
-              className={cn(
-                // `sticky` sur les cellules et non sur la ligne : la preflight
-                // Tailwind pose `border-collapse: collapse`, mode dans lequel
-                // Chrome ignore un `position: sticky` porté par un `<tr>`. Le
-                // fond opaque doit alors suivre sur chaque `<th>`.
-                'sticky top-0 z-10 bg-card',
-                aDroite(c) && 'text-right',
-              )}
-              style={{ width: `${(poidsColonne(c.nom) / totalPoids) * 100}%` }}
-            >
-              {c.libelle}
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((p) => (
-          <TableRow
-            key={p.id}
-            tabIndex={0}
-            role="link"
-            aria-label={`Ouvrir la ${entite} ${prospectionDisplayName(p)}`}
-            className="cursor-pointer"
-            onClick={() => onOuvrir(p.id)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onOuvrir(p.id);
-            }}
-          >
-            {colonnes.map((c) => (
-              <TableCell
-                key={c.nom}
-                className={cn('truncate', aDroite(c) && 'text-right tabular-nums', CLASSES[c.nom])}
-                title={TITRES[c.nom]?.(p)}
-              >
-                {RENDUS[c.nom]
-                  ? RENDUS[c.nom](p)
-                  : rendreParType((p as unknown as Record<string, unknown>)[c.nom], c.type)}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <DataGrid
+      rows={rows}
+      colonnes={grille}
+      onOuvrir={onOuvrir}
+      libelleLigne={(p) => `Ouvrir la ${entite} ${prospectionDisplayName(p)}`}
+    />
   );
 }

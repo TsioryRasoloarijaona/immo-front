@@ -151,6 +151,71 @@ Follow **Linear / Stripe Dashboard / Attio** as the visual references —
 - Cards and clean tables over the legacy system's dense multi-tab modal
   forms — collapse related fields into logical grouped sections instead of
   replicating every flat field list 1:1.
+
+> **Exception, decided deliberately: data grids are dense on purpose.**
+> The "generous whitespace" rule above governs page chrome, forms and detail
+> views. It does **not** govern the list tables, which were refactored on
+> `feat/densite-tableaux` to the measured geometry of the legacy Omran grid:
+> a 24px row (`--row-h`), 6px cell gutters (`--cell-px`), `--text-body` cells,
+> `--text-micro` headers, and vertical hairline column rules.
+>
+> The reason is measured, not stylistic. Omran fits ~24 prospection rows in
+> the viewport; the shadcn default row (33px) fit ~17. The commerciaux are
+> migrating *from* Omran and use these screens to triage who to call back, so
+> seven fewer leads per glance is a real regression in the one job the screen
+> has. Density is the feature there.
+>
+> Three heights, all measured off the reference and all tokens in `index.css`:
+> `--row-h` 24px (data), `--row-h-head` 22px, `--row-h-filter` 19px. The header
+> really is shorter than a data row in the original. Tune the tokens if the
+> density needs adjusting — don't reach into the components.
+>
+> **The grid chrome lives in `src/components/DataGrid.tsx`, and every list
+> screen uses it.** Group-by band, gutter with a current-row `▶` indicator and
+> a per-row checkbox, sortable headers, a `Σ` summary toggle per column, and
+> the per-column filter row with its `A` / `=` operator glyphs.
+>
+> **A list screen declares `ColonneGrille[]`, not table markup.** That is the
+> whole point: the chrome is uniform because it exists once. Adding a column is
+> an entry in an array — `nom`, `libelle`, `type` (drives alignment, formatting
+> and the filter glyph), `largeur` (a relative weight, normalised), and
+> optionally `rendu` / `valeur` / `classe` / `titre`. **Always set `valeur`
+> when the displayed text isn't `row[nom]`** — otherwise sort and filter
+> compare a raw code (`IN_WORK`) while the user sees and types a label
+> ("Pointé"). `ProspectionTable` is a thin adapter that maps the server's
+> `ColonneDto` catalogue onto this.
+>
+> Sort, `Σ` and the filter row are **real but client-side, over the loaded page
+> only** — what the original DevExpress grid does natively. Server-side
+> filtering stays with each page's own filter panel, which paginates. Don't
+> "unify" the two: they answer different questions.
+>
+> Two optional props matter. `selection` makes the checkbox gutter *controlled*
+> — Dossiers passes its batch-document selection through it, so the gutter is
+> the real selector there instead of a second, decorative column. And
+> `rendreDetail` adds a chevron gutter plus a `colSpan` expansion row — that's
+> what let Offres keep its montants detail panel instead of losing it to the
+> conversion.
+>
+> Deliberately non-functional, and marked: the group-by band carries a
+> `Bientôt` pill because drag-to-group doesn't exist, and the checkbox gutter
+> is visual-only on every screen *except* Dossiers.
+>
+> **Out of scope by design, not by omission:** Dashboard and
+> `PerformancesCommerciaux` (analytics, not lists — user's call), and the
+> sub-tables embedded in detail pages and forms (`DossierDetail`,
+> `ProspectDetail`, `TrancheDetail`, `ArticleDetail`, `NewDossier`,
+> `NewProspection`, `ArticleResultsList`, `Hotline`). A filter row, `Σ` and a
+> checkbox gutter on a three-row échéancier would be more chrome than data.
+> Those still inherit the density and the thin scrollbars, which are global.
+>
+> What did **not** change, and must not: the palette, the sidebar, the page
+> shell, and Omran's top filter panel (Entité / Période / Commercial / Nature /
+> Aboutie / Archivé) — that one stays out, `ProspectionFiltresAvances` covers
+> it. No Windows 3D bevels. Take the geometry and the affordances, leave the
+> chrome styling.
+>
+> So: do not "fix" the tables back to airy padding.
 - A left sidebar nav mirroring the two in-scope modules (**Ventes**,
   **Patrimoine**) plus **Dashboard** — don't reproduce the legacy system's
   full 10-module sidebar (Achat/Location/RH/etc.), just show the two in

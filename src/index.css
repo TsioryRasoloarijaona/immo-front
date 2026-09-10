@@ -454,6 +454,120 @@ table {
   --text-hero: 21px;
 }
 
+/* ---------------------------------------------------------------------------
+   Grid density
+   ---------------------------------------------------------------------------
+   Measured off the legacy Omran Estate grid, which is what the commerciaux
+   are migrating from and still compare this against. Their prospection list
+   fits ~24 rows in the viewport; ours fit ~17, because the shadcn table
+   primitive ships a 33px row (`py-1.5` + `text-sm`, 20px line-height). Same
+   screen, seven fewer leads per glance, on a screen whose entire job is
+   triaging who to call back.
+
+   Deliberately NOT font sizes: cells take `--text-body` and headers
+   `--text-micro` from that scale. Density changed; the type system didn't.
+
+   A previous pass here had a single `--row-h` for header and body, arguing a
+   second height would be drift. Measuring the reference again killed that:
+   the legacy grid really does run three heights — 23.8px data, ~22px header,
+   ~19px filter row — and the ask was the *exact* density. Three measured
+   values aren't drift; the thing the type scale had to undo was fifteen
+   *unmeasured* ones half a pixel apart.
+
+     row-h         24px — data rows (measured 23.77, rounded to the integer)
+     row-h-head    22px — header band, deliberately shorter than a data row
+     row-h-filter  19px — the per-column filter row, shorter again
+     cell-px       6px  — was 8px (`px-2`); ~2 more columns before scroll
+     gutter-mark   18px — current-row indicator column
+     gutter-check  22px — checkbox column
+   --------------------------------------------------------------------------- */
+@theme {
+  --row-h: 24px;
+  --row-h-head: 22px;
+  --row-h-filter: 19px;
+  --cell-px: 6px;
+  --gutter-mark: 18px;
+  --gutter-check: 22px;
+}
+
+/* Pastilles en contexte de grille.
+   `Badge` mesure 20px (`h-5`) pour du `text-xs` : dans une ligne de 24px il
+   la fait grandir, et la liste de prospection en aligne six colonnes. Plutôt
+   qu'un prop `dense` à faire passer dans dix-huit fichiers — où il suffit d'un
+   oubli pour qu'une ligne dépasse — une règle unique, portée par le contexte.
+
+   Le sélecteur passe par `:has()` sur le point décoratif et non par
+   `[data-slot="badge"]` : ce slot est produit par le `useRender` de Base UI,
+   donc par une convention que ce dépôt ne contrôle pas. `:has(> [data-badge-dot])`
+   ne peut désigner que la pastille, et ne dépend que du markup d'ui.tsx.
+
+   Non calée dans `@layer` volontairement : le CSS auteur hors couche l'emporte
+   sur tout `@layer utilities`, donc ceci bat `h-5`/`text-xs`/`px-2` de la cva
+   sans compter les spécificités. */
+[data-slot='table-cell'] *:has(> [data-badge-dot]) {
+  height: 16px;
+  gap: 0;
+  padding-inline: 5px;
+  font-size: var(--text-micro);
+}
+
+[data-slot='table-cell'] [data-badge-dot] {
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Barres de défilement fines
+   ---------------------------------------------------------------------------
+   Une grille dense place une barre horizontale sous chaque liste large. À la
+   largeur par défaut de Windows (~17px) elle coûte presque une ligne de
+   données entière — exactement ce que la densité vient de gagner.
+
+   6px : assez fin pour disparaître, assez large pour rester attrapable à la
+   souris. En dessous (4px et moins) la cible devient plus petite que la marge
+   d'erreur du pointeur, et on n'a pas de bouton de défilement de repli.
+
+   Deux syntaxes, non interchangeables : `scrollbar-width`/`scrollbar-color`
+   est le standard (Firefox, et Chromium récent), `::-webkit-scrollbar` reste
+   nécessaire pour les WebKit plus anciens — mais dès qu'on déclare un
+   pseudo-élément webkit, il l'emporte sur `scrollbar-width` dans ces
+   moteurs, donc les deux doivent décrire la *même* géométrie.
+
+   `scrollbar-gutter: stable` sur les conteneurs de table évite que
+   l'apparition de la barre ne décale la dernière colonne d'un cran. */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 3px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
+  }
+
+  /* Le coin entre les deux barres, sinon rendu en gris opaque par WebKit. */
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  [data-slot='table-container'] {
+    scrollbar-gutter: stable;
+  }
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;

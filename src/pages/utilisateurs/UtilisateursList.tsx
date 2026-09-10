@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, KeyRound, RotateCcw, Search, Users } from 'lucide-react';
 import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
@@ -6,10 +6,11 @@ import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import { DEFAULT_PAGE_SIZE, listUtilisateurs } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { formatDate } from '../../lib/format';
+import type { UtilisateurListItemDto } from '../../types';
 import AdminGuard from './AdminGuard';
 import AffecterProjetsDialog from './AffecterProjetsDialog';
 
@@ -71,6 +72,115 @@ export default function UtilisateursList() {
     'utilisateurs',
   );
   const rows = data?.content ?? [];
+
+  /* Les lignes ne sont pas cliquables ici : l'écran agit par ses boutons
+     « Affecter » et « Réinitialiser », il n'y a pas de fiche à ouvrir. On ne
+     passe donc ni `onOuvrir` ni `libelleLigne` — DataGrid retire alors le
+     curseur et le focus de ligne. */
+  const colonnes = useMemo<ColonneGrille<UtilisateurListItemDto>[]>(
+    () => [
+      {
+        nom: 'username',
+        libelle: 'Identifiant',
+        largeur: 14,
+        classe: 'font-medium text-foreground',
+        titre: (r) => r.username || undefined,
+        rendu: (r) => (
+          <>
+            {r.username || '—'}
+            {r.description && (
+              <div className="truncate text-micro font-normal text-muted-foreground" title={r.description}>
+                {r.description}
+              </div>
+            )}
+            {r.dateCreation && (
+              <div className="truncate text-micro font-normal text-muted-foreground">Créé le {formatDate(r.dateCreation)}</div>
+            )}
+          </>
+        ),
+      },
+      { nom: 'employe', libelle: 'Employé', largeur: 13, classe: 'text-muted-foreground', valeur: employeeName, rendu: employeeName, titre: employeeName },
+      { nom: 'typeEmployeLibelle', libelle: 'Type', largeur: 9, classe: 'text-muted-foreground', titre: (r) => r.typeEmployeLibelle || undefined },
+      {
+        nom: 'email',
+        libelle: 'Contact',
+        largeur: 14,
+        classe: 'text-muted-foreground',
+        titre: (r) => [r.email, r.mobile || r.phone].filter(Boolean).join(' · ') || undefined,
+        rendu: (r) => (
+          <>
+            <div className="truncate">{r.email || '—'}</div>
+            {(r.mobile || r.phone) && <div className="truncate text-micro">{r.mobile || r.phone}</div>}
+          </>
+        ),
+      },
+      {
+        nom: 'roles',
+        libelle: 'Rôles',
+        largeur: 12,
+        // Tri et filtre sur les rôles concaténés : taper « admin » doit
+        // trouver la ligne, même si le rôle est un parmi plusieurs.
+        valeur: (r) => (r.roles ?? []).join(', '),
+        rendu: (r) =>
+          r.roles && r.roles.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {r.roles.map((role) => (
+                <Badge key={role} tone={role === 'Administrateur' ? 'amber' : 'neutral'}>
+                  {role}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        nom: 'statut',
+        libelle: 'Statut',
+        largeur: 9,
+        valeur: (r) => (r.disabled ? 'Désactivé' : 'Actif'),
+        rendu: (r) => (
+          <div className="flex flex-col items-start gap-1">
+            <Badge tone={r.disabled ? 'neutral' : 'success'}>{r.disabled ? 'Désactivé' : 'Actif'}</Badge>
+            {!r.compteWebInitialise && <Badge tone="warning">Non initialisé</Badge>}
+            {r.compteWebInitialise && r.mustChangePassword && <Badge tone="info">Mdp à changer</Badge>}
+          </div>
+        ),
+      },
+      {
+        nom: 'nombreProjets',
+        libelle: 'Périmètre',
+        largeur: 11,
+        rendu: (r) => perimetreBadge(r.nombreProjets ?? 0, r.roles),
+      },
+      {
+        nom: 'actions',
+        libelle: 'Actions',
+        largeur: 18,
+        rendu: (r) => (
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDialogUser({ id: r.id, label: r.username || employeeName(r), roles: r.roles })}
+            >
+              <Building2 data-icon="inline-start" /> Affecter
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => navigate(`/utilisateurs/reinitialiser-mot-de-passe?admUserId=${r.id}`)}
+            >
+              <KeyRound data-icon="inline-start" /> Réinitialiser
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [navigate],
+  );
 
   return (
     <AdminGuard
@@ -139,76 +249,7 @@ export default function UtilisateursList() {
               />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <Table className="w-full min-w-260 table-fixed">
-                  <TableHeader>
-                    <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
-                      <TableHead className="w-[14%]">Identifiant</TableHead>
-                      <TableHead className="w-[13%]">Employé</TableHead>
-                      <TableHead className="w-[9%]">Type</TableHead>
-                      <TableHead className="w-[14%]">Contact</TableHead>
-                      <TableHead className="w-[12%]">Rôles</TableHead>
-                      <TableHead className="w-[9%]">Statut</TableHead>
-                      <TableHead className="w-[11%]">Périmètre</TableHead>
-                      <TableHead className="w-[18%] text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((r) => (
-                      <TableRow key={r.id}>
-                        <TableCell className="truncate font-medium text-foreground" title={r.username || undefined}>
-                          {r.username || '—'}
-                          {r.description && <div className="truncate text-micro font-normal text-muted-foreground" title={r.description}>{r.description}</div>}
-                          {r.dateCreation && <div className="truncate text-micro font-normal text-muted-foreground">Créé le {formatDate(r.dateCreation)}</div>}
-                        </TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={employeeName(r)}>{employeeName(r)}</TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={r.typeEmployeLibelle || undefined}>{r.typeEmployeLibelle || '—'}</TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={[r.email, r.mobile || r.phone].filter(Boolean).join(' · ') || undefined}>
-                          <div className="truncate">{r.email || '—'}</div>
-                          {(r.mobile || r.phone) && <div className="truncate text-micro">{r.mobile || r.phone}</div>}
-                        </TableCell>
-                        <TableCell>
-                          {r.roles && r.roles.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {r.roles.map((role) => (
-                                <Badge key={role} tone={role === 'Administrateur' ? 'amber' : 'neutral'}>{role}</Badge>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col items-start gap-1">
-                            <Badge tone={r.disabled ? 'neutral' : 'success'}>{r.disabled ? 'Désactivé' : 'Actif'}</Badge>
-                            {!r.compteWebInitialise && <Badge tone="warning">Non initialisé</Badge>}
-                            {r.compteWebInitialise && r.mustChangePassword && <Badge tone="info">Mdp à changer</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell>{perimetreBadge(r.nombreProjets ?? 0, r.roles)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex flex-wrap items-center justify-end gap-1.5">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setDialogUser({ id: r.id, label: r.username || employeeName(r), roles: r.roles })}
-                            >
-                              <Building2 data-icon="inline-start" /> Affecter
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => navigate(`/utilisateurs/reinitialiser-mot-de-passe?admUserId=${r.id}`)}
-                            >
-                              <KeyRound data-icon="inline-start" /> Réinitialiser
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <DataGrid rows={rows} colonnes={colonnes} minWidth="86rem" />
               </div>
             )}
             <div className="shrink-0">

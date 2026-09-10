@@ -7,11 +7,40 @@ import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import { DEFAULT_PAGE_SIZE, listProspects } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useTierTypes } from '../../lib/referentiels';
 import { personDisplayName } from '../../lib/domain';
+import type { ProspectListItemDto } from '../../types';
+
+/* Les `largeur` reprennent les pourcentages en dur d'avant la migration vers
+   DataGrid — elles sont normalisées, donc les colonnes gardent exactement les
+   mêmes proportions qu'avant. */
+const COLONNES: ColonneGrille<ProspectListItemDto>[] = [
+  { nom: 'code', libelle: 'Code', largeur: 14, classe: 'text-muted-foreground', titre: (r) => r.code || undefined },
+  {
+    nom: 'nom',
+    libelle: 'Nom',
+    largeur: 24,
+    classe: 'font-medium text-foreground',
+    valeur: (r) => personDisplayName(r),
+    rendu: (r) => personDisplayName(r),
+    titre: (r) => personDisplayName(r),
+  },
+  {
+    nom: 'telephone',
+    libelle: 'Téléphone',
+    largeur: 16,
+    classe: 'tabular-nums text-muted-foreground',
+    // Même repli qu'avant : le mobile prime, le fixe sert de secours.
+    valeur: (r) => r.mobile || r.telephone,
+    titre: (r) => r.mobile || r.telephone || undefined,
+  },
+  { nom: 'email', libelle: 'Email', largeur: 22, classe: 'text-muted-foreground', titre: (r) => r.email || undefined },
+  { nom: 'ville', libelle: 'Ville', largeur: 14, classe: 'text-muted-foreground', titre: (r) => r.ville || undefined },
+  { nom: 'type', libelle: 'Type', largeur: 10, classe: 'text-muted-foreground', titre: (r) => r.type || undefined },
+];
 
 export default function ProspectsList() {
   const navigate = useNavigate();
@@ -113,41 +142,14 @@ export default function ProspectsList() {
                 }
               />
             ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <Table className="w-full min-w-160 table-fixed">
-                  <TableHeader>
-                    <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
-                      <TableHead className="w-[14%]">Code</TableHead>
-                      <TableHead className="w-[24%]">Nom</TableHead>
-                      <TableHead className="w-[16%]">Téléphone</TableHead>
-                      <TableHead className="w-[22%]">Email</TableHead>
-                      <TableHead className="w-[14%]">Ville</TableHead>
-                      <TableHead className="w-[10%]">Type</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((r) => (
-                      <TableRow
-                        key={r.id}
-                        tabIndex={0}
-                        role="link"
-                        aria-label={`Ouvrir la fiche de ${personDisplayName(r)}`}
-                        className="cursor-pointer"
-                        onClick={() => navigate(`/prospects/${r.id}`)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') navigate(`/prospects/${r.id}`);
-                        }}
-                      >
-                        <TableCell className="truncate text-muted-foreground" title={r.code || undefined}>{r.code || '—'}</TableCell>
-                        <TableCell className="truncate font-medium text-foreground" title={personDisplayName(r)}>{personDisplayName(r)}</TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={r.mobile || r.telephone || undefined}>{r.mobile || r.telephone || '—'}</TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={r.email || undefined}>{r.email || '—'}</TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={r.ville || undefined}>{r.ville || '—'}</TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={r.type || undefined}>{r.type || '—'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+                <DataGrid
+                  rows={rows}
+                  colonnes={COLONNES}
+                  minWidth="40rem"
+                  onOuvrir={(id) => navigate(`/prospects/${id}`)}
+                  libelleLigne={(r) => `Ouvrir la fiche de ${personDisplayName(r)}`}
+                />
               </div>
             )}
             <div className="shrink-0">

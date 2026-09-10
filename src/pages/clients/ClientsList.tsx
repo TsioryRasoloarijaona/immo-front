@@ -6,10 +6,26 @@ import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../compo
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import { DEFAULT_PAGE_SIZE, listClients } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
-import { formatCurrency } from '../../lib/format';
+import type { ClientListItemDto } from '../../types';
+
+/* Les quatre colonnes de droite sont typées MONTANT/NOMBRE : DataGrid les
+   aligne à droite, les met en `tabular-nums` et sait les totaliser sous Σ —
+   ce qui rend le pied de tableau immédiatement utile sur cet écran. */
+const COLONNES: ColonneGrille<ClientListItemDto>[] = [
+  { nom: 'code', libelle: 'Code', largeur: 10, classe: 'text-muted-foreground' },
+  { nom: 'nomAffiche', libelle: 'Affiché comme', largeur: 18, classe: 'font-medium text-foreground', titre: (r) => r.nomAffiche || undefined },
+  { nom: 'mobile', libelle: 'Mobile', largeur: 11, classe: 'tabular-nums text-muted-foreground' },
+  { nom: 'telephone', libelle: 'Téléphone', largeur: 11, classe: 'tabular-nums text-muted-foreground' },
+  { nom: 'ville', libelle: 'Ville', largeur: 10, classe: 'text-muted-foreground' },
+  { nom: 'email', libelle: 'Email', largeur: 16, classe: 'text-muted-foreground', titre: (r) => r.email || undefined },
+  { nom: 'nbDossiers', libelle: 'Dossiers', type: 'NOMBRE', largeur: 8, classe: 'text-muted-foreground' },
+  { nom: 'totalAPayer', libelle: 'À payer', type: 'MONTANT', largeur: 12, classe: 'text-foreground' },
+  { nom: 'totalRegle', libelle: 'Réglé', type: 'MONTANT', largeur: 12, classe: 'text-(--success)' },
+  { nom: 'totalReste', libelle: 'Reste', type: 'MONTANT', largeur: 12, classe: 'text-destructive' },
+];
 
 // "Clients" — a person-centric view distinct from the Dossiers list (per
 // instructions/FIX-clients-and-module-switcher.md): useful once a client
@@ -89,48 +105,13 @@ export default function ClientsList() {
             />
           ) : (
             <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-              <Table className="min-w-190">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Code</TableHead>
-                    <TableHead>Affiché comme</TableHead>
-                    <TableHead>Mobile</TableHead>
-                    <TableHead>Téléphone</TableHead>
-                    <TableHead>Ville</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead className="text-right">Dossiers</TableHead>
-                    <TableHead className="text-right">À payer</TableHead>
-                    <TableHead className="text-right">Réglé</TableHead>
-                    <TableHead className="text-right">Reste</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((r) => (
-                    <TableRow
-                      key={r.id}
-                      tabIndex={0}
-                      role="link"
-                      aria-label={`Ouvrir la fiche de ${r.nomAffiche || r.code}`}
-                      className="cursor-pointer"
-                      onClick={() => navigate(`/clients/${r.id}`)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') navigate(`/clients/${r.id}`);
-                      }}
-                    >
-                      <TableCell className="text-muted-foreground">{r.code || '—'}</TableCell>
-                      <TableCell className="font-medium text-foreground">{r.nomAffiche || '—'}</TableCell>
-                      <TableCell className="text-muted-foreground">{r.mobile || '—'}</TableCell>
-                      <TableCell className="text-muted-foreground">{r.telephone || '—'}</TableCell>
-                      <TableCell className="text-muted-foreground">{r.ville || '—'}</TableCell>
-                      <TableCell className="text-muted-foreground">{r.email || '—'}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">{r.nbDossiers ?? '—'}</TableCell>
-                      <TableCell className="text-right tabular-nums text-foreground">{formatCurrency(r.totalAPayer)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-(--success)">{formatCurrency(r.totalRegle)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-destructive">{formatCurrency(r.totalReste)}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataGrid
+                rows={rows}
+                colonnes={COLONNES}
+                minWidth="76rem"
+                onOuvrir={(id) => navigate(`/clients/${id}`)}
+                libelleLigne={(r) => `Ouvrir la fiche de ${r.nomAffiche || r.code}`}
+              />
             </div>
           )}
             <div className="shrink-0">
