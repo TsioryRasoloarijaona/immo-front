@@ -1401,10 +1401,18 @@ export default function DossierDetail() {
   // carries clientId/clientNom, same reason the Prospection/Prospect
   // cascade tabs needed their own fetch.
   const linkedClient = useApi(() => (d?.clientId ? getClient(d.clientId) : Promise.resolve(null)), [d?.clientId], 'dossier-client');
-  // Full article detail (catégorie/type/tranche/superficie/titre foncier/…)
-  // for "Article(s) réservé(s)" — DossierDetailDto.articles is only the
-  // summary shape (id/code/description/area/price), same gap as
-  // NewDossier.tsx's own selectedArticleDetails fetch.
+  // Détail complet des articles pour « Article(s) réservé(s) ».
+  //
+  // `ArticleSummaryDto` porte désormais la classification — type, catégorie,
+  // étage, immeuble — donc ce fetch n'est plus ce qui la fournit, et la carte
+  // l'affiche sans attendre le réseau. Il reste néanmoins **nécessaire** :
+  // `ArticleCompactPreview` lit aussi `statut`, `tranche*`, `salePrice*`,
+  // `comSalePrice*`, `titreFoncier` et `adresse`, aucun n'étant dans le
+  // résumé. Ne pas le supprimer en croyant la livraison suffisante — c'est
+  // précisément ce que l'ancienne version de ce commentaire laissait penser.
+  //
+  // Reste un N+1 : un appel par article. À porter côté serveur si une fiche
+  // dossier à plusieurs articles devient un cas courant.
   const articleIds = (d?.articles ?? []).map((a) => a.id).join(',');
   const articleDetails = useApi(
     () => (d?.articles && d.articles.length > 0 ? Promise.all(d.articles.map((a) => getArticle(a.id))) : Promise.resolve([])),
@@ -1560,18 +1568,75 @@ export default function DossierDetail() {
                 </FieldGrid>
               </Card>
 
+              {/* Hiérarchie patrimoniale. Les douze champs sont à 100 % sur les
+                  358 dossiers réels, donc la carte ne peut pas être vide et
+                  n'a pas d'état de repli à prévoir.
+                  Chaque niveau est cliquable quand une route existe : le
+                  projet et la tranche en ont une, la société et la vocation
+                  non — ce sont des référentiels sans écran dédié. */}
+              <Card title="Patrimoine">
+                <FieldGrid>
+                  <Field
+                    label="Société"
+                    value={d.societeLibelle || d.societeCode}
+                  />
+                  <Field
+                    label="Projet"
+                    value={
+                      d.projetId ? (
+                        <Link to={`/projets/${d.projetId}`} className="text-primary hover:underline">
+                          {d.projetLibelle || d.projetCode}
+                        </Link>
+                      ) : undefined
+                    }
+                  />
+                  <Field
+                    label="Tranche"
+                    value={
+                      d.trancheId ? (
+                        <Link to={`/tranches/${d.trancheId}`} className="text-primary hover:underline">
+                          {d.trancheLibelle || d.trancheCode}
+                        </Link>
+                      ) : undefined
+                    }
+                  />
+                  <Field label="Vocation" value={d.vocationLibelle || d.vocationCode} />
+                </FieldGrid>
+              </Card>
+
               <Card title={`Article(s) réservé(s) (${d.articles?.length ?? 0})`}>
                 {!d.articles || d.articles.length === 0 ? (
                   <p className="text-label text-muted-foreground">Aucun article lié.</p>
-                ) : articleDetails.loading && !articleDetails.data ? (
-                  <LoadingState />
-                ) : articleDetails.error ? (
-                  <ErrorState message={articleDetails.error} />
                 ) : (
                   <div className="flex flex-col gap-2">
-                    {(articleDetails.data ?? []).map((a) => (
-                      <ArticleCompactPreview key={a.id} article={a} defaultExpanded />
-                    ))}
+                    {/* Le résumé porte désormais la classification : on la rend
+                        tout de suite, plutôt que de masquer la carte entière
+                        derrière le N+1. Le détail complet remplace ce bloc dès
+                        qu'il arrive. */}
+                    {articleDetails.data && articleDetails.data.length > 0 ? (
+                      articleDetails.data.map((a) => <ArticleCompactPreview key={a.id} article={a} defaultExpanded />)
+                    ) : (
+                      d.articles.map((a) => (
+                        <div key={a.id} className="rounded-md border border-border p-3">
+                          <div className="mb-2 flex items-center gap-2">
+                            <span className="text-label font-semibold text-foreground">{a.code}</span>
+                            {articleDetails.loading && (
+                              <span className="text-micro text-muted-foreground">chargement du détail…</span>
+                            )}
+                          </div>
+                          <FieldGrid>
+                            <Field label="Description" value={a.description} />
+                            <Field label="Immeuble" value={a.immeubleLibelle || a.immeubleCode} />
+                            <Field label="Étage" value={a.etageLibelle || a.etageCode} />
+                            <Field label="Catégorie" value={a.categorieLibelle || a.categorieCode} />
+                            <Field label="Type" value={a.typeLibelle || a.typeCode} />
+                            <Field label="Surface" value={a.area ? `${a.area} m²` : undefined} />
+                            <Field label="Prix" value={a.price ? formatCurrency(a.price) : undefined} />
+                          </FieldGrid>
+                        </div>
+                      ))
+                    )}
+                    {articleDetails.error && <ErrorState message={articleDetails.error} />}
                   </div>
                 )}
               </Card>
@@ -1601,25 +1666,33 @@ export default function DossierDetail() {
                 </Link>
               }
             >
-              {linkedProspection.loading && !linkedProspection.data && <LoadingState />}
-              {linkedProspection.error && <ErrorState message={linkedProspection.error} />}
-              {linkedProspection.data && (
-                <FieldGrid>
-                  <Field label="Code" value={d.prospectionCode || linkedProspection.data.code} />
-                  <Field
-                    label="Étape"
-                    value={
-                      <Badge tone={etapeBadgeTone(linkedProspection.data.etape, linkedProspection.data.fermee)}>
-                        {linkedProspection.data.fermee ? 'Clôturée' : linkedProspection.data.etape || '—'}
+              {/* Étape, origine et date viennent maintenant du dossier lui-même
+                  (`etapeProspection`/`origineProspection`/`dateProspection`,
+                  livrés avec cette version de l'API), donc la carte s'affiche
+                  sans attendre le réseau. Le fetch reste nécessaire pour le nom
+                  du prospect et le commercial *de la prospection* — qui peut
+                  différer de celui du dossier — et n'enrichit plus qu'eux. */}
+              <FieldGrid>
+                <Field label="Code" value={d.prospectionCode || linkedProspection.data?.code} />
+                <Field
+                  label="Étape"
+                  value={
+                    d.etapeProspection ? (
+                      <Badge tone={etapeBadgeTone(d.etapeProspection, linkedProspection.data?.fermee)}>
+                        {linkedProspection.data?.fermee ? 'Clôturée' : d.etapeProspection}
                       </Badge>
-                    }
-                  />
-                  <Field label="Prospect" value={prospectionDisplayName(linkedProspection.data)} />
-                  <Field label="Origine" value={linkedProspection.data.origine} />
-                  <Field label="Commercial" value={linkedProspection.data.commercialNom} />
-                  <Field label="Créée le" value={formatDate(linkedProspection.data.dateDocument)} />
-                </FieldGrid>
-              )}
+                    ) : undefined
+                  }
+                />
+                <Field
+                  label="Prospect"
+                  value={linkedProspection.data ? prospectionDisplayName(linkedProspection.data) : undefined}
+                />
+                <Field label="Origine" value={d.origineProspection} />
+                <Field label="Commercial" value={linkedProspection.data?.commercialNom} />
+                <Field label="Créée le" value={formatDate(d.dateProspection)} />
+              </FieldGrid>
+              {linkedProspection.error && <ErrorState message={linkedProspection.error} />}
             </Card>
           </TabsContent>
         )}
@@ -1855,6 +1928,20 @@ export default function DossierDetail() {
               <Field label="Créé le" value={formatDate(d.dateDocument)} />
               <Field label="Statut" value={canonicalStatusLabel(d.statut)} />
               <Field label="Étapes atteignables" value={d.etapesAtteignables?.join(', ')} />
+            </FieldGrid>
+          </Card>
+
+          {/* Piste d'audit. « Créé le » ci-dessus est la date de *réservation*
+              (`dateDocument`), pas celle de création de l'enregistrement —
+              d'où le libellé « Saisi le » ici, pour ne pas donner deux sens à
+              la même formule sur un même écran. Les quatre champs sont à
+              100 % sur les 358 dossiers réels. */}
+          <Card title="Traçabilité">
+            <FieldGrid>
+              <Field label="Saisi par" value={d.creePar} />
+              <Field label="Saisi le" value={formatDateTime(d.creeLe)} />
+              <Field label="Modifié par" value={d.modifiePar} />
+              <Field label="Modifié le" value={formatDateTime(d.modifieLe)} />
             </FieldGrid>
           </Card>
         </TabsContent>

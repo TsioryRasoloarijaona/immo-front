@@ -7968,6 +7968,52 @@
           },
           "pieceIdentite": {
             "$ref": "#/components/schemas/PieceIdentiteDto"
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création de la fiche. Renseigné sur **100 %** des 13 664 prospects réels, avec 55 auteurs distincts : c'est une vraie piste d'audit, pas un champ technique."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création de la fiche. 100 %."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification. 99,9 %."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de dernière modification. 99,9 %."
+          },
+          "tranchesInteret": {
+            "type": "array",
+            "description": "Tranches auxquelles le prospect s'est intéressé, toutes ses prospections confondues : la tranche **principale** de chacune et ses **intérêts secondaires**, dédoublonnés.\n\n**Toujours présent, vide plutôt qu'absent** quand le prospect n'a aucune prospection. Court par nature — mesuré sur les 13 664 prospects réels : 13 246 ont une seule tranche, 254 en ont deux, 8 en ont trois.",
+            "items": {
+              "$ref": "#/components/schemas/TrancheInteretDto"
+            }
+          }
+        }
+      },
+      "TrancheInteretDto": {
+        "type": "object",
+        "description": "Tranche à laquelle le prospect s'est intéressé, via l'une de ses prospections — en tranche principale ou en intérêt secondaire.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la tranche (`CfgTranche.PKey`), exploitable directement par `GET /api/tranches/{id}`."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la tranche.",
+            "example": "BELAIR"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé de la tranche.",
+            "example": "AYAD RESIDENCE BEL AIR"
           }
         }
       },
@@ -8346,6 +8392,21 @@
           },
           "articleDescription": {
             "type": "string"
+          },
+          "typeProspectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du type de document légataire (`StrEntity`). `null` sur les 4 prospections dont `StrEntityId` n'est pas renseigné."
+          },
+          "typeProspectionCode": {
+            "type": "string",
+            "description": "Code du type de document — **c'est ce champ qu'il faut tester**, jamais le libellé. Valeurs observées : `ComProspection` (14 114 lignes), `ComPreProspection` (3 817), `RntProspection` (4, prospection de location).\n\n`null` signifie que la prospection ne porte aucun type : elle est alors **invisible dans le logiciel de bureau**, dont toutes les vues font un `INNER JOIN` sur `StrEntity`. Ce n'est pas une donnée manquante mais une anomalie de création — 4 lignes en base réelle.",
+            "example": "ComProspection"
+          },
+          "typeProspection": {
+            "type": "string",
+            "description": "Libellé d'affichage du type, traduit — « Prospection vente », « Pré-Prospection ». Ne pas s'en servir pour tester le type.",
+            "example": "Prospection vente"
           },
           "activite": {
             "$ref": "#/components/schemas/ActiviteProspectionDto",
@@ -10989,6 +11050,21 @@
             "type": "string",
             "format": "date-time",
             "description": "Date de dernière modification. 100 %."
+          },
+          "typeProspectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du type de document légataire (`StrEntity`). 100 % — sauf 4 lignes en base réelle."
+          },
+          "typeProspectionCode": {
+            "type": "string",
+            "description": "Code du type de document — **c'est ce champ qu'il faut tester**, jamais le libellé. `ComProspection`, `ComPreProspection`, `RntProspection`.\n\nAttention : cette liste applique une **heuristique** (`CfgProspectId`/`CfgCommercialId`) qui n'est pas celle du légataire. Elle y laisse donc **830 lignes de code `ComPreProspection`** et 4 de code `RntProspection` (location). Ce champ est précisément ce qui rend l'écart visible et comptable ; il ne le corrige pas.",
+            "example": "ComProspection"
+          },
+          "typeProspection": {
+            "type": "string",
+            "description": "Libellé d'affichage du type, traduit. Ne pas s'en servir pour tester le type.",
+            "example": "Prospection vente"
           }
         }
       },
@@ -11193,6 +11269,14 @@
           "ancienClient": {
             "type": "boolean",
             "description": "Filtre sur « le prospect est un ancien client ». 100 % renseigné."
+          },
+          "typeProspection": {
+            "type": "array",
+            "description": "Code(s) de type de document légataire (`StrEntity.Code`). Répétable. Filtre sur le **discriminant réel** du logiciel de bureau, et non sur l'heuristique que cette liste applique par ailleurs.\n\nC'est ce qui rend l'écart mesurable : `?typeProspection=ComPreProspection` isole les **830 pré-prospections** que l'heuristique laisse dans la liste de vente, et `RntProspection` les 4 prospections de location qui s'y trouvent aussi. Valeurs connues : `ComProspection`, `ComPreProspection`, `RntProspection`, `PrmProspection`, `RomProspection`.\n\nUn code inconnu ne provoque pas d'erreur : il ne correspond à aucune prospection et le résultat est vide. Les 4 lignes sans `StrEntityId` sont exclues dès que ce filtre est actif — elles n'ont aucun type.",
+            "example": "ComPreProspection",
+            "items": {
+              "type": "string"
+            }
           },
           "inactiviteMin": {
             "type": "integer",
