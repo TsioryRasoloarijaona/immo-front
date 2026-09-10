@@ -255,3 +255,42 @@ contrat s'est verifie exactement comme la spec le decrit — 400 avec la liste
 des noms valides sur un nom inconnu, `id` toujours servi, et une liste close
 (demander `prospectionCode` sans `prospectionId` renvoie bien la colonne
 sans son id).
+
+## Demande backend — champs éditables de la pré-prospection (10/09)
+
+`ModifierProspectionRequest` porte quatorze champs, dont huit mesurés morts
+(prix, surface, avance, financements). Il **ne porte pas** les quatre seuls
+champs qu'un commercial a besoin de corriger sur un lead non transformé :
+
+| Champ | Servi par le GET | Modifiable |
+|---|---|---|
+| `tempDescription` | oui, 14/14 mesuré | **non** |
+| `tempTel` | oui, 14/14 | **non** |
+| `tempEmail` | oui, 5/14 | **non** |
+| `commercialId` | oui (nul sur 14/14) | **non** |
+
+Ce sont exactement les champs que le logiciel de bureau rend éditables sur son
+écran « Pré-Prospections » — Description, Téléphone, Email, Commercial. Chez
+nous ils sont affichés avec un cadenas, parce qu'un champ qui accepte la
+frappe et perd la saisie au rechargement est pire qu'un champ grisé.
+
+Le contournement existe mais change le sens du geste :
+`POST /api/pre-prospections/{id}/creer-prospect` accepte bien
+prénom / nom / téléphone / email, donc la seule façon de corriger un numéro
+mal saisi est de promouvoir le lead en fiche tiers. Sur un doublon avéré,
+c'est précisément ce qu'on ne veut pas faire.
+
+**Ce qu'on demande** : ajouter `tempDescription`, `tempTel`, `tempEmail` et
+`commercialId` à `ModifierProspectionRequest`. Rien sur les huit champs morts,
+qu'on n'affiche pas.
+
+### Non demandé
+
+`ancienClient` est dans le même cas (servi, non modifiable) sur la
+prospection, mais il se déduit du tiers et n'a pas la même urgence.
+
+Les « Donnée 2 » à « Donnée 9 » du logiciel de bureau — `TempField2` à
+`TempField9` — ne sont pas exposées. Le rang 6 n'en sert que deux,
+`TempField1` et `TempField10`, et **c'est le bon arbitrage** : le serveur les
+interprète (`noteQualification`, `doublonDeCode`) au lieu de les servir
+brutes. On ne demande pas les huit autres sans mesure préalable.
