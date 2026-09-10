@@ -146,17 +146,28 @@ enum, not free text. `isCredit` distinguishes debit/credit direction.
 Follow **Linear / Stripe Dashboard / Attio** as the visual references —
 **not** the legacy system's dense Windows-forms layout. Concretely:
 - Generous whitespace, clear typographic hierarchy.
-- **One accent, five status hues, true grey neutrals.** Three rules, no scoped
-  exceptions. The accent is **teal `#0f766e`** (`#5eead4` in dark) and carries
-  every action, focus ring, link and section chip; the five reserved status
-  hues colour a status wherever it appears; the neutrals are true greys with
-  no cast.
+- **One accent, five status hues, cool neutrals, pure backgrounds.** No scoped
+  exceptions. The accent is **violet `#7c3aed`** (`#c4b5fd` in dark) and
+  carries every action, focus ring, link and section chip; the five reserved
+  status hues colour a status wherever it appears.
+- **Backgrounds are pure: white in light, black in dark.** Not off-white, not
+  near-black. Two grey page backgrounds were tried and rejected — `#f6f6f6`
+  ("the gray color bother me") then `#fbfcfd`, still too grey. In light mode
+  page and card are therefore the *same* value, so cards are separated by
+  **border and shadow, not fill**. Do not reintroduce a tinted page background
+  to detach them.
+- **The neutrals are COOL, never pure neutral** — `#101828` / `#475467` /
+  `#667085` / `#eaecf0`. A pass de-tinted them to true greys to remove an
+  inherited purple cast; the cast went and so did the life. A perfectly
+  neutral grey reads dead, a slightly cool one reads designed. Grey is for
+  ink, rules and table-header bands only — never for a page.
 - **There is no brand colour.** The former `#5d396e` was sampled from the Ayad
   identity mark and went with the name — the product is called **Arpent** and
-  carries no company identity. The teal is a *chosen* hue. Why teal and not
-  the obvious professional blue: the status hues already own green, red, amber
-  and blue, and a blue accent would sit on top of `--info` and make a primary
-  button read as an informational state.
+  carries no company identity. The violet is a *chosen* hue: a vivid electric
+  violet at ~55% lightness, not the old desaturated mauve at ~30%. Neighbours
+  in hue, nothing alike on screen; the hue family was never what was
+  forbidden, the borrowed swatch was. Note the obvious professional blue would
+  *not* work — it would sit on top of `--info`.
 - **Do not make the palette achromatic. That has been tried twice and rejected
   twice** — the second time as a deliberate, WCAG-clean specification, and it
   was still rejected on sight ("the app looks like it died on colour"). A

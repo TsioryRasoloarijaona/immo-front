@@ -1,12 +1,17 @@
 /* ===========================================================================
    Arpent — design tokens & global styles
 
-   Colour model: **one accent, five status hues, true grey neutrals.** Three
-   rules, no scoped exceptions, no second system.
+   Colour model: **one accent, five status hues, cool neutrals.** Three rules,
+   no scoped exceptions, no second system.
 
-     --brand    teal #0f766e — every action, focus ring, link and section chip
+     --brand    violet #7c3aed — every action, focus ring, link, section chip
      status     the five reserved hues, wherever a status appears
-     neutrals   true greys, no cast
+     neutrals   a COOL grey ramp, never pure neutral — ink, rules, header
+                bands only
+     surfaces   PURE white in light, PURE black in dark. No grey background.
+
+   The last two lines are load-bearing and were each learned the hard way — see
+   "Neutres" and the note on surfaces below.
 
    **Read this before "simplifying" it back to achromatic.** That has now been
    attempted twice and rejected twice, by different routes:
@@ -23,16 +28,50 @@
    but greys reads as broken rather than as restrained**, and no amount of
    internal consistency fixes that. Treat "no accent" as a settled dead end.
 
-   The accent is NOT the old `#5d396e`. That value was sampled from the Ayad
-   Développement identity mark, and the product is deliberately de-branded
-   (see PRODUCT.md §Brand Commitments) — the name went, the colour went with
-   it. Teal is a chosen hue, not an inherited one.
+   The accent is a vivid violet, and it is NOT the old `#5d396e`. That value
+   was a *desaturated mauve* at ~30% lightness, sampled from the Ayad
+   Développement identity mark; this is an electric violet at ~55%. Neighbours
+   in hue, nothing alike on screen. The product stays de-branded — the name
+   went, the sampled value went with it (see PRODUCT.md §Brand Commitments).
+   The hue family was never what was forbidden; the borrowed swatch was.
 
-   Why teal specifically: it must not collide with the five status hues, which
-   own green (~145°), red (~5°), amber (~35°) and blue (~218°). A blue accent —
-   the obvious "professional software" pick — would sit on top of `--info` and
-   make a primary button read as an informational state. Teal (~177°) sits in
-   the one gap wide enough to be unambiguous.
+   It does not collide with the five status hues, which own green (~145°),
+   red (~5°), amber (~35°) and blue (~218°). Violet (~272°) clears blue by
+   ~54°. Note that the obvious "professional software" blue accent would NOT
+   have worked: it would sit on top of `--info` and make a primary button read
+   as an informational state.
+
+   ---------------------------------------------------------------------------
+   Neutres : FROIDS, jamais purs
+   ---------------------------------------------------------------------------
+   La rampe est bleutée (#101828, #475467, #667085, #eaecf0, #f2f4f7). Ce n'est
+   pas de la décoration, c'est la correction d'une erreur mesurée.
+
+   Une passe intermédiaire a dé-teinté ces gris pour retirer un voile violet
+   hérité de l'ancien accent de marque. Le voile est bien parti — et la vie
+   avec. Un gris parfaitement neutre se lit **mort** ; un gris légèrement
+   froid se lit **dessiné**. C'est une part importante de pourquoi la passe
+   monochrome a été rejetée, et ce n'était pas l'absence d'accent seule.
+
+   Ne pas « corriger » ces composantes inégales en les égalisant. L'écart est
+   voulu.
+
+   Surfaces : la page et les cartes sont du **blanc pur** en clair et du **noir
+   pur** en sombre. Aucun fond gris, nulle part.
+
+   Deux valeurs de fond gris ont été essayées et rejetées, dans cet ordre :
+   #f6f6f6 (« the gray color bother me »), puis #fbfcfd, un quasi-blanc froid
+   pris du référentiel visuel — encore trop gris. La demande était explicite :
+   « just fond noir et fond blanc ».
+
+   Conséquence à assumer : en clair, page et carte sont la même valeur, donc la
+   séparation ne peut plus venir du remplissage. Elle vient du **filet et de
+   l'ombre**, ce que fait aussi le référentiel. Ne pas « rétablir » un fond de
+   page légèrement gris pour détacher les cartes.
+
+   Le gris n'a pas disparu pour autant : il reste l'encre (`--text*`), les
+   filets (`--border*`) et les bandes d'en-tête de tableau (`--muted`), et là
+   il est froid, cf. ci-dessus. C'est le *fond* qui est pur, pas la palette.
 
    Status is carried by a **glyph as well as** its hue — see the TONE_GLYPH
    table in `components/ui.tsx`, keyed off the same six `BadgeTone` values the
@@ -69,34 +108,33 @@
      page by page as the Tailwind + shadcn migration proceeds — do not add
      new usages, prefer the shadcn semantic vars underneath instead.
      ----------------------------------------------------------------------- */
-  /* Gris vrais. Ils portaient tous un voile violet (#55535e, #17151f,
-     #f7f7f9 : composantes inégales) hérité de l'accent de marque — invisible
-     isolément, mais il tirait toute l'interface vers le mauve dès qu'on la
-     comparait à du blanc franc. Composantes désormais égales. */
-  --text: #4a4a4a;
-  /* Aligné sur --muted-foreground (7,0:1) — il était à 3,41:1, même échec AA,
-     et il sert encore les classes héritées (badge, sidebar) plus bas. */
-  --text-muted: #5c5c5c;
-  --text-h: #111111;
-  --bg: #f6f6f6;
+  /* Rampe froide, volontairement bleutée. Voir « Neutres » en tête de fichier :
+     ces gris ont été neutralisés une fois, et l'interface y a perdu sa vie.
+     Ne pas égaliser les composantes. */
+  --text: #475467;
+  /* Aligné sur --muted-foreground (4,97:1) — il était à 3,41:1, échec AA franc,
+     et il sert encore les classes héritées (badge, sidebar) plus bas. Voir la
+     note de marge sur --muted-foreground dans le bloc shadcn. */
+  --text-muted: #667085;
+  --text-h: #101828;
+  --bg: #ffffff;
   --surface: #ffffff;
-  --surface-hover: #fafafa;
-  --border-strong: #d4d4d4;
+  --surface-hover: #f9fafb;
+  --border-strong: #d0d5dd;
 
-  /* L'ACCENT — teal, choisi et non hérité. Voir l'en-tête pour le raisonnement
-     complet : la teinte doit éviter les quatre secteurs que les statuts
-     occupent, et le bleu « logiciel professionnel » évident tomberait sur
-     `--info`.
+  /* L'ACCENT — violet vif, choisi et non hérité. Voir l'en-tête : la teinte
+     doit éviter les quatre secteurs que les statuts occupent, et le bleu
+     « logiciel professionnel » évident tomberait sur `--info`.
 
-     5,4:1 sur blanc, donc le blanc sur remplissage plein passe AA dans les
-     deux sens. Moins contrasté que l'ancien violet (9,2:1) : c'est le prix
-     d'une teinte plus vivante, et cela reste au-dessus du seuil. Ne pas le
-     foncer « pour la sécurité » sans revérifier le blanc dessus, qui bouge en
-     sens inverse. */
-  --brand: #0f766e;
-  --brand-hover: #0b5c55;
-  --brand-bg: rgba(15, 118, 110, 0.08);
-  --brand-border: rgba(15, 118, 110, 0.22);
+     5,7:1 sur blanc, donc le blanc sur remplissage plein passe AA dans les
+     deux sens. Moins contrasté que l'ancien mauve (9,2:1) : c'est le prix
+     d'une teinte vivante, et cela reste au-dessus du seuil. Ne pas le foncer
+     « pour la sécurité » sans revérifier le blanc dessus, qui bouge en sens
+     inverse — les deux valeurs sont liées et le gate mesure les deux. */
+  --brand: #7c3aed;
+  --brand-hover: #6929d4;
+  --brand-bg: rgba(124, 58, 237, 0.08);
+  --brand-border: rgba(124, 58, 237, 0.22);
   /* Foreground color for text/icons sitting on a solid --brand fill. */
   --brand-contrast: #fff;
 
@@ -177,9 +215,9 @@
   /* Ombres au noir pur. Elles étaient en rgba(20, 18, 30, …) — un noir violacé,
      assorti à l'ancien accent : une ombre teintée sur une interface
      achromatique se lit comme une salissure. */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.13), 0 2px 6px rgba(0, 0, 0, 0.07);
+  --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-md: 0 4px 16px rgba(16, 24, 40, 0.08), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow-lg: 0 12px 32px rgba(16, 24, 40, 0.13), 0 2px 6px rgba(16, 24, 40, 0.07);
 
   --sans:
     'Geist Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -199,22 +237,28 @@
      Neutrals are true greys on the same ramp as --bg/--surface above;
      --primary and --accent alias the achromatic accent.
      ----------------------------------------------------------------------- */
-  --background: #f6f6f6;
-  --foreground: #111111;
+  --background: #ffffff;
+  --foreground: #101828;
   --card: #ffffff;
-  --card-foreground: #111111;
+  --card-foreground: #101828;
   --popover: #ffffff;
-  --popover-foreground: #111111;
+  --popover-foreground: #101828;
   --primary: var(--brand);
   --primary-foreground: var(--brand-contrast);
-  --secondary: #f0f0f0;
-  --secondary-foreground: #111111;
-  --muted: #f0f0f0;
-  /* 7,0:1 on --card, up from #8b8a94's 3.41:1 — a straight AA failure at the
-     11px this is mostly used at. It is the colour of every Field label, every
-     breadcrumb, every secondary table cell and every helper caption, so this
-     single value is the app's largest accessibility lever. */
-  --muted-foreground: #5c5c5c;
+  --secondary: #f2f4f7;
+  --secondary-foreground: #101828;
+  --muted: #f2f4f7;
+  /* 4,97:1 sur --card. C'est la couleur de chaque libellé de Field, de chaque
+     fil d'Ariane, de chaque cellule secondaire et de chaque légende d'aide —
+     **le plus gros levier d'accessibilité de l'application**, à surveiller.
+
+     Historique des marges : #8b8a94 échouait franchement (3,41:1), une passe
+     l'a porté à 7,0:1 avec un gris neutre, et cette valeur-ci redescend à
+     4,97:1 en adoptant la rampe froide du référentiel visuel. Toujours
+     au-dessus du seuil AA de 4,5:1, mais c'est désormais la paire la plus
+     juste de la palette : si un futur ajustement de `--card` la fait passer
+     sous le seuil, c'est ici qu'il faut corriger, pas dans le gate. */
+  --muted-foreground: #667085;
   --accent: var(--brand-bg);
   --accent-foreground: var(--brand);
   /* ERREURS UNIQUEMENT — le pas le plus lourd de la rampe, au-delà de
@@ -226,8 +270,8 @@
      `--warning` porte un glyphe et une erreur de saisie n'en porte pas. */
   --destructive: #7f1d1d;
   --destructive-foreground: #fff;
-  --border: #e4e4e4;
-  --input: #d4d4d4;
+  --border: #eaecf0;
+  --input: #d0d5dd;
   --ring: var(--brand);
   /* ---------------------------------------------------------------------
      Rampe catégorielle — et le retour assumé d'un problème connu.
@@ -262,12 +306,12 @@
   --chart-1-track: oklch(0.93 0.03 320);
   --radius: 0.5rem;
   --sidebar: #ffffff;
-  --sidebar-foreground: #4a4a4a;
+  --sidebar-foreground: #475467;
   --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: var(--brand-contrast);
   --sidebar-accent: var(--brand-bg);
   --sidebar-accent-foreground: var(--brand);
-  --sidebar-border: #e4e4e4;
+  --sidebar-border: #eaecf0;
   --sidebar-ring: var(--brand);
 }
 
@@ -281,25 +325,25 @@
 .dark {
   color-scheme: dark;
 
-  --text: #b0b0b0;
+  --text: #cecfd2;
   /* Aligné sur --muted-foreground, cf. la note en mode clair. */
-  --text-muted: #9c9c9c;
-  --text-h: #f5f5f5;
-  --bg: #0f0f0f;
-  --surface: #1a1a1a;
-  --surface-hover: #242424;
-  --border: #2e2e2e;
-  --border-strong: #3d3d3d;
+  --text-muted: #94969c;
+  --text-h: #f5f6f8;
+  --bg: #000000;
+  --surface: #0d0d11;
+  --surface-hover: #16161b;
+  --border: #232329;
+  --border-strong: #2f2f37;
 
-  /* Le teal, éclairci pour tenir sur une surface sombre — même teinte, juste
+  /* Le violet, éclairci pour tenir sur une surface sombre — même teinte, juste
      l'extrémité claire de la rampe d'accent. */
-  --brand: #5eead4;
-  --brand-hover: #99f6e4;
-  --brand-bg: rgba(94, 234, 212, 0.14);
-  --brand-border: rgba(94, 234, 212, 0.32);
+  --brand: #c4b5fd;
+  --brand-hover: #ddd6fe;
+  --brand-bg: rgba(196, 181, 253, 0.14);
+  --brand-border: rgba(196, 181, 253, 0.32);
   /* --brand est clair ici, donc un remplissage plein exige un premier plan
-     sombre (blanc sur teal clair ne passe pas). */
-  --brand-contrast: #0f0f0f;
+     sombre (blanc sur violet clair ne passe pas). */
+  --brand-contrast: #000000;
 
   --success: #4ade80;
   --success-bg: rgba(74, 222, 128, 0.12);
@@ -350,28 +394,28 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32), 0 1px 3px rgba(0, 0, 0, 0.24);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
 
-  --background: #0f0f0f;
-  --foreground: #f5f5f5;
-  --card: #1a1a1a;
-  --card-foreground: #f5f5f5;
-  --popover: #1a1a1a;
-  --popover-foreground: #f5f5f5;
+  --background: #000000;
+  --foreground: #f5f6f8;
+  --card: #0d0d11;
+  --card-foreground: #f5f6f8;
+  --popover: #0d0d11;
+  --popover-foreground: #f5f6f8;
   --primary: var(--brand);
   --primary-foreground: var(--brand-contrast);
-  --secondary: #242424;
-  --secondary-foreground: #f5f5f5;
-  --muted: #242424;
+  --secondary: #16161b;
+  --secondary-foreground: #f5f6f8;
+  --muted: #16161b;
   /* 5.5:1 on --card, up from #75737f's 3.83:1 — the dark theme failed AA on
      the label colour too, so switching themes was never an escape hatch. */
-  --muted-foreground: #9c9c9c;
+  --muted-foreground: #94969c;
   --accent: var(--brand-bg);
   --accent-foreground: var(--brand);
   /* ERREURS UNIQUEMENT — le pas extrême de la rampe, au-delà de --warning.
      En clair c'était le noir pur, ici c'est le blanc pur : dans les deux cas
      le seul pas qui reste après le plus lourd des statuts métier. */
   --destructive: #f26d6d;
-  --destructive-foreground: #0f0f0f;
-  --input: #3d3d3d;
+  --destructive-foreground: #000000;
+  --input: #2f2f37;
   --ring: var(--brand);
   /* Plus claire que la rampe du mode clair, et choisie pas à pas plutôt
      qu'obtenue en inversant : les anciennes valeurs étaient identiques dans
@@ -386,13 +430,13 @@
   /* En sombre la piste descend au lieu de monter : le mode sombre se choisit
      pas à pas depuis la même rampe, il ne s'obtient pas en inversant le clair. */
   --chart-1-track: oklch(0.3 0.04 320);
-  --sidebar: #1a1a1a;
-  --sidebar-foreground: #b0b0b0;
+  --sidebar: #0d0d11;
+  --sidebar-foreground: #cecfd2;
   --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: var(--brand-contrast);
   --sidebar-accent: var(--brand-bg);
   --sidebar-accent-foreground: var(--brand);
-  --sidebar-border: #2e2e2e;
+  --sidebar-border: #232329;
   --sidebar-ring: var(--brand);
 }
 
