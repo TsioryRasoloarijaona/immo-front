@@ -114,14 +114,15 @@ export default function PerformancesCommerciaux() {
       accentBg="var(--sec-accent-bg)"
     >
       <div className="flex flex-col gap-3">
-        <p className="max-w-180 text-body text-muted-foreground">
-          Classement des commerciaux sur la période, les plus performants d’abord.{' '}
-          <strong className="font-medium text-foreground">
-            Seuls ceux ayant au moins une ligne sur la période y figurent
-          </strong>{' '}
-          — une interaction, une prospection assignée ou un dossier. Ce n’est donc pas l’effectif
-          complet : sur la base réelle, une vingtaine de personnes seulement travaillent sur une
-          période donnée.
+        {/* La description de la page a été retirée, cet avertissement non : il
+            change ce que le classement veut dire. Sans lui, une vingtaine de
+            lignes se lisent comme l'effectif complet alors que c'est le nombre
+            de personnes actives sur la période. Réduit à une ligne, gardé
+            contre le tableau qu'il qualifie. */}
+        <p className="text-micro text-muted-foreground">
+          <strong className="font-medium text-foreground">Seuls les commerciaux actifs</strong> sur
+          la période y figurent — une interaction, une prospection assignée ou un dossier. Ce n’est
+          pas l’effectif complet.
         </p>
 
         <PeriodeFilterBar value={periode} onChange={setPeriode} />

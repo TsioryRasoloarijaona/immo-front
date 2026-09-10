@@ -68,7 +68,13 @@ export default function PageShell({
 
   return (
     <div className={cn(fullHeight && 'flex h-svh flex-col overflow-hidden')}>
-      <header className="sticky top-0 z-5 flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background/88 px-4 py-2.5 backdrop-blur-sm md:px-7 md:py-3">
+      {/* `py-2` et non plus `py-2.5 md:py-3` : l'en-tête ne porte plus qu'une
+          ligne de texte. Sa hauteur est désormais plancherée par les boutons
+          d'action à droite (`size-sm`, 32px), pas par le texte — descendre le
+          padding plus bas ne gagnerait donc rien et collerait les boutons au
+          filet. C'est aussi pourquoi la puce d'icône reste à `size-7` : à 28px
+          elle passe sous ce plancher et ne coûte aucune hauteur. */}
+      <header className="sticky top-0 z-5 flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background/88 px-4 py-2 backdrop-blur-sm md:px-7">
         <div className="flex min-w-0 items-center gap-2">
           <SidebarTrigger title="Afficher/masquer la barre latérale" />
           <Separator orientation="vertical" className="mr-1 h-5" />
@@ -80,18 +86,48 @@ export default function PageShell({
               {icon}
             </span>
           )}
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <h1 className="truncate text-page font-semibold tracking-tight text-foreground">{title}</h1>
+          {/* Le titre est **présent mais invisible quand un fil d'Ariane le
+              relaie**. Une page sans `h1` casse la navigation par titres des
+              lecteurs d'écran et laisse le document sans plan ; le fil
+              d'Ariane, lui, est un `nav`/`ol` et ne remplace pas un titre.
+              D'où le `sr-only` : une seule ligne à l'écran, et le nom de la
+              page toujours annoncé — son dernier segment le redit
+              visuellement. Ne pas « nettoyer » ce sr-only.
+
+              Le repli n'est pas décoratif : les retours anticipés de
+              chargement et d'erreur montent `<PageShell title="…">` **sans
+              crumbs** (voir ProjetsList, TranchesList, Dashboard et les pages
+              de détail). Sans ce repli, leur en-tête serait entièrement vide
+              pendant le chargement — un bandeau avec une puce d'icône et rien
+              d'autre. */}
+          <div className="flex min-w-0 items-center">
+            {crumbs && crumbs.length > 0 ? (
+              <h1 className="sr-only">{title}</h1>
+            ) : (
+              <h1 className="truncate text-body font-medium text-foreground">{title}</h1>
+            )}
             {crumbs && crumbs.length > 0 && (
               <Breadcrumb>
-                <BreadcrumbList className="flex-nowrap gap-1 text-xs">
+                <BreadcrumbList className="flex-nowrap gap-1 text-body">
                   {crumbs.map((c, i) => (
                     <span key={i} className="contents">
                       <BreadcrumbItem>
                         {c.to ? (
                           <BreadcrumbLink render={<Link to={c.to} />}>{c.label}</BreadcrumbLink>
                         ) : (
-                          <BreadcrumbPage className="text-xs text-muted-foreground">{c.label}</BreadcrumbPage>
+                          /* Dernier segment = la page courante. En graisse
+                             moyenne et en couleur pleine, il tient le rôle
+                             d'ancre visuelle que le gros titre occupait. */
+                          <BreadcrumbPage
+                            className={cn(
+                              'truncate text-body',
+                              i === crumbs.length - 1
+                                ? 'font-medium text-foreground'
+                                : 'text-muted-foreground',
+                            )}
+                          >
+                            {c.label}
+                          </BreadcrumbPage>
                         )}
                       </BreadcrumbItem>
                       {i < crumbs.length - 1 && <BreadcrumbSeparator />}

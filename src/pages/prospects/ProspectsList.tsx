@@ -94,11 +94,6 @@ export default function ProspectsList() {
       }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <p className="shrink-0 max-w-180 text-body text-muted-foreground">
-          Fiches contact (/api/prospects) — indépendantes des prospections, un même prospect peut être
-          lié à plusieurs prospections au fil du temps.
-        </p>
-
         <Card padded={false} className="shrink-0">
           <div className="flex flex-wrap items-center gap-2.5 p-3">
             <InputGroup className="min-w-55 flex-1">

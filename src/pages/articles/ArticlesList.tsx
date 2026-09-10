@@ -292,11 +292,6 @@ export default function ArticlesList() {
       accentBg="var(--sec-tranche-bg)"
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <p className="shrink-0 max-w-180 text-body text-muted-foreground">
-          Catalogue transverse des articles (/api/articles) — tous lots et sous-lots, toutes tranches
-          confondues (entités actives uniquement).
-        </p>
-
         <Card padded={false} className="shrink-0">
           <div className="flex flex-wrap items-center gap-2.5 p-3">
             <InputGroup className="min-w-55 flex-1">

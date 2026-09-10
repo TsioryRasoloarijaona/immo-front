@@ -192,11 +192,6 @@ export default function UtilisateursList() {
       fullHeight
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <p className="shrink-0 max-w-180 text-body text-muted-foreground">
-          Annuaire des comptes (/api/utilisateurs) — identifiant, fiche employé liée et rôles assignés.
-          Réservé au rôle Administrateur.
-        </p>
-
         <Card padded={false} className="shrink-0">
           <div className="flex flex-wrap items-center gap-2.5 p-3">
             <InputGroup className="min-w-55 flex-1">
