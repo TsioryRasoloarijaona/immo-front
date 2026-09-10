@@ -262,10 +262,14 @@ export const DISPOSITION_DOSSIERS: DispositionColonnes = {
     'societeId',
     'avocatId',
   ]),
-  /* La colonne « Prospection » est un lien vers `/prospections/{id}`, et cet
-     id vient d'être masqué. `?colonnes=` étant une liste close, il faut le
-     redemander explicitement dès que la sélection s'écarte des défauts —
-     sinon le lien mène à `/prospections/undefined`, sans erreur ni trace. */
+  /* La colonne « Prospection » est un lien vers `/prospections/{id}`, et cet id
+     vient d'être masqué. `?colonnes=` étant une liste close, il faut le
+     redemander dès que la sélection s'écarte des défauts.
+
+     Mesuré contre le serveur : demander `prospectionCode` sans
+     `prospectionId` renvoie bien la colonne sans son id. Le rendu teste cet id
+     et retombe sur un tiret — le lien disparaît donc en silence, ce qui est
+     pire qu'une erreur puisque rien ne le signale. */
   dependances: { prospectionCode: ['prospectionId'] },
 };
 

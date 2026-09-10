@@ -80,9 +80,14 @@ export type DispositionColonnes = {
   masquees?: Set<string>;
   /** Colonnes à demander en plus quand la clé est visible.
    *
-   * `?colonnes=` est une liste close : un champ non demandé n'est pas servi.
-   * `prospectionCode` s'affiche en lien vers `/prospections/{prospectionId}` —
-   * sans son compagnon, le lien mène à `undefined`, sans erreur ni trace. */
+   * `?colonnes=` est une liste close : un champ non demandé n'est **pas** dans
+   * la charge utile — vérifié contre le serveur, `prospectionCode` revient bien
+   * sans `prospectionId` quand on ne demande que le premier.
+   *
+   * La colonne qui s'appuie sur le compagnon se dégrade alors en silence : le
+   * rendu de `prospectionCode` teste `d.prospectionId` et retombe sur un tiret,
+   * si bien que le lien vers la prospection **disparaît** sans erreur, sans
+   * trace, et sans que rien à l'écran n'explique pourquoi. */
   dependances?: Record<string, string[]>;
 };
 

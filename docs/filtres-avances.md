@@ -224,3 +224,34 @@ existé dans le schéma réel) a été retiré du type front et des deux endroit
 qui s'y référaient encore par erreur (`ProspectionDetail.tsx`,
 `NewDossier.tsx`) — tous deux remplacés par `montants.prixVenteTTC`, le
 vrai champ. Rien de plus à faire ici.
+
+## Demande backend — filtre statut sur /api/dossiers (10/09)
+
+Le contournement decrit au §1 (charger 500 lignes, filtrer et paginer cote
+client parce que `?statut=` attend le code brut `StrStatus.Code` et rend 0
+ligne sur le libelle accentue) vient de prendre un cout supplementaire avec
+le selecteur de colonnes.
+
+Mesure sur le serveur reel : les groupes `PATRIMOINE` et `ORIGINE` du
+catalogue `/api/referentiels/colonnes/dossiers` traversent
+article -> tranche -> projet -> societe et dereferencent la prospection, soit
+**trois jointures paresseuses par ligne**. Sur le chemin nominal cela porte
+sur 20 lignes ; des qu'un filtre de statut est actif, le contournement les
+applique a **500**.
+
+Deux consequences immediates, deja absorbees cote front :
+
+- `fetchDossiersWithStatusWorkaround` redemande `statut` meme quand
+  l'utilisateur decoche la colonne — sans quoi le filtre client ne matche plus
+  rien et l'ecran se vide sans message.
+- La selection de colonnes s'applique telle quelle a la requete de 500 lignes.
+
+**Ce qu'on demande** : que `GET /api/dossiers?statut=` accepte le libelle
+d'affichage (ou normalise accents et casse), ou a defaut qu'il expose les codes
+bruts exacts. Le contournement disparait alors, et son cout avec lui.
+
+Non demandé, et c'est délibéré : rien sur `?colonnes=` lui-meme, dont le
+contrat s'est verifie exactement comme la spec le decrit — 400 avec la liste
+des noms valides sur un nom inconnu, `id` toujours servi, et une liste close
+(demander `prospectionCode` sans `prospectionId` renvoie bien la colonne
+sans son id).
