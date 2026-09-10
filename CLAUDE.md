@@ -146,20 +146,29 @@ enum, not free text. `isCredit` distinguishes debit/credit direction.
 Follow **Linear / Stripe Dashboard / Attio** as the visual references —
 **not** the legacy system's dense Windows-forms layout. Concretely:
 - Generous whitespace, clear typographic hierarchy.
-- **The palette is achromatic — there is no accent colour and no brand
-  colour.** One near-black accent (`--brand: #18181b`, inverted to `#fafafa`
-  in dark) over true greys. The former `#5d396e` was sampled from the Ayad
-  identity mark and was removed with the name; the product is called
-  **Arpent** and carries no company identity. See `PRODUCT.md` §Brand
-  Commitments and the header of `src/index.css` — which also records that an
-  achromatic accent was tried and reverted once, and why that reversal does
-  not apply now.
-- **Status is carried by a glyph, not by colour.** `TONE_GLYPH` in
+- **The interface has no colour; the data does.** Every surface, control and
+  accent is achromatic — one near-black accent (`--brand: #18181b`, inverted
+  to `#fafafa` in dark) over true greys. There is no brand colour: the former
+  `#5d396e` was sampled from the Ayad identity mark and was removed with the
+  name. The product is called **Arpent** and carries no company identity.
+- **The single exception is a table cell**, where the five status tones take
+  their chromatic values back — declared in a `[data-slot='table-cell']`
+  scope in `index.css`, so `text-(--success)` on a Prix column and every badge
+  variant inside a cell pick them up through the cascade, with no component
+  or call-site change. Prices, overdue relances and balances owed are
+  coloured; nothing else is. Because no chrome spends colour, any colour on
+  screen is data.
+- **`--brand` is deliberately NOT restored in cells.** The `progress` tone
+  used it, and its old value was the Ayad purple — the one former colour whose
+  return would reintroduce the identity that was just removed.
+- **Status is carried by a glyph as well as colour.** `TONE_GLYPH` in
   `components/ui.tsx` maps each of the six `BadgeTone` values to a lucide
-  icon; the grey step ranks attention, the glyph names the kind. Conveying
-  meaning by colour alone is a High-severity WCAG failure, and the previous
-  coloured-badge design committed it — this is stricter, not looser. Do not
-  "restore" hues to badges.
+  icon. Do not drop the glyphs to reclaim space: colour alone is a
+  High-severity WCAG failure, the old design committed it, and outside a cell
+  the glyph is the *only* carrier.
+- See `PRODUCT.md` §Brand Commitments and the header of `src/index.css` —
+  which also records that an achromatic accent was tried and reverted once,
+  and why that reversal does not apply now.
 - Cards and clean tables over the legacy system's dense multi-tab modal
   forms — collapse related fields into logical grouped sections instead of
   replicating every flat field list 1:1.

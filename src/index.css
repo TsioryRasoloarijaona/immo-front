@@ -1,9 +1,17 @@
 /* ===========================================================================
    Arpent — design tokens & global styles
 
-   Colour model: NONE. The palette is achromatic end to end — a single
-   near-black accent over true greys, and status expressed as steps on that
-   same grey ramp. No hue anywhere.
+   Colour model: **the interface has no colour; the data does.**
+
+   Every surface, control, accent and chip is achromatic — a single near-black
+   accent over true greys. The one exception is a table cell, where the five
+   status tones take their chromatic values back (see "La couleur revient"
+   further down). Nothing else in the product is allowed a hue.
+
+   That split is the whole point, and it is stricter than either half alone:
+   because no chrome spends colour, **any colour you can see is data** — a
+   price, an overdue relance, a balance owed. Nothing competes with those
+   signals, so they need no saturation to win attention.
 
    Why: the previous accent was `#5d396e`, sampled from the Ayad Développement
    identity mark. Detaching the product from that identity and removing its
@@ -19,12 +27,16 @@
    deliberately a **decisive** near-black (#18181b), not a mid grey. Do not
    re-diagnose "no brand colour" as a bug: it is the specification.
 
-   Status therefore CANNOT be carried by hue. It is carried by a **glyph** —
-   see the TONE_GLYPH table in `components/ui.tsx`, keyed off the same six
-   `BadgeTone` values the `lib/` mappers already return. This is stricter than
-   what came before, not looser: conveying meaning by colour alone is a
-   High-severity WCAG failure, and the coloured-badge design committed it.
-   The grey step now ranks attention; the glyph names the kind.
+   Status is carried by a **glyph** as well as by colour — see the TONE_GLYPH
+   table in `components/ui.tsx`, keyed off the same six `BadgeTone` values the
+   `lib/` mappers already return. The glyph is not decoration and not a
+   leftover from the colourless pass: conveying meaning by colour alone is a
+   High-severity WCAG failure, and the old coloured-badge design committed it.
+   Colour *and* glyph is the compliant pairing. Outside a table cell, where
+   there is no colour at all, the glyph is the only carrier.
+
+   So: the grey step ranks attention, the glyph names the kind, and inside a
+   cell the hue reinforces both.
 
    Dense, information-forward sales CRM layout (tight spacing/radius) so more
    of the pipeline is visible without scrolling — this is an operator tool
@@ -561,6 +573,53 @@ table {
    `text-primary-foreground`, quasi blanc, qui deviendrait invisible une fois le
    fond retiré ; et un ton ajouté plus tard sans entrée ici gardera au moins la
    couleur du texte courant au lieu de disparaître. */
+/* ---------------------------------------------------------------------------
+   La couleur revient — et SEULEMENT ici
+   ---------------------------------------------------------------------------
+   L'interface est achromatique ; les cellules de tableau ne le sont pas. Les
+   cinq tons de statut reprennent leurs valeurs chromatiques exactes d'avant le
+   passage en noir et blanc, **redéclarés dans le périmètre de la cellule**.
+
+   Ce n'est pas un compromis, c'est un système plus strict que les deux qu'il
+   remplace : puisque plus aucun chrome ne consomme de couleur, **toute couleur
+   visible dans le produit est une donnée**. Un prix, une relance échue, un
+   reste à payer. Rien d'autre n'a le droit d'être coloré, donc rien ne
+   concurrence ces signaux.
+
+   Le mécanisme est la cascade des custom properties, pas une classe : une
+   propriété déclarée sur `[data-slot='table-cell']` est disponible aux
+   déclarations de cette même cellule. Donc `text-(--success)` sur la colonne
+   Prix, les règles de `data-variant` des pastilles juste en dessous, et tout
+   `var(--warning)` posé plus tard dans une cellule prennent la valeur
+   chromatique sans qu'aucun composant ni aucun des 215 sites d'appel change.
+   Hors cellule, les mêmes noms restent gris.
+
+   Les glyphes sont **conservés**. Avec la couleur revenue ils deviennent
+   redondants — et c'est exactement la combinaison que demande WCAG : la
+   couleur ne doit jamais être le seul porteur. Ne pas les retirer pour gagner
+   les ~12px : ce serait revenir à l'infraction que le thème avait corrigée.
+
+   `--brand` n'est délibérément PAS rétabli. Le ton `progress` s'en servait, et
+   sa valeur d'avant était le violet échantillonné de la marque Ayad — le seul
+   des anciens tons dont le rétablissement réintroduirait l'identité qu'on
+   vient de retirer. Un presque-noir se lit très bien comme « en cours ».
+   --------------------------------------------------------------------------- */
+[data-slot='table-cell'] {
+  --success: #146c34;
+  --warning: #b02012;
+  --amber: #92580a;
+  --info: #1c5fc0;
+  --destructive: #7f1d1d;
+}
+
+.dark [data-slot='table-cell'] {
+  --success: #4ade80;
+  --warning: #fca5a5;
+  --amber: #fbbf24;
+  --info: #60a5fa;
+  --destructive: #f26d6d;
+}
+
 [data-slot='table-cell'] [data-slot='badge'] {
   height: auto;
   gap: 0;

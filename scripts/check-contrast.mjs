@@ -89,11 +89,20 @@ function check(label, fgRaw, bgRgb, scope) {
   console.log(`  ${ok ? 'ok  ' : 'FAIL'} ${label.padEnd(46)} ${r.toFixed(2).padStart(6)}:1`);
 }
 
-for (const [name, selector, cardRaw] of [
-  ['CLAIR', ':root', '#ffffff'],
-  ['SOMBRE', '.dark', '#18171d'],
+for (const [name, selector, cardRaw, celluleSelector] of [
+  ['CLAIR', ':root', '#ffffff', "[data-slot='table-cell']"],
+  ['SOMBRE', '.dark', '#18171d', ".dark [data-slot='table-cell']"],
 ]) {
   const t = tokens(selector);
+  /* Les tons de statut sont **redéclarés dans le périmètre de la cellule** de
+     tableau, où ils reprennent leurs valeurs chromatiques (voir index.css).
+     Ce sont donc ces valeurs-là que voient les écrans de liste, et c'est sur
+     elles que doivent porter les paires « (grille) » plus bas.
+     Sans cette fusion, le gate vérifierait les gris de l'interface et
+     déclarerait conforme une couleur de donnée qu'il n'a jamais regardée —
+     exactement le trou qu'il avait déjà eu quand les pastilles ont été
+     dépouillées. */
+  const cellule = { ...t, ...tokens(celluleSelector) };
   const card = parseColor(t['--card'] ?? cardRaw, t).rgb;
   console.log(`\n--- ${name} (fond --card ${t['--card'] ?? cardRaw}) ---`);
 
@@ -121,7 +130,7 @@ for (const [name, selector, cardRaw] of [
   // vérifiait que le ton sur sa propre teinte, qui est *plus* contrastée que
   // sur la carte. Un ton qui passait là pouvait échouer ici.
   for (const tok of ['--success', '--warning', '--amber', '--info', '--destructive', '--brand']) {
-    if (t[tok]) check(`${tok} sur --card (grille)`, t[tok], card, t);
+    if (cellule[tok]) check(`${tok} sur --card (grille)`, cellule[tok], card, cellule);
   }
 
   // Texte posé sur un aplat plein.
