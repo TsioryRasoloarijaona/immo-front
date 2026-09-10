@@ -1,21 +1,31 @@
 import { useCallback, useState } from 'react';
-import type { ColonneDto, GroupeColonne } from '../types';
+import type { ColonneDto } from '../types';
 
 /** Libellés des groupes du sélecteur. Le serveur envoie des clés
  * d'énumération (`IDENTITE`…), pas des libellés : la traduction est une
  * décision d'affichage, elle reste ici. Un groupe inconnu — le serveur en
  * ajoutera — retombe sur sa clé brute plutôt que de disparaître. */
-export const LIBELLES_GROUPE: Record<GroupeColonne, string> = {
+export const LIBELLES_GROUPE: Record<string, string> = {
+  // Prospections
   IDENTITE: 'Identité',
   CONTACT: 'Contact',
   CONTEXTE: 'Contexte',
   FINANCIER: 'Financier',
   ACTIVITE: 'Activité',
   CONVERSION: 'Conversion',
+  // Dossiers de vente
+  ACTEURS: 'Acteurs',
+  ORIGINE: 'Origine',
+  PATRIMOINE: 'Patrimoine',
+  // Prospects
+  ADRESSE: 'Adresse',
+  PROFESSION: 'Profession',
+  // Les trois catalogues
+  AUDIT: 'Traçabilité',
 };
 
 export function libelleGroupe(groupe: string): string {
-  return LIBELLES_GROUPE[groupe as GroupeColonne] ?? groupe;
+  return LIBELLES_GROUPE[groupe] ?? groupe;
 }
 
 /** Minuscules sans accents. Distinct de `normalizeStatus` de `dossierStatus.ts`,
@@ -45,139 +55,46 @@ export function filtrerColonnes(catalogue: ColonneDto[], requete: string): Colon
   });
 }
 
-/** Ordre d'affichage des colonnes connues, et **rien d'autre** : ni la liste
- * des colonnes, ni lesquelles sont par défaut, qui viennent maintenant du
- * serveur. Les colonnes hors de cette liste s'affichent après, dans l'ordre
- * du catalogue — une colonne ajoutée côté serveur apparaît donc sans qu'on
- * touche à ce fichier, simplement en fin de tableau.
+/** Mise en page d'une liste : ce que le catalogue serveur ne porte pas.
  *
- * Les huit premières reproduisent l'ordre historique de la liste, pour que le
- * passage à la sélection serveur ne déplace rien à l'écran. `prix` n'y est
- * plus par défaut — mesuré mort, 4 lignes sur 14 114 — mais garde son rang au
- * cas où on le coche. */
-const ORDRE = [
-  // Identité du lead et de son prospect
-  'code',
-  'prospectCode',
-  'prospectNom',
-  'typeProspect',
-  'ancienClient',
-  // Type de document légataire. Juste après `typeProspect` parce que les deux
-  // se confondent au premier coup d'œil et qu'il vaut mieux les voir côte à
-  // côte que séparés par dix colonnes. `typeProspectionId` n'est pas listé :
-  // c'est un UUID, il n'a rien à faire dans une colonne.
-  'typeProspectionCode',
-  'typeProspection',
-  // Suivi commercial
-  'etape',
-  'origine',
-  'origineSupport',
-  'actionCommerciale',
-  'commercialNom',
-  'commercialCode',
-  // Rattachements
-  'societeCode',
-  'societeLibelle',
-  'trancheCode',
-  'trancheDescription',
-  'projetCode',
-  'projetLibelle',
-  // Financier — mesuré mort, hors défauts, mais gardé à son rang historique
-  'prix',
-  'surface',
-  'dateDocument',
-  // Contact. `telephone`/`email` appliquent un repli ; les variantes « fiche »
-  // sont les valeurs brutes, utiles pour éditer ou dédoublonner.
-  'telephone',
-  'indicatifMobile',
-  'mobileProspect',
-  'email',
-  'emailFiche',
-  'pays',
-  'cin',
-  // Relance et clôture
-  'derniereAlerteDate',
-  'dateFermeture',
-  'raisonFermeture',
-  // Activité, servie par la vue légataire
-  'joursInactivite',
-  'nbInteractions',
-  'derniereActionDate',
-  'derniereCommunicationDate',
-  'derniereCommunicationResultat',
-  'nbVisites',
-  'derniereVisiteDate',
-  // Conversion
-  'dossierCode',
-  'statutDossier',
-  // Traçabilité, en dernier : utile ponctuellement, jamais au quotidien
-  'creeLe',
-  'creePar',
-  'modifieLe',
-  'modifiePar',
-];
-
-/** Largeurs relatives, normalisées à l'affichage. Le serveur ne porte pas
- * cette information et n'a pas à la porter : c'est de la mise en page. Les
- * valeurs reprennent les pourcentages en dur d'avant le sélecteur. */
-const POIDS: Record<string, number> = {
-  code: 9,
-  prospectCode: 9,
-  prospectNom: 17,
-  typeProspect: 10,
-  // `ComPreProspection` est le plus long code servi — 12 suffit sans tronquer.
-  typeProspectionCode: 12,
-  typeProspection: 11,
-  ancienClient: 8,
-  etape: 10,
-  origine: 10,
-  origineSupport: 11,
-  actionCommerciale: 12,
-  commercialNom: 11,
-  commercialCode: 9,
-  societeCode: 9,
-  societeLibelle: 12,
-  trancheCode: 9,
-  trancheDescription: 12,
-  projetCode: 9,
-  projetLibelle: 12,
-  prix: 11,
-  surface: 9,
-  dateDocument: 9,
-  telephone: 10,
-  indicatifMobile: 7,
-  mobileProspect: 10,
-  email: 12,
-  emailFiche: 12,
-  pays: 9,
-  cin: 9,
-  derniereAlerteDate: 10,
-  dateFermeture: 9,
-  raisonFermeture: 12,
-  creeLe: 9,
-  creePar: 10,
-  modifieLe: 9,
-  modifiePar: 10,
-  joursInactivite: 9,
-  nbInteractions: 8,
-  derniereActionDate: 10,
-  derniereCommunicationDate: 11,
-  derniereCommunicationResultat: 12,
-  nbVisites: 8,
-  derniereVisiteDate: 10,
-  dossierCode: 10,
-  statutDossier: 11,
+ * Une par écran, et non une table globale, parce que les trois catalogues
+ * partagent des noms avec des intentions différentes — `code` tient en 9 sur
+ * une prospection, en 11 sur un dossier et en 12 sur un prospect ; `email` en
+ * 12 contre 18. Une table unique donnerait des largeurs mesurément fausses sur
+ * au moins cinq colonnes, et rangerait ex æquo tous les noms propres à un seul
+ * écran.
+ *
+ * Vit à côté de l'adaptateur de tableau qui la consomme, pas ici : ce fichier
+ * porte le mécanisme, les écrans portent leurs choix. */
+export type DispositionColonnes = {
+  /** Ordre d'affichage. Un nom absent passe en fin, dans l'ordre du catalogue —
+   * une colonne ajoutée côté serveur apparaît donc sans toucher à ce tableau. */
+  ordre: string[];
+  /** Poids relatifs, normalisés par `DataGrid`. Défaut `POIDS_DEFAUT`. */
+  poids: Record<string, number>;
+  /** Colonnes du catalogue jamais proposées ni affichées.
+   *
+   * Le `parDefaut` du serveur décrit la charge utile, pas la grille : les 13
+   * défauts des dossiers comprennent `id`, `clientId`, `commercialId` et
+   * `prospectionId`. Sans ce filtre, la vue par défaut montre des UUID. */
+  masquees?: Set<string>;
+  /** Colonnes à demander en plus quand la clé est visible.
+   *
+   * `?colonnes=` est une liste close : un champ non demandé n'est **pas** dans
+   * la charge utile — vérifié contre le serveur, `prospectionCode` revient bien
+   * sans `prospectionId` quand on ne demande que le premier.
+   *
+   * La colonne qui s'appuie sur le compagnon se dégrade alors en silence : le
+   * rendu de `prospectionCode` teste `d.prospectionId` et retombe sur un tiret,
+   * si bien que le lien vers la prospection **disparaît** sans erreur, sans
+   * trace, et sans que rien à l'écran n'explique pourquoi. */
+  dependances?: Record<string, string[]>;
 };
 
 const POIDS_DEFAUT = 10;
 
-export function poidsColonne(nom: string): number {
-  return POIDS[nom] ?? POIDS_DEFAUT;
-}
-
-function rang(nom: string): number {
-  const i = ORDRE.indexOf(nom);
-  return i === -1 ? ORDRE.length : i;
+export function poidsColonne(nom: string, poids: Record<string, number>): number {
+  return poids[nom] ?? POIDS_DEFAUT;
 }
 
 const PREFIXE_STOCKAGE = 'arpent.colonnes.';
@@ -209,8 +126,18 @@ function lireStockees(cle: string): string[] | null {
  * Le catalogue arrive de façon asynchrone : tant qu'il est vide, `colonnes`
  * l'est aussi, et l'appelant doit attendre avant de dessiner un tableau. Une
  * préférence enregistrée nommant une colonne disparue du catalogue est ignorée
- * en silence — c'est le bon comportement, pas un plantage. */
-export function useColonnesVisibles(cle: string, catalogue: ColonneDto[]) {
+ * en silence — c'est le bon comportement, pas un plantage.
+ *
+ * `catalogue` est le catalogue **brut** du serveur : le hook lui applique
+ * `disposition.masquees` et renvoie le résultat dans `catalogueServi`, qui est
+ * ce qu'il faut donner au sélecteur. Un écran qui a besoin d'un filtre
+ * supplémentaire — les pré-prospections écartent deux groupes entiers — le pose
+ * avant l'appel ; les deux se composent. */
+export function useColonnesVisibles(
+  cle: string,
+  catalogueBrut: ColonneDto[],
+  disposition: DispositionColonnes,
+) {
   const [stockees, setStockees] = useState<string[] | null>(() => lireStockees(cle));
 
   const enregistrer = useCallback(
@@ -228,13 +155,21 @@ export function useColonnesVisibles(cle: string, catalogue: ColonneDto[]) {
     [cle],
   );
 
-  const connus = new Set(catalogue.map((c) => c.nom));
+  const masquees = disposition.masquees;
+  const catalogueServi = masquees ? catalogueBrut.filter((c) => !masquees.has(c.nom)) : catalogueBrut;
+
+  const rang = (nom: string) => {
+    const i = disposition.ordre.indexOf(nom);
+    return i === -1 ? disposition.ordre.length : i;
+  };
+
+  const connus = new Set(catalogueServi.map((c) => c.nom));
   const retenues = (stockees ?? []).filter((n) => connus.has(n));
   const selection = new Set(
-    retenues.length > 0 ? retenues : catalogue.filter((c) => c.parDefaut).map((c) => c.nom),
+    retenues.length > 0 ? retenues : catalogueServi.filter((c) => c.parDefaut).map((c) => c.nom),
   );
 
-  const colonnes = catalogue
+  const colonnes = catalogueServi
     .filter((c) => selection.has(c.nom))
     .sort((a, b) => rang(a.nom) - rang(b.nom));
   const visibles = colonnes.map((c) => c.nom);
@@ -255,9 +190,26 @@ export function useColonnesVisibles(cle: string, catalogue: ColonneDto[]) {
 
   const reinitialiser = useCallback(() => enregistrer(null), [enregistrer]);
 
-  const parDefaut = catalogue.filter((c) => c.parDefaut).map((c) => c.nom);
+  const parDefaut = catalogueServi.filter((c) => c.parDefaut).map((c) => c.nom);
   const estDefaut =
     stockees === null || (visibles.length === parDefaut.length && parDefaut.every((n) => selection.has(n)));
 
-  return { colonnes, visibles, basculer, reinitialiser, estDefaut };
+  /* Ce qu'il faut passer à `?colonnes=`, et `undefined` quand la sélection ne
+     s'écarte pas des défauts.
+     Deux raisons de ne rien envoyer dans ce cas : le paramètre absent produit
+     exactement la réponse par défaut, et comme `estDefaut` est aussi vrai tant
+     que le catalogue est vide, la clé de dépendance de `useApi` ne change pas
+     quand le catalogue atterrit — donc pas de seconde requête. Propriété
+     portante, ne pas la casser.
+     Les colonnes masquées ne sont jamais demandées : `id` est servi de toute
+     façon, et les autres `*Id` n'arrivent que par une dépendance déclarée. */
+  const demandees = estDefaut
+    ? undefined
+    : [
+        ...new Set(
+          visibles.flatMap((nom) => [nom, ...(disposition.dependances?.[nom] ?? [])]),
+        ),
+      ];
+
+  return { colonnes, visibles, demandees, basculer, reinitialiser, estDefaut, catalogueServi };
 }

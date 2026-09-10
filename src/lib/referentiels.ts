@@ -81,11 +81,24 @@ export const useResultatsInteraction = makeCachedListHook(api.getResultatsIntera
  * et source du filtre avancé `projetId` sur la liste des prospections. */
 export const useProjetsReferentiel = makeCachedListHook(api.getProjetsReferentiel);
 
-/** Catalogue des colonnes de la liste des prospections. Le seul référentiel
- * d'ici qui ne soit pas une liste `{id, code, description}` — il alimente le
- * sélecteur de colonnes, et non un `Select`. Mis en cache comme les autres :
- * il est petit, immuable pendant une session, et deux écrans le consomment. */
+/* Les trois catalogues de colonnes. Seuls référentiels d'ici qui ne soient pas
+   des listes `{id, code, description}` — ils alimentent le sélecteur de
+   colonnes, et non un `Select`. Mis en cache comme les autres : petits,
+   immuables pendant une session, et lus à chaque montage de leur écran.
+
+   Trois hooks et non un seul paramétré : `makeCachedListHook` referme un cache
+   sur son fetcher, donc une fonction unique partagerait un cache entre trois
+   catalogues distincts et servirait le premier arrivé aux trois écrans. */
+
+/** Consommé par la liste des prospections **et** celle des pré-prospections —
+ * cette dernière en filtre deux groupes, le catalogue est le même. */
 export const useColonnesProspections = makeCachedListHook(api.getColonnesProspections);
+
+/** Liste des dossiers de vente. 40 colonnes, 13 par défaut. */
+export const useColonnesDossiers = makeCachedListHook(api.getColonnesDossiers);
+
+/** Liste des prospects. 47 colonnes, 10 par défaut. */
+export const useColonnesProspects = makeCachedListHook(api.getColonnesProspects);
 
 /** {id, code, description} → Select `items` shape, description preferred. */
 export function referentielItems(list: ReferentielItemDto[]): { label: string; value: string }[] {

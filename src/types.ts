@@ -10,6 +10,15 @@ export type UUID = string;
 // Prospect (fiche contact)
 // ---------------------------------------------------------------------------
 
+/** Ligne de la liste des prospects.
+ *
+ * Depuis `?colonnes=`, **la présence d'un champ dépend de la sélection** : seul
+ * `id` est servi quel que soit le paramètre. Un champ absent de la sélection
+ * n'est pas `null`, il n'est pas dans la charge utile — d'où l'optionnalité
+ * générale, et d'où le repli explicite partout où une valeur sert au-delà de sa
+ * propre cellule (l'étiquette d'accessibilité de la ligne, par exemple).
+ *
+ * Catalogue et liste blanche : `GET /api/referentiels/colonnes/prospects`. */
 export interface ProspectListItemDto {
   id: UUID;
   code?: string;
@@ -21,6 +30,74 @@ export interface ProspectListItemDto {
   email?: string;
   ville?: string;
   type?: string;
+
+  // -- Identité (groupe IDENTITE) --------------------------------------------
+  /** CIN du prospect (`CfgTier.IDNumber`). */
+  cin?: string;
+  /** Identifiant Commun de l'Entreprise (`CfgTier.ICE`). À ne pas confondre
+   * avec `FiscalCode`, qui est une autre colonne et n'est pas servie. */
+  ice?: string;
+  dateNaissance?: string | null;
+  lieuNaissance?: string;
+  nombreEnfants?: number;
+  estAncienClient?: boolean;
+  /** Nom du père (`FatherName`). */
+  filsDe?: string;
+  /** Nom de la mère (`MotherName`). */
+  etDe?: string;
+  /** Genre du tiers (`CfgTierKind`). **Quasi mort** : 14 339 des 14 516 tiers
+   * réels n'en portent aucun. Proposé au sélecteur, mais vide en pratique. */
+  kind?: string;
+  titre?: string;
+  sexe?: string;
+  nationalite?: string;
+  situationFamiliale?: string;
+  regimeMatrimonial?: string;
+  commercialId?: UUID;
+  commercialNom?: string;
+
+  // -- Contact (groupe CONTACT) ----------------------------------------------
+  /** Indicatif pays du fixe, sans le `+` (ex. `212`). */
+  indicatifTelephone?: string;
+  /** Second téléphone. Le libellé serveur est « Téléphone 2 ». */
+  telephone1?: string;
+  /** Troisième téléphone. Libellé serveur « Téléphone 3 ». */
+  telephone2?: string;
+  /** Indicatif pays du mobile, sans le `+`. */
+  indicatifMobile?: string;
+  /** **Quasi mort en base réelle.** */
+  fax?: string;
+  siteWeb?: string;
+
+  // -- Adresse (groupe ADRESSE) ----------------------------------------------
+  adresse?: string;
+  /** Complément d'adresse. Absent de la vue légataire — cette donnée n'existe
+   * que dans notre API et dans la table. Idem `adresse3` et `codePostal`. */
+  adresse2?: string;
+  adresse3?: string;
+  codePostal?: string;
+  pays?: string;
+  paysResidence?: string;
+  typeResidence?: string;
+
+  // -- Profession (groupe PROFESSION) ----------------------------------------
+  employeur?: string;
+  /** Ancienneté professionnelle, en années. */
+  anciennete?: number;
+  /** Alimentée par `CfgTier.Quality` — **mesurée à 0 ligne sur 13 664**, donc
+   * toujours nulle. Servie pour rester cohérente avec la fiche ; la spec dit
+   * explicitement de ne pas la proposer comme critère. */
+  profession?: string;
+  /** Tranche de salaire (`AdmSalary`). Rare : 0,2 % des prospects. */
+  salaire?: string;
+
+  // -- Traçabilité (groupe AUDIT) --------------------------------------------
+  /** ~100 % en base réelle, 55 auteurs distincts. */
+  creePar?: string;
+  creeLe?: string | null;
+  /** 99,9 %. */
+  modifiePar?: string;
+  modifieLe?: string | null;
 }
 
 // A "client" isn't a tier-type — it's anyone who is the clientId of at
@@ -495,15 +572,38 @@ export interface FiltresAvancesProspection {
 }
 
 /** Groupes de présentation du sélecteur de colonnes. Valeurs imposées par
- * l'énumération serveur. */
-export type GroupeColonne = 'IDENTITE' | 'CONTACT' | 'CONTEXTE' | 'FINANCIER' | 'ACTIVITE' | 'CONVERSION';
+ * l'énumération serveur.
+ *
+ * **La spec est périmée sur ce point** : `ColonneDto.groupe` y liste encore les
+ * six seules valeurs des prospections, alors que les catalogues dossiers et
+ * prospects, lus à l'exécution, en servent six autres. Les valeurs ci-dessous
+ * sont relevées sur le backend, pas sur `api-docsV4.json`.
+ *
+ * Un groupe inconnu ne casse rien : `libelleGroupe` retombe sur la clé brute. */
+export type GroupeColonne =
+  // Prospections
+  | 'IDENTITE'
+  | 'CONTACT'
+  | 'CONTEXTE'
+  | 'FINANCIER'
+  | 'ACTIVITE'
+  | 'CONVERSION'
+  // Dossiers de vente
+  | 'ACTEURS'
+  | 'ORIGINE'
+  | 'PATRIMOINE'
+  // Prospects
+  | 'ADRESSE'
+  | 'PROFESSION'
+  // Les trois catalogues
+  | 'AUDIT';
 
 /** Type d'affichage d'une colonne — porte l'alignement et le formatage, ce qui
  * évite une table de correspondance côté front. */
 export type TypeColonne = 'TEXTE' | 'NOMBRE' | 'MONTANT' | 'DATE' | 'BOOLEEN';
 
-/** Une colonne sélectionnable de la liste des prospections, servie par
- * `GET /api/referentiels/colonnes/prospections`.
+/** Une colonne sélectionnable d'une liste, servie par les trois catalogues
+ * `GET /api/referentiels/colonnes/{prospections,dossiers,prospects}`.
  *
  * C'est **la même source que la liste blanche qui valide `?colonnes=`** côté
  * serveur : les deux ne peuvent pas diverger, et un catalogue codé en dur ici
@@ -516,7 +616,13 @@ export interface ColonneDto {
   groupe: GroupeColonne;
   type: TypeColonne;
   /** Vraie pour les colonnes renvoyées quand `?colonnes=` est absent :
-   * l'ensemble des `parDefaut` reproduit exactement la réponse historique. */
+   * l'ensemble des `parDefaut` reproduit exactement la réponse historique.
+   *
+   * **Ce sont les champs de la charge utile, pas les colonnes de la grille.**
+   * Les 13 défauts des dossiers comprennent `id`, `clientId`, `commercialId` et
+   * `prospectionId` — quatre clés de jointure qu'aucun écran n'affiche. C'est à
+   * l'appelant de les masquer (`DispositionColonnes.masquees`), sans quoi la
+   * vue par défaut montre des UUID. */
   parDefaut: boolean;
 }
 
@@ -1104,6 +1210,63 @@ export interface DossierListItemDto {
    * date-là. Elle rend donc possible un tri « par date de concrétisation »
    * sur la liste, ce qui demandait jusqu'ici d'ouvrir chaque dossier. */
   dateConcretisation?: string | null;
+
+  // -- Financier (groupe FINANCIER) ------------------------------------------
+  prixAvantRemise?: number;
+  /** Taux de remise, **en pourcentage entier** (5 = 5 %). Libellé serveur
+   * « Remise (%) », type `NOMBRE` : le formatage par défaut convient.
+   * À ne pas confondre avec `probabiliteFinalisation`, qui est un ratio. */
+  remise?: number;
+  remiseMontant?: number;
+  prixApresRemise?: number;
+  /** Renseigné sur 41,6 % des 358 dossiers réels. */
+  montantAvance?: number;
+  /** Probabilité de finalisation, **ratio 0–1**, renseignée à 100 %.
+   *
+   * Le serveur la type `NOMBRE`, si bien que le rendu par défaut de `DataGrid`
+   * lui appliquerait `formatNumber(v, 0)` et afficherait « 0 » pour 0,35. Elle
+   * exige donc un rendu nommé (`formatPercent`) dans `DossierTable`. */
+  probabiliteFinalisation?: number;
+  modePaie?: string;
+
+  // -- Patrimoine (groupe PATRIMOINE) ----------------------------------------
+  // Ce groupe traverse article → tranche → projet → société : le demander
+  // coûte trois jointures paresseuses par ligne, ne pas le demander n'en coûte
+  // aucune. Tous les champs sont à 100 % en base réelle.
+  /** **Provient de la tranche de l'article** — `StkItem.CfgProjectId` est nul
+   * sur les 358 articles réels. */
+  projetId?: UUID;
+  projetCode?: string;
+  projetLibelle?: string;
+  trancheId?: UUID;
+  trancheCode?: string;
+  trancheLibelle?: string;
+  societeId?: UUID;
+  societeCode?: string;
+  societeLibelle?: string;
+  vocationCode?: string;
+  vocationLibelle?: string;
+
+  // -- Acteurs (groupe ACTEURS) ----------------------------------------------
+  /** Notaire. 19,3 %. */
+  avocatId?: UUID;
+  avocatNom?: string;
+
+  // -- Origine (groupe ORIGINE) ----------------------------------------------
+  // Ce groupe déréférence la prospection : même arbitrage que PATRIMOINE.
+  /** `null` sur les 3 dossiers (sur 358) sans prospection. */
+  etapeProspection?: string;
+  /** 99,2 %. Ex. `FACEBOOK`. */
+  origineProspection?: string;
+  /** 99,2 %. */
+  dateProspection?: string | null;
+
+  // -- Traçabilité (groupe AUDIT) --------------------------------------------
+  /** 100 % des 358 dossiers réels, comme les trois suivants. */
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
 }
 
 export interface DossierDetailDto {

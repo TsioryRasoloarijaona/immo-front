@@ -11,6 +11,7 @@ import ProspectionFiltresAvances from '../../components/ProspectionFiltresAvance
 import ProspectionTable from '../../components/ProspectionTable';
 import { DEFAULT_PAGE_SIZE, listProspections, listTranches } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
+import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
@@ -45,12 +46,10 @@ export default function ProspectionsList() {
   // Clé de stockage distincte de celle des pré-prospections : les deux écrans
   // partagent le DTO mais pas les colonnes qu'on veut y voir.
   const catalogue = useColonnesProspections();
-  const colonnes = useColonnesVisibles('prospections', catalogue.data);
-  // On n'envoie `?colonnes=` que si la sélection s'écarte des défauts : le
-  // paramètre absent produit exactement la réponse par défaut, et l'omettre
-  // évite une seconde requête au moment où le catalogue finit de charger — la
-  // clé de dépendance reste alors la même avant et après.
-  const colonnesDemandees = colonnes.estDefaut ? undefined : colonnes.visibles;
+  const colonnes = useColonnesVisibles('prospections', catalogue.data, DISPOSITION_PROSPECTIONS);
+  // `demandees` vaut `undefined` tant que la sélection ne s'écarte pas des
+  // défauts — le hook porte cette règle et la raison qui la rend portante.
+  const colonnesDemandees = colonnes.demandees;
 
   const [avances, setAvances] = useState<FiltresAvancesState>(emptyFiltresAvances());
   const filtresAvances = toFiltresAvances(avances);
@@ -159,9 +158,9 @@ export default function ProspectionsList() {
               <div className="text-body text-muted-foreground">
                 {data?.totalElements ?? 0} prospection{(data?.totalElements ?? 0) > 1 ? 's' : ''} au total
               </div>
-              {catalogue.data.length > 0 && (
+              {colonnes.catalogueServi.length > 0 && (
                 <ColumnSelector
-                  catalogue={catalogue.data}
+                  catalogue={colonnes.catalogueServi}
                   visibles={colonnes.visibles}
                   onBasculer={colonnes.basculer}
                   onReinitialiser={colonnes.reinitialiser}

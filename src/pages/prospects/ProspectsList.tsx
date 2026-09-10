@@ -3,44 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { Contact, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import ColumnSelector from '../../components/ColumnSelector';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
+import ProspectTable from '../../components/ProspectTable';
 import { DEFAULT_PAGE_SIZE, listProspects } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
-import { useTierTypes } from '../../lib/referentiels';
-import { personDisplayName } from '../../lib/domain';
-import type { ProspectListItemDto } from '../../types';
-
-/* Les `largeur` reprennent les pourcentages en dur d'avant la migration vers
-   DataGrid — elles sont normalisées, donc les colonnes gardent exactement les
-   mêmes proportions qu'avant. */
-const COLONNES: ColonneGrille<ProspectListItemDto>[] = [
-  { nom: 'code', libelle: 'Code', largeur: 14, classe: 'text-muted-foreground', titre: (r) => r.code || undefined },
-  {
-    nom: 'nom',
-    libelle: 'Nom',
-    largeur: 24,
-    classe: 'font-medium text-foreground',
-    valeur: (r) => personDisplayName(r),
-    rendu: (r) => personDisplayName(r),
-    titre: (r) => personDisplayName(r),
-  },
-  {
-    nom: 'telephone',
-    libelle: 'Téléphone',
-    largeur: 16,
-    classe: 'tabular-nums text-muted-foreground',
-    // Même repli qu'avant : le mobile prime, le fixe sert de secours.
-    valeur: (r) => r.mobile || r.telephone,
-    titre: (r) => r.mobile || r.telephone || undefined,
-  },
-  { nom: 'email', libelle: 'Email', largeur: 22, classe: 'text-muted-foreground', titre: (r) => r.email || undefined },
-  { nom: 'ville', libelle: 'Ville', largeur: 14, classe: 'text-muted-foreground', titre: (r) => r.ville || undefined },
-  { nom: 'type', libelle: 'Type', largeur: 10, classe: 'text-muted-foreground', titre: (r) => r.type || undefined },
-];
+import { useColonnesVisibles } from '../../lib/colonnes';
+import { DISPOSITION_PROSPECTS } from '../../lib/dispositions';
+import { useColonnesProspects, useTierTypes } from '../../lib/referentiels';
 
 export default function ProspectsList() {
   const navigate = useNavigate();
@@ -50,6 +23,12 @@ export default function ProspectsList() {
   const debouncedSearch = useDebouncedValue(search);
   const [type, setType] = useState<string[]>([]);
   const [page, setPage] = useState(0);
+
+  const catalogue = useColonnesProspects();
+  const colonnes = useColonnesVisibles('prospects', catalogue.data, DISPOSITION_PROSPECTS);
+  // `undefined` tant que la sélection ne s'écarte pas des défauts — le hook
+  // porte cette règle et la raison qui la rend portante.
+  const colonnesDemandees = colonnes.demandees;
 
   function resetAndSet<T>(setter: (v: T) => void, v: T) {
     setPage(0);
@@ -67,8 +46,13 @@ export default function ProspectsList() {
     !!search || type.length > 0;
 
   const { data, loading, error } = useApi(
-    () => listProspects({ search: debouncedSearch || undefined, type: type.length > 0 ? type : undefined }, { page, size: DEFAULT_PAGE_SIZE }),
-    [debouncedSearch, type.join(','), page],
+    () =>
+      listProspects(
+        { search: debouncedSearch || undefined, type: type.length > 0 ? type : undefined },
+        { page, size: DEFAULT_PAGE_SIZE },
+        { colonnes: colonnesDemandees },
+      ),
+    [debouncedSearch, type.join(','), page, colonnesDemandees?.join(',') ?? ''],
     'prospects',
   );
   const rows = data?.content ?? [];
@@ -117,8 +101,19 @@ export default function ProspectsList() {
         {error && <ErrorState message={error} />}
         {!error && data && (
           <ResultsRegion loading={loading}>
-            <div className="shrink-0 text-body text-muted-foreground">
-              {(data?.totalElements ?? 0)} prospect{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+            <div className="flex shrink-0 items-center justify-between gap-3">
+              <div className="text-body text-muted-foreground">
+                {(data?.totalElements ?? 0)} prospect{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+              </div>
+              {colonnes.catalogueServi.length > 0 && (
+                <ColumnSelector
+                  catalogue={colonnes.catalogueServi}
+                  visibles={colonnes.visibles}
+                  onBasculer={colonnes.basculer}
+                  onReinitialiser={colonnes.reinitialiser}
+                  estDefaut={colonnes.estDefaut}
+                />
+              )}
             </div>
             {rows.length === 0 ? (
               <EmptyState
@@ -137,14 +132,21 @@ export default function ProspectsList() {
                 }
               />
             ) : (
-              <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                <DataGrid
-                  rows={rows}
-                  colonnes={COLONNES}
-                  minWidth="40rem"
-                  onOuvrir={(id) => navigate(`/prospects/${id}`)}
-                  libelleLigne={(r) => `Ouvrir la fiche de ${personDisplayName(r)}`}
-                />
+              /* `min-w-0` : voir ProspectionsList — sans lui la largeur de la
+                 table remonte la chaîne flex et élargit la page entière au lieu
+                 de faire défiler. Le nombre de colonnes n'est plus fixe, et
+                 `minWidth` en dur a cédé au défaut de DataGrid, qui le suit. */
+              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+                {/* Le catalogue porte les libellés d'en-tête : sans lui il n'y
+                    a pas de tableau à dessiner, seulement des lignes sans
+                    colonnes. */}
+                {colonnes.colonnes.length > 0 ? (
+                  <ProspectTable rows={rows} colonnes={colonnes.colonnes} onOuvrir={(id) => navigate(`/prospects/${id}`)} />
+                ) : catalogue.error ? (
+                  <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
+                ) : (
+                  <LoadingState />
+                )}
               </div>
             )}
             <div className="shrink-0">

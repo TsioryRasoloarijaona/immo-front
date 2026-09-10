@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RotateCcw, UserPlus } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
+import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
@@ -10,8 +10,8 @@ import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import ProspectionTable from '../../components/ProspectionTable';
 import { DEFAULT_PAGE_SIZE, listPreProspections, listTranches } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
+import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
-import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { useColonnesProspections, useOriginesProspection } from '../../lib/referentiels';
 import {
@@ -37,8 +37,6 @@ const ETAPE_ITEMS = [
 // /api/prospections as of the docs/api-docsV4.json 88-route revision.
 export default function PreProspectionsList() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const { commerciaux } = useAppData();
   const origines = useOriginesProspection();
 
@@ -51,10 +49,13 @@ export default function PreProspectionsList() {
   // construction — les proposer ici serait offrir des colonnes vides. Le
   // catalogue est donc filtré, et rien n'est envoyé au serveur.
   const catalogue = useColonnesProspections();
-  const catalogueServi = catalogue.data.filter((c) => c.groupe !== 'ACTIVITE' && c.groupe !== 'CONVERSION');
+  // Filtre par *groupe*, posé ici et non dans la disposition : celle-ci est
+  // partagée avec les prospections, qui servent bien ces deux groupes. Il se
+  // compose avec le filtre par nom que le hook applique ensuite.
+  const catalogueUtile = catalogue.data.filter((c) => c.groupe !== 'ACTIVITE' && c.groupe !== 'CONVERSION');
   // Clé distincte de celle des prospections : même DTO, mais les colonnes
   // utiles ne sont pas les mêmes sur un lead non qualifié.
-  const colonnes = useColonnesVisibles('pre-prospections', catalogueServi);
+  const colonnes = useColonnesVisibles('pre-prospections', catalogueUtile, DISPOSITION_PROSPECTIONS);
 
   function setFilter<K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) {
     setPage(0);
@@ -107,8 +108,6 @@ export default function PreProspectionsList() {
       accentBg="var(--sec-preprospection-bg)"
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
-
         <ProspectionFilterBar
           state={filters}
           onChange={setFilter}
@@ -126,9 +125,9 @@ export default function PreProspectionsList() {
               <div className="text-body text-muted-foreground">
                 {data?.totalElements ?? 0} pré-prospection{(data?.totalElements ?? 0) > 1 ? 's' : ''} au total
               </div>
-              {catalogueServi.length > 0 && (
+              {colonnes.catalogueServi.length > 0 && (
                 <ColumnSelector
-                  catalogue={catalogueServi}
+                  catalogue={colonnes.catalogueServi}
                   visibles={colonnes.visibles}
                   onBasculer={colonnes.basculer}
                   onReinitialiser={colonnes.reinitialiser}
