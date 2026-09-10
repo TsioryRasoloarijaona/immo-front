@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, Send, UserPlus, Users, X } from 'lucide-react';
+import { ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, Send, UserPlus, Users, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { ActiviteCard, DossierIssuBanner, InactiviteBadge } from '../../components/ActiviteProspection';
@@ -12,22 +12,22 @@ import InteractionForm from '../../components/InteractionForm';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { TimelineList, TimelineRow } from '../../components/Timeline';
+import FicheShell from '../../components/FicheShell';
+import { ChampLecture, ChampNotes, ChampRef, GrilleFiche } from '../../components/ChampsFiche';
+import { OngletAutres, OngletProfils } from '../../components/SousCollectionsProspection';
 import RefSelect from '../../components/RefSelect';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Separator } from '../../components/ui/separator';
 import { Textarea } from '../../components/ui/textarea';
-import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/field';
+import { Separator } from '../../components/ui/separator';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { cn } from '../../lib/utils';
 import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../../lib/format';
 import {
   PIPELINE_STAGES,
-  PIPELINE_STAGE_SHORT,
   etapeBadgeTone,
-  isSideTrackEtape,
   pipelineStageIndex,
+  personDisplayName,
   prospectionDisplayName,
   interactionIcon,
 } from '../../lib/domain';
@@ -67,6 +67,7 @@ import {
   type ArticleReferentielFilters,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { useFormulaireFiche } from '../../lib/formulaireFiche';
 import {
   referentielItems,
   useActionsCommerciales,
@@ -84,12 +85,49 @@ import type {
   CanalEnvoiDto,
   DevisDto,
   EnvoyerOffrePrixRequest,
-  ModifierProspectionRequest,
   ResultatEnvoiOffreDto,
   ResultatEnvoiVisiteDto,
 } from '../../types';
 
-type ProspectionTab = 'apercu' | 'prospect' | 'article' | 'devis' | 'historique';
+/** Les sept onglets du logiciel de bureau, dans son ordre. `article` garde
+ * son ancien nom de valeur — la clé sert d'identifiant interne, pas de
+ * libellé, et `OffrePrixSection` s'y renvoie déjà. */
+type ProspectionTab =
+  | 'autres-tranches'
+  | 'article'
+  | 'profils'
+  | 'autres'
+  | 'devis'
+  | 'actions'
+  | 'contacts';
+
+/** Nom lisible de chaque champ du formulaire, pour que la barre
+ * d'enregistrement dise *ce qui* a changé. À quinze champs, « 2 modifications »
+ * oblige à relire toute la fiche pour les retrouver. */
+const LIBELLE_CHAMP: Record<string, string> = {
+  etapeId: 'Nature',
+  origineId: 'Source de contact',
+  origineSupportId: 'Support',
+  vocationId: 'Vocation',
+  typeContactId: 'Type',
+  actionCommercialeId: 'Action commerciale',
+  notes: 'Notes',
+};
+
+/** Les champs que le formulaire pilote, et rien d'autre. Tranche et article en
+ * sont absents volontairement : le serveur les a sortis de
+ * `PATCH /api/prospections/{id}` pour leur donner un endpoint propre, et
+ * l'onglet « Choix article » porte déjà le sélecteur en cascade qui l'appelle.
+ * Les rendre modifiables ici aussi ferait deux chemins pour un même geste. */
+type FormFiche = {
+  etapeId: string | null;
+  origineId: string | null;
+  origineSupportId: string | null;
+  vocationId: string | null;
+  typeContactId: string | null;
+  actionCommercialeId: string | null;
+  notes: string;
+};
 
 /** Valeur de `InteractionDto.categorie` qui n'apprend rien dans le journal
  * d'une prospection. Les trois autres valeurs réelles — « Dossier de vente
@@ -526,15 +564,30 @@ export default function ProspectionDetail() {
   const [showCreateProspect, setShowCreateProspect] = useState(false);
   const [showInteractionForm, setShowInteractionForm] = useState(false);
   const [transformCommercial, setTransformCommercial] = useState<string | null>(null);
-  const [etapeId, setEtapeId] = useState<string | null>(null);
   const [showArchiver, setShowArchiver] = useState(false);
   const [raisonId, setRaisonId] = useState<string | null>(null);
   const [raisonTexte, setRaisonTexte] = useState('');
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<ProspectionTab>('apercu');
-  const [editingInfo, setEditingInfo] = useState(false);
-  const [infoForm, setInfoForm] = useState<ModifierProspectionRequest | null>(null);
+  const [tab, setTab] = useState<ProspectionTab>('article');
   const [saving, setSaving] = useState(false);
+
+  /* Le formulaire est **toujours** ouvert : la fiche du logiciel de bureau
+     n'a pas de mode consultation, on y corrige une source de contact en la
+     changeant. L'ancien couple « Modifier / Enregistrer » ajoutait un clic
+     avant chaque correction et un état de plus à tenir. */
+  const sourceForm = useMemo<FormFiche>(
+    () => ({
+      etapeId: p?.etapeId ?? null,
+      origineId: p?.origineId ?? null,
+      origineSupportId: p?.origineSupportId ?? null,
+      vocationId: p?.vocationId ?? null,
+      typeContactId: p?.typeContactId ?? null,
+      actionCommercialeId: p?.actionCommercialeId ?? null,
+      notes: p?.notes ?? '',
+    }),
+    [p],
+  );
+  const form = useFormulaireFiche(sourceForm);
 
   const etapes = useEtapesProspection();
   const raisons = useRaisonsCloture();
@@ -542,9 +595,13 @@ export default function ProspectionDetail() {
   const vocations = useVocations();
   const typesContact = useTypesContactProspection();
   const actionsCommerciales = useActionsCommerciales();
+  /* Les supports sont servis **par origine** : changer la source de contact
+     recharge la liste, et le brouillon — pas la valeur du serveur — est ce qui
+     la pilote, sinon le champ proposerait les supports de l'ancienne origine
+     jusqu'au prochain enregistrement. */
   const supports = useApi(
-    () => (infoForm?.origineId ? getSupportsForOrigine(infoForm.origineId) : Promise.resolve([])),
-    [infoForm?.origineId],
+    () => (form.valeurs.origineId ? getSupportsForOrigine(form.valeurs.origineId) : Promise.resolve([])),
+    [form.valeurs.origineId],
     'prospection-supports',
   );
 
@@ -577,7 +634,6 @@ export default function ProspectionDetail() {
     email: p.tempEmail ?? '',
   };
   const stageIdx = pipelineStageIndex(p.etape);
-  const showStepper = !p.fermee && !isSideTrackEtape(p.etape) && stageIdx >= 0;
   const isPre = !p.prospectId;
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
   // Dossier déjà issu de cette prospection, s'il existe. Le lien vit dans
@@ -607,18 +663,41 @@ export default function ProspectionDetail() {
     }
   }
 
-  async function handleChangeEtape() {
-    if (!etapeId) return;
-    setBusy(true);
+  /** Enregistre la fiche. Deux endpoints, appelés **seulement si leurs champs
+   * ont bougé** : `PATCH /{id}` porte la qualification, `PATCH /{id}/etape`
+   * porte l'étape et écrit une ligne d'historique. Appeler les deux
+   * systématiquement inscrirait des changements d'étape qui n'ont pas eu lieu.
+   *
+   * La clôture garde son propre geste : elle est destructive et demande une
+   * raison, elle n'a pas sa place derrière le même bouton que six listes
+   * déroulantes. */
+  async function enregistrerFiche() {
+    if (!p) return;
+    setSaving(true);
     try {
-      await changerEtapeProspection(p!.id, { etapeId });
-      setEtapeId(null);
+      if (form.aChange('origineId', 'origineSupportId', 'vocationId', 'typeContactId', 'actionCommercialeId', 'notes')) {
+        await modifierProspection(p.id, {
+          origineId: form.valeurs.origineId ?? undefined,
+          origineSupportId: form.valeurs.origineSupportId ?? undefined,
+          vocationId: form.valeurs.vocationId ?? undefined,
+          typeContactId: form.valeurs.typeContactId ?? undefined,
+          actionCommercialeId: form.valeurs.actionCommercialeId ?? undefined,
+          notes: form.valeurs.notes,
+        });
+      }
+      if (form.aChange('etapeId') && form.valeurs.etapeId) {
+        await changerEtapeProspection(p.id, { etapeId: form.valeurs.etapeId });
+      }
+      // Le brouillon devient la base avant le refetch : sans ça, le formulaire
+      // resterait « modifié » le temps de l'aller-retour, et sa propre garde
+      // anti-écrasement empêcherait la resynchronisation.
+      form.confirmer(form.valeurs);
       await refetch();
-      showToast('Étape changée.');
+      showToast('Fiche enregistrée.');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Échec de l'opération.");
+      showToast(err instanceof Error ? err.message : "Échec de l'enregistrement.");
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   }
 
@@ -636,120 +715,50 @@ export default function ProspectionDetail() {
     }
   }
 
-  function startEditInfo() {
-    setInfoForm({
-      origineId: p!.origineId,
-      origineSupportId: p!.origineSupportId,
-      vocationId: p!.vocationId,
-      typeContactId: p!.typeContactId,
-      actionCommercialeId: p!.actionCommercialeId,
-      surface: p!.surface,
-      surfaceJusqua: p!.surfaceJusqua,
-      prix: p!.prix,
-      prixJusqua: p!.prixJusqua,
-      avance: p!.avance,
-      financementFondsPropres: p!.financementFondsPropres,
-      financementCredit: p!.financementCredit,
-      financementAutre: p!.financementAutre,
-      notes: p!.notes,
-    });
-    setEditingInfo(true);
-  }
-
-  async function saveInfo() {
-    if (!infoForm) return;
-    setSaving(true);
-    try {
-      await modifierProspection(p!.id, infoForm);
-      await refetch();
-      setEditingInfo(false);
-      showToast('Prospection mise à jour.');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Échec de l'enregistrement.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <PageShell
       title={name}
       crumbs={[{ label: listLabel, to: listPath }, { label: p.code || name }]}
+      fullHeight
       icon={isPreRoute ? <UserPlus /> : <Users />}
-      accent={isPreRoute ? 'var(--sec-preprospection)' : 'var(--sec-prospection)'}
+      accent={sectionAccent}
       accentBg={isPreRoute ? 'var(--sec-preprospection-bg)' : 'var(--sec-prospection-bg)'}
-    >
-      <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate(listPath)}>
-        <ArrowLeft data-icon="inline-start" /> Retour à la liste
-      </Button>
-
-      <div className="mb-3 flex flex-col items-stretch justify-between gap-4 sm:flex-row sm:items-start">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 className="text-hero font-semibold tracking-tight text-foreground break-words">{name}</h2>
-            {isPre && <Badge tone="amber">Pré-prospection · Non qualifiée</Badge>}
-            <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge>
-            {joursInactivite !== null && <InactiviteBadge jours={joursInactivite} />}
-          </div>
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-label text-muted-foreground">
-            {p.code && <>Code {p.code} · </>}
-            Créée le {formatDate(p.dateDocument)} · Commercial : {p.commercialNom || '— non assigné —'}
-            {nbInteractions !== null && <> · {nbInteractions} interaction{nbInteractions > 1 ? 's' : ''}</>}
-          </div>
-        </div>
-        {/* Utility actions (documents, log an action, close the lead) group
-            on the left of this cluster; the one real call-to-action for
-            this prospection's current state (créer prospect / transformer /
-            créer-ou-ouvrir dossier) stands alone on the right, past a
-            divider, so it stays the visually strongest thing in the row
-            instead of blending into a stack of equally-weighted buttons. */}
-        <div className="flex shrink-0 flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+      actions={
+        <div className="flex flex-wrap items-center justify-end gap-1.5">
           <ProspectionDocumentButtons prospectionId={p.id} hasProspect={!!p.prospectId} />
-          {/* Static — pas encore relié à un vrai standard VOIP, juste
-              l'affordance visuelle (voir instructions/from_front.md pour la
-              demande d'intégration si/quand elle est priorisée). */}
-          <Button variant="outline" size="sm" className="h-8 w-full sm:w-auto" onClick={() => showToast('Intégration VOIP à venir.')}>
+          <Button variant="outline" size="sm" onClick={() => showToast('Intégration VOIP à venir.')}>
             <Phone data-icon="inline-start" /> Appeler
           </Button>
-          <Button variant="outline" size="sm" className="h-8 w-full sm:w-auto" onClick={() => setShowInteractionForm(true)}>
+          <Button variant="outline" size="sm" onClick={() => setShowInteractionForm(true)}>
             Ajouter une action
           </Button>
           {!p.fermee && !showArchiver && (
             <Button
               variant="outline"
               size="sm"
-              className="h-8 w-full border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive sm:w-auto"
+              className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
               onClick={() => setShowArchiver(true)}
               disabled={busy}
             >
               Clôturer
             </Button>
           )}
-
-          <Separator orientation="vertical" className="hidden h-6 sm:block" />
-
+          <Separator orientation="vertical" className="h-6" />
+          {/* L'action propre à l'état courant reste seule, après le filet :
+              c'est la seule de la barre qui fasse avancer la prospection. */}
           {isPre ? (
-            <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setShowCreateProspect(true)}>
-              + Créer prospect
+            <Button variant="outline" size="sm" onClick={() => setShowCreateProspect(true)}>
+              <Plus data-icon="inline-start" /> Créer prospect
             </Button>
           ) : !p.commercialId ? (
             ownCommercial ? (
-              // The connected user is themselves an assignable commercial —
-              // no picker needed, they can only transform onto themselves.
-              // Name shown read-only (not an input) so it's unmistakably
-              // not an editable field.
-              <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center">
-                <div className="flex h-9 items-center rounded-md border border-input bg-muted/30 px-3 text-label text-muted-foreground sm:w-48">
-                  {commercialLabel(ownCommercial)}
-                </div>
-                <Button size="sm" className="w-full sm:w-auto" onClick={() => handleTransform(ownCommercial.id)} disabled={busy}>
-                  Transformer
-                </Button>
-              </div>
+              <Button size="sm" onClick={() => handleTransform(ownCommercial.id)} disabled={busy}>
+                Transformer · {commercialLabel(ownCommercial)}
+              </Button>
             ) : (
-              <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-1.5">
                 <Select items={commercialItems} value={transformCommercial} onValueChange={(v) => setTransformCommercial(v as string | null)}>
-                  <SelectTrigger size="sm" className="w-full sm:w-auto">
+                  <SelectTrigger size="sm" className="w-44">
                     <SelectValue placeholder="Commercial…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -760,391 +769,330 @@ export default function ProspectionDetail() {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                <Button size="sm" className="w-full sm:w-auto" onClick={() => transformCommercial && handleTransform(transformCommercial)} disabled={!transformCommercial || busy}>
+                <Button size="sm" onClick={() => transformCommercial && handleTransform(transformCommercial)} disabled={!transformCommercial || busy}>
                   Transformer
                 </Button>
               </div>
             )
           ) : dossierIssu ? (
-            // Prospection déjà transformée — on ouvre le dossier existant
-            // plutôt que le formulaire de création. `null` sur 98 % des
-            // prospections : c'est le taux de conversion réel, pas une donnée
-            // manquante.
-            <Button className="w-full sm:w-auto" onClick={() => navigate(`/dossiers/${dossierIssu.id}`)}>
-              Ouvrir le dossier {dossierIssu.code ?? ''}
+            <Button size="sm" onClick={() => navigate(`/dossiers/${dossierIssu.id}`)}>
+              <ArrowUpRight data-icon="inline-start" /> Dossier {dossierIssu.code ?? ''}
             </Button>
           ) : (
-            <Button className="w-full sm:w-auto" onClick={() => navigate(`/prospections/${p.id}/nouveau-dossier`)} disabled={p.fermee}>
+            <Button size="sm" onClick={() => navigate(`/prospections/${p.id}/nouveau-dossier`)} disabled={p.fermee}>
               Créer un dossier
             </Button>
           )}
         </div>
-      </div>
+      }
+    >
+      <FicheShell
+        ongletActif={tab}
+        onOngletChange={(v) => setTab(v as ProspectionTab)}
+        /* ---------------------------------------------------------------
+           Bande 1 — l'identité. Le logiciel de bureau met le code dans le
+           titre de la fenêtre et l'étape dans un champ du formulaire ; ici
+           les deux montent dans une bande unique avec les indicateurs
+           d'activité, qui n'existent pas là-bas et sont ce que le guide
+           backend désigne comme le champ le plus utile du lot.
+           --------------------------------------------------------------- */
+        identite={
+          <Card padded={false} accent={sectionAccent}>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
+              <Badge tone="neutral" className="font-mono">{p.code || '—'}</Badge>
+              <h2 className="min-w-0 truncate text-label font-semibold text-foreground">{name}</h2>
+              {isPre && <Badge tone="amber">Non qualifiée</Badge>}
+              <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge>
+              {joursInactivite !== null && <InactiviteBadge jours={joursInactivite} />}
 
-      {showArchiver && (
-        <Card title="Clôturer la prospection" action={<Button variant="ghost" size="sm" onClick={() => setShowArchiver(false)}>Annuler</Button>}>
-          <div className="flex flex-col flex-wrap items-stretch gap-3 sm:flex-row sm:items-end">
-            <div className="w-full sm:w-60">
-              <div className="mb-1 text-micro font-medium text-muted-foreground">Raison</div>
-              <RefSelect id="raison" value={raisonId} onChange={setRaisonId} items={referentielItems(raisons.data)} />
-            </div>
-            <div className="min-w-0 flex-1 sm:min-w-60">
-              <div className="mb-1 text-micro font-medium text-muted-foreground">Détail (optionnel)</div>
-              <Input value={raisonTexte} onChange={(e) => setRaisonTexte(e.target.value)} />
-            </div>
-            <Button size="sm" onClick={handleArchiver} disabled={busy} className="w-full text-destructive-foreground sm:w-auto">
-              Confirmer la clôture
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      <div className="mt-4 flex flex-col gap-3">
-        {/* Au-dessus de tout le reste : quand elle est là, la conversion est le
-            fait le plus important de la fiche. Le bouton d'en-tête reste
-            l'action ; ce bandeau est l'état, avec le statut du dossier que le
-            bouton ne peut pas porter. */}
-        <DossierIssuBanner
-          dossierId={p.activite?.dossierId}
-          dossierCode={p.activite?.dossierCode}
-          statutDossier={p.activite?.statutDossier}
-        />
-
-        {!p.fermee && (
-          <Card>
-            {showStepper && (
-              <div>
-                <div className="flex items-center">
-                  {PIPELINE_STAGES.map((stage, i) => (
-                    <div className="flex flex-1 items-center" key={stage}>
-                      <div className={cn('flex flex-col items-center', i === PIPELINE_STAGES.length - 1 ? 'flex-none' : 'flex-1')}>
-                        <div
-                          className={cn(
-                            'flex size-5.5 shrink-0 items-center justify-center rounded-full border-2 text-micro font-bold transition-colors duration-300',
-                            i <= stageIdx ? 'text-white' : 'border-border bg-(--neutral-bg) text-muted-foreground'
-                          )}
-                          style={i <= stageIdx ? { borderColor: sectionAccent, background: sectionAccent } : undefined}
-                        >
-                          {i + 1}
-                        </div>
-                        <div className="mt-1.5 hidden text-center text-micro text-muted-foreground sm:block">{PIPELINE_STAGE_SHORT[stage]}</div>
-                      </div>
-                      {i < PIPELINE_STAGES.length - 1 && (
-                        <div
-                          className={cn('mx-0.5 h-0.5 flex-1 transition-colors duration-300', i >= stageIdx && 'bg-border')}
-                          style={i < stageIdx ? { background: sectionAccent } : undefined}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {/* Step labels double as a caption on mobile instead of sitting
-                    under every dot — five ~19-char French labels squeezed to a
-                    ~68px column each would wrap into an unreadable ladder on a
-                    360px screen; naming only the current step keeps the
-                    stepper legible without losing the "where am I" info. */}
-                <div className="mt-2 text-center text-body font-medium text-foreground sm:hidden">
-                  Étape {stageIdx + 1}/{PIPELINE_STAGES.length} · {PIPELINE_STAGE_SHORT[PIPELINE_STAGES[stageIdx]]}
-                </div>
-              </div>
-            )}
-
-            <div className={cn('flex flex-col items-stretch gap-2.5 sm:flex-row sm:flex-wrap sm:items-center', showStepper && 'mt-4 border-t border-border pt-4')}>
-              <span className="text-micro font-medium text-muted-foreground">Changer d'étape :</span>
-              <div className="w-full sm:w-55">
-                <RefSelect id="etape" value={etapeId} onChange={setEtapeId} items={referentielItems(etapes.data)} placeholder="Choisir une étape…" />
-              </div>
-              <Button size="sm" variant="outline" className="w-full sm:w-auto" onClick={handleChangeEtape} disabled={!etapeId || busy}>
-                Appliquer
-              </Button>
+              <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-muted-foreground">
+                <span>Créée le {formatDate(p.dateDocument)}</span>
+                <span>{p.commercialNom || '— non assigné —'}</span>
+                {p.societeCode && <span>Société {p.societeCode}</span>}
+                {nbInteractions !== null && <span>{nbInteractions} interaction{nbInteractions > 1 ? 's' : ''}</span>}
+                {/* `null` ≠ `0` : une pré-prospection n'a pas de bloc
+                    d'activité, elle n'a pas « zéro interaction ». */}
+                {!p.activite && <span className="italic">Activité non disponible</span>}
+              </span>
             </div>
 
-            {/* L'offre de prix n'a de sens qu'après les visites : la placer
-                ici, sous le sélecteur d'étape, rend la séquence lisible — le
-                remerciement part au passage à l'étape 4, l'offre se déclenche
-                à la main juste en dessous. Masquée avant, où elle ne serait
-                qu'un bouton grisé de plus. */}
-            {stageIdx >= PIPELINE_STAGES.indexOf('4 APRES VISITES') && (
-              <OffrePrixSection prospectionId={p.id} articleId={p.articleId} onVoirArticle={() => setTab('article')} />
-            )}
-          </Card>
-        )}
-
-        {p.fermee && (
-          <Card title="Motif de clôture">
-            <FieldGrid>
-              <Field label="Date de clôture" value={formatDate(p.dateFermeture)} />
-              <Field label="Motif" value={p.raisonFermeture} />
-            </FieldGrid>
-            {p.raisonFermetureTexte && (
-              <div className="mt-3.5">
-                <div className="mb-1.5 text-micro font-medium text-muted-foreground">Détail</div>
-                <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-label leading-relaxed text-foreground">
-                  {p.raisonFermetureTexte}
-                </div>
+            {dossierIssu && (
+              <div className="border-t border-border px-3 py-1.5">
+                <DossierIssuBanner
+                  dossierId={p.activite?.dossierId}
+                  dossierCode={p.activite?.dossierCode}
+                  statutDossier={p.activite?.statutDossier}
+                />
               </div>
             )}
           </Card>
-        )}
+        }
+        /* ---------------------------------------------------------------
+           Bande 2 — le formulaire. Même contenu et même ordre de lecture
+           que le formulaire du logiciel de bureau, sur quatre colonnes au
+           lieu de deux : le libellé passe au-dessus du champ, ce qui rend
+           la moitié de la largeur que la colonne de libellés occupait.
+           C'est cette moitié qui laisse la place aux onglets sans faire
+           défiler la page.
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as ProspectionTab)} className="gap-3">
-          {/* The tabs' own w-fit sizing means four labels plus three count
-           * badges can outgrow a narrow phone screen — an overflow-x-auto
-           * wrapper lets the row scroll instead of overflowing the page or
-           * squeezing "Historique" onto two lines. -mx-4/px-4 matches
-           * `.page`'s own 16px mobile gutter (index.css, ≤880px) so the
-           * scrollable edge sits flush with the page instead of clipping
-           * mid-padding; the 880px threshold mirrors that same breakpoint. */}
-          <div className="-mx-4 overflow-x-auto px-4 min-[881px]:mx-0 min-[881px]:overflow-visible min-[881px]:px-0">
-            <TabsList>
-              <TabsTrigger value="apercu">Aperçu</TabsTrigger>
-              {p.prospectId && <TabsTrigger value="prospect">Prospect</TabsTrigger>}
-              <TabsTrigger value="article">
-                Article
-                {(autresTranches.data?.length ?? 0) > 0 && <Badge tone="neutral" className="ml-1.5">{autresTranches.data!.length}</Badge>}
-              </TabsTrigger>
-              <TabsTrigger value="devis">
-                Devis {(devis.data?.totalElements ?? 0) > 0 && <Badge tone="neutral" className="ml-1.5">{devis.data!.totalElements}</Badge>}
-              </TabsTrigger>
-              <TabsTrigger value="historique">
-                Historique
-                {(interactions.data?.totalElements ?? 0) > 0 && <Badge tone="neutral" className="ml-1.5">{interactions.data!.totalElements}</Badge>}
-              </TabsTrigger>
-            </TabsList>
-          </div>
+           Tout ce qui est modifiable l'est **en même temps** : un seul
+           Enregistrer, qui n'appelle que les endpoints dont les champs ont
+           bougé.
+           --------------------------------------------------------------- */
+        formulaire={
+          <Card padded={false}>
+            <div className="p-3">
+              <GrilleFiche>
+                <ChampLecture label="Code" valeur={p.code} aide="Attribué par le système, non modifiable." />
+                <ChampLecture label="Date" valeur={formatDate(p.dateDocument)} aide="Date de création, non modifiable." />
+                <ChampLecture
+                  label="Prospect"
+                  aide="La fiche tiers se modifie depuis l'onglet Contacts."
+                  valeur={
+                    p.prospectId ? (
+                      <Link to={`/prospects/${p.prospectId}`} className="text-(--info) hover:underline">
+                        {p.prospectNom || p.prospectCode || 'Voir la fiche'}
+                      </Link>
+                    ) : (
+                      p.tempDescription || p.prospectNom
+                    )
+                  }
+                />
+                <ChampLecture
+                  label="Commercial"
+                  valeur={p.commercialNom}
+                  aide="Assigné à la transformation ; aucun endpoint ne le change ensuite."
+                />
 
-          <TabsContent value="apercu">
-            <div className="flex flex-col gap-3">
-              {/* En tête de l'aperçu, y compris dans son état « non disponible » :
-                  la position ne bouge pas d'une fiche à l'autre, et sur une
-                  pré-prospection le message vaut mieux qu'un silence, qui se
-                  lirait comme une absence d'activité (guide §2.1). */}
-              <ActiviteCard activite={p.activite} accent={sectionAccent} />
+                <ChampLecture
+                  label="Tranche"
+                  valeur={p.trancheDescription || p.trancheCode}
+                  aide="Se modifie dans l'onglet « Choix article » — le serveur l'expose sur un endpoint distinct."
+                />
+                <ChampLecture
+                  label="Article"
+                  valeur={p.articleCode ? `${p.articleCode}${p.articleDescription ? ` · ${p.articleDescription}` : ''}` : null}
+                  aide="Se modifie dans l'onglet « Choix article »."
+                />
+                <ChampRef
+                  id="f-etape"
+                  label="Nature"
+                  aide="L'« étape » du pipeline — appelée Nature dans le logiciel de bureau."
+                  valeur={form.valeurs.etapeId}
+                  onChange={(v) => form.set('etapeId', v)}
+                  items={referentielItems(etapes.data)}
+                  modifie={form.aChange('etapeId')}
+                />
+                <ChampRef
+                  id="f-action"
+                  label="Action commerciale"
+                  valeur={form.valeurs.actionCommercialeId}
+                  onChange={(v) => form.set('actionCommercialeId', v)}
+                  items={referentielItems(actionsCommerciales.data)}
+                  modifie={form.aChange('actionCommercialeId')}
+                />
 
-              <Card title="Contact" accent={sectionAccent}>
-                <FieldGrid>
-                  <Field label="Nom" value={p.prospectNom} />
-                  {isPre && <Field label="Description (temp.)" value={p.tempDescription} />}
-                  {isPre && <Field label="Téléphone (temp.)" value={p.tempTel} />}
-                  {isPre && <Field label="Email (temp.)" value={p.tempEmail} />}
-                </FieldGrid>
-                {!p.prospectId && (
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    Aucune fiche prospect liée — utilisez « Créer prospect » ci-dessus pour en lier une.
-                  </p>
-                )}
-              </Card>
+                <ChampRef
+                  id="f-origine"
+                  label="Source de contact"
+                  valeur={form.valeurs.origineId}
+                  /* Changer l'origine invalide le support : les supports sont
+                     servis *par* origine, et garder l'ancien enverrait un
+                     couple incohérent. */
+                  onChange={(v) => {
+                    form.set('origineId', v);
+                    form.set('origineSupportId', null);
+                  }}
+                  items={referentielItems(origines.data)}
+                  modifie={form.aChange('origineId')}
+                />
+                <ChampRef
+                  id="f-support"
+                  label="Support"
+                  aide="Campagne précise, servie selon la source de contact choisie."
+                  valeur={form.valeurs.origineSupportId}
+                  onChange={(v) => form.set('origineSupportId', v)}
+                  items={referentielItems(supports.data ?? [])}
+                  modifie={form.aChange('origineSupportId')}
+                />
+                <ChampRef
+                  id="f-typeContact"
+                  label="Type"
+                  aide="Type de contact : téléphone entrant, visite, web…"
+                  valeur={form.valeurs.typeContactId}
+                  onChange={(v) => form.set('typeContactId', v)}
+                  items={referentielItems(typesContact.data)}
+                  modifie={form.aChange('typeContactId')}
+                />
+                <ChampRef
+                  id="f-vocation"
+                  label="Vocation"
+                  valeur={form.valeurs.vocationId}
+                  onChange={(v) => form.set('vocationId', v)}
+                  items={referentielItems(vocations.data)}
+                  modifie={form.aChange('vocationId')}
+                />
+              </GrilleFiche>
 
-              <Card
-                title="Détails de la recherche"
-                action={
-                  editingInfo ? (
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setEditingInfo(false)}>Annuler</Button>
-                      <Button size="sm" onClick={saveInfo} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Button>
+              <div className="mt-2 grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+                <ChampNotes
+                  id="f-notes"
+                  label="Notes"
+                  lignes={3}
+                  valeur={form.valeurs.notes}
+                  onChange={(v) => form.set('notes', v)}
+                  modifie={form.aChange('notes')}
+                  className="md:col-span-2"
+                />
+
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2 self-start md:col-span-1 xl:col-span-2">
+                  <ChampLecture
+                    label="Ancien client"
+                    valeur={p.ancienClient === null || p.ancienClient === undefined ? null : p.ancienClient ? 'Oui' : 'Non'}
+                    aide="Servi par la fiche mais absent de ModifierProspectionRequest : lecture seule tant que le backend ne l'expose pas."
+                  />
+                  <ChampLecture label="Société" valeur={p.societeLibelle || p.societeCode} aide="Dérivée de la tranche, jamais saisie." />
+                  <ChampLecture label="Type de tiers" valeur={p.typeProspectLibelle || p.typeProspect} />
+                  <ChampLecture
+                    label="Mobile"
+                    valeur={p.mobileProspect ? `+${p.indicatifMobile ?? ''} ${p.mobileProspect}`.replace('+ ', '') : (p.tempTel ?? null)}
+                    aide="L'indicatif est servi sans le « + » — il est composé ici."
+                  />
+                  <ChampLecture label="Email" valeur={p.emailFiche || p.tempEmail} className="col-span-2" />
+                  {p.fermee && (
+                    <>
+                      <ChampLecture label="Date d'archivage" valeur={formatDate(p.dateFermeture)} />
+                      <ChampLecture label="Raison" valeur={p.raisonFermeture} />
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {showArchiver && (
+                <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-label font-semibold text-destructive">Clôturer la prospection</span>
+                    <Button variant="ghost" size="sm" onClick={() => setShowArchiver(false)}>Annuler</Button>
+                  </div>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <div className="w-56">
+                      <div className="mb-0.5 text-micro font-medium text-muted-foreground">Raison</div>
+                      <RefSelect id="raison" value={raisonId} onChange={setRaisonId} items={referentielItems(raisons.data)} size="sm" />
                     </div>
-                  ) : (
-                    <Button size="sm" variant="outline" onClick={startEditInfo}>Modifier</Button>
-                  )
-                }
-              >
-                {editingInfo && infoForm ? (
-                  <FieldGroup>
-                    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-                      <FormField>
-                        <FieldLabel htmlFor="f-origine">Origine</FieldLabel>
-                        <RefSelect
-                          id="f-origine"
-                          value={infoForm.origineId ?? null}
-                          onChange={(v) => setInfoForm({ ...infoForm, origineId: v ?? undefined, origineSupportId: undefined })}
-                          items={origines.data.map((o) => ({ label: o.description || o.code || o.id, value: o.id }))}
-                        />
-                      </FormField>
-                      <FormField>
-                        <FieldLabel htmlFor="f-support">Support / campagne</FieldLabel>
-                        <RefSelect
-                          id="f-support"
-                          value={infoForm.origineSupportId ?? null}
-                          onChange={(v) => setInfoForm({ ...infoForm, origineSupportId: v ?? undefined })}
-                          items={referentielItems(supports.data ?? [])}
-                        />
-                      </FormField>
-                      <FormField>
-                        <FieldLabel htmlFor="f-vocation">Vocation</FieldLabel>
-                        <RefSelect
-                          id="f-vocation"
-                          value={infoForm.vocationId ?? null}
-                          onChange={(v) => setInfoForm({ ...infoForm, vocationId: v ?? undefined })}
-                          items={referentielItems(vocations.data)}
-                        />
-                      </FormField>
-                      <FormField>
-                        <FieldLabel htmlFor="f-typeContact">Type de contact</FieldLabel>
-                        <RefSelect
-                          id="f-typeContact"
-                          value={infoForm.typeContactId ?? null}
-                          onChange={(v) => setInfoForm({ ...infoForm, typeContactId: v ?? undefined })}
-                          items={referentielItems(typesContact.data)}
-                        />
-                      </FormField>
-                      <FormField>
-                        <FieldLabel htmlFor="f-action">Action commerciale</FieldLabel>
-                        <RefSelect
-                          id="f-action"
-                          value={infoForm.actionCommercialeId ?? null}
-                          onChange={(v) => setInfoForm({ ...infoForm, actionCommercialeId: v ?? undefined })}
-                          items={referentielItems(actionsCommerciales.data)}
-                        />
-                      </FormField>
-                      <FormField>
-                        <FieldLabel htmlFor="f-prix">Prix min (DH)</FieldLabel>
-                        <Input id="f-prix" type="number" value={infoForm.prix ?? ''} onChange={(e) => setInfoForm({ ...infoForm, prix: Number(e.target.value) || undefined })} />
-                      </FormField>
-                      <FormField>
-                        <FieldLabel htmlFor="f-prixJusqua">Prix max (DH)</FieldLabel>
-                        <Input id="f-prixJusqua" type="number" value={infoForm.prixJusqua ?? ''} onChange={(e) => setInfoForm({ ...infoForm, prixJusqua: Number(e.target.value) || undefined })} />
-                      </FormField>
-                      <FormField>
-                        <FieldLabel htmlFor="f-surface">Superficie min (m²)</FieldLabel>
-                        <Input id="f-surface" type="number" value={infoForm.surface ?? ''} onChange={(e) => setInfoForm({ ...infoForm, surface: Number(e.target.value) || undefined })} />
-                      </FormField>
-                      <FormField>
-                        <FieldLabel htmlFor="f-surfaceJusqua">Superficie max (m²)</FieldLabel>
-                        <Input id="f-surfaceJusqua" type="number" value={infoForm.surfaceJusqua ?? ''} onChange={(e) => setInfoForm({ ...infoForm, surfaceJusqua: Number(e.target.value) || undefined })} />
-                      </FormField>
-                      <FormField>
-                        <FieldLabel htmlFor="f-avance">Avance (DH)</FieldLabel>
-                        <Input id="f-avance" type="number" value={infoForm.avance ?? ''} onChange={(e) => setInfoForm({ ...infoForm, avance: Number(e.target.value) || undefined })} />
-                      </FormField>
-                      <FormField>
-                        <FieldLabel htmlFor="f-fondsPropres">Fonds propres (DH)</FieldLabel>
-                        <Input id="f-fondsPropres" type="number" value={infoForm.financementFondsPropres ?? ''} onChange={(e) => setInfoForm({ ...infoForm, financementFondsPropres: Number(e.target.value) || undefined })} />
-                      </FormField>
-                      <FormField>
-                        <FieldLabel htmlFor="f-credit">Crédit (DH)</FieldLabel>
-                        <Input id="f-credit" type="number" value={infoForm.financementCredit ?? ''} onChange={(e) => setInfoForm({ ...infoForm, financementCredit: Number(e.target.value) || undefined })} />
-                      </FormField>
-                      <FormField>
-                        <FieldLabel htmlFor="f-autre">Autre financement (DH)</FieldLabel>
-                        <Input id="f-autre" type="number" value={infoForm.financementAutre ?? ''} onChange={(e) => setInfoForm({ ...infoForm, financementAutre: Number(e.target.value) || undefined })} />
-                      </FormField>
+                    <div className="min-w-56 flex-1">
+                      <div className="mb-0.5 text-micro font-medium text-muted-foreground">Détail (optionnel)</div>
+                      <Input value={raisonTexte} onChange={(e) => setRaisonTexte(e.target.value)} className="h-7" />
                     </div>
-                    <FormField className="mt-3.5">
-                      <FieldLabel htmlFor="f-notes">Notes</FieldLabel>
-                      <Textarea id="f-notes" value={infoForm.notes ?? ''} onChange={(e) => setInfoForm({ ...infoForm, notes: e.target.value })} />
-                    </FormField>
-                  </FieldGroup>
-                ) : (
-                  <>
-                    <FieldGrid>
-                      <Field label="Origine" value={p.origine ? <Badge tone="info">{p.origine}</Badge> : undefined} />
-                      <Field label="Support / campagne" value={p.origineSupport} />
-                      <Field label="Vocation" value={p.vocation} />
-                      <Field label="Type de contact" value={p.typeContact} />
-                      <Field label="Action commerciale" value={p.actionCommerciale} />
-                      {/* Servis par l'API depuis le début, jamais affichés : la
-                          fiche n'avait que les identifiants et laissait
-                          l'onglet Article seul à nommer le lot. */}
-                      <Field label="Tranche" value={p.trancheDescription || p.trancheCode} />
-                      <Field label="Article" value={p.articleDescription || p.articleCode} />
-                      {/* Budget, superficie, avance et les trois financements
-                          ne sont plus affichés : mesurés morts, 0 ligne
-                          renseignée sur 14 114 — 4 pour `prix`, et `0` plutôt
-                          que `null` partout ailleurs, ce qui affichait
-                          « 0,00 DH » comme s'il s'agissait d'un budget. Six
-                          tirets alignés faisaient passer une donnée inexistante
-                          pour une donnée manquante.
-                          **La saisie reste possible** : les champs sont
-                          toujours dans le formulaire d'édition ci-dessus. Ils
-                          réapparaîtront ici le jour où ils porteront quelque
-                          chose — voir le commentaire dans types.ts. */}
-                      <Field label="Ancien client" value={p.ancienClient ? 'Oui' : 'Non'} />
-                      <Field label="Proposé par" value={p.proposeurNom} />
-                    </FieldGrid>
-                    {p.notes && (
-                      <div className="mt-3.5 border-t border-border pt-3.5">
-                        <div className="mb-1.5 text-micro font-medium text-muted-foreground">Notes</div>
-                        <div className="whitespace-pre-wrap text-label leading-relaxed text-foreground">{p.notes}</div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </Card>
+                    <Button size="sm" onClick={handleArchiver} disabled={busy} className="text-destructive-foreground">
+                      Confirmer la clôture
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
-          </TabsContent>
-
-          {p.prospectId && (
-            <TabsContent value="prospect">
-              {/* Cascade reference to the linked Prospect — mirrors the
-                  same "reference the previous pipeline stage" pattern as
-                  Dossier→Prospection and Prospect→Prospections-d'origine. */}
-              <Card
-                title="Prospect"
-                accent="var(--sec-prospect)"
-                action={
-                  <Link to={`/prospects/${p.prospectId}`} className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                    Fiche complète <ArrowUpRight className="size-3" />
-                  </Link>
-                }
-              >
-                {linkedProspect.loading && !linkedProspect.data && <LoadingState />}
-                {linkedProspect.error && <ErrorState message={linkedProspect.error} />}
-                {linkedProspect.data && (
-                  <FieldGrid>
-                    <Field label="Nom" value={p.prospectNom || `${linkedProspect.data.prenom || ''} ${linkedProspect.data.nom || ''}`.trim()} />
-                    <Field label="Type" value={linkedProspect.data.type} />
-                    <Field
-                      label="Téléphone"
-                      value={
-                        linkedProspect.data.telephone
-                          ? formatTelephone(linkedProspect.data.telephone, linkedProspect.data.indicatifTelephone)
-                          : formatTelephone(linkedProspect.data.mobile, linkedProspect.data.indicatifMobile)
-                      }
-                    />
-                    <Field label="Email" value={linkedProspect.data.email} />
-                    <Field label="Ville" value={linkedProspect.data.ville} />
-                    <Field label="Commercial" value={linkedProspect.data.commercialNom} />
-                  </FieldGrid>
-                )}
-              </Card>
-            </TabsContent>
-          )}
-
-          <TabsContent value="article">
-            <div className="flex flex-col gap-3">
-              <ChoixArticleSection
-                prospectionId={p.id}
-                trancheId={p.trancheId}
-                articleId={p.articleId}
-                onUpdated={async () => { await refetch(); showToast('Tranche/article principal mis à jour.'); }}
-                onAdded={async () => { await autresTranches.refetch(); showToast('Article ajouté.'); }}
-                navigate={navigate}
-              />
-
-              <ArticlesAssociesSection
-                prospectionId={p.id}
-                items={autresTranches.data ?? []}
-                onRemove={async (itemId) => { await removeProspectionAutreTranche(p.id, itemId); autresTranches.refetch(); }}
-                onEdited={async () => { await autresTranches.refetch(); showToast('Article mis à jour.'); }}
-                navigate={navigate}
-              />
+          </Card>
+        }
+        /* ---------------------------------------------------------------
+           La barre n'existe que s'il y a quelque chose à enregistrer, et
+           elle se place au contact du formulaire plutôt qu'en pied de page.
+           Elle nomme ce qui a bougé : à quinze champs, « 2 modifications »
+           ne dit pas lesquelles.
+           --------------------------------------------------------------- */
+        barreAction={
+          form.estModifie ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-(--warning)/40 bg-(--warning-bg) px-3 py-2">
+              <span className="text-label font-medium text-foreground">
+                {form.champsModifies.length} modification{form.champsModifies.length > 1 ? 's' : ''} non enregistrée
+                {form.champsModifies.length > 1 ? 's' : ''}
+              </span>
+              <span className="min-w-0 truncate text-micro text-muted-foreground">
+                {form.champsModifies.map((c) => LIBELLE_CHAMP[c] ?? c).join(' · ')}
+              </span>
+              <div className="ml-auto flex items-center gap-1.5">
+                <Button variant="ghost" size="sm" onClick={form.annuler} disabled={saving}>
+                  Annuler
+                </Button>
+                <Button size="sm" onClick={enregistrerFiche} disabled={saving}>
+                  {saving ? 'Enregistrement…' : 'Enregistrer'}
+                </Button>
+              </div>
             </div>
-          </TabsContent>
-
-          <TabsContent value="devis">
-            <div className="flex flex-col gap-3">
-              <DevisFormSection
-                defaultTrancheId={p.trancheId}
-                defaultArticleId={p.articleId}
-                defaultProspectId={p.prospectId ?? undefined}
-                defaultCommercialId={p.commercialId ?? undefined}
-                onAdd={async (body) => { await creerDevis(p.id, body); await devis.refetch(); showToast('Offre créée.'); }}
-              />
-
-              <Card title={`Offres (${devis.data?.totalElements ?? 0})`}>
+          ) : undefined
+        }
+        /* ---------------------------------------------------------------
+           Bande 3 — les sept onglets du logiciel de bureau, dans son ordre.
+           Rien de ce que l'écran savait faire n'est perdu : les offres, le
+           journal et le sélecteur d'article en cascade sont relogés tels
+           quels. Ce qui s'ajoute, ce sont les quatre sous-collections dont
+           les fonctions existaient depuis des mois sans aucun appelant.
+           --------------------------------------------------------------- */
+        onglets={[
+          {
+            id: 'autres-tranches',
+            libelle: 'Autres tranches',
+            compteur: autresTranches.data?.length ?? 0,
+            contenu: (
+              <div className="p-3">
+                <ArticlesAssociesSection
+                  prospectionId={p.id}
+                  items={autresTranches.data ?? []}
+                  onRemove={async (itemId) => { await removeProspectionAutreTranche(p.id, itemId); autresTranches.refetch(); }}
+                  onEdited={async () => { await autresTranches.refetch(); showToast('Article mis à jour.'); }}
+                  navigate={navigate}
+                />
+              </div>
+            ),
+          },
+          {
+            id: 'article',
+            libelle: 'Choix article',
+            contenu: (
+              <div className="flex flex-col gap-3 p-3">
+                <ChoixArticleSection
+                  prospectionId={p.id}
+                  trancheId={p.trancheId}
+                  articleId={p.articleId}
+                  onUpdated={async () => { await refetch(); showToast('Tranche/article principal mis à jour.'); }}
+                  onAdded={async () => { await autresTranches.refetch(); showToast('Article ajouté.'); }}
+                  navigate={navigate}
+                />
+                {/* L'offre de prix n'a de sens qu'après les visites. Elle
+                    suivait le sélecteur d'étape ; elle suit maintenant
+                    l'article, qui est ce sur quoi elle porte. */}
+                {stageIdx >= PIPELINE_STAGES.indexOf('4 APRES VISITES') && !p.fermee && (
+                  <OffrePrixSection prospectionId={p.id} articleId={p.articleId} onVoirArticle={() => setTab('article')} />
+                )}
+              </div>
+            ),
+          },
+          {
+            id: 'profils',
+            libelle: 'Profils',
+            contenu: <OngletProfils prospectionId={p.id} />,
+          },
+          {
+            id: 'autres',
+            libelle: 'Autres',
+            contenu: <OngletAutres prospectionId={p.id} />,
+          },
+          {
+            id: 'devis',
+            libelle: 'Offres',
+            compteur: devis.data?.totalElements ?? 0,
+            contenu: (
+              <div className="flex flex-col gap-3 p-3">
+                <DevisFormSection
+                  defaultTrancheId={p.trancheId}
+                  defaultArticleId={p.articleId}
+                  defaultProspectId={p.prospectId ?? undefined}
+                  defaultCommercialId={p.commercialId ?? undefined}
+                  onAdd={async (body) => { await creerDevis(p.id, body); await devis.refetch(); showToast('Offre créée.'); }}
+                />
                 {devis.loading && !devis.data && <LoadingState />}
                 {devis.error && <ErrorState message={devis.error} />}
-                {devis.data && devis.data.content.length === 0 && <EmptyState title="Aucune offre" message="Créez une offre ci-dessus pour en voir apparaître ici." />}
+                {devis.data && devis.data.content.length === 0 && (
+                  <EmptyState title="Aucune offre" message="Créez une offre ci-dessus pour en voir apparaître ici." />
+                )}
                 {devis.data && devis.data.content.length > 0 && (
                   <div className="flex flex-col gap-2">
                     {devis.data.content.map((dv) => (
@@ -1155,45 +1103,17 @@ export default function ProspectionDetail() {
                 {devis.data && (
                   <Pagination page={devis.data.page} totalPages={devis.data.totalPages} totalElements={devis.data.totalElements} onPageChange={setDevisPage} />
                 )}
-              </Card>
-            </div>
-          </TabsContent>
+              </div>
+            ),
+          },
+          {
+            id: 'actions',
+            libelle: 'Actions',
+            compteur: interactions.data?.totalElements ?? 0,
+            contenu: (
+              <div className="flex flex-col gap-3 p-3">
+                <ActiviteCard activite={p.activite} accent={sectionAccent} />
 
-          <TabsContent value="historique">
-            <div className="flex flex-col gap-3">
-              <Card title={`Parcours (${parcours.data?.totalElements ?? 0})`}>
-                {parcours.loading && !parcours.data && <LoadingState />}
-                {parcours.error && <ErrorState message={parcours.error} />}
-                {parcours.data && parcours.data.content.length === 0 && (
-                  <p className="text-label text-muted-foreground">
-                    Aucune transition tracée pour l'instant — apparaîtra ici dès que cette fiche sera liée à un
-                    prospect ou transformée en prospection qualifiée.
-                  </p>
-                )}
-                {parcours.data && parcours.data.content.length > 0 && (
-                  <TimelineList>
-                    {parcours.data!.content.map((h, i) => (
-                      <TimelineRow
-                        key={h.id}
-                        dernier={i === parcours.data!.content.length - 1}
-                        titre={h.workflowDescription || h.statutDescription || 'Événement'}
-                        meta={`${formatDateTime(h.date)} · ${h.utilisateur || 'Système'}`}
-                        note={h.description}
-                      />
-                    ))}
-                  </TimelineList>
-                )}
-                {parcours.data && (
-                  <Pagination
-                    page={parcours.data.page}
-                    totalPages={parcours.data.totalPages}
-                    totalElements={parcours.data.totalElements}
-                    onPageChange={setParcoursPage}
-                  />
-                )}
-              </Card>
-
-              <Card title={`Actions (${interactions.data?.totalElements ?? 0})`}>
                 {interactions.loading && !interactions.data && <LoadingState />}
                 {interactions.error && <ErrorState message={interactions.error} />}
                 {interactions.data && interactions.data.content.length === 0 && (
@@ -1271,11 +1191,85 @@ export default function ProspectionDetail() {
                     onPageChange={setInteractionsPage}
                   />
                 )}
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+
+                {/* Le parcours — les deux transitions que l'API écrit
+                    elle-même — reste sous le journal manuel plutôt que dans
+                    un onglet à lui : c'est la même chronologie, vue par
+                    l'autre bout. */}
+                <div className="border-t border-border pt-3">
+                  <div className="mb-2 text-micro font-medium text-muted-foreground">
+                    Parcours ({parcours.data?.totalElements ?? 0})
+                  </div>
+                  {parcours.data && parcours.data.content.length === 0 && (
+                    <p className="text-body text-muted-foreground">
+                      Aucune transition tracée — apparaîtra dès que cette fiche sera liée à un prospect ou transformée.
+                    </p>
+                  )}
+                  {parcours.data && parcours.data.content.length > 0 && (
+                    <TimelineList>
+                      {parcours.data.content.map((h, i) => (
+                        <TimelineRow
+                          key={h.id}
+                          dernier={i === parcours.data!.content.length - 1}
+                          titre={h.workflowDescription || h.statutDescription || 'Événement'}
+                          meta={`${formatDateTime(h.date)} · ${h.utilisateur || 'Système'}`}
+                          note={h.description}
+                        />
+                      ))}
+                    </TimelineList>
+                  )}
+                  {parcours.data && (
+                    <Pagination
+                      page={parcours.data.page}
+                      totalPages={parcours.data.totalPages}
+                      totalElements={parcours.data.totalElements}
+                      onPageChange={setParcoursPage}
+                    />
+                  )}
+                </div>
+              </div>
+            ),
+          },
+          {
+            id: 'contacts',
+            libelle: 'Contacts',
+            contenu: (
+              <div className="p-3">
+                {p.prospectId ? (
+                  <>
+                    {linkedProspect.loading && !linkedProspect.data && <LoadingState />}
+                    {linkedProspect.error && <ErrorState message={linkedProspect.error} />}
+                    {linkedProspect.data && (
+                      <div className="flex flex-col gap-3">
+                        <FieldGrid>
+                          <Field label="Nom" value={personDisplayName(linkedProspect.data)} />
+                          <Field label="Code" value={linkedProspect.data.code} />
+                          <Field label={linkedProspect.data.pieceIdentite?.type || "Pièce d'identité"} value={linkedProspect.data.pieceIdentite?.numero} />
+                          <Field label="Téléphone" value={formatTelephone(linkedProspect.data.telephone)} />
+                          <Field label="Mobile" value={formatTelephone(linkedProspect.data.mobile)} />
+                          <Field label="Email" value={linkedProspect.data.email} />
+                          <Field label="Ville" value={linkedProspect.data.ville} />
+                          <Field label="Adresse" value={linkedProspect.data.adresse} />
+                        </FieldGrid>
+                        <div>
+                          <Button variant="outline" size="sm" onClick={() => navigate(`/prospects/${p.prospectId}`)}>
+                            <ArrowUpRight data-icon="inline-start" /> Ouvrir la fiche prospect
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <EmptyState
+                    title="Aucune fiche prospect"
+                    message="Cette pré-prospection n'est pas encore liée à un tiers. Utilisez « Créer prospect » dans la barre d'actions."
+                  />
+                )}
+              </div>
+            ),
+          },
+        ]}
+      />
 
       {showCreateProspect && (
         <CreateProspectForm

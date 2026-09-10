@@ -2886,7 +2886,7 @@
           "Prospections"
         ],
         "summary": "Détail d'une prospection (ou d'une pré-prospection)",
-        "description": "Sert aussi bien une prospection qualifiée qu'une pré-prospection : `GET /api/pre-prospections` n'expose pas de route de détail propre, les deux partagent cette fiche.\n\n**Périmètre commercial** : une prospection hors du périmètre de l'appelant renvoie **404**, et non 403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants. Même règle pour toutes les routes imbriquées (interactions, devis, qualification, documents).",
+        "description": "Sert aussi bien une prospection qualifiée qu'une pré-prospection : `GET /api/pre-prospections` n'expose pas de route de détail propre, les deux partagent cette fiche.\n\n**Périmètre commercial** : une prospection hors du périmètre de l'appelant renvoie **404**, et non 403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants. Même règle pour toutes les routes imbriquées (interactions, devis, qualification, documents).\n\n**Deux origines de données, deux comportements** :\n- les champs issus de `ComProspection` et de ses associations (société, type de tiers, coordonnées, codes de référentiel, audit) sont servis **dans tous les cas**, pré-prospection comprise ;\n- le bloc `activite` vient de `ComSaleProspectionView`, qui exclut les pré-prospections : il vaut alors `null` **en entier**. `null` signifie « non disponible », jamais « zéro ».\n\nLes champs mesurés morts (`prix`, `surface`, avance, financement, `proposeur*`) restent exposés pour ne pas rompre le contrat existant, mais ne doivent pas être affichés — voir leur `@Schema`.",
         "operationId": "findById_1",
         "parameters": [
           {
@@ -8338,6 +8338,39 @@
           "prospectNom": {
             "type": "string"
           },
+          "prospectCode": {
+            "type": "string",
+            "description": "Code du prospect dans le référentiel tiers. Renseigné sur **100 %** des prospections réelles.",
+            "example": "26/14520"
+          },
+          "mobileProspect": {
+            "type": "string",
+            "description": "Numéro de mobile **brut**, sans indicatif — 99,8 %. Le logiciel de bureau affiche `(indicatif) numéro` ; ce formatage est laissé au front. Même champ que `mobileProspect` de la liste.",
+            "example": "6 61 83 60 90"
+          },
+          "indicatifMobile": {
+            "type": "string",
+            "description": "Indicatif pays du mobile, **stocké sans `+`** — 100 %. Composer l'affichage côté front (`+212 6 61 83 60 90`).",
+            "example": "212"
+          },
+          "emailFiche": {
+            "type": "string",
+            "description": "Email porté par la fiche tiers — à distinguer de `tempEmail`, saisi sur la prospection elle-même. 59,1 %."
+          },
+          "typeProspectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du type de tiers. 100 %."
+          },
+          "typeProspect": {
+            "type": "string",
+            "description": "Code du type de tiers — **c'est ce champ qu'il faut tester**, jamais le libellé. 100 %.\n\n⚠️ **Ne pas confondre avec `typeProspectionCode`** : celui-ci qualifie le *tiers* (`PRO`, `PRORNT`), l'autre qualifie le *document* (`ComProspection`, `ComPreProspection`). Même distinction que sur la liste.",
+            "example": "PRO"
+          },
+          "typeProspectLibelle": {
+            "type": "string",
+            "description": "Libellé du type de tiers. 100 %."
+          },
           "commercialId": {
             "type": "string",
             "format": "uuid"
@@ -8345,12 +8378,18 @@
           "commercialNom": {
             "type": "string"
           },
+          "commercialCode": {
+            "type": "string",
+            "description": "Code du commercial dans le référentiel tiers. 99,3 %."
+          },
           "proposeurId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Identifiant du proposeur. **Mesuré mort : 1 ligne sur 14 118.** Conservé pour compatibilité — ne pas afficher."
           },
           "proposeurNom": {
-            "type": "string"
+            "type": "string",
+            "description": "Nom du proposeur. **Mort : 1 ligne sur 14 118.** Ne pas afficher."
           },
           "origineId": {
             "type": "string",
@@ -8359,12 +8398,20 @@
           "origine": {
             "type": "string"
           },
+          "origineCode": {
+            "type": "string",
+            "description": "Code de l'origine. 100 %."
+          },
           "origineSupportId": {
             "type": "string",
             "format": "uuid"
           },
           "origineSupport": {
             "type": "string"
+          },
+          "origineSupportCode": {
+            "type": "string",
+            "description": "Code du support d'origine. 50,2 %."
           },
           "etapeId": {
             "type": "string",
@@ -8373,12 +8420,22 @@
           "etape": {
             "type": "string"
           },
+          "etapeCode": {
+            "type": "string",
+            "description": "Code de l'étape de prospection. 100 %.",
+            "example": "3 QUALIFIÉ"
+          },
           "vocationId": {
             "type": "string",
             "format": "uuid"
           },
           "vocation": {
             "type": "string"
+          },
+          "vocationCode": {
+            "type": "string",
+            "description": "Code de la vocation. 100 %.",
+            "example": "VENTE"
           },
           "typeContactId": {
             "type": "string",
@@ -8387,12 +8444,20 @@
           "typeContact": {
             "type": "string"
           },
+          "typeContactCode": {
+            "type": "string",
+            "description": "Code du type de contact. 100 %."
+          },
           "actionCommercialeId": {
             "type": "string",
             "format": "uuid"
           },
           "actionCommerciale": {
             "type": "string"
+          },
+          "actionCommercialeCode": {
+            "type": "string",
+            "description": "Code de l'action commerciale (campagne). 40,2 %."
           },
           "notes": {
             "type": "string"
@@ -8443,6 +8508,10 @@
           "raisonFermeture": {
             "type": "string"
           },
+          "raisonFermetureCode": {
+            "type": "string",
+            "description": "Code du motif de clôture. 60,5 % — ne vaut quelque chose que sur une prospection fermée."
+          },
           "raisonFermetureTexte": {
             "type": "string"
           },
@@ -8469,6 +8538,59 @@
           "articleDescription": {
             "type": "string"
           },
+          "articleCategorie": {
+            "type": "string",
+            "description": "Catégorie de l'article principal. Renseignée sur **100 % des prospections qui portent un article** — soit 5,7 % du total (804 sur 14 118), l'article lui-même étant rare."
+          },
+          "articleType": {
+            "type": "string",
+            "description": "Type de l'article principal. Même couverture que la catégorie : 100 % des prospections portant un article."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la société / entité juridique. **99,8 %.** Déjà servi par la liste depuis le lot B ; la fiche ne le portait pas."
+          },
+          "societeCode": {
+            "type": "string",
+            "description": "Code de la société. 99,8 %.",
+            "example": "ADMOD"
+          },
+          "societeLibelle": {
+            "type": "string",
+            "description": "Libellé de la société. **Dérivé de la tranche** (`CfgTranche → CfgProject → CfgCompany`), jamais saisi sur la prospection : une prospection sans tranche n'a pas de société, et ce n'est pas une anomalie."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du pays du prospect. 27,3 %."
+          },
+          "paysCode": {
+            "type": "string",
+            "description": "Code du pays. 27,3 %."
+          },
+          "pays": {
+            "type": "string",
+            "description": "Libellé du pays. 27,3 % — `null` sur les deux tiers des fiches."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création. **34,3 % seulement** : les prospections créées par notre API ne posent pas `UserCreate` (défaut connu). Un front qui affiche l'auteur verra deux fiches sur trois sans auteur."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création de la prospection. 100 %."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification. 100 %."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification. 100 %."
+          },
           "typeProspectionId": {
             "type": "string",
             "format": "uuid",
@@ -8486,7 +8608,7 @@
           },
           "activite": {
             "$ref": "#/components/schemas/ActiviteProspectionDto",
-            "description": "Bloc d'indicateurs d'activité calculés par la base légataire (nombre d'interactions, inactivité, dernière communication, visites, relance en cours, projet, et le lien vers le dossier issu de la prospection).\n\n**Vaut `null` en entier sur une pré-prospection** : ces indicateurs viennent de `ComSaleProspectionView`, qui exclut les pré-prospections. L'absence du bloc signifie « non disponible », jamais « zéro »."
+            "description": "Bloc d'indicateurs d'activité calculés par la base légataire (nombre d'interactions, inactivité, dernière communication, visites, relance en cours, projet, et le lien vers le dossier issu de la prospection).\n\n**Vaut `null` en entier sur une pré-prospection** : ces indicateurs viennent de `ComSaleProspectionView`, qui exclut les pré-prospections. L'absence du bloc signifie « non disponible », jamais « zéro ». Les autres champs de cette fiche restent, eux, renseignés sur une pré-prospection."
           }
         }
       },
