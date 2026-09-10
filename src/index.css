@@ -464,20 +464,30 @@ table {
    screen, seven fewer leads per glance, on a screen whose entire job is
    triaging who to call back.
 
-   Two tokens, not a scale: a row height and a horizontal cell padding. There
-   is no `--row-h-head` — the header is the same 24px as the body and earns
-   its separation from fill, weight and the bottom rule instead. A second
-   height would be the same drift the type scale above already had to undo.
-
    Deliberately NOT font sizes: cells take `--text-body` and headers
    `--text-micro` from that scale. Density changed; the type system didn't.
 
-     row-h    24px — every `<tr>`, header and body alike
-     cell-px  6px  — was 8px (`px-2`); buys ~2 extra columns before scroll
+   A previous pass here had a single `--row-h` for header and body, arguing a
+   second height would be drift. Measuring the reference again killed that:
+   the legacy grid really does run three heights — 23.8px data, ~22px header,
+   ~19px filter row — and the ask was the *exact* density. Three measured
+   values aren't drift; the thing the type scale had to undo was fifteen
+   *unmeasured* ones half a pixel apart.
+
+     row-h         24px — data rows (measured 23.77, rounded to the integer)
+     row-h-head    22px — header band, deliberately shorter than a data row
+     row-h-filter  19px — the per-column filter row, shorter again
+     cell-px       6px  — was 8px (`px-2`); ~2 more columns before scroll
+     gutter-mark   18px — current-row indicator column
+     gutter-check  22px — checkbox column
    --------------------------------------------------------------------------- */
 @theme {
   --row-h: 24px;
+  --row-h-head: 22px;
+  --row-h-filter: 19px;
   --cell-px: 6px;
+  --gutter-mark: 18px;
+  --gutter-check: 22px;
 }
 
 /* Pastilles en contexte de grille.

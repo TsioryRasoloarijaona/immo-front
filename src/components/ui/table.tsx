@@ -103,7 +103,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
         // la cellule même — il gagnerait sur celui-ci. L'en-tête se distingue
         // par son `border-b`, sa graisse et son `text-micro` contre le
         // `text-body` du corps, sans toucher à la couleur.
-        "h-(--row-h) px-(--cell-px) text-left align-middle text-micro font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "h-(--row-h-head) px-(--cell-px) text-left align-middle text-micro font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
         RULE,
         className
       )}

@@ -165,13 +165,31 @@ Follow **Linear / Stripe Dashboard / Attio** as the visual references —
 > seven fewer leads per glance is a real regression in the one job the screen
 > has. Density is the feature there.
 >
-> What did **not** change, and must not: the palette, the sidebar, the page
-> shell. Omran's grid *chrome* — the per-column filter row, the drag-to-group
-> band, the `Σ`/pin header glyphs, the Windows 3D bevels — was explicitly not
-> adopted. Take the geometry, leave the furniture.
+> Three heights, all measured off the reference and all tokens in `index.css`:
+> `--row-h` 24px (data), `--row-h-head` 22px, `--row-h-filter` 19px. The header
+> really is shorter than a data row in the original. Tune the tokens if the
+> density needs adjusting — don't reach into the components.
 >
-> So: do not "fix" the tables back to airy padding. Tune `--row-h` /
-> `--cell-px` in `index.css` if the density needs adjusting.
+> **`ProspectionTable` goes further than density: it reproduces Omran's grid
+> chrome.** Group-by band, gutter with a current-row `▶` indicator and a
+> per-row checkbox, sortable headers, a `Σ` summary toggle per column, and the
+> per-column filter row with its `A` / `=` operator glyphs. Sort, `Σ` and the
+> filter row are **real but client-side, over the loaded page only** — which is
+> what the original DevExpress grid does natively. Server-side filtering
+> remains `ProspectionFiltresAvances`, which paginates. Don't "unify" the two:
+> they answer different questions.
+>
+> Two things there are deliberately non-functional and marked as such: the
+> group-by band carries a `Bientôt` pill because drag-to-group doesn't exist,
+> and the row checkboxes toggle but no bulk action consumes the selection yet.
+>
+> What did **not** change, and must not: the palette, the sidebar, the page
+> shell, and Omran's top filter panel (Entité / Période / Commercial / Nature /
+> Aboutie / Archivé) — that one stays out, `ProspectionFiltresAvances` covers
+> it. No Windows 3D bevels. Take the geometry and the affordances, leave the
+> chrome styling.
+>
+> So: do not "fix" the tables back to airy padding.
 - A left sidebar nav mirroring the two in-scope modules (**Ventes**,
   **Patrimoine**) plus **Dashboard** — don't reproduce the legacy system's
   full 10-module sidebar (Achat/Location/RH/etc.), just show the two in
