@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, Eye, Folder, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
+import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
@@ -20,7 +20,6 @@ import {
   type DossierChampDate,
 } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
-import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
 // Formatage monétaire et de date : porté par DataGrid via le `type` de
 // colonne, plus par cet écran.
@@ -90,8 +89,6 @@ const CHAMP_DATE_ITEMS: { label: string; value: DossierChampDate }[] = [
 
 export default function DossiersList() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const { commerciaux } = useAppData();
 
   const [search, setSearch] = useState('');
@@ -277,8 +274,6 @@ export default function DossiersList() {
       accentBg="var(--sec-dossier-bg)"
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
-
         <Card padded={false} className="shrink-0">
           <div className="flex flex-wrap items-center gap-2.5 p-3">
             <InputGroup className="min-w-55 flex-1">

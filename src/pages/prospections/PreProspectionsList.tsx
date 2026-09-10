@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RotateCcw, UserPlus } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
+import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
@@ -11,7 +11,6 @@ import ProspectionTable from '../../components/ProspectionTable';
 import { DEFAULT_PAGE_SIZE, listPreProspections, listTranches } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
-import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { useColonnesProspections, useOriginesProspection } from '../../lib/referentiels';
 import {
@@ -37,8 +36,6 @@ const ETAPE_ITEMS = [
 // /api/prospections as of the docs/api-docsV4.json 88-route revision.
 export default function PreProspectionsList() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const { commerciaux } = useAppData();
   const origines = useOriginesProspection();
 
@@ -107,8 +104,6 @@ export default function PreProspectionsList() {
       accentBg="var(--sec-preprospection-bg)"
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
-
         <ProspectionFilterBar
           state={filters}
           onChange={setFilter}
