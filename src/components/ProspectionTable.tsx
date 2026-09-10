@@ -134,9 +134,14 @@ export default function ProspectionTable({
       // horizontale visible et servir de référence au `sticky top-0`.
       containerClassName="overflow-visible"
       // Une largeur minimale en dur ne tient plus avec une sélection variable :
-      // trop large à trois colonnes, trop étroite à douze. ~9rem par colonne
-      // redonne les 80rem d'origine sur une sélection de neuf.
-      style={{ minWidth: `${Math.max(48, colonnes.length * 9)}rem` }}
+      // trop large à trois colonnes, trop étroite à douze.
+      //
+      // 8rem et non plus 9 : le minimum par colonne était calibré sur les
+      // anciennes métriques de cellule (14px de texte, 8px de gouttière). À
+      // 12.5px et 6px, le même contenu tient dans ~8rem — garder 9 ferait
+      // défiler horizontalement plus tôt que nécessaire, ce qui annulerait
+      // précisément le gain de densité qu'on vient de chercher.
+      style={{ minWidth: `${Math.max(48, colonnes.length * 8)}rem` }}
     >
       <TableHeader>
         <TableRow className="hover:bg-card">

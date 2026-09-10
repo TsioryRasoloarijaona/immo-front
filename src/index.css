@@ -454,6 +454,57 @@ table {
   --text-hero: 21px;
 }
 
+/* ---------------------------------------------------------------------------
+   Grid density
+   ---------------------------------------------------------------------------
+   Measured off the legacy Omran Estate grid, which is what the commerciaux
+   are migrating from and still compare this against. Their prospection list
+   fits ~24 rows in the viewport; ours fit ~17, because the shadcn table
+   primitive ships a 33px row (`py-1.5` + `text-sm`, 20px line-height). Same
+   screen, seven fewer leads per glance, on a screen whose entire job is
+   triaging who to call back.
+
+   Two tokens, not a scale: a row height and a horizontal cell padding. There
+   is no `--row-h-head` — the header is the same 24px as the body and earns
+   its separation from fill, weight and the bottom rule instead. A second
+   height would be the same drift the type scale above already had to undo.
+
+   Deliberately NOT font sizes: cells take `--text-body` and headers
+   `--text-micro` from that scale. Density changed; the type system didn't.
+
+     row-h    24px — every `<tr>`, header and body alike
+     cell-px  6px  — was 8px (`px-2`); buys ~2 extra columns before scroll
+   --------------------------------------------------------------------------- */
+@theme {
+  --row-h: 24px;
+  --cell-px: 6px;
+}
+
+/* Pastilles en contexte de grille.
+   `Badge` mesure 20px (`h-5`) pour du `text-xs` : dans une ligne de 24px il
+   la fait grandir, et la liste de prospection en aligne six colonnes. Plutôt
+   qu'un prop `dense` à faire passer dans dix-huit fichiers — où il suffit d'un
+   oubli pour qu'une ligne dépasse — une règle unique, portée par le contexte.
+
+   Le sélecteur passe par `:has()` sur le point décoratif et non par
+   `[data-slot="badge"]` : ce slot est produit par le `useRender` de Base UI,
+   donc par une convention que ce dépôt ne contrôle pas. `:has(> [data-badge-dot])`
+   ne peut désigner que la pastille, et ne dépend que du markup d'ui.tsx.
+
+   Non calée dans `@layer` volontairement : le CSS auteur hors couche l'emporte
+   sur tout `@layer utilities`, donc ceci bat `h-5`/`text-xs`/`px-2` de la cva
+   sans compter les spécificités. */
+[data-slot='table-cell'] *:has(> [data-badge-dot]) {
+  height: 16px;
+  gap: 0;
+  padding-inline: 5px;
+  font-size: var(--text-micro);
+}
+
+[data-slot='table-cell'] [data-badge-dot] {
+  display: none;
+}
+
 @theme inline {
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;

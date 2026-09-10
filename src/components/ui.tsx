@@ -18,7 +18,11 @@ export function Badge({
 }) {
   return (
     <ShadcnBadge variant={tone} className={cn('gap-1.5', className)}>
-      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current" />
+      {/* `data-badge-dot` pour que la densité de grille puisse le masquer : le
+          point coûte 6px + 6px de gouttière, soit ~72px sur les six colonnes à
+          pastille de la liste de prospection, pour une information que la
+          couleur du fond porte déjà. Voir « Grid density » dans index.css. */}
+      <span aria-hidden data-badge-dot="" className="size-1.5 shrink-0 rounded-full bg-current" />
       {children}
     </ShadcnBadge>
   );

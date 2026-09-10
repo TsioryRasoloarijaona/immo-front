@@ -3,6 +3,7 @@ import { AlertCircle, AlertTriangle, ArrowUpRight, ChevronRight, Coins, Folder, 
 import { Link } from 'react-router-dom';
 import PageShell from '../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, LoadingState, StatCard } from '../components/ui';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { usePreview } from '../lib/previewContext';
 import { getDashboard, listClients, listDossiers, listPreProspections, listProspections } from '../lib/api';
 import { useApi } from '../lib/useApi';
@@ -374,38 +375,42 @@ export default function Dashboard() {
           {!dossiersPage || dossiersPage.content.length === 0 ? (
             <EmptyState title="Aucun dossier" />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-body">
-                <thead>
-                  <tr className="border-b border-border text-left text-micro font-medium text-muted-foreground">
-                    <th className="px-4 py-2 font-medium">Client</th>
-                    <th className="px-4 py-2 font-medium">Commercial</th>
-                    <th className="px-4 py-2 font-medium">Statut</th>
-                    <th className="px-4 py-2 text-right font-medium">Prix</th>
-                    <th className="px-4 py-2 text-right font-medium">Total à payer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dossiersPage.content.slice(0, 7).map((d) => (
-                    <tr
-                      key={d.id}
-                      className="cursor-pointer border-b border-border last:border-b-0 hover:bg-(--surface-hover)"
-                      onClick={() => previewDossier(d.id)}
-                    >
-                      <td className="px-4 py-2 font-medium text-foreground">{d.clientNom || '—'}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{d.commercialNom || '—'}</td>
-                      <td className="px-4 py-2">
-                        <Badge tone="neutral" className="text-micro">
-                          {d.statut || '—'}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums text-foreground">{formatCurrency(d.prix)}</td>
-                      <td className="px-4 py-2 text-right tabular-nums text-muted-foreground">{formatCurrency(d.totalAPayer)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            /* Passé au primitif : cette table était la seule à réimplémenter
+               `<table>` à la main, donc la seule que la densité de grille
+               n'atteignait pas. Le `pl-4`/`pr-4` sur les cellules de bord
+               remplace l'ancien `px-4` uniforme — la Card est `padded={false}`,
+               c'est donc la table qui porte la gouttière du bloc : sans ça la
+               colonne « Client » ne s'aligne plus sous le titre de la Card. */
+            <Table containerClassName="overflow-x-auto">
+              <TableHeader>
+                <TableRow className="text-muted-foreground hover:bg-transparent [&>*:first-child]:pl-4 [&>*:last-child]:pr-4">
+                  <TableHead className="text-muted-foreground">Client</TableHead>
+                  <TableHead className="text-muted-foreground">Commercial</TableHead>
+                  <TableHead className="text-muted-foreground">Statut</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Prix</TableHead>
+                  <TableHead className="text-right text-muted-foreground">Total à payer</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {dossiersPage.content.slice(0, 7).map((d) => (
+                  <TableRow
+                    key={d.id}
+                    className="cursor-pointer last:border-b-0 hover:bg-(--surface-hover) [&>*:first-child]:pl-4 [&>*:last-child]:pr-4"
+                    onClick={() => previewDossier(d.id)}
+                  >
+                    <TableCell className="font-medium text-foreground">{d.clientNom || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{d.commercialNom || '—'}</TableCell>
+                    <TableCell>
+                      <Badge tone="neutral">{d.statut || '—'}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-foreground">{formatCurrency(d.prix)}</TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {formatCurrency(d.totalAPayer)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </Card>
       </div>

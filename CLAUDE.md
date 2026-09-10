@@ -151,6 +151,27 @@ Follow **Linear / Stripe Dashboard / Attio** as the visual references —
 - Cards and clean tables over the legacy system's dense multi-tab modal
   forms — collapse related fields into logical grouped sections instead of
   replicating every flat field list 1:1.
+
+> **Exception, decided deliberately: data grids are dense on purpose.**
+> The "generous whitespace" rule above governs page chrome, forms and detail
+> views. It does **not** govern the list tables, which were refactored on
+> `feat/densite-tableaux` to the measured geometry of the legacy Omran grid:
+> a 24px row (`--row-h`), 6px cell gutters (`--cell-px`), `--text-body` cells,
+> `--text-micro` headers, and vertical hairline column rules.
+>
+> The reason is measured, not stylistic. Omran fits ~24 prospection rows in
+> the viewport; the shadcn default row (33px) fit ~17. The commerciaux are
+> migrating *from* Omran and use these screens to triage who to call back, so
+> seven fewer leads per glance is a real regression in the one job the screen
+> has. Density is the feature there.
+>
+> What did **not** change, and must not: the palette, the sidebar, the page
+> shell. Omran's grid *chrome* — the per-column filter row, the drag-to-group
+> band, the `Σ`/pin header glyphs, the Windows 3D bevels — was explicitly not
+> adopted. Take the geometry, leave the furniture.
+>
+> So: do not "fix" the tables back to airy padding. Tune `--row-h` /
+> `--cell-px` in `index.css` if the density needs adjusting.
 - A left sidebar nav mirroring the two in-scope modules (**Ventes**,
   **Patrimoine**) plus **Dashboard** — don't reproduce the legacy system's
   full 10-module sidebar (Achat/Location/RH/etc.), just show the two in
