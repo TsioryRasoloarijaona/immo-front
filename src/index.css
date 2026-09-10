@@ -455,6 +455,78 @@ table {
 }
 
 /* ---------------------------------------------------------------------------
+   Pastilles dépouillées en contexte de grille
+   ---------------------------------------------------------------------------
+   Dans une cellule de tableau, `Badge` redevient du **texte coloré** : plus de
+   fond, plus de bordure, plus de gouttière, plus de point décoratif. La
+   couleur du ton est conservée — c'est elle qui porte l'information, la pilule
+   ne portait que de l'encombrement.
+
+   Le compte, par pastille : `px-2` (16px) + bordure (2px) + point (6px) +
+   gouttière du point (6px) = ~30px de large, et une hauteur de 20px qui
+   empêchait la ligne de descendre à sa vraie taille. La liste des prospections
+   aligne six colonnes à pastille : ~180px rendus à la donnée, et une ligne qui
+   peut enfin se serrer.
+
+   C'est aussi ce que fait la grille légataire, qui affiche « Hors Budget » ou
+   « Rendez vous pris à confirmer » en texte simple.
+
+   Portée par le **contexte** et non par un prop `dense`/`plain` à faire passer
+   dans dix-huit fichiers : il suffit d'un oubli pour qu'un écran garde ses
+   pilules. Le sélecteur s'appuie sur `data-slot`/`data-variant`, que le
+   `useRender` de Base UI produit à partir du `state` de `ui/badge.tsx` — vérifié
+   dans `internals/getStateAttributesProps.js`, qui écrit
+   `data-${clé}="${valeur}"` pour toute valeur non booléenne.
+
+   Hors couche `@layer` volontairement : le CSS auteur hors couche l'emporte sur
+   tout `@layer utilities`, donc ceci bat les classes de la cva sans compter les
+   spécificités.
+
+   La couleur est réaffirmée par `data-variant` plutôt que laissée aux classes
+   `text-*` de la cva. Deux raisons : le ton `default` pose
+   `text-primary-foreground`, quasi blanc, qui deviendrait invisible une fois le
+   fond retiré ; et un ton ajouté plus tard sans entrée ici gardera au moins la
+   couleur du texte courant au lieu de disparaître. */
+[data-slot='table-cell'] [data-slot='badge'] {
+  height: auto;
+  gap: 0;
+  padding-inline: 0;
+  border-color: transparent;
+  background: none;
+  overflow: visible;
+}
+
+/* Le point décoratif : `size-1.5` + la gouttière, pour une information que la
+   couleur du texte porte déjà. */
+[data-slot='table-cell'] [data-slot='badge'] > span[aria-hidden]:first-child {
+  display: none;
+}
+
+[data-slot='table-cell'] [data-slot='badge'][data-variant='default'],
+[data-slot='table-cell'] [data-slot='badge'][data-variant='neutral'],
+[data-slot='table-cell'] [data-slot='badge'][data-variant='outline'] {
+  color: var(--foreground);
+}
+[data-slot='table-cell'] [data-slot='badge'][data-variant='info'] {
+  color: var(--info);
+}
+[data-slot='table-cell'] [data-slot='badge'][data-variant='progress'] {
+  color: var(--brand);
+}
+[data-slot='table-cell'] [data-slot='badge'][data-variant='success'] {
+  color: var(--success);
+}
+[data-slot='table-cell'] [data-slot='badge'][data-variant='warning'] {
+  color: var(--warning);
+}
+[data-slot='table-cell'] [data-slot='badge'][data-variant='amber'] {
+  color: var(--amber);
+}
+[data-slot='table-cell'] [data-slot='badge'][data-variant='destructive'] {
+  color: var(--destructive);
+}
+
+/* ---------------------------------------------------------------------------
    Grid density
    ---------------------------------------------------------------------------
    Measured off the legacy Omran Estate grid, which is what the commerciaux

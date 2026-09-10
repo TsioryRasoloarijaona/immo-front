@@ -102,13 +102,26 @@ for (const [name, selector, cardRaw] of [
     if (t[tok]) check(`${tok} sur --card`, t[tok], card, t);
   }
 
-  // Texte de badge sur SON PROPRE fond teinté — le cas réel, pas « sur blanc ».
+  // Texte de badge sur SON PROPRE fond teinté — le cas des pastilles hors
+  // grille (fiches, bandeaux), où la pilule est conservée.
   for (const tok of ['--success', '--warning', '--amber', '--info', '--destructive']) {
     const bgTok = `${tok}-bg`;
     if (!t[tok] || !t[bgTok]) continue;
     const tint = parseColor(t[bgTok], t);
     if (!tint) continue;
     check(`${tok} sur ${bgTok}`, t[tok], over(tint, card), t);
+  }
+
+  // Les mêmes tons **directement sur la carte**, sans leur teinte.
+  //
+  // Devenu le cas réel en contexte de grille : `index.css` dépouille les
+  // pastilles dans une cellule de tableau — plus de fond, la couleur du ton
+  // portée par le texte seul. Ce sont donc ces paires-là que voient les
+  // écrans de liste, et elles n'étaient pas couvertes : le bloc au-dessus ne
+  // vérifiait que le ton sur sa propre teinte, qui est *plus* contrastée que
+  // sur la carte. Un ton qui passait là pouvait échouer ici.
+  for (const tok of ['--success', '--warning', '--amber', '--info', '--destructive', '--brand']) {
+    if (t[tok]) check(`${tok} sur --card (grille)`, t[tok], card, t);
   }
 
   // Texte posé sur un aplat plein.
