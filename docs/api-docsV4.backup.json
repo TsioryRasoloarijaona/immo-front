@@ -683,6 +683,14 @@
             "example": "code,prospectNom,joursInactivite,nbInteractions"
           },
           {
+            "name": "filtres",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/FiltresAvancesProspection"
+            }
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -11112,6 +11120,113 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "FiltresAvancesProspection": {
+        "type": "object",
+        "properties": {
+          "projetId": {
+            "type": "array",
+            "description": "Id(s) de projet (`CfgProject`). Répétable. Renseigné sur 99,8 % des prospections — une prospection sans tranche n'a pas de projet et sort donc du résultat quand ce filtre est actif.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "societeId": {
+            "type": "array",
+            "description": "Id(s) de société / entité juridique (`CfgCompany`). Répétable. 99,8 %.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "vocationId": {
+            "type": "array",
+            "description": "Id(s) de vocation (`StkVocation`). Répétable. 100 %.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "typeContactId": {
+            "type": "array",
+            "description": "Id(s) de type de contact (`ComActionMessageType`). Répétable. 100 %. C'est aussi ce que la vue légataire appelle « type d'origine » — les deux colonnes sont identiques sur les 14 118 lignes réelles.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "raisonFermetureId": {
+            "type": "array",
+            "description": "Id(s) de motif de clôture. Répétable. Renseigné sur 60,5 %.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "paysId": {
+            "type": "array",
+            "description": "Id(s) de pays du prospect. Répétable. 27,3 %.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "actionId": {
+            "type": "array",
+            "description": "Id(s) d'action commerciale (campagne). Répétable. 40,2 %.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "origineSupportId": {
+            "type": "array",
+            "description": "Id(s) de support d'origine. Répétable. 50,2 %.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "ancienClient": {
+            "type": "boolean",
+            "description": "Filtre sur « le prospect est un ancien client ». 100 % renseigné."
+          },
+          "inactiviteMin": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Prospections inactives depuis **au moins** N jours. Renseigné sur 100 % des lignes : c'est le critère de relance du logiciel de bureau, et le plus exploitable des filtres de cette famille.",
+            "example": 90
+          },
+          "nbInteractionsMin": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Au moins N interactions journalisées. 97 %.",
+            "example": 3
+          },
+          "nbVisitesMin": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Au moins N visites. Attention : seules 20,8 % des prospections ont atteint l'étape visite — un seuil ≥ 1 réduit fortement le résultat.",
+            "example": 1
+          },
+          "communicationDepuis": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dernier échange à partir de cette date (incluse), ISO-8601. 90,4 %.",
+            "example": "2026-01-01T00:00:00"
+          },
+          "communicationJusqua": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dernier échange jusqu'à cette date (incluse), ISO-8601.",
+            "example": "2026-12-31T23:59:59"
+          },
+          "avecAlerteActive": {
+            "type": "boolean",
+            "description": "`true` : uniquement celles portant une relance active. `false` : uniquement celles sans. Absent : pas de filtre. 25,2 % en portent une."
           }
         }
       },

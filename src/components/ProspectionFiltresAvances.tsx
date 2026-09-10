@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { InputGroup, InputGroupInput } from './ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from './ui/sheet';
-import { countActiveFiltresAvances, type FiltresAvancesState } from '../lib/domain';
+import { countActiveFiltresAvances, TYPES_PROSPECTION, type FiltresAvancesState } from '../lib/domain';
 import {
   referentielItems,
   useActionsCommerciales,
@@ -111,7 +111,15 @@ export default function ProspectionFiltresAvances({
   }
 
   function multi(
-    cle: 'projetId' | 'societeId' | 'vocationId' | 'typeContactId' | 'actionId' | 'paysId' | 'raisonFermetureId',
+    cle:
+      | 'projetId'
+      | 'societeId'
+      | 'vocationId'
+      | 'typeContactId'
+      | 'actionId'
+      | 'paysId'
+      | 'raisonFermetureId'
+      | 'typeProspection',
     label: string,
     items: { label: string; value: string }[],
     aide?: string,
@@ -188,6 +196,12 @@ export default function ProspectionFiltresAvances({
             )}
             {multi('societeId', 'Société', referentielItems(societes.data))}
             {multi('vocationId', 'Vocation', referentielItems(vocations.data))}
+            {multi(
+              'typeProspection',
+              'Type de document',
+              TYPES_PROSPECTION,
+              'Filtre sur le discriminant réel du logiciel de bureau, pas sur l’heuristique de cette liste — « Pré-prospection » isole les 830 lignes qui s’y trouvent malgré tout.',
+            )}
           </Section>
 
           <Section titre="Origine et contact">
