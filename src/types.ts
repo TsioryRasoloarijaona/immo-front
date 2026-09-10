@@ -1054,6 +1054,32 @@ export interface ArticleSummaryDto {
   description?: string;
   area?: number;
   price?: number;
+  /* Classification de l'article, livrée en quatre triplets Id/Code/Libellé.
+     Tous à **100 %** sur les 358 articles de dossier réels — donc affichables
+     sans repli, contrairement à la plupart des champs de ce fichier.
+
+     Convention constante ici : l'`Id` pour lier, le `Code` pour comparer, le
+     `Libellé` pour afficher.
+
+     `categorieId`, `etageId` et `immeubleId` n'ont donc **aucun consommateur**
+     pour l'instant, et c'est normal : aucun de ces trois référentiels n'a
+     d'écran vers lequel lier. Ils sont déclarés parce qu'ils existent au
+     contrat, pas parce qu'un appelant les attend. Comparer avec `projetId` /
+     `trancheId` sur `DossierDetailDto`, qui ont une route et sont cliquables. */
+  typeId?: UUID;
+  typeCode?: string;
+  typeLibelle?: string;
+  categorieId?: UUID;
+  categorieCode?: string;
+  categorieLibelle?: string;
+  etageId?: UUID;
+  etageCode?: string;
+  etageLibelle?: string;
+  /** L'immeuble — la seule des quatre dimensions qui n'existait nulle part
+   * ailleurs dans le front avant cette livraison. */
+  immeubleId?: UUID;
+  immeubleCode?: string;
+  immeubleLibelle?: string;
 }
 
 export interface DossierListItemDto {
@@ -1092,6 +1118,40 @@ export interface DossierDetailDto {
   commercialNom?: string;
   avocatId?: UUID;
   avocatNom?: string;
+  /* Hiérarchie patrimoniale du dossier, déduite de son article principal.
+     Les douze champs sont à **100 %** sur les 358 dossiers réels. */
+  trancheId?: UUID;
+  trancheCode?: string;
+  trancheLibelle?: string;
+  /** Projet. 100 % — mais **il provient de la tranche de l'article, pas de
+   * l'article** : `StkItem.CfgProjectId` est `null` sur les 358 articles de
+   * dossier réels. Ne pas « corriger » en le lisant sur l'article, ce serait
+   * retomber sur un champ vide. */
+  projetId?: UUID;
+  projetCode?: string;
+  projetLibelle?: string;
+  /** Société / entité juridique. `societeId` est sans consommateur — il n'y a
+   * pas d'écran société vers lequel lier ; seul le libellé s'affiche. */
+  societeId?: UUID;
+  societeCode?: string;
+  societeLibelle?: string;
+  vocationId?: UUID;
+  vocationCode?: string;
+  vocationLibelle?: string;
+  /* Origine du dossier, reprise de sa prospection. */
+  /** 99,2 %. */
+  dateProspection?: string | null;
+  /** `null` sur les 3 dossiers (sur 358) sans prospection — **cas réel, pas
+   * une anomalie** : un dossier peut naître sans passer par la prospection.
+   * Absence = « pas de prospection d'origine », jamais « donnée manquante ». */
+  etapeProspection?: string | null;
+  /** 99,2 %. */
+  origineProspection?: string | null;
+  /* Piste d'audit. Les quatre à 100 %. */
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
   articles?: ArticleSummaryDto[];
   prixAvantRemise?: number;
   remise?: number;

@@ -9206,6 +9206,64 @@
           },
           "price": {
             "type": "number"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la catégorie de l'article. 100 %."
+          },
+          "categorieCode": {
+            "type": "string",
+            "description": "Code de la catégorie.",
+            "example": "APPT"
+          },
+          "categorieLibelle": {
+            "type": "string",
+            "description": "Libellé de la catégorie.",
+            "example": "Appartement"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du type de l'article. 100 %."
+          },
+          "typeCode": {
+            "type": "string",
+            "description": "Code du type.",
+            "example": "T3"
+          },
+          "typeLibelle": {
+            "type": "string",
+            "description": "Libellé du type."
+          },
+          "etageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de l'étage. 100 %."
+          },
+          "etageCode": {
+            "type": "string",
+            "description": "Code de l'étage.",
+            "example": "RDC"
+          },
+          "etageLibelle": {
+            "type": "string",
+            "description": "Libellé de l'étage.",
+            "example": "Rez de chaussée"
+          },
+          "immeubleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de l'immeuble. 100 %."
+          },
+          "immeubleCode": {
+            "type": "string",
+            "description": "Code de l'immeuble.",
+            "example": "IMM01"
+          },
+          "immeubleLibelle": {
+            "type": "string",
+            "description": "Libellé de l'immeuble."
           }
         }
       },
@@ -9297,6 +9355,92 @@
           "prospectionCode": {
             "type": "string",
             "description": "Code de la prospection à l'origine du dossier — pour la référence cascade et le lien cliquable vers la prospection depuis le dossier (`GET /api/prospections/{prospectionId}`)."
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du projet. 100 %. **Provient de la tranche de l'article, pas de l'article** : `StkItem.CfgProjectId` est `null` sur les 358 articles de dossier réels."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet. 100 %.",
+            "example": "CITEB"
+          },
+          "projetLibelle": {
+            "type": "string",
+            "description": "Libellé du projet. 100 %."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la tranche de l'article principal. 100 %."
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Code de la tranche. 100 %."
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Libellé de la tranche. 100 %."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la société / entité juridique. 100 %."
+          },
+          "societeCode": {
+            "type": "string",
+            "description": "Code de la société. 100 %.",
+            "example": "ADMOD"
+          },
+          "societeLibelle": {
+            "type": "string",
+            "description": "Libellé de la société. 100 %."
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la vocation du dossier. 100 %."
+          },
+          "vocationCode": {
+            "type": "string",
+            "description": "Code de la vocation. 100 %."
+          },
+          "vocationLibelle": {
+            "type": "string",
+            "description": "Libellé de la vocation. 100 %."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création du dossier. 100 % des 358 dossiers réels."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création. 100 %."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification. 100 %."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de dernière modification. 100 %."
+          },
+          "etapeProspection": {
+            "type": "string",
+            "description": "Étape de la prospection d'origine. `null` sur les 3 dossiers (sur 358) qui n'ont pas de prospection — cas réel, pas une anomalie."
+          },
+          "origineProspection": {
+            "type": "string",
+            "description": "Origine de la prospection. 99,2 %.",
+            "example": "FACEBOOK"
+          },
+          "dateProspection": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la prospection d'origine. 99,2 %."
           }
         }
       },
