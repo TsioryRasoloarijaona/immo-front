@@ -317,8 +317,25 @@ export function listProspects(
     type?: string[];
   },
   pageable?: Pageable,
+  /** Voir `listProspections` : `colonnes` n'est pas un filtre, un nom hors
+   * catalogue renvoie 400, et `id` est servi qu'on le demande ou non. Absent,
+   * le serveur renvoie les 10 colonnes historiques. */
+  options?: { colonnes?: string[] },
 ): Promise<PageDto<ProspectListItemDto>> {
-  return request('GET', '/api/prospects', { query: withPageable(params, pageable) });
+  const query: Record<string, QueryValue> = withPageable(params, pageable);
+  if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
+  return request('GET', '/api/prospects', { query });
+}
+
+/** Catalogue des colonnes sélectionnables de la liste des prospects.
+ *
+ * Même contrat que celui des prospections. Deux réserves relevées par la spec
+ * au moment de bâtir le sélecteur : `profession` est alimentée par une colonne
+ * mesurée à **0 ligne sur 13 664** et sera donc toujours vide, et `kind` l'est
+ * sur 14 339 des 14 516 tiers réels. Les tranches d'intérêt sont absentes du
+ * catalogue — elles exigent une requête par prospect et restent à la fiche. */
+export function getColonnesProspects(): Promise<ColonneDto[]> {
+  return request('GET', '/api/referentiels/colonnes/prospects');
 }
 
 export function getProspect(id: UUID): Promise<ProspectDetailDto> {
@@ -693,8 +710,30 @@ export function listDossiers(
     search?: string;
   },
   pageable?: Pageable,
+  /** Voir `listProspections` : `colonnes` n'est pas un filtre, un nom hors
+   * catalogue renvoie 400, et `id` est servi qu'on le demande ou non. Absent,
+   * le serveur renvoie les 13 colonnes historiques.
+   *
+   * Le coût est ici plus marqué qu'ailleurs : les groupes `PATRIMOINE` et
+   * `ORIGINE` traversent article → tranche → projet → société et déréférencent
+   * la prospection, soit trois jointures paresseuses par ligne quand on les
+   * demande, aucune quand on s'en abstient. */
+  options?: { colonnes?: string[] },
 ): Promise<PageDto<DossierListItemDto>> {
-  return request('GET', '/api/dossiers', { query: withPageable(params, pageable) });
+  const query: Record<string, QueryValue> = withPageable(params, pageable);
+  if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
+  return request('GET', '/api/dossiers', { query });
+}
+
+/** Catalogue des colonnes sélectionnables de la liste des dossiers de vente.
+ *
+ * Même contrat que les deux autres. Ne figurent pas au catalogue, et c'est
+ * délibéré : les **articles** (une requête par dossier), la ventilation
+ * financière du légataire (5 postes vivants sur 12, et un bloc `Agreement*` qui
+ * diverge du bloc principal sur 20 % des lignes sans qu'on sache lequel fait
+ * foi) et `notes`, mesurée à 0 ligne sur 358. */
+export function getColonnesDossiers(): Promise<ColonneDto[]> {
+  return request('GET', '/api/referentiels/colonnes/dossiers');
 }
 
 export function getDossier(id: UUID): Promise<DossierDetailDto> {
