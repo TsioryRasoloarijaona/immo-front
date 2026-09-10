@@ -9,13 +9,44 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import { DEFAULT_PAGE_SIZE, listEncaissements, type EncaissementChampDate } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { referentielItems, useComptesReferentiel, useDepotsReferentiel, useEntitesReferentiel, useTypesReglement } from '../../lib/referentiels';
-import { formatCurrency, formatDate } from '../../lib/format';
+// `formatCurrency`/`formatDate` ne sont plus importés ici : DataGrid formate
+// lui-même selon le `type` de colonne (MONTANT, DATE), ce qui garantit que les
+// neuf écrans de liste formatent identiquement.
 import { ENCAISSEMENT_ETAT_LABELS, encaissementEtatLabel, encaissementEtatTone } from '../../lib/domain';
+import type { EncaissementDto } from '../../types';
+
+/* `valeur` sur les deux colonnes à pastille : sans elle, tri et filtre
+   porteraient sur le code d'état brut (`IN_WORK`) alors que l'utilisateur voit
+   et tape le libellé. On compare toujours ce qui est affiché. */
+const COLONNES: ColonneGrille<EncaissementDto>[] = [
+  {
+    nom: 'etat',
+    libelle: 'État',
+    largeur: 9,
+    valeur: (r) => encaissementEtatLabel(r.etat),
+    rendu: (r) => <Badge tone={encaissementEtatTone(r.etat)}>{encaissementEtatLabel(r.etat)}</Badge>,
+  },
+  { nom: 'dateDocument', libelle: 'Date pièce', type: 'DATE', largeur: 9, classe: 'text-muted-foreground' },
+  { nom: 'dateReglement', libelle: 'Date rgt', type: 'DATE', largeur: 9, classe: 'text-muted-foreground' },
+  { nom: 'tierNom', libelle: 'Tiers', largeur: 16, classe: 'font-medium text-foreground', titre: (r) => r.tierNom || undefined },
+  { nom: 'dossierCode', libelle: 'Dossier', largeur: 11, classe: 'text-muted-foreground', titre: (r) => r.dossierCode || undefined },
+  { nom: 'typeLibelle', libelle: 'Type', largeur: 12, classe: 'text-muted-foreground', titre: (r) => r.typeLibelle || undefined },
+  { nom: 'montantBrut', libelle: 'Montant brut', type: 'MONTANT', largeur: 11, classe: 'text-foreground' },
+  { nom: 'montantBrutRestant', libelle: 'Restant', type: 'MONTANT', largeur: 11, classe: 'text-muted-foreground' },
+  { nom: 'reference', libelle: 'Réf.', largeur: 7, classe: 'text-muted-foreground', titre: (r) => r.reference || undefined },
+  {
+    nom: 'comptabilise',
+    libelle: 'Compt.',
+    type: 'BOOLEEN',
+    largeur: 5,
+    rendu: (r) => <Badge tone={r.comptabilise ? 'success' : 'neutral'}>{r.comptabilise ? 'Oui' : 'Non'}</Badge>,
+  },
+];
 
 type ComptabiliseFilter = 'all' | 'yes' | 'no';
 type ChampDate = EncaissementChampDate;
@@ -248,50 +279,13 @@ export default function EncaissementsList() {
               />
             ) : (
               <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <Table className="w-full min-w-240 table-fixed">
-                  <TableHeader>
-                    <TableRow className="sticky top-0 z-10 bg-card hover:bg-card">
-                      <TableHead className="w-[9%]">État</TableHead>
-                      <TableHead className="w-[9%]">Date pièce</TableHead>
-                      <TableHead className="w-[9%]">Date rgt</TableHead>
-                      <TableHead className="w-[16%]">Tiers</TableHead>
-                      <TableHead className="w-[11%]">Dossier</TableHead>
-                      <TableHead className="w-[12%]">Type</TableHead>
-                      <TableHead className="w-[11%] text-right">Montant brut</TableHead>
-                      <TableHead className="w-[11%] text-right">Restant</TableHead>
-                      <TableHead className="w-[7%]">Réf.</TableHead>
-                      <TableHead className="w-[5%]">Compt.</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rows.map((r) => (
-                      <TableRow
-                        key={r.id}
-                        tabIndex={0}
-                        role="link"
-                        aria-label={`Ouvrir le règlement ${r.reference || ''}`}
-                        className="cursor-pointer"
-                        onClick={() => navigate(`/encaissements/${r.id}`)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') navigate(`/encaissements/${r.id}`);
-                        }}
-                      >
-                        <TableCell><Badge tone={encaissementEtatTone(r.etat)}>{encaissementEtatLabel(r.etat)}</Badge></TableCell>
-                        <TableCell className="truncate text-muted-foreground">{formatDate(r.dateDocument)}</TableCell>
-                        <TableCell className="truncate text-muted-foreground">{formatDate(r.dateReglement)}</TableCell>
-                        <TableCell className="truncate font-medium text-foreground" title={r.tierNom || undefined}>{r.tierNom || '—'}</TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={r.dossierCode || undefined}>{r.dossierCode || '—'}</TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={r.typeLibelle || undefined}>{r.typeLibelle || '—'}</TableCell>
-                        <TableCell className="text-right tabular-nums text-foreground">{formatCurrency(r.montantBrut)}</TableCell>
-                        <TableCell className="text-right tabular-nums text-muted-foreground">{formatCurrency(r.montantBrutRestant)}</TableCell>
-                        <TableCell className="truncate text-muted-foreground" title={r.reference || undefined}>{r.reference || '—'}</TableCell>
-                        <TableCell>
-                          <Badge tone={r.comptabilise ? 'success' : 'neutral'}>{r.comptabilise ? 'Oui' : 'Non'}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <DataGrid
+                  rows={rows}
+                  colonnes={COLONNES}
+                  minWidth="60rem"
+                  onOuvrir={(id) => navigate(`/encaissements/${id}`)}
+                  libelleLigne={(r) => `Ouvrir le règlement ${r.reference || ''}`.trim()}
+                />
               </div>
             )}
             <div className="shrink-0">

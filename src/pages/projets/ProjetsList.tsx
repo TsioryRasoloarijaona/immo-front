@@ -5,9 +5,16 @@ import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
+import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import { DEFAULT_PAGE_SIZE, listProjets } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import type { ProjetListItemDto } from '../../types';
+
+const COLONNES: ColonneGrille<ProjetListItemDto>[] = [
+  { nom: 'code', libelle: 'Code', largeur: 14, classe: 'text-muted-foreground' },
+  { nom: 'description', libelle: 'Description', largeur: 56, classe: 'font-medium text-foreground', titre: (p) => p.description || undefined },
+  { nom: 'ville', libelle: 'Ville', largeur: 30, classe: 'capitalize text-muted-foreground' },
+];
 
 export default function ProjetsList() {
   const [search, setSearch] = useState('');
@@ -46,34 +53,14 @@ export default function ProjetsList() {
       {filtered.length === 0 ? (
         <EmptyState title="Aucun résultat" />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Code</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Ville</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((p) => (
-                <TableRow
-                  key={p.id}
-                  tabIndex={0}
-                  role="link"
-                  className="cursor-pointer"
-                  onClick={() => navigate(`/projets/${p.id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') navigate(`/projets/${p.id}`);
-                  }}
-                >
-                  <TableCell className="text-muted-foreground">{p.code}</TableCell>
-                  <TableCell className="font-medium text-foreground">{p.description}</TableCell>
-                  <TableCell className="text-muted-foreground capitalize">{p.ville}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <div className="overflow-auto rounded-xl border border-border bg-card">
+          <DataGrid
+            rows={filtered}
+            colonnes={COLONNES}
+            minWidth="30rem"
+            onOuvrir={(id) => navigate(`/projets/${id}`)}
+            libelleLigne={(p) => `Ouvrir le projet ${p.description || p.code || ''}`.trim()}
+          />
         </div>
       )}
       {data && (

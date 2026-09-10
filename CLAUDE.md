@@ -170,18 +170,44 @@ Follow **Linear / Stripe Dashboard / Attio** as the visual references —
 > really is shorter than a data row in the original. Tune the tokens if the
 > density needs adjusting — don't reach into the components.
 >
-> **`ProspectionTable` goes further than density: it reproduces Omran's grid
-> chrome.** Group-by band, gutter with a current-row `▶` indicator and a
-> per-row checkbox, sortable headers, a `Σ` summary toggle per column, and the
-> per-column filter row with its `A` / `=` operator glyphs. Sort, `Σ` and the
-> filter row are **real but client-side, over the loaded page only** — which is
-> what the original DevExpress grid does natively. Server-side filtering
-> remains `ProspectionFiltresAvances`, which paginates. Don't "unify" the two:
-> they answer different questions.
+> **The grid chrome lives in `src/components/DataGrid.tsx`, and every list
+> screen uses it.** Group-by band, gutter with a current-row `▶` indicator and
+> a per-row checkbox, sortable headers, a `Σ` summary toggle per column, and
+> the per-column filter row with its `A` / `=` operator glyphs.
 >
-> Two things there are deliberately non-functional and marked as such: the
-> group-by band carries a `Bientôt` pill because drag-to-group doesn't exist,
-> and the row checkboxes toggle but no bulk action consumes the selection yet.
+> **A list screen declares `ColonneGrille[]`, not table markup.** That is the
+> whole point: the chrome is uniform because it exists once. Adding a column is
+> an entry in an array — `nom`, `libelle`, `type` (drives alignment, formatting
+> and the filter glyph), `largeur` (a relative weight, normalised), and
+> optionally `rendu` / `valeur` / `classe` / `titre`. **Always set `valeur`
+> when the displayed text isn't `row[nom]`** — otherwise sort and filter
+> compare a raw code (`IN_WORK`) while the user sees and types a label
+> ("Pointé"). `ProspectionTable` is a thin adapter that maps the server's
+> `ColonneDto` catalogue onto this.
+>
+> Sort, `Σ` and the filter row are **real but client-side, over the loaded page
+> only** — what the original DevExpress grid does natively. Server-side
+> filtering stays with each page's own filter panel, which paginates. Don't
+> "unify" the two: they answer different questions.
+>
+> Two optional props matter. `selection` makes the checkbox gutter *controlled*
+> — Dossiers passes its batch-document selection through it, so the gutter is
+> the real selector there instead of a second, decorative column. And
+> `rendreDetail` adds a chevron gutter plus a `colSpan` expansion row — that's
+> what let Offres keep its montants detail panel instead of losing it to the
+> conversion.
+>
+> Deliberately non-functional, and marked: the group-by band carries a
+> `Bientôt` pill because drag-to-group doesn't exist, and the checkbox gutter
+> is visual-only on every screen *except* Dossiers.
+>
+> **Out of scope by design, not by omission:** Dashboard and
+> `PerformancesCommerciaux` (analytics, not lists — user's call), and the
+> sub-tables embedded in detail pages and forms (`DossierDetail`,
+> `ProspectDetail`, `TrancheDetail`, `ArticleDetail`, `NewDossier`,
+> `NewProspection`, `ArticleResultsList`, `Hotline`). A filter row, `Σ` and a
+> checkbox gutter on a three-row échéancier would be more chrome than data.
+> Those still inherit the density and the thin scrollbars, which are global.
 >
 > What did **not** change, and must not: the palette, the sidebar, the page
 > shell, and Omran's top filter panel (Entité / Période / Commercial / Nature /
