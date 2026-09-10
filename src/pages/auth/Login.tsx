@@ -34,7 +34,7 @@ export default function Login() {
   }
 
   return (
-    <AuthScreen title="Connexion" description="Accédez à votre espace Ayad Développement.">
+    <AuthScreen title="Connexion" description="Accédez à votre espace Arpent.">
       <form onSubmit={handleSubmit}>
         <FieldGroup>
           {/* Sans ce mot, une session expirée renvoie au formulaire sans dire

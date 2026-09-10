@@ -107,10 +107,6 @@ export default function PreProspectionsList() {
       accentBg="var(--sec-preprospection-bg)"
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <p className="shrink-0 max-w-180 text-body text-muted-foreground">
-          Leads bruts pas encore qualifiés. Ouvrez-en un pour créer sa fiche prospect puis le transformer en prospection.
-        </p>
-
         <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
 
         <ProspectionFilterBar

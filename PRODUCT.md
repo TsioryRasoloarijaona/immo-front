@@ -97,21 +97,57 @@ navigable rather than buried in dense forms.
 
 ## Brand Commitments
 
-**Correction to the init interview:** the user said no brand constraints
-exist, but the repository has a real, already-applied Ayad Développement
-identity that this note takes as binding since it's already in production
-use in the code, not a hypothesis:
+**The product is deliberately de-branded. It is called *Arpent* and carries no
+Ayad identity.**
 
-- Logo kit at `public/brand/` (and a larger `public/LOGO - Copie/` set) —
-  wordmark "AYAD développement" with a stylized "A" mark, used as the
-  favicon and apple-touch-icon in `index.html`.
-- Brand purple `#5d396e`, sampled directly from the mark
-  (`public/brand/icon-color.png`), is already the app's `--accent` token
-  in `src/index.css` (with a dark-mode variant `#c397d8`) — explicitly
-  documented in-file as sampled from the brand, not a free choice.
-- Treat the accent color and logo as fixed; the neutral/typography/layout
-  system around them still follows the Linear/Stripe Dashboard/Attio
-  direction from CLAUDE.md.
+This section previously said the opposite, and the reversal is worth recording
+because it corrects a mistake this file made about the user's own instructions.
+It read:
+
+> **Correction to the init interview:** the user said no brand constraints
+> exist, but the repository has a real, already-applied Ayad Développement
+> identity that this note takes as binding […] Treat the accent color and logo
+> as fixed.
+
+The user *had* said no brand constraints exist. A previous pass overrode that
+on the strength of files it found in the repo, and elevated an accident of the
+working tree into a product commitment. The user has since restated the
+original position. The repo's contents were never a mandate.
+
+What holds now:
+
+- **Name: Arpent.** An old French unit of land area — native to the domain,
+  attached to no company. Six sites carry it: `index.html`'s `<title>`,
+  `Layout.tsx` (title attribute, wordmark, `sr-only`), `AuthScreen.tsx`'s
+  wordmark, and `Login.tsx`'s description.
+- **No logo.** Not "a different logo" — none. The identity is a **wordmark**:
+  the name set in a heavy, tight-tracked cut of the app's own sans. There is no
+  raster asset to maintain, and none should be added.
+- **The accent colour reverted; the name did not.** The mauve `#5d396e` is
+  back, on the explicit instruction "remets l'ancien thème violet comme au
+  tout début". It *was* sampled from the Ayad mark, so the de-branding is now
+  narrower than it was: it covers the **name, the logo and the favicon**, not
+  the palette.
+
+  That is a real inconsistency and it is recorded rather than smoothed over —
+  the accent is an inherited value on a product that otherwise carries no
+  company identity. If the point of the de-branding was that the product must
+  stand alone, this is the loose end.
+- **Four replacement accents were tried and rejected** before the revert:
+  achromatic near-black (twice — "died on colour"), vivid violet `#7c3aed`,
+  teal `#0f766e` (read as green), navy `#1e3a8a`. The full record, with the
+  hue-collision constraints that narrowed the field, is in the header of
+  `src/index.css`. Read it before proposing a fifth.
+- **The logo kit still exists on disk** at `public/brand/` and
+  `public/LOGO - Copie/`, deliberately not deleted — but nothing references it.
+  The favicon and apple-touch-icon links are gone from `index.html`. Rewiring
+  is one line if the decision is ever reversed.
+- The neutral/typography/layout system still follows the Linear/Stripe
+  Dashboard/Attio direction from CLAUDE.md, with the grid-density exception
+  documented there.
+
+**Do not re-derive brand constraints from repository contents.** That is the
+specific error this section used to embody.
 
 ## Evidence on Hand
 

@@ -145,9 +145,33 @@ enum, not free text. `isCredit` distinguishes debit/credit direction.
 
 Follow **Linear / Stripe Dashboard / Attio** as the visual references —
 **not** the legacy system's dense Windows-forms layout. Concretely:
-- Generous whitespace, clear typographic hierarchy, muted neutral palette
-  with one accent color for primary actions and status.
-- Status as color-coded pill/badge components, not text labels alone.
+- Generous whitespace, clear typographic hierarchy.
+- Muted neutral palette with one accent colour for primary actions, plus the
+  five reserved status hues. The accent is the mauve **`#5d396e`**
+  (`#c9a6d6` in dark).
+- **The palette was replaced entirely and then restored. Read the header of
+  `src/index.css` before touching it.** A session rebuilt it across several
+  passes and was asked to revert: "remets l'ancien thème violet comme au tout
+  début". Accents tried and rejected, in order: achromatic near-black ("the
+  app looks like it died on colour" — the *second* time achromatic has
+  failed), vivid violet `#7c3aed`, teal `#0f766e` (read as green), navy
+  `#1e3a8a`. Treat "remove the accent" as a settled dead end.
+- **Two findings from that loop are worth keeping**, because neither is
+  obvious. First, **the greys here are faintly purple and that is deliberate**
+  — a pass "corrected" them to true neutrals and the interface went flat; a
+  neutral grey reads dead where a tinted one reads designed, so do not
+  equalise the components of `--text` / `--text-h` / `--bg`. Second, the grey
+  page background (`#f7f7f9`) was flagged as bothersome, and pure white was
+  tried and does work — cards separate by border and shadow rather than fill —
+  so that is the documented route if the subject returns.
+- **Status is carried by a glyph as well as colour.** `TONE_GLYPH` in
+  `components/ui.tsx` maps each of the six `BadgeTone` values to a lucide
+  icon. It arrived with the achromatic pass and survived the revert on
+  purpose: colour alone is a High-severity WCAG failure, the original
+  coloured-badge design committed it, and the glyph is what makes a red
+  "Annulé" legible to a colour-blind operator. Do not drop it for space.
+- **The product name did NOT revert.** It is **Arpent**, with no logo — see
+  `PRODUCT.md` §Brand Commitments. Only the palette went back.
 - Cards and clean tables over the legacy system's dense multi-tab modal
   forms — collapse related fields into logical grouped sections instead of
   replicating every flat field list 1:1.

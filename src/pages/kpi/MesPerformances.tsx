@@ -57,9 +57,14 @@ export default function MesPerformances() {
       accentBg="var(--brand-bg)"
     >
       <div className="flex flex-col gap-3">
-        <p className="max-w-180 text-body text-muted-foreground">
-          Vos indicateurs sur la période choisie. Les compteurs suivent votre périmètre commercial :
-          s’il est restreint, ils sont inférieurs à votre activité réelle.
+        {/* La description de la page a été retirée, cet avertissement non : ce
+            n'est pas de la présentation mais une clé de lecture des chiffres.
+            Sans lui, un commercial au périmètre restreint conclut que ses
+            compteurs sont faux. Réduit à une ligne et posé contre les chiffres
+            qu'il qualifie, plutôt qu'en paragraphe sous l'en-tête. */}
+        <p className="text-micro text-muted-foreground">
+          Compteurs limités à votre périmètre commercial : s’il est restreint, ils sont inférieurs à
+          votre activité réelle.
         </p>
 
         <PeriodeFilterBar value={periode} onChange={setPeriode} />

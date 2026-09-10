@@ -13,6 +13,43 @@
 
    Every colour below is chosen to clear WCAG AA *in the pairing it is
    actually used in* (badge text on its own tint, not merely on white).
+
+   ---------------------------------------------------------------------------
+   Cette palette a été refaite entièrement, puis restaurée. Lire avant d'y
+   toucher.
+   ---------------------------------------------------------------------------
+   Une session a remplacé tout ce qui suit, en plusieurs passes, avant de
+   revenir ici sur demande : « remets l'ancien thème violet comme au tout
+   début ». Les accents essayés et rejetés, dans l'ordre :
+
+     achromatique   presque-noir sur gris vrais. Rejeté : « the app looks like
+                    it died on colour ». C'est la DEUXIÈME fois que
+                    l'achromatique échoue (cf. la note sur --brand plus bas) —
+                    à traiter comme une impasse et non comme une
+                    simplification à redécouvrir.
+     violet vif     #7c3aed, tiré d'une capture de référence. Rejeté.
+     teal           #0f766e. Rejeté : lu comme du vert.
+     bleu marine    #1e3a8a. Rejeté.
+
+   Deux constats de cette boucle valent d'être gardés, parce qu'ils ne sont pas
+   évidents et qu'ils ont coûté cher :
+
+   1. **Les gris de cette palette sont légèrement violacés, et c'est voulu.**
+      Une passe les a « corrigés » en gris parfaitement neutres. Le voile est
+      parti, et la vie de l'interface avec : un gris neutre se lit *mort*, un
+      gris teinté se lit *dessiné*. Ne pas égaliser les composantes de
+      --text/--text-h/--bg.
+   2. **Le fond de page gris (#f7f7f9) a été signalé comme gênant** — « the
+      gray color bother me » — puis blanc pur et quasi-blanc ont été essayés.
+      La valeur d'origine est de retour, mais si le sujet revient, c'est
+      --bg/--background qu'il faut regarder, et la piste « blanc pur » est déjà
+      documentée comme fonctionnelle (cartes détachées par filet et ombre, pas
+      par remplissage).
+
+   Ce qui a SURVÉCU à la restauration, et n'est pas à défaire : le nom du
+   produit (Arpent, sans logo — voir PRODUCT.md) et les glyphes de statut
+   (TONE_GLYPH dans components/ui.tsx), qui empêchent la couleur d'être seule
+   porteuse du sens.
    =========================================================================== */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -583,8 +620,16 @@ table {
   font-size: var(--text-micro);
 }
 
-[data-slot='table-cell'] [data-badge-dot] {
-  display: none;
+/* Le point est devenu un GLYPHE, et il reste visible en cellule.
+   Cette règle posait `display: none` pour récupérer ~12px par pastille, ce qui
+   était juste tant que le point ne redisait que la couleur du texte. Le
+   `TONE_GLYPH` de `components/ui.tsx` en a fait un porteur de sens — ✓, ✕, !,
+   par ton — et la couleur seule est un échec WCAG de sévérité High. Le masquer
+   ferait des six tons six pastilles identiques.
+   Seule la gouttière est reprise : `gap: 0` ci-dessus colle le glyphe à son
+   libellé, ce qui récupère une partie des 12px sans coût de lisibilité. */
+[data-slot='table-cell'] [data-slot='badge'] > [data-badge-dot] {
+  margin-right: 1px;
 }
 
 /* ---------------------------------------------------------------------------

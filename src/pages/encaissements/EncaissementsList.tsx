@@ -156,11 +156,6 @@ export default function EncaissementsList() {
       accentBg="var(--sec-dossier-bg)"
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <p className="shrink-0 max-w-180 text-body text-muted-foreground">
-          Règlements de Dossiers de vente (/api/encaissements), toutes échéances confondues — reprend
-          l'écran "Encaissements Vente" de l'ancien système.
-        </p>
-
         <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
 
         <Card padded={false} className="shrink-0">

@@ -43,24 +43,24 @@ export default function Layout({ children }: { children: ReactNode }) {
             <Link
               to="/"
               className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-1 no-underline group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:px-0"
-              title="Ayad Développement"
+              title="Arpent"
             >
-              {/* Wordmark instead of the raster app-icon — one styled word
-                  carries the brand identity now that --brand is a plain
-                  ink/graphite tone (see index.css) rather than a color mark
-                  that needed its own image. group-data-[collapsible=icon]
-                  variants keep a single-letter mark when the sidebar rail
-                  collapses to icon-only width. */}
+              {/* Mot-symbole, pas d'icône raster — un seul mot mis en forme
+                  porte l'identité, ce qui est cohérent avec un accent
+                  achromatique (voir index.css) : il n'y a plus de couleur de
+                  marque à mettre dans une image. Les variantes
+                  group-data-[collapsible=icon] gardent une lettre unique quand
+                  le rail se réduit à la largeur d'icône. */}
               <span
                 aria-hidden={true}
                 className="block shrink-0 font-heading text-hero leading-none font-black tracking-tighter text-(--brand) group-data-[collapsible=icon]:text-page"
               >
-                <span className="group-data-[collapsible=icon]:hidden">Ayad</span>
+                <span className="group-data-[collapsible=icon]:hidden">Arpent</span>
                 <span className="hidden group-data-[collapsible=icon]:inline">A</span>
               </span>
-              <span className="sr-only">Ayad Développement</span>
+              <span className="sr-only">Arpent</span>
               <div className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="text-xs text-muted-foreground">CRM prototype</span>
+                <span className="text-xs text-muted-foreground">CRM immobilier</span>
               </div>
             </Link>
           </div>

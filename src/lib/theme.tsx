@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 
 export type Theme = 'light' | 'dark';
 
-const STORAGE_KEY = 'ayad-theme';
+const STORAGE_KEY = 'arpent-theme';
 
 function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'light';
