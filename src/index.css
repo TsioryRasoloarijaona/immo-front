@@ -1,42 +1,52 @@
 /* ===========================================================================
    Arpent — design tokens & global styles
 
-   Colour model: **the interface has no colour; the data does.**
+   Colour model: **one accent, five status hues, true grey neutrals.** Three
+   rules, no scoped exceptions, no second system.
 
-   Every surface, control, accent and chip is achromatic — a single near-black
-   accent over true greys. The one exception is a table cell, where the five
-   status tones take their chromatic values back (see "La couleur revient"
-   further down). Nothing else in the product is allowed a hue.
+     --brand    teal #0f766e — every action, focus ring, link and section chip
+     status     the five reserved hues, wherever a status appears
+     neutrals   true greys, no cast
 
-   That split is the whole point, and it is stricter than either half alone:
-   because no chrome spends colour, **any colour you can see is data** — a
-   price, an overdue relance, a balance owed. Nothing competes with those
-   signals, so they need no saturation to win attention.
+   **Read this before "simplifying" it back to achromatic.** That has now been
+   attempted twice and rejected twice, by different routes:
 
-   Why: the previous accent was `#5d396e`, sampled from the Ayad Développement
-   identity mark. Detaching the product from that identity and removing its
-   colour are the same act — the product has to stand on its own, so the
-   colour it borrowed had to go with the name.
+     1. An early pass replaced the accent with a near-black "ink" and was
+        rolled back — "left the app with no brand colour at all".
+     2. A later pass went fully achromatic on purpose, as a specification, and
+        was rejected on sight: the app "looks like it died on colour".
 
-   **This has been tried once before and reverted.** An earlier pass replaced
-   the accent with an achromatic near-black and rolled it back because it
-   "left the app with no brand colour at all". That failure had a specific
-   cause: a *second* structural accent (a plum `--sec-accent`) was competing
-   with it, so neither read as the app's colour and primary actions were hard
-   to find. Both conditions are gone — there is one accent, and it is
-   deliberately a **decisive** near-black (#18181b), not a mid grey. Do not
-   re-diagnose "no brand colour" as a bug: it is the specification.
+   The second attempt is the informative one, because it was not a mistake of
+   execution. The palette was deliberate, WCAG-clean at wider margins than the
+   coloured version, and status was carried by glyph so nothing was lost
+   semantically. It still read as dead. **A dense operator tool that is nothing
+   but greys reads as broken rather than as restrained**, and no amount of
+   internal consistency fixes that. Treat "no accent" as a settled dead end.
 
-   Status is carried by a **glyph** as well as by colour — see the TONE_GLYPH
+   The accent is NOT the old `#5d396e`. That value was sampled from the Ayad
+   Développement identity mark, and the product is deliberately de-branded
+   (see PRODUCT.md §Brand Commitments) — the name went, the colour went with
+   it. Teal is a chosen hue, not an inherited one.
+
+   Why teal specifically: it must not collide with the five status hues, which
+   own green (~145°), red (~5°), amber (~35°) and blue (~218°). A blue accent —
+   the obvious "professional software" pick — would sit on top of `--info` and
+   make a primary button read as an informational state. Teal (~177°) sits in
+   the one gap wide enough to be unambiguous.
+
+   Status is carried by a **glyph as well as** its hue — see the TONE_GLYPH
    table in `components/ui.tsx`, keyed off the same six `BadgeTone` values the
-   `lib/` mappers already return. The glyph is not decoration and not a
-   leftover from the colourless pass: conveying meaning by colour alone is a
-   High-severity WCAG failure, and the old coloured-badge design committed it.
-   Colour *and* glyph is the compliant pairing. Outside a table cell, where
-   there is no colour at all, the glyph is the only carrier.
+   `lib/` mappers already return. The glyphs arrived with the achromatic pass
+   but they are **not** a leftover of it, and they must not be removed now
+   that colour is back: conveying meaning by colour alone is a High-severity
+   WCAG failure, and the original coloured-badge design committed it. Colour
+   *and* glyph is the compliant pairing, and it is also what makes a red
+   "Annulé" legible to a colour-blind operator. This is the one thing the
+   achromatic detour leaves behind that was worth keeping.
 
-   So: the grey step ranks attention, the glyph names the kind, and inside a
-   cell the hue reinforces both.
+   Entities are told apart by icon *shape*, never by hue — an earlier
+   per-entity rainbow proved that unreadable, and the single accent replaced
+   it. Do not reintroduce a per-entity colour.
 
    Dense, information-forward sales CRM layout (tight spacing/radius) so more
    of the pipeline is visible without scrolling — this is an operator tool
@@ -73,69 +83,55 @@
   --surface-hover: #fafafa;
   --border-strong: #d4d4d4;
 
-  /* L'accent, achromatique. Assez franc pour que les actions primaires se
-     trouvent d'un coup d'œil — c'est la leçon du revirement raconté en tête
-     de fichier : l'échec précédent n'était pas « l'achromatique », c'était un
-     accent tiède doublé d'un second accent concurrent.
+  /* L'ACCENT — teal, choisi et non hérité. Voir l'en-tête pour le raisonnement
+     complet : la teinte doit éviter les quatre secteurs que les statuts
+     occupent, et le bleu « logiciel professionnel » évident tomberait sur
+     `--info`.
 
-     16,6:1 sur blanc, donc le blanc sur remplissage plein passe très large.
-     Le survol ne peut plus foncer — #18181b est déjà presque noir — il va
-     donc jusqu'au noir pur, seul pas encore disponible. */
-  --brand: #18181b;
-  --brand-hover: #000000;
-  --brand-bg: rgba(24, 24, 27, 0.06);
-  --brand-border: rgba(24, 24, 27, 0.2);
+     5,4:1 sur blanc, donc le blanc sur remplissage plein passe AA dans les
+     deux sens. Moins contrasté que l'ancien violet (9,2:1) : c'est le prix
+     d'une teinte plus vivante, et cela reste au-dessus du seuil. Ne pas le
+     foncer « pour la sécurité » sans revérifier le blanc dessus, qui bouge en
+     sens inverse. */
+  --brand: #0f766e;
+  --brand-hover: #0b5c55;
+  --brand-bg: rgba(15, 118, 110, 0.08);
+  --brand-border: rgba(15, 118, 110, 0.22);
   /* Foreground color for text/icons sitting on a solid --brand fill. */
   --brand-contrast: #fff;
 
-  /* ---------------------------------------------------------------------
-     Statuts — une rampe de gris, plus des teintes.
+  /* Status hues — les valeurs d'origine, restaurées telles quelles et
+     **globales**. Il n'y a plus de périmètre `[data-slot='table-cell']` qui
+     les redéclarait : un statut se colore là où il apparaît, en cellule comme
+     sur une fiche. C'était le cas particulier de trop.
 
-     Les noms restent (`--success`, `--warning`, `--amber`, `--info`) : ils
-     désignent un *niveau d'attention*, plus une couleur, et les 215 sites
-     d'appel ainsi que les six mappers de `lib/` s'appuient dessus. Les
-     renommer aurait été un refactor sans gain.
-
-     La rampe classe l'attention, du plus discret au plus lourd :
-
-       neutral  #5c5c5c   défaut — rien à signaler, la majorité des lignes
-       info     #4d4d4d   information
-       success  #3d3d3d   abouti — volontairement calme
-       amber    #2e2e2e   à surveiller
-       warning  #262626   issue négative (dossier annulé, relance échue)
-       destructive #000    erreur applicative — le plus lourd
-
-     Le *genre* de statut n'est pas dans le gris : il est dans le glyphe (voir
-     TONE_GLYPH dans `components/ui.tsx`). Quatre pas de gris ne peuvent pas
-     porter six sens ; c'est la forme qui les nomme.
-
-     Tous ≥ 4,5:1 sur `--card` **et** sur leur propre fond teinté, vérifié par
-     `npm run check:contrast`. Les `-bg`/`-border` sont désormais du noir à
-     faible opacité : une seule teinte de tint, l'opacité seule variant. */
-  --success: #3d3d3d;
-  --success-bg: rgba(17, 17, 17, 0.06);
-  --success-border: rgba(17, 17, 17, 0.2);
+     Chaque valeur est choisie pour passer AA *sur son propre fond teinté* (le
+     cas pastille), pas seulement sur blanc — les anciennes paires
+     --success/--amber passaient le blanc mais échouaient à 4,38:1 / 4,08:1
+     contre leurs propres teintes, là où elles servent réellement. */
+  --success: #146c34;
+  --success-bg: rgba(20, 108, 52, 0.1);
+  --success-border: rgba(20, 108, 52, 0.28);
 
   /* Issue de DOSSIER — « Annulé », « Désistement », relance échue. La mort
      d'un dossier est un fait métier, pas une erreur applicative, et les deux
-     ne doivent pas se confondre. La distinction ne pouvait plus passer par la
-     teinte (les deux étaient rouges, à des profondeurs différentes) : elle
-     passe maintenant par le pas de gris **et** par le glyphe — `X` ici,
-     contre l'absence de pastille pour une erreur de formulaire. */
-  --warning: #262626;
-  --warning-bg: rgba(17, 17, 17, 0.06);
-  --warning-border: rgba(17, 17, 17, 0.2);
+     ne doivent pas se confondre : gardé nettement plus clair et plus chaud que
+     `--destructive`. Le glyphe (`X`) redouble maintenant cette distinction,
+     qu'une pastille rouge seule ne suffisait pas à porter. */
+  --warning: #b02012;
+  --warning-bg: rgba(176, 32, 18, 0.1);
+  --warning-border: rgba(176, 32, 18, 0.28);
 
-  --amber: #2e2e2e;
-  --amber-bg: rgba(17, 17, 17, 0.06);
-  --amber-border: rgba(17, 17, 17, 0.2);
+  --amber: #92580a;
+  --amber-bg: rgba(146, 88, 10, 0.12);
+  --amber-border: rgba(146, 88, 10, 0.28);
 
-  --info: #4d4d4d;
-  --info-bg: rgba(17, 17, 17, 0.06);
-  --info-border: rgba(17, 17, 17, 0.2);
+  --info: #1c5fc0;
+  --info-bg: rgba(28, 95, 192, 0.1);
+  --info-border: rgba(28, 95, 192, 0.28);
 
-  --neutral-bg: rgba(17, 17, 17, 0.05);
-  --neutral-border: rgba(17, 17, 17, 0.16);
+  --neutral-bg: rgba(85, 83, 94, 0.09);
+  --neutral-border: rgba(85, 83, 94, 0.22);
 
   /* ---------------------------------------------------------------------
      Section-identity accent — icon chips (PageShell header, sidebar nav in
@@ -228,7 +224,7 @@
      les sépare encore (1,41:1, vérifié par le garde-fou de
      `check-contrast.mjs`), mais leur vraie distinction est désormais que
      `--warning` porte un glyphe et une erreur de saisie n'en porte pas. */
-  --destructive: #000000;
+  --destructive: #7f1d1d;
   --destructive-foreground: #fff;
   --border: #e4e4e4;
   --input: #d4d4d4;
@@ -253,17 +249,17 @@
      Aucun consommateur aujourd'hui. Le premier graphique ajouté doit apporter
      son motif ; s'il se contente de ces cinq gris, il sera illisible et ce
      ne sera pas la faute de la rampe. */
-  --chart-1: #1a1a1a;
-  --chart-2: #3d3d3d;
-  --chart-3: #5c5c5c;
-  --chart-4: #787878;
-  --chart-5: #949494;
+  --chart-1: oklch(0.52 0.12 320);
+  --chart-2: oklch(0.60 0.11 265);
+  --chart-3: oklch(0.62 0.10 200);
+  --chart-4: oklch(0.58 0.11 150);
+  --chart-5: oklch(0.55 0.12 95);
   /* Fond de jauge : un pas clair de la MÊME rampe que --chart-1. Une jauge se
      lit sur toute sa longueur — piste et remplissage doivent appartenir à la
      même famille pour que la portion vide se lise comme « le reste de la
      mesure » et non comme un séparateur. Toute la rampe étant grise, la
      contrainte est désormais tenue par construction. */
-  --chart-1-track: #e8e8e8;
+  --chart-1-track: oklch(0.93 0.03 320);
   --radius: 0.5rem;
   --sidebar: #ffffff;
   --sidebar-foreground: #4a4a4a;
@@ -295,42 +291,37 @@
   --border: #2e2e2e;
   --border-strong: #3d3d3d;
 
-  /* L'accent achromatique, inversé : presque blanc sur surface sombre.
-     18,1:1 sur --card. Le survol va jusqu'au blanc pur, symétrique du noir
-     pur en mode clair. */
-  --brand: #fafafa;
-  --brand-hover: #ffffff;
-  --brand-bg: rgba(250, 250, 250, 0.1);
-  --brand-border: rgba(250, 250, 250, 0.24);
+  /* Le teal, éclairci pour tenir sur une surface sombre — même teinte, juste
+     l'extrémité claire de la rampe d'accent. */
+  --brand: #5eead4;
+  --brand-hover: #99f6e4;
+  --brand-bg: rgba(94, 234, 212, 0.14);
+  --brand-border: rgba(94, 234, 212, 0.32);
   /* --brand est clair ici, donc un remplissage plein exige un premier plan
-     sombre (blanc sur blanc ne passe évidemment pas). */
+     sombre (blanc sur teal clair ne passe pas). */
   --brand-contrast: #0f0f0f;
 
-  /* La rampe de statuts, inversée — même ordre d'attention qu'en clair, du
-     plus discret au plus lourd, en montant en clarté au lieu de descendre :
-     neutral #9c9c9c, info #adadad, success #c2c2c2, amber #d1d1d1,
-     warning #dedede, destructive #fff. Le glyphe porte le genre, ici comme
-     en mode clair. */
-  --success: #c2c2c2;
-  --success-bg: rgba(245, 245, 245, 0.08);
-  --success-border: rgba(245, 245, 245, 0.22);
+  --success: #4ade80;
+  --success-bg: rgba(74, 222, 128, 0.12);
+  --success-border: rgba(74, 222, 128, 0.3);
 
-  /* Issue de dossier — voir la note en mode clair. Séparée de --destructive
-     par un pas de clarté réel (1,36:1) en plus du glyphe. */
-  --warning: #dedede;
-  --warning-bg: rgba(245, 245, 245, 0.08);
-  --warning-border: rgba(245, 245, 245, 0.22);
+  /* Issue de dossier — voir la note en mode clair. Gardée nettement plus
+     claire et plus chaude que --destructive pour que les deux restent
+     séparables en sombre aussi. */
+  --warning: #fca5a5;
+  --warning-bg: rgba(252, 165, 165, 0.12);
+  --warning-border: rgba(252, 165, 165, 0.3);
 
-  --amber: #d1d1d1;
-  --amber-bg: rgba(245, 245, 245, 0.08);
-  --amber-border: rgba(245, 245, 245, 0.22);
+  --amber: #fbbf24;
+  --amber-bg: rgba(251, 191, 36, 0.12);
+  --amber-border: rgba(251, 191, 36, 0.3);
 
-  --info: #adadad;
-  --info-bg: rgba(245, 245, 245, 0.08);
-  --info-border: rgba(245, 245, 245, 0.22);
+  --info: #60a5fa;
+  --info-bg: rgba(96, 165, 250, 0.12);
+  --info-border: rgba(96, 165, 250, 0.3);
 
-  --neutral-bg: rgba(245, 245, 245, 0.07);
-  --neutral-border: rgba(245, 245, 245, 0.18);
+  --neutral-bg: rgba(167, 165, 179, 0.1);
+  --neutral-border: rgba(167, 165, 179, 0.22);
 
   /* Aliases --brand, exactly as in :root — one accent, not two. The old
      standalone plum also failed contrast here: 3.71:1 for the stepper's
@@ -378,7 +369,7 @@
   /* ERREURS UNIQUEMENT — le pas extrême de la rampe, au-delà de --warning.
      En clair c'était le noir pur, ici c'est le blanc pur : dans les deux cas
      le seul pas qui reste après le plus lourd des statuts métier. */
-  --destructive: #ffffff;
+  --destructive: #f26d6d;
   --destructive-foreground: #0f0f0f;
   --input: #3d3d3d;
   --ring: var(--brand);
@@ -387,14 +378,14 @@
      les deux thèmes, ce qui laissait chart-5 quasi invisible sur carte
      sombre. Même réserve qu'en clair — cinq gris ne séparent pas cinq séries
      sans motif. */
-  --chart-1: #f5f5f5;
-  --chart-2: #cccccc;
-  --chart-3: #a3a3a3;
-  --chart-4: #7a7a7a;
-  --chart-5: #5c5c5c;
+  --chart-1: oklch(0.72 0.13 320);
+  --chart-2: oklch(0.75 0.12 265);
+  --chart-3: oklch(0.78 0.11 200);
+  --chart-4: oklch(0.76 0.12 150);
+  --chart-5: oklch(0.74 0.13 95);
   /* En sombre la piste descend au lieu de monter : le mode sombre se choisit
      pas à pas depuis la même rampe, il ne s'obtient pas en inversant le clair. */
-  --chart-1-track: #2e2e2e;
+  --chart-1-track: oklch(0.3 0.04 320);
   --sidebar: #1a1a1a;
   --sidebar-foreground: #b0b0b0;
   --sidebar-primary: var(--brand);
@@ -573,53 +564,6 @@ table {
    `text-primary-foreground`, quasi blanc, qui deviendrait invisible une fois le
    fond retiré ; et un ton ajouté plus tard sans entrée ici gardera au moins la
    couleur du texte courant au lieu de disparaître. */
-/* ---------------------------------------------------------------------------
-   La couleur revient — et SEULEMENT ici
-   ---------------------------------------------------------------------------
-   L'interface est achromatique ; les cellules de tableau ne le sont pas. Les
-   cinq tons de statut reprennent leurs valeurs chromatiques exactes d'avant le
-   passage en noir et blanc, **redéclarés dans le périmètre de la cellule**.
-
-   Ce n'est pas un compromis, c'est un système plus strict que les deux qu'il
-   remplace : puisque plus aucun chrome ne consomme de couleur, **toute couleur
-   visible dans le produit est une donnée**. Un prix, une relance échue, un
-   reste à payer. Rien d'autre n'a le droit d'être coloré, donc rien ne
-   concurrence ces signaux.
-
-   Le mécanisme est la cascade des custom properties, pas une classe : une
-   propriété déclarée sur `[data-slot='table-cell']` est disponible aux
-   déclarations de cette même cellule. Donc `text-(--success)` sur la colonne
-   Prix, les règles de `data-variant` des pastilles juste en dessous, et tout
-   `var(--warning)` posé plus tard dans une cellule prennent la valeur
-   chromatique sans qu'aucun composant ni aucun des 215 sites d'appel change.
-   Hors cellule, les mêmes noms restent gris.
-
-   Les glyphes sont **conservés**. Avec la couleur revenue ils deviennent
-   redondants — et c'est exactement la combinaison que demande WCAG : la
-   couleur ne doit jamais être le seul porteur. Ne pas les retirer pour gagner
-   les ~12px : ce serait revenir à l'infraction que le thème avait corrigée.
-
-   `--brand` n'est délibérément PAS rétabli. Le ton `progress` s'en servait, et
-   sa valeur d'avant était le violet échantillonné de la marque Ayad — le seul
-   des anciens tons dont le rétablissement réintroduirait l'identité qu'on
-   vient de retirer. Un presque-noir se lit très bien comme « en cours ».
-   --------------------------------------------------------------------------- */
-[data-slot='table-cell'] {
-  --success: #146c34;
-  --warning: #b02012;
-  --amber: #92580a;
-  --info: #1c5fc0;
-  --destructive: #7f1d1d;
-}
-
-.dark [data-slot='table-cell'] {
-  --success: #4ade80;
-  --warning: #fca5a5;
-  --amber: #fbbf24;
-  --info: #60a5fa;
-  --destructive: #f26d6d;
-}
-
 [data-slot='table-cell'] [data-slot='badge'] {
   height: auto;
   gap: 0;

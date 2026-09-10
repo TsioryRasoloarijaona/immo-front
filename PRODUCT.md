@@ -123,15 +123,15 @@ What holds now:
 - **No logo.** Not "a different logo" — none. The identity is a **wordmark**:
   the name set in a heavy, tight-tracked cut of the app's own sans. There is no
   raster asset to maintain, and none should be added.
-- **No brand colour.** The former `#5d396e` was sampled from the Ayad mark;
-  removing the colour and removing the name were one act, not two. The
-  *interface* is achromatic throughout — see the header of `src/index.css`.
-- **Colour is reserved for data, in table cells only.** The five status tones
-  keep their hues inside `[data-slot='table-cell']`, so a price, an overdue
-  relance or a balance owed reads in colour while no chrome does. This is not
-  a partial retreat from the monochrome decision — it is what makes it work:
-  since nothing else is coloured, colour became unambiguous signal rather than
-  decoration.
+- **No brand colour — but the app is not colourless.** The former `#5d396e`
+  was sampled from the Ayad mark; removing the colour and removing the name
+  were one act, not two. What replaced it is a *chosen* accent, **teal
+  `#0f766e`**, which belongs to the product rather than to a company.
+- **The monochrome experiment is closed.** A pass between these two states
+  removed colour entirely. It was deliberate and WCAG-clean, and it was
+  rejected on sight — the app read as dead. The lesson is recorded in the
+  header of `src/index.css` so it is not rediscovered as a simplification:
+  de-branding and de-colouring are separable, and only the first was wanted.
 - **The logo kit still exists on disk** at `public/brand/` and
   `public/LOGO - Copie/`, deliberately not deleted — but nothing references it.
   The favicon and apple-touch-icon links are gone from `index.html`. Rewiring

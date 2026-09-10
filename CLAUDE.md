@@ -146,29 +146,30 @@ enum, not free text. `isCredit` distinguishes debit/credit direction.
 Follow **Linear / Stripe Dashboard / Attio** as the visual references —
 **not** the legacy system's dense Windows-forms layout. Concretely:
 - Generous whitespace, clear typographic hierarchy.
-- **The interface has no colour; the data does.** Every surface, control and
-  accent is achromatic — one near-black accent (`--brand: #18181b`, inverted
-  to `#fafafa` in dark) over true greys. There is no brand colour: the former
-  `#5d396e` was sampled from the Ayad identity mark and was removed with the
-  name. The product is called **Arpent** and carries no company identity.
-- **The single exception is a table cell**, where the five status tones take
-  their chromatic values back — declared in a `[data-slot='table-cell']`
-  scope in `index.css`, so `text-(--success)` on a Prix column and every badge
-  variant inside a cell pick them up through the cascade, with no component
-  or call-site change. Prices, overdue relances and balances owed are
-  coloured; nothing else is. Because no chrome spends colour, any colour on
-  screen is data.
-- **`--brand` is deliberately NOT restored in cells.** The `progress` tone
-  used it, and its old value was the Ayad purple — the one former colour whose
-  return would reintroduce the identity that was just removed.
+- **One accent, five status hues, true grey neutrals.** Three rules, no scoped
+  exceptions. The accent is **teal `#0f766e`** (`#5eead4` in dark) and carries
+  every action, focus ring, link and section chip; the five reserved status
+  hues colour a status wherever it appears; the neutrals are true greys with
+  no cast.
+- **There is no brand colour.** The former `#5d396e` was sampled from the Ayad
+  identity mark and went with the name — the product is called **Arpent** and
+  carries no company identity. The teal is a *chosen* hue. Why teal and not
+  the obvious professional blue: the status hues already own green, red, amber
+  and blue, and a blue accent would sit on top of `--info` and make a primary
+  button read as an informational state.
+- **Do not make the palette achromatic. That has been tried twice and rejected
+  twice** — the second time as a deliberate, WCAG-clean specification, and it
+  was still rejected on sight ("the app looks like it died on colour"). A
+  dense operator tool that is nothing but greys reads as broken rather than
+  restrained. The header of `src/index.css` records both attempts; treat "no
+  accent" as a settled dead end rather than a simplification to rediscover.
 - **Status is carried by a glyph as well as colour.** `TONE_GLYPH` in
   `components/ui.tsx` maps each of the six `BadgeTone` values to a lucide
-  icon. Do not drop the glyphs to reclaim space: colour alone is a
-  High-severity WCAG failure, the old design committed it, and outside a cell
-  the glyph is the *only* carrier.
-- See `PRODUCT.md` §Brand Commitments and the header of `src/index.css` —
-  which also records that an achromatic accent was tried and reverted once,
-  and why that reversal does not apply now.
+  icon. These arrived with the achromatic pass but are the one thing worth
+  keeping from it: colour alone is a High-severity WCAG failure, the original
+  coloured-badge design committed it, and the glyph is what makes a red
+  "Annulé" legible to a colour-blind operator. Do not drop them for space.
+- See `PRODUCT.md` §Brand Commitments for the de-branding.
 - Cards and clean tables over the legacy system's dense multi-tab modal
   forms — collapse related fields into logical grouped sections instead of
   replicating every flat field list 1:1.
