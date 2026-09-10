@@ -125,11 +125,15 @@ What holds now:
   raster asset to maintain, and none should be added.
 - **No brand colour — but the app is not colourless.** The former `#5d396e`
   was sampled from the Ayad mark; removing the colour and removing the name
-  were one act, not two. What replaced it is a *chosen* accent, **violet
-  `#7c3aed`**, which belongs to the product rather than to a company. It is a
-  vivid electric violet where the Ayad value was a desaturated mauve — a
-  neighbour in hue, unmistakably different on screen. What was forbidden was
-  the borrowed swatch, never the hue family.
+  were one act, not two. What replaced it is a *chosen* accent, **teal
+  `#0f766e`**, which belongs to the product rather than to a company.
+- **The accent hue has been iterated on and is now settled.** Achromatic
+  (twice), the Ayad mauve, and a vivid violet were each tried and rejected.
+  The remaining constraint is structural rather than a matter of taste: the
+  five status hues occupy green, red, amber and blue, and teal is the only
+  interval left that does not make a primary button read as a state. The full
+  record is in `src/index.css` under "Why teal" — read it before proposing a
+  new accent.
 - **The monochrome experiment is closed.** A pass between these two states
   removed colour entirely. It was deliberate and WCAG-clean, and it was
   rejected on sight — the app read as dead. The lesson is recorded in the

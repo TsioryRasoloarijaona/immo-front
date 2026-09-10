@@ -147,9 +147,18 @@ Follow **Linear / Stripe Dashboard / Attio** as the visual references —
 **not** the legacy system's dense Windows-forms layout. Concretely:
 - Generous whitespace, clear typographic hierarchy.
 - **One accent, five status hues, cool neutrals, pure backgrounds.** No scoped
-  exceptions. The accent is **violet `#7c3aed`** (`#c4b5fd` in dark) and
-  carries every action, focus ring, link and section chip; the five reserved
-  status hues colour a status wherever it appears.
+  exceptions. The accent is **teal `#0f766e`** (`#5eead4` in dark) and carries
+  every action, focus ring, link and section chip; the five reserved status
+  hues colour a status wherever it appears.
+- **The accent hue is nearly forced, so don't re-litigate it.** The status
+  hues own green (~145°), red (~5°), amber (~35°) and blue (~218°); an accent
+  in any of those makes a primary button read as a *state*. Teal (~177°) is
+  the only remaining interval. Already ruled out and not to be re-proposed:
+  achromatic (rejected twice — "died on colour"), the Ayad mauve `#5d396e`
+  (de-branded), violet `#7c3aed` (rejected: "enlève le violet"), and blue
+  (lands on `--info`). `src/index.css` keeps the full list under "Why teal".
+  If teal must go too, the real options are a new *status* palette to free a
+  hue, or a deliberate collision — not another lap around the wheel.
 - **Backgrounds are pure: white in light, black in dark.** Not off-white, not
   near-black. Two grey page backgrounds were tried and rejected — `#f6f6f6`
   ("the gray color bother me") then `#fbfcfd`, still too grey. In light mode
@@ -163,11 +172,8 @@ Follow **Linear / Stripe Dashboard / Attio** as the visual references —
   ink, rules and table-header bands only — never for a page.
 - **There is no brand colour.** The former `#5d396e` was sampled from the Ayad
   identity mark and went with the name — the product is called **Arpent** and
-  carries no company identity. The violet is a *chosen* hue: a vivid electric
-  violet at ~55% lightness, not the old desaturated mauve at ~30%. Neighbours
-  in hue, nothing alike on screen; the hue family was never what was
-  forbidden, the borrowed swatch was. Note the obvious professional blue would
-  *not* work — it would sit on top of `--info`.
+  carries no company identity. The teal is a *chosen* hue, belonging to the
+  product rather than to a company.
 - **Do not make the palette achromatic. That has been tried twice and rejected
   twice** — the second time as a deliberate, WCAG-clean specification, and it
   was still rejected on sight ("the app looks like it died on colour"). A

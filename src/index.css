@@ -4,7 +4,7 @@
    Colour model: **one accent, five status hues, cool neutrals.** Three rules,
    no scoped exceptions, no second system.
 
-     --brand    violet #7c3aed — every action, focus ring, link, section chip
+     --brand    teal #0f766e — every action, focus ring, link, section chip
      status     the five reserved hues, wherever a status appears
      neutrals   a COOL grey ramp, never pure neutral — ink, rules, header
                 bands only
@@ -28,18 +28,30 @@
    but greys reads as broken rather than as restrained**, and no amount of
    internal consistency fixes that. Treat "no accent" as a settled dead end.
 
-   The accent is a vivid violet, and it is NOT the old `#5d396e`. That value
-   was a *desaturated mauve* at ~30% lightness, sampled from the Ayad
-   Développement identity mark; this is an electric violet at ~55%. Neighbours
-   in hue, nothing alike on screen. The product stays de-branded — the name
-   went, the sampled value went with it (see PRODUCT.md §Brand Commitments).
-   The hue family was never what was forbidden; the borrowed swatch was.
+   ---------------------------------------------------------------------------
+   Why teal, and why the choice is nearly forced
+   ---------------------------------------------------------------------------
+   The five status hues own green (~145°), red (~5°), amber (~35°) and blue
+   (~218°). An accent inside any of those families makes a primary button read
+   as a *state* rather than an action — the obvious "professional software"
+   blue is the trap here, because it lands directly on `--info`.
 
-   It does not collide with the five status hues, which own green (~145°),
-   red (~5°), amber (~35°) and blue (~218°). Violet (~272°) clears blue by
-   ~54°. Note that the obvious "professional software" blue accent would NOT
-   have worked: it would sit on top of `--info` and make a primary button read
-   as an informational state.
+   That leaves one interval wide enough to be unambiguous, and teal (~177°)
+   sits in it: ~32° from success green, ~41° from info blue.
+
+   The hues already ruled out, so they are not re-proposed:
+
+     achromatic  tried twice, rejected twice — "died on colour". See below.
+     mauve       `#5d396e`, sampled from the Ayad mark. De-branded with the
+                 name; see PRODUCT.md §Brand Commitments.
+     violet      `#7c3aed`, taken from a reference screenshot. Rejected:
+                 "enlève le violet".
+     blue        collides with `--info`, as above.
+     green/red/amber  collide with the status hues.
+
+   If teal has to go too, the honest options are a new *status* palette to free
+   up a hue, or accepting a deliberate collision — not another lap around the
+   wheel. Nothing else in the circle is both free and not-grey.
 
    ---------------------------------------------------------------------------
    Neutres : FROIDS, jamais purs
@@ -122,19 +134,19 @@
   --surface-hover: #f9fafb;
   --border-strong: #d0d5dd;
 
-  /* L'ACCENT — violet vif, choisi et non hérité. Voir l'en-tête : la teinte
-     doit éviter les quatre secteurs que les statuts occupent, et le bleu
-     « logiciel professionnel » évident tomberait sur `--info`.
+  /* L'ACCENT — teal, choisi et non hérité. Voir « Why teal » en tête de
+     fichier : le choix est presque forcé, les statuts occupant déjà les quatre
+     autres secteurs utilisables.
 
-     5,7:1 sur blanc, donc le blanc sur remplissage plein passe AA dans les
+     5,5:1 sur blanc, donc le blanc sur remplissage plein passe AA dans les
      deux sens. Moins contrasté que l'ancien mauve (9,2:1) : c'est le prix
      d'une teinte vivante, et cela reste au-dessus du seuil. Ne pas le foncer
      « pour la sécurité » sans revérifier le blanc dessus, qui bouge en sens
      inverse — les deux valeurs sont liées et le gate mesure les deux. */
-  --brand: #7c3aed;
-  --brand-hover: #6929d4;
-  --brand-bg: rgba(124, 58, 237, 0.08);
-  --brand-border: rgba(124, 58, 237, 0.22);
+  --brand: #0f766e;
+  --brand-hover: #0b5c55;
+  --brand-bg: rgba(15, 118, 110, 0.08);
+  --brand-border: rgba(15, 118, 110, 0.22);
   /* Foreground color for text/icons sitting on a solid --brand fill. */
   --brand-contrast: #fff;
 
@@ -335,14 +347,14 @@
   --border: #232329;
   --border-strong: #2f2f37;
 
-  /* Le violet, éclairci pour tenir sur une surface sombre — même teinte, juste
+  /* Le teal, éclairci pour tenir sur une surface sombre — même teinte, juste
      l'extrémité claire de la rampe d'accent. */
-  --brand: #c4b5fd;
-  --brand-hover: #ddd6fe;
-  --brand-bg: rgba(196, 181, 253, 0.14);
-  --brand-border: rgba(196, 181, 253, 0.32);
+  --brand: #5eead4;
+  --brand-hover: #99f6e4;
+  --brand-bg: rgba(94, 234, 212, 0.14);
+  --brand-border: rgba(94, 234, 212, 0.32);
   /* --brand est clair ici, donc un remplissage plein exige un premier plan
-     sombre (blanc sur violet clair ne passe pas). */
+     sombre (blanc sur teal clair ne passe pas). */
   --brand-contrast: #000000;
 
   --success: #4ade80;
