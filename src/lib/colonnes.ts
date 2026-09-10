@@ -1,21 +1,31 @@
 import { useCallback, useState } from 'react';
-import type { ColonneDto, GroupeColonne } from '../types';
+import type { ColonneDto } from '../types';
 
 /** Libellés des groupes du sélecteur. Le serveur envoie des clés
  * d'énumération (`IDENTITE`…), pas des libellés : la traduction est une
  * décision d'affichage, elle reste ici. Un groupe inconnu — le serveur en
  * ajoutera — retombe sur sa clé brute plutôt que de disparaître. */
-export const LIBELLES_GROUPE: Record<GroupeColonne, string> = {
+export const LIBELLES_GROUPE: Record<string, string> = {
+  // Prospections
   IDENTITE: 'Identité',
   CONTACT: 'Contact',
   CONTEXTE: 'Contexte',
   FINANCIER: 'Financier',
   ACTIVITE: 'Activité',
   CONVERSION: 'Conversion',
+  // Dossiers de vente
+  ACTEURS: 'Acteurs',
+  ORIGINE: 'Origine',
+  PATRIMOINE: 'Patrimoine',
+  // Prospects
+  ADRESSE: 'Adresse',
+  PROFESSION: 'Profession',
+  // Les trois catalogues
+  AUDIT: 'Traçabilité',
 };
 
 export function libelleGroupe(groupe: string): string {
-  return LIBELLES_GROUPE[groupe as GroupeColonne] ?? groupe;
+  return LIBELLES_GROUPE[groupe] ?? groupe;
 }
 
 /** Minuscules sans accents. Distinct de `normalizeStatus` de `dossierStatus.ts`,
