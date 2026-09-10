@@ -5,6 +5,7 @@ import DataGrid, { type ColonneGrille } from './DataGrid';
 import { formatCurrency, formatDate, isPastOrToday } from '../lib/format';
 import { etapeBadgeTone, prospectionDisplayName } from '../lib/domain';
 import { poidsColonne } from '../lib/colonnes';
+import { DISPOSITION_PROSPECTIONS } from '../lib/dispositions';
 import type { ColonneDto, ProspectionListItemDto } from '../types';
 
 const TIRET = <span className="text-muted-foreground">—</span>;
@@ -116,7 +117,7 @@ export default function ProspectionTable({
         nom: c.nom,
         libelle: c.libelle,
         type: c.type,
-        largeur: poidsColonne(c.nom),
+        largeur: poidsColonne(c.nom, DISPOSITION_PROSPECTIONS.poids),
         rendu: RENDUS[c.nom],
         classe: CLASSES[c.nom],
         titre: TITRES[c.nom],
