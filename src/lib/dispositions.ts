@@ -155,3 +155,239 @@ export const DISPOSITION_PROSPECTIONS: DispositionColonnes = {
   ordre: ORDRE_PROSPECTIONS,
   poids: POIDS_PROSPECTIONS,
 };
+
+// ===========================================================================
+// Dossiers de vente
+// ===========================================================================
+
+/** Les neuf premières reproduisent l'ordre de lecture d'avant le sélecteur,
+ * pour que le passage au catalogue ne déplace rien à l'écran — à une colonne
+ * près : `dateConcretisation` est `parDefaut` côté serveur et n'était affichée
+ * nulle part, la vue par défaut passe donc de 8 à 9 colonnes.
+ *
+ * Le reste suit l'ordre du catalogue, groupe par groupe. */
+const ORDRE_DOSSIERS = [
+  // Les colonnes historiques, dans leur ordre historique
+  'clientNom',
+  'code',
+  'prospectionCode',
+  'statut',
+  'commercialNom',
+  'prix',
+  'totalAPayer',
+  'dateDocument',
+  'dateConcretisation',
+  // Financier
+  'prixAvantRemise',
+  'remise',
+  'remiseMontant',
+  'prixApresRemise',
+  'montantAvance',
+  'probabiliteFinalisation',
+  'modePaie',
+  // Origine — déréférence la prospection
+  'etapeProspection',
+  'origineProspection',
+  'dateProspection',
+  // Patrimoine — article → tranche → projet → société
+  'projetCode',
+  'projetLibelle',
+  'trancheCode',
+  'trancheLibelle',
+  'societeCode',
+  'societeLibelle',
+  'vocationCode',
+  'vocationLibelle',
+  // Acteurs
+  'avocatNom',
+  // Traçabilité, en dernier : utile ponctuellement, jamais au quotidien
+  'creePar',
+  'creeLe',
+  'modifiePar',
+  'modifieLe',
+];
+
+const POIDS_DOSSIERS: Record<string, number> = {
+  clientNom: 17,
+  code: 11,
+  prospectionCode: 11,
+  statut: 13,
+  commercialNom: 13,
+  prix: 10,
+  totalAPayer: 11,
+  dateDocument: 9,
+  dateConcretisation: 9,
+  prixAvantRemise: 11,
+  remise: 8,
+  remiseMontant: 10,
+  prixApresRemise: 11,
+  montantAvance: 10,
+  probabiliteFinalisation: 9,
+  modePaie: 11,
+  etapeProspection: 12,
+  origineProspection: 11,
+  dateProspection: 10,
+  // Les libellés sont des raisons sociales et des noms de projet : ils
+  // tronquent à 9, où le code tient tout entier.
+  projetCode: 9,
+  projetLibelle: 13,
+  trancheCode: 9,
+  trancheLibelle: 13,
+  societeCode: 9,
+  societeLibelle: 13,
+  vocationCode: 9,
+  vocationLibelle: 12,
+  avocatNom: 12,
+  creePar: 10,
+  creeLe: 9,
+  modifiePar: 10,
+  modifieLe: 9,
+};
+
+export const DISPOSITION_DOSSIERS: DispositionColonnes = {
+  ordre: ORDRE_DOSSIERS,
+  poids: POIDS_DOSSIERS,
+  /* Le `parDefaut` du serveur décrit la charge utile : quatre de ses treize
+     colonnes sont des clés de jointure (`id`, `clientId`, `commercialId`,
+     `prospectionId`). Sans ce filtre, la vue par défaut affiche des UUID. Les
+     quatre autres `*Id` ne sont pas `parDefaut` mais seraient proposées au
+     sélecteur, ce qui revient au même une fois cochées. */
+  masquees: new Set([
+    'id',
+    'clientId',
+    'commercialId',
+    'prospectionId',
+    'projetId',
+    'trancheId',
+    'societeId',
+    'avocatId',
+  ]),
+  /* La colonne « Prospection » est un lien vers `/prospections/{id}`, et cet
+     id vient d'être masqué. `?colonnes=` étant une liste close, il faut le
+     redemander explicitement dès que la sélection s'écarte des défauts —
+     sinon le lien mène à `/prospections/undefined`, sans erreur ni trace. */
+  dependances: { prospectionCode: ['prospectionId'] },
+};
+
+// ===========================================================================
+// Prospects
+// ===========================================================================
+
+/** Les neuf premières sont les colonnes `parDefaut` du serveur, une fois `id`
+ * masqué. La liste en affichait six : le serveur décompose ce que l'écran
+ * composait — « Nom » était prénom+nom+raison sociale, « Téléphone » un repli
+ * du mobile sur le fixe. Le catalogue nomme les champs bruts, l'écran les suit,
+ * et les compositions disparaissent. */
+const ORDRE_PROSPECTS = [
+  'code',
+  'prenom',
+  'nom',
+  'raisonSociale',
+  'type',
+  'telephone',
+  'mobile',
+  'email',
+  'ville',
+  // Identité, suite
+  'cin',
+  'ice',
+  'dateNaissance',
+  'lieuNaissance',
+  'nombreEnfants',
+  'estAncienClient',
+  'filsDe',
+  'etDe',
+  'titre',
+  'sexe',
+  'nationalite',
+  'situationFamiliale',
+  'regimeMatrimonial',
+  // Mesurée quasi morte — 14 339 tiers sur 14 516 n'en portent aucun — mais
+  // proposée : c'est au serveur d'arbitrer ce qu'il sert.
+  'kind',
+  'commercialNom',
+  // Contact, suite
+  'indicatifTelephone',
+  'telephone1',
+  'telephone2',
+  'indicatifMobile',
+  'fax',
+  'siteWeb',
+  // Adresse
+  'adresse',
+  'adresse2',
+  'adresse3',
+  'codePostal',
+  'pays',
+  'paysResidence',
+  'typeResidence',
+  // Profession — `profession` est mesurée à 0 ligne sur 13 664 et sera
+  // toujours vide ; la spec dit de ne pas la proposer comme critère.
+  'employeur',
+  'anciennete',
+  'profession',
+  'salaire',
+  // Traçabilité
+  'creePar',
+  'creeLe',
+  'modifiePar',
+  'modifieLe',
+];
+
+const POIDS_PROSPECTS: Record<string, number> = {
+  code: 12,
+  prenom: 12,
+  nom: 14,
+  raisonSociale: 16,
+  type: 9,
+  telephone: 12,
+  mobile: 12,
+  email: 18,
+  ville: 11,
+  cin: 11,
+  ice: 11,
+  dateNaissance: 11,
+  lieuNaissance: 12,
+  nombreEnfants: 8,
+  estAncienClient: 9,
+  filsDe: 12,
+  etDe: 12,
+  titre: 8,
+  sexe: 8,
+  nationalite: 11,
+  situationFamiliale: 13,
+  regimeMatrimonial: 13,
+  kind: 9,
+  commercialNom: 13,
+  indicatifTelephone: 8,
+  telephone1: 12,
+  telephone2: 12,
+  indicatifMobile: 8,
+  fax: 11,
+  siteWeb: 14,
+  adresse: 18,
+  adresse2: 14,
+  adresse3: 14,
+  codePostal: 9,
+  pays: 10,
+  paysResidence: 12,
+  typeResidence: 12,
+  employeur: 14,
+  anciennete: 9,
+  profession: 12,
+  salaire: 10,
+  creePar: 10,
+  creeLe: 9,
+  modifiePar: 10,
+  modifieLe: 9,
+};
+
+export const DISPOSITION_PROSPECTS: DispositionColonnes = {
+  ordre: ORDRE_PROSPECTS,
+  poids: POIDS_PROSPECTS,
+  /* `id` est `parDefaut` et toujours servi ; `commercialId` double
+     `commercialNom`. Aucune des deux n'a sa place dans une grille. */
+  masquees: new Set(['id', 'commercialId']),
+  // Aucune colonne n'en appelle une autre : la ligne n'ouvre que sa propre
+  // fiche, et `id` est servi quoi qu'il arrive.
+};

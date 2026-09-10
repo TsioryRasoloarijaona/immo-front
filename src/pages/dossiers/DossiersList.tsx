@@ -1,14 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, Eye, Folder, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import ColumnSelector from '../../components/ColumnSelector';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
+import DossierTable from '../../components/DossierTable';
 import {
   DEFAULT_PAGE_SIZE,
   DOSSIER_BATCH_DOC_LABELS,
@@ -20,10 +21,14 @@ import {
   type DossierChampDate,
 } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useColonnesVisibles } from '../../lib/colonnes';
+import { DISPOSITION_DOSSIERS } from '../../lib/dispositions';
+import { useColonnesDossiers } from '../../lib/referentiels';
 import { useAppData, commercialLabel } from '../../lib/appData';
 // Formatage monétaire et de date : porté par DataGrid via le `type` de
-// colonne, plus par cet écran.
-import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, canonicalStatusLabel, normalizeStatus, toneForStatus } from '../../lib/dossierStatus';
+// colonne, plus par cet écran. Les rendus riches et le libellé canonique du
+// statut vivent désormais dans DossierTable.
+import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, normalizeStatus } from '../../lib/dossierStatus';
 import type { DossierListItemDto, PageDto } from '../../types';
 
 const BATCH_DOC_ITEMS = (Object.entries(DOSSIER_BATCH_DOC_LABELS) as [DossierBatchDocKind, string][]).map(([value, label]) => ({ label, value }));
@@ -58,12 +63,23 @@ async function fetchDossiersWithStatusWorkaround(
   statuses: string[],
   page: number,
   size: number,
+  colonnes: string[] | undefined,
 ): Promise<PageDto<DossierListItemDto>> {
   if (statuses.length === 0) {
-    return listDossiers(baseParams, { page, size, sort: ['docDate,desc'] });
+    return listDossiers(baseParams, { page, size, sort: ['docDate,desc'] }, { colonnes });
   }
   const wanted = new Set(statuses.map((s) => normalizeStatus(s)));
-  const all = await listDossiers(baseParams, { page: 0, size: 500, sort: ['docDate,desc'] });
+  /* Ce filtre-ci se joue sur `d.statut`, et `statut` est une colonne que
+     l'utilisateur peut décocher. `?colonnes=` étant une liste close, la
+     décocher ferait disparaître le champ de la réponse et le filtre ne
+     matcherait plus rien — un écran vide, sans erreur. On la redemande donc,
+     qu'elle soit affichée ou non. */
+  const colonnesAvecStatut = colonnes ? [...new Set([...colonnes, 'statut'])] : undefined;
+  const all = await listDossiers(
+    baseParams,
+    { page: 0, size: 500, sort: ['docDate,desc'] },
+    { colonnes: colonnesAvecStatut },
+  );
   const filtered = all.content.filter((d) => wanted.has(normalizeStatus(d.statut)));
   const start = page * size;
   return {
@@ -113,6 +129,14 @@ export default function DossiersList() {
   const [batchBusy, setBatchBusy] = useState<'view' | 'download' | null>(null);
   const [batchError, setBatchError] = useState<string | null>(null);
 
+  const catalogue = useColonnesDossiers();
+  const colonnes = useColonnesVisibles('dossiers', catalogue.data, DISPOSITION_DOSSIERS);
+  // `undefined` tant que la sélection ne s'écarte pas des défauts — le hook
+  // porte cette règle et la raison qui la rend portante. Sur cet écran elle
+  // pèse doublement : les groupes PATRIMOINE et ORIGINE valent trois jointures
+  // paresseuses par ligne, et le contournement statut charge 500 lignes.
+  const colonnesDemandees = colonnes.demandees;
+
   const { data, loading, error } = useApi(
     () =>
       // Newest-first, so a just-created dossier lands on page 0. Sorts on
@@ -132,8 +156,19 @@ export default function DossiersList() {
         status,
         page,
         DEFAULT_PAGE_SIZE,
+        colonnesDemandees,
       ),
-    [debouncedSearch, status.join(','), trancheIds.join(','), champDate, dateDebut, dateFin, commercial, page],
+    [
+      debouncedSearch,
+      status.join(','),
+      trancheIds.join(','),
+      champDate,
+      dateDebut,
+      dateFin,
+      commercial,
+      page,
+      colonnesDemandees?.join(',') ?? '',
+    ],
     'dossiers',
   );
   const dossiers = data?.content ?? [];
@@ -170,60 +205,6 @@ export default function DossiersList() {
     { label: 'Tous les commerciaux', value: 'all' },
     ...commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id })),
   ];
-
-  /* Les colonnes vivent dans le composant et non au module : la colonne
-     « Prospection » a besoin de `navigate`, et le statut de `toneForStatus`.
-     `useMemo` sur `navigate` seul — le reste est stable. */
-  const colonnes = useMemo<ColonneGrille<DossierListItemDto>[]>(
-    () => [
-      { nom: 'clientNom', libelle: 'Client', largeur: 17, classe: 'font-medium text-foreground', titre: (d) => d.clientNom ?? undefined },
-      {
-        nom: 'code',
-        libelle: 'Code',
-        largeur: 11,
-        rendu: (d) => (
-          <Badge tone="neutral" className="font-mono">
-            {d.code}
-          </Badge>
-        ),
-        titre: (d) => d.code,
-      },
-      {
-        nom: 'prospectionCode',
-        libelle: 'Prospection',
-        largeur: 11,
-        rendu: (d) =>
-          d.prospectionId ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/prospections/${d.prospectionId}`);
-              }}
-              title="Ouvrir la prospection d'origine"
-            >
-              <Badge tone="info">{d.prospectionCode || 'Voir'}</Badge>
-            </button>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
-      },
-      {
-        nom: 'statut',
-        libelle: 'Statut',
-        largeur: 13,
-        // Tri et filtre sur le libellé canonique, pas sur le statut brut :
-        // c'est le libellé qui est affiché et donc tapé.
-        valeur: (d) => canonicalStatusLabel(d.statut),
-        rendu: (d) => <Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge>,
-      },
-      { nom: 'commercialNom', libelle: 'Commercial', largeur: 13, classe: 'text-muted-foreground', titre: (d) => d.commercialNom ?? undefined },
-      { nom: 'prix', libelle: 'Prix', type: 'MONTANT', largeur: 10, classe: 'text-(--info)' },
-      { nom: 'totalAPayer', libelle: 'Total à payer', type: 'MONTANT', largeur: 11, classe: 'font-semibold text-(--success)' },
-      { nom: 'dateDocument', libelle: 'Date', type: 'DATE', largeur: 9, classe: 'text-muted-foreground' },
-    ],
-    [navigate],
-  );
 
   function toggleSelected(d: DossierListItemDto) {
     setSelectedIds((prev) => {
@@ -418,8 +399,19 @@ export default function DossiersList() {
         {error && <ErrorState message={error} />}
         {!error && data && (
           <ResultsRegion loading={loading}>
-            <div className="shrink-0 text-body text-muted-foreground">
-              {(data?.totalElements ?? 0)} dossier{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+            <div className="flex shrink-0 items-center justify-between gap-3">
+              <div className="text-body text-muted-foreground">
+                {(data?.totalElements ?? 0)} dossier{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+              </div>
+              {colonnes.catalogueServi.length > 0 && (
+                <ColumnSelector
+                  catalogue={colonnes.catalogueServi}
+                  visibles={colonnes.visibles}
+                  onBasculer={colonnes.basculer}
+                  onReinitialiser={colonnes.reinitialiser}
+                  estDefaut={colonnes.estDefaut}
+                />
+              )}
             </div>
             {dossiers.length === 0 ? (
               <EmptyState
@@ -438,39 +430,53 @@ export default function DossiersList() {
                 }
               />
             ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <DataGrid
-                  rows={dossiers}
-                  colonnes={colonnes}
-                  minWidth="58rem"
-                  onOuvrir={(id) => navigate(`/dossiers/${id}`)}
-                  libelleLigne={(d) => `Ouvrir le dossier ${d.clientNom ?? d.code}`}
-                  // La gouttiere *est* le selecteur de lot quand un type de
-                  // document est choisi : sans ca l'ecran aurait deux colonnes
-                  // de cases, dont une decorative.
-                  selection={
-                    batchDocKind
-                      ? {
-                          ids: selectedIds,
-                          onToggle: (id) => {
-                            const d = dossiers.find((x) => x.id === id);
-                            if (d) toggleSelected(d);
-                          },
-                          onToggleAll: (ids) => {
-                            setSelectedIds(new Set(ids));
-                            setSelectedLabels((prev) => {
-                              const next = { ...prev };
-                              for (const id of ids) {
-                                const d = dossiers.find((x) => x.id === id);
-                                if (d) next[id] = d.code || d.clientNom || d.id;
-                              }
-                              return next;
-                            });
-                          },
-                        }
-                      : undefined
-                  }
-                />
+              /* `min-w-0` : voir ProspectionsList — sans lui la largeur de la
+                 table remonte la chaîne flex et élargit la page entière au lieu
+                 de faire défiler. Devenu indispensable ici : le nombre de
+                 colonnes n'est plus fixe, et `minWidth` en dur a disparu au
+                 profit du défaut de DataGrid, qui suit ce nombre. */
+              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+                {/* Le catalogue porte les libellés d'en-tête : sans lui il n'y
+                    a pas de tableau à dessiner, seulement des lignes sans
+                    colonnes. Mis en cache au niveau du module, il n'est
+                    rechargé qu'une fois par session. */}
+                {colonnes.colonnes.length > 0 ? (
+                  <DossierTable
+                    rows={dossiers}
+                    colonnes={colonnes.colonnes}
+                    onOuvrir={(id) => navigate(`/dossiers/${id}`)}
+                    onOuvrirProspection={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
+                    // La gouttiere *est* le selecteur de lot quand un type de
+                    // document est choisi : sans ca l'ecran aurait deux colonnes
+                    // de cases, dont une decorative.
+                    selection={
+                      batchDocKind
+                        ? {
+                            ids: selectedIds,
+                            onToggle: (id) => {
+                              const d = dossiers.find((x) => x.id === id);
+                              if (d) toggleSelected(d);
+                            },
+                            onToggleAll: (ids) => {
+                              setSelectedIds(new Set(ids));
+                              setSelectedLabels((prev) => {
+                                const next = { ...prev };
+                                for (const id of ids) {
+                                  const d = dossiers.find((x) => x.id === id);
+                                  if (d) next[id] = d.code || d.clientNom || d.id;
+                                }
+                                return next;
+                              });
+                            },
+                          }
+                        : undefined
+                    }
+                  />
+                ) : catalogue.error ? (
+                  <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
+                ) : (
+                  <LoadingState />
+                )}
               </div>
             )}
             <div className="shrink-0">
