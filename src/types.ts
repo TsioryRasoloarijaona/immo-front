@@ -810,6 +810,52 @@ export interface ProspectionDetailDto {
   modifiePar?: string | null;
   modifieLe?: string | null;
 
+  // -- Rang 6 : tri manuel et doublons ---------------------------------------
+  //
+  // L'équipe marque ses leads dans les champs libres du logiciel de bureau —
+  // les « Donnée 1 » à « Donnée 10 » de son formulaire, `TempField1` à
+  // `TempField10`. **L'API n'en expose que deux**, les seuls qui portent
+  // quelque chose d'exploitable : `TempField1` et `TempField10`. Les huit
+  // autres n'ont pas d'endpoint, et il n'y a donc pas de « Donnée 2 » à
+  // afficher.
+  //
+  // Ce que ça change concrètement : 798 pré-prospections — **20,9 % du
+  // vivier** — sont marquées doublon ou spam, et 795 d'entre elles sont encore
+  // à l'étape « 1 A TRAITER ». Sans ce champ, la liste présente environ 800
+  // déchets comme du travail à faire. Le marqueur **ne change pas l'étape** :
+  // le traitement visuel est une décision du front.
+
+  /** Marqueur normalisé, déduit de `noteQualification` par correspondance
+   * exacte (casse et accents ignorés). Volumes réels : `DOUBLON` 921,
+   * `SPAM` 32, `TRAITE` 10.
+   *
+   * ⚠️ **`null` ne veut pas dire « pas de note »** mais « pas un marqueur
+   * reconnu », et c'est le cas le plus fréquent : 1 239 lignes portent un
+   * texte libre non normalisé. Toujours regarder `noteQualification`. */
+  marqueurTri?: 'DOUBLON' | 'SPAM' | 'TRAITE' | null;
+  /** Le champ libre d'origine (`TempField1`), servi tel quel — ni la casse ni
+   * l'orthographe ne sont corrigées, précisément parce qu'elles ne sont pas
+   * interprétables.
+   *
+   * **Son sens dépend de la population** : sur une pré-prospection c'est un
+   * marqueur de tri (« Doublon », « spam ») ; sur une prospection c'est le plus
+   * souvent la typologie recherchée — `salon_+_2_chambres` (518 lignes) — et
+   * parfois une ville ou un budget. Mesuré : « Casablanca » et « Salé »
+   * rendent bien `marqueurTri: null`. */
+  noteQualification?: string | null;
+  /** Code du tiers que cette fiche duplique (`TempField10`). 849 lignes.
+   * Toujours renseigné quand le pointeur existe, **même si la résolution
+   * échoue** — d'où la distinction avec les deux champs suivants. */
+  doublonDeCode?: string | null;
+  /** Le tiers dupliqué, une fois le code résolu.
+   *
+   * ⚠️ **`doublonDeCode` peut exister sans `doublonDeId`** : `CfgTier.Code`
+   * n'est pas unique en base (14 516 tiers pour 14 504 codes), et sur un code
+   * ambigu le serveur refuse d'en désigner un au hasard. Le lien cliquable est
+   * donc conditionné à `doublonDeId`, pas à `doublonDeCode`. */
+  doublonDeId?: UUID | null;
+  doublonDeNom?: string | null;
+
   /** Bloc d'indicateurs d'activité calculés par la base légataire. Porte
    * notamment `dossierId` — le lien de conversion, que ce DTO n'a jamais eu au
    * premier niveau malgré une déclaration d'espoir restée ici longtemps.

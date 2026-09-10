@@ -14,6 +14,7 @@ import Pagination from '../../components/Pagination';
 import { TimelineList, TimelineRow } from '../../components/Timeline';
 import FicheShell from '../../components/FicheShell';
 import { ChampLecture, ChampNotes, ChampRef, GrilleFiche } from '../../components/ChampsFiche';
+import MarqueurTri from '../../components/MarqueurTri';
 import { OngletAutres, OngletProfils } from '../../components/SousCollectionsProspection';
 import RefSelect from '../../components/RefSelect';
 import { Button } from '../../components/ui/button';
@@ -104,6 +105,12 @@ type ProspectionTab =
 /** Nom lisible de chaque champ du formulaire, pour que la barre
  * d'enregistrement dise *ce qui* a changé. À quinze champs, « 2 modifications »
  * oblige à relire toute la fiche pour les retrouver. */
+/** Les deux onglets qu'une pré-prospection n'a pas — le logiciel de bureau ne
+ * les montre pas non plus. « Offres » suppose un article, mesuré à 0,2 % sur
+ * cette population ; « Contacts » suppose une fiche tiers, qui par définition
+ * n'existe pas encore. */
+const ONGLETS_PROSPECTION_SEULE = new Set(['devis', 'contacts']);
+
 const LIBELLE_CHAMP: Record<string, string> = {
   etapeId: 'Nature',
   origineId: 'Source de contact',
@@ -816,6 +823,15 @@ export default function ProspectionDetail() {
               </span>
             </div>
 
+            {/* Le marqueur de tri passe avant tout le reste : une fiche sur
+                cinq du vivier est un doublon ou du spam encore rangé à
+                « 1 A TRAITER », et rien d'autre à l'écran ne le dit. */}
+            {(p.marqueurTri || p.noteQualification) && (
+              <div className="border-t border-border px-3 py-1.5">
+                <MarqueurTri p={p} />
+              </div>
+            )}
+
             {dossierIssu && (
               <div className="border-t border-border px-3 py-1.5">
                 <DossierIssuBanner
@@ -845,35 +861,63 @@ export default function ProspectionDetail() {
               <GrilleFiche>
                 <ChampLecture label="Code" valeur={p.code} aide="Attribué par le système, non modifiable." />
                 <ChampLecture label="Date" valeur={formatDate(p.dateDocument)} aide="Date de création, non modifiable." />
-                <ChampLecture
-                  label="Prospect"
-                  aide="La fiche tiers se modifie depuis l'onglet Contacts."
-                  valeur={
-                    p.prospectId ? (
-                      <Link to={`/prospects/${p.prospectId}`} className="text-(--info) hover:underline">
-                        {p.prospectNom || p.prospectCode || 'Voir la fiche'}
-                      </Link>
-                    ) : (
-                      p.tempDescription || p.prospectNom
-                    )
-                  }
-                />
-                <ChampLecture
-                  label="Commercial"
-                  valeur={p.commercialNom}
-                  aide="Assigné à la transformation ; aucun endpoint ne le change ensuite."
-                />
+                {/* Une pré-prospection n'a pas de fiche tiers : le lead vit
+                    dans les trois champs `temp*`, qui sont ses seules
+                    coordonnées. Le logiciel de bureau les rend modifiables ;
+                    `ModifierProspectionRequest` ne les porte pas, d'où le
+                    cadenas plutôt qu'un champ qui perdrait la saisie. */}
+                {isPre ? (
+                  <>
+                    <ChampLecture
+                      label="Description"
+                      valeur={p.tempDescription}
+                      aide="Le nom saisi à la capture du lead. Absent de ModifierProspectionRequest — demande backend en cours."
+                    />
+                    <ChampLecture
+                      label="Téléphone"
+                      valeur={p.tempTel}
+                      aide="Idem : servi, mais non modifiable par l'API."
+                    />
+                    <ChampLecture label="Email" valeur={p.tempEmail} aide="Idem : servi, mais non modifiable par l'API." />
+                  </>
+                ) : (
+                  <>
+                    <ChampLecture
+                      label="Prospect"
+                      aide="La fiche tiers se modifie depuis l'onglet Contacts."
+                      valeur={
+                        p.prospectId ? (
+                          <Link to={`/prospects/${p.prospectId}`} className="text-(--info) hover:underline">
+                            {p.prospectNom || p.prospectCode || 'Voir la fiche'}
+                          </Link>
+                        ) : (
+                          p.tempDescription || p.prospectNom
+                        )
+                      }
+                    />
+                    <ChampLecture
+                      label="Commercial"
+                      valeur={p.commercialNom}
+                      aide="Assigné à la transformation ; aucun endpoint ne le change ensuite."
+                    />
+                  </>
+                )}
 
                 <ChampLecture
                   label="Tranche"
                   valeur={p.trancheDescription || p.trancheCode}
                   aide="Se modifie dans l'onglet « Choix article » — le serveur l'expose sur un endpoint distinct."
                 />
-                <ChampLecture
-                  label="Article"
-                  valeur={p.articleCode ? `${p.articleCode}${p.articleDescription ? ` · ${p.articleDescription}` : ''}` : null}
-                  aide="Se modifie dans l'onglet « Choix article »."
-                />
+                {/* Article : mesuré à 0,2 % sur les pré-prospections. Le guide
+                    est explicite — ne pas lui réserver de place. L'onglet
+                    « Choix article » reste là pour en poser un. */}
+                {!isPre && (
+                  <ChampLecture
+                    label="Article"
+                    valeur={p.articleCode ? `${p.articleCode}${p.articleDescription ? ` · ${p.articleDescription}` : ''}` : null}
+                    aide="Se modifie dans l'onglet « Choix article »."
+                  />
+                )}
                 <ChampRef
                   id="f-etape"
                   label="Nature"
@@ -946,20 +990,32 @@ export default function ProspectionDetail() {
                 />
 
                 <div className="grid grid-cols-2 gap-x-3 gap-y-2 self-start md:col-span-1 xl:col-span-2">
-                  <ChampLecture
-                    label="Ancien client"
-                    valeur={p.ancienClient === null || p.ancienClient === undefined ? null : p.ancienClient ? 'Oui' : 'Non'}
-                    aide="Servi par la fiche mais absent de ModifierProspectionRequest : lecture seule tant que le backend ne l'expose pas."
-                  />
+                  {/* La tranche est renseignée sur 95,5 % des pré-prospections,
+                      et la société en dérive : elle reste utile ici. */}
                   <ChampLecture label="Société" valeur={p.societeLibelle || p.societeCode} aide="Dérivée de la tranche, jamais saisie." />
+                  {isPre ? (
+                    <ChampLecture
+                      label="Commercial"
+                      valeur={p.commercialNom}
+                      aide="Vide tant que la pré-prospection n'est pas transformée — mesuré sur 14 fiches, aucune n'en porte."
+                    />
+                  ) : (
+                    <ChampLecture
+                      label="Ancien client"
+                      valeur={p.ancienClient === null || p.ancienClient === undefined ? null : p.ancienClient ? 'Oui' : 'Non'}
+                      aide="Servi par la fiche mais absent de ModifierProspectionRequest : lecture seule tant que le backend ne l'expose pas."
+                    />
+                  )}
                   <ChampLecture label="Type de tiers" valeur={p.typeProspectLibelle || p.typeProspect} />
                   <ChampLecture
                     label="Mobile"
                     valeur={p.mobileProspect ? `+${p.indicatifMobile ?? ''} ${p.mobileProspect}`.replace('+ ', '') : (p.tempTel ?? null)}
                     aide="L'indicatif est servi sans le « + » — il est composé ici."
                   />
-                  <ChampLecture label="Email" valeur={p.emailFiche || p.tempEmail} className="col-span-2" />
-                  {p.fermee && (
+                  {!isPre && <ChampLecture label="Email" valeur={p.emailFiche || p.tempEmail} className="col-span-2" />}
+                  {/* Clôture : mesurée à 0 % sur les pré-prospections — aucune
+                      n'est jamais clôturée. Pas de place réservée. */}
+                  {!isPre && p.fermee && (
                     <>
                       <ChampLecture label="Date d'archivage" valeur={formatDate(p.dateFermeture)} />
                       <ChampLecture label="Raison" valeur={p.raisonFermeture} />
@@ -1020,7 +1076,11 @@ export default function ProspectionDetail() {
           ) : undefined
         }
         /* ---------------------------------------------------------------
-           Bande 3 — les sept onglets du logiciel de bureau, dans son ordre.
+           Bande 3 — les onglets du logiciel de bureau, dans son ordre. Sept
+           sur une prospection, **cinq sur une pré-prospection** : ni Offres ni
+           Contacts, exactement comme là-bas. Ce n'est pas un raccourci — un
+           lead non transformé n'a pas de fiche tiers à montrer, et une offre
+           suppose un article, mesuré à 0,2 % sur cette population.
            Rien de ce que l'écran savait faire n'est perdu : les offres, le
            journal et le sélecteur d'article en cascade sont relogés tels
            quels. Ce qui s'ajoute, ce sont les quatre sous-collections dont
@@ -1268,7 +1328,7 @@ export default function ProspectionDetail() {
               </div>
             ),
           },
-        ]}
+        ].filter((o) => !(isPre && ONGLETS_PROSPECTION_SEULE.has(o.id)))}
       />
 
       {showCreateProspect && (
