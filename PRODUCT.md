@@ -123,22 +123,21 @@ What holds now:
 - **No logo.** Not "a different logo" — none. The identity is a **wordmark**:
   the name set in a heavy, tight-tracked cut of the app's own sans. There is no
   raster asset to maintain, and none should be added.
-- **No brand colour — but the app is not colourless.** The former `#5d396e`
-  was sampled from the Ayad mark; removing the colour and removing the name
-  were one act, not two. What replaced it is a *chosen* accent, **teal
-  `#0f766e`**, which belongs to the product rather than to a company.
-- **The accent hue has been iterated on and is now settled.** Achromatic
-  (twice), the Ayad mauve, and a vivid violet were each tried and rejected.
-  The remaining constraint is structural rather than a matter of taste: the
-  five status hues occupy green, red, amber and blue, and teal is the only
-  interval left that does not make a primary button read as a state. The full
-  record is in `src/index.css` under "Why teal" — read it before proposing a
-  new accent.
-- **The monochrome experiment is closed.** A pass between these two states
-  removed colour entirely. It was deliberate and WCAG-clean, and it was
-  rejected on sight — the app read as dead. The lesson is recorded in the
-  header of `src/index.css` so it is not rediscovered as a simplification:
-  de-branding and de-colouring are separable, and only the first was wanted.
+- **The accent colour reverted; the name did not.** The mauve `#5d396e` is
+  back, on the explicit instruction "remets l'ancien thème violet comme au
+  tout début". It *was* sampled from the Ayad mark, so the de-branding is now
+  narrower than it was: it covers the **name, the logo and the favicon**, not
+  the palette.
+
+  That is a real inconsistency and it is recorded rather than smoothed over —
+  the accent is an inherited value on a product that otherwise carries no
+  company identity. If the point of the de-branding was that the product must
+  stand alone, this is the loose end.
+- **Four replacement accents were tried and rejected** before the revert:
+  achromatic near-black (twice — "died on colour"), vivid violet `#7c3aed`,
+  teal `#0f766e` (read as green), navy `#1e3a8a`. The full record, with the
+  hue-collision constraints that narrowed the field, is in the header of
+  `src/index.css`. Read it before proposing a fifth.
 - **The logo kit still exists on disk** at `public/brand/` and
   `public/LOGO - Copie/`, deliberately not deleted — but nothing references it.
   The favicon and apple-touch-icon links are gone from `index.html`. Rewiring
