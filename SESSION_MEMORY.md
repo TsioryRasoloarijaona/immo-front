@@ -1,5 +1,5 @@
 # Session Memory
-_Last updated: 2026-09-11T12:00:00Z_
+_Last updated: 2026-09-11T18:00:00Z_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
@@ -82,8 +82,10 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 | 139 | Filtre statut dossiers **interdit le groupement** (le contournement filtre après le serveur) | Workaround | Bande désactivée avec message ; **fait monter la demande backend statut en priorité** |
 | 140 | `CLOTURE` servi par le catalogue prospections mais absent de `GroupeColonne` et de `LIBELLES_GROUPE` | Fixed | Ajouté à l'union (le libellé retombait déjà sur la clé brute) |
 | 142 | **`--muted-foreground` sur une ligne teintée `--warning-bg` = 4,34:1 en sombre** (AA exige 4,5) — trouvé en *étendant* `check-contrast`, qui ne couvrait pas le cas | Fixed | Token dédié `--retard-bg` à 0,07 → 4,77 / 4,81. Sept paires ajoutées au garde |
+| 147 | `git-flow sync` refuse : « local main has diverged » | Fixed | L'utilisateur avait commité le snapshot de spec **directement sur main** (`10c54b3 update docs`), pendant que ma branche portait le même. Contenu vérifié **identique octet pour octet** à `origin/main` → `reset --hard origin/main`, rien perdu |
 | 145 | **`inclureSansValeur` : le serveur cesse de servir le groupe des lignes vides, par defaut** — grouper les dossiers par avocat n'affichait plus que 23 lignes sur 116, en silence | Fixed | `inclureSansValeur: true` toujours envoye ; invariant somme = totalElements restaure et reverifie |
 | 146 | `ARTICLE` / `DELAIS` inconnus de `LIBELLES_GROUPE` ; `articleId` / `responsableVenteId` cochables et afficheraient des UUID | Fixed | Libellés ajoutés, les deux `*Id` dans `masquees` (bug #126 qui revient) |
+| 148 | **Le seuil de 30 j est annulé — toute relance échue repasse en rouge** (demande utilisateur, confirmée par la mesure #144) | Fixed | `relanceTardive` → `relanceEnRetard`, seuil supprimé. Page 1 : 17/20 en rouge. **Piste réglée, ne pas la rouvrir sans remesurer par page** |
 | 144 | Seuil de 30 j sur le fond rouge : mesure **apres** livraison, la liste etant triee par date d'alerte decroissante, **la page 1 passe de 17/20 a 0/20 rouge** — le repere se deplace aux pages 6+ | Open (constat) | Livre comme choisi ; relev̀e par page dans `docs/filtres-avances.md` pour arbitrer |
 | 143 | `PreProspectionsList` affirme en commentaire que `/api/pre-prospections` n'accepte pas `?colonnes=` — **mesuré, il l'accepte et l'honore** | Open (constat) | Non touché ; l'écran ne s'en sert pas. Commentaire à corriger, optimisation à prendre |
 | 141 | **L'ordre des lignes n'est pas déterministe côté serveur** — sur `docDate` seule, le lot de 20 n'était pas le préfixe du lot de 40, par intermittence | Fixed | `sort=docDate,desc` **+** `sort=id,asc` sur les lots de groupe ; vérifié 15/15. **Le même aléa vaut pour la pagination ordinaire** — non touché, consigné |
@@ -202,7 +204,17 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
   ⚠️ Ils ont transité en clair dans deux transcriptions ; à changer si le
   compte n'est pas jetable.
 - **Aucun navigateur atteignable** depuis la session (5ᵉ fois).
-- Branche **`feat/groupement-listes`**, cuttée depuis `main` à `747aaf7`.
+- **`main` à `6783069`** — PR #37, #38 et #39 **toutes fusionnées**. Arbre
+  propre, quatre portes vertes sur `main` après fusion.
+- **Onze branches locales fusionnées traînent** (`feat/activite-prospection`
+  … `fix/spec-groupes-et-colonnes`) ; `sync` ne les supprime pas. Ménage à
+  faire, mais c'est la décision de l'utilisateur.
+- `FEATURES.md` : `spec-groupes-et-colonnes` enregistré via `add` juste avant
+  la synchro ; `relances-en-retard` **ajouté à la main**, `add` lisant
+  `main..HEAD` qui était déjà vide une fois la branche fusionnée.
+  **Enregistrer au feature-index avant de pousser**, jamais après.
+- `SESSION_MEMORY.md` est modifié dans l'arbre sur `main` : il partira avec le
+  prochain lot, comme d'habitude (stash → `start` → pop).
 
 ---
 

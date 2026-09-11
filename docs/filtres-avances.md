@@ -425,31 +425,37 @@ synonyme : 221 des 358 dossiers reels (61 %) en portent un.
 
 ## Relances en retard signalees sur la ligne (11/09)
 
-Les prospections et pre-prospections dont la relance est en retard **de plus
-de 30 jours** et qui ne sont pas fermees portent un fond rouge leger sur toute
-la ligne.
+Les prospections et pre-prospections dont la relance est echue et qui ne sont
+pas fermees portent un fond rouge leger sur toute la ligne. **Aucun seuil
+d'anciennete** : meme critere que le badge de la colonne Alerte, pour que les
+deux signaux s'allument ensemble.
 
-### Pourquoi un seuil, et pourquoi 30
+Effet mesure, ligne par page :
 
-Sans seuil, **336 prospections sur 500** sont concernees (67 %), soit 17 lignes
-sur 20 en page 1. Un repere qui s'allume sur deux tiers des lignes ne repere
-plus rien. Repartition mesuree du retard :
+| page | prospections | pre-prospections |
+|---|---|---|
+| 1 | 17/20 | 0/20 |
+| 2 | 13/20 | 0/20 |
+| 3 | 15/20 | 1/20 |
+| 4 | 14/20 | 0/20 |
+| 5 | 11/20 | 0/20 |
+| 6 | 9/20 | 0/20 |
 
-| anciennete | lignes |
-|---|---|
-| <= 7 j | 26 |
-| 8-30 j | 43 |
-| 31-180 j | 162 |
-| > 180 j | 105 |
+Sur un echantillon large : **336 prospections sur 500** (67 %), et **2 sur 500**
+cote pre-prospections. Ce dernier ecran ne rougira quasiment jamais ; ce n'est
+pas un bug de cablage.
 
-Le seuil de 30 j coupe les deux premieres tranches : il reste 267 lignes, 53 %.
+### Un seuil de 30 jours a ete essaye, puis retire
 
-### Effet reel par page, a connaitre
+Le taux de 67 % fait craindre qu'un repere allume sur deux tiers des lignes ne
+repere plus rien. Un seuil de 30 jours a donc ete livre, ramenant la part a
+267 sur 500 (53 %).
 
-La liste sort **triee par date d'alerte decroissante**. Le seuil ne repartit
-donc pas le rouge uniformement, il le deplace vers le fond de la liste :
+**Il a ete annule, sur une mesure et non une opinion** : la liste sort triee
+par date d'alerte decroissante, si bien que le seuil ne repartissait pas le
+rouge, il le **deplacait vers le fond de la liste**.
 
-| page | echues (seuil 0) | rouges (seuil 30) | age median du retard |
+| page | echues (sans seuil) | rouges (seuil 30) | age median du retard |
 |---|---|---|---|
 | 1 | 17/20 | **0/20** | 3 j |
 | 2 | 13/20 | 0/20 | 8 j |
@@ -457,23 +463,22 @@ donc pas le rouge uniformement, il le deplace vers le fond de la liste :
 | 4 | 14/20 | 0/20 | 16 j |
 | 5 | 11/20 | 1/20 | 21 j |
 | 6 | 9/20 | 9/20 | 41 j |
-| 7 | 14/20 | 14/20 | 49 j |
-| 8 | 13/20 | 13/20 | 47 j |
 
-**A l'ouverture de l'ecran, aucune ligne n'est rouge.** Le repere sert donc a
-reperer les dossiers qui trainent quand on parcourt la liste, pas a annoncer un
-retard des l'arrivee. Si c'est le second usage qui est voulu, il faut soit
-baisser le seuil, soit trier par anciennete.
+A l'ouverture de l'ecran, plus rien n'etait rouge — exactement l'inverse de ce
+qu'un repere « au premier coup d'oeil » doit faire.
 
-Deux autres constats :
+C'est aussi le comportement du logiciel de bureau, dont la colonne Alerte porte
+une icone rouge sur presque chaque ligne. Que la majorite des relances soient en
+retard est un fait du metier, pas un defaut d'affichage : le repere le
+constate, et c'est aux filtres de la page de trier.
 
-- **0 sur 20 et 1 sur 500** cote pre-prospections, quel que soit le seuil.
-  L'ecran ne rougira quasiment jamais ; ce n'est pas un bug de cablage.
-- `fermee` est dans la condition : 16 lignes sur 500 sont echues **et**
-  fermees. Une prospection perdue garde son alerte mais ne sera plus rappelee.
-- Le **badge** de la colonne Alerte, lui, s'allume des l'echeance passee. Les
-  deux signaux sont volontairement desynchronises : le badge dit « c'est du »,
-  le fond dit « ca traine ». Une ligne peut donc porter un badge sans fond.
+**Ne pas reintroduire de seuil sans remesurer la repartition par page.**
+
+### La condition contient `fermee`
+
+16 lignes sur 500 sont echues **et** fermees. Une prospection perdue garde son
+alerte mais ne sera plus rappelee : la signaler reclamerait une action qui n'a
+plus lieu d'etre.
 
 ### Le fond ne doit pas dependre de la selection de colonnes
 
