@@ -32,6 +32,7 @@ export type OngletFiche = {
 export default function FicheShell({
   identite,
   formulaire,
+  panneau,
   onglets,
   ongletActif,
   onOngletChange,
@@ -42,6 +43,14 @@ export default function FicheShell({
   /** Le formulaire dense. Hauteur naturelle — il ne défile pas, c'est ce qui
    * oblige à le garder court. */
   formulaire: ReactNode;
+  /** Panneau à droite du formulaire, sur la même ligne.
+   *
+   * Le logiciel de bureau n'en pose un que sur la fiche **dossier**, et pour
+   * une raison précise : la synthèse Montant / Réglé / Reste doit rester lisible
+   * pendant qu'on parcourt l'échéancier du bas. Deux zones d'onglets sur un
+   * même écran ne se justifient que là — les fiches prospection et
+   * pré-prospection n'ont rien à y mettre et ne passent pas cette prop. */
+  panneau?: ReactNode;
   onglets: OngletFiche[];
   ongletActif: string;
   onOngletChange: (id: string) => void;
@@ -54,7 +63,18 @@ export default function FicheShell({
     <div className="flex h-full min-h-0 flex-col gap-2.5">
       <div className="shrink-0">{identite}</div>
 
-      <div className="shrink-0">{formulaire}</div>
+      {panneau ? (
+        /* `items-stretch` : le panneau prend la hauteur du formulaire plutôt
+           que la sienne, sinon la synthèse flotte au-dessus d'un vide quand le
+           formulaire est plus haut qu'elle. `min-w-0` des deux côtés — un
+           tableau de montants large élargirait autrement la colonne. */
+        <div className="grid shrink-0 items-stretch gap-2.5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <div className="min-w-0">{formulaire}</div>
+          <div className="min-w-0">{panneau}</div>
+        </div>
+      ) : (
+        <div className="shrink-0">{formulaire}</div>
+      )}
 
       {barreAction && <div className="shrink-0">{barreAction}</div>}
 
