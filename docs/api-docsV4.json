@@ -6206,11 +6206,14 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Synthèse financière du dossier",
+        "description": "Reproduit l'onglet « Montants » du logiciel de bureau — l'onglet ouvert par défaut sur sa fiche dossier.\n\n**Toujours calculé, jamais stocké** : tout est agrégé à la lecture depuis l'échéancier (`ComDocument`) et les règlements qui s'y rattachent.\n\nTrois niveaux de lecture :\n- `parCategorie` — une ligne Montant / Réglé / Reste par catégorie d'échéancier (`AVANCE`, `AUTO-FINANCEMENT`, `FRAIS SYNDIC`…) ;\n- `prixVente` et `netAPayer` — les deux lignes de **synthèse**, qui ne sont pas des catégories : le prix de vente, puis ce même prix augmenté des frais exclus du prix ;\n- `totalGeneral` et `totalSoumisReglePrixTTC` — les totaux bruts.\n\nLa distinction « soumis au prix » repose sur `ComDocument.excludeFromPrice`, le booléen prévu pour cela dans le schéma, et non sur le libellé de la catégorie, qui est du texte libre configurable.\n\n⚠️ **Sur un dossier sorti** (`ANNULATION` / `DESISTEMENT`, signalé par `dossierSorti`), `netAPayer` se réduit à ce qui a été encaissé et son reste vaut zéro : un dossier annulé ne reste rien devoir. Règle vérifiée sans exception sur les 30 dossiers sortis réels.",
         "operationId": "montants",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -6220,7 +6223,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Synthèse financière. `parCategorie` est vide sur un dossier sans échéancier ; les lignes de synthèse restent servies, avec un réglé nul.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MontantsDossierDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun dossier avec cet id, ou dossier hors du périmètre commercial de l'appelant.",
             "content": {
               "*/*": {
                 "schema": {
@@ -9491,6 +9504,20 @@
           "immeubleLibelle": {
             "type": "string",
             "description": "Libellé de l'immeuble."
+          },
+          "titreFoncier": {
+            "type": "string",
+            "description": "Numéro de titre foncier du lot (`StkItem.TitleNumber`). Renseigné sur **69,6 %** des 358 dossiers réels — à afficher conditionnellement.",
+            "example": "R/12345"
+          },
+          "presentationCode": {
+            "type": "string",
+            "description": "Code du type de présentation du lot (`StkPresentationType`) — la case « Présentation » de l'écran légataire. **23,2 %**.",
+            "example": "C"
+          },
+          "presentationLibelle": {
+            "type": "string",
+            "description": "Libellé du type de présentation. **23,2 %**."
           }
         }
       },
@@ -9569,10 +9596,39 @@
             "type": "string"
           },
           "probabiliteFinalisation": {
-            "type": "number"
+            "type": "number",
+            "description": "Probabilité de finalisation du dossier.\n\n⚠️ **Exprimée en fraction, pas en pourcentage** : `1.00` signifie 100 %. L'écran légataire affiche « 100.00 % » pour cette même valeur. Comportement inchangé — la précision est ajoutée ici parce qu'elle manquait."
           },
           "modePaie": {
             "type": "string"
+          },
+          "prixM2": {
+            "type": "number",
+            "description": "Prix unitaire au m² (`ComFolder.UnitCost`) — la case « Prix du m² ». **98,3 %** des 358 dossiers réels.",
+            "example": 13000
+          },
+          "prixHT": {
+            "type": "number",
+            "description": "Prix de vente **hors taxes** (`ComFolder.PriceHT`), après remise. Le pendant HT de `prix`. **98,3 %**.",
+            "example": 776250
+          },
+          "prixAvantRemiseHT": {
+            "type": "number",
+            "description": "Prix **hors taxes avant remise** (`ComFolder.PriceBeforeDiscountHT`) — la case « Total HT ». Le pendant HT de `prixAvantRemise`. **98,3 %**.",
+            "example": 747500
+          },
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA appliqué au dossier (`ComFolder.VATRatio`). **42,7 %** — `null` ou zéro sur la majorité des dossiers, ne pas en déduire un taux nul."
+          },
+          "dateValiditeStatut": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de validité du statut courant (`ComFolder.StatusValidityDate`) — la date affichée à droite du statut sur l'écran légataire. **11,5 %** : elle n'a de sens que sur les statuts qui expirent, la réservation au premier chef."
+          },
+          "quotePart": {
+            "type": "number",
+            "description": "Quote-part de l'acquéreur principal sur le dossier (`ComFolder.PartPercent`).\n\n⚠️ **Fraction, pas pourcentage** : `1.00` = 100 %. Renseignée sur 100 % des dossiers, mais **95 % valent exactement 1,00** — l'information ne porte que sur les 5 % en indivision. Les quotes-parts des co-acquéreurs se lisent sur `GET /api/dossiers/{id}/payeurs`."
           },
           "prospectionId": {
             "type": "string",
@@ -9782,6 +9838,16 @@
           },
           "statutCalcule": {
             "type": "string"
+          },
+          "decompte": {
+            "type": "string",
+            "description": "Numéro de décompte rattaché à l'échéance (`ComDocument.QuittanceCode`) — la colonne « Décompte » de l'écran légataire. **16,5 %** des 921 échéances réelles en portent un.\n\n`null` quand il n'y en a pas. En base la colonne n'est **jamais** `NULL` — elle porte une chaîne vide, normalisée ici. Le logiciel de bureau affiche « N.A. » dans ce cas ; c'est un choix d'affichage, à refaire côté client.",
+            "example": "25/00167"
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création de la ligne d'échéancier (`ComDocument.UserCreateDateTime`) — colonne « Créé le » de l'écran légataire. Renseignée sur **100 %** des échéances.\n\nÀ ne pas confondre avec `dateEcheance`, qui est la date d'exigibilité : une échéance créée le 10/12/2025 peut être exigible le 10/12/2026."
           }
         }
       },
@@ -12556,6 +12622,39 @@
           },
           "totalSoumisReglePrixTTC": {
             "type": "number"
+          },
+          "prixVente": {
+            "$ref": "#/components/schemas/SyntheseMontantDto",
+            "description": "Ligne « Prix de vente » de l'écran légataire.\n\n`montant` est le prix stocké sur le dossier (`ComFolder.Price`), **pas** une re-dérivation de l'échéancier : les deux coïncident sur 327 des 328 dossiers actifs, et c'est le prix stocké qui fait foi.\n\n`regle` agrège les règlements des échéances **non exclues du prix** (`ComDocument.excludeFromPrice`), donc hors frais."
+          },
+          "netAPayer": {
+            "$ref": "#/components/schemas/SyntheseMontantDto",
+            "description": "Ligne « Net à payer » de l'écran légataire — le prix de vente augmenté des frais exclus du prix.\n\n⚠️ **Sur un dossier sorti** (`ANNULATION` ou `DESISTEMENT`), le montant se réduit à ce qui a déjà été encaissé et le reste tombe à **zéro** : un dossier annulé ne reste rien devoir. Règle vérifiée sur les 30 dossiers sortis réels, sans exception. Ce n'est pas une donnée manquante mais la règle métier."
+          },
+          "dossierSorti": {
+            "type": "boolean",
+            "description": "`true` si le dossier est **sorti** du parcours — statut `ANNULATION` ou `DESISTEMENT`. Correspond exactement au `IsCancellation` du logiciel de bureau (30/30 sur les dossiers réels). Explique la règle particulière de `netAPayer`."
+          }
+        }
+      },
+      "SyntheseMontantDto": {
+        "type": "object",
+        "description": "Triade Montant / Réglé / Reste d'une ligne de synthèse financière.",
+        "properties": {
+          "montant": {
+            "type": "number",
+            "description": "Montant dû au titre de cette ligne.",
+            "example": 931500
+          },
+          "regle": {
+            "type": "number",
+            "description": "Part déjà encaissée.",
+            "example": 160000
+          },
+          "reste": {
+            "type": "number",
+            "description": "Solde restant — toujours `montant − regle`, vérifié sur les 358 dossiers réels.",
+            "example": 771500
           }
         }
       },

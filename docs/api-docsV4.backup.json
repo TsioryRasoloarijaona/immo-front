@@ -2886,7 +2886,7 @@
           "Prospections"
         ],
         "summary": "Détail d'une prospection (ou d'une pré-prospection)",
-        "description": "Sert aussi bien une prospection qualifiée qu'une pré-prospection : `GET /api/pre-prospections` n'expose pas de route de détail propre, les deux partagent cette fiche.\n\n**Périmètre commercial** : une prospection hors du périmètre de l'appelant renvoie **404**, et non 403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants. Même règle pour toutes les routes imbriquées (interactions, devis, qualification, documents).\n\n**Deux origines de données, deux comportements** :\n- les champs issus de `ComProspection` et de ses associations (société, type de tiers, coordonnées, codes de référentiel, audit) sont servis **dans tous les cas**, pré-prospection comprise ;\n- le bloc `activite` vient de `ComSaleProspectionView`, qui exclut les pré-prospections : il vaut alors `null` **en entier**. `null` signifie « non disponible », jamais « zéro ».\n\nLes champs mesurés morts (`prix`, `surface`, avance, financement, `proposeur*`) restent exposés pour ne pas rompre le contrat existant, mais ne doivent pas être affichés — voir leur `@Schema`.",
+        "description": "Sert aussi bien une prospection qualifiée qu'une pré-prospection : `GET /api/pre-prospections` n'expose pas de route de détail propre, les deux partagent cette fiche.\n\n**Périmètre commercial** : une prospection hors du périmètre de l'appelant renvoie **404**, et non 403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants. Même règle pour toutes les routes imbriquées (interactions, devis, qualification, documents).\n\n**Deux origines de données, deux comportements** :\n- les champs issus de `ComProspection` et de ses associations (société, type de tiers, coordonnées, codes de référentiel, audit) sont servis **dans tous les cas**, pré-prospection comprise ;\n- le bloc `activite` vient de `ComSaleProspectionView`, qui exclut les pré-prospections : il vaut alors `null` **en entier**. `null` signifie « non disponible », jamais « zéro ».\n\nLes champs mesurés morts (`prix`, `surface`, avance, financement, `proposeur*`) restent exposés pour ne pas rompre le contrat existant, mais ne doivent pas être affichés — voir leur `@Schema`.\n\n**Tri manuel et déduplication** : `marqueurTri` (`DOUBLON`, `SPAM`, `TRAITE`) et `doublonDe*` exposent un mécanisme que l'équipe tenait dans des champs libres. **L'endpoint les expose sans rien filtrer** — 798 pré-prospections sont marquées doublon ou spam et 795 d'entre elles sont encore à l'étape `1 A TRAITER` : c'est au client de décider du traitement. Voir `instructions/FEATURE-marqueurs-tri-pre-prospection.md`.\n\n**Sur une pré-prospection**, `fermee` (0 %), les champs `article*` (0,2 %) et `proposeur*` (0 %) sont structurellement vides — ne pas les attendre.",
         "operationId": "findById_1",
         "parameters": [
           {
@@ -8575,21 +8575,50 @@
           },
           "creePar": {
             "type": "string",
-            "description": "Auteur de la création. **34,3 % seulement** : les prospections créées par notre API ne posent pas `UserCreate` (défaut connu). Un front qui affiche l'auteur verra deux fiches sur trois sans auteur."
+            "description": "Auteur de la création. **34,3 % des prospections, 27,1 % des pré-prospections** : les lignes créées par notre API ne posent pas `UserCreate` (défaut connu). Un front qui affiche l'auteur verra deux fiches sur trois sans auteur."
           },
           "creeLe": {
             "type": "string",
             "format": "date-time",
-            "description": "Date de création de la prospection. 100 %."
+            "description": "Date de création. 100 % sur les deux populations."
           },
           "modifiePar": {
             "type": "string",
-            "description": "Auteur de la dernière modification. 100 %."
+            "description": "Auteur de la dernière modification. **100 % des prospections, mais 28,1 % des pré-prospections** — un lead injecté automatiquement et jamais rouvert n'a pas d'auteur de modification."
           },
           "modifieLe": {
             "type": "string",
             "format": "date-time",
-            "description": "Date de la dernière modification. 100 %."
+            "description": "Date de la dernière modification. **100 % des prospections, 28,1 % des pré-prospections.**"
+          },
+          "noteQualification": {
+            "type": "string",
+            "description": "Contenu du champ libre de qualification (`TempField1`), servi tel quel — seuls les espaces de bordure sont retirés, et une valeur vide devient `null`. Ni la casse ni l'orthographe ne sont corrigées : c'est justement ce qu'on ne sait pas interpréter.\n\n**Son sens dépend de la population.** Sur une pré-prospection c'est un marqueur de tri (« Doublon », « spam »). Sur une prospection c'est le plus souvent la typologie recherchée — `salon_+_2_chambres` (518 lignes), `salon_+_1_chambre` (213) — parfois une ville ou un budget. Servi brut précisément parce qu'il n'est pas normalisé ; utiliser `marqueurTri` quand on cherche un marqueur.",
+            "example": "salon_+_2_chambres"
+          },
+          "marqueurTri": {
+            "type": "string",
+            "description": "Marqueur de tri **normalisé**, déduit de `noteQualification` par correspondance exacte (casse et accents ignorés).\n\n`null` dès que le texte n'est pas un marqueur reconnu — **c'est le cas le plus fréquent** (1 239 lignes de texte libre, dont les 1 200 typologies). `null` signifie « pas un marqueur connu », jamais « pas de note » : regarder `noteQualification`.\n\nVolumes réels : `DOUBLON` 921, `SPAM` 32, `TRAITE` 10.",
+            "enum": [
+              "DOUBLON",
+              "SPAM",
+              "TRAITE"
+            ],
+            "example": "DOUBLON"
+          },
+          "doublonDeCode": {
+            "type": "string",
+            "description": "Code du tiers que cette fiche duplique (`TempField10`). 849 lignes réelles le portent, et **les 849 résolvent vers un `CfgTier` existant**. Toujours renseigné quand le pointeur existe, **même si la résolution échoue**.",
+            "example": "25/11847"
+          },
+          "doublonDeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du tiers dupliqué, une fois `doublonDeCode` résolu.\n\n`null` si le code ne correspond à **aucun** tiers ou à **plusieurs** : `CfgTier.Code` n'est pas unique (14 516 tiers pour 14 504 codes), et désigner un tiers au hasard serait pire que ne rien désigner. Dans ce cas `doublonDeCode` reste affichable, sans lien."
+          },
+          "doublonDeNom": {
+            "type": "string",
+            "description": "Nom du tiers dupliqué. `null` dans les mêmes cas que `doublonDeId`."
           },
           "typeProspectionId": {
             "type": "string",
