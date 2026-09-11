@@ -696,6 +696,39 @@
             "example": "code,prospectNom,joursInactivite,nbInteractions"
           },
           {
+            "name": "groupeColonne",
+            "in": "query",
+            "description": "Déplie un groupe : restreint la liste aux prospections d'un groupe renvoyé par `GET /api/prospections/groupes`. Attend le nom de la colonne qui a servi au groupement.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "etape"
+          },
+          {
+            "name": "groupeValeur",
+            "in": "query",
+            "description": "Valeur du groupe à déplier — **la `cle` renvoyée telle quelle par `/groupes`**. Omise alors que `groupeColonne` est fourni : le groupe des prospections sans valeur sur cette colonne.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité si `groupeColonne` est une date. Doit être identique à celle passée à `/groupes`. Défaut : MOIS.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            }
+          },
+          {
             "name": "filtres",
             "in": "query",
             "required": true,
@@ -1784,6 +1817,41 @@
               }
             },
             "example": "code,statut,projetCode,trancheCode,creePar"
+          },
+          {
+            "name": "groupeColonne",
+            "in": "query",
+            "description": "Déplie un groupe : restreint la liste aux dossiers d'un groupe renvoyé par `GET /api/dossiers/groupes`. Attend le nom de la colonne qui a servi au groupement.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "statut"
+          },
+          {
+            "name": "groupeValeur",
+            "in": "query",
+            "description": "Valeur du groupe à déplier — **la `cle` renvoyée telle quelle par `/groupes`**, sans transformation. Omise alors que `groupeColonne` est fourni : le groupe des dossiers sans valeur sur cette colonne.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "CONCRETISATION"
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité appliquée quand `groupeColonne` est une date. Doit être identique à celle passée à `/groupes`, sinon la clé ne retombe pas sur le même groupe. Défaut : MOIS.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "MOIS"
           },
           {
             "name": "pageable",
@@ -4535,7 +4603,7 @@
           "Référentiels"
         ],
         "summary": "Catalogue des colonnes de la liste des prospects",
-        "description": "Alimente le **sélecteur de colonnes** de `GET /api/prospects`, sur le même contrat que celui des prospections : nom technique à passer dans `?colonnes=`, libellé français, groupe, type d'affichage, et appartenance à la sélection par défaut.\n\nLa sélection par défaut reproduit **exactement** les 10 colonnes servies avant l'introduction du paramètre — une intégration qui ignore `colonnes` ne voit aucun changement.\n\nDeux réserves utiles au moment de bâtir le sélecteur : `profession` est alimentée par une colonne **mesurée à 0 ligne sur 13 664** et sera donc toujours vide ; `kind` l'est sur 14 339 des 14 516 tiers réels. Les **tranches d'intérêt sont absentes du catalogue** : elles exigent une requête par prospect et restent réservées à la fiche.\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
+        "description": "Alimente le **sélecteur de colonnes** de `GET /api/prospects`, sur le même contrat que celui des prospections : nom technique à passer dans `?colonnes=`, libellé français, groupe, type d'affichage, et appartenance à la sélection par défaut.\n\nLa sélection par défaut reproduit **exactement** les 10 colonnes servies avant l'introduction du paramètre — une intégration qui ignore `colonnes` ne voit aucun changement.\n\nDeux réserves utiles au moment de bâtir le sélecteur : `profession` est alimentée par une colonne **mesurée à 0 ligne sur 13 664** et sera donc toujours vide ; `kind` l'est sur 14 339 des 14 516 tiers réels. Les **tranches d'intérêt sont absentes du catalogue** : elles exigent une requête par prospect et restent réservées à la fiche.\n\nPorte aussi **`groupable`** et **`agregeable`**, qui pilotent la bande de groupement et les bandes « Total : » de `/groupes` — le front n'en code donc aucune liste en dur. Toutes les colonnes ne sont pas groupables : voir instructions/FEATURE-groupement-listes.md §2.\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
         "operationId": "getColonnesProspects",
         "responses": {
           "200": {
@@ -4560,7 +4628,7 @@
           "Référentiels"
         ],
         "summary": "Catalogue des colonnes de la liste des prospections",
-        "description": "Alimente le **sélecteur de colonnes** de `GET /api/prospections`. Chaque entrée donne le nom technique à passer dans `?colonnes=`, son libellé français, son groupe d'affichage, son type (pour aligner et formater), et si elle fait partie de la sélection par défaut.\n\nLe front n'a ainsi aucune liste de colonnes à coder en dur, et le catalogue est la même source que la liste blanche qui valide `?colonnes=` — les deux ne peuvent pas diverger.\n\nLes colonnes du groupe `ACTIVITE` (et `CONVERSION`) proviennent d'une vue de la base légataire : les demander déclenche une requête supplémentaire, mesurée à 7 ms pour une page de 20. Ne pas les demander n'en déclenche aucune.\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
+        "description": "Alimente le **sélecteur de colonnes** de `GET /api/prospections`. Chaque entrée donne le nom technique à passer dans `?colonnes=`, son libellé français, son groupe d'affichage, son type (pour aligner et formater), et si elle fait partie de la sélection par défaut.\n\nLe front n'a ainsi aucune liste de colonnes à coder en dur, et le catalogue est la même source que la liste blanche qui valide `?colonnes=` — les deux ne peuvent pas diverger.\n\nLes colonnes du groupe `ACTIVITE` (et `CONVERSION`) proviennent d'une vue de la base légataire : les demander déclenche une requête supplémentaire, mesurée à 7 ms pour une page de 20. Ne pas les demander n'en déclenche aucune.\n\nPorte aussi **`groupable`** et **`agregeable`**, qui pilotent la bande de groupement et les bandes « Total : » de `/groupes` — le front n'en code donc aucune liste en dur. Toutes les colonnes ne sont pas groupables : voir instructions/FEATURE-groupement-listes.md §2.\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
         "operationId": "getColonnesProspections",
         "responses": {
           "200": {
@@ -4585,7 +4653,7 @@
           "Référentiels"
         ],
         "summary": "Catalogue des colonnes de la liste des dossiers de vente",
-        "description": "Alimente le **sélecteur de colonnes** de `GET /api/dossiers`, sur le même contrat que les deux précédents.\n\nLa sélection par défaut reproduit **exactement** les 13 colonnes servies avant l'introduction du paramètre.\n\nLes colonnes du groupe `PATRIMOINE` traversent la chaîne article → tranche → projet → société : les demander coûte trois jointures paresseuses par ligne, ne pas les demander n'en coûte aucune. Même règle pour le groupe `ORIGINE`, qui déréférence la prospection.\n\nNe figurent pas au catalogue, et c'est délibéré : les **articles** (une requête par dossier), la **ventilation financière du légataire** (5 postes vivants sur 12, et un bloc `Agreement*` qui diverge du bloc principal sur 20 % des lignes sans qu'on sache lequel fait foi) et **`notes`** (mesurée à 0 ligne sur 358).\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
+        "description": "Alimente le **sélecteur de colonnes** de `GET /api/dossiers`, sur le même contrat que les deux précédents.\n\nLa sélection par défaut reproduit **exactement** les 13 colonnes servies avant l'introduction du paramètre.\n\nLes colonnes du groupe `PATRIMOINE` traversent la chaîne article → tranche → projet → société : les demander coûte trois jointures paresseuses par ligne, ne pas les demander n'en coûte aucune. Même règle pour le groupe `ORIGINE`, qui déréférence la prospection.\n\nNe figurent pas au catalogue, et c'est délibéré : les **articles** (une requête par dossier), la **ventilation financière du légataire** (5 postes vivants sur 12, et un bloc `Agreement*` qui diverge du bloc principal sur 20 % des lignes sans qu'on sache lequel fait foi) et **`notes`** (mesurée à 0 ligne sur 358).\n\nPorte aussi **`groupable`** et **`agregeable`**, qui pilotent la bande de groupement et les bandes « Total : » de `/groupes` — le front n'en code donc aucune liste en dur. Toutes les colonnes ne sont pas groupables : voir instructions/FEATURE-groupement-listes.md §2.\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
         "operationId": "getColonnesDossiers",
         "responses": {
           "200": {
@@ -5206,6 +5274,180 @@
         }
       }
     },
+    "/api/prospections/groupes": {
+      "get": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Liste des prospections repliée en groupes, avec effectifs et totaux",
+        "description": "Reproduit la bande de groupement du logiciel de bureau : un groupe par valeur distincte de `groupBy`, portant son effectif et les sommes demandées.\n\n**Les effectifs portent sur tout le périmètre filtré, pas sur une page** — c'est la raison d'être de cet endpoint : la liste étant paginée, grouper côté front ne grouperait qu'une page et fausserait tous les totaux.\n\n**Filtres identiques à `GET /api/prospections`**, filtres avancés et périmètre commercial compris. Pour ouvrir un groupe : `GET /api/prospections?groupeColonne=<groupBy>&groupeValeur=<cle>`.\n\n**Seules les colonnes servies par l'entité sont groupables.** Les colonnes du groupe `ACTIVITE` (`joursInactivite`, `nbInteractions`…) et de `CONVERSION` viennent de la vue légataire `ComSaleProspectionView`, chargée par une requête distincte : elles n'existent pas dans le graphe d'entités et ne peuvent donc pas servir de clé de groupement. `GET /api/referentiels/colonnes/prospections` donne la liste exacte via le booléen `groupable`.",
+        "operationId": "grouper",
+        "parameters": [
+          {
+            "name": "groupBy",
+            "in": "query",
+            "description": "Colonne de groupement. **Requis.** Un seul niveau.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "etape"
+          },
+          {
+            "name": "agregats",
+            "in": "query",
+            "description": "Colonnes à sommer, répétable ou séparées par des virgules.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "prix"
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité si `groupBy` est une date. Défaut : MOIS — grouper sur la date exacte rendrait 16 588 groupes pour 17 939 lignes.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "MOIS"
+          },
+          {
+            "name": "tri",
+            "in": "query",
+            "description": "LIBELLE (croissant, défaut) ou NOMBRE (effectif décroissant).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LIBELLE",
+                "NOMBRE"
+              ]
+            }
+          },
+          {
+            "name": "etape",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "origine",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "commercial",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ouvertes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "filtres",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/FiltresAvancesProspection"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes, paginés comme une liste",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoGroupeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`groupBy` absent, inconnu ou non groupable ; ou `agregats` contenant une colonne non agrégeable. Le corps porte la liste des noms acceptés."
+          }
+        }
+      }
+    },
     "/api/projets": {
       "get": {
         "tags": [
@@ -5402,6 +5644,39 @@
             }
           },
           {
+            "name": "groupeColonne",
+            "in": "query",
+            "description": "Déplie un groupe : restreint la liste aux pré-prospections d'un groupe renvoyé par `GET /api/pre-prospections/groupes`.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "origine"
+          },
+          {
+            "name": "groupeValeur",
+            "in": "query",
+            "description": "Valeur du groupe à déplier — la `cle` renvoyée telle quelle par `/groupes`. Omise avec `groupeColonne` fourni : le groupe sans valeur.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité si `groupeColonne` est une date. Défaut : MOIS.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            }
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -5420,6 +5695,170 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/pre-prospections/groupes": {
+      "get": {
+        "tags": [
+          "Pré-prospections"
+        ],
+        "summary": "Liste des pré-prospections repliée en groupes, avec effectifs et totaux",
+        "description": "Même mécanique que `GET /api/prospections/groupes`, appliquée au périmètre des pré-prospections (`CfgProspectId IS NULL AND CfgCommercialId IS NULL`).\n\n**Les effectifs portent sur tout le périmètre filtré, pas sur une page.** Pour ouvrir un groupe : `GET /api/pre-prospections?groupeColonne=<groupBy>&groupeValeur=<cle>`.\n\nDeux colonnes n'ont ici aucun intérêt et rendront un groupe unique à valeur nulle : `prospectNom` et `commercialNom`, nuls par définition sur ce périmètre. Elles restent acceptées plutôt que refusées par un cas particulier — le résultat est exact, simplement sans information.",
+        "operationId": "grouper_1",
+        "parameters": [
+          {
+            "name": "groupBy",
+            "in": "query",
+            "description": "Colonne de groupement. **Requis.** Un seul niveau.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "origine"
+          },
+          {
+            "name": "agregats",
+            "in": "query",
+            "description": "Colonnes à sommer, répétable ou séparées par des virgules.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité si `groupBy` est une date. Défaut : MOIS.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            }
+          },
+          {
+            "name": "tri",
+            "in": "query",
+            "description": "LIBELLE (croissant, défaut) ou NOMBRE (effectif décroissant).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LIBELLE",
+                "NOMBRE"
+              ]
+            }
+          },
+          {
+            "name": "etape",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "origine",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "commercial",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ouvertes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes, paginés comme une liste",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoGroupeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`groupBy` absent, inconnu ou non groupable ; ou `agregats` contenant une colonne non agrégeable."
           }
         }
       }
@@ -6542,6 +6981,179 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/dossiers/groupes": {
+      "get": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Liste des dossiers repliée en groupes, avec effectifs et totaux",
+        "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par valeur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Pourquoi cet endpoint plutôt qu'un groupement côté front** : la liste est paginée. Grouper une page ne donnerait que des groupes tronqués et des totaux faux. Les effectifs et totaux ci-dessous portent sur **tout le périmètre filtré**, pas sur une page.\n\n**Les filtres sont exactement ceux de `GET /api/dossiers`** — mêmes noms, même sémantique, périmètre commercial compris. Un même jeu de filtres des deux côtés garantit que la somme des effectifs des groupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET /api/dossiers` avec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/dossiers` (booléens `groupable` / `agregeable`). Toutes les colonnes ne le sont pas, et c'est mesuré : un montant porte presque autant de valeurs distinctes que de lignes, une date exacte aussi — d'où `granularite` pour les dates et le refus de grouper un montant.",
+        "operationId": "grouper_2",
+        "parameters": [
+          {
+            "name": "groupBy",
+            "in": "query",
+            "description": "Colonne de groupement. **Requis.** Un seul niveau de groupement est supporté.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "statut"
+          },
+          {
+            "name": "agregats",
+            "in": "query",
+            "description": "Colonnes à sommer, répétable ou séparées par des virgules. Absent : seul l'effectif de chaque groupe est renvoyé.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "prix,totalAPayer"
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité de regroupement d'une colonne date. Ignorée si `groupBy` n'est pas une date. Défaut : MOIS — grouper sur la date exacte rendrait 214 groupes pour 358 dossiers, soit une liste plate.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "MOIS"
+          },
+          {
+            "name": "tri",
+            "in": "query",
+            "description": "Ordre des groupes : LIBELLE (croissant, défaut) ou NOMBRE (effectif décroissant).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LIBELLE",
+                "NOMBRE"
+              ]
+            },
+            "example": "NOMBRE"
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "commercial",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projet",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RESERVATION",
+                "CONCRETISATION",
+                "COMPROMIS",
+                "ENVOI_NOTAIRE",
+                "CREDIT_DEBLOQUE",
+                "MINUTE",
+                "REMISE_DES_CLES",
+                "FORMALISATION",
+                "ANNULATION"
+              ]
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes, paginés comme une liste",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoGroupeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`groupBy` absent, inconnu, ou désignant une colonne non groupable ; ou `agregats` contenant une colonne non agrégeable. Le corps (RFC 7807) porte la liste des noms acceptés."
           }
         }
       }
@@ -11101,6 +11713,16 @@
             "type": "boolean",
             "description": "Vraie pour les colonnes renvoyées quand `?colonnes=` est absent. L'ensemble des colonnes `parDefaut` reproduit exactement la réponse historique de la liste.",
             "example": false
+          },
+          "groupable": {
+            "type": "boolean",
+            "description": "Vraie si la colonne peut servir de clé à `?groupBy=` sur l'endpoint `/groupes` de la liste. Le front pilote sa bande de groupement là-dessus, sans liste en dur.\n\n**Toutes les colonnes ne le sont pas, et c'est délibéré** : un montant porte presque autant de valeurs distinctes que de lignes (190 prix pour 358 dossiers), et les colonnes calculées par la vue légataire n'existent pas dans le graphe d'entités. Voir `instructions/FEATURE-groupement-listes.md` §2.",
+            "example": true
+          },
+          "agregeable": {
+            "type": "boolean",
+            "description": "Vraie si la colonne peut être sommée via `?agregats=` — les bandes « Total : » sous un en-tête de groupe. Concerne les colonnes MONTANT et NOMBRE.",
+            "example": false
           }
         }
       },
@@ -12059,6 +12681,64 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/DevisDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "GroupeDto": {
+        "type": "object",
+        "description": "Un groupe de la liste repliée — l'équivalent d'un en-tête « Client : Adnane ES-SAIYDY (1 item) » suivi de sa bande « Total : » dans le logiciel de bureau.\n\nLes groupes sont **repliés** : ils portent l'effectif et les totaux, pas les lignes. Pour obtenir les lignes d'un groupe, rappeler la liste correspondante avec `?groupeColonne=<la colonne groupée>&groupeValeur=<la clé ci-dessous>`.",
+        "properties": {
+          "cle": {
+            "description": "Valeur technique du groupe, à réémettre telle quelle dans `?groupeValeur=` pour déplier le groupe. Selon la colonne groupée : un identifiant (groupement par client/commercial/notaire), un code (statut, tranche, origine), un booléen, ou un entier de période (`202507` pour juillet 2025, `2025` pour l'année).\n\n**`null` est une valeur de groupe légitime** : ce sont les lignes sans valeur sur la colonne groupée. Le groupe est renvoyé et non masqué, sans quoi la somme des effectifs cesserait de retomber sur le total de la liste.",
+            "example": "CONCRETISATION"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé affichable du groupe. Identique à `cle` pour la plupart des colonnes ; dérivé pour les groupements par tiers (priorité raison sociale > description > prénom + nom, exactement comme la colonne correspondante de la liste) et pour les périodes (`juillet 2025`). `null` pour le groupe des lignes sans valeur.",
+            "example": "CONCRETISATION"
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lignes du groupe — le « (1 item) » de l'écran légataire.",
+            "example": 12
+          },
+          "agregats": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Sommes des colonnes demandées via `?agregats=`, indexées par le nom de colonne tel qu'il apparaît dans la liste (`prix`, `totalAPayer`...). Vide si `agregats` n'est pas fourni. Une colonne dont toutes les lignes du groupe sont nulles vaut `0`, jamais `null` — c'est un total, pas une valeur absente.",
+            "example": {
+              "prix": 1350000
+            }
+          }
+        }
+      },
+      "PageDtoGroupeDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupeDto"
             }
           },
           "page": {

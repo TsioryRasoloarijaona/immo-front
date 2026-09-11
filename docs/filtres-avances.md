@@ -256,6 +256,100 @@ des noms valides sur un nom inconnu, `id` toujours servi, et une liste close
 (demander `prospectionCode` sans `prospectionId` renvoie bien la colonne
 sans son id).
 
+## Groupement des listes — ce qui a ete mesure (11/09)
+
+Livraison V4 : `GET /api/{prospections,pre-prospections,dossiers}/groupes`,
+plus `groupeColonne`/`groupeValeur`/`granularite` sur les listes, plus les
+booleens `groupable`/`agregeable` sur `ColonneDto`.
+
+Verifie contre le serveur reel, 16 controles, tous verts :
+
+- **somme des effectifs == `totalElements` de la liste**, a filtres egaux, sur
+  6 combinaisons (dossiers/statut, dossiers/commercial+recherche,
+  dossiers/tranche+fenetre de dates, prospections/etape+ouvertes,
+  prospections/origine+recherche, pre-prospections/origine) ;
+- **deplier un groupe redonne exactement son effectif**, groupe nul compris
+  (93 dossiers sans avocat, 7 prospections sans etape) ;
+- **temps en regime etabli** : 48-114 ms (dossiers), 235-664 ms
+  (prospections), ~240 ms (pre-prospections). Le premier appel a 4 975 ms est
+  un demarrage a froid, pas une regression.
+
+Catalogue mesure : prospections 21 groupables / 2 agregeables sur 56 colonnes ;
+dossiers 22 / 8 sur 40 ; **prospects 0 / 0**, et il n'existe pas de
+`/api/prospects/groupes` — cet ecran n'a donc pas de bande de groupement, ce
+qui est coherent. La description du catalogue prospects annonce pourtant que
+les drapeaux « pilotent la bande de groupement » : formulation a corriger, sans
+consequence fonctionnelle.
+
+### Forme retenue : le depliant, pas deux ecrans
+
+Les groupes s'intercalent **dans la grille**, comme dans le logiciel de bureau :
+un en-tete `⊟ Statut : CONCRETISATION (68 items)` porte l'effectif et les
+bandes « Total : », et s'ouvre sur place pour laisser apparaitre ses lignes dans
+les memes colonnes. **Plusieurs groupes restent ouverts en meme temps** — c'est
+tout l'interet du depliant, et ce qu'une bascule entre deux vues ne permet pas.
+
+Un groupe n'est pas borne (mesure : 7 612 prospections dans « 1 A TRAITER »), il
+se charge donc par lots de 20, avec une ligne de pied qui annonce le reste.
+
+### Constat serveur : l'ordre des lignes n'est pas deterministe
+
+Le chargement par lots redemande la page 0 avec une taille plus grande, ce qui
+suppose que le lot precedent en soit le prefixe. **Mesure : ce n'est pas
+toujours le cas.** Le groupe « 2024 » des dossiers, trie sur la seule
+`docDate`, ressortait dans un ordre different d'un appel a l'autre — les ex
+aequo sont departages par le plan SQL du moment, et le desordre est
+intermittent.
+
+Absorbe cote front en passant un tri qui tranche : `sort=docDate,desc` **plus**
+`sort=id,asc`, accepte 200 sur les trois endpoints. Verifie ensuite 15 fois de
+suite sur trois groupes : prefixe stable 15/15.
+
+**A noter pour plus tard** : le meme aleas existe sur la pagination ordinaire
+des listes, ou il peut cacher ou dupliquer une ligne entre deux pages. Non
+touche ici — ce serait changer l'ordre d'affichage actuel sans que personne ne
+l'ait demande — mais c'est un vrai defaut latent.
+
+### Piege serveur, absorbe cote front
+
+`?granularite=` **doit accompagner la cle** au depliage. Mesure :
+`?groupeColonne=dateDocument&groupeValeur=2024` sans `granularite=ANNEE` rend
+`totalElements: 0` en **HTTP 200** — un ecran vide, sans erreur. Le front fait
+circuler une seule granularite, derivee au meme endroit pour les deux requetes
+(`lib/groupement.ts`).
+
+### Deux colonnes `agregeable` dont la somme n'informe pas
+
+Le serveur accepte `?agregats=remise` et `?agregats=probabiliteFinalisation`.
+Ce sont des taux, pas des quantites :
+
+- `remise` est un **ratio 0-1** (mesure : -0,207865 a 0,988329) ; sa somme par
+  statut vaut 1,88 / 4,97 / 0,29 ;
+- `probabiliteFinalisation` vaut **1 sur les 116 dossiers** ; sa somme est donc
+  l'effectif du groupe, deja affiche a cote.
+
+Le front ne les propose pas au Σ (`AGREGATS_SANS_SENS`). Rien a demander : la
+somme est calculable, c'est son sens qui manque. Une moyenne serait l'agregat
+juste pour un taux — a considerer si le besoin se confirme.
+
+### Consequence sur la demande §statut ci-dessus : elle monte en priorite
+
+Le contournement des 500 lignes n'empeche plus seulement de filtrer
+efficacement — il **interdit le groupement** des que l'utilisateur filtre par
+statut.
+
+Raison : le contournement filtre *apres* le serveur. L'endpoint `/groupes` ne
+renvoie pas de lignes a refiltrer, il renvoie des effectifs deja calcules. Lui
+cacher le filtre statut donnerait des groupes comptes sur un perimetre plus
+large que la liste affichee — des totaux faux presentes comme justes. Le front
+desactive donc la bande de groupement tant qu'un statut est filtre, en
+l'annoncant (`GROUPEMENT_ET_STATUT` dans `DossiersList.tsx`).
+
+Re-mesure du 11/09, inchangee : `statut=CONCRETISATION` rend 68 dossiers,
+`statut=Concrétisation` en rend **0 en HTTP 200**. Et aucune normalisation ne
+rattrape l'ecart — « Remise des clés » se code `REMISE DES CLEFS`, « Annulé »
+se code `ANNULATION`. Il faut le backend.
+
 ## Demande backend — champs éditables de la pré-prospection (10/09)
 
 `ModifierProspectionRequest` porte quatorze champs, dont huit mesurés morts

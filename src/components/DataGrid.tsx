@@ -1,9 +1,15 @@
-import { Fragment, useMemo, useState, type ReactNode } from 'react';
-import { ChevronDown, ChevronRight, ChevronUp, Sigma } from 'lucide-react';
+import { Fragment, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { ChevronDown, ChevronRight, ChevronUp, Sigma, SquareMinus, SquarePlus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './ui/table';
 import { formatCurrency, formatDate, formatNumber } from '../lib/format';
 import { cn } from '../lib/utils';
-import type { TypeColonne } from '../types';
+import {
+  TAILLE_LOT_GROUPE,
+  identiteGroupe,
+  libelleGroupeAffiche,
+  type LignesGroupe,
+} from '../lib/groupement';
+import type { ColonneDto, GroupeDto, TypeColonne } from '../types';
 
 /** Grille de données partagée par tous les écrans de liste.
  *
@@ -60,6 +66,26 @@ export type ColonneGrille<T> = {
 
 const TIRET = <span className="text-muted-foreground">—</span>;
 
+/** Ce qu'un écran fournit à `DataGrid` pour replier sa liste en groupes.
+ *
+ * Compose `useGroupement` (l'axe, servi par `/groupes`) et `useLignesGroupes`
+ * (les lignes de chaque groupe déplié). La grille ne connaît ni l'un ni
+ * l'autre : elle reçoit des données et des rappels. */
+export type GroupementGrille<T> = {
+  liste: GroupeDto[];
+  /** Libellé de la colonne groupée, préfixe de chaque en-tête. */
+  colonneLibelle: string;
+  /** Colonnes sommées par le serveur, une bande de totaux chacune. */
+  agregats: ColonneDto[];
+  estOuvert: (g: GroupeDto) => boolean;
+  etat: (g: GroupeDto) => LignesGroupe<T> | undefined;
+  basculer: (g: GroupeDto) => void;
+  chargerPlus: (g: GroupeDto) => void;
+  /** Toutes les lignes affichées, tous groupes ouverts confondus — ce sur quoi
+   * porte le pied Σ. */
+  lignesChargees: T[];
+};
+
 const NUMERIQUES: TypeColonne[] = ['MONTANT', 'NOMBRE'];
 
 /** Rendu par défaut, piloté par le `type` de la colonne. */
@@ -115,6 +141,7 @@ export default function DataGrid<T extends { id: string }>({
   bandeauRegroupement = true,
   selection,
   rendreDetail,
+  groupes,
 }: {
   rows: T[];
   colonnes: ColonneGrille<T>[];
@@ -129,8 +156,16 @@ export default function DataGrid<T extends { id: string }>({
    * suffit à remplir le conteneur, et `table-auto` fait le reste. À ne passer
    * que pour forcer un plancher précis. */
   minWidth?: string;
-  /** Le bandeau « glisser un en-tête pour regrouper ». À couper sur une
-   * grille courte où il pèserait plus que les données. */
+  /** Le bandeau inerte « glisser un en-tête pour regrouper ».
+   *
+   * **À couper sur les listes qui ont un vrai groupement** — prospections,
+   * pré-prospections, dossiers : celles-là rendent `BandeGroupement` au niveau
+   * de l'écran, au-dessus de la grille, pour que la bande survive aux états
+   * vides. Une liste dépliée qui ne renvoie rien doit garder sa sortie « Tous
+   * les groupes », sinon l'écran est sans issue.
+   *
+   * Partout ailleurs il reste, et son « Bientôt » reste exact : le serveur ne
+   * sait pas grouper ces listes, ce n'est pas un câblage oublié. */
   bandeauRegroupement?: boolean;
   /** Sélection **pilotée par la page**. Sans elle, la gouttière garde un état
    * interne purement visuel : elle coche, rien ne la consomme.
@@ -154,6 +189,20 @@ export default function DataGrid<T extends { id: string }>({
    * tout en recevant le même chrome que les autres listes : sans lui, le
    * convertir aurait voulu dire supprimer une fonctionnalité qui marche. */
   rendreDetail?: (row: T) => ReactNode;
+  /** Groupement **déplié sur place**, comme dans le logiciel de bureau.
+   *
+   * Quand il est fourni, le corps du tableau n'est plus une suite de lignes
+   * mais une suite d'**en-têtes de groupe** — `⊟ Statut : CONCRETISATION
+   * (68 items)` — chacun pouvant s'ouvrir pour laisser apparaître ses lignes
+   * juste en dessous, dans les mêmes colonnes. Plusieurs groupes restent
+   * ouverts en même temps ; c'est tout l'intérêt du dépliant, et c'est ce
+   * qu'une bascule entre deux écrans ne permettrait pas.
+   *
+   * `rows` est alors ignoré : les lignes de chaque groupe viennent de `etat`,
+   * chargées à la demande par l'écran. Un groupe n'est pas borné — mesuré,
+   * 3 145 prospections pour « 1 A TRAITER » — d'où le chargement par lots et
+   * la ligne « en charger davantage » en pied de groupe. */
+  groupes?: GroupementGrille<T>;
 }) {
   /* Poids -> plafond en pixels. 20 px par unité : une colonne à 10 — le
      défaut — plafonne à 200 px, une à 24 (un nom complet) à 480 px. Le plancher
@@ -176,30 +225,45 @@ export default function DataGrid<T extends { id: string }>({
   const cochees = selection?.ids ?? cocheesLocales;
   const [depliee, setDepliee] = useState<string | null>(null);
 
-  const visibles = useMemo(() => {
-    const actifs = colonnes.filter((c) => (filtres[c.nom] ?? '').trim() !== '');
-    const filtrees = actifs.length
-      ? rows.filter((r) =>
-          actifs.every((c) =>
-            texteComparable(r, c).toLowerCase().includes(filtres[c.nom].trim().toLowerCase()),
-          ),
-        )
-      : rows;
-    if (!tri) return filtrees;
-    const col = colonnes.find((c) => c.nom === tri.nom);
-    if (!col) return filtrees;
-    const signe = tri.sens === 'asc' ? 1 : -1;
-    return [...filtrees].sort((a, b) => {
-      const va = valeurDe(a, col);
-      const vb = valeurDe(b, col);
-      // Les vides finissent en bas quel que soit le sens : « trier par date
-      // de visite » veut dire « les visités d'abord », pas « les nulls ».
-      if (va === null || va === undefined || va === '') return 1;
-      if (vb === null || vb === undefined || vb === '') return -1;
-      if (NUMERIQUES.includes(typeDe(col))) return (Number(va) - Number(vb)) * signe;
-      return String(va).localeCompare(String(vb), 'fr') * signe;
-    });
-  }, [rows, colonnes, filtres, tri]);
+  /* Le filtre et le tri de la grille, isolés pour pouvoir s'appliquer soit à
+     la liste plate, soit **à chaque groupe séparément**. Trier à l'intérieur
+     d'un groupe est le seul tri qui ait un sens une fois la liste repliée :
+     un tri global réordonnerait les lignes à travers les groupes et les en
+     sortirait. */
+  const appliquer = useCallback(
+    (source: T[]) => {
+      const actifs = colonnes.filter((c) => (filtres[c.nom] ?? '').trim() !== '');
+      const filtrees = actifs.length
+        ? source.filter((r) =>
+            actifs.every((c) =>
+              texteComparable(r, c).toLowerCase().includes(filtres[c.nom].trim().toLowerCase()),
+            ),
+          )
+        : source;
+      if (!tri) return filtrees;
+      const col = colonnes.find((c) => c.nom === tri.nom);
+      if (!col) return filtrees;
+      const signe = tri.sens === 'asc' ? 1 : -1;
+      return [...filtrees].sort((a, b) => {
+        const va = valeurDe(a, col);
+        const vb = valeurDe(b, col);
+        // Les vides finissent en bas quel que soit le sens : « trier par date
+        // de visite » veut dire « les visités d'abord », pas « les nulls ».
+        if (va === null || va === undefined || va === '') return 1;
+        if (vb === null || vb === undefined || vb === '') return -1;
+        if (NUMERIQUES.includes(typeDe(col))) return (Number(va) - Number(vb)) * signe;
+        return String(va).localeCompare(String(vb), 'fr') * signe;
+      });
+    },
+    [colonnes, filtres, tri],
+  );
+
+  const visibles = useMemo(() => appliquer(rows), [appliquer, rows]);
+
+  /* Ce que le Σ somme, et ce que la barre de résumé compte : les lignes
+     réellement à l'écran. En mode groupé ce sont celles des groupes ouverts,
+     `rows` étant alors vide. */
+  const sommables = groupes ? groupes.lignesChargees : visibles;
 
   const basculerTri = (nom: string) =>
     setTri((t) => (t?.nom !== nom ? { nom, sens: 'asc' } : t.sens === 'asc' ? { nom, sens: 'desc' } : null));
@@ -239,13 +303,13 @@ export default function DataGrid<T extends { id: string }>({
      texte affiche « Count ». */
   const resume = (c: ColonneGrille<T>): string => {
     if (NUMERIQUES.includes(typeDe(c))) {
-      const total = visibles.reduce((s, r) => {
+      const total = sommables.reduce((s, r) => {
         const v = valeurDe(r, c);
         return s + (typeof v === 'number' ? v : 0);
       }, 0);
       return typeDe(c) === 'MONTANT' ? formatCurrency(total) : formatNumber(total);
     }
-    const renseignees = visibles.filter((r) => {
+    const renseignees = sommables.filter((r) => {
       const v = valeurDe(r, c);
       return v !== null && v !== undefined && v !== '';
     }).length;
@@ -254,13 +318,124 @@ export default function DataGrid<T extends { id: string }>({
 
   const cliquable = Boolean(onOuvrir);
 
+  /* Les gouttières : indicateur de ligne courante, case à cocher, et le
+     chevron de maître-détail quand il existe. Sert au `colSpan` des lignes qui
+     couvrent toute la largeur — en-têtes de groupe et leurs pieds. */
+  const nbColonnes = colonnes.length + (rendreDetail ? 3 : 2);
+
+  /* Extraite de la boucle : la même ligne se rend à plat ou sous un en-tête de
+     groupe, et la dupliquer serait le meilleur moyen de faire diverger les
+     deux rendus au premier correctif. */
+  const rendreLigne = (r: T) => {
+      const estCourante = courante === r.id;
+      const estCochee = cochees.has(r.id);
+      const estDepliee = depliee === r.id;
+      return (
+        <Fragment key={r.id}>
+        <TableRow
+          tabIndex={cliquable ? 0 : undefined}
+          aria-label={libelleLigne?.(r)}
+          aria-selected={estCourante}
+          // Pas de `role="link"` : la ligne porte une case à cocher, et
+          // un lien ne peut pas contenir de contrôle. Le `<tr>` garde son
+          // rôle `row` implicite, l'ouverture reste au clic et à Entrée.
+          className={cn(
+            cliquable && 'cursor-pointer',
+            // Cochée puis courante, dans cet ordre : quand une ligne est
+            // les deux, c'est la teinte « courante » qui doit gagner, et
+            // twMerge garde la dernière classe pour une même propriété.
+            estCochee && 'bg-muted/40 hover:bg-muted/40',
+            estCourante && 'bg-(--brand-bg) hover:bg-(--brand-bg)',
+          )}
+          onClick={cliquable ? () => { setCourante(r.id); onOuvrir?.(r.id); } : undefined}
+          onFocus={() => setCourante(r.id)}
+          onKeyDown={
+            cliquable
+              ? (e) => {
+                  if (e.key === 'Enter') onOuvrir?.(r.id);
+                }
+              : undefined
+          }
+        >
+          {rendreDetail && (
+            <TableCell
+              className="w-(--gutter-check) p-0 text-center"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDepliee(estDepliee ? null : r.id);
+              }}
+            >
+              <button
+                type="button"
+                aria-expanded={estDepliee}
+                aria-label={estDepliee ? 'Replier le détail' : 'Déplier le détail'}
+                className="align-middle"
+              >
+                {estDepliee ? (
+                  <ChevronDown className="size-3 text-(--brand)" aria-hidden />
+                ) : (
+                  <ChevronRight className="size-3 text-muted-foreground" aria-hidden />
+                )}
+              </button>
+            </TableCell>
+          )}
+          <TableCell className="w-(--gutter-mark) p-0 text-center">
+            {estCourante && (
+              <span className="text-(--brand)" aria-hidden>
+                ▶
+              </span>
+            )}
+          </TableCell>
+          <TableCell
+            className="w-(--gutter-check) px-0 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <input
+              type="checkbox"
+              className="size-3 cursor-pointer align-middle accent-(--brand)"
+              checked={cochees.has(r.id)}
+              onChange={() => basculerCoche(r.id)}
+              aria-label={libelleLigne ? `Sélectionner — ${libelleLigne(r)}` : 'Sélectionner la ligne'}
+            />
+          </TableCell>
+          {colonnes.map((c) => (
+            <TableCell
+              key={c.nom}
+              /* `truncate` ne mord plus qu'au-delà du plafond : sans
+                 largeur imposée, une valeur courte s'affiche en entier. */
+              className={cn('truncate', aDroite(c) && 'text-right tabular-nums', c.classe)}
+              style={{ maxWidth: plafondColonne(c) }}
+              title={c.titre?.(r)}
+            >
+              {c.rendu ? c.rendu(r) : rendreParType(valeurDe(r, c), typeDe(c))}
+            </TableCell>
+          ))}
+        </TableRow>
+        {rendreDetail && estDepliee && (
+          /* `colSpan` couvre les colonnes plus les gouttieres : chevron
+             (si present), indicateur, case a cocher. */
+          <TableRow className="hover:bg-transparent">
+            {/* `nbColonnes` : les colonnes, plus les trois gouttières — chevron,
+                indicateur de ligne courante, case à cocher. Cette
+                branche n'existe que si `rendreDetail` est fourni, donc
+                le chevron est toujours là. */}
+            <TableCell colSpan={nbColonnes} className="bg-muted/30 py-3 whitespace-normal">
+              {rendreDetail(r)}
+            </TableCell>
+          </TableRow>
+        )}
+        </Fragment>
+      );
+  };
+
   return (
     <div className="flex min-w-0 flex-col">
       {bandeauRegroupement && (
         /* Pas de bordure propre au bandeau : les pages l'enveloppent déjà
            d'une Card bordée, et un cadre de plus se lirait comme un double
-           filet. Le glisser-déposer n'existe pas encore — le bandeau tient la
-           place et l'énonce, plutôt que de mentir avec une cible inerte. */
+           filet. Sur ces écrans-là le groupement n'existe pas côté serveur —
+           le bandeau tient la place et l'énonce, plutôt que de mentir avec
+           une cible inerte. */
         <div className="flex h-6 shrink-0 items-center gap-1.5 border-b border-border bg-muted/40 px-2 text-micro text-muted-foreground">
           <span className="truncate opacity-70">
             Faites glisser un en-tête de colonne ici pour regrouper par cette colonne
@@ -282,9 +457,11 @@ export default function DataGrid<T extends { id: string }>({
             </button>
           )}
           <span className="ml-auto shrink-0 tabular-nums">
-            {visibles.length === rows.length
-              ? `${formatNumber(rows.length)} ligne(s)`
-              : `${formatNumber(visibles.length)} / ${formatNumber(rows.length)} ligne(s)`}
+            {groupes
+              ? `${formatNumber(groupes.liste.length)} groupe(s), ${formatNumber(sommables.length)} ligne(s) dépliée(s)`
+              : visibles.length === rows.length
+                ? `${formatNumber(rows.length)} ligne(s)`
+                : `${formatNumber(visibles.length)} / ${formatNumber(rows.length)} ligne(s)`}
           </span>
         </div>
       )}
@@ -397,107 +574,115 @@ export default function DataGrid<T extends { id: string }>({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {visibles.map((r) => {
-            const estCourante = courante === r.id;
-            const estCochee = cochees.has(r.id);
-            const estDepliee = depliee === r.id;
-            return (
-              <Fragment key={r.id}>
-              <TableRow
-                tabIndex={cliquable ? 0 : undefined}
-                aria-label={libelleLigne?.(r)}
-                aria-selected={estCourante}
-                // Pas de `role="link"` : la ligne porte une case à cocher, et
-                // un lien ne peut pas contenir de contrôle. Le `<tr>` garde son
-                // rôle `row` implicite, l'ouverture reste au clic et à Entrée.
-                className={cn(
-                  cliquable && 'cursor-pointer',
-                  // Cochée puis courante, dans cet ordre : quand une ligne est
-                  // les deux, c'est la teinte « courante » qui doit gagner, et
-                  // twMerge garde la dernière classe pour une même propriété.
-                  estCochee && 'bg-muted/40 hover:bg-muted/40',
-                  estCourante && 'bg-(--brand-bg) hover:bg-(--brand-bg)',
-                )}
-                onClick={cliquable ? () => { setCourante(r.id); onOuvrir?.(r.id); } : undefined}
-                onFocus={() => setCourante(r.id)}
-                onKeyDown={
-                  cliquable
-                    ? (e) => {
-                        if (e.key === 'Enter') onOuvrir?.(r.id);
-                      }
-                    : undefined
-                }
-              >
-                {rendreDetail && (
-                  <TableCell
-                    className="w-(--gutter-check) p-0 text-center"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setDepliee(estDepliee ? null : r.id);
-                    }}
-                  >
-                    <button
-                      type="button"
-                      aria-expanded={estDepliee}
-                      aria-label={estDepliee ? 'Replier le détail' : 'Déplier le détail'}
-                      className="align-middle"
+          {groupes
+            ? groupes.liste.map((g) => {
+                const ouvert = groupes.estOuvert(g);
+                const etat = groupes.etat(g);
+                const lignes = etat ? appliquer(etat.lignes) : [];
+                const reste = etat ? etat.total - etat.lignes.length : 0;
+                return (
+                  <Fragment key={identiteGroupe(g)}>
+                    {/* L'en-tête de groupe : `⊟ Statut : CONCRETISATION
+                        (68 items)`, puis les bandes « Total : ». Il couvre
+                        toute la largeur — aligner les totaux sous leurs
+                        colonnes supposerait que celles-ci soient affichées, ce
+                        qu'une colonne décochée dément. */}
+                    <TableRow
+                      className="cursor-pointer bg-muted/60 hover:bg-muted"
+                      tabIndex={0}
+                      aria-expanded={ouvert}
+                      aria-label={`${ouvert ? 'Replier' : 'Déplier'} le groupe ${libelleGroupeAffiche(g)} — ${g.nombre} ligne(s)`}
+                      onClick={() => groupes.basculer(g)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') groupes.basculer(g);
+                      }}
                     >
-                      {estDepliee ? (
-                        <ChevronDown className="size-3 text-(--brand)" aria-hidden />
-                      ) : (
-                        <ChevronRight className="size-3 text-muted-foreground" aria-hidden />
-                      )}
-                    </button>
-                  </TableCell>
-                )}
-                <TableCell className="w-(--gutter-mark) p-0 text-center">
-                  {estCourante && (
-                    <span className="text-(--brand)" aria-hidden>
-                      ▶
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell
-                  className="w-(--gutter-check) px-0 text-center"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <input
-                    type="checkbox"
-                    className="size-3 cursor-pointer align-middle accent-(--brand)"
-                    checked={cochees.has(r.id)}
-                    onChange={() => basculerCoche(r.id)}
-                    aria-label={libelleLigne ? `Sélectionner — ${libelleLigne(r)}` : 'Sélectionner la ligne'}
-                  />
-                </TableCell>
-                {colonnes.map((c) => (
-                  <TableCell
-                    key={c.nom}
-                    /* `truncate` ne mord plus qu'au-delà du plafond : sans
-                       largeur imposée, une valeur courte s'affiche en entier. */
-                    className={cn('truncate', aDroite(c) && 'text-right tabular-nums', c.classe)}
-                    style={{ maxWidth: plafondColonne(c) }}
-                    title={c.titre?.(r)}
-                  >
-                    {c.rendu ? c.rendu(r) : rendreParType(valeurDe(r, c), typeDe(c))}
-                  </TableCell>
-                ))}
-              </TableRow>
-              {rendreDetail && estDepliee && (
-                /* `colSpan` couvre les colonnes plus les gouttieres : chevron
-                   (si present), indicateur, case a cocher. */
-                <TableRow className="hover:bg-transparent">
-                  {/* +3 : les colonnes, plus les trois gouttières — chevron,
-                      indicateur de ligne courante, case à cocher. Cette
-                      branche n'existe que si `rendreDetail` est fourni, donc
-                      le chevron est toujours là. */}
-                  <TableCell colSpan={colonnes.length + 3} className="bg-muted/30 py-3 whitespace-normal">
-                    {rendreDetail(r)}
-                  </TableCell>
-                </TableRow>
-              )}
-              </Fragment>
-            );
-          })}
+                      <TableCell colSpan={nbColonnes} className="whitespace-nowrap">
+                        <span className="flex items-center gap-1.5">
+                          {ouvert ? (
+                            <SquareMinus aria-hidden className="size-3 shrink-0 text-(--brand)" />
+                          ) : (
+                            <SquarePlus aria-hidden className="size-3 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="shrink-0 text-muted-foreground">{groupes.colonneLibelle} :</span>
+                          <span
+                            className={cn(
+                              'truncate font-semibold',
+                              /* Le groupe des lignes sans valeur est légitime,
+                                 pas une anomalie : il est servi pour que la
+                                 somme des effectifs retombe sur le total de la
+                                 liste. Il se lit comme une absence. */
+                              g.libelle === null ? 'font-normal text-muted-foreground italic' : 'text-foreground',
+                            )}
+                          >
+                            {libelleGroupeAffiche(g)}
+                          </span>
+                          <span className="shrink-0 tabular-nums text-muted-foreground">
+                            ({formatNumber(g.nombre)} item{g.nombre > 1 ? 's' : ''})
+                          </span>
+                          {groupes.agregats.length > 0 && (
+                            <span className="ml-auto flex shrink-0 items-center gap-3 pl-4 text-micro">
+                              {groupes.agregats.map((c) => (
+                                <span key={c.nom}>
+                                  <span className="text-muted-foreground">{c.libelle} : </span>
+                                  <span className="font-semibold tabular-nums">
+                                    {c.type === 'MONTANT'
+                                      ? formatCurrency(g.agregats?.[c.nom] ?? 0)
+                                      : formatNumber(g.agregats?.[c.nom] ?? 0, 2)}
+                                  </span>
+                                </span>
+                              ))}
+                            </span>
+                          )}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                    {ouvert && lignes.map(rendreLigne)}
+                    {ouvert && etat?.erreur && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={nbColonnes} className="text-destructive">
+                          {etat.erreur}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {ouvert && etat?.chargement && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={nbColonnes} className="text-muted-foreground">
+                          Chargement…
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {/* Le reste non chargé est **annoncé**, pas tu : un groupe
+                        qui dit « 3 145 items » et n'en montre que 20 doit dire
+                        pourquoi, sinon l'écran a l'air faux. */}
+                    {ouvert && !etat?.chargement && reste > 0 && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={nbColonnes}>
+                          <button
+                            type="button"
+                            className="text-micro text-(--brand) hover:underline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              groupes.chargerPlus(g);
+                            }}
+                          >
+                            {formatNumber(reste)} ligne(s) de plus dans ce groupe — en charger{' '}
+                            {formatNumber(Math.min(reste, TAILLE_LOT_GROUPE))}
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {ouvert && !etat?.chargement && etat && etat.lignes.length === 0 && (
+                      <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={nbColonnes} className="text-muted-foreground">
+                          Ce groupe ne contient aucune ligne avec les filtres actifs.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                );
+              })
+            : visibles.map(rendreLigne)}
         </TableBody>
         {sommes.size > 0 && (
           <TableFooter>

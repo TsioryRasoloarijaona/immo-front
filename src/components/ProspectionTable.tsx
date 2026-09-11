@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { Badge } from './ui';
 import { InactiviteBadge } from './ActiviteProspection';
-import DataGrid, { type ColonneGrille } from './DataGrid';
+import DataGrid, { type ColonneGrille, type GroupementGrille } from './DataGrid';
 import { formatCurrency, formatDate, isPastOrToday } from '../lib/format';
 import { etapeBadgeTone, prospectionDisplayName } from '../lib/domain';
 import { poidsColonne } from '../lib/colonnes';
@@ -98,10 +98,17 @@ export default function ProspectionTable({
   colonnes,
   onOuvrir,
   entite = 'prospection',
+  bandeauRegroupement,
+  groupes,
 }: {
   rows: ProspectionListItemDto[];
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
+  /** Coupe le bandeau inerte de `DataGrid` : l'écran rend sa propre bande de
+   * groupement au-dessus de la grille. Voir `DataGrid.bandeauRegroupement`. */
+  bandeauRegroupement?: boolean;
+  /** Repliage en groupes dépliables sur place. Passe-plat vers `DataGrid`. */
+  groupes?: GroupementGrille<ProspectionListItemDto>;
   /** Nom de l'entité dans l'étiquette d'accessibilité de chaque ligne — les
    * deux écrans lisent le même DTO mais un lecteur d'écran doit entendre
    * « pré-prospection » sur l'un et « prospection » sur l'autre. */
@@ -131,6 +138,8 @@ export default function ProspectionTable({
       colonnes={grille}
       onOuvrir={onOuvrir}
       libelleLigne={(p) => `Ouvrir la ${entite} ${prospectionDisplayName(p)}`}
+      bandeauRegroupement={bandeauRegroupement}
+      groupes={groupes}
     />
   );
 }
