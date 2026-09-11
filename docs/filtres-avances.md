@@ -350,6 +350,87 @@ Re-mesure du 11/09, inchangee : `statut=CONCRETISATION` rend 68 dossiers,
 rattrape l'ecart — « Remise des clés » se code `REMISE DES CLEFS`, « Annulé »
 se code `ANNULATION`. Il faut le backend.
 
+## Relances en retard signalees sur la ligne (11/09)
+
+Les prospections et pre-prospections dont la relance est en retard **de plus
+de 30 jours** et qui ne sont pas fermees portent un fond rouge leger sur toute
+la ligne.
+
+### Pourquoi un seuil, et pourquoi 30
+
+Sans seuil, **336 prospections sur 500** sont concernees (67 %), soit 17 lignes
+sur 20 en page 1. Un repere qui s'allume sur deux tiers des lignes ne repere
+plus rien. Repartition mesuree du retard :
+
+| anciennete | lignes |
+|---|---|
+| <= 7 j | 26 |
+| 8-30 j | 43 |
+| 31-180 j | 162 |
+| > 180 j | 105 |
+
+Le seuil de 30 j coupe les deux premieres tranches : il reste 267 lignes, 53 %.
+
+### Effet reel par page, a connaitre
+
+La liste sort **triee par date d'alerte decroissante**. Le seuil ne repartit
+donc pas le rouge uniformement, il le deplace vers le fond de la liste :
+
+| page | echues (seuil 0) | rouges (seuil 30) | age median du retard |
+|---|---|---|---|
+| 1 | 17/20 | **0/20** | 3 j |
+| 2 | 13/20 | 0/20 | 8 j |
+| 3 | 15/20 | 0/20 | 11 j |
+| 4 | 14/20 | 0/20 | 16 j |
+| 5 | 11/20 | 1/20 | 21 j |
+| 6 | 9/20 | 9/20 | 41 j |
+| 7 | 14/20 | 14/20 | 49 j |
+| 8 | 13/20 | 13/20 | 47 j |
+
+**A l'ouverture de l'ecran, aucune ligne n'est rouge.** Le repere sert donc a
+reperer les dossiers qui trainent quand on parcourt la liste, pas a annoncer un
+retard des l'arrivee. Si c'est le second usage qui est voulu, il faut soit
+baisser le seuil, soit trier par anciennete.
+
+Deux autres constats :
+
+- **0 sur 20 et 1 sur 500** cote pre-prospections, quel que soit le seuil.
+  L'ecran ne rougira quasiment jamais ; ce n'est pas un bug de cablage.
+- `fermee` est dans la condition : 16 lignes sur 500 sont echues **et**
+  fermees. Une prospection perdue garde son alerte mais ne sera plus rappelee.
+- Le **badge** de la colonne Alerte, lui, s'allume des l'echeance passee. Les
+  deux signaux sont volontairement desynchronises : le badge dit « c'est du »,
+  le fond dit « ca traine ». Une ligne peut donc porter un badge sans fond.
+
+### Le fond ne doit pas dependre de la selection de colonnes
+
+`?colonnes=` est une liste close. Verifie : avec une selection personnalisee
+reduite, la charge utile ne contient que `id, prospectNom, etape` — le fond
+rouge disparaitrait sans que rien ne l'explique, et decocher `fermee` seule
+ferait passer les leads perdus pour des relances a faire. D'ou
+`toujoursDemandees` dans `DispositionColonnes` : ces deux colonnes sont
+demandees meme decochees, et filtrees sur le catalogue puisqu'un nom inconnu
+fait 400 sur toute la liste.
+
+### Constat au passage : la spec du front est perimee sur les pre-prospections
+
+`PreProspectionsList` porte un commentaire disant que
+`GET /api/pre-prospections` **n'accepte pas** `?colonnes=`. Mesure du 11/09 :
+il l'accepte et l'honore (`?colonnes=prospectNom,etape` rend bien trois champs).
+L'ecran ne s'en sert pas — son selecteur de colonnes est purement d'affichage.
+Non touche ici, mais le commentaire est a corriger et il y a une optimisation a
+prendre.
+
+### Contraste : le garde ne couvrait pas une ligne teintee
+
+Teinter une ligne entiere met le texte des cellules sur un fond qu'aucune paire
+du garde ne mesurait — les blocs existants verifient un *ton* sur sa teinte,
+jamais le texte ordinaire dessus. Etendu, il a trouve un echec reel :
+`--muted-foreground` sur `--warning-bg` tombe a **4,34:1 en theme sombre**
+(AA exige 4,5). D'ou un token dedie `--retard-bg` a un alpha plus faible
+(0,07), qui donne 4,77:1 et 4,81:1. `npm run check:contrast` couvre desormais
+sept paires sur ce fond, dans les deux themes.
+
 ## Demande backend — champs éditables de la pré-prospection (10/09)
 
 `ModifierProspectionRequest` porte quatorze champs, dont huit mesurés morts

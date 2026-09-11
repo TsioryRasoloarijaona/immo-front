@@ -154,6 +154,11 @@ const POIDS_PROSPECTIONS: Record<string, number> = {
 export const DISPOSITION_PROSPECTIONS: DispositionColonnes = {
   ordre: ORDRE_PROSPECTIONS,
   poids: POIDS_PROSPECTIONS,
+  /* Le fond rouge des relances en retard se calcule sur ces deux champs sans
+     les afficher. Les laisser dépendre de la sélection ferait disparaître le
+     repère dès qu'on décoche la colonne Alerte — et pire, décocher `fermee`
+     seule ferait passer les leads perdus pour des relances à faire. */
+  toujoursDemandees: ['derniereAlerteDate', 'fermee'],
 };
 
 // ===========================================================================

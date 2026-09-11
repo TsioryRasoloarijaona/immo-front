@@ -124,6 +124,35 @@ for (const [name, selector, cardRaw] of [
     if (t[tok]) check(`${tok} sur --card (grille)`, t[tok], card, t);
   }
 
+  // **Une ligne de grille entière teintée**, pas seulement une pastille.
+  //
+  // Les prospections et pré-prospections dont la relance est en retard portent
+  // `--warning-bg` sur toute la ligne (voir `ProspectionTable.classeLigne`).
+  // Le texte des cellules n'est alors plus sur `--card` mais sur cette teinte,
+  // et aucune paire ci-dessus ne le mesurait : les blocs précédents vérifient
+  // le *ton* sur sa teinte, jamais le texte ordinaire dessus.
+  //
+  // Les trois couleurs de texte que les cellules emploient réellement, plus
+  // les tons que les rendus riches posent dans ces mêmes cellules — un prix
+  // en `--info` sur une ligne en retard est un cas courant, pas un cas limite.
+  for (const bgTok of ['--retard-bg']) {
+    if (!t[bgTok]) continue;
+    const tint = parseColor(t[bgTok], t);
+    if (!tint) continue;
+    const fond = over(tint, card);
+    for (const tok of [
+      '--foreground',
+      '--text',
+      '--muted-foreground',
+      '--info',
+      '--success',
+      '--warning',
+      '--brand',
+    ]) {
+      if (t[tok]) check(`${tok} sur ligne ${bgTok}`, t[tok], fond, t);
+    }
+  }
+
   // Texte posé sur un aplat plein.
   if (t['--brand'] && t['--brand-contrast']) {
     check('--brand-contrast sur aplat --brand', t['--brand-contrast'], parseColor(t['--brand'], t).rgb, t);

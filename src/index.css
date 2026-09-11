@@ -107,6 +107,20 @@
      --destructive below. */
   --warning: #b02012;
   --warning-bg: rgba(176, 32, 18, 0.1);
+  /* Fond d'une **ligne de grille entière** signalant une relance en retard.
+     Distinct de --warning-bg, et plus faible que lui, pour deux raisons.
+
+     La première est mesurée : à l'alpha des pastilles (0,10 clair / 0,12
+     sombre) le texte --muted-foreground des cellules tombe à 4,55:1 et
+     4,34:1 — le second échoue WCAG AA. À 0,07 les deux thèmes donnent
+     4,77:1 et 4,81:1. Le garde `npm run check:contrast` couvre désormais
+     cette paire ; il ne la couvrait pas, et c'est lui qui a trouvé l'échec.
+
+     La seconde est de composition : une teinte qui va bien sur une pastille
+     de 40 px hurle sur une ligne pleine largeur. À densité de grille, une
+     ligne sur deux peut être en retard — mesuré 17 sur 20 en page 1 des
+     prospections — donc le repère doit rester un fond, pas un aplat. */
+  --retard-bg: rgba(176, 32, 18, 0.07);
   --warning-border: rgba(176, 32, 18, 0.28);
 
   --amber: #92580a;
@@ -272,6 +286,8 @@
      --destructive so the two stay separable in dark mode too. */
   --warning: #fca5a5;
   --warning-bg: rgba(252, 165, 165, 0.12);
+  /* Voir le bloc clair : alpha volontairement plus faible que --warning-bg. */
+  --retard-bg: rgba(252, 165, 165, 0.07);
   --warning-border: rgba(252, 165, 165, 0.3);
 
   --amber: #fbbf24;
