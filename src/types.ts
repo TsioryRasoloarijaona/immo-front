@@ -586,6 +586,7 @@ export type GroupeColonne =
   | 'CONTACT'
   | 'CONTEXTE'
   | 'FINANCIER'
+  | 'CLOTURE'
   | 'ACTIVITE'
   | 'CONVERSION'
   // Dossiers de vente
@@ -624,6 +625,73 @@ export interface ColonneDto {
    * l'appelant de les masquer (`DispositionColonnes.masquees`), sans quoi la
    * vue par défaut montre des UUID. */
   parDefaut: boolean;
+  /** Vraie si la colonne peut servir de clé à `?groupBy=` sur l'endpoint
+   * `/groupes` de la liste.
+   *
+   * **Se lit, ne se déduit pas.** Un montant n'est pas groupable — mesuré, 190
+   * prix distincts pour 358 dossiers — et les colonnes calculées par la vue
+   * légataire (`joursInactivite`, `nbInteractions`…) n'existent pas dans le
+   * graphe d'entités, donc pas davantage. Le catalogue des prospects, lui,
+   * renvoie `false` partout : cet écran n'a pas d'endpoint `/groupes`. */
+  groupable: boolean;
+  /** Vraie si la colonne peut être sommée via `?agregats=` — les bandes
+   * « Total : » sous un en-tête de groupe.
+   *
+   * **N'équivaut pas à « type numérique »**, et c'est le piège : mesuré,
+   * `joursInactivite`, `nbInteractions`, `nbVisites` sont des `NOMBRE` non
+   * agrégeables, et `nombreEnfants`/`anciennete` de même côté prospects.
+   * Déduire du type demanderait une somme que le serveur refuse en 400. */
+  agregeable: boolean;
+}
+
+/** Granularité de regroupement d'une colonne DATE.
+ *
+ * **Doit voyager avec la clé du groupe.** Déplier un groupe se fait par
+ * `?groupeColonne=&groupeValeur=`, et le serveur rejoue le même découpage pour
+ * retrouver les lignes : passer la clé `2024` obtenue en `ANNEE` sans repasser
+ * `granularite=ANNEE` la fait comparer à un découpage mensuel, qui ne contient
+ * aucun `2024`. Mesuré : `totalElements: 0`, en **HTTP 200**. Un écran vide
+ * sans le moindre message d'erreur. */
+export type GranulariteGroupe = 'JOUR' | 'MOIS' | 'ANNEE';
+
+/** Ordre des groupes : par libellé croissant, ou par effectif décroissant. */
+export type TriGroupes = 'LIBELLE' | 'NOMBRE';
+
+/** Un groupe d'une liste repliée — l'équivalent de l'en-tête « Client : Adnane
+ * ES-SAIYDY (1 item) » et de sa bande « Total : » du logiciel de bureau.
+ *
+ * Servi par `GET /api/{prospections,pre-prospections,dossiers}/groupes`. Les
+ * groupes sont **repliés** : ils portent l'effectif et les totaux, jamais les
+ * lignes. Celles-ci s'obtiennent en rappelant la liste correspondante avec
+ * `?groupeColonne=&groupeValeur=`.
+ *
+ * **Les effectifs portent sur tout le périmètre filtré, pas sur une page** —
+ * c'est la raison d'être de l'endpoint, grouper côté front ne grouperait que
+ * la page chargée. Vérifié : la somme des `nombre` retombe exactement sur le
+ * `totalElements` de la liste (116 dossiers, 9 654 prospections). */
+export interface GroupeDto {
+  /** Valeur technique, à réémettre **telle quelle** dans `?groupeValeur=`.
+   * Selon la colonne : un identifiant, un code, un booléen, ou un entier de
+   * période (`202507` pour juillet 2025, `2025` pour l'année).
+   *
+   * **`null` est un groupe légitime** — les lignes sans valeur sur la colonne
+   * groupée. Il est servi et non masqué, sans quoi la somme des effectifs
+   * cesserait de retomber sur le total. Mesuré : 93 dossiers sans avocat. Pour
+   * le déplier, envoyer `groupeColonne` **sans** `groupeValeur`. */
+  cle: string | number | boolean | null;
+  /** Libellé affichable. Identique à `cle` pour la plupart des colonnes ;
+   * dérivé pour les groupements par tiers et pour les périodes
+   * (`juillet 2025`). `null` pour le groupe des lignes sans valeur. */
+  libelle: string | null;
+  /** Nombre de lignes du groupe — le « (1 item) » de l'écran légataire. */
+  nombre: number;
+  /** Sommes des colonnes demandées via `?agregats=`, indexées par nom de
+   * colonne. Vide si `agregats` n'est pas fourni. Une colonne dont tout le
+   * groupe est nul vaut `0`, jamais `null` : c'est un total, pas une absence.
+   *
+   * Arrive bruité en flottant (`17440269.999994` — somme SQL sur des `float`) ;
+   * `formatCurrency`/`formatNumber` l'absorbent via `toFixed`. */
+  agregats: Record<string, number>;
 }
 
 /** Indicateurs d'activité d'une prospection, calculés par la base légataire

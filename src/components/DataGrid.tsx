@@ -129,8 +129,16 @@ export default function DataGrid<T extends { id: string }>({
    * suffit à remplir le conteneur, et `table-auto` fait le reste. À ne passer
    * que pour forcer un plancher précis. */
   minWidth?: string;
-  /** Le bandeau « glisser un en-tête pour regrouper ». À couper sur une
-   * grille courte où il pèserait plus que les données. */
+  /** Le bandeau inerte « glisser un en-tête pour regrouper ».
+   *
+   * **À couper sur les listes qui ont un vrai groupement** — prospections,
+   * pré-prospections, dossiers : celles-là rendent `BandeGroupement` au niveau
+   * de l'écran, au-dessus de la grille, pour que la bande survive aux états
+   * vides. Une liste dépliée qui ne renvoie rien doit garder sa sortie « Tous
+   * les groupes », sinon l'écran est sans issue.
+   *
+   * Partout ailleurs il reste, et son « Bientôt » reste exact : le serveur ne
+   * sait pas grouper ces listes, ce n'est pas un câblage oublié. */
   bandeauRegroupement?: boolean;
   /** Sélection **pilotée par la page**. Sans elle, la gouttière garde un état
    * interne purement visuel : elle coche, rien ne la consomme.
@@ -259,8 +267,9 @@ export default function DataGrid<T extends { id: string }>({
       {bandeauRegroupement && (
         /* Pas de bordure propre au bandeau : les pages l'enveloppent déjà
            d'une Card bordée, et un cadre de plus se lirait comme un double
-           filet. Le glisser-déposer n'existe pas encore — le bandeau tient la
-           place et l'énonce, plutôt que de mentir avec une cible inerte. */
+           filet. Sur ces écrans-là le groupement n'existe pas côté serveur —
+           le bandeau tient la place et l'énonce, plutôt que de mentir avec
+           une cible inerte. */
         <div className="flex h-6 shrink-0 items-center gap-1.5 border-b border-border bg-muted/40 px-2 text-micro text-muted-foreground">
           <span className="truncate opacity-70">
             Faites glisser un en-tête de colonne ici pour regrouper par cette colonne

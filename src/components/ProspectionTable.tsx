@@ -98,10 +98,14 @@ export default function ProspectionTable({
   colonnes,
   onOuvrir,
   entite = 'prospection',
+  bandeauRegroupement,
 }: {
   rows: ProspectionListItemDto[];
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
+  /** Coupe le bandeau inerte de `DataGrid` : l'écran rend sa propre bande de
+   * groupement au-dessus de la grille. Voir `DataGrid.bandeauRegroupement`. */
+  bandeauRegroupement?: boolean;
   /** Nom de l'entité dans l'étiquette d'accessibilité de chaque ligne — les
    * deux écrans lisent le même DTO mais un lecteur d'écran doit entendre
    * « pré-prospection » sur l'un et « prospection » sur l'autre. */
@@ -131,6 +135,7 @@ export default function ProspectionTable({
       colonnes={grille}
       onOuvrir={onOuvrir}
       libelleLigne={(p) => `Ouvrir la ${entite} ${prospectionDisplayName(p)}`}
+      bandeauRegroupement={bandeauRegroupement}
     />
   );
 }

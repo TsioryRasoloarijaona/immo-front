@@ -19,6 +19,9 @@ import type {
   ChangerStatutRequest,
   ClientListItemDto,
   ColonneDto,
+  GranulariteGroupe,
+  GroupeDto,
+  TriGroupes,
   CommercialListItemDto,
   CompleterProfilRequest,
   ConnexionRequest,
@@ -171,6 +174,72 @@ async function readErrorBody(res: Response, fallback: string): Promise<{ message
 }
 
 type QueryValue = string | number | boolean | string[] | undefined | null;
+
+// ---------------------------------------------------------------------------
+// Groupement des listes — `GET /api/{prospections,pre-prospections,dossiers}/groupes`
+//
+// Reproduit la bande de groupement du logiciel de bureau. Trois faits mesurés
+// qui justifient que ce soit un endpoint serveur et non un `groupBy` côté
+// front :
+//   1. les listes sont paginées — grouper la page chargée ne donnerait que des
+//      groupes tronqués et des totaux faux ;
+//   2. la somme des effectifs retombe exactement sur le `totalElements` de la
+//      liste à filtres égaux (vérifié : 116 dossiers, 9 654 prospections) ;
+//   3. le groupe des lignes **sans valeur** est servi, pas masqué — sans lui
+//      l'égalité ci-dessus cesserait d'être vraie (93 dossiers sans avocat).
+// ---------------------------------------------------------------------------
+
+/** Ce qui décrit le repliage lui-même, par opposition aux filtres de la liste,
+ * qui sont partagés à l'identique avec l'endpoint plat. */
+export interface ParamsGroupes {
+  /** Colonne de groupement. Un seul niveau. **Doit être `groupable`** dans le
+   * catalogue : sinon 400, dont le corps RFC 7807 porte `colonnesValides`. */
+  groupBy: string;
+  /** Colonnes à sommer. **Doivent être `agregeable`** — même 400 sinon. */
+  agregats?: string[];
+  /** N'a de sens que si `groupBy` est une colonne DATE. Défaut serveur : MOIS. */
+  granularite?: GranulariteGroupe;
+  tri?: TriGroupes;
+}
+
+/** Ce qu'il faut ajouter à une requête de **liste** pour déplier un groupe.
+ *
+ * `granularite` doit répéter celle passée à `/groupes` : le serveur rejoue le
+ * découpage pour retrouver les lignes, et une clé annuelle confrontée à un
+ * découpage mensuel ne correspond à rien. Mesuré, cet oubli rend
+ * `totalElements: 0` en **HTTP 200** — un écran vide sans message. */
+export interface ParamsDepliage {
+  groupeColonne: string;
+  /** Absent ou `null` : le groupe des lignes **sans valeur** sur la colonne.
+   * C'est le contrat du serveur, qui n'a pas d'autre façon de le désigner.
+   *
+   * Conséquence assumée : une clé qui serait la chaîne vide se confondrait
+   * avec ce groupe, `buildQuery` écartant `''` au même titre que `null`. */
+  groupeValeur?: string | null;
+  granularite?: GranulariteGroupe;
+}
+
+function withGroupes(
+  query: Record<string, QueryValue>,
+  groupes: ParamsGroupes,
+): Record<string, QueryValue> {
+  query.groupBy = groupes.groupBy;
+  if (groupes.agregats && groupes.agregats.length > 0) query.agregats = groupes.agregats;
+  if (groupes.granularite) query.granularite = groupes.granularite;
+  if (groupes.tri) query.tri = groupes.tri;
+  return query;
+}
+
+function withDepliage(
+  query: Record<string, QueryValue>,
+  depliage?: ParamsDepliage,
+): Record<string, QueryValue> {
+  if (!depliage) return query;
+  query.groupeColonne = depliage.groupeColonne;
+  query.groupeValeur = depliage.groupeValeur ?? undefined;
+  if (depliage.granularite) query.granularite = depliage.granularite;
+  return query;
+}
 
 function buildQuery(params?: Record<string, QueryValue>): string {
   if (!params) return '';
@@ -444,6 +513,9 @@ export function listProspections(
      * paramètres plats. Son `required: true` est le même artefact — un objet
      * sans champ obligatoire se lie vide. */
     filtres?: FiltresAvancesProspection;
+    /** Restreint la liste aux lignes d'un groupe renvoyé par
+     * `listProspectionsGroupes`. Voir `ParamsDepliage`. */
+    depliage?: ParamsDepliage;
   },
 ): Promise<PageDto<ProspectionListItemDto>> {
   const query: Record<string, QueryValue> = withPageable(params, pageable);
@@ -456,7 +528,34 @@ export function listProspections(
     if (Array.isArray(valeur) && valeur.length === 0) continue;
     query[cle] = valeur as QueryValue;
   }
+  if (options?.depliage) withDepliage(query, options.depliage);
   return request('GET', '/api/prospections', { query });
+}
+
+/** `GET /api/prospections/groupes` — la liste repliée en groupes.
+ *
+ * Mêmes filtres que `listProspections`, périmètre commercial compris : c'est
+ * ce qui garantit que la somme des effectifs égale le `totalElements` de la
+ * liste. `colonnes` n'a en revanche aucun sens ici — un groupe ne porte pas de
+ * ligne, donc pas de colonne.
+ *
+ * Les colonnes des groupes `ACTIVITE` et `CONVERSION` ne sont **pas**
+ * groupables : elles viennent de la vue légataire `ComSaleProspectionView`,
+ * chargée par une requête distincte, et n'existent pas dans le graphe
+ * d'entités. Le catalogue le dit via `groupable` — ne pas le redéduire ici. */
+export function listProspectionsGroupes(
+  params: ProspectionFilterParams | undefined,
+  groupes: ParamsGroupes,
+  pageable?: Pageable,
+  options?: { filtres?: FiltresAvancesProspection },
+): Promise<PageDto<GroupeDto>> {
+  const query = withGroupes(withPageable(params, pageable), groupes);
+  for (const [cle, valeur] of Object.entries(options?.filtres ?? {})) {
+    if (valeur === undefined) continue;
+    if (Array.isArray(valeur) && valeur.length === 0) continue;
+    query[cle] = valeur as QueryValue;
+  }
+  return request('GET', '/api/prospections/groupes', { query });
 }
 
 /** Catalogue des colonnes sélectionnables de la liste des prospections.
@@ -545,8 +644,27 @@ export function listProspectionHistorique(id: UUID, pageable?: Pageable): Promis
 export function listPreProspections(
   params?: ProspectionFilterParams,
   pageable?: Pageable,
+  options?: { depliage?: ParamsDepliage },
 ): Promise<PageDto<ProspectionListItemDto>> {
-  return request('GET', '/api/pre-prospections', { query: withPageable(params, pageable) });
+  const query = withDepliage(withPageable(params, pageable), options?.depliage);
+  return request('GET', '/api/pre-prospections', { query });
+}
+
+/** `GET /api/pre-prospections/groupes` — même mécanique que pour les
+ * prospections, sur le périmètre `CfgProspectId IS NULL AND CfgCommercialId IS
+ * NULL`.
+ *
+ * `prospectNom` et `commercialNom` y sont nuls par définition : les grouper
+ * rend un groupe unique sans valeur. Le serveur l'accepte plutôt que de le
+ * refuser par un cas particulier ; c'est à l'écran de ne pas les proposer. */
+export function listPreProspectionsGroupes(
+  params: ProspectionFilterParams | undefined,
+  groupes: ParamsGroupes,
+  pageable?: Pageable,
+): Promise<PageDto<GroupeDto>> {
+  return request('GET', '/api/pre-prospections/groupes', {
+    query: withGroupes(withPageable(params, pageable), groupes),
+  });
 }
 
 export function creerProspectFromPreProspection(id: UUID, body: CreerProspectRequest): Promise<ProspectionDetailDto> {
@@ -692,23 +810,32 @@ export type DossierChampDate =
   | 'FORMALISATION'
   | 'ANNULATION';
 
+/** Filtres de `GET /api/dossiers`, **et de `GET /api/dossiers/groupes`** : les
+ * deux endpoints les acceptent à l'identique, ce qui est la condition pour que
+ * la somme des effectifs des groupes égale le total de la liste.
+ *
+ * Alias de type et non `interface` à dessein : `withPageable` attend un
+ * `Record<string, QueryValue>`, et seul un alias d'objet reçoit de TypeScript
+ * la signature d'index implicite qui le rend assignable. */
+export type DossierFilterParams = {
+  /** Repeatable — pass several to OR-match any of them. */
+  statut?: string[];
+  commercial?: UUID;
+  /** Filters by Entité/Projet (`CfgProject.id`), matched via the dossier's main article. */
+  projet?: UUID;
+  /** Repeatable — pass several to OR-match dossiers with an article in any of them. */
+  trancheId?: UUID[];
+  /** Milestone `dateDebut`/`dateFin` applies to. Ignored if neither is set. Default: RESERVATION. */
+  champDate?: DossierChampDate;
+  /** ISO-8601 datetime, inclusive lower bound on `champDate`. */
+  dateDebut?: string;
+  /** ISO-8601 datetime, inclusive upper bound on `champDate`. */
+  dateFin?: string;
+  search?: string;
+};
+
 export function listDossiers(
-  params?: {
-    /** Repeatable — pass several to OR-match any of them. */
-    statut?: string[];
-    commercial?: UUID;
-    /** Filters by Entité/Projet (`CfgProject.id`), matched via the dossier's main article. */
-    projet?: UUID;
-    /** Repeatable — pass several to OR-match dossiers with an article in any of them. */
-    trancheId?: UUID[];
-    /** Milestone `dateDebut`/`dateFin` applies to. Ignored if neither is set. Default: RESERVATION. */
-    champDate?: DossierChampDate;
-    /** ISO-8601 datetime, inclusive lower bound on `champDate`. */
-    dateDebut?: string;
-    /** ISO-8601 datetime, inclusive upper bound on `champDate`. */
-    dateFin?: string;
-    search?: string;
-  },
+  params?: DossierFilterParams,
   pageable?: Pageable,
   /** Voir `listProspections` : `colonnes` n'est pas un filtre, un nom hors
    * catalogue renvoie 400, et `id` est servi qu'on le demande ou non. Absent,
@@ -718,11 +845,36 @@ export function listDossiers(
    * `ORIGINE` traversent article → tranche → projet → société et déréférencent
    * la prospection, soit trois jointures paresseuses par ligne quand on les
    * demande, aucune quand on s'en abstient. */
-  options?: { colonnes?: string[] },
+  options?: {
+    colonnes?: string[];
+    /** Restreint la liste aux lignes d'un groupe renvoyé par
+     * `listDossiersGroupes`. Voir `ParamsDepliage`. */
+    depliage?: ParamsDepliage;
+  },
 ): Promise<PageDto<DossierListItemDto>> {
   const query: Record<string, QueryValue> = withPageable(params, pageable);
   if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
+  withDepliage(query, options?.depliage);
   return request('GET', '/api/dossiers', { query });
+}
+
+/** `GET /api/dossiers/groupes` — la liste repliée en groupes.
+ *
+ * L'écran le plus outillé des trois : 22 colonnes groupables et 8 agrégeables,
+ * contre 21 et 2 côté prospections. Et le plus rapide — mesuré 48 à 114 ms en
+ * régime établi.
+ *
+ * Pas de `colonnes` : un groupe ne porte pas de ligne. Les jointures
+ * `PATRIMOINE`/`ORIGINE` que `listDossiers` fait payer à la ligne ne se posent
+ * donc pas, même quand on groupe *par* une de ces colonnes. */
+export function listDossiersGroupes(
+  params: DossierFilterParams | undefined,
+  groupes: ParamsGroupes,
+  pageable?: Pageable,
+): Promise<PageDto<GroupeDto>> {
+  return request('GET', '/api/dossiers/groupes', {
+    query: withGroupes(withPageable(params, pageable), groupes),
+  });
 }
 
 /** Catalogue des colonnes sélectionnables de la liste des dossiers de vente.

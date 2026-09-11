@@ -38,11 +38,21 @@ const RENDUS: Record<string, (d: DossierListItemDto, ctx: Contexte) => ReactNode
   trancheCode: (d) => (d.trancheCode ? <Badge tone="neutral">{d.trancheCode}</Badge> : TIRET),
   trancheLibelle: (d) => (d.trancheLibelle ? <Badge tone="neutral">{d.trancheLibelle}</Badge> : TIRET),
   projetCode: (d) => (d.projetCode ? <Badge tone="neutral">{d.projetCode}</Badge> : TIRET),
-  /* Le serveur la type `NOMBRE` alors que c'est un **ratio 0–1** : le rendu par
-     défaut lui appliquerait `formatNumber(v, 0)` et afficherait « 0 » pour
-     0,35. À ne pas confondre avec `remise`, qui est un pourcentage entier et
-     que le formatage par défaut sert correctement — son libellé serveur porte
-     déjà l'unité. */
+  /* Deux colonnes que le serveur type `NOMBRE` alors que ce sont des **ratios
+     0–1**. Le rendu par défaut leur applique `formatNumber(v, 0)`, qui rend
+     « 0 » pour 0,35 comme pour 0,068783.
+
+     `remise` était dans ce cas et l'affichait vraiment : mesurées sur les 116
+     dossiers réels, ses valeurs vont de -0,207865 à 0,988329, donc la colonne
+     entière sortait à « 0 » — et à « -0 » pour les majorations. Le commentaire
+     qui vivait ici affirmait l'inverse (« un pourcentage entier que le
+     formatage par défaut sert correctement ») ; c'est ce qui a permis au bug
+     de tenir. Vérifié par recoupement : `remiseMontant / prixAvantRemise`
+     retombe bien sur le même ordre de grandeur que `remise`.
+
+     Négatif compris : une remise négative est une majoration, et
+     `formatPercent` la rend telle quelle plutôt que de la masquer. */
+  remise: (d) => (typeof d.remise === 'number' ? formatPercent(d.remise, 2) : TIRET),
   probabiliteFinalisation: (d) =>
     typeof d.probabiliteFinalisation === 'number' ? formatPercent(d.probabiliteFinalisation) : TIRET,
 };
@@ -116,11 +126,15 @@ export default function DossierTable({
   onOuvrir,
   onOuvrirProspection,
   selection,
+  bandeauRegroupement,
 }: {
   rows: DossierListItemDto[];
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
   onOuvrirProspection: (prospectionId: string) => void;
+  /** Coupe le bandeau inerte de `DataGrid` : l'écran rend sa propre bande de
+   * groupement au-dessus de la grille. Voir `DataGrid.bandeauRegroupement`. */
+  bandeauRegroupement?: boolean;
   /** Passe-plat vers `DataGrid` : sur cet écran la gouttière à cases **est**
    * le sélecteur de lot documentaire, et non une colonne décorative. */
   selection?: { ids: Set<string>; onToggle: (id: string) => void; onToggleAll: (ids: string[]) => void };
@@ -151,6 +165,7 @@ export default function DossierTable({
          lecteur d'écran annoncerait « Ouvrir le dossier undefined ». */
       libelleLigne={(d) => `Ouvrir le dossier ${d.clientNom || d.code || d.id}`}
       selection={selection}
+      bandeauRegroupement={bandeauRegroupement}
     />
   );
 }

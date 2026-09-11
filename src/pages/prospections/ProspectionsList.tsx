@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCcw, Users } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -9,8 +9,11 @@ import Pagination from '../../components/Pagination';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import ProspectionFiltresAvances from '../../components/ProspectionFiltresAvances';
 import ProspectionTable from '../../components/ProspectionTable';
-import { DEFAULT_PAGE_SIZE, listProspections, listTranches } from '../../lib/api';
+import BandeGroupement from '../../components/BandeGroupement';
+import TableauGroupes, { BandeauGroupeOuvert } from '../../components/TableauGroupes';
+import { DEFAULT_PAGE_SIZE, listProspections, listProspectionsGroupes, listTranches } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
+import { libelleGroupeAffiche, useGroupement } from '../../lib/groupement';
 import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
@@ -51,6 +54,15 @@ export default function ProspectionsList() {
   // défauts — le hook porte cette règle et la raison qui la rend portante.
   const colonnesDemandees = colonnes.demandees;
 
+  /* Changer d'axe de groupement, d'ordre ou de granularité change le jeu de
+     résultats : rester page 7 en passant de 38 groupes à 5 afficherait un
+     écran vide sans rien qui l'explique. */
+  const groupement = useGroupement(
+    'prospections',
+    catalogue.data,
+    useCallback(() => setPage(0), []),
+  );
+
   const [avances, setAvances] = useState<FiltresAvancesState>(emptyFiltresAvances());
   const filtresAvances = toFiltresAvances(avances);
   // Sérialisée pour la clé de dépendance : quinze critères dont sept listes,
@@ -70,38 +82,66 @@ export default function ProspectionsList() {
     setAvances((f) => ({ ...f, [key]: value }));
   }
 
-  const { data, loading, error } = useApi(
+  /* Mêmes filtres des deux côtés, **volet avancé compris** : c'est la
+     condition pour que la somme des effectifs des groupes égale le total de la
+     liste. Un critère appliqué d'un seul côté la casserait en silence. */
+  const filtresServeur = {
+    search: debouncedSearch || undefined,
+    etape: filters.etape.length > 0 ? filters.etape : undefined,
+    origine: filters.origine.length > 0 ? filters.origine : undefined,
+    commercial: filters.commercial.length > 0 ? filters.commercial : undefined,
+    trancheId: filters.trancheId.length > 0 ? filters.trancheId : undefined,
+    dateDebut: filters.dateDebut ? `${filters.dateDebut}T00:00:00` : undefined,
+    dateFin: filters.dateFin ? `${filters.dateFin}T23:59:59` : undefined,
+    ouvertes: filters.ouvertes === 'open' ? true : filters.ouvertes === 'closed' ? false : undefined,
+  };
+
+  const enGroupes = groupement.actif && !groupement.ouvert;
+
+  const clesFiltres = [
+    debouncedSearch,
+    filters.etape.join(','),
+    filters.origine.join(','),
+    filters.commercial.join(','),
+    filters.trancheId.join(','),
+    filters.dateDebut,
+    filters.dateFin,
+    filters.ouvertes,
+    page,
+    cleAvances,
+  ];
+
+  const liste = useApi(
     () =>
-      listProspections(
-        {
-          search: debouncedSearch || undefined,
-          etape: filters.etape.length > 0 ? filters.etape : undefined,
-          origine: filters.origine.length > 0 ? filters.origine : undefined,
-          commercial: filters.commercial.length > 0 ? filters.commercial : undefined,
-          trancheId: filters.trancheId.length > 0 ? filters.trancheId : undefined,
-          dateDebut: filters.dateDebut ? `${filters.dateDebut}T00:00:00` : undefined,
-          dateFin: filters.dateFin ? `${filters.dateFin}T23:59:59` : undefined,
-          ouvertes: filters.ouvertes === 'open' ? true : filters.ouvertes === 'closed' ? false : undefined,
-        },
-        { page, size: DEFAULT_PAGE_SIZE },
-        { colonnes: colonnesDemandees, filtres: filtresAvances },
-      ),
-    [
-      debouncedSearch,
-      filters.etape.join(','),
-      filters.origine.join(','),
-      filters.commercial.join(','),
-      filters.trancheId.join(','),
-      filters.dateDebut,
-      filters.dateFin,
-      filters.ouvertes,
-      page,
-      colonnesDemandees?.join(',') ?? '',
-      cleAvances,
-    ],
+      enGroupes
+        ? Promise.resolve(null)
+        : listProspections(
+            filtresServeur,
+            { page, size: DEFAULT_PAGE_SIZE },
+            { colonnes: colonnesDemandees, filtres: filtresAvances, depliage: groupement.depliage },
+          ),
+    [...clesFiltres, colonnesDemandees?.join(',') ?? '', enGroupes, groupement.cleDeps],
     'prospections',
   );
+
+  /* Pas de `colonnes` ici : un groupe ne porte pas de ligne. C'est aussi ce
+     qui évite la vue légataire — la demander coûte une requête de plus, et
+     aucune de ses colonnes n'est groupable de toute façon. */
+  const groupes = useApi(
+    () =>
+      enGroupes && groupement.paramsGroupes
+        ? listProspectionsGroupes(filtresServeur, groupement.paramsGroupes, { page, size: DEFAULT_PAGE_SIZE }, { filtres: filtresAvances })
+        : Promise.resolve(null),
+    [...clesFiltres, enGroupes, groupement.cleDeps],
+    'prospections-groupes',
+  );
+
+  const data = liste.data;
   const rows = data?.content ?? [];
+  /** La page qui pilote le décompte et la pagination — groupes ou lignes. */
+  const pageAffichee = enGroupes ? groupes.data : liste.data;
+  const loading = enGroupes ? groupes.loading : liste.loading;
+  const error = enGroupes ? groupes.error : liste.error;
 
   // Aggregate fetches for the filter dropdowns — independent of the
   // prospections query above.
@@ -150,13 +190,19 @@ export default function ProspectionsList() {
           }
         />
 
-        {loading && !data && <LoadingState />}
+        {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul par
+            construction, si bien qu'un test sur lui rallumerait l'etat de
+            chargement plein ecran a chaque changement de granularite — par
+            dessus des groupes deja affiches. */}
+        {loading && !pageAffichee && <LoadingState />}
         {error && <ErrorState message={error} />}
-        {!error && data && (
+        {!error && pageAffichee && (
           <ResultsRegion loading={loading}>
             <div className="flex shrink-0 items-center justify-between gap-3">
               <div className="text-body text-muted-foreground">
-                {data?.totalElements ?? 0} prospection{(data?.totalElements ?? 0) > 1 ? 's' : ''} au total
+                {enGroupes
+                  ? `${pageAffichee.totalElements} groupe${pageAffichee.totalElements > 1 ? 's' : ''}`
+                  : `${pageAffichee.totalElements} prospection${pageAffichee.totalElements > 1 ? 's' : ''} au total`}
               </div>
               {colonnes.catalogueServi.length > 0 && (
                 <ColumnSelector
@@ -168,66 +214,97 @@ export default function ProspectionsList() {
                 />
               )}
             </div>
-            {rows.length === 0 ? (
-              /* Les filtres avancés comptent ici au même titre que la barre :
-                 un résultat vide dû au seul volet, replié, s'annoncerait sinon
-                 « aucune prospection enregistrée » — et le bouton de remise à
-                 zéro ne rendrait pas la main puisqu'il ne toucherait pas au
-                 volet. Les deux sont donc réinitialisés ensemble. */
-              <EmptyState
-                title={filtresActifs ? 'Aucun résultat' : 'Rien à afficher'}
-                message={
-                  filtresActifs
-                    ? 'Aucune prospection ne correspond aux filtres actifs.'
-                    : "Aucune prospection n'est encore enregistrée."
-                }
-                action={
-                  filtresActifs ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setPage(0);
-                        setFilters(emptyProspectionFilters());
-                        setAvances(emptyFiltresAvances());
-                      }}
-                    >
-                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                    </Button>
-                  ) : undefined
-                }
-              />
-            ) : (
-              /* Seul conteneur de défilement de la liste, sur les deux axes :
-                 c'est lui qui a une hauteur bornée, donc lui seul peut placer
-                 une barre horizontale visible sous les lignes plutôt qu'au pied
-                 de la table entière. `min-w-0`/`min-h-0` l'autorisent à
-                 rétrécir sous la taille de son contenu — sans quoi il grandit
-                 au lieu de défiler. (Ce qui empêche la *fenêtre* de défiler est
-                 ailleurs : le `min-w-0` de `SidebarInset`, voir Layout.tsx.) */
-              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                {/* Le catalogue porte les libellés d'en-tête : sans lui il n'y
-                    a pas de tableau à dessiner, seulement des lignes sans
-                    colonnes. Mis en cache au niveau du module, il n'est
-                    rechargé qu'une fois par session. */}
-                {colonnes.colonnes.length > 0 ? (
-                  <ProspectionTable
-                    rows={rows}
-                    colonnes={colonnes.colonnes}
-                    onOuvrir={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
-                  />
-                ) : catalogue.error ? (
-                  <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
-                ) : (
-                  <LoadingState />
-                )}
-              </div>
-            )}
-            <div className="shrink-0">
-              {data && (
-                <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
+            {/* Seul conteneur de défilement de la liste, sur les deux axes :
+                c'est lui qui a une hauteur bornée, donc lui seul peut placer
+                une barre horizontale visible sous les lignes plutôt qu'au pied
+                de la table entière. `min-w-0`/`min-h-0` l'autorisent à
+                rétrécir sous la taille de son contenu — sans quoi il grandit
+                au lieu de défiler. (Ce qui empêche la *fenêtre* de défiler est
+                ailleurs : le `min-w-0` de `SidebarInset`, voir Layout.tsx.)
+
+                La bande et le fil d'Ariane sont **hors** du test « y a-t-il des
+                lignes » : un groupe qui ne rend rien doit garder sa sortie vers
+                les groupes, sinon l'écran est sans issue. */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
+              <BandeGroupement etat={groupement} />
+              {groupement.ouvert && groupement.colonneGroupee && (
+                <BandeauGroupeOuvert
+                  colonneLibelle={groupement.colonneGroupee.libelle}
+                  groupeLibelle={groupement.ouvert.libelle}
+                  nombre={liste.data?.totalElements ?? 0}
+                  onRetour={() => groupement.ouvrir(null)}
+                />
               )}
+              {enGroupes ? (
+                (groupes.data?.content.length ?? 0) === 0 ? (
+                  <EmptyState title="Aucun groupe" message="Aucune prospection ne correspond aux filtres actifs." />
+                ) : (
+                  <TableauGroupes
+                    groupes={groupes.data?.content ?? []}
+                    colonneGroupee={groupement.colonneGroupee!}
+                    agregats={groupement.agregeables.filter((c) => groupement.agregats.includes(c.nom))}
+                    onOuvrir={(g) => groupement.ouvrir({ cle: g.cle, libelle: libelleGroupeAffiche(g) })}
+                  />
+                )
+              ) : rows.length === 0 ? (
+                /* Les filtres avancés comptent ici au même titre que la barre :
+                   un résultat vide dû au seul volet, replié, s'annoncerait sinon
+                   « aucune prospection enregistrée » — et le bouton de remise à
+                   zéro ne rendrait pas la main puisqu'il ne toucherait pas au
+                   volet. Les deux sont donc réinitialisés ensemble. */
+                <EmptyState
+                  title={filtresActifs || groupement.ouvert ? 'Aucun résultat' : 'Rien à afficher'}
+                  message={
+                    groupement.ouvert
+                      ? 'Ce groupe ne contient aucune prospection avec les filtres actifs.'
+                      : filtresActifs
+                        ? 'Aucune prospection ne correspond aux filtres actifs.'
+                        : "Aucune prospection n'est encore enregistrée."
+                  }
+                  action={
+                    filtresActifs && !groupement.ouvert ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setPage(0);
+                          groupement.reinitialiser();
+                          setFilters(emptyProspectionFilters());
+                          setAvances(emptyFiltresAvances());
+                        }}
+                      >
+                        <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ) : /* Le catalogue porte les libellés d'en-tête : sans lui il n'y
+                     a pas de tableau à dessiner, seulement des lignes sans
+                     colonnes. Mis en cache au niveau du module, il n'est
+                     rechargé qu'une fois par session. */
+              colonnes.colonnes.length > 0 ? (
+                <ProspectionTable
+                  rows={rows}
+                  colonnes={colonnes.colonnes}
+                  onOuvrir={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
+                  bandeauRegroupement={false}
+                />
+              ) : catalogue.error ? (
+                <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
+              ) : (
+                <LoadingState />
+              )}
+            </div>
+            <div className="shrink-0">
+              {/* Une seule pagination, et elle numérote ce qui est à l'écran :
+                  les groupes quand la liste est repliée, les lignes sinon. */}
+              <Pagination
+                page={pageAffichee.page}
+                totalPages={pageAffichee.totalPages}
+                totalElements={pageAffichee.totalElements}
+                onPageChange={setPage}
+              />
             </div>
           </ResultsRegion>
         )}

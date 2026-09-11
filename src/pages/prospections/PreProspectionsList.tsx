@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RotateCcw, UserPlus } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -8,8 +8,11 @@ import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import ProspectionTable from '../../components/ProspectionTable';
-import { DEFAULT_PAGE_SIZE, listPreProspections, listTranches } from '../../lib/api';
+import BandeGroupement from '../../components/BandeGroupement';
+import TableauGroupes, { BandeauGroupeOuvert } from '../../components/TableauGroupes';
+import { DEFAULT_PAGE_SIZE, listPreProspections, listPreProspectionsGroupes, listTranches } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
+import { libelleGroupeAffiche, useGroupement } from '../../lib/groupement';
 import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
@@ -57,40 +60,73 @@ export default function PreProspectionsList() {
   // utiles ne sont pas les mêmes sur un lead non qualifié.
   const colonnes = useColonnesVisibles('pre-prospections', catalogueUtile, DISPOSITION_PROSPECTIONS);
 
+  /* Le groupement lit `catalogueUtile` et non le catalogue brut : ACTIVITE et
+     CONVERSION sont écartés ici pour la même raison que pour les colonnes, et
+     le serveur les refuse de toute façon au groupement — elles viennent d'une
+     vue qui exclut les pré-prospections. Deux barrières qui disent la même
+     chose, dont une seule suffirait ; c'est la moins chère à maintenir. */
+  const groupement = useGroupement(
+    'pre-prospections',
+    catalogueUtile,
+    useCallback(() => setPage(0), []),
+  );
+
   function setFilter<K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) {
     setPage(0);
     setFilters((f) => ({ ...f, [key]: value }));
   }
 
-  const { data, loading, error } = useApi(
+  /* Mêmes filtres des deux côtés : c'est la condition pour que la somme des
+     effectifs des groupes égale le total de la liste. */
+  const filtresServeur = {
+    search: debouncedSearch || undefined,
+    etape: filters.etape.length > 0 ? filters.etape : undefined,
+    origine: filters.origine.length > 0 ? filters.origine : undefined,
+    commercial: filters.commercial.length > 0 ? filters.commercial : undefined,
+    trancheId: filters.trancheId.length > 0 ? filters.trancheId : undefined,
+    dateDebut: filters.dateDebut ? `${filters.dateDebut}T00:00:00` : undefined,
+    dateFin: filters.dateFin ? `${filters.dateFin}T23:59:59` : undefined,
+    ouvertes: filters.ouvertes === 'open' ? true : filters.ouvertes === 'closed' ? false : undefined,
+  };
+
+  const enGroupes = groupement.actif && !groupement.ouvert;
+
+  const clesFiltres = [
+    debouncedSearch,
+    filters.etape.join(','),
+    filters.origine.join(','),
+    filters.commercial.join(','),
+    filters.trancheId.join(','),
+    filters.dateDebut,
+    filters.dateFin,
+    filters.ouvertes,
+    page,
+  ];
+
+  const liste = useApi(
     () =>
-      listPreProspections(
-        {
-          search: debouncedSearch || undefined,
-          etape: filters.etape.length > 0 ? filters.etape : undefined,
-          origine: filters.origine.length > 0 ? filters.origine : undefined,
-          commercial: filters.commercial.length > 0 ? filters.commercial : undefined,
-          trancheId: filters.trancheId.length > 0 ? filters.trancheId : undefined,
-          dateDebut: filters.dateDebut ? `${filters.dateDebut}T00:00:00` : undefined,
-          dateFin: filters.dateFin ? `${filters.dateFin}T23:59:59` : undefined,
-          ouvertes: filters.ouvertes === 'open' ? true : filters.ouvertes === 'closed' ? false : undefined,
-        },
-        { page, size: DEFAULT_PAGE_SIZE },
-      ),
-    [
-      debouncedSearch,
-      filters.etape.join(','),
-      filters.origine.join(','),
-      filters.commercial.join(','),
-      filters.trancheId.join(','),
-      filters.dateDebut,
-      filters.dateFin,
-      filters.ouvertes,
-      page,
-    ],
+      enGroupes
+        ? Promise.resolve(null)
+        : listPreProspections(filtresServeur, { page, size: DEFAULT_PAGE_SIZE }, { depliage: groupement.depliage }),
+    [...clesFiltres, enGroupes, groupement.cleDeps],
     'pre-prospections',
   );
+
+  const groupes = useApi(
+    () =>
+      enGroupes && groupement.paramsGroupes
+        ? listPreProspectionsGroupes(filtresServeur, groupement.paramsGroupes, { page, size: DEFAULT_PAGE_SIZE })
+        : Promise.resolve(null),
+    [...clesFiltres, enGroupes, groupement.cleDeps],
+    'pre-prospections-groupes',
+  );
+
+  const data = liste.data;
   const rows = data?.content ?? [];
+  /** La page qui pilote le décompte et la pagination — groupes ou lignes. */
+  const pageAffichee = enGroupes ? groupes.data : liste.data;
+  const loading = enGroupes ? groupes.loading : liste.loading;
+  const error = enGroupes ? groupes.error : liste.error;
 
   const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
   const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
@@ -117,13 +153,19 @@ export default function PreProspectionsList() {
           trancheItems={trancheItems}
         />
 
-        {loading && !data && <LoadingState />}
+        {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul par
+            construction, si bien qu'un test sur lui rallumerait l'etat de
+            chargement plein ecran a chaque changement de granularite — par
+            dessus des groupes deja affiches. */}
+        {loading && !pageAffichee && <LoadingState />}
         {error && <ErrorState message={error} />}
-        {!error && data && (
+        {!error && pageAffichee && (
           <ResultsRegion loading={loading}>
             <div className="flex shrink-0 items-center justify-between gap-3">
               <div className="text-body text-muted-foreground">
-                {data?.totalElements ?? 0} pré-prospection{(data?.totalElements ?? 0) > 1 ? 's' : ''} au total
+                {enGroupes
+                  ? `${pageAffichee.totalElements} groupe${pageAffichee.totalElements > 1 ? 's' : ''}`
+                  : `${pageAffichee.totalElements} pré-prospection${pageAffichee.totalElements > 1 ? 's' : ''} au total`}
               </div>
               {colonnes.catalogueServi.length > 0 && (
                 <ColumnSelector
@@ -135,44 +177,77 @@ export default function PreProspectionsList() {
                 />
               )}
             </div>
-            {rows.length === 0 ? (
-              <EmptyState
-                title={hasActiveProspectionFilters(filters) ? 'Aucun résultat' : 'Rien à afficher'}
-                message={
-                  hasActiveProspectionFilters(filters)
-                    ? 'Aucune pré-prospection ne correspond aux filtres actifs.'
-                    : "Aucune pré-prospection n'est encore enregistrée."
-                }
-                action={
-                  hasActiveProspectionFilters(filters) ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => setFilters(emptyProspectionFilters())}>
-                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                    </Button>
-                  ) : undefined
-                }
-              />
-            ) : (
-              /* `min-w-0` : voir ProspectionsList — sans lui la largeur de la
-                 table remonte la chaîne flex et élargit la page entière. */
-              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                {colonnes.colonnes.length > 0 ? (
-                  <ProspectionTable
-                    rows={rows}
-                    colonnes={colonnes.colonnes}
-                    entite="pré-prospection"
-                    onOuvrir={(prospectionId) => navigate(`/pre-prospections/${prospectionId}`)}
-                  />
-                ) : catalogue.error ? (
-                  <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
-                ) : (
-                  <LoadingState />
-                )}
-              </div>
-            )}
-            <div className="shrink-0">
-              {data && (
-                <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
+            {/* `min-w-0` : voir ProspectionsList — sans lui la largeur de la
+                table remonte la chaîne flex et élargit la page entière.
+
+                La bande et le fil d'Ariane sont **hors** du test « y a-t-il des
+                lignes » : un groupe qui ne rend rien doit garder sa sortie vers
+                les groupes. */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
+              <BandeGroupement etat={groupement} />
+              {groupement.ouvert && groupement.colonneGroupee && (
+                <BandeauGroupeOuvert
+                  colonneLibelle={groupement.colonneGroupee.libelle}
+                  groupeLibelle={groupement.ouvert.libelle}
+                  nombre={liste.data?.totalElements ?? 0}
+                  onRetour={() => groupement.ouvrir(null)}
+                />
               )}
+              {enGroupes ? (
+                (groupes.data?.content.length ?? 0) === 0 ? (
+                  <EmptyState
+                    title="Aucun groupe"
+                    message="Aucune pré-prospection ne correspond aux filtres actifs."
+                  />
+                ) : (
+                  <TableauGroupes
+                    groupes={groupes.data?.content ?? []}
+                    colonneGroupee={groupement.colonneGroupee!}
+                    agregats={groupement.agregeables.filter((c) => groupement.agregats.includes(c.nom))}
+                    onOuvrir={(g) => groupement.ouvrir({ cle: g.cle, libelle: libelleGroupeAffiche(g) })}
+                  />
+                )
+              ) : rows.length === 0 ? (
+                <EmptyState
+                  title={hasActiveProspectionFilters(filters) || groupement.ouvert ? 'Aucun résultat' : 'Rien à afficher'}
+                  message={
+                    groupement.ouvert
+                      ? 'Ce groupe ne contient aucune pré-prospection avec les filtres actifs.'
+                      : hasActiveProspectionFilters(filters)
+                        ? 'Aucune pré-prospection ne correspond aux filtres actifs.'
+                        : "Aucune pré-prospection n'est encore enregistrée."
+                  }
+                  action={
+                    hasActiveProspectionFilters(filters) && !groupement.ouvert ? (
+                      <Button type="button" variant="outline" size="sm" onClick={() => setFilters(emptyProspectionFilters())}>
+                        <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ) : colonnes.colonnes.length > 0 ? (
+                <ProspectionTable
+                  rows={rows}
+                  colonnes={colonnes.colonnes}
+                  entite="pré-prospection"
+                  onOuvrir={(prospectionId) => navigate(`/pre-prospections/${prospectionId}`)}
+                  bandeauRegroupement={false}
+                />
+              ) : catalogue.error ? (
+                <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
+              ) : (
+                <LoadingState />
+              )}
+            </div>
+            <div className="shrink-0">
+              {/* Une seule pagination, et elle numérote ce qui est à l'écran :
+                  les groupes quand la liste est repliée, les lignes sinon. */}
+              <Pagination
+                page={pageAffichee.page}
+                totalPages={pageAffichee.totalPages}
+                totalElements={pageAffichee.totalElements}
+                onPageChange={setPage}
+              />
             </div>
           </ResultsRegion>
         )}

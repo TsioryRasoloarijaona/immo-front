@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, Eye, Folder, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -10,18 +10,23 @@ import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import DossierTable from '../../components/DossierTable';
+import BandeGroupement from '../../components/BandeGroupement';
+import TableauGroupes, { BandeauGroupeOuvert } from '../../components/TableauGroupes';
 import {
   DEFAULT_PAGE_SIZE,
   DOSSIER_BATCH_DOC_LABELS,
   downloadDossiersDocumentsEnLot,
   listDossiers,
+  listDossiersGroupes,
   listTranches,
   viewDossiersDocumentsEnLot,
   type DossierBatchDocKind,
   type DossierChampDate,
+  type ParamsDepliage,
 } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useColonnesVisibles } from '../../lib/colonnes';
+import { libelleGroupeAffiche, useGroupement } from '../../lib/groupement';
 import { DISPOSITION_DOSSIERS } from '../../lib/dispositions';
 import { useColonnesDossiers } from '../../lib/referentiels';
 import { useAppData, commercialLabel } from '../../lib/appData';
@@ -64,9 +69,14 @@ async function fetchDossiersWithStatusWorkaround(
   page: number,
   size: number,
   colonnes: string[] | undefined,
+  /* Dépliage d'un groupe. Ne coexiste jamais avec `statuses` : le groupement
+     est refusé tant qu'un filtre statut est actif, précisément parce que ce
+     contournement empêche le serveur de voir ce filtre — voir
+     `GROUPEMENT_ET_STATUT` plus bas. */
+  depliage: ParamsDepliage | undefined,
 ): Promise<PageDto<DossierListItemDto>> {
   if (statuses.length === 0) {
-    return listDossiers(baseParams, { page, size, sort: ['docDate,desc'] }, { colonnes });
+    return listDossiers(baseParams, { page, size, sort: ['docDate,desc'] }, { colonnes, depliage });
   }
   const wanted = new Set(statuses.map((s) => normalizeStatus(s)));
   /* Ce filtre-ci se joue sur `d.statut`, et `statut` est une colonne que
@@ -90,6 +100,27 @@ async function fetchDossiersWithStatusWorkaround(
     totalPages: Math.max(1, Math.ceil(filtered.length / size)),
   };
 }
+
+/** Pourquoi le groupement et le filtre statut ne peuvent pas cohabiter.
+ *
+ * `?statut=` attend le **code brut** de `StrStatus.Code`, pas le libellé
+ * affiché : re-mesuré contre le serveur, `statut=CONCRETISATION` rend 68
+ * dossiers et `statut=Concrétisation` en rend **0, en HTTP 200**. Et aucune
+ * normalisation ne rattrape l'écart — « Remise des clés » se code
+ * `REMISE DES CLEFS`, « Annulé » se code `ANNULATION`. D'où le contournement
+ * client de `fetchDossiersWithStatusWorkaround`.
+ *
+ * Ce contournement filtre **après** le serveur. L'endpoint `/groupes`, lui,
+ * ne renvoie pas de lignes à refiltrer : il renvoie des effectifs déjà
+ * calculés. Lui cacher le filtre statut donnerait des groupes comptés sur un
+ * périmètre plus large que la liste — des nombres faux, présentés comme des
+ * totaux. Les afficher quand même serait exactement le défaut que ce dépôt a
+ * déjà corrigé une fois : un écran qui ment sans rien signaler.
+ *
+ * Disparaît le jour où le backend accepte le libellé (demande consignée dans
+ * `docs/filtres-avances.md`), qui retirera aussi le lot de 500. */
+const GROUPEMENT_ET_STATUT =
+  'Le regroupement est indisponible tant qu’un statut est filtré — le serveur compterait sur un périmètre plus large que la liste.';
 
 const CHAMP_DATE_ITEMS: { label: string; value: DossierChampDate }[] = [
   { label: 'Date de réservation', value: 'RESERVATION' },
@@ -137,41 +168,85 @@ export default function DossiersList() {
   // paresseuses par ligne, et le contournement statut charge 500 lignes.
   const colonnesDemandees = colonnes.demandees;
 
-  const { data, loading, error } = useApi(
+  /* Changer d'axe de groupement, d'ordre ou de granularité change le jeu de
+     résultats : rester page 7 en passant de 38 groupes à 5 afficherait un
+     écran vide sans rien qui l'explique. */
+  const groupement = useGroupement(
+    'dossiers',
+    catalogue.data,
+    useCallback(() => setPage(0), []),
+  );
+  const groupementBloque = status.length > 0 ? GROUPEMENT_ET_STATUT : undefined;
+
+  /* Les filtres serveur, **mot pour mot les mêmes** pour la liste et pour les
+     groupes. C'est la condition de l'invariant qui rend l'écran lisible : la
+     somme des effectifs des groupes égale le total de la liste. Un filtre
+     appliqué d'un seul côté le casserait en silence. */
+  const filtresServeur = {
+    search: debouncedSearch || undefined,
+    trancheId: trancheIds.length > 0 ? trancheIds : undefined,
+    commercial: commercial !== 'all' ? commercial : undefined,
+    champDate: dateDebut || dateFin ? champDate : undefined,
+    dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
+    dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
+  };
+
+  /* Deux vues, jamais les deux à la fois : la liste repliée en groupes, ou des
+     lignes — toutes, ou celles d'un groupe ouvert. Deux paginations imbriquées
+     dans un même écran ne diraient plus ce qu'elles numérotent. */
+  const enGroupes = groupement.actif && !groupement.ouvert && !groupementBloque;
+  const depliage = groupementBloque ? undefined : groupement.depliage;
+
+  const clesFiltres = [
+    debouncedSearch,
+    status.join(','),
+    trancheIds.join(','),
+    champDate,
+    dateDebut,
+    dateFin,
+    commercial,
+    page,
+  ];
+
+  const liste = useApi(
     () =>
-      // Newest-first, so a just-created dossier lands on page 0. Sorts on
-      // `docDate` — the actual JPA entity column — not `dateDocument` (the
-      // response DTO's field name), which 400s: Pageable's `sort` validates
-      // against the entity property, and OpenAPI doesn't document it.
-      // `statut` itself is handled separately — see fetchDossiersWithStatusWorkaround.
-      fetchDossiersWithStatusWorkaround(
-        {
-          search: debouncedSearch || undefined,
-          trancheId: trancheIds.length > 0 ? trancheIds : undefined,
-          commercial: commercial !== 'all' ? commercial : undefined,
-          champDate: dateDebut || dateFin ? champDate : undefined,
-          dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
-          dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
-        },
-        status,
-        page,
-        DEFAULT_PAGE_SIZE,
-        colonnesDemandees,
-      ),
-    [
-      debouncedSearch,
-      status.join(','),
-      trancheIds.join(','),
-      champDate,
-      dateDebut,
-      dateFin,
-      commercial,
-      page,
-      colonnesDemandees?.join(',') ?? '',
-    ],
+      enGroupes
+        ? Promise.resolve(null)
+        : // Newest-first, so a just-created dossier lands on page 0. Sorts on
+          // `docDate` — the actual JPA entity column — not `dateDocument` (the
+          // response DTO's field name), which 400s: Pageable's `sort` validates
+          // against the entity property, and OpenAPI doesn't document it.
+          // `statut` itself is handled separately — see fetchDossiersWithStatusWorkaround.
+          fetchDossiersWithStatusWorkaround(
+            filtresServeur,
+            status,
+            page,
+            DEFAULT_PAGE_SIZE,
+            colonnesDemandees,
+            depliage,
+          ),
+    [...clesFiltres, colonnesDemandees?.join(',') ?? '', enGroupes, groupement.cleDeps],
     'dossiers',
   );
+
+  /* Pas de `colonnes` ici : un groupe ne porte pas de ligne. Les jointures
+     PATRIMOINE/ORIGINE que la liste fait payer par ligne ne se posent donc
+     pas, même en groupant *par* une de ces colonnes. Mesuré 48–114 ms. */
+  const groupes = useApi(
+    () =>
+      enGroupes && groupement.paramsGroupes
+        ? listDossiersGroupes(filtresServeur, groupement.paramsGroupes, { page, size: DEFAULT_PAGE_SIZE })
+        : Promise.resolve(null),
+    [...clesFiltres, enGroupes, groupement.cleDeps],
+    'dossiers-groupes',
+  );
+
+  const data = liste.data;
   const dossiers = data?.content ?? [];
+  /** La page qui pilote le décompte et la pagination — groupes ou lignes. */
+  const pageAffichee = enGroupes ? groupes.data : liste.data;
+  const loading = enGroupes ? groupes.loading : liste.loading;
+  const error = enGroupes ? groupes.error : liste.error;
 
   // Aggregate fetch (once, 16 tranches in the real portfolio per CLAUDE.md) —
   // populates the Tranche dropdown. Independent of the dossiers query above.
@@ -188,6 +263,7 @@ export default function DossiersList() {
 
   function resetFilters() {
     setPage(0);
+    groupement.reinitialiser();
     setSearch('');
     setStatus([]);
     setTrancheIds([]);
@@ -271,7 +347,14 @@ export default function DossiersList() {
               label="Statut"
               placeholder="Tous les statuts"
               value={status}
-              onChange={(v) => resetAndSet(setStatus, v)}
+              onChange={(v) => {
+                // Voir GROUPEMENT_ET_STATUT : les deux ne peuvent pas
+                // coexister. Retirer le groupement maintenant vaut mieux que
+                // le laisser en place, inerte, et le voir resurgir quand le
+                // filtre statut sera leve.
+                if (v.length > 0) groupement.reinitialiser();
+                resetAndSet(setStatus, v);
+              }}
               items={STATUS_ITEMS}
             />
             <MultiSelectDropdown
@@ -395,13 +478,19 @@ export default function DossiersList() {
           )}
         </Card>
 
-        {loading && !data && <LoadingState />}
+        {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul par
+            construction, si bien qu'un test sur lui rallumerait l'etat de
+            chargement plein ecran a chaque changement de granularite — par
+            dessus des groupes deja affiches. */}
+        {loading && !pageAffichee && <LoadingState />}
         {error && <ErrorState message={error} />}
-        {!error && data && (
+        {!error && pageAffichee && (
           <ResultsRegion loading={loading}>
             <div className="flex shrink-0 items-center justify-between gap-3">
               <div className="text-body text-muted-foreground">
-                {(data?.totalElements ?? 0)} dossier{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+                {enGroupes
+                  ? `${pageAffichee.totalElements} groupe${pageAffichee.totalElements > 1 ? 's' : ''}`
+                  : `${pageAffichee.totalElements} dossier${pageAffichee.totalElements > 1 ? 's' : ''}`}
               </div>
               {colonnes.catalogueServi.length > 0 && (
                 <ColumnSelector
@@ -413,29 +502,57 @@ export default function DossiersList() {
                 />
               )}
             </div>
-            {dossiers.length === 0 ? (
-              <EmptyState
-                title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
-                message={
-                  hasActiveFilters
-                    ? 'Aucun dossier de vente ne correspond aux filtres actifs.'
-                    : "Aucun dossier de vente n'est encore enregistré."
-                }
-                action={
-                  hasActiveFilters ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
-                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                    </Button>
-                  ) : undefined
-                }
-              />
-            ) : (
-              /* `min-w-0` : voir ProspectionsList — sans lui la largeur de la
-                 table remonte la chaîne flex et élargit la page entière au lieu
-                 de faire défiler. Devenu indispensable ici : le nombre de
-                 colonnes n'est plus fixe, et `minWidth` en dur a disparu au
-                 profit du défaut de DataGrid, qui suit ce nombre. */
-              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+            {/* `min-w-0` : voir ProspectionsList — sans lui la largeur de la
+                table remonte la chaîne flex et élargit la page entière au lieu
+                de faire défiler.
+
+                La bande et le fil d'Ariane sont **hors** du test « y a-t-il des
+                lignes ». Un groupe qui ne rend rien doit garder sa sortie vers
+                les groupes, sinon l'écran est sans issue. */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
+              <BandeGroupement etat={groupement} bloque={groupementBloque} />
+              {groupement.ouvert && groupement.colonneGroupee && (
+                <BandeauGroupeOuvert
+                  colonneLibelle={groupement.colonneGroupee.libelle}
+                  groupeLibelle={groupement.ouvert.libelle}
+                  nombre={liste.data?.totalElements ?? 0}
+                  onRetour={() => groupement.ouvrir(null)}
+                />
+              )}
+              {enGroupes ? (
+                (groupes.data?.content.length ?? 0) === 0 ? (
+                  <EmptyState
+                    title="Aucun groupe"
+                    message="Aucun dossier de vente ne correspond aux filtres actifs."
+                  />
+                ) : (
+                  <TableauGroupes
+                    groupes={groupes.data?.content ?? []}
+                    colonneGroupee={groupement.colonneGroupee!}
+                    agregats={groupement.agregeables.filter((c) => groupement.agregats.includes(c.nom))}
+                    onOuvrir={(g) => groupement.ouvrir({ cle: g.cle, libelle: libelleGroupeAffiche(g) })}
+                  />
+                )
+              ) : dossiers.length === 0 ? (
+                <EmptyState
+                  title={hasActiveFilters || groupement.ouvert ? 'Aucun résultat' : 'Rien à afficher'}
+                  message={
+                    groupement.ouvert
+                      ? 'Ce groupe ne contient aucun dossier avec les filtres actifs.'
+                      : hasActiveFilters
+                        ? 'Aucun dossier de vente ne correspond aux filtres actifs.'
+                        : "Aucun dossier de vente n'est encore enregistré."
+                  }
+                  action={
+                    hasActiveFilters && !groupement.ouvert ? (
+                      <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
+                        <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ) : (
+                <>
                 {/* Le catalogue porte les libellés d'en-tête : sans lui il n'y
                     a pas de tableau à dessiner, seulement des lignes sans
                     colonnes. Mis en cache au niveau du module, il n'est
@@ -446,6 +563,7 @@ export default function DossiersList() {
                     colonnes={colonnes.colonnes}
                     onOuvrir={(id) => navigate(`/dossiers/${id}`)}
                     onOuvrirProspection={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
+                    bandeauRegroupement={false}
                     // La gouttiere *est* le selecteur de lot quand un type de
                     // document est choisi : sans ca l'ecran aurait deux colonnes
                     // de cases, dont une decorative.
@@ -477,12 +595,18 @@ export default function DossiersList() {
                 ) : (
                   <LoadingState />
                 )}
-              </div>
-            )}
-            <div className="shrink-0">
-              {data && (
-                <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
+                </>
               )}
+            </div>
+            <div className="shrink-0">
+              {/* Une seule pagination, et elle numérote ce qui est à l'écran :
+                  les groupes quand la liste est repliée, les lignes sinon. */}
+              <Pagination
+                page={pageAffichee.page}
+                totalPages={pageAffichee.totalPages}
+                totalElements={pageAffichee.totalElements}
+                onPageChange={setPage}
+              />
             </div>
           </ResultsRegion>
         )}
