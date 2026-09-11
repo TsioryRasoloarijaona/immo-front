@@ -81,6 +81,9 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 | 138 | `remise` / `probabiliteFinalisation` sommables côté serveur alors que ce sont des **taux** | Fixed | `AGREGATS_SANS_SENS` les retire du Σ |
 | 139 | Filtre statut dossiers **interdit le groupement** (le contournement filtre après le serveur) | Workaround | Bande désactivée avec message ; **fait monter la demande backend statut en priorité** |
 | 140 | `CLOTURE` servi par le catalogue prospections mais absent de `GroupeColonne` et de `LIBELLES_GROUPE` | Fixed | Ajouté à l'union (le libellé retombait déjà sur la clé brute) |
+| 142 | **`--muted-foreground` sur une ligne teintée `--warning-bg` = 4,34:1 en sombre** (AA exige 4,5) — trouvé en *étendant* `check-contrast`, qui ne couvrait pas le cas | Fixed | Token dédié `--retard-bg` à 0,07 → 4,77 / 4,81. Sept paires ajoutées au garde |
+| 144 | Seuil de 30 j sur le fond rouge : mesure **apres** livraison, la liste etant triee par date d'alerte decroissante, **la page 1 passe de 17/20 a 0/20 rouge** — le repere se deplace aux pages 6+ | Open (constat) | Livre comme choisi ; relev̀e par page dans `docs/filtres-avances.md` pour arbitrer |
+| 143 | `PreProspectionsList` affirme en commentaire que `/api/pre-prospections` n'accepte pas `?colonnes=` — **mesuré, il l'accepte et l'honore** | Open (constat) | Non touché ; l'écran ne s'en sert pas. Commentaire à corriger, optimisation à prendre |
 | 141 | **L'ordre des lignes n'est pas déterministe côté serveur** — sur `docDate` seule, le lot de 20 n'était pas le préfixe du lot de 40, par intermittence | Fixed | `sort=docDate,desc` **+** `sort=id,asc` sur les lots de groupe ; vérifié 15/15. **Le même aléa vaut pour la pagination ordinaire** — non touché, consigné |
 
 ---
@@ -203,7 +206,7 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 
 ## ⏭️ Next Step
 
-> **Vérifier le dépliant au navigateur** — rien n'a été vu à l'écran. Chemin :
+> **Vérifier le dépliant et le fond rouge au navigateur** — rien n'a été vu à l'écran. Chemin :
 > `/dossiers` → bande → « Regrouper par » → **Statut**, cocher un ou deux
 > totaux, puis **ouvrir deux groupes en même temps** (c'est le point que la
 > première livraison ratait). Ouvrir « CONCRETISATION » (68 lignes) pour voir

@@ -89,6 +89,20 @@ export type DispositionColonnes = {
    * si bien que le lien vers la prospection **disparaît** sans erreur, sans
    * trace, et sans que rien à l'écran n'explique pourquoi. */
   dependances?: Record<string, string[]>;
+  /** Colonnes demandées au serveur **quelle que soit la sélection**, parce que
+   * la grille en a besoin sans les afficher.
+   *
+   * Distinct de `dependances`, qui s'accroche à une colonne *visible* : ici
+   * rien ne s'affiche. Le cas réel est le fond rouge des relances en retard,
+   * calculé sur `derniereAlerteDate` et `fermee` — décocher l'une des deux
+   * ferait disparaître le repère sans que rien ne l'explique, `?colonnes=`
+   * étant une liste close.
+   *
+   * N'a d'effet que **hors** sélection par défaut : tant qu'on est sur les
+   * défauts, aucun paramètre n'est envoyé et le serveur sert déjà ces colonnes
+   * puisqu'elles sont `parDefaut`. La propriété « ne rien envoyer sur les
+   * défauts » reste donc intacte. */
+  toujoursDemandees?: string[];
 };
 
 const POIDS_DEFAUT = 10;
@@ -203,12 +217,17 @@ export function useColonnesVisibles(
      portante, ne pas la casser.
      Les colonnes masquées ne sont jamais demandées : `id` est servi de toute
      façon, et les autres `*Id` n'arrivent que par une dépendance déclarée. */
+  const nomsCatalogue = new Set(catalogueBrut.map((c) => c.nom));
   const demandees = estDefaut
     ? undefined
     : [
-        ...new Set(
-          visibles.flatMap((nom) => [nom, ...(disposition.dependances?.[nom] ?? [])]),
-        ),
+        ...new Set([
+          ...visibles.flatMap((nom) => [nom, ...(disposition.dependances?.[nom] ?? [])]),
+          // Filtrées sur le catalogue : un nom inconnu du serveur fait 400 sur
+          // toute la liste, et cette table est écrite à la main alors que le
+          // catalogue, lui, bouge d'une livraison à l'autre.
+          ...(disposition.toujoursDemandees ?? []).filter((n) => nomsCatalogue.has(n)),
+        ]),
       ];
 
   return { colonnes, visibles, demandees, basculer, reinitialiser, estDefaut, catalogueServi };

@@ -140,6 +140,7 @@ export default function DataGrid<T extends { id: string }>({
   minWidth,
   bandeauRegroupement = true,
   selection,
+  classeLigne,
   rendreDetail,
   groupes,
 }: {
@@ -188,6 +189,17 @@ export default function DataGrid<T extends { id: string }>({
    * C'est ce qui permet à l'écran Offres de garder son détail des montants
    * tout en recevant le même chrome que les autres listes : sans lui, le
    * convertir aurait voulu dire supprimer une fonctionnalité qui marche. */
+  /** Classe posée sur la ligne entière, d'après la ligne elle-même.
+   *
+   * Sert à porter un **état qui appartient à l'enregistrement**, pas à une de
+   * ses cellules — une relance en retard, par exemple, qu'on veut repérer d'un
+   * coup d'œil sans lire la colonne Alerte.
+   *
+   * Appliquée **avant** les teintes « cochée » et « ligne courante », qui
+   * doivent continuer de gagner : twMerge garde la dernière classe pour une
+   * même propriété, et l'état de sélection doit rester lisible sur une ligne
+   * déjà teintée. */
+  classeLigne?: (row: T) => string | undefined;
   rendreDetail?: (row: T) => ReactNode;
   /** Groupement **déplié sur place**, comme dans le logiciel de bureau.
    *
@@ -341,9 +353,11 @@ export default function DataGrid<T extends { id: string }>({
           // rôle `row` implicite, l'ouverture reste au clic et à Entrée.
           className={cn(
             cliquable && 'cursor-pointer',
-            // Cochée puis courante, dans cet ordre : quand une ligne est
-            // les deux, c'est la teinte « courante » qui doit gagner, et
-            // twMerge garde la dernière classe pour une même propriété.
+            // État propre à l'enregistrement d'abord, états de sélection
+            // ensuite : cochée puis courante. twMerge garde la dernière classe
+            // pour une même propriété, si bien qu'une ligne sélectionnée reste
+            // identifiable même déjà teintée.
+            classeLigne?.(r),
             estCochee && 'bg-muted/40 hover:bg-muted/40',
             estCourante && 'bg-(--brand-bg) hover:bg-(--brand-bg)',
           )}
