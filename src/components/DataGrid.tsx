@@ -29,9 +29,22 @@ export type ColonneGrille<T> = {
   /** Porte l'alignement, le formatage par défaut et le glyphe d'opérateur de
    * la ligne de filtres. `TEXTE` par défaut. */
   type?: TypeColonne;
-  /** Poids relatif de largeur, normalisé sur l'ensemble des colonnes
-   * affichées. Reprendre les pourcentages en dur d'avant la migration donne
-   * exactement les mêmes largeurs. */
+  /** **Largeur maximale** de la colonne, en poids — et non plus une part fixe
+   * de la table.
+   *
+   * La grille était en disposition fixe (`table-layout: fixed`) : chaque colonne
+   * recevait un pourcentage
+   * de la largeur disponible, et tout ce qui dépassait était coupé, y compris
+   * sur une colonne courte que rien n'obligeait à l'être. Maintenant que le
+   * conteneur de page défile horizontalement, la table est en `table-auto` :
+   * **chaque colonne prend la largeur de son contenu**, et `largeur` ne sert
+   * plus qu'à borner celles qui déraillent — une note libre, une adresse, un
+   * libellé de référentiel à rallonge.
+   *
+   * Les valeurs ne changent pas de sens relatif : une colonne à 24 reste deux
+   * fois plus permissive qu'une à 12, et les tables de poids réglées écran par
+   * écran (`lib/dispositions.ts`) gardent donc leur réglage. Converti en
+   * pixels par `plafondColonne`. */
   largeur?: number;
   /** Rendu riche — pastille, lien, seuil coloré. Sans lui, la valeur est
    * formatée selon `type`. */
@@ -40,7 +53,8 @@ export type ColonneGrille<T> = {
    * dans `row[nom]` (nom composé, repli entre deux champs…). */
   valeur?: (row: T) => unknown;
   classe?: string;
-  /** Infobulle : le texte complet de ce que `truncate` a coupé. */
+  /** Infobulle : le texte complet, pour les valeurs assez longues pour
+   * atteindre le plafond de la colonne et se faire couper. */
   titre?: (row: T) => string | undefined;
 };
 
@@ -111,6 +125,9 @@ export default function DataGrid<T extends { id: string }>({
   libelleLigne?: (row: T) => string;
   /** Largeur minimale de la table. Par défaut ~8rem par colonne, calibré sur
    * les métriques de cellule dense (12.5px de texte, 6px de gouttière). */
+  /** Largeur minimale de la table. N'a plus de défaut calculé : `min-w-full`
+   * suffit à remplir le conteneur, et `table-auto` fait le reste. À ne passer
+   * que pour forcer un plancher précis. */
   minWidth?: string;
   /** Le bandeau « glisser un en-tête pour regrouper ». À couper sur une
    * grille courte où il pèserait plus que les données. */
@@ -138,7 +155,16 @@ export default function DataGrid<T extends { id: string }>({
    * convertir aurait voulu dire supprimer une fonctionnalité qui marche. */
   rendreDetail?: (row: T) => ReactNode;
 }) {
-  const totalPoids = colonnes.reduce((s, c) => s + (c.largeur ?? 10), 0) || 1;
+  /* Poids -> plafond en pixels. 20 px par unité : une colonne à 10 — le
+     défaut — plafonne à 200 px, une à 24 (un nom complet) à 480 px. Le plancher
+     de 120 px évite qu'une colonne volontairement étroite, comme un indicatif
+     à 7, coupe un en-tête qui tient pourtant.
+
+     Un plafond et non une largeur : en `table-auto` le navigateur donne à
+     chaque colonne la largeur de son contenu, et `max-width` ne mord que sur
+     celles qui dépassent. Une colonne de codes courts reste donc serrée sans
+     qu'on ait à l'indiquer. */
+  const plafondColonne = (c: ColonneGrille<T>) => `${Math.max(120, (c.largeur ?? 10) * 20)}px`;
   const aDroite = (c: ColonneGrille<T>) => NUMERIQUES.includes(typeDe(c));
 
   const [filtres, setFiltres] = useState<Record<string, string>>({});
@@ -263,12 +289,17 @@ export default function DataGrid<T extends { id: string }>({
         </div>
       )}
       <Table
-        className="w-full table-fixed"
+        /* `w-max` : la table prend la largeur de son contenu et déborde le
+           conteneur, qui défile — c'est ce qui permet d'afficher chaque valeur
+           en entier. `min-w-full` la fait quand même remplir l'écran quand les
+           colonnes sont peu nombreuses, sinon une liste à quatre colonnes
+           laisserait un vide à droite. */
+        className="w-max min-w-full table-auto"
         // Le défilement, dans les deux axes, appartient au conteneur de la
         // page : c'est lui qui a une hauteur bornée, donc lui seul peut placer
         // une barre horizontale visible et servir de référence au `sticky`.
         containerClassName="overflow-visible"
-        style={{ minWidth: minWidth ?? `${Math.max(48, colonnes.length * 8)}rem` }}
+        style={minWidth ? { minWidth } : undefined}
       >
         <TableHeader>
           <TableRow className="hover:bg-card">
@@ -297,14 +328,14 @@ export default function DataGrid<T extends { id: string }>({
                   // preflight Tailwind pose `border-collapse: collapse`, mode
                   // dans lequel Chrome ignore un `sticky` porté par un `<tr>`.
                   // Le fond opaque doit alors suivre sur chaque `<th>`.
-                  className="sticky top-0 z-10 bg-card"
-                  style={{ width: `${((c.largeur ?? 10) / totalPoids) * 100}%` }}
+                  className="sticky top-0 z-10 bg-card whitespace-nowrap"
+                  style={{ maxWidth: plafondColonne(c) }}
                   aria-sort={trie ? (tri.sens === 'asc' ? 'ascending' : 'descending') : 'none'}
                 >
                   <span className={cn('flex items-center gap-1', aDroite(c) && 'justify-end')}>
                     <button
                       type="button"
-                      className="min-w-0 truncate hover:underline"
+                      className="min-w-0 whitespace-nowrap hover:underline"
                       onClick={() => basculerTri(c.nom)}
                       title={`Trier par ${c.libelle}`}
                     >
@@ -441,7 +472,10 @@ export default function DataGrid<T extends { id: string }>({
                 {colonnes.map((c) => (
                   <TableCell
                     key={c.nom}
+                    /* `truncate` ne mord plus qu'au-delà du plafond : sans
+                       largeur imposée, une valeur courte s'affiche en entier. */
                     className={cn('truncate', aDroite(c) && 'text-right tabular-nums', c.classe)}
+                    style={{ maxWidth: plafondColonne(c) }}
                     title={c.titre?.(r)}
                   >
                     {c.rendu ? c.rendu(r) : rendreParType(valeurDe(r, c), typeDe(c))}
@@ -472,7 +506,11 @@ export default function DataGrid<T extends { id: string }>({
               <TableCell className="w-(--gutter-mark) p-0" />
               <TableCell className="w-(--gutter-check) p-0" />
               {colonnes.map((c) => (
-                <TableCell key={c.nom} className={cn('truncate text-micro', aDroite(c) && 'text-right tabular-nums')}>
+                <TableCell
+                  key={c.nom}
+                  className={cn('truncate text-micro', aDroite(c) && 'text-right tabular-nums')}
+                  style={{ maxWidth: plafondColonne(c) }}
+                >
                   {sommes.has(c.nom) ? resume(c) : null}
                 </TableCell>
               ))}

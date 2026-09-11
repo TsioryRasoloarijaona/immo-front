@@ -250,11 +250,10 @@ export default function OffresList() {
                 }
               />
             ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
+              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
                 <DataGrid
                   rows={offres}
                   colonnes={COLONNES}
-                  minWidth="66rem"
                   libelleLigne={(o) => `Offre ${o.code ?? ''}`.trim()}
                   rendreDetail={detailOffre}
                 />

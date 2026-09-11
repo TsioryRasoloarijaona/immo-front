@@ -273,11 +273,10 @@ export default function EncaissementsList() {
                 }
               />
             ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
+              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
                 <DataGrid
                   rows={rows}
                   colonnes={COLONNES}
-                  minWidth="60rem"
                   onOuvrir={(id) => navigate(`/encaissements/${id}`)}
                   libelleLigne={(r) => `Ouvrir le règlement ${r.reference || ''}`.trim()}
                 />
