@@ -200,6 +200,19 @@ export interface ParamsGroupes {
   /** N'a de sens que si `groupBy` est une colonne DATE. Défaut serveur : MOIS. */
   granularite?: GranulariteGroupe;
   tri?: TriGroupes;
+  /** Inclure le groupe des lignes dont la colonne groupée est vide.
+   *
+   * **Le serveur le laisse à `false`**, et son argument se tient sur une
+   * colonne peu renseignée : le groupe vide écraserait tous les autres. Mais
+   * pour une liste, l'effet est qu'il **fait disparaître des lignes sans le
+   * dire**. Mesuré : grouper les dossiers par avocat rend alors 1 groupe et
+   * 23 lignes, sur 116 ; les 93 dossiers sans avocat ne sont dans aucun
+   * groupe. Par étape de prospection, 9 647 au lieu de 9 654.
+   *
+   * Le front envoie donc toujours `true` — voir `useGroupement`. C'est aussi
+   * la seule valeur sous laquelle la somme des effectifs retombe sur le
+   * `totalElements` de la liste, égalité que l'écran affiche. */
+  inclureSansValeur?: boolean;
 }
 
 /** Ce qu'il faut ajouter à une requête de **liste** pour déplier un groupe.
@@ -227,6 +240,7 @@ function withGroupes(
   if (groupes.agregats && groupes.agregats.length > 0) query.agregats = groupes.agregats;
   if (groupes.granularite) query.granularite = groupes.granularite;
   if (groupes.tri) query.tri = groupes.tri;
+  if (groupes.inclureSansValeur !== undefined) query.inclureSansValeur = groupes.inclureSansValeur;
   return query;
 }
 
