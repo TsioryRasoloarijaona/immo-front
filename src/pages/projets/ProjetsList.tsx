@@ -53,11 +53,10 @@ export default function ProjetsList() {
       {filtered.length === 0 ? (
         <EmptyState title="Aucun résultat" />
       ) : (
-        <div className="overflow-auto rounded-xl border border-border bg-card">
+        <div className="min-w-0 overflow-auto rounded-xl border border-border bg-card">
           <DataGrid
             rows={filtered}
             colonnes={COLONNES}
-            minWidth="30rem"
             onOuvrir={(id) => navigate(`/projets/${id}`)}
             libelleLigne={(p) => `Ouvrir le projet ${p.description || p.code || ''}`.trim()}
           />

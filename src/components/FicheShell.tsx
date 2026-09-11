@@ -14,11 +14,21 @@ export type OngletFiche = {
 /** Disposition commune aux fiches prospection, pré-prospection et dossier.
  *
  * Reprend la géométrie du logiciel de bureau, qui range chaque fiche en trois
- * bandes : une ligne d'identité, un formulaire dense à deux colonnes, puis une
- * barre d'onglets ouvrant sur une grille. Le tout **tient dans une page** — le
- * commercial lit et corrige sans jamais faire défiler la fiche, et c'est le
- * point que la version précédente de cet écran avait perdu en empilant des
- * cartes sur trois hauteurs d'écran.
+ * bandes : une ligne d'identité, une zone à onglets, et un formulaire dense.
+ * Le tout **tient dans une page** — le commercial lit et corrige sans jamais
+ * faire défiler la fiche, et c'est le point que la version précédente de ces
+ * écrans avait perdu en empilant des cartes sur trois hauteurs.
+ *
+ * Le premier onglet porte l'**état** du document — parcours de statut sur un
+ * dossier, étape du pipeline sur une prospection — et s'ouvre par défaut. Le
+ * loger dans un onglet lui rend la ligne qu'il occupait en permanence dans la
+ * bande d'identité sans être toujours relu : utile les premiers jours d'un
+ * dossier, jamais ensuite.
+ *
+ * Il reste **sous** le formulaire, et pas au-dessus : la zone à onglets est
+ * celle qui absorbe la hauteur restante, donc la mettre en premier repoussait
+ * le formulaire vers le bas de l'écran à mesure qu'un onglet se remplissait.
+ * L'identité et les termes du document d'abord, ce qui s'y rattache ensuite.
  *
  * La contrainte se tient en une phrase : **le document ne défile pas, seul le
  * contenu d'onglet le fait.** D'où `fullHeight` sur `PageShell` côté appelant,
@@ -32,6 +42,7 @@ export type OngletFiche = {
 export default function FicheShell({
   identite,
   formulaire,
+  panneau,
   onglets,
   ongletActif,
   onOngletChange,
@@ -42,19 +53,38 @@ export default function FicheShell({
   /** Le formulaire dense. Hauteur naturelle — il ne défile pas, c'est ce qui
    * oblige à le garder court. */
   formulaire: ReactNode;
+  /** Panneau à droite du formulaire, sur la même ligne.
+   *
+   * Le logiciel de bureau n'en pose un que sur la fiche **dossier**, et pour
+   * une raison précise : la synthèse Montant / Réglé / Reste doit rester lisible
+   * pendant qu'on parcourt l'échéancier du bas. Deux zones d'onglets sur un
+   * même écran ne se justifient que là — les fiches prospection et
+   * pré-prospection n'ont rien à y mettre et ne passent pas cette prop. */
+  panneau?: ReactNode;
   onglets: OngletFiche[];
   ongletActif: string;
   onOngletChange: (id: string) => void;
   /** Barre d'enregistrement, montée seulement quand quelque chose a changé.
-   * Placée entre le formulaire et les onglets : au contact du champ qu'on
-   * vient de modifier, plutôt qu'en pied de page hors du regard. */
+   * Posée entre le formulaire et les onglets : au contact des champs qu'elle
+   * enregistre, plutôt qu'en pied de page hors du regard. */
   barreAction?: ReactNode;
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col gap-2.5">
       <div className="shrink-0">{identite}</div>
 
-      <div className="shrink-0">{formulaire}</div>
+      {panneau ? (
+        /* `items-stretch` : le panneau prend la hauteur du formulaire plutôt
+           que la sienne, sinon la synthèse flotte au-dessus d'un vide quand le
+           formulaire est plus haut qu'elle. `min-w-0` des deux côtés — un
+           tableau de montants large élargirait autrement la colonne. */
+        <div className="grid shrink-0 items-stretch gap-2.5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <div className="min-w-0">{formulaire}</div>
+          <div className="min-w-0">{panneau}</div>
+        </div>
+      ) : (
+        <div className="shrink-0">{formulaire}</div>
+      )}
 
       {barreAction && <div className="shrink-0">{barreAction}</div>}
 

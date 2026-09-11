@@ -1428,8 +1428,47 @@ export interface DossierDetailDto {
   montantAvance?: number;
   totalAPayer?: number;
   notes?: string;
+  /** ⚠️ **Fraction, pas pourcentage** : `1.00` signifie 100 %, et c'est bien
+   * « 100.00 % » que l'écran légataire affiche pour cette valeur. Mesuré à
+   * `1` sur les 10 dossiers de l'échantillon. `formatPercent`, jamais
+   * `formatNumber`. */
   probabiliteFinalisation?: number;
   modePaie?: string;
+
+  // -- Les cases du formulaire légataire qui manquaient ----------------------
+  //
+  // L'écran de bureau montre un pavé de prix HT/TTC que la fiche n'avait pas :
+  // elle ne portait que le TTC et ne pouvait donc pas reproduire les lignes
+  // « Total HT » et « Prix de vente HT ».
+
+  /** Prix unitaire au m² — la case « Prix du m² ». **98,3 %**. */
+  prixM2?: number;
+  /** Prix de vente **hors taxes**, après remise. Le pendant HT de `prix`.
+   * **98,3 %**. */
+  prixHT?: number;
+  /** Prix **hors taxes avant remise** — la case « Total HT ». Le pendant HT de
+   * `prixAvantRemise`. **98,3 %**. */
+  prixAvantRemiseHT?: number;
+  /** Taux de TVA du dossier. **42,7 %** — `null` ou zéro sur la majorité des
+   * dossiers : **ne pas en déduire un taux nul**, c'est une absence de saisie.
+   * Mesuré à `0.2` sur l'échantillon, donc une fraction elle aussi. */
+  tauxTVA?: number;
+  /** Numéro de titre foncier du lot. **69,6 %** — affichage conditionnel. */
+  titreFoncier?: string | null;
+  /** Type de présentation du lot — la case « Présentation ». **23,2 %**. */
+  presentationCode?: string | null;
+  presentationLibelle?: string | null;
+  /** Date de validité du statut courant — la date à droite du statut sur
+   * l'écran légataire. **11,5 %** : elle n'a de sens que sur les statuts qui
+   * expirent, la réservation au premier chef. */
+  dateValiditeStatut?: string | null;
+  /** Quote-part de l'acquéreur principal.
+   *
+   * ⚠️ **Fraction, pas pourcentage**, comme `probabiliteFinalisation`.
+   * Renseignée à 100 %, mais **95 % valent exactement 1,00** : l'information ne
+   * porte que sur les 5 % en indivision. Les quotes-parts des co-acquéreurs se
+   * lisent sur `GET /api/dossiers/{id}/payeurs`. */
+  quotePart?: number;
   /** Prospection à l'origine du dossier (ComFolder.ComProspectionId) —
    * powers DossierDetail.tsx's "Prospection" cascade-reference tab. Le lien
    * inverse existe désormais, mais imbriqué : `ProspectionDetailDto.activite
@@ -1531,6 +1570,18 @@ export interface EcheanceDto {
   montantRegle?: number;
   reste?: number;
   statutCalcule?: string;
+  /** Numéro de décompte rattaché à l'échéance — la colonne « Décompte » de
+   * l'écran légataire. **16,5 %** des 921 échéances réelles.
+   *
+   * En base la colonne n'est jamais `NULL` : elle porte une chaîne vide, que le
+   * serveur normalise. Le logiciel de bureau affiche « N.A. » quand il n'y en a
+   * pas — c'est un choix d'affichage, à refaire ici et non à attendre de
+   * l'API. */
+  decompte?: string | null;
+  /** Date de création de la ligne, 100 %. **À ne pas confondre avec
+   * `dateEcheance`**, qui est la date d'exigibilité : une échéance créée le
+   * 10/12/2025 peut être exigible le 10/12/2026. */
+  creeLe?: string | null;
 }
 
 export interface CreerEcheanceRequest {
@@ -1728,10 +1779,53 @@ export interface CategorieMontantDto {
   reste?: number;
 }
 
+/** Triade d'une ligne de synthèse financière.
+ *
+ * `reste` vaut **toujours** `montant − regle` — vérifié par le serveur sur les
+ * 358 dossiers réels, et re-vérifié ici sur un échantillon sans écart. Servi
+ * plutôt que recalculé pour que l'écran et l'API ne puissent pas diverger. */
+export interface SyntheseMontantDto {
+  montant?: number;
+  regle?: number;
+  reste?: number;
+}
+
+/** Synthèse financière — l'onglet « Montants » du logiciel de bureau, celui
+ * qu'il ouvre par défaut sur sa fiche dossier.
+ *
+ * **Toujours calculé, jamais stocké** : tout est agrégé à la lecture depuis
+ * l'échéancier et ses règlements.
+ *
+ * Trois niveaux de lecture, et les confondre est l'erreur à éviter :
+ * `parCategorie` liste les catégories d'échéancier ; `prixVente` et
+ * `netAPayer` sont des **lignes de synthèse qui ne sont pas des catégories** ;
+ * `totalGeneral` et `totalSoumisReglePrixTTC` sont les totaux bruts. Les
+ * catégories ne s'additionnent pas jusqu'au prix de vente — mesuré, un dossier
+ * porte 1 046 100 en AVANCE pour un prix de 837 000, l'écart étant les frais
+ * exclus du prix. */
 export interface MontantsDossierDto {
+  /** Vide sur un dossier sans échéancier ; les lignes de synthèse restent
+   * servies, avec un réglé nul. */
   parCategorie?: CategorieMontantDto[];
   totalGeneral?: number;
   totalSoumisReglePrixTTC?: number;
+  /** Ligne « Prix de vente ». `montant` est le prix **stocké** sur le dossier,
+   * pas une re-dérivation de l'échéancier : les deux coïncident sur 327 des
+   * 328 dossiers actifs, et c'est le prix stocké qui fait foi. `regle` n'agrège
+   * que les échéances **non exclues du prix**, donc hors frais. */
+  prixVente?: SyntheseMontantDto;
+  /** Ligne « Net à payer » — le prix de vente augmenté des frais exclus du prix.
+   *
+   * ⚠️ **Sur un dossier sorti** (`dossierSorti`), le montant se réduit à ce qui
+   * a déjà été encaissé et le reste tombe à **zéro** : un dossier annulé ne
+   * reste rien devoir. C'est la règle métier, pas une donnée manquante — et
+   * c'est pourquoi l'écran doit le dire plutôt que d'afficher un solde nul sans
+   * explication. */
+  netAPayer?: SyntheseMontantDto;
+  /** `true` si le dossier est sorti du parcours — `ANNULATION` ou
+   * `DESISTEMENT`. Correspond exactement au `IsCancellation` du logiciel de
+   * bureau (30/30 sur les dossiers réels). */
+  dossierSorti?: boolean;
 }
 
 export interface PieceJointeDto {

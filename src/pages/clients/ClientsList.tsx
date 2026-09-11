@@ -104,11 +104,10 @@ export default function ClientsList() {
               }
             />
           ) : (
-            <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+            <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
               <DataGrid
                 rows={rows}
                 colonnes={COLONNES}
-                minWidth="76rem"
                 onOuvrir={(id) => navigate(`/clients/${id}`)}
                 libelleLigne={(r) => `Ouvrir la fiche de ${r.nomAffiche || r.code}`}
               />

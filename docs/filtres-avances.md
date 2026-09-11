@@ -294,3 +294,40 @@ Les « Donnée 2 » à « Donnée 9 » du logiciel de bureau — `TempField2` à
 `TempField1` et `TempField10`, et **c'est le bon arbitrage** : le serveur les
 interprète (`noteQualification`, `doublonDeCode`) au lieu de les servir
 brutes. On ne demande pas les huit autres sans mesure préalable.
+
+## Demande backend — les huit onglets absents de la fiche dossier (11/09)
+
+L'écran « Dossier de vente » du logiciel de bureau porte **douze** onglets dans
+sa zone basse. Cinq ont un endpoint et sont livrés :
+
+| Onglet légataire | Endpoint |
+|---|---|
+| Schéma de financement | `GET/POST /api/dossiers/{id}/echeancier` + règlements imbriqués |
+| Acquéreurs | `GET /api/dossiers/{id}/payeurs` |
+| Règlements | imbriqués sous les échéances |
+| Décomptes | `EcheanceDto.decompte`, servi depuis cette livraison |
+| *(hors Omran)* Documents | `GET/POST /api/dossiers/{id}/pieces-jointes` |
+
+Les huit autres n'ont **rien** : Sous articles, Modifications, Cadeaux,
+Dépenses, Factures proforma, Factures, Avoirs, Réclamations. Ils ne sont pas
+affichés — un onglet vide coûte un clic pour apprendre qu'il n'y a rien.
+
+**Ce qu'on demande** : rien dans l'immédiat. Cette note existe pour que le
+périmètre restant soit écrit quelque part, et pour qu'on ne re-découvre pas
+l'absence à chaque passage sur cet écran. À prioriser avec le métier — la
+facturation (Factures proforma / Factures / Avoirs) est vraisemblablement le
+bloc qui porte le plus de valeur, mais c'est une décision métier, pas une
+lecture de capture d'écran.
+
+### Vérifié et sans demande
+
+`GET /api/dossiers/{id}` est servi en **GET uniquement** — pas de PATCH
+général. La fiche est donc en lecture seule, les seules écritures passant par
+`PATCH /statut` et par l'échéancier. Ce n'est pas signalé comme un manque :
+contrairement à la prospection, l'écran légataire ne laisse pas non plus
+modifier librement un dossier de vente.
+
+Un point non vérifiable de mon côté : la règle « sur un dossier sorti,
+`netAPayer.reste` tombe à zéro ». Aucun dossier `ANNULATION` ni `DESISTEMENT`
+dans les 25 premiers de la base de test, donc l'affichage du bandeau
+« Dossier sorti » **n'a pas été vu en situation**.

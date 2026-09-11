@@ -243,8 +243,8 @@ export default function UtilisateursList() {
                 }
               />
             ) : (
-              <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                <DataGrid rows={rows} colonnes={colonnes} minWidth="86rem" />
+              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+                <DataGrid rows={rows} colonnes={colonnes} />
               </div>
             )}
             <div className="shrink-0">
