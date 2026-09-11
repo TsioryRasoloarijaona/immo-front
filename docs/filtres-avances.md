@@ -350,6 +350,79 @@ Re-mesure du 11/09, inchangee : `statut=CONCRETISATION` rend 68 dossiers,
 rattrape l'ecart — « Remise des clés » se code `REMISE DES CLEFS`, « Annulé »
 se code `ANNULATION`. Il faut le backend.
 
+## Livraison spec : inclureSansValeur, article et delais (11/09)
+
+### Le piege : un defaut serveur qui retire des lignes en silence
+
+`inclureSansValeur` est apparu sur les trois endpoints `/groupes`. **Ce n'est
+pas un ajout, c'est un changement de comportement par defaut** : le groupe des
+lignes dont la colonne groupee est vide n'est plus servi sauf demande
+explicite, et le parametre vaut `false` par defaut.
+
+Mesure contre le serveur :
+
+| groupement | defaut | `inclureSansValeur=true` | total liste |
+|---|---|---|---|
+| dossiers / avocatNom | 1 groupe, **23 lignes** | 2 groupes, 116 | 116 |
+| dossiers / responsableVenteNom | 2 groupes, 79 | 3 groupes, 116 | 116 |
+| prospections / etape | 7 groupes, **9 647** | 8 groupes, 9 654 | 9 654 |
+| dossiers / statut | 7 groupes, 116 | idem | 116 |
+
+Grouper les dossiers par avocat aurait donc affiche **23 dossiers sur 116**,
+sans rien pour l'expliquer : les 93 sans avocat ne sont dans aucun groupe. Le
+front envoie desormais toujours `true` (`useGroupement`), ce qui restaure
+l'egalite somme des effectifs = `totalElements` sur laquelle l'ecran repose.
+
+L'argument du serveur se tient sur une colonne peu renseignee — le groupe vide
+ecraserait les autres — mais pour une liste, faire disparaitre des lignes sans
+le dire est pire qu'un groupe dominant, qui lui est lisible et paginable.
+
+### Seize colonnes de plus sur les dossiers, deux nouveaux groupes
+
+`ARTICLE` (9 colonnes : le lot lui-meme) et `DELAIS` (3 durees). Toutes
+`parDefaut: false`, donc **la vue par defaut ne bouge pas**.
+
+Population mesuree sur les 116 dossiers servis : `articleCode`,
+`articleLibelle`, `bloc`, `etage`, `typeArticle`, `categorieArticle` a
+**116/116** ; `articleTitreFoncier` 33/116 ; `responsableVenteNom` 23/116 ;
+`delaiConcretisation` 95/116, `delaiNotaire` 24/116, `delaiLivraison` 19/116.
+
+Cout mesure d'une page de 20 : ~75 ms par defaut, ~175 ms en demandant les
+treize nouvelles colonnes. Reel mais modeste, et opt-in.
+
+Trois choses a savoir :
+
+- Les `delai*` sont des **entiers en jours** (mesure 0 a 443), et le libelle du
+  catalogue porte deja l'unite (« Delai notaire (j) »). Le formatage `NOMBRE`
+  par defaut les sert correctement : ce ne sont pas des ratios deguises comme
+  `remise`. Ils restent donc sommables — ce sont des quantites, pas des taux —
+  meme si une moyenne dirait davantage.
+- `delaiNotaire` mesure **concretisation → compromis**, malgre son nom.
+- `articleCode` est **la cle de tri par defaut de la liste du logiciel de
+  bureau** (`ORDER BY ArticleCode, H1Code, H2Code, H3Code`). A savoir si l'ordre
+  de la liste doit un jour reproduire celui d'Omran.
+- Le serveur declare `articleCode` groupable, mais il rend **105 groupes pour
+  116 dossiers** : techniquement valide, sans interet pratique. Laisse au
+  catalogue plutot qu'ecarte par un cas particulier cote front.
+
+`articleId` et `responsableVenteId` sont cochables et auraient affiche des
+UUID : ajoutes a `DISPOSITION_DOSSIERS.masquees`, comme les six autres cles de
+jointure avant eux. `ARTICLE` et `DELAIS` etaient inconnus de
+`LIBELLES_GROUPE` et se seraient affiches en capitales brutes dans le selecteur
+de colonnes et le menu de groupement.
+
+### Les sept champs de la fiche dossier
+
+`DossierDetailDto` gagne `responsableVente*`, `dateCompromis`,
+`dateLivraisonReelle` et les trois delais. **Pas ajoutes au formulaire** : la
+fiche tient en une page sans defilement et le dossier est le plus tendu des
+trois. Les jalons et delais vont sous le parcours de statut, qui parle deja
+d'avancement ; le responsable de vente rejoint le commercial et le notaire dans
+l'onglet Acquereurs.
+
+Le responsable de vente est un **acteur distinct du commercial**, pas un
+synonyme : 221 des 358 dossiers reels (61 %) en portent un.
+
 ## Relances en retard signalees sur la ligne (11/09)
 
 Les prospections et pre-prospections dont la relance est en retard **de plus

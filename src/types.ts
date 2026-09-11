@@ -593,6 +593,8 @@ export type GroupeColonne =
   | 'ACTEURS'
   | 'ORIGINE'
   | 'PATRIMOINE'
+  | 'ARTICLE'
+  | 'DELAIS'
   // Prospects
   | 'ADRESSE'
   | 'PROFESSION'
@@ -1419,10 +1421,73 @@ export interface DossierListItemDto {
   vocationCode?: string;
   vocationLibelle?: string;
 
+  // -- Article (groupe ARTICLE) ----------------------------------------------
+  // Le **lot lui-même**, par opposition au groupe PATRIMOINE qui décrit la
+  // chaîne au-dessus de lui (tranche → projet → société). Mesuré sur les 116
+  // dossiers servis : les six premiers champs sont à 116/116, seul le titre
+  // foncier manque souvent. Coût mesuré du groupe entier : ~75 ms → ~175 ms
+  // sur une page de 20.
+  /** `StkItem.PKey`. 100 % des 358 dossiers. Masqué de la grille comme les
+   * autres clés de jointure — voir `DISPOSITION_DOSSIERS.masquees`. */
+  articleId?: UUID;
+  /** **La clé de tri par défaut de la liste du logiciel de bureau**
+   * (`ORDER BY ArticleCode, H1Code, H2Code, H3Code`, où H1/H2/H3 sont la
+   * tranche, le projet et la société — déjà servis ici). À savoir si l'ordre
+   * de la liste doit un jour reproduire celui d'Omran. */
+  articleCode?: string;
+  articleLibelle?: string;
+  /** Numéro de titre foncier. Mesuré 33/116 sur les dossiers servis. */
+  articleTitreFoncier?: string;
+  /** Bâtiment (`StkBuilding`). 1 063 des 1 068 articles réels. Porte une
+   * phrase, pas un code : « Immeuble 05 ». */
+  bloc?: string;
+  /** Étage (`StkFloor`). 1 063 / 1 068. « Rez de chaussé », « 2 ème étage ». */
+  etage?: string;
+  /** Code catégorie. Ex. `APP`. */
+  categorieArticle?: string;
+  /** Code type. Ex. `T3`. */
+  typeArticle?: string;
+  /** Code du type de présentation. */
+  typePresentation?: string;
+
+  // -- Délais (groupe DELAIS) ------------------------------------------------
+  // Trois durées en **jours entiers**, calculées par le serveur et jamais
+  // stockées. Le libellé du catalogue porte déjà l'unité — « Délai notaire
+  // (j) » — si bien que le formatage `NOMBRE` par défaut les sert
+  // correctement : ce ne sont pas des ratios déguisés, contrairement à
+  // `remise`. Elles sont donc légitimement sommables, même si une moyenne
+  // dirait davantage.
+  /** Jours entre l'origine du dossier et sa concrétisation. L'origine est la
+   * date de la **prospection** quand il y en a une, sinon celle du dossier —
+   * même règle que le logiciel de bureau. `null` tant que la concrétisation
+   * n'a pas eu lieu : calculable sur 152/358. Mesuré de 0 à 443. */
+  delaiConcretisation?: number | null;
+  /** Jours entre la **concrétisation et le compromis** — le nom dit « notaire »
+   * mais la borne haute est le compromis. 73/358. */
+  delaiNotaire?: number | null;
+  /** Jours entre le compromis et la livraison réelle. 63/358.
+   *
+   * Le délai de *crédit* du logiciel de bureau n'a pas d'équivalent ici : il
+   * dépend de `CreditPossessionDate`, mesurée à **0 ligne sur 358**. Ne pas le
+   * réclamer au backend, il vaudrait `null` partout. */
+  delaiLivraison?: number | null;
+  /** `ComFolder.AgreementDate`. 73/358. */
+  dateCompromis?: string | null;
+  /** `ComFolder.DeliveryDateReal`. 63/358. */
+  dateLivraisonReelle?: string | null;
+
   // -- Acteurs (groupe ACTEURS) ----------------------------------------------
   /** Notaire. 19,3 %. */
   avocatId?: UUID;
   avocatNom?: string;
+  /** `ComFolder.CfgSaleManagerId`. Masqué de la grille comme les autres clés
+   * de jointure. */
+  responsableVenteId?: UUID;
+  /** Responsable de vente — **acteur distinct du commercial**, et non un
+   * synonyme : 221 des 358 dossiers réels (61 %) en portent un. Le second
+   * responsable du légataire (`CfgSaleManager2Id`) n'est pas exposé, mesuré à
+   * 0 ligne. */
+  responsableVenteNom?: string;
 
   // -- Origine (groupe ORIGINE) ----------------------------------------------
   // Ce groupe déréférence la prospection : même arbitrage que PATRIMOINE.
@@ -1453,6 +1518,24 @@ export interface DossierDetailDto {
   commercialNom?: string;
   avocatId?: UUID;
   avocatNom?: string;
+  /** Responsable de vente — **acteur distinct du commercial**. 221/358 (61 %).
+   * Le second responsable du légataire n'est pas exposé (0 ligne mesurée). */
+  responsableVenteId?: UUID;
+  responsableVenteNom?: string;
+  /** `ComFolder.AgreementDate`. 73/358. */
+  dateCompromis?: string | null;
+  /** `ComFolder.DeliveryDateReal`. 63/358. */
+  dateLivraisonReelle?: string | null;
+  /* Trois durées en **jours entiers**, calculées par le serveur, jamais
+     stockées. Voir `DossierListItemDto` pour le détail des bornes et le délai
+     de crédit du légataire, qui n'a pas d'équivalent exploitable. */
+  /** Origine (prospection si elle existe, sinon dossier) → concrétisation.
+   * `null` tant que la concrétisation n'a pas eu lieu. 152/358. */
+  delaiConcretisation?: number | null;
+  /** Concrétisation → compromis. 73/358. */
+  delaiNotaire?: number | null;
+  /** Compromis → livraison réelle. 63/358. */
+  delaiLivraison?: number | null;
   /* Hiérarchie patrimoniale du dossier, déduite de son article principal.
      Les douze champs sont à **100 %** sur les 358 dossiers réels. */
   trancheId?: UUID;

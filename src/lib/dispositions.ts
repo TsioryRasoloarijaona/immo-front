@@ -194,6 +194,23 @@ const ORDRE_DOSSIERS = [
   'etapeProspection',
   'origineProspection',
   'dateProspection',
+  // Délais, à côté des dates auxquelles ils se rapportent. Entiers en jours,
+  // le libellé serveur porte déjà l'unité — aucun rendu propre à écrire.
+  'delaiConcretisation',
+  'delaiNotaire',
+  'delaiLivraison',
+  'dateCompromis',
+  'dateLivraisonReelle',
+  // Article — le lot lui-même, avant la chaîne patrimoniale qui le surplombe.
+  // Renseignées sur 116/116 dossiers, sauf `articleTitreFoncier` (33/116).
+  'articleCode',
+  'articleLibelle',
+  'typeArticle',
+  'categorieArticle',
+  'bloc',
+  'etage',
+  'typePresentation',
+  'articleTitreFoncier',
   // Patrimoine — article → tranche → projet → société
   'projetCode',
   'projetLibelle',
@@ -205,6 +222,7 @@ const ORDRE_DOSSIERS = [
   'vocationLibelle',
   // Acteurs
   'avocatNom',
+  'responsableVenteNom',
   // Traçabilité, en dernier : utile ponctuellement, jamais au quotidien
   'creePar',
   'creeLe',
@@ -232,6 +250,25 @@ const POIDS_DOSSIERS: Record<string, number> = {
   etapeProspection: 12,
   origineProspection: 11,
   dateProspection: 10,
+  // Délais : trois chiffres au plus (mesuré, max 443 jours), mais l'en-tête
+  // « Délai de concrétisation (j) » est long — c'est lui qui fixe la largeur.
+  delaiConcretisation: 12,
+  delaiNotaire: 10,
+  delaiLivraison: 11,
+  dateCompromis: 9,
+  dateLivraisonReelle: 10,
+  // Article : des codes et des libellés courts (« ARS0501 », « 501 », « T3 »,
+  // « APP »), sauf `bloc` et `etage` qui portent des phrases
+  // (« Rez de chaussé », « Immeuble 05 »).
+  articleCode: 10,
+  articleLibelle: 9,
+  typeArticle: 7,
+  categorieArticle: 9,
+  bloc: 11,
+  etage: 11,
+  typePresentation: 11,
+  articleTitreFoncier: 10,
+  responsableVenteNom: 13,
   // Les libellés sont des raisons sociales et des noms de projet : ils
   // tronquent à 9, où le code tient tout entier.
   projetCode: 9,
@@ -255,8 +292,11 @@ export const DISPOSITION_DOSSIERS: DispositionColonnes = {
   /* Le `parDefaut` du serveur décrit la charge utile : quatre de ses treize
      colonnes sont des clés de jointure (`id`, `clientId`, `commercialId`,
      `prospectionId`). Sans ce filtre, la vue par défaut affiche des UUID. Les
-     quatre autres `*Id` ne sont pas `parDefaut` mais seraient proposées au
-     sélecteur, ce qui revient au même une fois cochées. */
+     autres `*Id` ne sont pas `parDefaut` mais seraient proposées au
+     sélecteur, ce qui revient au même une fois cochées.
+
+     `articleId` et `responsableVenteId` sont arrivés avec la livraison qui
+     ajoute les groupes ARTICLE et DELAIS ; ils tombent sous la même règle. */
   masquees: new Set([
     'id',
     'clientId',
@@ -266,6 +306,8 @@ export const DISPOSITION_DOSSIERS: DispositionColonnes = {
     'trancheId',
     'societeId',
     'avocatId',
+    'articleId',
+    'responsableVenteId',
   ]),
   /* La colonne « Prospection » est un lien vers `/prospections/{id}`, et cet id
      vient d'être masqué. `?colonnes=` étant une liste close, il faut le

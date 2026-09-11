@@ -21,7 +21,16 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { referentielItems, useBanques, useCategoriesEcheance, useTypesPieceJointe, useTypesReglement } from '../../lib/referentiels';
-import { formatCurrency, formatDate, formatDateTime, formatPercent, formatTelephone, toApiDateTime, todayISO } from '../../lib/format';
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatNumber,
+  formatPercent,
+  formatTelephone,
+  toApiDateTime,
+  todayISO,
+} from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import {
   ECHEANCE_STATUT_LABELS,
@@ -1432,6 +1441,15 @@ function AcquereursDossier({ dossierId }: { dossierId: string }) {
   );
 }
 
+/** Une durée en jours entiers, telle que le serveur la calcule.
+ *
+ * `null` est fréquent et signifie « le jalon n'est pas atteint », pas « zéro » :
+ * `delaiLivraison` n'est calculable que sur 63 dossiers sur 358. Le repli sur
+ * `undefined` laisse `Field` afficher son tiret. */
+function formatJours(jours: number | null | undefined) {
+  return typeof jours === 'number' ? `${formatNumber(jours)} j` : undefined;
+}
+
 export default function DossierDetail() {
   const { id } = useParams();
   const { data: d, loading, error, refetch } = useApi(() => getDossier(id!), [id], 'dossier');
@@ -1955,6 +1973,27 @@ export default function DossierDetail() {
                     }
                   }}
                 />
+                {/* Jalons et délais, sous le parcours qu'ils mesurent.
+                    Placés ici et non dans le formulaire, que la fiche tient en
+                    une page sans défilement — cinq champs de plus en tête la
+                    feraient déborder, et c'est l'onglet Statut qui parle déjà
+                    d'avancement.
+
+                    Les trois délais sont calculés par le serveur, jamais
+                    stockés, et sont souvent nuls : 152, 73 et 63 dossiers sur
+                    358 respectivement. `Field` rend un tiret dans ce cas
+                    plutôt que de masquer la ligne — une case vide dit « pas
+                    encore atteint », une ligne absente ne dit rien. */}
+                <div className="mt-4 border-t border-border pt-3">
+                  <h3 className="mb-2 text-micro font-medium text-muted-foreground">Jalons et délais</h3>
+                  <FieldGrid>
+                    <Field label="Date de compromis" value={formatDate(d.dateCompromis)} />
+                    <Field label="Livraison réelle" value={formatDate(d.dateLivraisonReelle)} />
+                    <Field label="Délai de concrétisation" value={formatJours(d.delaiConcretisation)} />
+                    <Field label="Délai notaire" value={formatJours(d.delaiNotaire)} />
+                    <Field label="Délai de livraison" value={formatJours(d.delaiLivraison)} />
+                  </FieldGrid>
+                </div>
               </div>
             ),
           },
@@ -2011,6 +2050,9 @@ export default function DossierDetail() {
                   <FieldGrid>
                     <Field label="Nom" value={d.clientNom} />
                     <Field label="Commercial" value={d.commercialNom} />
+                    {/* Acteur **distinct** du commercial, pas un synonyme :
+                        renseigné sur 221 des 358 dossiers réels. */}
+                    <Field label="Responsable de vente" value={d.responsableVenteNom} />
                     <Field label="Notaire" value={d.avocatNom} />
                     {linkedClient.data && (
                       <>

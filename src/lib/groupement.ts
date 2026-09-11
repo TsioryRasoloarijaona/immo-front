@@ -138,6 +138,14 @@ export function useGroupement(
             agregats: agregats.length > 0 ? agregats : undefined,
             granularite: granulariteEffective,
             tri,
+            /* Toujours `true`, jamais laissé au défaut serveur.
+               Voir `ParamsGroupes.inclureSansValeur` : le défaut `false`
+               retire les lignes sans valeur des groupes **sans les signaler
+               nulle part**. Mesuré, grouper les dossiers par avocat
+               n'afficherait plus que 23 lignes sur 116.
+               C'est aussi ce qui maintient l'égalité somme des effectifs =
+               `totalElements`, sur laquelle repose tout l'écran. */
+            inclureSansValeur: true,
           }
         : null,
     [colonneGroupee, agregats, granulariteEffective, tri],

@@ -36,6 +36,9 @@ const RENDUS: Record<string, (d: DossierListItemDto, ctx: Contexte) => ReactNode
   statut: (d) => <Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge>,
   origineProspection: (d) => (d.origineProspection ? <Badge tone="info">{d.origineProspection}</Badge> : TIRET),
   trancheCode: (d) => (d.trancheCode ? <Badge tone="neutral">{d.trancheCode}</Badge> : TIRET),
+  /* Le lot lui-même, au même traitement que la tranche et le projet qui le
+     surplombent : c'est une référence, pas une phrase. */
+  articleCode: (d) => (d.articleCode ? <Badge tone="neutral" className="font-mono">{d.articleCode}</Badge> : TIRET),
   trancheLibelle: (d) => (d.trancheLibelle ? <Badge tone="neutral">{d.trancheLibelle}</Badge> : TIRET),
   projetCode: (d) => (d.projetCode ? <Badge tone="neutral">{d.projetCode}</Badge> : TIRET),
   /* Deux colonnes que le serveur type `NOMBRE` alors que ce sont des **ratios
@@ -87,6 +90,23 @@ const CLASSES: Record<string, string> = {
   vocationCode: 'tabular-nums text-muted-foreground',
   vocationLibelle: 'text-muted-foreground',
   avocatNom: 'text-muted-foreground',
+  responsableVenteNom: 'text-muted-foreground',
+  // Article : des attributs du lot, secondaires par rapport au client et au
+  // montant. `articleTitreFoncier` en chiffres, d'où les tabulaires.
+  articleLibelle: 'text-muted-foreground',
+  typeArticle: 'text-muted-foreground',
+  categorieArticle: 'text-muted-foreground',
+  bloc: 'text-muted-foreground',
+  etage: 'text-muted-foreground',
+  typePresentation: 'text-muted-foreground',
+  articleTitreFoncier: 'tabular-nums text-muted-foreground',
+  // Délais : le serveur les type NOMBRE, donc DataGrid les aligne à droite et
+  // les formate déjà. Rien à ajouter qu'une teinte secondaire.
+  delaiConcretisation: 'text-muted-foreground',
+  delaiNotaire: 'text-muted-foreground',
+  delaiLivraison: 'text-muted-foreground',
+  dateCompromis: 'text-muted-foreground',
+  dateLivraisonReelle: 'text-muted-foreground',
   creePar: 'text-muted-foreground',
   creeLe: 'text-muted-foreground',
   modifiePar: 'text-muted-foreground',
@@ -103,6 +123,12 @@ const TITRES: Record<string, (d: DossierListItemDto) => string | undefined> = {
   societeLibelle: (d) => d.societeLibelle ?? undefined,
   vocationLibelle: (d) => d.vocationLibelle ?? undefined,
   avocatNom: (d) => d.avocatNom ?? undefined,
+  responsableVenteNom: (d) => d.responsableVenteNom ?? undefined,
+  articleLibelle: (d) => d.articleLibelle ?? undefined,
+  bloc: (d) => d.bloc ?? undefined,
+  etage: (d) => d.etage ?? undefined,
+  typePresentation: (d) => d.typePresentation ?? undefined,
+  articleTitreFoncier: (d) => d.articleTitreFoncier ?? undefined,
   modePaie: (d) => d.modePaie ?? undefined,
   etapeProspection: (d) => d.etapeProspection ?? undefined,
   origineProspection: (d) => d.origineProspection ?? undefined,
