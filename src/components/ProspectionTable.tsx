@@ -3,12 +3,7 @@ import { Badge } from './ui';
 import { InactiviteBadge } from './ActiviteProspection';
 import DataGrid, { type ColonneGrille, type GroupementGrille } from './DataGrid';
 import { formatCurrency, formatDate, isPastOrToday } from '../lib/format';
-import {
-  SEUIL_RELANCE_TARDIVE_JOURS,
-  etapeBadgeTone,
-  prospectionDisplayName,
-  relanceTardive,
-} from '../lib/domain';
+import { etapeBadgeTone, prospectionDisplayName, relanceEnRetard } from '../lib/domain';
 import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_PROSPECTIONS } from '../lib/dispositions';
 import type { ColonneDto, ProspectionListItemDto } from '../types';
@@ -146,30 +141,21 @@ export default function ProspectionTable({
          WCAG de sévérité High — la raison même pour laquelle les pastilles de
          statut ont gardé leurs glyphes. Le badge de la colonne Alerte porte
          déjà un glyphe, mais cette colonne est décochable alors que le fond,
-         lui, reste.
-
-         Le libellé dit le seuil plutôt que « en retard » tout court : sur un
-         écran où le badge d'alerte s'allume plus tôt que le fond, une mention
-         vague laisserait croire à une incohérence. */
+         lui, reste. */
       libelleLigne={(p) =>
-        `Ouvrir la ${entite} ${prospectionDisplayName(p)}${
-          relanceTardive(p) ? ` — relance en retard de plus de ${SEUIL_RELANCE_TARDIVE_JOURS} jours` : ''
-        }`
+        `Ouvrir la ${entite} ${prospectionDisplayName(p)}${relanceEnRetard(p) ? ' — relance en retard' : ''}`
       }
       /* Repérer un retard sans lire la colonne Alerte : c'est ce que fait le
          logiciel de bureau avec son icône rouge, porté ici sur la ligne
          entière. `--retard-bg` reprend la teinte du badge d'alerte échue — les
-         deux parlent du même sujet — mais à un alpha plus faible : voir
-         `index.css`, où l'alpha des pastilles faisait échouer le texte des
-         cellules en contraste.
-
-         Le fond s'allume plus tard que le badge, voir
-         `SEUIL_RELANCE_TARDIVE_JOURS`.
+         deux s'allument sur le même critère et doivent se lire comme un seul
+         signal — mais à un alpha plus faible : voir `index.css`, où l'alpha des
+         pastilles faisait échouer le texte des cellules en contraste.
 
          `hover:` répété : sans lui le survol repeindrait la ligne en
          `bg-muted/50` et le retard disparaîtrait sous le curseur, c'est-à-dire
          exactement quand on le regarde. */
-      classeLigne={(p) => (relanceTardive(p) ? 'bg-(--retard-bg) hover:bg-(--retard-bg)' : undefined)}
+      classeLigne={(p) => (relanceEnRetard(p) ? 'bg-(--retard-bg) hover:bg-(--retard-bg)' : undefined)}
       bandeauRegroupement={bandeauRegroupement}
       groupes={groupes}
     />

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { IconMessage, IconNote, IconPhoneIn, IconPhoneOut } from '../components/icons';
-import { daysBetween, todayISO } from './format';
+import { isPastOrToday } from './format';
 import type {
   BadgeTone,
   EvenementCalendrierDto,
@@ -29,51 +29,51 @@ export const PIPELINE_STAGE_SHORT: Record<string, string> = {
   '5 AVANT CONCRETISATION': 'Avant concrétisation',
 };
 
-/** Au-delà de combien de jours un retard de relance teinte la ligne entière.
+/** Une relance dont l'échéance est passée, sur un lead encore ouvert : ce que
+ * le fond rouge des listes signale.
  *
- * **Le seuil existe parce que « échue » ne discrimine rien ici.** Mesuré sur
- * la base réelle : 336 prospections sur 500 ont une alerte échue et ouverte,
- * soit 67 % — et 17 lignes sur 20 en page 1. Un repère qui s'allume sur deux
- * tiers des lignes ne repère plus rien. À 30 jours il en reste 267, soit 53 % :
- * ce n'est pas spectaculaire, mais c'est la part qui correspond à un retard
- * *installé* plutôt qu'à une relance de la semaine.
+ * **Même critère que le badge de la colonne Alerte** — échéance `<= aujourd'hui`
+ * — pour que les deux signaux s'allument ensemble. Une ligne qui porterait un
+ * badge d'alerte sans fond rouge se lirait comme une contradiction.
  *
- * Répartition mesurée du retard : 26 lignes à 7 jours ou moins, 43 entre 8 et
- * 30, 162 entre 31 et 180, 105 au-delà de 180. Le seuil coupe donc les deux
- * premières tranches. */
-export const SEUIL_RELANCE_TARDIVE_JOURS = 30;
-
-/** Une relance dont le retard est **installé**, sur un lead encore ouvert :
- * ce que le fond rouge des listes signale.
+ * ### Un seuil a été essayé, puis retiré
  *
- * Nommée « tardive » et non « en retard » à dessein : une alerte échue depuis
- * cinq jours est en retard et ne déclenche pourtant rien ici. Le nom doit dire
- * ce que la fonction teste, sans quoi le prochain lecteur la croira synchrone
- * avec le badge de la colonne Alerte.
+ * Sans seuil, **336 prospections sur 500 sont en retard** (67 %), soit 17
+ * lignes sur 20 en page 1 : un repère qui s'allume sur deux tiers des lignes
+ * paraît ne plus rien repérer. Un seuil de 30 jours a donc été livré, ramenant
+ * la part à 267 sur 500 (53 %).
  *
- * **Elle ne l'est pas, et c'est voulu.** Le badge s'allume dès l'échéance
- * passée — « cette relance est due » — là où le fond dit « celle-ci traîne ».
- * Deux affirmations différentes, deux seuils différents ; une ligne peut donc
- * porter un badge d'alerte sans fond rouge.
+ * **Il a été annulé, et pour une raison mesurée, pas d'opinion** : la liste
+ * sort triée par date d'alerte décroissante, si bien que le seuil ne
+ * répartissait pas le rouge, il le **déplaçait vers le fond de la liste**.
+ * Relevé par page : 0 ligne rouge sur les pages 1 à 4, 1 en page 5, puis 9 à
+ * 14 à partir de la page 6. À l'ouverture de l'écran, plus rien n'était rouge —
+ * exactement l'inverse de ce qu'un repère « au premier coup d'œil » doit faire.
  *
- * `fermee` est dans la condition, et ce n'est pas un détail : une prospection
- * perdue garde son alerte, mais plus personne ne la rappellera. Mesuré, 16
- * lignes sur 500 sont échues **et** fermées. C'est la même règle que le
- * tableau de bord applique déjà pour sa liste de relances.
+ * C'est aussi le comportement du logiciel de bureau, dont la colonne Alerte
+ * porte une icône rouge sur presque chaque ligne. Que la majorité des relances
+ * soient en retard est un fait du métier, pas un défaut d'affichage : le
+ * repère le constate, et c'est aux filtres de la page de trier.
+ *
+ * **Ne pas réintroduire de seuil sans remesurer la répartition par page.**
+ *
+ * ### Ce que la condition contient, et pourquoi
+ *
+ * `fermee` en fait partie, et ce n'est pas un détail : une prospection perdue
+ * garde son alerte, mais plus personne ne la rappellera. Mesuré, 16 lignes sur
+ * 500 sont échues **et** fermées. C'est la règle que le tableau de bord
+ * applique déjà pour sa liste de relances.
  *
  * **Les deux champs doivent être présents dans la charge utile.** `?colonnes=`
  * est une liste close : sans `derniereAlerteDate` la fonction rend toujours
  * faux, et sans `fermee` elle traiterait les leads perdus comme à relancer.
  * D'où `toujoursDemandees` dans `DISPOSITION_PROSPECTIONS` — les deux colonnes
  * sont demandées au serveur même décochées de la grille. */
-export function relanceTardive(p: {
+export function relanceEnRetard(p: {
   derniereAlerteDate?: string | null;
   fermee?: boolean;
 }): boolean {
-  if (p.fermee) return false;
-  // `daysBetween(a, b)` rend `b - a` : positif quand l'échéance est passée.
-  const jours = daysBetween(p.derniereAlerteDate, todayISO());
-  return jours !== null && jours > SEUIL_RELANCE_TARDIVE_JOURS;
+  return !p.fermee && isPastOrToday(p.derniereAlerteDate);
 }
 
 export function isSideTrackEtape(etape: string | undefined): boolean {
