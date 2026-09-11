@@ -74,7 +74,7 @@ import type { CreerEcheanceRequest, CreerReglementRequest, EcheanceDto, PieceJoi
 
 /** La zone large, en bas. Cinq onglets sur les douze du logiciel de bureau :
  * les cinq pour lesquels un endpoint existe. */
-type DossierTab = 'financier' | 'articles' | 'acquereurs' | 'documents' | 'historique';
+type DossierTab = 'statut' | 'financier' | 'articles' | 'acquereurs' | 'documents' | 'historique';
 
 /** Le panneau étroit, à droite du formulaire. Il prend ce qui se lit en liste
  * de champs ; la zone large prend les tableaux et les chronologies. */
@@ -1478,7 +1478,10 @@ export default function DossierDetail() {
   // pre-filled, since the schéma de financement always starts empty (the
   // API's CreerDossierRequest has no way to seed it at creation time).
   const fromCreation = searchParams.get('nouveau') === '1';
-  const [tab, setTab] = useState<DossierTab>('financier');
+  // « Statut » par défaut : ouvrir un dossier, c'est d'abord demander où il
+  // en est. Le parcours occupait jusqu'ici une ligne permanente de la bande
+  // d'identité, utile les premiers jours d'un dossier puis jamais relue.
+  const [tab, setTab] = useState<DossierTab>('statut');
   // « Montants » par défaut, comme l'écran légataire, qui l'ouvre sur cet
   // onglet : c'est la première chose qu'un commercial regarde sur un dossier.
   const [panneauTab, setPanneauTab] = useState<PanneauDossierTab>('montants');
@@ -1757,25 +1760,6 @@ export default function DossierDetail() {
                 complétez-le dans l'onglet ci-dessous.
               </div>
             )}
-
-            <div className="border-t border-border px-3 py-1.5">
-              <DossierStatusStepper
-                currentStatus={d.statut || 'Réservation'}
-                nextSteps={nextSteps.data ?? []}
-                onConfirm={async (newStatus, note, date) => {
-                  try {
-                    await changerStatutDossier(d.id, { statut: newStatus, note: note || undefined, date: toApiDateTime(date) });
-                    await refetch();
-                    await nextSteps.refetch();
-                    await historique.refetch();
-                    await montants.refetch();
-                    showToast(`Statut changé : ${canonicalStatusLabel(newStatus)}.`);
-                  } catch (err) {
-                    showToast(err instanceof Error ? err.message : "Échec de l'opération.");
-                  }
-                }}
-              />
-            </div>
           </Card>
         }
         /* ---------------------------------------------------------------
@@ -1950,6 +1934,30 @@ export default function DossierDetail() {
            coûtant un clic pour apprendre qu'il n'y a rien.
            --------------------------------------------------------------- */
         onglets={[
+          {
+            id: 'statut',
+            libelle: 'Statut',
+            contenu: (
+              <div className="p-3">
+                <DossierStatusStepper
+                  currentStatus={d.statut || 'Réservation'}
+                  nextSteps={nextSteps.data ?? []}
+                  onConfirm={async (newStatus, note, date) => {
+                    try {
+                      await changerStatutDossier(d.id, { statut: newStatus, note: note || undefined, date: toApiDateTime(date) });
+                      await refetch();
+                      await nextSteps.refetch();
+                      await historique.refetch();
+                      await montants.refetch();
+                      showToast(`Statut changé : ${canonicalStatusLabel(newStatus)}.`);
+                    } catch (err) {
+                      showToast(err instanceof Error ? err.message : "Échec de l'opération.");
+                    }
+                  }}
+                />
+              </div>
+            ),
+          },
           {
             id: 'financier',
             libelle: 'Schéma de financement',

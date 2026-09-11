@@ -26,6 +26,8 @@ import { cn } from '../../lib/utils';
 import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../../lib/format';
 import {
   PIPELINE_STAGES,
+  PIPELINE_STAGE_SHORT,
+  isSideTrackEtape,
   etapeBadgeTone,
   pipelineStageIndex,
   personDisplayName,
@@ -94,6 +96,7 @@ import type {
  * son ancien nom de valeur — la clé sert d'identifiant interne, pas de
  * libellé, et `OffrePrixSection` s'y renvoie déjà. */
 type ProspectionTab =
+  | 'etape'
   | 'autres-tranches'
   | 'article'
   | 'profils'
@@ -575,7 +578,9 @@ export default function ProspectionDetail() {
   const [raisonId, setRaisonId] = useState<string | null>(null);
   const [raisonTexte, setRaisonTexte] = useState('');
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<ProspectionTab>('article');
+  // « Étape » par défaut, comme le dossier ouvre sur « Statut » : la première
+  // question devant une fiche est où elle en est, pas quels sont ses termes.
+  const [tab, setTab] = useState<ProspectionTab>('etape');
   const [saving, setSaving] = useState(false);
 
   /* Le formulaire est **toujours** ouvert : la fiche du logiciel de bureau
@@ -642,6 +647,10 @@ export default function ProspectionDetail() {
   };
   const stageIdx = pipelineStageIndex(p.etape);
   const isPre = !p.prospectId;
+  /* Le parcours n'a de sens que sur une prospection ouverte et dans le
+     pipeline : une clôturée ou une garée sur une voie de côté
+     (« À rappeler », « Affaires à suivre ») n'a pas de rang à montrer. */
+  const showStepper = !p.fermee && !isSideTrackEtape(p.etape) && stageIdx >= 0;
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
   // Dossier déjà issu de cette prospection, s'il existe. Le lien vit dans
   // `activite` (vue légataire), pas au premier niveau du DTO. Hoisté ici parce
@@ -1087,6 +1096,79 @@ export default function ProspectionDetail() {
            les fonctions existaient depuis des mois sans aucun appelant.
            --------------------------------------------------------------- */
         onglets={[
+          {
+            id: 'etape',
+            libelle: 'Étape',
+            contenu: (
+              <div className="flex flex-col gap-3 p-3">
+                {showStepper ? (
+                  <div>
+                    <div className="flex items-center">
+                      {PIPELINE_STAGES.map((stage, i) => (
+                        <div className="flex flex-1 items-center" key={stage}>
+                          <div className={cn('flex flex-col items-center', i === PIPELINE_STAGES.length - 1 ? 'flex-none' : 'flex-1')}>
+                            <div
+                              className={cn(
+                                'flex size-5.5 shrink-0 items-center justify-center rounded-full border-2 text-micro font-bold transition-colors duration-300',
+                                i <= stageIdx ? 'text-white' : 'border-border bg-(--neutral-bg) text-muted-foreground',
+                              )}
+                              style={i <= stageIdx ? { borderColor: sectionAccent, background: sectionAccent } : undefined}
+                            >
+                              {i + 1}
+                            </div>
+                            <div className="mt-1.5 hidden text-center text-micro text-muted-foreground sm:block">{PIPELINE_STAGE_SHORT[stage]}</div>
+                          </div>
+                          {i < PIPELINE_STAGES.length - 1 && (
+                            <div
+                              className={cn('mx-0.5 h-0.5 flex-1 transition-colors duration-300', i >= stageIdx && 'bg-border')}
+                              style={i < stageIdx ? { background: sectionAccent } : undefined}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Sur mobile, les cinq libellés serrés dans ~68 px chacun
+                        formeraient une échelle illisible : on ne nomme que
+                        l'étape courante. */}
+                    <div className="mt-2 text-center text-body font-medium text-foreground sm:hidden">
+                      Étape {stageIdx + 1}/{PIPELINE_STAGES.length} · {PIPELINE_STAGE_SHORT[PIPELINE_STAGES[stageIdx]]}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-body text-muted-foreground">
+                    {p.fermee
+                      ? 'Prospection clôturée — le parcours ne progresse plus.'
+                      : "Cette étape est une voie de côté : elle n'a pas de rang dans le pipeline."}
+                  </p>
+                )}
+
+                {/* L'étape se change ici **ou** par le champ « Nature » du
+                    formulaire, qui passe par le même endpoint. Deux chemins
+                    pour un même geste, assumés : celui-ci montre le parcours,
+                    l'autre se corrige au fil de la saisie. */}
+                {!p.fermee && (
+                  <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+                    <span className="text-micro font-medium text-muted-foreground">Changer d'étape :</span>
+                    <div className="w-55">
+                      <RefSelect
+                        id="etape-onglet"
+                        value={form.valeurs.etapeId}
+                        onChange={(v) => form.set('etapeId', v)}
+                        items={referentielItems(etapes.data)}
+                        placeholder="Choisir une étape…"
+                        size="sm"
+                      />
+                    </div>
+                    {form.aChange('etapeId') && (
+                      <span className="text-micro text-(--warning)">
+                        modification non enregistrée — le bouton Enregistrer est sous le formulaire
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ),
+          },
           {
             id: 'autres-tranches',
             libelle: 'Autres tranches',
