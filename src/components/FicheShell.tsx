@@ -19,12 +19,16 @@ export type OngletFiche = {
  * faire défiler la fiche, et c'est le point que la version précédente de ces
  * écrans avait perdu en empilant des cartes sur trois hauteurs.
  *
- * Les onglets sont passés **au-dessus** du formulaire, et le premier d'entre
- * eux porte l'état du document — parcours de statut sur un dossier, étape du
- * pipeline sur une prospection. C'est ce qu'on regarde en premier en ouvrant
- * une fiche, et le loger dans un onglet lui rend la place qu'il occupait en
- * permanence sans être toujours utile. Le formulaire, lui, se consulte après
- * : il répond à « quels sont les termes », pas à « où en est-on ».
+ * Le premier onglet porte l'**état** du document — parcours de statut sur un
+ * dossier, étape du pipeline sur une prospection — et s'ouvre par défaut. Le
+ * loger dans un onglet lui rend la ligne qu'il occupait en permanence dans la
+ * bande d'identité sans être toujours relu : utile les premiers jours d'un
+ * dossier, jamais ensuite.
+ *
+ * Il reste **sous** le formulaire, et pas au-dessus : la zone à onglets est
+ * celle qui absorbe la hauteur restante, donc la mettre en premier repoussait
+ * le formulaire vers le bas de l'écran à mesure qu'un onglet se remplissait.
+ * L'identité et les termes du document d'abord, ce qui s'y rattache ensuite.
  *
  * La contrainte se tient en une phrase : **le document ne défile pas, seul le
  * contenu d'onglet le fait.** D'où `fullHeight` sur `PageShell` côté appelant,
@@ -61,12 +65,28 @@ export default function FicheShell({
   ongletActif: string;
   onOngletChange: (id: string) => void;
   /** Barre d'enregistrement, montée seulement quand quelque chose a changé.
-   * Posée **sous** le formulaire, au contact des champs qu'elle enregistre. */
+   * Posée entre le formulaire et les onglets : au contact des champs qu'elle
+   * enregistre, plutôt qu'en pied de page hors du regard. */
   barreAction?: ReactNode;
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col gap-2.5">
       <div className="shrink-0">{identite}</div>
+
+      {panneau ? (
+        /* `items-stretch` : le panneau prend la hauteur du formulaire plutôt
+           que la sienne, sinon la synthèse flotte au-dessus d'un vide quand le
+           formulaire est plus haut qu'elle. `min-w-0` des deux côtés — un
+           tableau de montants large élargirait autrement la colonne. */
+        <div className="grid shrink-0 items-stretch gap-2.5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+          <div className="min-w-0">{formulaire}</div>
+          <div className="min-w-0">{panneau}</div>
+        </div>
+      ) : (
+        <div className="shrink-0">{formulaire}</div>
+      )}
+
+      {barreAction && <div className="shrink-0">{barreAction}</div>}
 
       <Tabs
         value={ongletActif}
@@ -104,21 +124,6 @@ export default function FicheShell({
           </TabsContent>
         ))}
       </Tabs>
-
-      {panneau ? (
-        /* `items-stretch` : le panneau prend la hauteur du formulaire plutôt
-           que la sienne, sinon la synthèse flotte au-dessus d'un vide quand le
-           formulaire est plus haut qu'elle. `min-w-0` des deux côtés — un
-           tableau de montants large élargirait autrement la colonne. */
-        <div className="grid shrink-0 items-stretch gap-2.5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <div className="min-w-0">{formulaire}</div>
-          <div className="min-w-0">{panneau}</div>
-        </div>
-      ) : (
-        <div className="shrink-0">{formulaire}</div>
-      )}
-
-      {barreAction && <div className="shrink-0">{barreAction}</div>}
     </div>
   );
 }
