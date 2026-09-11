@@ -9,10 +9,10 @@ import { Button } from '../../components/ui/button';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import ProspectionTable from '../../components/ProspectionTable';
 import BandeGroupement from '../../components/BandeGroupement';
-import TableauGroupes, { BandeauGroupeOuvert } from '../../components/TableauGroupes';
 import { DEFAULT_PAGE_SIZE, listPreProspections, listPreProspectionsGroupes, listTranches } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
-import { libelleGroupeAffiche, useGroupement } from '../../lib/groupement';
+import { useGroupement, useLignesGroupes } from '../../lib/groupement';
+import type { ProspectionListItemDto } from '../../types';
 import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
@@ -89,7 +89,10 @@ export default function PreProspectionsList() {
     ouvertes: filters.ouvertes === 'open' ? true : filters.ouvertes === 'closed' ? false : undefined,
   };
 
-  const enGroupes = groupement.actif && !groupement.ouvert;
+  /* Une liste repliée reste **une seule** grille : les en-têtes de groupe s'y
+     intercalent et chacun s'ouvre sur place. La pagination du bas numérote
+     alors les groupes, et chaque groupe pagine ses propres lignes par lots. */
+  const enGroupes = groupement.actif;
 
   const clesFiltres = [
     debouncedSearch,
@@ -107,7 +110,7 @@ export default function PreProspectionsList() {
     () =>
       enGroupes
         ? Promise.resolve(null)
-        : listPreProspections(filtresServeur, { page, size: DEFAULT_PAGE_SIZE }, { depliage: groupement.depliage }),
+        : listPreProspections(filtresServeur, { page, size: DEFAULT_PAGE_SIZE }),
     [...clesFiltres, enGroupes, groupement.cleDeps],
     'pre-prospections',
   );
@@ -121,12 +124,37 @@ export default function PreProspectionsList() {
     'pre-prospections-groupes',
   );
 
+  /* Les lignes d'un groupe déplié : le **même endpoint que la liste**,
+     restreint par `groupeColonne`/`groupeValeur`/`granularite`. Mêmes colonnes
+     demandées — une ligne doit se lire pareil dépliée ou à plat.
+
+     La clé de remise à zéro comprend les filtres, l'axe de groupement et la
+     page : dans les trois cas les groupes affichés changent, et des lignes
+     déjà chargées appartiendraient à des en-têtes qui ne sont plus là. */
+  const lignesGroupes = useLignesGroupes<ProspectionListItemDto>(
+    (cle, taille) =>
+      listPreProspections(
+        filtresServeur,
+        /* Tri **déterministe**, et c'est une exigence du chargement par lots,
+           pas une préférence : « en charger davantage » redemande la page 0
+           avec une taille plus grande, ce qui suppose que le lot précédent en
+           soit le préfixe. Mesuré sans départage, il ne l'est pas toujours —
+           le groupe « 2024 » des dossiers ressortait dans un ordre différent
+           d'un appel à l'autre, les dates ex æquo étant départagées par le
+           plan SQL du moment. `id` tranche. */
+        { page: 0, size: taille, sort: ['docDate,desc', 'id,asc'] },
+        { depliage: groupement.depliagePour(cle) },
+      ),
+    `${clesFiltres.join('|')}|${groupement.cleDeps}`,
+  );
+
   const data = liste.data;
   const rows = data?.content ?? [];
   /** La page qui pilote le décompte et la pagination — groupes ou lignes. */
   const pageAffichee = enGroupes ? groupes.data : liste.data;
   const loading = enGroupes ? groupes.loading : liste.loading;
   const error = enGroupes ? groupes.error : liste.error;
+  const vide = enGroupes ? (groupes.data?.content.length ?? 0) === 0 : rows.length === 0;
 
   const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
   const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
@@ -185,40 +213,16 @@ export default function PreProspectionsList() {
                 les groupes. */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} />
-              {groupement.ouvert && groupement.colonneGroupee && (
-                <BandeauGroupeOuvert
-                  colonneLibelle={groupement.colonneGroupee.libelle}
-                  groupeLibelle={groupement.ouvert.libelle}
-                  nombre={liste.data?.totalElements ?? 0}
-                  onRetour={() => groupement.ouvrir(null)}
-                />
-              )}
-              {enGroupes ? (
-                (groupes.data?.content.length ?? 0) === 0 ? (
-                  <EmptyState
-                    title="Aucun groupe"
-                    message="Aucune pré-prospection ne correspond aux filtres actifs."
-                  />
-                ) : (
-                  <TableauGroupes
-                    groupes={groupes.data?.content ?? []}
-                    colonneGroupee={groupement.colonneGroupee!}
-                    agregats={groupement.agregeables.filter((c) => groupement.agregats.includes(c.nom))}
-                    onOuvrir={(g) => groupement.ouvrir({ cle: g.cle, libelle: libelleGroupeAffiche(g) })}
-                  />
-                )
-              ) : rows.length === 0 ? (
+              {vide ? (
                 <EmptyState
-                  title={hasActiveProspectionFilters(filters) || groupement.ouvert ? 'Aucun résultat' : 'Rien à afficher'}
+                  title={hasActiveProspectionFilters(filters) ? 'Aucun résultat' : 'Rien à afficher'}
                   message={
-                    groupement.ouvert
-                      ? 'Ce groupe ne contient aucune pré-prospection avec les filtres actifs.'
-                      : hasActiveProspectionFilters(filters)
-                        ? 'Aucune pré-prospection ne correspond aux filtres actifs.'
-                        : "Aucune pré-prospection n'est encore enregistrée."
+                    hasActiveProspectionFilters(filters)
+                      ? 'Aucune pré-prospection ne correspond aux filtres actifs.'
+                      : "Aucune pré-prospection n'est encore enregistrée."
                   }
                   action={
-                    hasActiveProspectionFilters(filters) && !groupement.ouvert ? (
+                    hasActiveProspectionFilters(filters) ? (
                       <Button type="button" variant="outline" size="sm" onClick={() => setFilters(emptyProspectionFilters())}>
                         <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
                       </Button>
@@ -227,11 +231,27 @@ export default function PreProspectionsList() {
                 />
               ) : colonnes.colonnes.length > 0 ? (
                 <ProspectionTable
-                  rows={rows}
+                  /* En mode groupé la grille ne lit pas `rows` : chaque groupe
+                     porte ses propres lignes. */
+                  rows={enGroupes ? [] : rows}
                   colonnes={colonnes.colonnes}
                   entite="pré-prospection"
                   onOuvrir={(prospectionId) => navigate(`/pre-prospections/${prospectionId}`)}
                   bandeauRegroupement={false}
+                  groupes={
+                    enGroupes && groupement.colonneGroupee
+                      ? {
+                          liste: groupes.data?.content ?? [],
+                          colonneLibelle: groupement.colonneGroupee.libelle,
+                          agregats: groupement.colonnesAgregats,
+                          estOuvert: lignesGroupes.estOuvert,
+                          etat: lignesGroupes.etat,
+                          basculer: lignesGroupes.basculer,
+                          chargerPlus: lignesGroupes.chargerPlus,
+                          lignesChargees: lignesGroupes.lignesChargees,
+                        }
+                      : undefined
+                  }
                 />
               ) : catalogue.error ? (
                 <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />

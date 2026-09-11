@@ -281,6 +281,35 @@ qui est coherent. La description du catalogue prospects annonce pourtant que
 les drapeaux « pilotent la bande de groupement » : formulation a corriger, sans
 consequence fonctionnelle.
 
+### Forme retenue : le depliant, pas deux ecrans
+
+Les groupes s'intercalent **dans la grille**, comme dans le logiciel de bureau :
+un en-tete `⊟ Statut : CONCRETISATION (68 items)` porte l'effectif et les
+bandes « Total : », et s'ouvre sur place pour laisser apparaitre ses lignes dans
+les memes colonnes. **Plusieurs groupes restent ouverts en meme temps** — c'est
+tout l'interet du depliant, et ce qu'une bascule entre deux vues ne permet pas.
+
+Un groupe n'est pas borne (mesure : 7 612 prospections dans « 1 A TRAITER »), il
+se charge donc par lots de 20, avec une ligne de pied qui annonce le reste.
+
+### Constat serveur : l'ordre des lignes n'est pas deterministe
+
+Le chargement par lots redemande la page 0 avec une taille plus grande, ce qui
+suppose que le lot precedent en soit le prefixe. **Mesure : ce n'est pas
+toujours le cas.** Le groupe « 2024 » des dossiers, trie sur la seule
+`docDate`, ressortait dans un ordre different d'un appel a l'autre — les ex
+aequo sont departages par le plan SQL du moment, et le desordre est
+intermittent.
+
+Absorbe cote front en passant un tri qui tranche : `sort=docDate,desc` **plus**
+`sort=id,asc`, accepte 200 sur les trois endpoints. Verifie ensuite 15 fois de
+suite sur trois groupes : prefixe stable 15/15.
+
+**A noter pour plus tard** : le meme aleas existe sur la pagination ordinaire
+des listes, ou il peut cacher ou dupliquer une ligne entre deux pages. Non
+touche ici — ce serait changer l'ordre d'affichage actuel sans que personne ne
+l'ait demande — mais c'est un vrai defaut latent.
+
 ### Piege serveur, absorbe cote front
 
 `?granularite=` **doit accompagner la cle** au depliage. Mesure :

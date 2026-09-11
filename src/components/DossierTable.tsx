@@ -1,6 +1,6 @@
 import { useMemo, type ReactNode } from 'react';
 import { Badge } from './ui';
-import DataGrid, { type ColonneGrille } from './DataGrid';
+import DataGrid, { type ColonneGrille, type GroupementGrille } from './DataGrid';
 import { formatPercent } from '../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
 import { poidsColonne } from '../lib/colonnes';
@@ -127,6 +127,7 @@ export default function DossierTable({
   onOuvrirProspection,
   selection,
   bandeauRegroupement,
+  groupes,
 }: {
   rows: DossierListItemDto[];
   colonnes: ColonneDto[];
@@ -135,6 +136,8 @@ export default function DossierTable({
   /** Coupe le bandeau inerte de `DataGrid` : l'écran rend sa propre bande de
    * groupement au-dessus de la grille. Voir `DataGrid.bandeauRegroupement`. */
   bandeauRegroupement?: boolean;
+  /** Repliage en groupes dépliables sur place. Passe-plat vers `DataGrid`. */
+  groupes?: GroupementGrille<DossierListItemDto>;
   /** Passe-plat vers `DataGrid` : sur cet écran la gouttière à cases **est**
    * le sélecteur de lot documentaire, et non une colonne décorative. */
   selection?: { ids: Set<string>; onToggle: (id: string) => void; onToggleAll: (ids: string[]) => void };
@@ -166,6 +169,7 @@ export default function DossierTable({
       libelleLigne={(d) => `Ouvrir le dossier ${d.clientNom || d.code || d.id}`}
       selection={selection}
       bandeauRegroupement={bandeauRegroupement}
+      groupes={groupes}
     />
   );
 }

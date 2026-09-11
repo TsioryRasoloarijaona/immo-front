@@ -11,7 +11,6 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/u
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import DossierTable from '../../components/DossierTable';
 import BandeGroupement from '../../components/BandeGroupement';
-import TableauGroupes, { BandeauGroupeOuvert } from '../../components/TableauGroupes';
 import {
   DEFAULT_PAGE_SIZE,
   DOSSIER_BATCH_DOC_LABELS,
@@ -22,11 +21,10 @@ import {
   viewDossiersDocumentsEnLot,
   type DossierBatchDocKind,
   type DossierChampDate,
-  type ParamsDepliage,
 } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useColonnesVisibles } from '../../lib/colonnes';
-import { libelleGroupeAffiche, useGroupement } from '../../lib/groupement';
+import { useGroupement, useLignesGroupes } from '../../lib/groupement';
 import { DISPOSITION_DOSSIERS } from '../../lib/dispositions';
 import { useColonnesDossiers } from '../../lib/referentiels';
 import { useAppData, commercialLabel } from '../../lib/appData';
@@ -69,14 +67,9 @@ async function fetchDossiersWithStatusWorkaround(
   page: number,
   size: number,
   colonnes: string[] | undefined,
-  /* Dépliage d'un groupe. Ne coexiste jamais avec `statuses` : le groupement
-     est refusé tant qu'un filtre statut est actif, précisément parce que ce
-     contournement empêche le serveur de voir ce filtre — voir
-     `GROUPEMENT_ET_STATUT` plus bas. */
-  depliage: ParamsDepliage | undefined,
 ): Promise<PageDto<DossierListItemDto>> {
   if (statuses.length === 0) {
-    return listDossiers(baseParams, { page, size, sort: ['docDate,desc'] }, { colonnes, depliage });
+    return listDossiers(baseParams, { page, size, sort: ['docDate,desc'] }, { colonnes });
   }
   const wanted = new Set(statuses.map((s) => normalizeStatus(s)));
   /* Ce filtre-ci se joue sur `d.statut`, et `statut` est une colonne que
@@ -191,11 +184,10 @@ export default function DossiersList() {
     dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
   };
 
-  /* Deux vues, jamais les deux à la fois : la liste repliée en groupes, ou des
-     lignes — toutes, ou celles d'un groupe ouvert. Deux paginations imbriquées
-     dans un même écran ne diraient plus ce qu'elles numérotent. */
-  const enGroupes = groupement.actif && !groupement.ouvert && !groupementBloque;
-  const depliage = groupementBloque ? undefined : groupement.depliage;
+  /* Une liste repliée reste **une seule** grille : les en-têtes de groupe s'y
+     intercalent et chacun s'ouvre sur place. La pagination du bas numérote
+     alors les groupes, et chaque groupe pagine ses propres lignes par lots. */
+  const enGroupes = groupement.actif && !groupementBloque;
 
   const clesFiltres = [
     debouncedSearch,
@@ -217,14 +209,7 @@ export default function DossiersList() {
           // response DTO's field name), which 400s: Pageable's `sort` validates
           // against the entity property, and OpenAPI doesn't document it.
           // `statut` itself is handled separately — see fetchDossiersWithStatusWorkaround.
-          fetchDossiersWithStatusWorkaround(
-            filtresServeur,
-            status,
-            page,
-            DEFAULT_PAGE_SIZE,
-            colonnesDemandees,
-            depliage,
-          ),
+          fetchDossiersWithStatusWorkaround(filtresServeur, status, page, DEFAULT_PAGE_SIZE, colonnesDemandees),
     [...clesFiltres, colonnesDemandees?.join(',') ?? '', enGroupes, groupement.cleDeps],
     'dossiers',
   );
@@ -241,12 +226,41 @@ export default function DossiersList() {
     'dossiers-groupes',
   );
 
+  /* Les lignes d'un groupe déplié : le **même endpoint que la liste**,
+     restreint par `groupeColonne`/`groupeValeur`/`granularite`. Même tri, mêmes
+     colonnes demandées — une ligne doit se lire pareil dépliée ou à plat.
+
+     La clé de remise à zéro comprend les filtres, l'axe de groupement et la
+     page : dans les trois cas les groupes affichés changent, et des lignes
+     déjà chargées appartiendraient à des en-têtes qui ne sont plus là. */
+  const lignesGroupes = useLignesGroupes<DossierListItemDto>(
+    (cle, taille) =>
+      listDossiers(
+        filtresServeur,
+        /* Tri **déterministe**, et c'est une exigence du chargement par lots,
+           pas une préférence : « en charger davantage » redemande la page 0
+           avec une taille plus grande, ce qui suppose que le lot précédent en
+           soit le préfixe. Mesuré sans départage, il ne l'est pas toujours —
+           le groupe « 2024 » des dossiers ressortait dans un ordre différent
+           d'un appel à l'autre, les dates ex æquo étant départagées par le
+           plan SQL du moment. `id` tranche. */
+        { page: 0, size: taille, sort: ['docDate,desc', 'id,asc'] },
+        { colonnes: colonnesDemandees, depliage: groupement.depliagePour(cle) },
+      ),
+    `${clesFiltres.join('|')}|${groupement.cleDeps}|${colonnesDemandees?.join(',') ?? ''}`,
+  );
+
   const data = liste.data;
   const dossiers = data?.content ?? [];
   /** La page qui pilote le décompte et la pagination — groupes ou lignes. */
   const pageAffichee = enGroupes ? groupes.data : liste.data;
   const loading = enGroupes ? groupes.loading : liste.loading;
   const error = enGroupes ? groupes.error : liste.error;
+  const vide = enGroupes ? (groupes.data?.content.length ?? 0) === 0 : dossiers.length === 0;
+  /** Ce qu'une case cochée peut désigner : les lignes à plat, ou celles des
+   * groupes dépliés. Sans ça, cocher dans un groupe ne retrouverait pas le
+   * dossier et la puce de sélection afficherait un UUID. */
+  const dossiersVisibles = enGroupes ? lignesGroupes.lignesChargees : dossiers;
 
   // Aggregate fetch (once, 16 tranches in the real portfolio per CLAUDE.md) —
   // populates the Tranche dropdown. Independent of the dossiers query above.
@@ -511,40 +525,16 @@ export default function DossiersList() {
                 les groupes, sinon l'écran est sans issue. */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} bloque={groupementBloque} />
-              {groupement.ouvert && groupement.colonneGroupee && (
-                <BandeauGroupeOuvert
-                  colonneLibelle={groupement.colonneGroupee.libelle}
-                  groupeLibelle={groupement.ouvert.libelle}
-                  nombre={liste.data?.totalElements ?? 0}
-                  onRetour={() => groupement.ouvrir(null)}
-                />
-              )}
-              {enGroupes ? (
-                (groupes.data?.content.length ?? 0) === 0 ? (
-                  <EmptyState
-                    title="Aucun groupe"
-                    message="Aucun dossier de vente ne correspond aux filtres actifs."
-                  />
-                ) : (
-                  <TableauGroupes
-                    groupes={groupes.data?.content ?? []}
-                    colonneGroupee={groupement.colonneGroupee!}
-                    agregats={groupement.agregeables.filter((c) => groupement.agregats.includes(c.nom))}
-                    onOuvrir={(g) => groupement.ouvrir({ cle: g.cle, libelle: libelleGroupeAffiche(g) })}
-                  />
-                )
-              ) : dossiers.length === 0 ? (
+              {vide ? (
                 <EmptyState
-                  title={hasActiveFilters || groupement.ouvert ? 'Aucun résultat' : 'Rien à afficher'}
+                  title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
                   message={
-                    groupement.ouvert
-                      ? 'Ce groupe ne contient aucun dossier avec les filtres actifs.'
-                      : hasActiveFilters
-                        ? 'Aucun dossier de vente ne correspond aux filtres actifs.'
-                        : "Aucun dossier de vente n'est encore enregistré."
+                    hasActiveFilters
+                      ? 'Aucun dossier de vente ne correspond aux filtres actifs.'
+                      : "Aucun dossier de vente n'est encore enregistré."
                   }
                   action={
-                    hasActiveFilters && !groupement.ouvert ? (
+                    hasActiveFilters ? (
                       <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
                         <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
                       </Button>
@@ -559,8 +549,24 @@ export default function DossiersList() {
                     rechargé qu'une fois par session. */}
                 {colonnes.colonnes.length > 0 ? (
                   <DossierTable
-                    rows={dossiers}
+                    /* En mode groupé la grille ne lit pas `rows` : chaque
+                       groupe porte ses propres lignes. */
+                    rows={enGroupes ? [] : dossiers}
                     colonnes={colonnes.colonnes}
+                    groupes={
+                      enGroupes && groupement.colonneGroupee
+                        ? {
+                            liste: groupes.data?.content ?? [],
+                            colonneLibelle: groupement.colonneGroupee.libelle,
+                            agregats: groupement.colonnesAgregats,
+                            estOuvert: lignesGroupes.estOuvert,
+                            etat: lignesGroupes.etat,
+                            basculer: lignesGroupes.basculer,
+                            chargerPlus: lignesGroupes.chargerPlus,
+                            lignesChargees: lignesGroupes.lignesChargees,
+                          }
+                        : undefined
+                    }
                     onOuvrir={(id) => navigate(`/dossiers/${id}`)}
                     onOuvrirProspection={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
                     bandeauRegroupement={false}
@@ -572,7 +578,7 @@ export default function DossiersList() {
                         ? {
                             ids: selectedIds,
                             onToggle: (id) => {
-                              const d = dossiers.find((x) => x.id === id);
+                              const d = dossiersVisibles.find((x) => x.id === id);
                               if (d) toggleSelected(d);
                             },
                             onToggleAll: (ids) => {
@@ -580,7 +586,7 @@ export default function DossiersList() {
                               setSelectedLabels((prev) => {
                                 const next = { ...prev };
                                 for (const id of ids) {
-                                  const d = dossiers.find((x) => x.id === id);
+                                  const d = dossiersVisibles.find((x) => x.id === id);
                                   if (d) next[id] = d.code || d.clientNom || d.id;
                                 }
                                 return next;

@@ -43,11 +43,17 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 
 - **Le navigateur reste inatteignable — 5ᵉ session.** Rien de ce lot n'a été vu
   à l'écran. La vérification visuelle est à faire par l'utilisateur.
-- **Première architecture : passer la bande en prop `bande?: ReactNode` à
-  `DataGrid`.** Abandonnée en cours de route : la bande disparaissait avec le
-  tableau dans les états vides, donc un groupe sans ligne devenait un **écran
-  sans issue** (plus de « Tous les groupes »). Remplacée par une bande rendue
-  au niveau de l'écran + `bandeauRegroupement={false}` sur l'adaptateur.
+- **Première forme livrée : deux vues séparées** (une liste de groupes, puis
+  la liste restreinte au groupe ouvert, avec un fil d'Ariane). Portes vertes,
+  16 contrôles API verts, poussée — puis **rejetée par l'utilisateur**, capture
+  d'Omran à l'appui : il veut un **dépliant**, les groupes intercalés dans la
+  grille, ouvrables **plusieurs à la fois**. La leçon n'est pas technique :
+  « replier une liste » avait deux lectures possibles et j'ai choisi la mienne
+  sans demander, alors qu'une capture existait.
+- **Première tentative de câblage : bande en prop `bande?: ReactNode` sur
+  `DataGrid`.** Abandonnée : la bande disparaissait avec le tableau dans les
+  états vides. Remplacée par une bande rendue au niveau de l'écran +
+  `bandeauRegroupement={false}` sur l'adaptateur.
 - **`loading && !data` comme garde de chargement.** En mode groupes `data`
   reste nul par construction → un `LoadingState` plein écran se serait rallumé
   **par-dessus** des groupes déjà affichés à chaque changement de granularité.
@@ -75,6 +81,7 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 | 138 | `remise` / `probabiliteFinalisation` sommables côté serveur alors que ce sont des **taux** | Fixed | `AGREGATS_SANS_SENS` les retire du Σ |
 | 139 | Filtre statut dossiers **interdit le groupement** (le contournement filtre après le serveur) | Workaround | Bande désactivée avec message ; **fait monter la demande backend statut en priorité** |
 | 140 | `CLOTURE` servi par le catalogue prospections mais absent de `GroupeColonne` et de `LIBELLES_GROUPE` | Fixed | Ajouté à l'union (le libellé retombait déjà sur la clé brute) |
+| 141 | **L'ordre des lignes n'est pas déterministe côté serveur** — sur `docDate` seule, le lot de 20 n'était pas le préfixe du lot de 40, par intermittence | Fixed | `sort=docDate,desc` **+** `sort=id,asc` sur les lots de groupe ; vérifié 15/15. **Le même aléa vaut pour la pagination ordinaire** — non touché, consigné |
 
 ---
 
@@ -84,12 +91,19 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 - **Le serveur groupe, le front choisit.** `lib/groupement.ts` ne calcule rien :
   il porte le choix de l'utilisateur et le traduit en paramètres. Grouper côté
   front ne grouperait que la page chargée.
-- **Deux vues, jamais les deux à la fois** : la liste repliée en groupes
-  (`TableauGroupes`), ou des lignes — toutes, ou celles d'un groupe ouvert.
-  **Une seule pagination**, qui numérote ce qui est à l'écran. Deux paginations
-  imbriquées ne diraient plus ce qu'elles comptent.
-- **La bande et le fil d'Ariane sont rendus par l'écran**, hors du test « y
-  a-t-il des lignes » — sinon un groupe vide est sans issue. L'adaptateur reçoit
+- **C'est un dépliant, pas deux écrans.** Les en-têtes de groupe
+  s'intercalent dans le corps de `DataGrid` (`groupes?: GroupementGrille<T>`),
+  et **plusieurs groupes restent ouverts en même temps**. C'est la forme
+  demandée, capture d'Omran à l'appui ; une bascule entre deux vues a été
+  livrée d'abord et rejetée.
+- **Chaque groupe pagine ses propres lignes**, par lots de 20
+  (`TAILLE_LOT_GROUPE`), avec une ligne de pied qui annonce le reste. Un groupe
+  n'est pas borné : 7 612 prospections dans « 1 A TRAITER ».
+- **« Charger plus » redemande la page 0 avec une taille plus grande**, jamais
+  une concaténation de pages. Cela **exige un tri qui tranche** — voir #141.
+- La pagination du bas numérote **les groupes** quand la liste est repliée.
+- **La bande est rendue par l'écran**, hors du test « y a-t-il des lignes » —
+  sinon un écran vide n'a plus de sortie. L'adaptateur reçoit
   `bandeauRegroupement={false}`.
 - **`groupable`/`agregeable` se lisent, ne se déduisent jamais.** Mesuré :
   `joursInactivite`, `nbInteractions`, `nbVisites` sont des `NOMBRE` **non**
@@ -156,8 +170,10 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 - `src/components/BandeGroupement.tsx` — **nouveau**. La bande réelle : menu de
   colonnes par sections, granularité (DATE seulement), ordre, Σ, dégrouper.
   Prop `bloque` pour la raison d'indisponibilité.
-- `src/components/TableauGroupes.tsx` — **nouveau**. Les groupes repliés + une
-  colonne par agrégat + `BandeauGroupeOuvert` (le fil d'Ariane).
+- `src/components/DataGrid.tsx` — porte le dépliant : `GroupementGrille<T>`,
+  en-têtes de groupe en `colSpan`, `rendreLigne` extrait pour que la ligne se
+  rende à l'identique à plat ou sous un groupe, `appliquer` pour filtrer/trier
+  **à l'intérieur** de chaque groupe.
 - `src/lib/api.ts` — `listDossiersGroupes` / `listProspectionsGroupes` /
   `listPreProspectionsGroupes`, `ParamsGroupes`, `ParamsDepliage`,
   `DossierFilterParams` (alias, pas interface).
@@ -187,13 +203,13 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 
 ## ⏭️ Next Step
 
-> **Vérifier le groupement au navigateur** — rien n'a été vu à l'écran. Chemin
-> le plus rapide : `/dossiers` → bande → « Regrouper par » → **Statut**, puis
-> cocher un ou deux totaux, ouvrir un groupe, revenir. Puis grouper par **Date
-> du document** pour éprouver la granularité (c'est là qu'un bug se verrait :
-> un groupe ouvert qui rend 0 ligne signifierait que la granularité ne circule
-> pas). Enfin `/prospections` avec le volet avancé ouvert, pour confirmer que
-> les effectifs suivent les filtres.
+> **Vérifier le dépliant au navigateur** — rien n'a été vu à l'écran. Chemin :
+> `/dossiers` → bande → « Regrouper par » → **Statut**, cocher un ou deux
+> totaux, puis **ouvrir deux groupes en même temps** (c'est le point que la
+> première livraison ratait). Ouvrir « CONCRETISATION » (68 lignes) pour voir
+> la ligne « 48 de plus — en charger 20 ». Puis grouper par **Date du
+> document** : un groupe ouvert qui rend 0 ligne signifierait que la
+> granularité ne circule pas.
 
 ### Backlog (par priorité)
 
