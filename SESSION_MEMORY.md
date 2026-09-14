@@ -85,6 +85,7 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 | 147 | `git-flow sync` refuse : « local main has diverged » | Fixed | L'utilisateur avait commité le snapshot de spec **directement sur main** (`10c54b3 update docs`), pendant que ma branche portait le même. Contenu vérifié **identique octet pour octet** à `origin/main` → `reset --hard origin/main`, rien perdu |
 | 145 | **`inclureSansValeur` : le serveur cesse de servir le groupe des lignes vides, par defaut** — grouper les dossiers par avocat n'affichait plus que 23 lignes sur 116, en silence | Fixed | `inclureSansValeur: true` toujours envoye ; invariant somme = totalElements restaure et reverifie |
 | 146 | `ARTICLE` / `DELAIS` inconnus de `LIBELLES_GROUPE` ; `articleId` / `responsableVenteId` cochables et afficheraient des UUID | Fixed | Libellés ajoutés, les deux `*Id` dans `masquees` (bug #126 qui revient) |
+| 157 | Fiche encaissement : un champ « Dossier » unique alimenté par la **première** ligne — un règlement soldant 3 dossiers n'en montrait qu'un | Fixed | Tableau des affectations ; invariant somme = brut − restant vérifié 80/80 |
 | 154 | **Trois champs fantômes sur `DossierDetailDto`** (`titreFoncier`, `presentation*`) → deux lignes de la fiche affichaient un tiret en permanence, la donnée étant sur l'article dans la même réponse | Fixed | Retirés du dossier, ajoutés à `ArticleSummaryDto`, les deux lignes lisent `premierArticle` |
 | 155 | `FEATURES.md` annonce 17 endpoints « sans appelant » — **16 le sont à tort** | Open (outil) | Défaut de correspondance sur les chemins à paramètres dans le détecteur |
 | 156 | Le spec publie `CreerReglementRequest.dateReglement` **alors que le serveur la refuse en 400** | Open (backend) | Non ajoutée ; la contradiction contrat/comportement est consignée |
@@ -204,6 +205,11 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
   `lib/dispositions.ts` — lots précédents, inchangés.
 - `docs/filtres-avances.md` — section « Groupement des listes (11/09) », et la
   demande statut requalifiée en bloquante.
+- Scratchpad : **`audit-complet.mjs`** — confronte les 101 interfaces de
+  `types.ts` aux schémas homonymes du spec. **Suit `extends`** : sans ça il
+  signalait `EncaissementDetailDto` comme amputée de ses 40 champs hérités, et
+  un outil qui crie au loup se fait ignorer. Doit rendre **une seule** dérive,
+  `CreerReglementRequest.dateReglement`, qui est voulue.
 - Scratchpad : `sonde-groupes.mjs`, `sonde-groupes2.mjs`, `sonde-ratios.mjs`,
   `sonde-statut.mjs`, **`sonde-invariant.mjs`**, `splice_*.py`.
 

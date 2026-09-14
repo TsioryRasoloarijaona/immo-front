@@ -1949,6 +1949,54 @@ export interface EncaissementDto {
   modifieLe?: string | null;
 }
 
+/** Imputation d'une part d'un règlement sur **une** échéance.
+ *
+ * C'est la réponse à « ce règlement, il a payé quoi ? », que la liste ne sait
+ * pas donner : elle n'expose que le `dossierCode` de la **première** ligne.
+ * Mesuré sur 80 règlements réels : 79 n'ont qu'une affectation, mais un en
+ * porte trois, sur **trois dossiers différents** — la liste en affichait un et
+ * masquait les deux autres.
+ *
+ * Invariant vérifié 80/80 : la somme des `montantAffecte` vaut
+ * `montantBrut - montantBrutRestant`. */
+export interface AffectationDto {
+  /** `StlSettlementLine`. */
+  id: UUID;
+  /** Part du règlement imputée à **cette** échéance — **pas** le montant du
+   * règlement. Un règlement qui couvre trois échéances porte trois lignes dont
+   * la somme fait son montant brut. */
+  montantAffecte?: number;
+  echeanceId?: UUID;
+  /** Code de l'échéance, tel qu'il apparaît dans l'échéancier du dossier. */
+  echeanceCode?: string;
+  /** Libellé de l'échéance. Ex. « 2ème tranche ». */
+  echeanceDescription?: string;
+  dateEcheance?: string | null;
+  /** Montant **total** de l'échéance, toutes imputations confondues. À
+   * comparer à `montantAffecte` pour savoir si ce seul règlement la solde. */
+  montantEcheance?: number;
+  categorieId?: UUID;
+  /** Code de catégorie de l'échéance : AVANCE, FRAIS SYNDIC… */
+  categorie?: string;
+  /** Dossier portant l'échéance. **Peut différer d'une ligne à l'autre** :
+   * c'est tout l'intérêt de cette ressource. */
+  dossierId?: UUID;
+  dossierCode?: string;
+}
+
+/** La fiche d'un règlement : les mêmes champs que la ligne de liste, **non
+ * filtrés par `?colonnes=`**, plus ses affectations.
+ *
+ * « Une fiche dit tout, là où une grille laisse choisir ses colonnes. » Aucune
+ * clé de la liste ne disparaît et aucune ne change de type — l'extension est
+ * strictement additive. */
+export interface EncaissementDetailDto extends EncaissementDto {
+  /** Les échéances que ce règlement solde, par montant croissant — l'ordre de
+   * l'écran légataire. **Tableau vide** = règlement encaissé mais pas encore
+   * imputé ; c'est le cas des pièces que la liste n'affiche pas du tout. */
+  affectations?: AffectationDto[];
+}
+
 /** Saisie d'un règlement. Le règlement naît toujours au statut `IN_WORK`.
  *
  * **Saisie complète obligatoire** (400 sur chaque manquement) : `montant`,

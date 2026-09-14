@@ -350,6 +350,53 @@ Re-mesure du 11/09, inchangee : `statut=CONCRETISATION` rend 68 dossiers,
 rattrape l'ecart — « Remise des clés » se code `REMISE DES CLEFS`, « Annulé »
 se code `ANNULATION`. Il faut le backend.
 
+## Fiche encaissement : les affectations (14/09)
+
+`GET /api/encaissements/{id}` renvoie desormais un `EncaissementDetailDto`
+dedie : les memes champs que la ligne de liste, **non filtres par
+`?colonnes=`**, plus `affectations`. Extension strictement additive — aucune
+cle ne disparait, aucune ne change de type.
+
+### Ce que la fiche ne savait pas dire
+
+Elle affichait un champ « Dossier » unique, alimente par le `dossierCode` de la
+**premiere** ligne du reglement. Mesure sur 80 reglements reels :
+
+| affectations par reglement | nombre |
+|---|---|
+| 1 | 79 |
+| 3 | 1 |
+
+Le reglement a trois lignes (reference 251 6467126, brut 25 200 DH) solde trois
+echeances FRAIS SYNDIC de **trois dossiers differents** — APF 2022/00228,
+00225 et 00224, 8 400 DH chacune. La liste affichait 00228 et masquait les deux
+autres ; la fiche faisait pareil.
+
+La fiche porte maintenant un tableau des affectations, avec un lien par dossier
+et le montant total de chaque echeance a cote du montant affecte — de quoi voir
+si ce seul reglement la solde ou n'en paie qu'une part.
+
+**Invariant verifie 80/80** : la somme des `montantAffecte` vaut
+`montantBrut - montantBrutRestant`. Le bloc Montants et le tableau se recoupent
+donc, ils ne se contredisent pas.
+
+### Le commentaire de l'ecran etait perime
+
+`EncaissementDetail.tsx` portait une liste de champs « pas encore exposes,
+demande cote backend ». La livraison en apporte la moitie : detail d'affectation
+par echeance, tiers payeur, remise au centre et sa date, bordereau et sa date,
+numero de recu, montant base, tracabilite. Un bloc « Suivi » les accueille.
+
+Restent non exposes, et le commentaire est resserre a ceux-la : retenue a la
+source et montant du timbre (mesures non nuls mais **toujours a zero**, donc
+volontairement hors catalogue), notaire, dossier de groupe, C.R.A.S., devise.
+
+### 404 et non 403, delibere
+
+Un encaissement hors du perimetre commercial de l'appelant renvoie 404 : un 403
+confirmerait son existence et permettrait d'enumerer les identifiants. Un id
+qui n'est pas un UUID valide renvoie 404 lui aussi, pas 400.
+
 ## Audit de conformite types.ts vs spec (14/09)
 
 `types.ts` est un miroir des DTO **maintenu a la main** : c'est la que la derive

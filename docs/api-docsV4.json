@@ -6386,8 +6386,8 @@
         "tags": [
           "Encaissements"
         ],
-        "summary": "Détail d'un encaissement (règlement)",
-        "description": "Même forme que les lignes de `GET /api/encaissements` — alimente le panneau détail \"Pièce de règlement\" côté front (`EncaissementDetail.tsx`). `montantBrutRestant` et `montantNet` sont recalculés côté serveur, jamais stockés, comme sur la liste.\n\n**Périmètre commercial** : un encaissement hors du périmètre de l'appelant renvoie **404**, et non 403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants.",
+        "summary": "Fiche d'un encaissement (règlement) et ses affectations",
+        "description": "Alimente le panneau détail \"Pièce de règlement\" côté front (`EncaissementDetail.tsx`). `montantBrutRestant` et `montantNet` sont recalculés côté serveur, jamais stockés, comme sur la liste.\n\n**`affectations` : les échéances que ce règlement solde**, montant croissant — l'ordre de l'écran légataire. C'est la réponse à « ce règlement, il a payé quoi ? », que la liste ne sait pas donner : elle n'expose qu'un `dossierCode`, celui de la *première* ligne, et masque donc les autres sur les 8 règlements réels qui couvrent plusieurs dossiers. La somme des `montantAffecte` vaut `montantBrut - montantBrutRestant`. Tableau vide = règlement encaissé mais pas encore imputé.\n\n**Cette réponse n'est pas filtrée par `?colonnes=`** — une fiche dit tout, là où une grille laisse choisir ses colonnes. Elle porte donc plus de clés que les lignes de la liste : celles hors sélection par défaut, plus `affectations`. Aucune clé ne disparaît et aucune ne change de type.\n\n**Périmètre commercial** : un encaissement hors du périmètre de l'appelant renvoie **404**, et non 403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants.",
         "operationId": "findById_4",
         "parameters": [
           {
@@ -6407,7 +6407,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/EncaissementDto"
+                  "$ref": "#/components/schemas/EncaissementDetailDto"
                 }
               }
             }
@@ -6417,7 +6417,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/EncaissementDto"
+                  "$ref": "#/components/schemas/EncaissementDetailDto"
                 }
               }
             }
@@ -13777,6 +13777,213 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "AffectationDto": {
+        "type": "object",
+        "description": "Imputation d'une part d'un règlement sur une échéance précise. Un règlement en porte de une à trois sur les données réelles.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la ligne d'affectation (`StlSettlementLine`)."
+          },
+          "montantAffecte": {
+            "type": "number",
+            "description": "Part du règlement imputée à **cette** échéance.\n\n**Ce n'est pas le montant du règlement**, et c'est la distinction que cette ressource existe pour rendre visible : un règlement qui couvre trois échéances porte trois lignes dont la somme fait son montant brut.",
+            "example": 8400
+          },
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de l'échéance soldée (`ComDocument`)."
+          },
+          "echeanceCode": {
+            "type": "string",
+            "description": "Code de l'échéance, tel qu'il apparaît dans l'échéancier du dossier."
+          },
+          "echeanceDescription": {
+            "type": "string",
+            "description": "Libellé de l'échéance (`ComDocument.Description`).",
+            "example": "2ème tranche"
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'échéance — même champ que `dateEcheance` de l'échéancier (`ComDocument.DocDate`)."
+          },
+          "montantEcheance": {
+            "type": "number",
+            "description": "Montant total de l'échéance, toutes imputations confondues. À comparer à `montantAffecte` pour savoir si cette échéance est soldée par ce seul règlement."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la catégorie de l'échéance (`ComSettlementCategory`)."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Code de la catégorie de l'échéance (AVANCE, FRAIS SYNDIC…).",
+            "example": "AVANCE"
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Dossier de vente portant l'échéance. **Peut différer d'une ligne à l'autre** : un même règlement peut solder des échéances de plusieurs dossiers."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code du dossier portant l'échéance."
+          }
+        }
+      },
+      "EncaissementDetailDto": {
+        "type": "object",
+        "description": "Fiche complète d'un règlement : ses champs, plus les échéances qu'il solde. Contrairement aux lignes de la liste, cette réponse n'est pas filtrée par `?colonnes=`.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "etat": {
+            "type": "string"
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dossierCode": {
+            "type": "string"
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateReglement": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tierNom": {
+            "type": "string"
+          },
+          "montantBrut": {
+            "type": "number"
+          },
+          "montantBrutRestant": {
+            "type": "number"
+          },
+          "montantNet": {
+            "type": "number"
+          },
+          "comptabilise": {
+            "type": "boolean"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeCode": {
+            "type": "string"
+          },
+          "typeLibelle": {
+            "type": "string"
+          },
+          "entiteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entiteCode": {
+            "type": "string"
+          },
+          "entiteLibelle": {
+            "type": "string"
+          },
+          "compteId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "compteCode": {
+            "type": "string"
+          },
+          "depotId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "depotCode": {
+            "type": "string"
+          },
+          "banqueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "banqueNom": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "montantBase": {
+            "type": "number"
+          },
+          "tierPayeurId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tierPayeurNom": {
+            "type": "string"
+          },
+          "remisAuCentre": {
+            "type": "boolean"
+          },
+          "recuCode": {
+            "type": "string"
+          },
+          "dateRemiseAuCentre": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "bordereauCode": {
+            "type": "string"
+          },
+          "dateBordereau": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "creePar": {
+            "type": "string"
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "modifiePar": {
+            "type": "string"
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "affectations": {
+            "type": "array",
+            "description": "Les échéances que ce règlement solde, **montant affecté croissant** — l'ordre de l'écran légataire, qui trie ses lignes par `Amount ASC`.\n\nJamais `null` : un tableau vide signifie un règlement encaissé mais pas encore imputé. Sur les données réelles, un règlement du périmètre Vente en porte de une à trois.\n\nLa somme des `montantAffecte` vaut `montantBrut - montantBrutRestant`.",
+            "items": {
+              "$ref": "#/components/schemas/AffectationDto"
+            }
           }
         }
       },

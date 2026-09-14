@@ -42,6 +42,7 @@ import type {
   DossierDetailDto,
   DossierListItemDto,
   EcheanceDto,
+  EncaissementDetailDto,
   EncaissementDto,
   EtapeSuivanteDto,
   EvenementCalendrierDto,
@@ -1469,7 +1470,14 @@ export type EncaissementChampDate = 'DATE_PIECE' | 'DATE_ECHEANCE' | 'DATE_REGLE
  * que de faire naviguer `/encaissements/:id` sans vrai fetch. 404 tant que
  * l'endpoint n'existe pas — EncaissementDetail.tsx affiche l'erreur telle
  * quelle jusque-là. */
-export function getEncaissement(id: UUID): Promise<EncaissementDto> {
+/** La fiche d'un règlement — mêmes champs que la ligne de liste, non filtrés
+ * par `?colonnes=`, **plus ses affectations**.
+ *
+ * Un encaissement hors du périmètre commercial de l'appelant renvoie **404** et
+ * non 403, délibérément : un 403 confirmerait son existence et permettrait
+ * d'énumérer les identifiants. Un id qui n'est pas un UUID valide renvoie 404
+ * lui aussi, pas 400. */
+export function getEncaissement(id: UUID): Promise<EncaissementDetailDto> {
   return request('GET', `/api/encaissements/${id}`);
 }
 
