@@ -1,69 +1,60 @@
 # Session Memory
-_Last updated: 2026-09-14T10:00:00Z_
+_Last updated: 2026-09-14T15:00:00Z_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
 
 ## 🎯 Current Objective
 
-Aligner les écrans sur le **logiciel de bureau Omran**, capture par capture, au
-fil des livraisons de la spec V4. Quatre lots fusionnés (PR #33 → #36 :
-sélecteur de colonnes serveur, puis les trois fiches). **Lot en cours :
-`feat/groupement-listes`** — la bande de groupement de la grille légataire,
-enfin réelle, sur les trois listes dont le serveur sait grouper.
+Suivre les livraisons successives de la **spec V4** et maintenir le front en
+phase, écran par écran. Cette session a livré le **groupement dépliant** sur les
+listes, le **signalement des relances en retard**, puis la conversion complète de
+l'écran **Encaissements** (catalogue de colonnes, groupement, agrégats, fiche).
 
 ---
 
 ## ✅ What Worked
 
-1. **Lire le catalogue vivant plutôt que la spec.** Encore une fois le seul
-   moyen d'obtenir des faits : la spec dit que `ColonneDto.groupe` a 6 valeurs,
-   le runtime en sert 8 côté prospections (`CLOTURE` et `AUDIT` en plus) ; elle
-   laisse croire que les prospects ont un groupement, le catalogue renvoie
-   **0 groupable sur 47 colonnes** et l'endpoint n'existe pas.
-2. **Écrire une sonde qui vérifie l'invariant affiché, pas l'endpoint.**
-   `sonde-invariant.mjs` (scratchpad) rejoue les requêtes du front sur
-   6 combinaisons de filtres et contrôle que **somme(effectifs) ==
-   `totalElements` de la liste**, que chaque groupe se déplie sur son effectif
-   exact, et le cas des dates. **16/16.** C'est la seule preuve disponible sans
-   navigateur, et elle vaut plus qu'une relecture.
-3. **Re-mesurer avant de crier au loup.** `/groupes` à 4 975 ms au premier
-   appel → **48–114 ms** (dossiers) en régime établi. Démarrage à froid, comme
-   la session précédente. Aucune alerte backend envoyée.
-4. **Sonder les valeurs, pas les types.** C'est ce qui a trouvé le bug `remise`
-   (voir #136) et disqualifié deux agrégats que le serveur accepte pourtant.
-5. **Le grep du JS/CSS compilé.** A confirmé les 3 endpoints, les 3
-   `bandeauRegroupement:!1`, et toutes les classes Tailwind neuves.
-6. **Scripts Python dans le scratchpad** (`splice_*.py`) — les heredocs ont
-   cassé **deux fois** sur les apostrophes/backticks des gros blocs JSX.
+1. **Lire le catalogue/les valeurs sur le backend vivant, jamais la prose du
+   spec.** C'est ce qui a produit tous les constats de la session. Exemples :
+   `dateDocument:MIN` rend une **chaîne ISO** là où le type disait `number` ;
+   `remise` est un ratio et la colonne affichait « 0 » partout.
+2. **Une sonde qui rejoue les requêtes du front et vérifie l'invariant
+   affiché**, pas l'endpoint. Le contrôle décisif, sans navigateur. Toujours
+   formuler l'invariant en une égalité vérifiable — ici
+   « somme des effectifs = `totalElements` ».
+3. **Corriger le typage fait travailler le compilateur pour soi.** Passer
+   `agregats` à `number | string | null` a pointé instantanément les deux sites
+   de `DataGrid` qui formataient une date en devise.
+4. **Étendre le garde quand le changement invalide ce qu'il mesure.**
+   `check-contrast` ne couvrait pas une *ligne* teintée ; étendu, il a trouvé un
+   échec WCAG réel (4,34:1 en sombre).
+5. **Réparer ses propres outils plutôt que les ignorer.** L'audit DTO criait au
+   loup faute de suivre `extends` — corrigé, pas contourné.
+6. **Message de commit par fichier** (`git commit --amend -F`). Les backticks
+   dans un message `git-flow commit` ont avalé un mot **trois fois**.
 
 ---
 
 ## ❌ What Failed / Course-corrections
 
-- **Le navigateur reste inatteignable — 5ᵉ session.** Rien de ce lot n'a été vu
-  à l'écran. La vérification visuelle est à faire par l'utilisateur.
-- **Première forme livrée : deux vues séparées** (une liste de groupes, puis
-  la liste restreinte au groupe ouvert, avec un fil d'Ariane). Portes vertes,
-  16 contrôles API verts, poussée — puis **rejetée par l'utilisateur**, capture
-  d'Omran à l'appui : il veut un **dépliant**, les groupes intercalés dans la
-  grille, ouvrables **plusieurs à la fois**. La leçon n'est pas technique :
-  « replier une liste » avait deux lectures possibles et j'ai choisi la mienne
-  sans demander, alors qu'une capture existait.
-- **Première tentative de câblage : bande en prop `bande?: ReactNode` sur
-  `DataGrid`.** Abandonnée : la bande disparaissait avec le tableau dans les
-  états vides. Remplacée par une bande rendue au niveau de l'écran +
-  `bandeauRegroupement={false}` sur l'adaptateur.
-- **`loading && !data` comme garde de chargement.** En mode groupes `data`
-  reste nul par construction → un `LoadingState` plein écran se serait rallumé
-  **par-dessus** des groupes déjà affichés à chaque changement de granularité.
-  Corrigé en `loading && !pageAffichee` sur les trois écrans.
-- **Grep sur les classes Tailwind avec un point.** Tailwind échappe (`.px-1\.5`) ;
-  mon motif rendait 0 sur des classes qui marchent depuis des semaines.
-  Faux négatif, pas un bug. Utiliser `grep -oF`.
-- **`interface` pour extraire `DossierFilterParams`.** Aurait cassé
-  `withPageable`, qui attend un `Record` : seul un **alias de type** reçoit la
-  signature d'index implicite. Écrit en alias d'emblée.
+- **Le navigateur reste inatteignable — 8ᵉ session.** Rien de tout ce travail
+  n'a été vu à l'écran.
+- **Première forme du groupement : deux vues séparées.** Portes vertes,
+  16 contrôles API verts, poussée — puis **rejetée**, capture d'Omran à l'appui.
+  Il fallait un **dépliant**, groupes ouvrables plusieurs à la fois. La leçon
+  n'est pas technique : « replier une liste » avait deux lectures et j'ai choisi
+  la mienne sans demander, alors qu'une capture existait.
+- **Seuil de 30 j sur le fond rouge : livré puis annulé.** La liste sortant
+  triée par date d'alerte décroissante, le seuil ne filtrait pas le rouge, il le
+  **poussait aux pages 6+**. Page 1 passait de 17/20 à 0/20. **Piste réglée —
+  ne pas la rouvrir sans remesurer par page.**
+- **Ancres de splice trop larges ou à un mot près.** Plusieurs échecs ; borner
+  précisément, ou remplacer par plage de lignes.
+- **Heredocs bash** : cassent sur apostrophes et backticks. Écrire le script
+  Python dans le scratchpad, puis l'exécuter.
+- **`grep` sur les classes Tailwind à point** : Tailwind échappe (`.px-1\.5`),
+  donc `grep -oF`, sinon faux négatif.
 
 ---
 
@@ -71,147 +62,94 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 
 | # | Error / Bug | Status | Fix applied |
 |---|-------------|--------|-------------|
-| 90-132 | Sessions antérieures | Fixed | PR #12 → #36 |
-| 101 | 9 erreurs eslint préexistantes | Open | **La référence est 9** — inchangée |
-| 133 | `ModifierProspectionRequest` sans `temp*`/`commercialId` | **Open (backend)** | Champs en lecture seule ; demande consignée |
-| 134 | 8 des 12 onglets dossier sans endpoint | **Open (backend)** | Non affichés ; demande consignée |
-| 135 | Règle « `netAPayer.reste` = 0 sur dossier sorti » non vérifiée | Open (constat) | — |
-| 136 | **`remise` affichait « 0 » sur toute la colonne Dossiers** — ratio 0–1 typé `NOMBRE`, et le commentaire du code affirmait l'inverse | Fixed | Rendu `formatPercent(d.remise, 2)` ; mesuré -0,207865 à 0,988329 |
-| 137 | Granularité perdue au dépliage → `totalElements: 0` en **HTTP 200**, écran vide sans erreur | Fixed | Une seule granularité dérivée dans `lib/groupement.ts`, envoyée des deux côtés |
-| 138 | `remise` / `probabiliteFinalisation` sommables côté serveur alors que ce sont des **taux** | Fixed | `AGREGATS_SANS_SENS` les retire du Σ |
-| 139 | Filtre statut dossiers **interdit le groupement** (le contournement filtre après le serveur) | Workaround | Bande désactivée avec message ; **fait monter la demande backend statut en priorité** |
-| 140 | `CLOTURE` servi par le catalogue prospections mais absent de `GroupeColonne` et de `LIBELLES_GROUPE` | Fixed | Ajouté à l'union (le libellé retombait déjà sur la clé brute) |
-| 142 | **`--muted-foreground` sur une ligne teintée `--warning-bg` = 4,34:1 en sombre** (AA exige 4,5) — trouvé en *étendant* `check-contrast`, qui ne couvrait pas le cas | Fixed | Token dédié `--retard-bg` à 0,07 → 4,77 / 4,81. Sept paires ajoutées au garde |
-| 147 | `git-flow sync` refuse : « local main has diverged » | Fixed | L'utilisateur avait commité le snapshot de spec **directement sur main** (`10c54b3 update docs`), pendant que ma branche portait le même. Contenu vérifié **identique octet pour octet** à `origin/main` → `reset --hard origin/main`, rien perdu |
-| 145 | **`inclureSansValeur` : le serveur cesse de servir le groupe des lignes vides, par defaut** — grouper les dossiers par avocat n'affichait plus que 23 lignes sur 116, en silence | Fixed | `inclureSansValeur: true` toujours envoye ; invariant somme = totalElements restaure et reverifie |
-| 146 | `ARTICLE` / `DELAIS` inconnus de `LIBELLES_GROUPE` ; `articleId` / `responsableVenteId` cochables et afficheraient des UUID | Fixed | Libellés ajoutés, les deux `*Id` dans `masquees` (bug #126 qui revient) |
-| 157 | Fiche encaissement : un champ « Dossier » unique alimenté par la **première** ligne — un règlement soldant 3 dossiers n'en montrait qu'un | Fixed | Tableau des affectations ; invariant somme = brut − restant vérifié 80/80 |
-| 154 | **Trois champs fantômes sur `DossierDetailDto`** (`titreFoncier`, `presentation*`) → deux lignes de la fiche affichaient un tiret en permanence, la donnée étant sur l'article dans la même réponse | Fixed | Retirés du dossier, ajoutés à `ArticleSummaryDto`, les deux lignes lisent `premierArticle` |
-| 155 | `FEATURES.md` annonce 17 endpoints « sans appelant » — **16 le sont à tort** | Open (outil) | Défaut de correspondance sur les chemins à paramètres dans le détecteur |
-| 156 | Le spec publie `CreerReglementRequest.dateReglement` **alors que le serveur la refuse en 400** | Open (backend) | Non ajoutée ; la contradiction contrat/comportement est consignée |
-| 152 | `GroupeDto.agregats` typé `Record<string, number>` alors qu'un `MIN`/`MAX` sur colonne DATE rend une **chaîne ISO** et qu'un `MIN` vide rend `null` | Fixed | `ValeurAgregat = number \| string \| null` ; le compilateur a immédiatement pointé les deux sites de `DataGrid` qui formataient en devise |
-| 153 | Une moyenne de `remise` se serait affichée « 0,07 » au lieu de « 7,31 % » | Fixed | `ColonneGrille.formatValeur`, posé sur les deux colonnes de ratio dans `DossierTable` |
-| 150 | Groupement Encaissements par `compteCode` : le defaut `inclureSansValeur=false` n'aurait affiche **4 lignes sur 332** | Fixed | `useGroupement` envoie toujours `true` — rien a faire dans l'ecran, la machinerie le portait deja |
-| 151 | **Sept des 27 colonnes `parDefaut` des encaissements sont des cles UUID** | Fixed | `DISPOSITION_ENCAISSEMENTS.masquees` (9 entrees) ; 19 colonnes visibles, verifie sans UUID servi |
-| 149 | Liste Encaissements : **6 435 400 DH d'encaissements non affectés absents**, que l'écran légataire affiche — un opérateur qui compare les totaux conclurait à un bug | Workaround | Mention sous le compteur ; servir ces pièces est une décision produit backend en attente |
-| 148 | **Le seuil de 30 j est annulé — toute relance échue repasse en rouge** (demande utilisateur, confirmée par la mesure #144) | Fixed | `relanceTardive` → `relanceEnRetard`, seuil supprimé. Page 1 : 17/20 en rouge. **Piste réglée, ne pas la rouvrir sans remesurer par page** |
-| 144 | Seuil de 30 j sur le fond rouge : mesure **apres** livraison, la liste etant triee par date d'alerte decroissante, **la page 1 passe de 17/20 a 0/20 rouge** — le repere se deplace aux pages 6+ | Open (constat) | Livre comme choisi ; relev̀e par page dans `docs/filtres-avances.md` pour arbitrer |
-| 143 | `PreProspectionsList` affirme en commentaire que `/api/pre-prospections` n'accepte pas `?colonnes=` — **mesuré, il l'accepte et l'honore** | Open (constat) | Non touché ; l'écran ne s'en sert pas. Commentaire à corriger, optimisation à prendre |
-| 141 | **L'ordre des lignes n'est pas déterministe côté serveur** — sur `docDate` seule, le lot de 20 n'était pas le préfixe du lot de 40, par intermittence | Fixed | `sort=docDate,desc` **+** `sort=id,asc` sur les lots de groupe ; vérifié 15/15. **Le même aléa vaut pour la pagination ordinaire** — non touché, consigné |
+| 101 | 9 erreurs eslint préexistantes | Open | **La référence est 9** — ne pas la faire bouger |
+| 133/134 | Champs `temp*` de la prospection ; 8 onglets dossier sans endpoint | **Open (backend)** | Consignés dans `docs/filtres-avances.md` |
+| 136 | `remise` affichait « 0 » sur toute la colonne — ratio typé `NOMBRE`, commentaire affirmant l'inverse | Fixed | `formatPercent` ; mesuré -0,207865 à 0,988329 |
+| 137 | Granularité perdue au dépliage → `totalElements: 0` en **HTTP 200** | Fixed | Une seule granularité dérivée dans `useGroupement` |
+| 141 | **Ordre serveur non déterministe** — lot de 20 pas préfixe du lot de 40, par intermittence | Fixed | `sort=docDate,desc` **+** `id,asc` ; 15/15 stable. **Même aléa sur la pagination ordinaire**, non touché |
+| 142 | `--muted-foreground` sur ligne teintée = 4,34:1 en sombre (AA exige 4,5) | Fixed | Token `--retard-bg` à 0,07 → 4,77 / 4,81 ; 7 paires ajoutées au garde |
+| 145 | **`inclureSansValeur=false` par défaut** retire le groupe des lignes vides — dossiers/avocat : 23 lignes sur 116 ; encaissements/compte : **4 sur 332** | Fixed | `useGroupement` envoie toujours `true` |
+| 146/151 | Groupes de catalogue inconnus (`ARTICLE`, `DELAIS`, `SUIVI`) ; **7 des 27 colonnes `parDefaut` des encaissements sont des UUID** | Fixed | Libellés ajoutés ; `masquees` à 9 entrées → 19 colonnes visibles, aucun UUID servi |
+| 148 | Seuil de 30 j annulé, toute relance échue repasse en rouge | Fixed | `relanceEnRetard`, page 1 : 17/20 |
+| 152 | `agregats` typé `Record<string, number>` alors qu'un `MIN` sur DATE rend une chaîne et un `MIN` vide rend `null` | Fixed | `ValeurAgregat` ; le compilateur a pointé les 2 sites fautifs |
+| 154 | **3 champs fantômes sur `DossierDetailDto`** → 2 lignes de la fiche en tiret permanent, la donnée étant sur l'article | Fixed | Déplacés sur `ArticleSummaryDto`, la fiche lit `premierArticle` |
+| 155 | `FEATURES.md` annonce 17 endpoints « sans appelant » — **16 le sont à tort** | **Open (outil)** | Défaut de correspondance sur les chemins à paramètres |
+| 156 | Le spec publie `CreerReglementRequest.dateReglement` **alors que le serveur la refuse en 400** | **Open (backend)** | Non ajoutée ; contradiction contrat/comportement consignée |
+| 157 | Fiche encaissement : champ « Dossier » unique alimenté par la **première** ligne — un règlement soldant 3 dossiers n'en montrait qu'un | Fixed | Tableau des affectations ; invariant vérifié 80/80 |
 
 ---
 
 ## 🔑 Key Points to Remember
 
-### Le groupement — l'architecture en une phrase
-- **Le serveur groupe, le front choisit.** `lib/groupement.ts` ne calcule rien :
-  il porte le choix de l'utilisateur et le traduit en paramètres. Grouper côté
-  front ne grouperait que la page chargée.
-- **C'est un dépliant, pas deux écrans.** Les en-têtes de groupe
-  s'intercalent dans le corps de `DataGrid` (`groupes?: GroupementGrille<T>`),
-  et **plusieurs groupes restent ouverts en même temps**. C'est la forme
-  demandée, capture d'Omran à l'appui ; une bascule entre deux vues a été
-  livrée d'abord et rejetée.
-- **Chaque groupe pagine ses propres lignes**, par lots de 20
-  (`TAILLE_LOT_GROUPE`), avec une ligne de pied qui annonce le reste. Un groupe
-  n'est pas borné : 7 612 prospections dans « 1 A TRAITER ».
-- **« Charger plus » redemande la page 0 avec une taille plus grande**, jamais
-  une concaténation de pages. Cela **exige un tri qui tranche** — voir #141.
-- La pagination du bas numérote **les groupes** quand la liste est repliée.
-- **La bande est rendue par l'écran**, hors du test « y a-t-il des lignes » —
-  sinon un écran vide n'a plus de sortie. L'adaptateur reçoit
-  `bandeauRegroupement={false}`.
-- **`groupable`/`agregeable` se lisent, ne se déduisent jamais.** Mesuré :
-  `joursInactivite`, `nbInteractions`, `nbVisites` sont des `NOMBRE` **non**
-  agrégeables (vue légataire). `prix` est agrégeable mais **non** groupable.
+### Le groupement — un dépliant, pas deux écrans
+- Les en-têtes de groupe s'intercalent dans `DataGrid` (`groupes?:
+  GroupementGrille<T>`), **plusieurs ouverts à la fois**. Forme demandée,
+  capture d'Omran à l'appui ; une bascule entre deux vues a été rejetée.
+- Chaque groupe pagine ses lignes par lots de 20 (`TAILLE_LOT_GROUPE`).
+  « Charger plus » **redemande la page 0 avec une taille plus grande** — d'où
+  l'exigence d'un tri qui tranche (#141).
+- `useGroupement` envoie **toujours `inclureSansValeur: true`** (#145).
+- La bande est rendue **par l'écran**, hors du test « y a-t-il des lignes » :
+  sinon un groupe vide est sans issue.
 
-### Les chiffres mesurés (11/09)
+### Les agrégats
+- `?agregats=` prend des **jetons** : `prix` (nu = SUM, revient nu) ou
+  `prix:AVG`. `jetonAgregat` / `decomposerJeton` dans `lib/groupement.ts`.
+- **`ColonneDto.fonctions` décide**, jamais le type : `montantBrut` accepte les
+  cinq, `montantBrutRestant` — MONTANT aussi — n'accepte ni MIN ni MAX.
+- **La valeur suit la fonction** : COUNT entier, MIN/MAX au type de la colonne
+  (donc chaîne ISO sur une date), `null` pour un MIN vide.
+- `SOMMES_SANS_SENS` n'écarte plus que **SUM** sur `remise` /
+  `probabiliteFinalisation` — la moyenne, elle, informe.
+- `PageGroupesDto.totaux` / `nombreTotal` = le « Total : » plein périmètre,
+  **distinct du pied Σ** qui ne somme que les lignes chargées. Les deux portent
+  leur intitulé.
 
-| Écran | colonnes | groupables | agrégeables | `/groupes` |
-|---|---|---|---|---|
-| Prospections | 56 | 21 | 2 | 235–664 ms |
-| Dossiers | 40 | 22 | 8 | 48–114 ms |
-| Pré-prospections | (même catalogue) | idem | idem | ~240 ms |
-| **Prospects** | 47 | **0** | **0** | **n'existe pas** |
+### Les catalogues de colonnes (4 écrans)
+- `parDefaut` décrit la **charge utile**, pas la grille → `masquees` par écran.
+  Encaissements : 9 entrées, dont 7 UUID `parDefaut`.
+- `toujoursDemandees` (dans `DispositionColonnes`) : colonnes demandées même
+  décochées, pour les besoins de rendu qui ne s'affichent pas — le fond rouge
+  des relances lit `derniereAlerteDate` + `fermee`.
+- Sur les encaissements, **décocher accélère vraiment** : 572–694 ms pour les
+  27 défauts contre 307–378 pour 16.
 
-- Somme des effectifs == `totalElements` : vérifié sur 6 combinaisons de
-  filtres. 116 dossiers, 9 654 prospections, 2 201 pré-prospections.
-- Le **groupe `null` est légitime** et doit rester affiché, sinon l'égalité
-  ci-dessus tombe. 93 dossiers sans avocat, 7 prospections sans étape. Il se
-  déplie en envoyant `groupeColonne` **sans** `groupeValeur`.
-- Les agrégats arrivent **bruités en flottant** (`17440269.999994`) ;
-  `formatCurrency`/`formatNumber` l'absorbent via `toFixed`.
-
-### Le piège à ne pas réapprendre
-- **`granularite` doit accompagner la clé au dépliage.** `groupeValeur=2024`
-  sans `granularite=ANNEE` rend `totalElements: 0` en **HTTP 200**. Une seule
-  granularité circule, dérivée dans `useGroupement`.
-- **Le filtre statut des dossiers et le groupement sont incompatibles.**
-  `?statut=` veut le code brut (`CONCRETISATION` → 68, `Concrétisation` → **0
-  en 200**) et aucune normalisation ne rattrape l'écart (« Remise des clés » →
-  `REMISE DES CLEFS`, « Annulé » → `ANNULATION`). Le contournement des 500
-  lignes filtre *après* le serveur ; `/groupes` ne renvoie pas de lignes à
-  refiltrer. D'où la bande désactivée, avec le message qui dit pourquoi.
-
-### Rappels des lots précédents (toujours valables)
-- `FicheShell` sert les trois fiches ; ordre **identité → formulaire → onglets**,
-  l'inverse a été essayé et rejeté. `panneau` n'est utilisé que par le dossier.
-- **Dossier : `/api/dossiers/{id}` est GET-only** — pas de barre
-  d'enregistrement sur cette fiche, et c'est normal.
-- `DataGrid` en **`table-auto`** ; `largeur` est un **plafond** (20 px/unité,
-  plancher 120 px). Tout conteneur de table veut `min-w-0` + `overflow-auto`.
-- `?colonnes=` : ne rien envoyer tant que la sélection == défauts (évite une
-  2ᵉ requête quand le catalogue atterrit). Propriété portante.
-- **`quotePart` et `probabiliteFinalisation` sont des fractions** ;
-  `PayeurDto.quotePart` est un pourcentage 0–100. Même nom, deux échelles.
-- `activite` est nul sur **toute** pré-prospection (14/14). Jamais afficher
-  « 0 interaction ».
-- `marqueurTri: null` ≠ « pas de note » ; `doublonDeCode` peut exister sans
-  `doublonDeId`.
+### Pièges de données déjà payés
+- `remise`, `probabiliteFinalisation`, `quotePart` (dossier) sont des
+  **fractions** ; `PayeurDto.quotePart` est un pourcentage 0–100.
+- Le **filtre statut des dossiers** veut le code brut (`CONCRETISATION` → 68,
+  `Concrétisation` → **0 en HTTP 200**) et aucune normalisation ne rattrape
+  (« Remise des clés » → `REMISE DES CLEFS`). D'où le lot de 500 **et**
+  l'impossibilité de grouper tant qu'un statut est filtré.
+- Encaissements : **décaissements et non-affectés jamais servis** — ces derniers
+  chiffrés à 16 pièces / 6 435 400 DH par le spec. Mention portée à l'écran.
 
 ### Vérification
-- Portes : `npx tsc -b --force`, `npx eslint src --ignore-pattern
-  'src/harness-densite.tsx'` → **doit rester à 9**, `npm run build`.
-- **Les portes ne rendent rien.** Les deux contrôles utiles : le grep du JS/CSS
-  compilé (`grep -oF` pour les classes échappées, Tailwind scanne **aussi les
-  commentaires**), et une **sonde qui rejoue les requêtes du front et vérifie
-  l'invariant affiché**.
+- Quatre portes : `npx tsc -b --force`, `npx eslint src --ignore-pattern
+  'src/harness-densite.tsx'` → **9**, `npm run check:contrast`, `npm run build`.
+- **Les portes ne rendent rien.** Les deux contrôles utiles : le **grep du
+  JS/CSS compilé** (`grep -oF`, Tailwind scanne aussi les commentaires) et une
+  **sonde serveur qui vérifie l'invariant affiché**.
 
 ---
 
 ## 📁 Important Files & Paths
 
-- `src/lib/groupement.ts` — **nouveau**. `useGroupement`, `AGREGATS_SANS_SENS`,
-  `GROUPEMENTS_SANS_INTERET`, dérivation de `paramsGroupes`/`depliage`.
-- `src/components/RechercheMenu.tsx` — **nouveau**. La barre de recherche
-  collante des menus déroulants, extraite de `ColumnSelector` quand la bande de
-  groupement en a eu besoin. **Ce qui justifie l'extraction, c'est l'effet
-  clavier**, pas le balisage : Base UI vole chaque frappe via sa recherche
-  par lettre, et le correctif doit être un écouteur **natif posé sur le champ**
-  — un `onKeyDown` React s'exécute trop tard, React déléguant à la racine.
-  Vérifié au grep du bundle : le jeu de touches n'existe qu'en un exemplaire.
-- `src/components/BandeGroupement.tsx` — **nouveau**. La bande réelle : menu de
-  colonnes par sections, granularité (DATE seulement), ordre, Σ, dégrouper.
-  Prop `bloque` pour la raison d'indisponibilité.
-- `src/components/DataGrid.tsx` — porte le dépliant : `GroupementGrille<T>`,
-  en-têtes de groupe en `colSpan`, `rendreLigne` extrait pour que la ligne se
-  rende à l'identique à plat ou sous un groupe, `appliquer` pour filtrer/trier
-  **à l'intérieur** de chaque groupe.
-- `src/lib/api.ts` — `listDossiersGroupes` / `listProspectionsGroupes` /
-  `listPreProspectionsGroupes`, `ParamsGroupes`, `ParamsDepliage`,
-  `DossierFilterParams` (alias, pas interface).
-- `src/components/DossierTable.tsx` — correctif `remise` (#136).
-- `src/components/FicheShell.tsx`, `ChampsFiche.tsx`, `lib/formulaireFiche.ts`,
-  `lib/dispositions.ts` — lots précédents, inchangés.
-- `docs/filtres-avances.md` — section « Groupement des listes (11/09) », et la
-  demande statut requalifiée en bloquante.
-- Scratchpad : **`audit-complet.mjs`** — confronte les 101 interfaces de
-  `types.ts` aux schémas homonymes du spec. **Suit `extends`** : sans ça il
-  signalait `EncaissementDetailDto` comme amputée de ses 40 champs hérités, et
-  un outil qui crie au loup se fait ignorer. Doit rendre **une seule** dérive,
-  `CreerReglementRequest.dateReglement`, qui est voulue.
-- Scratchpad : `sonde-groupes.mjs`, `sonde-groupes2.mjs`, `sonde-ratios.mjs`,
-  `sonde-statut.mjs`, **`sonde-invariant.mjs`**, `splice_*.py`.
+- `src/lib/groupement.ts` — `useGroupement`, `useLignesGroupes`, jetons,
+  `SOMMES_SANS_SENS`, `LIBELLES_FONCTION`.
+- `src/components/DataGrid.tsx` — le dépliant (`GroupementGrille<T>`),
+  `formatAgregat`, la bande de totaux, `ColonneGrille.formatValeur`.
+- `src/components/BandeGroupement.tsx` — bande + menu Σ en sous-menus.
+- `src/components/RechercheMenu.tsx` — barre de recherche partagée. **L'effet
+  clavier natif est la raison de l'extraction**, pas le balisage.
+- `src/components/{Dossier,Prospection,Encaissement}Table.tsx` — adaptateurs
+  catalogue → `ColonneGrille`.
+- `src/lib/{colonnes,dispositions}.ts` — mécanisme et réglages par écran.
+- `src/pages/encaissements/EncaissementDetail.tsx` — fiche + affectations.
+- `docs/filtres-avances.md` — **toutes les mesures et demandes backend**.
+- Scratchpad : **`audit-complet.mjs`** (101 interfaces vs spec, suit `extends` —
+  doit rendre **une seule** dérive, voulue), `sonde-invariant.mjs`,
+  `sonde-agregats.mjs`, `sonde-affect.mjs`, `audit-sync.mjs`.
 
 ---
 
@@ -219,52 +157,45 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 
 - Windows 11, PowerShell + Git Bash. Fichiers **CRLF** — normaliser en mémoire
   avant tout splice Python.
-- Vite `:5173`, backend Spring `:8080`, tous deux lancés par l'utilisateur.
-- **Identifiants du compte de test** retrouvés dans une sonde de la session
-  précédente (`scratchpad/.../sonde-fiche.mjs`). **Non consignés ici.**
-  ⚠️ Ils ont transité en clair dans deux transcriptions ; à changer si le
-  compte n'est pas jetable.
-- **Aucun navigateur atteignable** depuis la session (5ᵉ fois).
-- **`main` à `6783069`** — PR #37, #38 et #39 **toutes fusionnées**. Arbre
-  propre, quatre portes vertes sur `main` après fusion.
-- **Onze branches locales fusionnées traînent** (`feat/activite-prospection`
-  … `fix/spec-groupes-et-colonnes`) ; `sync` ne les supprime pas. Ménage à
-  faire, mais c'est la décision de l'utilisateur.
-- `FEATURES.md` : `spec-groupes-et-colonnes` enregistré via `add` juste avant
-  la synchro ; `relances-en-retard` **ajouté à la main**, `add` lisant
-  `main..HEAD` qui était déjà vide une fois la branche fusionnée.
-  **Enregistrer au feature-index avant de pousser**, jamais après.
-- `SESSION_MEMORY.md` est modifié dans l'arbre sur `main` : il partira avec le
-  prochain lot, comme d'habitude (stash → `start` → pop).
+- Vite `:5173`, backend Spring `:8080`, lancés par l'utilisateur.
+- Identifiants du compte de test : dans les sondes du scratchpad. **Non
+  consignés ici.** ⚠️ Ils ont transité en clair dans plusieurs transcriptions.
+- **Aucun navigateur atteignable** (8ᵉ session).
+- `main` à **`5b93ba2`** — PR #37 à #40 fusionnées.
+- Branche **`feat/encaissements-filtre-tranche`**, poussée, **non fusionnée**,
+  6 commits : filtre tranche → catalogue+groupement → recherche menu →
+  fonctions d'agrégat → conformité types → affectations.
+- L'utilisateur commite parfois le snapshot de spec **directement sur `main`** :
+  `sync` refuse alors avec « diverged ». Vérifier l'identité octet pour octet
+  avant de proposer un `reset --hard`.
 
 ---
 
 ## ⏭️ Next Step
 
-> **Vérifier le dépliant et le fond rouge au navigateur** — rien n'a été vu à l'écran. Chemin :
-> `/dossiers` → bande → « Regrouper par » → **Statut**, cocher un ou deux
-> totaux, puis **ouvrir deux groupes en même temps** (c'est le point que la
-> première livraison ratait). Ouvrir « CONCRETISATION » (68 lignes) pour voir
-> la ligne « 48 de plus — en charger 20 ». Puis grouper par **Date du
-> document** : un groupe ouvert qui rend 0 ligne signifierait que la
-> granularité ne circule pas.
+> **Faire fusionner la PR de `feat/encaissements-filtre-tranche`**, puis `sync`.
+> Elle porte six commits dont la conversion complète de l'écran Encaissements.
 
 ### Backlog (par priorité)
 
-- [ ] **Demande backend statut — désormais bloquante** : elle n'empêche plus
-      seulement de filtrer efficacement, elle **interdit le groupement** sur
-      Dossiers. Consignée dans `docs/filtres-avances.md`.
-- [ ] Autres demandes backend consignées : champs `temp*` de la prospection,
-      les 8 onglets dossier sans endpoint.
-- [ ] **Pas de `/api/prospects/groupes`** : l'écran Clients n'a pas de bande.
-      Le catalogue le dit honnêtement (0 groupable) mais sa **description**
-      annonce le contraire — à signaler, sans conséquence fonctionnelle.
-- [ ] Une **moyenne** serait l'agrégat juste pour `remise` /
-      `probabiliteFinalisation` ; l'endpoint ne sert que des sommes.
-- [ ] Vérifier la règle du dossier sorti (`netAPayer.reste = 0`) sur un
-      `ANNULATION` — il y en a **15** en base, donc c'est enfin testable.
-- [ ] `titreFoncier` / `presentationCode` mesurés 0/10 contre 69,6 % et 23,2 %
-      annoncés — à revérifier sur un échantillon plus large.
-- [ ] Supprimer `harness-densite.tsx` (non suivi, toujours dans l'arbre ; ses
-      fixtures ont dû être complétées de `groupable`/`agregeable`).
+- [ ] **Vérifier au navigateur** — rien des huit dernières sessions n'a été vu.
+      Chemin le plus dense : `/encaissements` → sélecteur (5 sections dont
+      « Suivi », **aucun UUID**) → regrouper par État → ouvrir deux groupes →
+      Σ → *Montant brut ▸ Moyenne* → ouvrir une fiche à 3 affectations.
+      Puis `/dossiers` → Σ → *Date du dossier ▸ Minimum* : **doit s'afficher en
+      date, pas en montant** — c'est le test de toute la chaîne de formatage.
+- [ ] **#155 — réparer le détecteur d'endpoints de `FEATURES.md`** : 16 faux
+      positifs sur 17, il invente des trous.
+- [ ] **#156 — trancher `CreerReglementRequest.dateReglement`** : le spec la
+      publie, le serveur la refuse en 400.
+- [ ] **Divergence `titreFoncier`** entre deux chemins serveur : la liste le
+      sert sur 33/116, la fiche sur 5 de ces 8 échantillonnés. Valeurs
+      identiques quand les deux existent.
+- [ ] Demandes backend consignées : filtre statut dossiers (débloquerait le
+      groupement **et** supprimerait le lot de 500), champs `temp*`, 8 onglets
+      dossier, encaissements non affectés.
+- [ ] Ordre non déterministe sur la **pagination ordinaire** des listes (#141),
+      volontairement non touché.
+- [ ] Supprimer `harness-densite.tsx` (non suivi ; ses fixtures ont dû être
+      complétées deux fois cette session).
 - [ ] 9 erreurs eslint préexistantes (#101).
