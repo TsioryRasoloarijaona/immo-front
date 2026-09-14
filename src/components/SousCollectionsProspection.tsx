@@ -110,7 +110,7 @@ function ListeEditable({
         </Button>
       </div>
 
-      {erreur && <p className="mb-2 text-micro text-(--danger)">{erreur}</p>}
+      {erreur && <p className="mb-2 text-micro text-(--warning)">{erreur}</p>}
 
       {lignes.length === 0 ? (
         <p className="text-body text-muted-foreground">{chargement ? 'Chargement…' : 'Rien de renseigné.'}</p>

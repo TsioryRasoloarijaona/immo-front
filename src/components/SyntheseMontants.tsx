@@ -55,7 +55,7 @@ function Ligne({
           'py-1 pl-2 text-right text-body tabular-nums',
           // Un reste nul n'est pas une alerte : il se lit en gris, comme chez
           // Omran, qui ne met en rouge que ce qui est effectivement dû.
-          reste > 0 ? 'font-medium text-(--danger)' : 'text-muted-foreground',
+          reste > 0 ? 'font-medium text-(--warning)' : 'text-muted-foreground',
           synthese && 'font-semibold',
         )}
       >
