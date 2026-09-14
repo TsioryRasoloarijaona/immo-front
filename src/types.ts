@@ -646,7 +646,33 @@ export interface ColonneDto {
    * agrégeables, et `nombreEnfants`/`anciennete` de même côté prospects.
    * Déduire du type demanderait une somme que le serveur refuse en 400. */
   agregeable: boolean;
+  /** Fonctions d'agrégat que **cette colonne** accepte dans `?agregats=`, dans
+   * l'ordre où le menu Σ doit les proposer.
+   *
+   * **Ne se déduit ni du type ni du nom**, et c'est tout l'intérêt du champ.
+   * Mesuré sur les trois catalogues : `montantBrut` accepte les cinq, mais
+   * `montantBrutRestant` — un MONTANT lui aussi — n'accepte que
+   * `SUM,AVG,COUNT` parce qu'il est calculé par différence et n'a pas
+   * d'extremum exprimable. Une date n'accepte que `MIN,MAX,COUNT`. La plupart
+   * des colonnes texte n'acceptent que `COUNT`.
+   *
+   * **La liste vide existe** : une colonne sans chemin en base n'a rien à
+   * agréger — 12 colonnes côté prospections (celles de la vue légataire), 3
+   * côté encaissements dont `dossierCode` et `notes`. Ces colonnes ne doivent
+   * pas apparaître dans le menu Σ.
+   *
+   * `agregeable` ci-dessus en est redondant : il vaut exactement « `SUM` est
+   * dans cette liste » — vérifié cohérent sur les trois catalogues. Il reste
+   * servi et reste juste ; les deux peuvent coexister. */
+  fonctions: FonctionAgregat[];
 }
+
+/** Les cinq fonctions d'agrégat du serveur.
+ *
+ * `SUM` est le défaut implicite : un nom nu dans `?agregats=` vaut une somme
+ * et revient sous ce nom nu. Les autres s'écrivent en jeton qualifié
+ * (`prix:AVG`) et reviennent sous le jeton complet. */
+export type FonctionAgregat = 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'COUNT';
 
 /** Granularité de regroupement d'une colonne DATE.
  *
@@ -660,6 +686,20 @@ export type GranulariteGroupe = 'JOUR' | 'MOIS' | 'ANNEE';
 
 /** Ordre des groupes : par libellé croissant, ou par effectif décroissant. */
 export type TriGroupes = 'LIBELLE' | 'NOMBRE';
+
+/** Ce qu'un agrégat peut valoir, **et ce n'est pas toujours un nombre**.
+ *
+ * Le type suit la fonction, mesuré sur les données réelles :
+ * - `SUM` et `AVG` : un décimal (`997059.56`) ;
+ * - `COUNT` : un entier ;
+ * - `MIN`/`MAX` : **le type de la colonne**, donc la chaîne ISO
+ *   `"2023-12-04T00:00:00"` sur une colonne date.
+ *
+ * `null` est réservé à un `MIN`/`MAX` sans aucune valeur — mesuré, 1 groupe
+ * sur 7 — parce qu'il n'existe pas de minimum de rien et que `0` serait un
+ * mensonge. Une **somme** dont tout le groupe est nul vaut `0`, jamais `null` :
+ * c'est un total, pas une absence. */
+export type ValeurAgregat = number | string | null;
 
 /** Un groupe d'une liste repliée — l'équivalent de l'en-tête « Client : Adnane
  * ES-SAIYDY (1 item) » et de sa bande « Total : » du logiciel de bureau.
@@ -695,7 +735,34 @@ export interface GroupeDto {
    *
    * Arrive bruité en flottant (`17440269.999994` — somme SQL sur des `float`) ;
    * `formatCurrency`/`formatNumber` l'absorbent via `toFixed`. */
-  agregats: Record<string, number>;
+  agregats: Record<string, ValeurAgregat>;
+}
+
+/** L'enveloppe des quatre endpoints `/groupes` : des groupes paginés, **plus le
+ * total général sur tout le périmètre filtré**.
+ *
+ * Elle remplace le `PageDto<GroupeDto>` générique, et l'ajout n'est pas
+ * cosmétique : sans `totaux`, un total de bas de grille ne pouvait être calculé
+ * que sur les lignes chargées, c'est-à-dire sur les seuls groupes ouverts. Ce
+ * nombre-là ressemble à un total général sans en être un. */
+export interface PageGroupesDto {
+  content: GroupeDto[];
+  page: number;
+  size: number;
+  /** Nombre de **groupes**, pas de lignes — c'est ce qui est paginé ici. */
+  totalElements: number;
+  totalPages: number;
+  /** Les mêmes agrégats que dans chaque groupe, mais sur **tout le périmètre
+   * filtré** : la bande « Total : » de bas de grille, par opposition à celle
+   * d'un en-tête de groupe. Indexés par les mêmes jetons. Vide si `agregats`
+   * n'est pas fourni.
+   *
+   * Suit `inclureSansValeur` à l'identique — sinon ce total et la somme des
+   * groupes désigneraient deux populations différentes. */
+  totaux: Record<string, ValeurAgregat>;
+  /** Effectif dont `totaux` est tiré. Avec `inclureSansValeur=true`, égale le
+   * `totalElements` de la liste **non groupée** — mesuré, 116 dossiers. */
+  nombreTotal: number;
 }
 
 /** Indicateurs d'activité d'une prospection, calculés par la base légataire

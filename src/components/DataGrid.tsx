@@ -4,12 +4,13 @@ import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, Table
 import { formatCurrency, formatDate, formatNumber } from '../lib/format';
 import { cn } from '../lib/utils';
 import {
+  LIBELLES_FONCTION,
   TAILLE_LOT_GROUPE,
   identiteGroupe,
   libelleGroupeAffiche,
   type LignesGroupe,
 } from '../lib/groupement';
-import type { ColonneDto, GroupeDto, TypeColonne } from '../types';
+import type { ColonneDto, FonctionAgregat, GroupeDto, TypeColonne, ValeurAgregat } from '../types';
 
 /** Grille de données partagée par tous les écrans de liste.
  *
@@ -59,6 +60,14 @@ export type ColonneGrille<T> = {
    * dans `row[nom]` (nom composé, repli entre deux champs…). */
   valeur?: (row: T) => unknown;
   classe?: string;
+  /** Formateur d'une **valeur nue**, distinct de `rendu` qui prend une ligne
+   * entière.
+   *
+   * Sert aux bandes de totaux, où il n'y a pas de ligne à passer : sans lui,
+   * une moyenne de `remise` s'afficherait « 0,07 » au lieu de « 7,31 % »,
+   * puisque le serveur type la colonne `NOMBRE` alors que c'est un ratio.
+   * À poser dans l'adaptateur, là où le rendu de cellule est déjà décidé. */
+  formatValeur?: (valeur: unknown) => string;
   /** Infobulle : le texte complet, pour les valeurs assez longues pour
    * atteindre le plafond de la colonne et se faire couper. */
   titre?: (row: T) => string | undefined;
@@ -75,8 +84,16 @@ export type GroupementGrille<T> = {
   liste: GroupeDto[];
   /** Libellé de la colonne groupée, préfixe de chaque en-tête. */
   colonneLibelle: string;
-  /** Colonnes sommées par le serveur, une bande de totaux chacune. */
-  agregats: ColonneDto[];
+  /** Agrégats actifs, résolus par `useGroupement` : le jeton envoyé, la
+   * colonne qu'il vise et la fonction appliquée. Les trois sont nécessaires au
+   * formatage — un `MIN` sur une colonne date rend une chaîne ISO. */
+  agregats: { jeton: string; colonne: ColonneDto; fonction: FonctionAgregat }[];
+  /** Les mêmes agrégats sur **tout le périmètre filtré**, et l'effectif dont
+   * ils sont tirés. C'est le « Total : » de bas de grille du logiciel de
+   * bureau, à ne pas confondre avec le Σ par colonne, qui lui ne porte que sur
+   * les lignes chargées. */
+  totaux: Record<string, ValeurAgregat>;
+  nombreTotal: number;
   estOuvert: (g: GroupeDto) => boolean;
   etat: (g: GroupeDto) => LignesGroupe<T> | undefined;
   basculer: (g: GroupeDto) => void;
@@ -87,6 +104,34 @@ export type GroupementGrille<T> = {
 };
 
 const NUMERIQUES: TypeColonne[] = ['MONTANT', 'NOMBRE'];
+
+/** Met en forme un agrégat. **La fonction décide autant que le type.**
+ *
+ * - `COUNT` est un effectif : un entier, quelle que soit la colonne comptée.
+ *   Formater le compte de dates comme une date n'aurait aucun sens.
+ * - `SUM`/`AVG`/`MIN`/`MAX` gardent l'unité de la colonne — d'où `formatDate`
+ *   sur une colonne DATE, le serveur renvoyant alors une **chaîne ISO** et non
+ *   un nombre.
+ * - `null` ne concerne que `MIN`/`MAX` sans aucune valeur (mesuré, 1 groupe
+ *   sur 7) : un tiret, jamais « 0 », qui serait un mensonge. Une somme vide
+ *   vaut `0` côté serveur et s'affiche donc bien « 0,00 DH ».
+ *
+ * `formatValeur`, quand la colonne en porte un, l'emporte sur le type : c'est
+ * ce qui rend une moyenne de taux en pourcentage. Pas sur `COUNT`, qui n'est
+ * plus dans l'unité de la colonne. */
+function formatAgregat<T>(
+  valeur: ValeurAgregat | undefined,
+  colonne: ColonneGrille<T> | undefined,
+  fonction: FonctionAgregat,
+  type: TypeColonne,
+): string {
+  if (valeur === null || valeur === undefined) return '—';
+  if (fonction === 'COUNT') return formatNumber(Number(valeur));
+  if (colonne?.formatValeur) return colonne.formatValeur(valeur);
+  if (type === 'DATE') return formatDate(String(valeur));
+  if (typeof valeur !== 'number') return String(valeur);
+  return type === 'MONTANT' ? formatCurrency(valeur) : formatNumber(valeur, 2);
+}
 
 /** Rendu par défaut, piloté par le `type` de la colonne. */
 function rendreParType(valeur: unknown, type: TypeColonne): ReactNode {
@@ -130,6 +175,15 @@ function texteComparable<T>(row: T, c: ColonneGrille<T>): string {
    ils annoncent le mode de comparaison, ils ne l'ouvrent pas au choix. */
 function glypheOperateur(type: TypeColonne): string {
   return type === 'TEXTE' ? 'A' : '=';
+}
+
+/** « Prix » pour une somme, « Prix (moyenne) » pour le reste.
+ *
+ * La somme reste implicite parce qu'elle l'est déjà côté serveur — un nom nu
+ * vaut une somme — et parce qu'écrire « Prix (somme) » sur le cas courant
+ * alourdirait la bande pour ne rien apprendre. */
+function libelleAgregat(a: { colonne: ColonneDto; fonction: FonctionAgregat }): string {
+  return a.fonction === 'SUM' ? a.colonne.libelle : `${a.colonne.libelle} (${LIBELLES_FONCTION[a.fonction].toLowerCase()})`;
 }
 
 export default function DataGrid<T extends { id: string }>({
@@ -636,13 +690,16 @@ export default function DataGrid<T extends { id: string }>({
                           </span>
                           {groupes.agregats.length > 0 && (
                             <span className="ml-auto flex shrink-0 items-center gap-3 pl-4 text-micro">
-                              {groupes.agregats.map((c) => (
-                                <span key={c.nom}>
-                                  <span className="text-muted-foreground">{c.libelle} : </span>
+                              {groupes.agregats.map((a) => (
+                                <span key={a.jeton}>
+                                  <span className="text-muted-foreground">{libelleAgregat(a)} : </span>
                                   <span className="font-semibold tabular-nums">
-                                    {c.type === 'MONTANT'
-                                      ? formatCurrency(g.agregats?.[c.nom] ?? 0)
-                                      : formatNumber(g.agregats?.[c.nom] ?? 0, 2)}
+                                    {formatAgregat(
+                                      g.agregats?.[a.jeton],
+                                      colonnes.find((c) => c.nom === a.colonne.nom),
+                                      a.fonction,
+                                      a.colonne.type,
+                                    )}
                                   </span>
                                 </span>
                               ))}
@@ -697,6 +754,41 @@ export default function DataGrid<T extends { id: string }>({
                 );
               })
             : visibles.map(rendreLigne)}
+          {/* Le « Total : » de bas de grille, servi par le serveur sur **tout
+              le périmètre filtré**.
+
+              Distinct du pied Σ plus bas, qui ne somme que les lignes
+              effectivement chargées — donc les seuls groupes ouverts. Les deux
+              peuvent être à l'écran en même temps et donner des nombres
+              différents : c'est pourquoi celui-ci porte son effectif, et
+              l'autre son intitulé. Deux totaux non étiquetés côte à côte se
+              contrediraient. */}
+          {groupes && groupes.agregats.length > 0 && (
+            <TableRow className="border-t-2 border-border bg-muted/60 hover:bg-muted/60">
+              <TableCell colSpan={nbColonnes} className="whitespace-nowrap">
+                <span className="flex items-center gap-3 text-micro">
+                  <span className="shrink-0 font-semibold">
+                    Total sur {formatNumber(groupes.nombreTotal)} ligne(s)
+                  </span>
+                  <span className="ml-auto flex shrink-0 items-center gap-3">
+                    {groupes.agregats.map((a) => (
+                      <span key={a.jeton}>
+                        <span className="text-muted-foreground">{libelleAgregat(a)} : </span>
+                        <span className="font-semibold tabular-nums">
+                          {formatAgregat(
+                            groupes.totaux?.[a.jeton],
+                            colonnes.find((c) => c.nom === a.colonne.nom),
+                            a.fonction,
+                            a.colonne.type,
+                          )}
+                        </span>
+                      </span>
+                    ))}
+                  </span>
+                </span>
+              </TableCell>
+            </TableRow>
+          )}
         </TableBody>
         {sommes.size > 0 && (
           <TableFooter>

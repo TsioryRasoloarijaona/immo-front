@@ -350,6 +350,74 @@ Re-mesure du 11/09, inchangee : `statut=CONCRETISATION` rend 68 dossiers,
 rattrape l'ecart — « Remise des clés » se code `REMISE DES CLEFS`, « Annulé »
 se code `ANNULATION`. Il faut le backend.
 
+## Agregats : cinq fonctions par colonne, et le total plein perimetre (14/09)
+
+Refactor **additif** : 166 operations inchangees, aucun endpoint touche. Mais
+il change deux contrats deja consommes et ouvre une capacite.
+
+### ColonneDto.fonctions
+
+La liste des fonctions que **cette colonne** accepte, dans l'ordre ou le menu
+doit les proposer. Elle ne se deduit pas du type, et la preuve tient en deux
+colonnes du meme ecran : `montantBrut` accepte les cinq, `montantBrutRestant` —
+MONTANT lui aussi — n'accepte que `SUM,AVG,COUNT`, etant calcule par
+difference. Une date n'accepte que `MIN,MAX,COUNT`. La plupart des colonnes
+texte n'acceptent que `COUNT`, et certaines **aucune** : 12 cote prospections
+(vue legataire), 3 cote encaissements dont `dossierCode` et `notes`.
+
+`agregeable` reste servi et reste juste : il vaut exactement « SUM est dans
+`fonctions` », verifie coherent sur les trois catalogues.
+
+### Jetons qualifies
+
+`?agregats=prix` vaut une somme et revient sous `prix` — comportement
+historique inchange. `?agregats=prix:AVG` revient sous `prix:AVG`. Les deux
+coexistent : verifie, 11 jetons en un appel, les cles de retour sont exactement
+les jetons envoyes. Une fonction refusee rend 400 avec `fonctionsValides`
+(`dateDocument:SUM` -> `["MIN","MAX","COUNT"]`).
+
+### Le type de la valeur suit la fonction — le piege
+
+| fonction | valeur |
+|---|---|
+| `SUM`, `AVG` | decimal |
+| `COUNT` | entier |
+| `MIN`, `MAX` | **le type de la colonne** |
+| `MIN`/`MAX` sans valeur | `null` |
+
+Donc `dateDocument:MIN` rend la **chaine** `"2023-12-04T00:00:00"`. Le front
+declarait `agregats: Record<string, number>` : le typage mentait, et c'est le
+compilateur qui l'a signale des que le type a ete corrige. Un `MIN` vide vaut
+`null` et non `0` — mesure, 1 groupe sur 7 — parce qu'il n'existe pas de
+minimum de rien.
+
+### PageGroupesDto : totaux et nombreTotal
+
+L'enveloppe remplace `PageDto<GroupeDto>` et porte les memes agregats sur
+**tout le perimetre filtre**, plus l'effectif dont ils sont tires. Verifie :
+`nombreTotal` = 116 = le `totalElements` de la liste non groupee ;
+`totaux.prix` = la somme des prix des groupes a 0,01 pres ; `totaux[prix:COUNT]`
+= la somme des COUNT. **`AVG` ne s'additionne pas**, et c'est bien pour ca que
+le serveur le calcule : 1 014 800,17 au total contre sept moyennes de groupe qui
+ne s'additionnent a rien.
+
+L'ecran affiche desormais une bande « Total sur N ligne(s) » en pied de liste
+groupee, distincte du pied Sigma par colonne qui, lui, ne somme que les lignes
+chargees. Les deux peuvent etre a l'ecran ensemble : chacun porte donc son
+intitule, sinon deux totaux differents cote a cote se contrediraient.
+
+### Consequence sur la regle des taux
+
+`AGREGATS_SANS_SENS` devient `SOMMES_SANS_SENS` : `remise` et
+`probabiliteFinalisation` ne sont plus ecartees en entier, seule leur **somme**
+l'est. Le commentaire d'origine disait deja « une moyenne serait l'agregat
+juste pour un taux, mais l'endpoint ne sert que des sommes ». Il en sert cinq :
+une remise moyenne de 7,31 % informe, son minimum et son maximum aussi.
+
+Ces deux colonnes portent un `formatValeur` dans `DossierTable` — sans lui leur
+moyenne s'afficherait « 0,07 », le serveur les typant `NOMBRE` alors que ce sont
+des ratios.
+
 ## Encaissements : catalogue de colonnes et groupement (14/09)
 
 L'ecran recoit le dispositif complet des trois autres listes : catalogue servi

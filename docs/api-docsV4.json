@@ -5321,7 +5321,7 @@
           {
             "name": "agregats",
             "in": "query",
-            "description": "Colonnes à sommer, répétable ou séparées par des virgules.",
+            "description": "Agrégats à calculer, répétable ou séparés par des virgules.\n\nDeux formes. Un **nom nu** (`prix`) vaut une **somme** et revient sous ce nom nu — c'est le comportement historique, inchangé. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et revient sous le jeton complet `prix:AVG`. Les deux formes peuvent coexister dans le même appel.\n\nFonctions : `SUM`, `AVG`, `MIN`, `MAX`, `COUNT` — mais **pas sur toutes les colonnes**. Sommer une date n'a pas de sens, et une colonne calculée par différence n'a pas d'extremum exprimable. La liste autorisée par colonne est publiée par le catalogue (`fonctions`) : le menu Σ doit s'y piloter, pas sur une liste en dur. Une fonction refusée rend 400 avec les fonctions acceptées par cette colonne-là.\n\n`AVG` est calculée à partir de la somme et de l'effectif renseigné, en décimal exact et arrondie au centime — jamais en virgule flottante.\n\nAbsent : seul l'effectif de chaque groupe est renvoyé.",
             "required": false,
             "schema": {
               "type": "array",
@@ -5329,7 +5329,7 @@
                 "type": "string"
               }
             },
-            "example": "prix"
+            "example": "prix,prix:MAX"
           },
           {
             "name": "granularite",
@@ -5473,7 +5473,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageDtoGroupeDto"
+                  "$ref": "#/components/schemas/PageGroupesDto"
                 }
               }
             }
@@ -5757,7 +5757,7 @@
           {
             "name": "agregats",
             "in": "query",
-            "description": "Colonnes à sommer, répétable ou séparées par des virgules.",
+            "description": "Agrégats à calculer, répétable ou séparés par des virgules.\n\nDeux formes. Un **nom nu** (`prix`) vaut une **somme** et revient sous ce nom nu — c'est le comportement historique, inchangé. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et revient sous le jeton complet `prix:AVG`. Les deux formes peuvent coexister dans le même appel.\n\nFonctions : `SUM`, `AVG`, `MIN`, `MAX`, `COUNT` — mais **pas sur toutes les colonnes**. Sommer une date n'a pas de sens, et une colonne calculée par différence n'a pas d'extremum exprimable. La liste autorisée par colonne est publiée par le catalogue (`fonctions`) : le menu Σ doit s'y piloter, pas sur une liste en dur. Une fonction refusée rend 400 avec les fonctions acceptées par cette colonne-là.\n\n`AVG` est calculée à partir de la somme et de l'effectif renseigné, en décimal exact et arrondie au centime — jamais en virgule flottante.\n\nAbsent : seul l'effectif de chaque groupe est renvoyé.",
             "required": false,
             "schema": {
               "type": "array",
@@ -5899,7 +5899,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageDtoGroupeDto"
+                  "$ref": "#/components/schemas/PageGroupesDto"
                 }
               }
             }
@@ -6447,7 +6447,7 @@
           {
             "name": "agregats",
             "in": "query",
-            "description": "Colonnes à sommer, répétable ou séparées par des virgules. Absent : seul l'effectif de chaque groupe est renvoyé.",
+            "description": "Agrégats à calculer, répétable ou séparés par des virgules.\n\nDeux formes. Un **nom nu** (`prix`) vaut une **somme** et revient sous ce nom nu — c'est le comportement historique, inchangé. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et revient sous le jeton complet `prix:AVG`. Les deux formes peuvent coexister dans le même appel.\n\nFonctions : `SUM`, `AVG`, `MIN`, `MAX`, `COUNT` — mais **pas sur toutes les colonnes**. Sommer une date n'a pas de sens, et une colonne calculée par différence n'a pas d'extremum exprimable. La liste autorisée par colonne est publiée par le catalogue (`fonctions`) : le menu Σ doit s'y piloter, pas sur une liste en dur. Une fonction refusée rend 400 avec les fonctions acceptées par cette colonne-là.\n\n`AVG` est calculée à partir de la somme et de l'effectif renseigné, en décimal exact et arrondie au centime — jamais en virgule flottante.\n\nAbsent : seul l'effectif de chaque groupe est renvoyé.",
             "required": false,
             "schema": {
               "type": "array",
@@ -6455,7 +6455,7 @@
                 "type": "string"
               }
             },
-            "example": "montantBrut,montantBase"
+            "example": "montantBrutRestant,montantNet,montantBrut:AVG"
           },
           {
             "name": "granularite",
@@ -6666,7 +6666,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageDtoGroupeDto"
+                  "$ref": "#/components/schemas/PageGroupesDto"
                 }
               }
             }
@@ -7367,7 +7367,7 @@
           {
             "name": "agregats",
             "in": "query",
-            "description": "Colonnes à sommer, répétable ou séparées par des virgules. Absent : seul l'effectif de chaque groupe est renvoyé.",
+            "description": "Agrégats à calculer, répétable ou séparés par des virgules.\n\nDeux formes. Un **nom nu** (`prix`) vaut une **somme** et revient sous ce nom nu — c'est le comportement historique, inchangé. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et revient sous le jeton complet `prix:AVG`. Les deux formes peuvent coexister dans le même appel.\n\nFonctions : `SUM`, `AVG`, `MIN`, `MAX`, `COUNT` — mais **pas sur toutes les colonnes**. Sommer une date n'a pas de sens, et une colonne calculée par différence n'a pas d'extremum exprimable. La liste autorisée par colonne est publiée par le catalogue (`fonctions`) : le menu Σ doit s'y piloter, pas sur une liste en dur. Une fonction refusée rend 400 avec les fonctions acceptées par cette colonne-là.\n\n`AVG` est calculée à partir de la somme et de l'effectif renseigné, en décimal exact et arrondie au centime — jamais en virgule flottante.\n\nAbsent : seul l'effectif de chaque groupe est renvoyé.",
             "required": false,
             "schema": {
               "type": "array",
@@ -7375,7 +7375,7 @@
                 "type": "string"
               }
             },
-            "example": "prix,totalAPayer"
+            "example": "prix,totalAPayer,prix:AVG"
           },
           {
             "name": "granularite",
@@ -7518,7 +7518,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageDtoGroupeDto"
+                  "$ref": "#/components/schemas/PageGroupesDto"
                 }
               }
             }
@@ -12132,6 +12132,20 @@
             "type": "boolean",
             "description": "Vraie si la colonne peut être sommée via `?agregats=` — les bandes « Total : » sous un en-tête de groupe. Concerne les colonnes MONTANT et NOMBRE.",
             "example": false
+          },
+          "fonctions": {
+            "type": "array",
+            "description": "Fonctions d'agrégat que **cette colonne** accepte dans `?agregats=`, dans l'ordre où le menu Σ doit les proposer. C'est la liste à piloter pour construire ce menu — aucune ne doit être codée en dur côté front.\n\nElle n'est pas la même pour toutes : un montant accepte les cinq, une **date** n'accepte que `MIN`/`MAX`/`COUNT` (sommer une date n'a pas de sens), une colonne calculée par différence n'accepte ni `MIN` ni `MAX`, et une colonne sans chemin rend une liste **vide** — elle n'existe pas en base, il n'y a rien à agréger.\n\nRappel : un nom nu dans `?agregats=` vaut toujours `SUM`. `agregeable` ci-dessus reste donc vrai exactement quand `SUM` figure ici.",
+            "example": [
+              "SUM",
+              "AVG",
+              "MIN",
+              "MAX",
+              "COUNT"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -13212,18 +13226,18 @@
           },
           "agregats": {
             "type": "object",
-            "additionalProperties": {
-              "type": "number"
-            },
-            "description": "Sommes des colonnes demandées via `?agregats=`, indexées par le nom de colonne tel qu'il apparaît dans la liste (`prix`, `totalAPayer`...). Vide si `agregats` n'est pas fourni. Une colonne dont toutes les lignes du groupe sont nulles vaut `0`, jamais `null` — c'est un total, pas une valeur absente.",
+            "additionalProperties": {},
+            "description": "Résultats des agrégats demandés via `?agregats=`, **indexés par le jeton envoyé** — `prix` pour un nom nu, `prix:AVG` pour un nom qualifié. Vide si `agregats` n'est pas fourni.\n\nUn nom nu vaut toujours une somme et revient sous ce nom nu : la réponse d'une intégration existante est donc inchangée par l'ouverture du menu Σ.\n\n**Le type de la valeur suit la fonction** : nombre décimal pour `SUM` et `AVG`, entier pour `COUNT`, et pour `MIN`/`MAX` le type de la colonne — donc une date ISO-8601 sur une colonne date. Une somme dont toutes les lignes du groupe sont nulles vaut `0`, jamais `null` : c'est un total, pas une valeur absente. Un `MIN`/`MAX` sans aucune valeur vaut `null`, lui — il n'existe pas de minimum de rien, et `0` serait un mensonge.",
             "example": {
-              "prix": 1350000
+              "prix": 1350000,
+              "prix:AVG": 675000
             }
           }
         }
       },
-      "PageDtoGroupeDto": {
+      "PageGroupesDto": {
         "type": "object",
+        "description": "Groupes paginés, plus le total général sur tout le périmètre filtré.",
         "properties": {
           "content": {
             "type": "array",
@@ -13241,11 +13255,26 @@
           },
           "totalElements": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Nombre de **groupes**, pas de lignes — c'est ce qui est paginé ici."
           },
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          },
+          "totaux": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Les mêmes agrégats que dans chaque groupe, mais calculés sur **tout le périmètre filtré** : la bande « Total : » de bas de grille, par opposition à celle d'un en-tête de groupe. Indexés par le même jeton. Vide si `agregats` n'est pas fourni.\n\nSuit `inclureSansValeur` à l'identique : sinon ce total et la somme des groupes désigneraient deux populations différentes.",
+            "example": {
+              "montantBrut": 117600
+            }
+          },
+          "nombreTotal": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre total de lignes agrégées — l'effectif dont `totaux` est tiré. Avec `inclureSansValeur=true`, égale le `totalElements` de la liste non groupée.",
+            "example": 643
           }
         }
       },

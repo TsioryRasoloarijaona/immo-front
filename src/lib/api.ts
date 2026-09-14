@@ -20,7 +20,7 @@ import type {
   ClientListItemDto,
   ColonneDto,
   GranulariteGroupe,
-  GroupeDto,
+  PageGroupesDto,
   TriGroupes,
   CommercialListItemDto,
   CompleterProfilRequest,
@@ -195,7 +195,17 @@ export interface ParamsGroupes {
   /** Colonne de groupement. Un seul niveau. **Doit être `groupable`** dans le
    * catalogue : sinon 400, dont le corps RFC 7807 porte `colonnesValides`. */
   groupBy: string;
-  /** Colonnes à sommer. **Doivent être `agregeable`** — même 400 sinon. */
+  /** Agrégats à calculer, sous forme de **jetons**, pas de noms de colonne.
+   *
+   * Deux formes, qui coexistent dans le même appel. Un **nom nu** (`prix`)
+   * vaut une **somme** et revient sous ce nom nu — comportement historique,
+   * inchangé. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et
+   * revient sous le jeton complet.
+   *
+   * Les fonctions acceptées **dépendent de la colonne** et sont publiées par
+   * le catalogue (`ColonneDto.fonctions`). Une fonction refusée rend 400 avec
+   * `fonctionsValides` — construire le menu sur le catalogue, jamais sur une
+   * liste en dur. Voir `jetonAgregat` dans `lib/groupement.ts`. */
   agregats?: string[];
   /** N'a de sens que si `groupBy` est une colonne DATE. Défaut serveur : MOIS. */
   granularite?: GranulariteGroupe;
@@ -562,7 +572,7 @@ export function listProspectionsGroupes(
   groupes: ParamsGroupes,
   pageable?: Pageable,
   options?: { filtres?: FiltresAvancesProspection },
-): Promise<PageDto<GroupeDto>> {
+): Promise<PageGroupesDto> {
   const query = withGroupes(withPageable(params, pageable), groupes);
   for (const [cle, valeur] of Object.entries(options?.filtres ?? {})) {
     if (valeur === undefined) continue;
@@ -675,7 +685,7 @@ export function listPreProspectionsGroupes(
   params: ProspectionFilterParams | undefined,
   groupes: ParamsGroupes,
   pageable?: Pageable,
-): Promise<PageDto<GroupeDto>> {
+): Promise<PageGroupesDto> {
   return request('GET', '/api/pre-prospections/groupes', {
     query: withGroupes(withPageable(params, pageable), groupes),
   });
@@ -885,7 +895,7 @@ export function listDossiersGroupes(
   params: DossierFilterParams | undefined,
   groupes: ParamsGroupes,
   pageable?: Pageable,
-): Promise<PageDto<GroupeDto>> {
+): Promise<PageGroupesDto> {
   return request('GET', '/api/dossiers/groupes', {
     query: withGroupes(withPageable(params, pageable), groupes),
   });
@@ -1534,7 +1544,7 @@ export function listEncaissementsGroupes(
   params: Parameters<typeof listEncaissements>[0],
   groupes: ParamsGroupes,
   pageable?: Pageable,
-): Promise<PageDto<GroupeDto>> {
+): Promise<PageGroupesDto> {
   return request('GET', '/api/encaissements/groupes', {
     query: withGroupes(withPageable(params, pageable), groupes),
   });
