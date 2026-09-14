@@ -589,6 +589,8 @@ export type GroupeColonne =
   | 'CLOTURE'
   | 'ACTIVITE'
   | 'CONVERSION'
+  // Encaissements
+  | 'SUIVI'
   // Dossiers de vente
   | 'ACTEURS'
   | 'ORIGINE'
@@ -644,7 +646,33 @@ export interface ColonneDto {
    * agrégeables, et `nombreEnfants`/`anciennete` de même côté prospects.
    * Déduire du type demanderait une somme que le serveur refuse en 400. */
   agregeable: boolean;
+  /** Fonctions d'agrégat que **cette colonne** accepte dans `?agregats=`, dans
+   * l'ordre où le menu Σ doit les proposer.
+   *
+   * **Ne se déduit ni du type ni du nom**, et c'est tout l'intérêt du champ.
+   * Mesuré sur les trois catalogues : `montantBrut` accepte les cinq, mais
+   * `montantBrutRestant` — un MONTANT lui aussi — n'accepte que
+   * `SUM,AVG,COUNT` parce qu'il est calculé par différence et n'a pas
+   * d'extremum exprimable. Une date n'accepte que `MIN,MAX,COUNT`. La plupart
+   * des colonnes texte n'acceptent que `COUNT`.
+   *
+   * **La liste vide existe** : une colonne sans chemin en base n'a rien à
+   * agréger — 12 colonnes côté prospections (celles de la vue légataire), 3
+   * côté encaissements dont `dossierCode` et `notes`. Ces colonnes ne doivent
+   * pas apparaître dans le menu Σ.
+   *
+   * `agregeable` ci-dessus en est redondant : il vaut exactement « `SUM` est
+   * dans cette liste » — vérifié cohérent sur les trois catalogues. Il reste
+   * servi et reste juste ; les deux peuvent coexister. */
+  fonctions: FonctionAgregat[];
 }
+
+/** Les cinq fonctions d'agrégat du serveur.
+ *
+ * `SUM` est le défaut implicite : un nom nu dans `?agregats=` vaut une somme
+ * et revient sous ce nom nu. Les autres s'écrivent en jeton qualifié
+ * (`prix:AVG`) et reviennent sous le jeton complet. */
+export type FonctionAgregat = 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'COUNT';
 
 /** Granularité de regroupement d'une colonne DATE.
  *
@@ -658,6 +686,20 @@ export type GranulariteGroupe = 'JOUR' | 'MOIS' | 'ANNEE';
 
 /** Ordre des groupes : par libellé croissant, ou par effectif décroissant. */
 export type TriGroupes = 'LIBELLE' | 'NOMBRE';
+
+/** Ce qu'un agrégat peut valoir, **et ce n'est pas toujours un nombre**.
+ *
+ * Le type suit la fonction, mesuré sur les données réelles :
+ * - `SUM` et `AVG` : un décimal (`997059.56`) ;
+ * - `COUNT` : un entier ;
+ * - `MIN`/`MAX` : **le type de la colonne**, donc la chaîne ISO
+ *   `"2023-12-04T00:00:00"` sur une colonne date.
+ *
+ * `null` est réservé à un `MIN`/`MAX` sans aucune valeur — mesuré, 1 groupe
+ * sur 7 — parce qu'il n'existe pas de minimum de rien et que `0` serait un
+ * mensonge. Une **somme** dont tout le groupe est nul vaut `0`, jamais `null` :
+ * c'est un total, pas une absence. */
+export type ValeurAgregat = number | string | null;
 
 /** Un groupe d'une liste repliée — l'équivalent de l'en-tête « Client : Adnane
  * ES-SAIYDY (1 item) » et de sa bande « Total : » du logiciel de bureau.
@@ -693,7 +735,34 @@ export interface GroupeDto {
    *
    * Arrive bruité en flottant (`17440269.999994` — somme SQL sur des `float`) ;
    * `formatCurrency`/`formatNumber` l'absorbent via `toFixed`. */
-  agregats: Record<string, number>;
+  agregats: Record<string, ValeurAgregat>;
+}
+
+/** L'enveloppe des quatre endpoints `/groupes` : des groupes paginés, **plus le
+ * total général sur tout le périmètre filtré**.
+ *
+ * Elle remplace le `PageDto<GroupeDto>` générique, et l'ajout n'est pas
+ * cosmétique : sans `totaux`, un total de bas de grille ne pouvait être calculé
+ * que sur les lignes chargées, c'est-à-dire sur les seuls groupes ouverts. Ce
+ * nombre-là ressemble à un total général sans en être un. */
+export interface PageGroupesDto {
+  content: GroupeDto[];
+  page: number;
+  size: number;
+  /** Nombre de **groupes**, pas de lignes — c'est ce qui est paginé ici. */
+  totalElements: number;
+  totalPages: number;
+  /** Les mêmes agrégats que dans chaque groupe, mais sur **tout le périmètre
+   * filtré** : la bande « Total : » de bas de grille, par opposition à celle
+   * d'un en-tête de groupe. Indexés par les mêmes jetons. Vide si `agregats`
+   * n'est pas fourni.
+   *
+   * Suit `inclureSansValeur` à l'identique — sinon ce total et la somme des
+   * groupes désigneraient deux populations différentes. */
+  totaux: Record<string, ValeurAgregat>;
+  /** Effectif dont `totaux` est tiré. Avec `inclureSansValeur=true`, égale le
+   * `totalElements` de la liste **non groupée** — mesuré, 116 dossiers. */
+  nombreTotal: number;
 }
 
 /** Indicateurs d'activité d'une prospection, calculés par la base légataire
@@ -840,6 +909,10 @@ export interface ProspectionDetailDto {
    * `typeProspectionCode`, et ce n'est pas la même notion : celui-ci qualifie
    * le prospect, l'autre le document. Le piège est hérité de la liste. */
   typeProspect?: string | null;
+  /** Identifiant du type de tiers. **100 %.** Déclaré parce qu'il est au
+   * contrat ; aucun écran ne le consomme encore, faute de référentiel des
+   * types de tiers vers lequel lier. */
+  typeProspectId?: UUID | null;
   typeProspectLibelle?: string | null;
   /** Mobile de la fiche tiers. L'indicatif **n'a pas de `+`** — c'est `212`.
    * L'affichage se compose. */
@@ -1360,6 +1433,20 @@ export interface ArticleSummaryDto {
   immeubleId?: UUID;
   immeubleCode?: string;
   immeubleLibelle?: string;
+  /** Type de présentation du lot — la case « Présentation » de l'écran
+   * légataire. **25/25 mesuré** sur les articles de dossier, contrairement aux
+   * 23,2 % qu'annonçait l'ancien champ homonyme de `DossierDetailDto`. */
+  presentationCode?: string | null;
+  presentationLibelle?: string | null;
+  /** Numéro de titre foncier du lot.
+   *
+   * **Deux chemins serveur divergent ici, et il faut le savoir.** La colonne
+   * `articleTitreFoncier` de la liste des dossiers le sert sur 33 dossiers sur
+   * 116 ; sur huit de ces dossiers-là, la fiche ne le porte que cinq fois —
+   * les trois autres n'ont simplement pas la clé dans leur article. Quand les
+   * deux sont présents, ils sont **identiques**. Affichage conditionnel donc,
+   * et ne pas conclure d'une absence ici qu'il n'y en a pas. */
+  titreFoncier?: string | null;
 }
 
 export interface DossierListItemDto {
@@ -1604,11 +1691,15 @@ export interface DossierDetailDto {
    * dossiers : **ne pas en déduire un taux nul**, c'est une absence de saisie.
    * Mesuré à `0.2` sur l'échantillon, donc une fraction elle aussi. */
   tauxTVA?: number;
-  /** Numéro de titre foncier du lot. **69,6 %** — affichage conditionnel. */
-  titreFoncier?: string | null;
-  /** Type de présentation du lot — la case « Présentation ». **23,2 %**. */
-  presentationCode?: string | null;
-  presentationLibelle?: string | null;
+  /* `titreFoncier`, `presentationCode` et `presentationLibelle` ont été
+     déclarés ici et n'y sont plus : ce sont des attributs **du lot**, et le
+     serveur les a déplacés sur `ArticleSummaryDto`.
+
+     Mesuré avant de les retirer — ils étaient absents de la charge utile sur
+     **25 fiches sur 25**, pas seulement vides. Les deux lignes de la fiche qui
+     les affichaient montraient donc un tiret en permanence, alors que
+     `articles[0].presentationLibelle` est renseigné à 25/25 dans la même
+     réponse. Elles lisent désormais l'article. */
   /** Date de validité du statut courant — la date à droite du statut sur
    * l'écran légataire. **11,5 %** : elle n'a de sens que sur les statuts qui
    * expirent, la réservation au premier chef. */
@@ -1823,6 +1914,87 @@ export interface EncaissementDto {
   banqueId?: UUID;
   banqueNom?: string;
   notes?: string;
+
+  // -- Ajouts de la livraison « catalogue de colonnes » ----------------------
+  // Le spec ne documente aucun de ces treize champs — les taux ci-dessous sont
+  // **mesurés** sur les 332 règlements servis, pas recopiés.
+  /** Libellé du règlement. **La colonne la plus informative du lot** :
+   * 332/332 renseignées, 327 valeurs distinctes, du genre
+   * « CHÈQUE BMCE BANK N° … du 01/09/2026 ». */
+  description?: string;
+  /** 332/332, 70 valeurs distinctes. Agrégeable — c'est un montant, donc une
+   * quantité sommable, pas un taux comme `remise` côté dossiers. */
+  montantBase?: number;
+  /** Le tiers qui **paie**, distinct du tiers du règlement : 332/332 et 94
+   * valeurs distinctes. Masqué de la grille comme les autres `*Id`. */
+  tierPayeurId?: UUID;
+  tierPayeurNom?: string;
+  /** 12/332 seulement. Servi parce que le contrat le publie ; ne pas en faire
+   * une colonne que l'on croit remplie. */
+  recuCode?: string;
+  /** 332/332. */
+  remisAuCentre?: boolean;
+  /** **1/332.** Voir `recuCode`. */
+  dateRemiseAuCentre?: string | null;
+  /** **0/332 mesuré** — la colonne existe et reste vide sur tout le périmètre
+   * servi. Laissée au catalogue plutôt que masquée : c'est au serveur de dire
+   * ce qu'il publie, pas au front de filtrer sur ses propres relevés. */
+  bordereauCode?: string;
+  /** **1/332.** */
+  dateBordereau?: string | null;
+  /** Traçabilité, 332/332 les quatre. */
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
+}
+
+/** Imputation d'une part d'un règlement sur **une** échéance.
+ *
+ * C'est la réponse à « ce règlement, il a payé quoi ? », que la liste ne sait
+ * pas donner : elle n'expose que le `dossierCode` de la **première** ligne.
+ * Mesuré sur 80 règlements réels : 79 n'ont qu'une affectation, mais un en
+ * porte trois, sur **trois dossiers différents** — la liste en affichait un et
+ * masquait les deux autres.
+ *
+ * Invariant vérifié 80/80 : la somme des `montantAffecte` vaut
+ * `montantBrut - montantBrutRestant`. */
+export interface AffectationDto {
+  /** `StlSettlementLine`. */
+  id: UUID;
+  /** Part du règlement imputée à **cette** échéance — **pas** le montant du
+   * règlement. Un règlement qui couvre trois échéances porte trois lignes dont
+   * la somme fait son montant brut. */
+  montantAffecte?: number;
+  echeanceId?: UUID;
+  /** Code de l'échéance, tel qu'il apparaît dans l'échéancier du dossier. */
+  echeanceCode?: string;
+  /** Libellé de l'échéance. Ex. « 2ème tranche ». */
+  echeanceDescription?: string;
+  dateEcheance?: string | null;
+  /** Montant **total** de l'échéance, toutes imputations confondues. À
+   * comparer à `montantAffecte` pour savoir si ce seul règlement la solde. */
+  montantEcheance?: number;
+  categorieId?: UUID;
+  /** Code de catégorie de l'échéance : AVANCE, FRAIS SYNDIC… */
+  categorie?: string;
+  /** Dossier portant l'échéance. **Peut différer d'une ligne à l'autre** :
+   * c'est tout l'intérêt de cette ressource. */
+  dossierId?: UUID;
+  dossierCode?: string;
+}
+
+/** La fiche d'un règlement : les mêmes champs que la ligne de liste, **non
+ * filtrés par `?colonnes=`**, plus ses affectations.
+ *
+ * « Une fiche dit tout, là où une grille laisse choisir ses colonnes. » Aucune
+ * clé de la liste ne disparaît et aucune ne change de type — l'extension est
+ * strictement additive. */
+export interface EncaissementDetailDto extends EncaissementDto {
+  /** Les échéances que ce règlement solde, par montant croissant — l'ordre de
+   * l'écran légataire. **Tableau vide** = règlement encaissé mais pas encore
+   * imputé ; c'est le cas des pièces que la liste n'affiche pas du tout. */
+  affectations?: AffectationDto[];
 }
 
 /** Saisie d'un règlement. Le règlement naît toujours au statut `IN_WORK`.

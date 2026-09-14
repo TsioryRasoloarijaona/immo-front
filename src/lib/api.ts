@@ -20,7 +20,7 @@ import type {
   ClientListItemDto,
   ColonneDto,
   GranulariteGroupe,
-  GroupeDto,
+  PageGroupesDto,
   TriGroupes,
   CommercialListItemDto,
   CompleterProfilRequest,
@@ -42,6 +42,7 @@ import type {
   DossierDetailDto,
   DossierListItemDto,
   EcheanceDto,
+  EncaissementDetailDto,
   EncaissementDto,
   EtapeSuivanteDto,
   EvenementCalendrierDto,
@@ -195,7 +196,17 @@ export interface ParamsGroupes {
   /** Colonne de groupement. Un seul niveau. **Doit être `groupable`** dans le
    * catalogue : sinon 400, dont le corps RFC 7807 porte `colonnesValides`. */
   groupBy: string;
-  /** Colonnes à sommer. **Doivent être `agregeable`** — même 400 sinon. */
+  /** Agrégats à calculer, sous forme de **jetons**, pas de noms de colonne.
+   *
+   * Deux formes, qui coexistent dans le même appel. Un **nom nu** (`prix`)
+   * vaut une **somme** et revient sous ce nom nu — comportement historique,
+   * inchangé. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et
+   * revient sous le jeton complet.
+   *
+   * Les fonctions acceptées **dépendent de la colonne** et sont publiées par
+   * le catalogue (`ColonneDto.fonctions`). Une fonction refusée rend 400 avec
+   * `fonctionsValides` — construire le menu sur le catalogue, jamais sur une
+   * liste en dur. Voir `jetonAgregat` dans `lib/groupement.ts`. */
   agregats?: string[];
   /** N'a de sens que si `groupBy` est une colonne DATE. Défaut serveur : MOIS. */
   granularite?: GranulariteGroupe;
@@ -562,7 +573,7 @@ export function listProspectionsGroupes(
   groupes: ParamsGroupes,
   pageable?: Pageable,
   options?: { filtres?: FiltresAvancesProspection },
-): Promise<PageDto<GroupeDto>> {
+): Promise<PageGroupesDto> {
   const query = withGroupes(withPageable(params, pageable), groupes);
   for (const [cle, valeur] of Object.entries(options?.filtres ?? {})) {
     if (valeur === undefined) continue;
@@ -675,7 +686,7 @@ export function listPreProspectionsGroupes(
   params: ProspectionFilterParams | undefined,
   groupes: ParamsGroupes,
   pageable?: Pageable,
-): Promise<PageDto<GroupeDto>> {
+): Promise<PageGroupesDto> {
   return request('GET', '/api/pre-prospections/groupes', {
     query: withGroupes(withPageable(params, pageable), groupes),
   });
@@ -885,7 +896,7 @@ export function listDossiersGroupes(
   params: DossierFilterParams | undefined,
   groupes: ParamsGroupes,
   pageable?: Pageable,
-): Promise<PageDto<GroupeDto>> {
+): Promise<PageGroupesDto> {
   return request('GET', '/api/dossiers/groupes', {
     query: withGroupes(withPageable(params, pageable), groupes),
   });
@@ -1459,7 +1470,14 @@ export type EncaissementChampDate = 'DATE_PIECE' | 'DATE_ECHEANCE' | 'DATE_REGLE
  * que de faire naviguer `/encaissements/:id` sans vrai fetch. 404 tant que
  * l'endpoint n'existe pas — EncaissementDetail.tsx affiche l'erreur telle
  * quelle jusque-là. */
-export function getEncaissement(id: UUID): Promise<EncaissementDto> {
+/** La fiche d'un règlement — mêmes champs que la ligne de liste, non filtrés
+ * par `?colonnes=`, **plus ses affectations**.
+ *
+ * Un encaissement hors du périmètre commercial de l'appelant renvoie **404** et
+ * non 403, délibérément : un 403 confirmerait son existence et permettrait
+ * d'énumérer les identifiants. Un id qui n'est pas un UUID valide renvoie 404
+ * lui aussi, pas 400. */
+export function getEncaissement(id: UUID): Promise<EncaissementDetailDto> {
   return request('GET', `/api/encaissements/${id}`);
 }
 
@@ -1472,6 +1490,11 @@ export function listEncaissements(
     compteId?: UUID;
     depotId?: UUID;
     dossierId?: UUID;
+    /** Répétable, OR. Un règlement remonte dès qu'**une** de ses échéances
+     * porte sur un lot de l'une des tranches citées — le filtre traverse donc
+     * règlement → ligne → échéance → article, et un règlement à cheval sur
+     * deux tranches remonte pour les deux. Absent : toutes. */
+    trancheId?: UUID[];
     tierId?: UUID;
     reference?: string;
     search?: string;
@@ -1485,9 +1508,78 @@ export function listEncaissements(
     dateFin?: string;
   },
   pageable?: Pageable,
+  /** Voir `listProspections` : `colonnes` n'est pas un filtre, un nom hors
+   * catalogue renvoie 400, et `id` est servi qu'on le demande ou non.
+   *
+   * Ici la sélection **allège** la réponse plus qu'ailleurs : mesuré, les 27
+   * colonnes par défaut coûtent 572–694 ms sur une page de 20, une sélection
+   * de 16 en coûte 307–378. Décocher n'est pas qu'un confort d'affichage. */
+  options?: { colonnes?: string[]; depliage?: ParamsDepliage },
 ): Promise<PageDto<EncaissementDto>> {
-  return request('GET', '/api/encaissements', { query: withPageable(params, pageable) });
+  const query: Record<string, QueryValue> = withPageable(params, pageable);
+  if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
+  withDepliage(query, options?.depliage);
+  return request('GET', '/api/encaissements', { query });
 }
+
+/** Catalogue des colonnes sélectionnables de la liste des encaissements.
+ *
+ * Même contrat que les trois autres, mais bâti **sur mesure** : l'écran
+ * légataire fait un `SELECT StlSettlementView.*` — 107 colonnes, aucune
+ * nommée — et ne stocke aucune disposition de grille. Les 40 retenues sont
+ * celles qui portent une information réelle sur le périmètre servi.
+ *
+ * Deux réserves que le serveur documente et qu'il ne faut pas prendre pour des
+ * colonnes utiles : `depotId`/`depotCode` sont mesurés à **0 ligne sur 643**,
+ * `compteId`/`compteCode` à 12 et `dateReglement` à 10. */
+export function getColonnesEncaissements(): Promise<ColonneDto[]> {
+  return request('GET', '/api/referentiels/colonnes/encaissements');
+}
+
+/** `GET /api/encaissements/groupes` — la liste repliée en groupes.
+ *
+ * Mêmes filtres que `listEncaissements`, restriction `IsCredit = 1` et
+ * périmètre commercial compris : c'est ce qui garantit que la somme des
+ * effectifs égale le `totalElements` de la liste.
+ *
+ * **`dossierId` et `dossierCode` ne sont pas groupables**, et ce n'est pas un
+ * oubli : un règlement n'a pas de dossier, il a des lignes rattachées à des
+ * échéances. Mesuré — 643 règlements pour 654 couples (règlement, dossier),
+ * dont 8 règlements sur plusieurs dossiers — grouper par ce chemin les
+ * compterait plusieurs fois. Le catalogue le dit par booléen ; ne pas
+ * redéduire la liste ici. */
+export function listEncaissementsGroupes(
+  params: Parameters<typeof listEncaissements>[0],
+  groupes: ParamsGroupes,
+  pageable?: Pageable,
+): Promise<PageGroupesDto> {
+  return request('GET', '/api/encaissements/groupes', {
+    query: withGroupes(withPageable(params, pageable), groupes),
+  });
+}
+
+/** Ce que `GET /api/encaissements` **ne sert pas**, et qu'aucun filtre ne
+ * ramènera.
+ *
+ * Deux exclusions, toutes deux alignées sur l'écran légataire et toutes deux
+ * documentées côté serveur :
+ *
+ * 1. les **décaissements** (`StlSettlement.IsCredit` faux — typiquement un
+ *    remboursement à montant négatif) ;
+ * 2. les **encaissements non affectés** — un règlement encaissé mais pas
+ *    encore imputé à une échéance n'a aucune ligne, donc ne satisfait pas le
+ *    critère « rattaché à une échéance de dossier de vente » sur lequel la
+ *    liste entière repose.
+ *
+ * La seconde compte : le spec la chiffre à **16 pièces pour 6 435 400 DH**,
+ * toutes à l'état `IN_WORK`, et l'écran légataire les affiche. Un opérateur
+ * qui compare les deux totaux trouvera donc un écart, et rien dans une liste
+ * filtrée ne lui dira pourquoi — d'où la mention portée par l'écran.
+ *
+ * Les servir suppose de changer le critère « Vente » côté backend : décision
+ * produit en attente, pas un filtre trop strict qu'on pourrait desserrer
+ * d'ici. Ne pas tenter de les récupérer autrement. */
+export const ENCAISSEMENTS_NON_AFFECTES_ABSENTS = true;
 
 export const getEntitesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/entites');
 export const getComptesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/comptes');

@@ -442,3 +442,117 @@ export const DISPOSITION_PROSPECTS: DispositionColonnes = {
   // Aucune colonne n'en appelle une autre : la ligne n'ouvre que sa propre
   // fiche, et `id` est servi quoi qu'il arrive.
 };
+
+/* ---------------------------------------------------------------------------
+   Encaissements
+   --------------------------------------------------------------------------- */
+
+const ORDRE_ENCAISSEMENTS = [
+  // Les dix colonnes que l'ecran declarait en dur avant la conversion, dans
+  // leur ordre d'alors : la vue s'elargit, elle ne se reorganise pas.
+  'etat',
+  'dateDocument',
+  'dateReglement',
+  'tierNom',
+  'dossierCode',
+  'typeLibelle',
+  'montantBrut',
+  'montantBrutRestant',
+  'reference',
+  'comptabilise',
+  // Le reste du groupe IDENTITE / FINANCIER, servi par defaut mais qui n'etait
+  // pas affiche jusqu'ici.
+  'dateEcheance',
+  'montantNet',
+  'description',
+  'typeCode',
+  'entiteCode',
+  'entiteLibelle',
+  // Acteurs
+  'banqueNom',
+  'tierPayeurNom',
+  // Suivi. `compteCode` et `depotCode` sont servis par defaut mais mesures a
+  // 12 et 0 lignes sur 643 : ils restent tout en bas du bloc, pas en tete.
+  'notes',
+  'remisAuCentre',
+  'recuCode',
+  'dateRemiseAuCentre',
+  'bordereauCode',
+  'dateBordereau',
+  'compteCode',
+  'depotCode',
+  // Tracabilite, en dernier : utile ponctuellement, jamais au quotidien.
+  'creePar',
+  'creeLe',
+  'modifiePar',
+  'modifieLe',
+];
+
+const POIDS_ENCAISSEMENTS: Record<string, number> = {
+  // Les dix premieres reprennent telles quelles les `largeur` que l'ecran
+  // portait avant la conversion : elles etaient reglees, il n'y a pas de
+  // raison de les redecouvrir.
+  etat: 9,
+  dateDocument: 9,
+  dateReglement: 9,
+  tierNom: 16,
+  dossierCode: 11,
+  typeLibelle: 12,
+  montantBrut: 11,
+  montantBrutRestant: 11,
+  reference: 7,
+  comptabilise: 5,
+  dateEcheance: 9,
+  montantNet: 11,
+  // 327 valeurs distinctes sur 332 lignes, et des phrases entieres
+  // (« CHEQUE BMCE BANK N° ... du 01/09/2026 ») : c'est la colonne qui a le
+  // plus besoin de largeur du catalogue.
+  description: 24,
+  typeCode: 8,
+  entiteCode: 8,
+  entiteLibelle: 14,
+  banqueNom: 14,
+  tierPayeurNom: 16,
+  notes: 18,
+  remisAuCentre: 7,
+  recuCode: 8,
+  dateRemiseAuCentre: 10,
+  bordereauCode: 9,
+  dateBordereau: 9,
+  compteCode: 9,
+  depotCode: 9,
+  creePar: 12,
+  creeLe: 10,
+  modifiePar: 12,
+  modifieLe: 10,
+};
+
+export const DISPOSITION_ENCAISSEMENTS: DispositionColonnes = {
+  ordre: ORDRE_ENCAISSEMENTS,
+  poids: POIDS_ENCAISSEMENTS,
+  /* Le `masquees` le plus fourni des quatre dispositions, et pour une raison
+     mesuree : **sept des vingt-sept colonnes `parDefaut` sont des cles UUID**
+     (`dossierId`, `tierId`, `typeId`, `entiteId`, `compteId`, `depotId`,
+     `banqueId`). Sans ce filtre, la vue par defaut de l'ecran afficherait sept
+     colonnes d'identifiants.
+
+     C'est le meme ecart qu'ailleurs, a plus grande echelle : le `parDefaut` du
+     serveur decrit la charge utile, pas la grille. `tierPayeurId` n'est pas
+     `parDefaut` mais serait proposee au selecteur, ce qui revient au meme une
+     fois cochee. */
+  masquees: new Set([
+    'id',
+    'dossierId',
+    'tierId',
+    'typeId',
+    'entiteId',
+    'compteId',
+    'depotId',
+    'banqueId',
+    'tierPayeurId',
+  ]),
+  /* Aucune dependance : la ligne n'ouvre que sa propre fiche, et `dossierCode`
+     s'affiche en texte sans lien — `dossierId` existe mais un reglement peut
+     porter sur plusieurs dossiers (654 couples pour 643 reglements), donc le
+     code affiche ne designe pas toujours une cible unique. */
+};

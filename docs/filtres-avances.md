@@ -350,6 +350,273 @@ Re-mesure du 11/09, inchangee : `statut=CONCRETISATION` rend 68 dossiers,
 rattrape l'ecart — « Remise des clés » se code `REMISE DES CLEFS`, « Annulé »
 se code `ANNULATION`. Il faut le backend.
 
+## Fiche encaissement : les affectations (14/09)
+
+`GET /api/encaissements/{id}` renvoie desormais un `EncaissementDetailDto`
+dedie : les memes champs que la ligne de liste, **non filtres par
+`?colonnes=`**, plus `affectations`. Extension strictement additive — aucune
+cle ne disparait, aucune ne change de type.
+
+### Ce que la fiche ne savait pas dire
+
+Elle affichait un champ « Dossier » unique, alimente par le `dossierCode` de la
+**premiere** ligne du reglement. Mesure sur 80 reglements reels :
+
+| affectations par reglement | nombre |
+|---|---|
+| 1 | 79 |
+| 3 | 1 |
+
+Le reglement a trois lignes (reference 251 6467126, brut 25 200 DH) solde trois
+echeances FRAIS SYNDIC de **trois dossiers differents** — APF 2022/00228,
+00225 et 00224, 8 400 DH chacune. La liste affichait 00228 et masquait les deux
+autres ; la fiche faisait pareil.
+
+La fiche porte maintenant un tableau des affectations, avec un lien par dossier
+et le montant total de chaque echeance a cote du montant affecte — de quoi voir
+si ce seul reglement la solde ou n'en paie qu'une part.
+
+**Invariant verifie 80/80** : la somme des `montantAffecte` vaut
+`montantBrut - montantBrutRestant`. Le bloc Montants et le tableau se recoupent
+donc, ils ne se contredisent pas.
+
+### Le commentaire de l'ecran etait perime
+
+`EncaissementDetail.tsx` portait une liste de champs « pas encore exposes,
+demande cote backend ». La livraison en apporte la moitie : detail d'affectation
+par echeance, tiers payeur, remise au centre et sa date, bordereau et sa date,
+numero de recu, montant base, tracabilite. Un bloc « Suivi » les accueille.
+
+Restent non exposes, et le commentaire est resserre a ceux-la : retenue a la
+source et montant du timbre (mesures non nuls mais **toujours a zero**, donc
+volontairement hors catalogue), notaire, dossier de groupe, C.R.A.S., devise.
+
+### 404 et non 403, delibere
+
+Un encaissement hors du perimetre commercial de l'appelant renvoie 404 : un 403
+confirmerait son existence et permettrait d'enumerer les identifiants. Un id
+qui n'est pas un UUID valide renvoie 404 lui aussi, pas 400.
+
+## Audit de conformite types.ts vs spec (14/09)
+
+`types.ts` est un miroir des DTO **maintenu a la main** : c'est la que la derive
+se loge, et elle ne se voit ni au tsc ni au build puisque les champs sont
+optionnels. Confrontation exhaustive des **99 interfaces** qui ont un schema
+homonyme au spec.
+
+Resultat : **4 derives**, dont 3 reelles.
+
+### DossierDetailDto : trois champs fantomes, deux lignes mortes
+
+`titreFoncier`, `presentationCode` et `presentationLibelle` etaient declares sur
+le dossier. Le serveur les a deplaces sur `ArticleSummaryDto`. Mesure avant
+correction : **absents de la charge utile sur 25 fiches sur 25** — pas vides,
+absents. Or la fiche affichait deux lignes qui les lisaient : elles montraient
+un tiret en permanence, alors que `articles[0].presentationLibelle` est
+renseigne **25/25 dans la meme reponse**, un cran plus bas.
+
+Les deux lignes lisent desormais l'article. Le front declarait donc trois champs
+de trop sur le dossier **et** trois de moins sur l'article : la meme erreur vue
+des deux cotes.
+
+### Un ecart serveur a signaler sur titreFoncier
+
+Deux chemins divergent. La colonne `articleTitreFoncier` de la liste des
+dossiers le sert sur 33 dossiers sur 116. Sur huit de ces dossiers-la, la fiche
+ne le porte que **cinq fois** — les trois autres n'ont pas la cle dans leur
+article. Quand les deux sont presents, ils sont identiques. A confirmer cote
+backend : meme donnee, deux chemins, taux differents.
+
+### ProspectionDetailDto
+
+`typeProspectId` manquait (100 % cote serveur). Ajoute, sans consommateur pour
+l'instant — il n'y a pas de referentiel des types de tiers vers lequel lier.
+
+### CreerReglementRequest : la derive restante est voulue
+
+L'audit signale `dateReglement` comme manquant. **Ne pas l'ajouter** : le
+commentaire de `types.ts` le dit depuis longtemps, la fournir vaut 400. Elle se
+renseigne au passage a POINTED, qui exige une preuve de paiement — impossible
+avant que le reglement existe.
+
+A noter tout de meme : **le spec la publie alors que le serveur la refuse.** Le
+contrat et le comportement se contredisent sur ce champ ; c'est au backend de
+trancher, pas au front de suivre le spec a l'aveugle.
+
+### Les endpoints « sans appelant » de FEATURES.md sont faux
+
+L'index en annonce 17. Verification un par un contre `api.ts` : **16 sont bien
+appeles**, y compris `POST /api/auth/connexion` et les quatre catalogues de
+colonnes. Le detecteur a un defaut de correspondance sur les chemins a
+parametres. Un seul est reellement sans appelant :
+`GET /api/articles/{id}/sous-articles`. Outil a corriger — il est cense
+signaler des trous, il en invente seize.
+
+## Agregats : cinq fonctions par colonne, et le total plein perimetre (14/09)
+
+Refactor **additif** : 166 operations inchangees, aucun endpoint touche. Mais
+il change deux contrats deja consommes et ouvre une capacite.
+
+### ColonneDto.fonctions
+
+La liste des fonctions que **cette colonne** accepte, dans l'ordre ou le menu
+doit les proposer. Elle ne se deduit pas du type, et la preuve tient en deux
+colonnes du meme ecran : `montantBrut` accepte les cinq, `montantBrutRestant` —
+MONTANT lui aussi — n'accepte que `SUM,AVG,COUNT`, etant calcule par
+difference. Une date n'accepte que `MIN,MAX,COUNT`. La plupart des colonnes
+texte n'acceptent que `COUNT`, et certaines **aucune** : 12 cote prospections
+(vue legataire), 3 cote encaissements dont `dossierCode` et `notes`.
+
+`agregeable` reste servi et reste juste : il vaut exactement « SUM est dans
+`fonctions` », verifie coherent sur les trois catalogues.
+
+### Jetons qualifies
+
+`?agregats=prix` vaut une somme et revient sous `prix` — comportement
+historique inchange. `?agregats=prix:AVG` revient sous `prix:AVG`. Les deux
+coexistent : verifie, 11 jetons en un appel, les cles de retour sont exactement
+les jetons envoyes. Une fonction refusee rend 400 avec `fonctionsValides`
+(`dateDocument:SUM` -> `["MIN","MAX","COUNT"]`).
+
+### Le type de la valeur suit la fonction — le piege
+
+| fonction | valeur |
+|---|---|
+| `SUM`, `AVG` | decimal |
+| `COUNT` | entier |
+| `MIN`, `MAX` | **le type de la colonne** |
+| `MIN`/`MAX` sans valeur | `null` |
+
+Donc `dateDocument:MIN` rend la **chaine** `"2023-12-04T00:00:00"`. Le front
+declarait `agregats: Record<string, number>` : le typage mentait, et c'est le
+compilateur qui l'a signale des que le type a ete corrige. Un `MIN` vide vaut
+`null` et non `0` — mesure, 1 groupe sur 7 — parce qu'il n'existe pas de
+minimum de rien.
+
+### PageGroupesDto : totaux et nombreTotal
+
+L'enveloppe remplace `PageDto<GroupeDto>` et porte les memes agregats sur
+**tout le perimetre filtre**, plus l'effectif dont ils sont tires. Verifie :
+`nombreTotal` = 116 = le `totalElements` de la liste non groupee ;
+`totaux.prix` = la somme des prix des groupes a 0,01 pres ; `totaux[prix:COUNT]`
+= la somme des COUNT. **`AVG` ne s'additionne pas**, et c'est bien pour ca que
+le serveur le calcule : 1 014 800,17 au total contre sept moyennes de groupe qui
+ne s'additionnent a rien.
+
+L'ecran affiche desormais une bande « Total sur N ligne(s) » en pied de liste
+groupee, distincte du pied Sigma par colonne qui, lui, ne somme que les lignes
+chargees. Les deux peuvent etre a l'ecran ensemble : chacun porte donc son
+intitule, sinon deux totaux differents cote a cote se contrediraient.
+
+### Consequence sur la regle des taux
+
+`AGREGATS_SANS_SENS` devient `SOMMES_SANS_SENS` : `remise` et
+`probabiliteFinalisation` ne sont plus ecartees en entier, seule leur **somme**
+l'est. Le commentaire d'origine disait deja « une moyenne serait l'agregat
+juste pour un taux, mais l'endpoint ne sert que des sommes ». Il en sert cinq :
+une remise moyenne de 7,31 % informe, son minimum et son maximum aussi.
+
+Ces deux colonnes portent un `formatValeur` dans `DossierTable` — sans lui leur
+moyenne s'afficherait « 0,07 », le serveur les typant `NOMBRE` alors que ce sont
+des ratios.
+
+## Encaissements : catalogue de colonnes et groupement (14/09)
+
+L'ecran recoit le dispositif complet des trois autres listes : catalogue servi
+par le serveur, selecteur, et groupement depliant avec ses totaux. Il declarait
+jusqu'ici **dix colonnes en dur**.
+
+Catalogue mesure : **40 colonnes**, 27 `parDefaut`, 35 groupables, 2
+agregeables (`montantBrut` et `montantBase`, deux MONTANT — des quantites, rien
+a ajouter a `AGREGATS_SANS_SENS`). Cinq groupes : IDENTITE, ACTEURS, FINANCIER,
+**SUIVI** (nouveau) et AUDIT.
+
+### Le piege : sept cles UUID en vue par defaut
+
+`dossierId`, `tierId`, `typeId`, `entiteId`, `compteId`, `depotId`, `banqueId`
+sont **`parDefaut: true`**, plus `id` et `tierPayeurId` cochables. Sans
+`masquees`, la vue par defaut aurait affiche sept colonnes d'identifiants.
+C'est le meme ecart qu'ailleurs — le `parDefaut` du serveur decrit la charge
+utile, pas la grille — mais a sa plus grande echelle jusqu'ici.
+
+Apres masquage : **19 colonnes visibles**, verifie sans aucune valeur UUID
+servie hors `id`.
+
+### Demander moins de colonnes est plus rapide
+
+Mesure sur une page de 20 : les 27 colonnes par defaut coutent **572-694 ms**,
+une selection de 16 en coute **307-378**. Decocher n'est donc pas qu'un confort
+d'affichage sur cet ecran.
+
+### inclureSansValeur : la demonstration la plus nette a ce jour
+
+Le defaut serveur (`false`) retire le groupe des lignes sans valeur. Mesure sur
+cet ecran :
+
+| groupement | defaut | avec `true` |
+|---|---|---|
+| `compteCode` | **4 lignes sur 332** | 332 |
+| `tierNom` | 332 | 332 |
+| `etat` | 332 | 332 |
+
+Grouper par compte aurait donc affiche 4 reglements sur 332, en silence.
+`useGroupement` envoie toujours `true` : rien a faire dans l'ecran.
+
+### Verifications
+
+Somme des effectifs = `totalElements` sur cinq axes, filtre Tranche et
+recherche compris ; depliage exact par etat ; aucune valeur UUID dans la vue
+par defaut. 8 controles, tous verts.
+
+Deux colonnes que le serveur documente comme peu peuplees et qu'il ne faut pas
+prendre pour des filtres utiles : `depotId`/`depotCode` a **0 ligne sur 643**,
+`compteId`/`compteCode` a 12. Mesure des treize nouveaux champs du DTO :
+`description` 332/332 avec **327 valeurs distinctes** (la plus informative du
+lot), `montantBase` et `tierPayeurNom` 332/332, mais `recuCode` 12/332,
+`dateRemiseAuCentre` et `dateBordereau` 1/332, et `bordereauCode` **0/332**.
+Laissees au catalogue plutot que masquees : c'est au serveur de dire ce qu'il
+publie.
+
+**Les treize champs n'ont aucune description springdoc** — les taux ci-dessus
+sont mesures, pas lus. A signaler au backend (regle 10).
+
+## Encaissements : filtre par tranche, et deux exclusions a connaitre (14/09)
+
+`GET /api/encaissements` gagne `trancheId` (repetable, OR). Le filtre traverse
+reglement -> ligne -> echeance -> article : un reglement remonte des qu'**une**
+de ses echeances porte sur un lot de la tranche.
+
+Verifie contre le serveur : 332 reglements au total, ARS 287 et APF 45, les
+trois autres tranches a 0. Les cinq tranches partitionnent donc exactement le
+jeu, et `trancheId=ARS&trancheId=APF` rend bien 332 — le OR fonctionne, et
+aucun reglement ne chevauche deux tranches sur les donnees actuelles. Un UUID
+inconnu rend 0 en HTTP 200, pas une erreur.
+
+### Ce que la liste ne sert pas, et qu'aucun filtre ne ramenera
+
+La description de l'endpoint s'est enrichie de deux exclusions, toutes deux
+alignees sur l'ecran legataire :
+
+1. les **decaissements** (`StlSettlement.IsCredit` faux — typiquement un
+   remboursement a montant negatif) ;
+2. les **encaissements non affectes** — un reglement encaisse mais pas encore
+   impute a une echeance n'a aucune ligne, donc ne satisfait pas le critere
+   « rattache a une echeance de dossier de vente » sur lequel la liste entiere
+   repose.
+
+La seconde compte : le spec la chiffre a **16 pieces pour 6 435 400 DH**,
+toutes a l'etat IN_WORK, et **l'ecran legataire les affiche**. Un operateur qui
+compare les deux totaux constate donc un ecart de 6,4 MDH et conclut a un bug.
+
+L'ecran porte desormais une mention sous le compteur : « Les reglements pas
+encore imputes a une echeance ne figurent pas dans cette liste. » Sans chiffre —
+la liste ne les voit pas, et recopier une mesure qu'on ne peut pas rafraichir
+serait pire que de n'en donner aucune.
+
+Les servir suppose de changer le critere « Vente » cote backend : decision
+produit en attente (`instructions/FEATURE-encaissements-conformite-legataire.md`
+§4), pas un filtre trop strict qu'on pourrait desserrer cote front.
+
 ## Livraison spec : inclureSansValeur, article et delais (11/09)
 
 ### Le piege : un defaut serveur qui retire des lignes en silence

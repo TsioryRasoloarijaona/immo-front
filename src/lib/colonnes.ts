@@ -19,6 +19,8 @@ export const LIBELLES_GROUPE: Record<string, string> = {
   PATRIMOINE: 'Patrimoine',
   ARTICLE: 'Article',
   DELAIS: 'Délais',
+  // Encaissements
+  SUIVI: 'Suivi',
   // Prospects
   ADRESSE: 'Adresse',
   PROFESSION: 'Profession',

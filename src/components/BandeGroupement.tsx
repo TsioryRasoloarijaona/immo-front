@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { Group, Sigma, X } from 'lucide-react';
 import {
   DropdownMenu,
@@ -9,10 +9,14 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
-import { libelleGroupe } from '../lib/colonnes';
-import { GRANULARITES, TRIS } from '../lib/groupement';
+import RechercheMenu from './RechercheMenu';
+import { filtrerColonnes, libelleGroupe } from '../lib/colonnes';
+import { GRANULARITES, LIBELLES_FONCTION, TRIS, jetonAgregat } from '../lib/groupement';
 import type { EtatGroupement } from '../lib/groupement';
 import type { GranulariteGroupe, TriGroupes } from '../types';
 
@@ -45,6 +49,10 @@ export default function BandeGroupement({
   bloque?: string;
 }) {
   const { groupables, agregeables, colonneGroupee, actif, estDate, granularite, tri, agregats } = etat;
+  const [menuOuvert, setMenuOuvert] = useState(false);
+  const [requete, setRequete] = useState('');
+  const [sigmaOuvert, setSigmaOuvert] = useState(false);
+  const [requeteSigma, setRequeteSigma] = useState('');
 
   // Catalogue pas encore arrivé, ou serveur sans colonne groupable : il n'y a
   // rien à proposer, et une bande vide vaut mieux qu'un menu vide.
@@ -59,15 +67,39 @@ export default function BandeGroupement({
     );
   }
 
+  /* Même recherche que le sélecteur de colonnes, et pour la même raison, en
+     plus marquée : ce menu liste **35 colonnes sur les encaissements**, 21 sur
+     les prospections, 22 sur les dossiers. Parcourir cinq sections à l'œil y
+     coûte plus cher que taper trois lettres.
+
+     `filtrerColonnes` est multi-mots et cherche dans le libellé, le **nom
+     technique** — qui a lu la spec cherchera `dateDocument` avant « Date
+     pièce » — et le libellé de section, ce qui fait de « suivi » un moyen
+     d'afficher le bloc entier. */
+  const filtre = filtrerColonnes(groupables, requete);
+  /* Le menu Σ liste désormais **toute colonne agrégeable d'une façon ou d'une
+     autre**, pas seulement les sommables : 21 colonnes sur les dossiers au lieu
+     de 6, puisque n'importe quel texte accepte au moins COUNT. D'où la même
+     recherche que les deux autres menus. */
+  const nomsSigma = new Set(filtrerColonnes(agregeables.map((x) => x.colonne), requeteSigma).map((c) => c.nom));
+  const sigma = agregeables.filter((x) => nomsSigma.has(x.colonne.nom));
   // Ordre de première apparition, pour que les sections du menu suivent
   // l'ordre du catalogue — même règle que le sélecteur de colonnes.
-  const sections = [...new Set(groupables.map((c) => c.groupe))];
+  const sections = [...new Set(filtre.map((c) => c.groupe))];
 
   return (
     <div className="flex min-h-6 shrink-0 flex-wrap items-center gap-1 border-b border-border bg-muted/40 px-2 py-0.5 text-micro text-muted-foreground">
       <Group aria-hidden className="size-3 shrink-0 opacity-70" />
 
-      <DropdownMenu>
+      <DropdownMenu
+        open={menuOuvert}
+        onOpenChange={(o) => {
+          setMenuOuvert(o);
+          // Une recherche laissée en place rouvrirait le menu amputé de la
+          // plupart de ses colonnes, sans que rien n'explique pourquoi.
+          if (!o) setRequete('');
+        }}
+      >
         <DropdownMenuTrigger className={CLASSE_DECLENCHEUR}>
           {actif ? (
             <>
@@ -78,33 +110,44 @@ export default function BandeGroupement({
             <span className="opacity-70">Regrouper par une colonne…</span>
           )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="max-h-96 w-60" align="start">
-          {sections.map((section, i) => (
-            <Fragment key={section}>
-              {i > 0 && <DropdownMenuSeparator />}
-              {/* `DropdownMenuLabel` lit un contexte que seul `DropdownMenuGroup`
-                  fournit — hors de lui, Base UI jette et l'écran entier tombe. */}
-              <DropdownMenuGroup>
-                <DropdownMenuLabel className="text-micro text-muted-foreground">
-                  {libelleGroupe(section)}
-                </DropdownMenuLabel>
-                {groupables
-                  .filter((c) => c.groupe === section)
-                  .map((c) => (
-                    <DropdownMenuCheckboxItem
-                      key={c.nom}
-                      checked={etat.colonne === c.nom}
-                      // Un seul niveau de groupement est supporté côté serveur :
-                      // choisir une colonne remplace la précédente, et re-cocher
-                      // celle qui est active dégroupe.
-                      onCheckedChange={() => etat.choisirColonne(etat.colonne === c.nom ? null : c.nom)}
-                    >
-                      {c.libelle}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-              </DropdownMenuGroup>
-            </Fragment>
-          ))}
+        <DropdownMenuContent className="max-h-96 w-64" align="start">
+          <RechercheMenu
+            ouvert={menuOuvert}
+            valeur={requete}
+            onChange={setRequete}
+            placeholder="Rechercher une colonne…"
+            libelle="Rechercher une colonne à regrouper"
+          />
+          {filtre.length === 0 ? (
+            <p className="px-2 py-3 text-body text-muted-foreground">Aucune colonne ne correspond.</p>
+          ) : (
+            sections.map((section, i) => (
+              <Fragment key={section}>
+                {i > 0 && <DropdownMenuSeparator />}
+                {/* `DropdownMenuLabel` lit un contexte que seul `DropdownMenuGroup`
+                    fournit — hors de lui, Base UI jette et l'écran entier tombe. */}
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-micro text-muted-foreground">
+                    {libelleGroupe(section)}
+                  </DropdownMenuLabel>
+                  {filtre
+                    .filter((c) => c.groupe === section)
+                    .map((c) => (
+                      <DropdownMenuCheckboxItem
+                        key={c.nom}
+                        checked={etat.colonne === c.nom}
+                        // Un seul niveau de groupement est supporté côté serveur :
+                        // choisir une colonne remplace la précédente, et re-cocher
+                        // celle qui est active dégroupe.
+                        onCheckedChange={() => etat.choisirColonne(etat.colonne === c.nom ? null : c.nom)}
+                      >
+                        {c.libelle}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuGroup>
+              </Fragment>
+            ))
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -156,28 +199,70 @@ export default function BandeGroupement({
               colonne, lui, ne somme que la page chargée. Deux totaux
               différents, deux questions différentes. */}
           {agregeables.length > 0 && (
-            <DropdownMenu>
+            <DropdownMenu
+              open={sigmaOuvert}
+              onOpenChange={(o) => {
+                setSigmaOuvert(o);
+                if (!o) setRequeteSigma('');
+              }}
+            >
               <DropdownMenuTrigger className={CLASSE_DECLENCHEUR}>
                 <Sigma aria-hidden className="size-2.75 shrink-0" />
                 <span className={agregats.length > 0 ? 'font-semibold text-(--brand)' : 'opacity-70'}>
                   {agregats.length > 0 ? `${agregats.length} total(aux)` : 'Totaux'}
                 </span>
               </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-60" align="start">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel className="text-micro text-muted-foreground">
-                    Sommes par groupe
-                  </DropdownMenuLabel>
-                  {agregeables.map((c) => (
-                    <DropdownMenuCheckboxItem
-                      key={c.nom}
-                      checked={agregats.includes(c.nom)}
-                      onCheckedChange={() => etat.basculerAgregat(c.nom)}
-                    >
-                      {c.libelle}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuGroup>
+              <DropdownMenuContent className="max-h-96 w-64" align="start">
+                <RechercheMenu
+                  ouvert={sigmaOuvert}
+                  valeur={requeteSigma}
+                  onChange={setRequeteSigma}
+                  placeholder="Rechercher une colonne…"
+                  libelle="Rechercher une colonne à totaliser"
+                />
+                {sigma.length === 0 ? (
+                  <p className="px-2 py-3 text-body text-muted-foreground">Aucune colonne ne correspond.</p>
+                ) : (
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel className="text-micro text-muted-foreground">
+                      Totaux par groupe
+                    </DropdownMenuLabel>
+                    {/* Un sous-menu par colonne, et **les fonctions viennent du
+                        catalogue**. Elles ne se déduisent pas du type : mesuré,
+                        `montantBrut` en accepte cinq mais `montantBrutRestant`,
+                        MONTANT lui aussi, n'accepte ni MIN ni MAX puisqu'il est
+                        calculé par différence. L'ordre est celui que le serveur
+                        publie — ne pas le retrier. */}
+                    {sigma.map(({ colonne, fonctions }) => {
+                      const actives = fonctions.filter((f) => agregats.includes(jetonAgregat(colonne.nom, f)));
+                      return (
+                        <DropdownMenuSub key={colonne.nom}>
+                          <DropdownMenuSubTrigger>
+                            <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                              <span className="truncate">{colonne.libelle}</span>
+                              {actives.length > 0 && (
+                                <span className="ml-auto shrink-0 text-micro font-semibold text-(--brand)">
+                                  {actives.map((f) => LIBELLES_FONCTION[f]).join(', ')}
+                                </span>
+                              )}
+                            </span>
+                          </DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            {fonctions.map((f) => (
+                              <DropdownMenuCheckboxItem
+                                key={f}
+                                checked={agregats.includes(jetonAgregat(colonne.nom, f))}
+                                onCheckedChange={() => etat.basculerAgregat(colonne.nom, f)}
+                              >
+                                {LIBELLES_FONCTION[f]}
+                              </DropdownMenuCheckboxItem>
+                            ))}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      );
+                    })}
+                  </DropdownMenuGroup>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}

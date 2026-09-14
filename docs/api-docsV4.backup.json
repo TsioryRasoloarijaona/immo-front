@@ -4647,6 +4647,31 @@
         }
       }
     },
+    "/api/referentiels/colonnes/encaissements": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Catalogue des colonnes de la liste des encaissements",
+        "description": "Alimente le **sélecteur de colonnes** de `GET /api/encaissements`, sur le même contrat que les trois précédents.\n\nLa sélection par défaut reproduit **exactement** les 27 colonnes servies avant l'introduction du paramètre.\n\n**Le catalogue a été bâti sur mesure, pas sur la trace.** L'écran légataire fait un `SELECT StlSettlementView.*` — toute la vue, 107 colonnes, sans en nommer aucune — et ne stocke pas la disposition de sa grille en base. Les colonnes retenues sont donc celles qui portent réellement une information sur le périmètre servi (643 règlements réels).\n\nTrois réserves utiles au moment de bâtir le sélecteur. `depotId`/`depotCode` sont mesurés à **0 ligne sur 643**, `compteId`/`compteCode` à 12 (1,9 %) et `dateReglement` à 10 (1,6 %) : servis parce que le contrat les publie, mais ils ne doivent pas être proposés comme des filtres utiles. À l'inverse `description` est renseignée sur les 643 lignes avec 530 valeurs distinctes — c'est la colonne la plus informative du lot.\n\nNe figurent pas au catalogue, et c'est mesuré : `Group1Label`/`Group2Label`/`Group3Label` (les colonnes de groupement du légataire lui-même, **0 sur 643**), `Category`/`ItemNumber`/`ItemDescription` (renseignées partout mais **une seule valeur distincte** : des placeholders), et `AmountRS`/`AmountStamp` (non nulles mais **toujours à zéro**).\n\nPorte aussi **`groupable`** et **`agregeable`**, qui pilotent la bande de groupement et les bandes « Total : » de `/groupes` — le front n'en code donc aucune liste en dur. **`dossierId`, `dossierCode`, `montantBrutRestant`, `montantNet` et `notes` ne sont pas groupables** : les deux premiers traverseraient une association to-many (8 règlements portent sur plusieurs dossiers, la somme des effectifs ne retomberait plus sur le total), les deux suivants sont calculés en Java, et `notes` est un `nvarchar(max)` que le `COUNT(DISTINCT)` refuse. Piloter le sélecteur sur le booléen, pas sur une liste en dur.\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
+        "operationId": "getColonnesEncaissements",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ColonneDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/colonnes/dossiers": {
       "get": {
         "tags": [
@@ -5296,7 +5321,7 @@
           {
             "name": "agregats",
             "in": "query",
-            "description": "Colonnes à sommer, répétable ou séparées par des virgules.",
+            "description": "Agrégats à calculer, répétable ou séparés par des virgules.\n\nDeux formes. Un **nom nu** (`prix`) vaut une **somme** et revient sous ce nom nu — c'est le comportement historique, inchangé. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et revient sous le jeton complet `prix:AVG`. Les deux formes peuvent coexister dans le même appel.\n\nFonctions : `SUM`, `AVG`, `MIN`, `MAX`, `COUNT` — mais **pas sur toutes les colonnes**. Sommer une date n'a pas de sens, et une colonne calculée par différence n'a pas d'extremum exprimable. La liste autorisée par colonne est publiée par le catalogue (`fonctions`) : le menu Σ doit s'y piloter, pas sur une liste en dur. Une fonction refusée rend 400 avec les fonctions acceptées par cette colonne-là.\n\n`AVG` est calculée à partir de la somme et de l'effectif renseigné, en décimal exact et arrondie au centime — jamais en virgule flottante.\n\nAbsent : seul l'effectif de chaque groupe est renvoyé.",
             "required": false,
             "schema": {
               "type": "array",
@@ -5304,7 +5329,7 @@
                 "type": "string"
               }
             },
-            "example": "prix"
+            "example": "prix,prix:MAX"
           },
           {
             "name": "granularite",
@@ -5333,6 +5358,17 @@
                 "NOMBRE"
               ]
             }
+          },
+          {
+            "name": "inclureSansValeur",
+            "in": "query",
+            "description": "Inclure le groupe des lignes dont la colonne groupée est vide. **Faux par défaut** : l'écran veut les valeurs qui existent, et sur une colonne peu renseignée le groupe vide écraserait tous les autres. Passer `true` pour le récupérer — la somme des effectifs retombe alors sur le `totalElements` de la liste non groupée.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
           },
           {
             "name": "etape",
@@ -5437,7 +5473,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageDtoGroupeDto"
+                  "$ref": "#/components/schemas/PageGroupesDto"
                 }
               }
             }
@@ -5721,7 +5757,7 @@
           {
             "name": "agregats",
             "in": "query",
-            "description": "Colonnes à sommer, répétable ou séparées par des virgules.",
+            "description": "Agrégats à calculer, répétable ou séparés par des virgules.\n\nDeux formes. Un **nom nu** (`prix`) vaut une **somme** et revient sous ce nom nu — c'est le comportement historique, inchangé. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et revient sous le jeton complet `prix:AVG`. Les deux formes peuvent coexister dans le même appel.\n\nFonctions : `SUM`, `AVG`, `MIN`, `MAX`, `COUNT` — mais **pas sur toutes les colonnes**. Sommer une date n'a pas de sens, et une colonne calculée par différence n'a pas d'extremum exprimable. La liste autorisée par colonne est publiée par le catalogue (`fonctions`) : le menu Σ doit s'y piloter, pas sur une liste en dur. Une fonction refusée rend 400 avec les fonctions acceptées par cette colonne-là.\n\n`AVG` est calculée à partir de la somme et de l'effectif renseigné, en décimal exact et arrondie au centime — jamais en virgule flottante.\n\nAbsent : seul l'effectif de chaque groupe est renvoyé.",
             "required": false,
             "schema": {
               "type": "array",
@@ -5756,6 +5792,17 @@
                 "NOMBRE"
               ]
             }
+          },
+          {
+            "name": "inclureSansValeur",
+            "in": "query",
+            "description": "Inclure le groupe des lignes dont la colonne groupée est vide. **Faux par défaut** : l'écran veut les valeurs qui existent, et sur une colonne peu renseignée le groupe vide écraserait tous les autres. Passer `true` pour le récupérer — la somme des effectifs retombe alors sur le `totalElements` de la liste non groupée.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
           },
           {
             "name": "etape",
@@ -5852,7 +5899,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageDtoGroupeDto"
+                  "$ref": "#/components/schemas/PageGroupesDto"
                 }
               }
             }
@@ -6086,7 +6133,7 @@
           "Encaissements"
         ],
         "summary": "Liste paginée des encaissements (règlements de Dossiers de vente)",
-        "description": "Toujours restreint aux règlements liés à au moins une échéance de Dossier de vente (les règlements d'achat/location, s'il y en a, ne remontent jamais ici). `montantBrutRestant` (calculé : montant brut moins la part déjà affectée à une échéance) et `montantNet` (montant brut moins retenue source/timbre) sont calculés côté serveur, jamais stockés. `etat` accepte les 3 valeurs confirmées sur données réelles (IN_WORK, POINTED, CANCELED) — l'écran legacy propose aussi \"Impayé(e)\"/\"Perdu(e)\" comme filtres mais aucune ligne réelle ne les porte à ce jour ; passés tel quel (comparaison insensible à la casse), donc utilisables dès qu'un vrai code sera confirmé, sans changement d'API.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), cette liste ne contient que les règlements portant au moins une ligne rattachée à un dossier d'un de ses projets affectés. Les règlements dont aucune ligne ne résout de projet restent visibles de tous.",
+        "description": "Toujours restreint aux règlements liés à au moins une échéance de Dossier de vente (les règlements d'achat/location, s'il y en a, ne remontent jamais ici), et aux **encaissements** : un décaissement (`StlSettlement.IsCredit` faux, typiquement un remboursement à montant négatif) ne remonte jamais, comme sur l'écran legacy. `montantBrutRestant` (calculé : montant brut moins la part déjà affectée à une échéance) et `montantNet` (montant brut moins retenue source/timbre) sont calculés côté serveur, jamais stockés. `etat` accepte les 3 valeurs confirmées sur données réelles (IN_WORK, POINTED, CANCELED) — l'écran legacy propose aussi \"Impayé(e)\"/\"Perdu(e)\" comme filtres mais aucune ligne réelle ne les porte à ce jour ; passés tel quel (comparaison insensible à la casse), donc utilisables dès qu'un vrai code sera confirmé, sans changement d'API.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), cette liste ne contient que les règlements portant au moins une ligne rattachée à un dossier d'un de ses projets affectés. Les règlements dont aucune ligne ne résout de projet restent visibles de tous.\n\n**Encaissements non affectés : volontairement absents.** Un règlement encaissé mais pas encore imputé à une échéance n'a aucune ligne, donc ne remonte pas ici. L'écran legacy les affiche (il les reconnaît sous `StlSettlementRelationView.Origin = 'StlSettlement-NonAffecte'`) : 16 pièces pour 6 435 400 DH sur les données réelles, toutes à l'état IN_WORK. Les servir suppose de changer le critère \"Vente\" — décision produit en attente, voir `instructions/FEATURE-encaissements-conformite-legataire.md` §4. Ne pas confondre avec un filtre trop strict : c'est un choix assumé.",
         "operationId": "findAll_7",
         "parameters": [
           {
@@ -6156,6 +6203,19 @@
             "schema": {
               "type": "string",
               "format": "uuid"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id, voir GET /api/patrimoine/tranches). Répétable, OR. Un règlement remonte dès qu'une de ses échéances porte sur un lot de l'une des tranches citées. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
             }
           },
           {
@@ -6251,6 +6311,54 @@
             "example": "2026-08-31T23:59:59"
           },
           {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes à sérialiser, répétable ou séparées par des virgules. Absent : les 27 colonnes historiques. Catalogue et liste blanche : `GET /api/referentiels/colonnes/encaissements`. Un nom hors catalogue rend 400 avec la liste des noms valides. `id` est toujours servi.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,description,montantBrut,typeLibelle,creePar"
+          },
+          {
+            "name": "groupeColonne",
+            "in": "query",
+            "description": "Déplie un groupe : restreint la liste aux encaissements d'un groupe renvoyé par `GET /api/encaissements/groupes`. Attend le nom de la colonne qui a servi au groupement.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "typeLibelle"
+          },
+          {
+            "name": "groupeValeur",
+            "in": "query",
+            "description": "Valeur du groupe à déplier — **la `cle` renvoyée telle quelle par `/groupes`**, sans transformation. Omise alors que `groupeColonne` est fourni : le groupe des encaissements sans valeur sur cette colonne.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "CHEQUE"
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité appliquée quand `groupeColonne` est une date. Doit être identique à celle passée à `/groupes`, sinon la clé ne retombe pas sur le même groupe. Défaut : MOIS.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "MOIS"
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -6313,6 +6421,258 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/encaissements/groupes": {
+      "get": {
+        "tags": [
+          "Encaissements"
+        ],
+        "summary": "Liste des encaissements repliée en groupes, avec effectifs et totaux",
+        "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par valeur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Pourquoi cet endpoint plutôt qu'un groupement côté front** : la liste est paginée. Grouper une page ne donnerait que des groupes tronqués et des totaux faux. Les effectifs et totaux ci-dessous portent sur **tout le périmètre filtré**, pas sur une page.\n\n**Les filtres sont exactement ceux de `GET /api/encaissements`** — mêmes noms, même sémantique, restriction `IsCredit = 1` et périmètre commercial compris. Un même jeu de filtres des deux côtés garantit que la somme des effectifs des groupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET /api/encaissements` avec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/encaissements` (booléens `groupable` / `agregeable`). **`dossierId` et `dossierCode` n'en sont pas**, et ce n'est pas un oubli : un règlement n'a pas de dossier, il a des lignes rattachées à des échéances. Mesuré sur les données réelles — 643 règlements, 654 couples (règlement, dossier), 8 règlements portant sur plusieurs dossiers — grouper par ce chemin compterait ces 8 plusieurs fois et la somme des effectifs ne retomberait plus sur le total de la liste. Même chose pour `montantBrutRestant` et `montantNet`, calculés en Java et absents de la base.",
+        "operationId": "grouper_2",
+        "parameters": [
+          {
+            "name": "groupBy",
+            "in": "query",
+            "description": "Colonne de groupement. **Requis.** Un seul niveau de groupement est supporté.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "typeLibelle"
+          },
+          {
+            "name": "agregats",
+            "in": "query",
+            "description": "Agrégats à calculer, répétable ou séparés par des virgules.\n\nDeux formes. Un **nom nu** (`prix`) vaut une **somme** et revient sous ce nom nu — c'est le comportement historique, inchangé. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et revient sous le jeton complet `prix:AVG`. Les deux formes peuvent coexister dans le même appel.\n\nFonctions : `SUM`, `AVG`, `MIN`, `MAX`, `COUNT` — mais **pas sur toutes les colonnes**. Sommer une date n'a pas de sens, et une colonne calculée par différence n'a pas d'extremum exprimable. La liste autorisée par colonne est publiée par le catalogue (`fonctions`) : le menu Σ doit s'y piloter, pas sur une liste en dur. Une fonction refusée rend 400 avec les fonctions acceptées par cette colonne-là.\n\n`AVG` est calculée à partir de la somme et de l'effectif renseigné, en décimal exact et arrondie au centime — jamais en virgule flottante.\n\nAbsent : seul l'effectif de chaque groupe est renvoyé.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "montantBrutRestant,montantNet,montantBrut:AVG"
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité de regroupement d'une colonne date. Ignorée si `groupBy` n'est pas une date. Défaut : MOIS — grouper sur la date exacte rendrait 390 groupes pour 643 règlements, soit une liste plate.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "MOIS"
+          },
+          {
+            "name": "tri",
+            "in": "query",
+            "description": "Ordre des groupes : LIBELLE (croissant, défaut) ou NOMBRE (effectif décroissant).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LIBELLE",
+                "NOMBRE"
+              ]
+            },
+            "example": "NOMBRE"
+          },
+          {
+            "name": "inclureSansValeur",
+            "in": "query",
+            "description": "Inclure le groupe des lignes dont la colonne groupée est vide. **Faux par défaut** : l'écran veut les valeurs qui existent, et sur une colonne peu renseignée — `depotCode` est à 0 sur 643, `compteCode` à 12 — le groupe vide écraserait tous les autres. Passer `true` pour le récupérer : la somme des effectifs retombe alors sur le `totalElements` de la liste non groupée.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "etat",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "compteId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "depotId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "dossierId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "tierId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reference",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "comptabilise",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "montantDe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "montantA",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DATE_PIECE",
+                "DATE_ECHEANCE",
+                "DATE_REGLEMENT"
+              ]
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes, paginés comme une liste",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageGroupesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`groupBy` absent, inconnu, ou désignant une colonne non groupable ; ou `agregats` contenant une colonne non agrégeable. Le corps (RFC 7807) porte la liste des noms acceptés."
           }
         }
       }
@@ -6992,7 +7352,7 @@
         ],
         "summary": "Liste des dossiers repliée en groupes, avec effectifs et totaux",
         "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par valeur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Pourquoi cet endpoint plutôt qu'un groupement côté front** : la liste est paginée. Grouper une page ne donnerait que des groupes tronqués et des totaux faux. Les effectifs et totaux ci-dessous portent sur **tout le périmètre filtré**, pas sur une page.\n\n**Les filtres sont exactement ceux de `GET /api/dossiers`** — mêmes noms, même sémantique, périmètre commercial compris. Un même jeu de filtres des deux côtés garantit que la somme des effectifs des groupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET /api/dossiers` avec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/dossiers` (booléens `groupable` / `agregeable`). Toutes les colonnes ne le sont pas, et c'est mesuré : un montant porte presque autant de valeurs distinctes que de lignes, une date exacte aussi — d'où `granularite` pour les dates et le refus de grouper un montant.",
-        "operationId": "grouper_2",
+        "operationId": "grouper_3",
         "parameters": [
           {
             "name": "groupBy",
@@ -7007,7 +7367,7 @@
           {
             "name": "agregats",
             "in": "query",
-            "description": "Colonnes à sommer, répétable ou séparées par des virgules. Absent : seul l'effectif de chaque groupe est renvoyé.",
+            "description": "Agrégats à calculer, répétable ou séparés par des virgules.\n\nDeux formes. Un **nom nu** (`prix`) vaut une **somme** et revient sous ce nom nu — c'est le comportement historique, inchangé. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et revient sous le jeton complet `prix:AVG`. Les deux formes peuvent coexister dans le même appel.\n\nFonctions : `SUM`, `AVG`, `MIN`, `MAX`, `COUNT` — mais **pas sur toutes les colonnes**. Sommer une date n'a pas de sens, et une colonne calculée par différence n'a pas d'extremum exprimable. La liste autorisée par colonne est publiée par le catalogue (`fonctions`) : le menu Σ doit s'y piloter, pas sur une liste en dur. Une fonction refusée rend 400 avec les fonctions acceptées par cette colonne-là.\n\n`AVG` est calculée à partir de la somme et de l'effectif renseigné, en décimal exact et arrondie au centime — jamais en virgule flottante.\n\nAbsent : seul l'effectif de chaque groupe est renvoyé.",
             "required": false,
             "schema": {
               "type": "array",
@@ -7015,7 +7375,7 @@
                 "type": "string"
               }
             },
-            "example": "prix,totalAPayer"
+            "example": "prix,totalAPayer,prix:AVG"
           },
           {
             "name": "granularite",
@@ -7045,6 +7405,17 @@
               ]
             },
             "example": "NOMBRE"
+          },
+          {
+            "name": "inclureSansValeur",
+            "in": "query",
+            "description": "Inclure le groupe des lignes dont la colonne groupée est vide. **Faux par défaut** : l'écran veut les valeurs qui existent, et sur une colonne peu renseignée le groupe vide écraserait tous les autres. Passer `true` pour le récupérer — la somme des effectifs retombe alors sur le `totalElements` de la liste non groupée.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
           },
           {
             "name": "statut",
@@ -7147,7 +7518,7 @@
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageDtoGroupeDto"
+                  "$ref": "#/components/schemas/PageGroupesDto"
                 }
               }
             }
@@ -10336,6 +10707,44 @@
             "type": "string",
             "format": "date-time",
             "description": "Date de la prospection d'origine. 99,2 %."
+          },
+          "responsableVenteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du responsable de vente (ComFolder.CfgSaleManagerId)."
+          },
+          "responsableVenteNom": {
+            "type": "string",
+            "description": "Responsable de vente — acteur **distinct du commercial**, renseigné sur 221 des 358 dossiers réels (61 %). Le second responsable du légataire (`CfgSaleManager2Id`) n'est pas exposé : mesuré à 0 ligne.",
+            "example": "Hamza ATCHANY"
+          },
+          "dateCompromis": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du compromis (ComFolder.AgreementDate). 73 / 358."
+          },
+          "dateLivraisonReelle": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de livraison réelle (ComFolder.DeliveryDateReal). 63 / 358."
+          },
+          "delaiConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entre l'origine du dossier et sa concrétisation — calculé côté serveur, jamais stocké. L'origine est la date de la **prospection** quand il y en a une, sinon celle du dossier, comme dans le logiciel de bureau. `null` tant que la concrétisation n'a pas eu lieu : 152 / 358.",
+            "example": 47
+          },
+          "delaiNotaire": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entre la concrétisation et le compromis. 73 / 358.",
+            "example": 112
+          },
+          "delaiLivraison": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entre le compromis et la livraison réelle. 63 / 358.\n\nLe délai de crédit du logiciel de bureau n'est pas exposé : il dépend de `CreditPossessionDate`, mesurée à **0 ligne sur 358**.",
+            "example": 365
           }
         }
       },
@@ -11723,6 +12132,20 @@
             "type": "boolean",
             "description": "Vraie si la colonne peut être sommée via `?agregats=` — les bandes « Total : » sous un en-tête de groupe. Concerne les colonnes MONTANT et NOMBRE.",
             "example": false
+          },
+          "fonctions": {
+            "type": "array",
+            "description": "Fonctions d'agrégat que **cette colonne** accepte dans `?agregats=`, dans l'ordre où le menu Σ doit les proposer. C'est la liste à piloter pour construire ce menu — aucune ne doit être codée en dur côté front.\n\nElle n'est pas la même pour toutes : un montant accepte les cinq, une **date** n'accepte que `MIN`/`MAX`/`COUNT` (sommer une date n'a pas de sens), une colonne calculée par différence n'accepte ni `MIN` ni `MAX`, et une colonne sans chemin rend une liste **vide** — elle n'existe pas en base, il n'y a rien à agréger.\n\nRappel : un nom nu dans `?agregats=` vaut toujours `SUM`. `agregeable` ci-dessus reste donc vrai exactement quand `SUM` figure ici.",
+            "example": [
+              "SUM",
+              "AVG",
+              "MIN",
+              "MAX",
+              "COUNT"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -12502,6 +12925,87 @@
             "type": "string",
             "format": "date-time",
             "description": "Date de dernière modification. 100 %."
+          },
+          "articleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de l'article principal (StkItem.PKey). 100 % des 358 dossiers."
+          },
+          "articleCode": {
+            "type": "string",
+            "description": "Code de l'article principal. **C'est la clé de tri par défaut de la liste du logiciel de bureau** (`ORDER BY ArticleCode, H1Code, H2Code, H3Code`, où H1/H2/H3 sont la tranche, le projet et la société — déjà servis ici sous `trancheCode`, `projetCode` et `societeCode`).",
+            "example": "A-203"
+          },
+          "articleLibelle": {
+            "type": "string",
+            "description": "Libellé de l'article principal.",
+            "example": "Appartement 203"
+          },
+          "articleTitreFoncier": {
+            "type": "string",
+            "description": "Numéro de titre foncier de l'article."
+          },
+          "bloc": {
+            "type": "string",
+            "description": "Bâtiment de l'article (StkBuilding). Renseigné sur 1 063 des 1 068 articles réels.",
+            "example": "Bloc B"
+          },
+          "etage": {
+            "type": "string",
+            "description": "Étage de l'article (StkFloor). 1 063 / 1 068.",
+            "example": "2e étage"
+          },
+          "categorieArticle": {
+            "type": "string",
+            "description": "Code catégorie de l'article.",
+            "example": "APPARTEMENT"
+          },
+          "typeArticle": {
+            "type": "string",
+            "description": "Code type de l'article.",
+            "example": "2 CHAMBRES + SALON"
+          },
+          "typePresentation": {
+            "type": "string",
+            "description": "Code du type de présentation de l'article."
+          },
+          "responsableVenteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du responsable de vente (ComFolder.CfgSaleManagerId)."
+          },
+          "responsableVenteNom": {
+            "type": "string",
+            "description": "Responsable de vente — acteur **distinct du commercial**, renseigné sur 221 des 358 dossiers réels (61 %). Le second responsable du légataire (`CfgSaleManager2Id`) n'est pas exposé : mesuré à 0 ligne.",
+            "example": "Hamza ATCHANY"
+          },
+          "dateCompromis": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du compromis (ComFolder.AgreementDate). 73 / 358."
+          },
+          "dateLivraisonReelle": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de livraison réelle (ComFolder.DeliveryDateReal). 63 / 358."
+          },
+          "delaiConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entre l'origine du dossier et sa concrétisation. Calculé côté serveur, jamais stocké. L'origine est la date de la **prospection** quand il y en a une, sinon celle du dossier — même règle que le logiciel de bureau. `null` tant que la concrétisation n'a pas eu lieu : calculable sur 152 / 358.",
+            "example": 47
+          },
+          "delaiNotaire": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entre la concrétisation et le compromis. Calculé côté serveur. Calculable sur 73 / 358.",
+            "example": 112
+          },
+          "delaiLivraison": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entre le compromis et la livraison réelle. Calculé côté serveur. Calculable sur 63 / 358.\n\nLe délai de crédit du logiciel de bureau n'est pas exposé : il dépend de `CreditPossessionDate`, mesurée à **0 ligne sur 358**, donc il vaudrait `null` partout.",
+            "example": 365
           }
         }
       },
@@ -12722,18 +13226,18 @@
           },
           "agregats": {
             "type": "object",
-            "additionalProperties": {
-              "type": "number"
-            },
-            "description": "Sommes des colonnes demandées via `?agregats=`, indexées par le nom de colonne tel qu'il apparaît dans la liste (`prix`, `totalAPayer`...). Vide si `agregats` n'est pas fourni. Une colonne dont toutes les lignes du groupe sont nulles vaut `0`, jamais `null` — c'est un total, pas une valeur absente.",
+            "additionalProperties": {},
+            "description": "Résultats des agrégats demandés via `?agregats=`, **indexés par le jeton envoyé** — `prix` pour un nom nu, `prix:AVG` pour un nom qualifié. Vide si `agregats` n'est pas fourni.\n\nUn nom nu vaut toujours une somme et revient sous ce nom nu : la réponse d'une intégration existante est donc inchangée par l'ouverture du menu Σ.\n\n**Le type de la valeur suit la fonction** : nombre décimal pour `SUM` et `AVG`, entier pour `COUNT`, et pour `MIN`/`MAX` le type de la colonne — donc une date ISO-8601 sur une colonne date. Une somme dont toutes les lignes du groupe sont nulles vaut `0`, jamais `null` : c'est un total, pas une valeur absente. Un `MIN`/`MAX` sans aucune valeur vaut `null`, lui — il n'existe pas de minimum de rien, et `0` serait un mensonge.",
             "example": {
-              "prix": 1350000
+              "prix": 1350000,
+              "prix:AVG": 675000
             }
           }
         }
       },
-      "PageDtoGroupeDto": {
+      "PageGroupesDto": {
         "type": "object",
+        "description": "Groupes paginés, plus le total général sur tout le périmètre filtré.",
         "properties": {
           "content": {
             "type": "array",
@@ -12751,11 +13255,26 @@
           },
           "totalElements": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Nombre de **groupes**, pas de lignes — c'est ce qui est paginé ici."
           },
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          },
+          "totaux": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Les mêmes agrégats que dans chaque groupe, mais calculés sur **tout le périmètre filtré** : la bande « Total : » de bas de grille, par opposition à celle d'un en-tête de groupe. Indexés par le même jeton. Vide si `agregats` n'est pas fourni.\n\nSuit `inclureSansValeur` à l'identique : sinon ce total et la somme des groupes désigneraient deux populations différentes.",
+            "example": {
+              "montantBrut": 117600
+            }
+          },
+          "nombreTotal": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre total de lignes agrégées — l'effectif dont `totaux` est tiré. Avec `inclureSansValeur=true`, égale le `totalElements` de la liste non groupée.",
+            "example": 643
           }
         }
       },
@@ -13187,6 +13706,50 @@
           },
           "notes": {
             "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "montantBase": {
+            "type": "number"
+          },
+          "tierPayeurId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tierPayeurNom": {
+            "type": "string"
+          },
+          "remisAuCentre": {
+            "type": "boolean"
+          },
+          "recuCode": {
+            "type": "string"
+          },
+          "dateRemiseAuCentre": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "bordereauCode": {
+            "type": "string"
+          },
+          "dateBordereau": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "creePar": {
+            "type": "string"
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "modifiePar": {
+            "type": "string"
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

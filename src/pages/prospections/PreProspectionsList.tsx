@@ -243,7 +243,12 @@ export default function PreProspectionsList() {
                       ? {
                           liste: groupes.data?.content ?? [],
                           colonneLibelle: groupement.colonneGroupee.libelle,
-                          agregats: groupement.colonnesAgregats,
+                          agregats: groupement.agregatsActifs,
+                          /* Les totaux plein périmètre, servis par l'enveloppe.
+                             Sans eux, un total de bas de grille ne pourrait
+                             porter que sur les groupes ouverts. */
+                          totaux: groupes.data?.totaux ?? {},
+                          nombreTotal: groupes.data?.nombreTotal ?? 0,
                           estOuvert: lignesGroupes.estOuvert,
                           etat: lignesGroupes.etat,
                           basculer: lignesGroupes.basculer,

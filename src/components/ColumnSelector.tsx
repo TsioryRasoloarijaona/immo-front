@@ -1,5 +1,5 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
-import { Columns3, RotateCcw, Search } from 'lucide-react';
+import { Fragment, useState } from 'react';
+import { Columns3, RotateCcw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -10,20 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import RechercheMenu from './RechercheMenu';
 import { filtrerColonnes, libelleGroupe } from '../lib/colonnes';
 import { cn } from '../lib/utils';
 import type { ColonneDto } from '../types';
-
-/** Touches qu'on laisse remonter au menu depuis le champ de recherche.
- *
- * Base UI équipe ses menus d'une recherche par frappe : n'importe quelle
- * touche imprimable déplace le focus vers l'élément dont le libellé commence
- * par cette lettre. Dans un menu qui contient un champ de saisie, ce
- * comportement vole chaque caractère tapé. On arrête donc la propagation de
- * tout le reste — mais surtout pas de celles-ci, qui sont la navigation :
- * sans elles on ne pourrait plus fermer le menu ni descendre du champ vers la
- * liste au clavier. */
-const TOUCHES_DU_MENU = new Set(['Escape', 'ArrowDown', 'ArrowUp', 'Enter', 'Tab']);
 
 /** Sélecteur de colonnes d'une liste.
  *
@@ -58,38 +48,6 @@ export default function ColumnSelector({
 }) {
   const [ouvert, setOuvert] = useState(false);
   const [requete, setRequete] = useState('');
-  const champRef = useRef<HTMLInputElement>(null);
-
-  // Deux choses à l'ouverture du menu.
-  //
-  // 1. Reprendre le focus. Le menu le place sur son premier élément ; on le
-  //    récupère à la frame suivante, une fois ce placement terminé.
-  //
-  // 2. Neutraliser la recherche-par-lettre de Base UI, **en natif**. Un
-  //    `onKeyDown` React ne suffit pas : React délègue ses écouteurs à la
-  //    racine de l'application, si bien que l'écouteur natif que Base UI pose
-  //    sur le popup — un ancêtre du champ — s'exécute avant. Mesuré : une
-  //    seule lettre fermait le menu. Posé sur le champ, qui est la cible de
-  //    l'événement, l'écouteur passe avant tout ancêtre et `stopPropagation`
-  //    fait son office.
-  useEffect(() => {
-    if (!ouvert) return;
-    let champ: HTMLInputElement | null = null;
-    const auClavier = (e: KeyboardEvent) => {
-      if (!TOUCHES_DU_MENU.has(e.key)) e.stopPropagation();
-    };
-    // Dans la frame suivante, pas dans le corps de l'effet : le popup est
-    // monté par portail et sa référence n'est pas encore garnie ici.
-    const frame = requestAnimationFrame(() => {
-      champ = champRef.current;
-      champ?.focus();
-      champ?.addEventListener('keydown', auClavier);
-    });
-    return () => {
-      cancelAnimationFrame(frame);
-      champ?.removeEventListener('keydown', auClavier);
-    };
-  }, [ouvert]);
 
   const filtre = filtrerColonnes(catalogue, requete);
   // Ordre de première apparition, pour que les sections suivent l'ordre des
@@ -119,23 +77,13 @@ export default function ColumnSelector({
       </DropdownMenuTrigger>
 
       <DropdownMenuContent className="max-h-96 w-64" align="end">
-        {/* Marges négatives : le popup porte `p-1`, que la barre annule pour
-            occuper toute sa largeur et se coller au bord haut quand la liste
-            défile dessous. */}
-        <div className="sticky -top-1 z-20 -mx-1 -mt-1 mb-1 border-b border-border bg-popover px-2 pt-2 pb-1.5">
-          <div className="flex items-center gap-1.5">
-            <Search aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-            <input
-              ref={champRef}
-              type="text"
-              value={requete}
-              onChange={(e) => setRequete(e.target.value)}
-              placeholder="Rechercher une colonne…"
-              aria-label="Rechercher une colonne"
-              className="h-6 w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-            />
-          </div>
-        </div>
+        <RechercheMenu
+          ouvert={ouvert}
+          valeur={requete}
+          onChange={setRequete}
+          placeholder="Rechercher une colonne…"
+          libelle="Rechercher une colonne"
+        />
 
         {filtre.length === 0 ? (
           <p className="px-2 py-3 text-body text-muted-foreground">Aucune colonne ne correspond.</p>

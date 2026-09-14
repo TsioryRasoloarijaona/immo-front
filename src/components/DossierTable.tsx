@@ -68,6 +68,19 @@ const VALEURS: Record<string, (d: DossierListItemDto) => unknown> = {
   statut: (d) => canonicalStatusLabel(d.statut),
 };
 
+/** Formatage d'une **valeur nue**, pour les bandes de totaux où il n'y a pas
+ * de ligne à passer à `rendu`.
+ *
+ * Les deux seules colonnes concernées sont celles que le serveur type `NOMBRE`
+ * alors que ce sont des **ratios** : sans ça, une remise moyenne s'afficherait
+ * « 0,07 » au lieu de « 7,31 % », et le total mentirait d'un facteur cent.
+ * C'est le pendant, côté agrégats, de ce que `RENDUS` fait pour les cellules —
+ * la même vérité dite au même endroit. */
+const FORMATS_VALEUR: Record<string, (v: unknown) => string> = {
+  remise: (v) => formatPercent(typeof v === 'number' ? v : null, 2),
+  probabiliteFinalisation: (v) => formatPercent(typeof v === 'number' ? v : null),
+};
+
 /** Classes propres à une colonne, en plus de `truncate` et de l'alignement
  * déduit du type. Reprend la mise en forme d'avant le sélecteur. */
 const CLASSES: Record<string, string> = {
@@ -179,6 +192,7 @@ export default function DossierTable({
         largeur: poidsColonne(c.nom, DISPOSITION_DOSSIERS.poids),
         rendu: rendu ? (d: DossierListItemDto) => rendu(d, ctx) : undefined,
         valeur: VALEURS[c.nom],
+        formatValeur: FORMATS_VALEUR[c.nom],
         classe: CLASSES[c.nom],
         titre: TITRES[c.nom],
       };

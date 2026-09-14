@@ -1,5 +1,12 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { ColonneDto, GranulariteGroupe, GroupeDto, PageDto, TriGroupes } from '../types';
+import type {
+  ColonneDto,
+  FonctionAgregat,
+  GranulariteGroupe,
+  GroupeDto,
+  PageDto,
+  TriGroupes,
+} from '../types';
 import type { ParamsDepliage, ParamsGroupes } from './api';
 
 /** État de la bande de groupement d'une liste.
@@ -19,23 +26,54 @@ import type { ParamsDepliage, ParamsGroupes } from './api';
  * un groupement est une question qu'on pose une fois. Le retrouver intact en
  * revenant sur l'écran ferait croire à une liste tronquée. */
 
-/** Colonnes que le serveur déclare `agregeable` mais qu'il ne faut **pas**
- * proposer à la somme, parce que le total n'aurait aucun sens métier.
+/** Colonnes dont il ne faut pas proposer la **somme**, le total n'ayant aucun
+ * sens — mais dont les autres fonctions, elles, en ont un.
  *
- * Ce ne sont pas des quantités mais des **taux**, et additionner des taux ne
- * produit rien d'interprétable. Mesuré sur les 116 dossiers réels :
+ * Ce sont des **taux**, pas des quantités, et additionner des taux ne produit
+ * rien d'interprétable. Mesuré sur les 116 dossiers réels :
  *
- * - `remise` est un **ratio 0–1** (0,068783 ; 0,153439 ; et des valeurs
- *   négatives, qui sont des majorations). Sa somme par statut vaut 1,88 /
- *   4,97 / 0,29 : des nombres que rien à l'écran ne permettrait de lire.
+ * - `remise` est un **ratio 0–1** (de -0,207865 à 0,988329, les négatifs étant
+ *   des majorations). Sa somme par statut vaut 1,88 / 4,97 / 0,29 : des
+ *   nombres que rien à l'écran ne permettrait de lire.
  * - `probabiliteFinalisation` vaut **1 sur les 116 lignes**. Sa somme est donc
  *   exactement l'effectif du groupe, déjà affiché à côté — une colonne de
  *   totaux qui répète le décompte en se faisant passer pour autre chose.
  *
- * Le serveur a raison de les accepter : la somme est techniquement calculable,
- * et c'est à l'affichage de savoir qu'elle n'informe pas. Une moyenne serait
- * l'agrégat juste pour un taux, mais l'endpoint ne sert que des sommes. */
-export const AGREGATS_SANS_SENS = new Set(['remise', 'probabiliteFinalisation']);
+ * **Seule `SUM` est écartée, et c'est le changement.** Tant que l'endpoint ne
+ * servait que des sommes, écarter la colonne entière revenait au même ; il
+ * sert maintenant cinq fonctions, et une remise **moyenne** de 7,31 % informe,
+ * comme son minimum et son maximum. C'était déjà écrit ici : « une moyenne
+ * serait l'agrégat juste pour un taux ». Elle existe, on la propose.
+ *
+ * Le serveur a raison d'accepter la somme : elle est calculable, et c'est à
+ * l'affichage de savoir qu'elle n'informe pas. */
+export const SOMMES_SANS_SENS = new Set(['remise', 'probabiliteFinalisation']);
+
+/** Libellés français des fonctions, dans l'ordre où le serveur les publie —
+ * ce fichier ne les retrie pas, le catalogue décide. */
+export const LIBELLES_FONCTION: Record<FonctionAgregat, string> = {
+  SUM: 'Somme',
+  AVG: 'Moyenne',
+  MIN: 'Minimum',
+  MAX: 'Maximum',
+  COUNT: 'Nombre',
+};
+
+/** Le jeton à envoyer dans `?agregats=`.
+ *
+ * **Un nom nu vaut une somme** : c'est le contrat du serveur, pas une
+ * commodité d'écriture. L'émettre nu garde la réponse d'une intégration
+ * existante inchangée, puisque la clé de retour est alors ce même nom nu. */
+export function jetonAgregat(nom: string, fonction: FonctionAgregat): string {
+  return fonction === 'SUM' ? nom : `${nom}:${fonction}`;
+}
+
+/** L'inverse. Un jeton sans `:` est une somme. */
+export function decomposerJeton(jeton: string): { nom: string; fonction: FonctionAgregat } {
+  const i = jeton.indexOf(':');
+  if (i === -1) return { nom: jeton, fonction: 'SUM' };
+  return { nom: jeton.slice(0, i), fonction: jeton.slice(i + 1) as FonctionAgregat };
+}
 
 /** Colonnes à ne pas proposer au groupement sur un écran donné, alors que le
  * serveur les déclare `groupable`.
@@ -108,8 +146,20 @@ export function useGroupement(
     () => catalogue.filter((c) => c.groupable && !exclues?.has(c.nom)),
     [catalogue, exclues],
   );
+  /** Les colonnes proposables au Σ, **avec les fonctions retenues pour
+   * chacune**. Une colonne dont `fonctions` est vide n'a rien à agréger et ne
+   * doit pas apparaître ; une colonne de taux perd `SUM` mais garde le reste.
+   *
+   * L'ordre des fonctions est celui du catalogue : le serveur les publie
+   * « dans l'ordre où le menu Σ doit les proposer ». */
   const agregeables = useMemo(
-    () => catalogue.filter((c) => c.agregeable && !AGREGATS_SANS_SENS.has(c.nom)),
+    () =>
+      catalogue
+        .map((c) => ({
+          colonne: c,
+          fonctions: (c.fonctions ?? []).filter((f) => !(f === 'SUM' && SOMMES_SANS_SENS.has(c.nom))),
+        }))
+        .filter((x) => x.fonctions.length > 0),
     [catalogue],
   );
 
@@ -198,8 +248,9 @@ export function useGroupement(
     [auChangement],
   );
 
-  const basculerAgregat = useCallback((nom: string) => {
-    setAgregats((a) => (a.includes(nom) ? a.filter((n) => n !== nom) : [...a, nom]));
+  const basculerAgregat = useCallback((nom: string, fonction: FonctionAgregat) => {
+    const jeton = jetonAgregat(nom, fonction);
+    setAgregats((a) => (a.includes(jeton) ? a.filter((j) => j !== jeton) : [...a, jeton]));
   }, []);
 
   const reinitialiser = useCallback(() => {
@@ -221,11 +272,22 @@ export function useGroupement(
     granularite,
     tri,
     agregats,
-    /** Les colonnes sommées, dans l'ordre du catalogue — une bande de totaux
-     * chacune dans l'en-tête de groupe. */
-    colonnesAgregats: useMemo(
-      () => agregeables.filter((c) => agregats.includes(c.nom)),
-      [agregeables, agregats],
+    /** Les agrégats actifs, résolus — une bande de totaux chacun dans
+     * l'en-tête de groupe et dans le pied de la liste.
+     *
+     * Résolus ici et non à l'affichage : le jeton seul ne dit ni le libellé de
+     * la colonne ni son type, dont dépend le formatage — un `MIN` sur une
+     * colonne date rend une chaîne ISO qu'il faut présenter en date. */
+    agregatsActifs: useMemo(
+      () =>
+        agregats
+          .map((jeton) => {
+            const { nom, fonction } = decomposerJeton(jeton);
+            const colonne = catalogue.find((c) => c.nom === nom);
+            return colonne ? { jeton, colonne, fonction } : null;
+          })
+          .filter((x): x is { jeton: string; colonne: ColonneDto; fonction: FonctionAgregat } => x !== null),
+      [agregats, catalogue],
     ),
     paramsGroupes,
     depliagePour,
