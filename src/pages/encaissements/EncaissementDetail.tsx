@@ -1,20 +1,41 @@
-import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Wallet } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Ban, ClipboardCheck, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
+import FicheShell from '../../components/FicheShell';
+import { ChampLecture, GrilleFiche } from '../../components/ChampsFiche';
+import { PointerReglementModal, ReglementDocumentsJoints } from '../../components/ReglementPreuves';
+import { messageErreurStatut } from '../../lib/reglementRegles';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { getEncaissement } from '../../lib/api';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { getEncaissement, modifierStatutReglement } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { encaissementEtatLabel, encaissementEtatTone } from '../../lib/domain';
-import { formatCurrency, formatDate } from '../../lib/format';
+import { useConfirm } from '../../lib/confirmContext';
+import { encaissementEtatLabel, encaissementEtatTone, reglementModifiable } from '../../lib/domain';
+import { formatCurrency, formatDate, formatDateTime } from '../../lib/format';
+
+/** La zone large, en bas — les deux onglets du logiciel de bureau pour
+ * lesquels un endpoint existe. Le troisième, « Historique », n'en a aucun :
+ * un onglet vide coûte un clic pour apprendre qu'il n'y a rien. */
+type EncaissementTab = 'affectations' | 'documents';
+
+/** Le panneau étroit, à droite du formulaire. */
+type PanneauTab = 'montants' | 'tracabilite';
 
 export default function EncaissementDetail() {
   const { id } = useParams();
-  const { data: e, loading, error } = useApi(() => getEncaissement(id!), [id]);
+  const { data: e, loading, error, refetch } = useApi(() => getEncaissement(id!), [id]);
   const navigate = useNavigate();
+  const confirm = useConfirm();
+  const [tab, setTab] = useState<EncaissementTab>('affectations');
+  const [panneauTab, setPanneauTab] = useState<PanneauTab>('montants');
+  const [pointageOuvert, setPointageOuvert] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [erreurStatut, setErreurStatut] = useState<string | null>(null);
 
-  if (loading) return <PageShell title="Encaissement"><LoadingState /></PageShell>;
+  if (loading && !e) return <PageShell title="Encaissement"><LoadingState /></PageShell>;
   if (error) {
     return (
       <PageShell title="Encaissement" crumbs={[{ label: 'Ventes' }, { label: 'Encaissements', to: '/encaissements' }]}>
@@ -31,176 +52,392 @@ export default function EncaissementDetail() {
   }
 
   const affectations = e.affectations ?? [];
-  /* Combien de dossiers ce règlement touche réellement. Mesuré sur 80
-     règlements : un seul en touche plus d'un, mais c'est précisément celui que
-     la liste présentait de travers, en n'affichant que le premier. */
+  /* Combien de dossiers ce règlement touche réellement. Mesuré sur les 332
+     règlements servis : 7 en touchent plusieurs, et ce sont précisément ceux
+     que la liste présentait de travers, en n'affichant que le premier. */
   const dossiers = new Set(affectations.map((a) => a.dossierCode).filter(Boolean));
   const totalAffecte = affectations.reduce((s, a) => s + (a.montantAffecte ?? 0), 0);
 
+  /* Le dossier qui sert de portée aux endpoints de preuve et de pointage, tous
+     scopés `/api/dossiers/{id}/reglements/{reglementId}/…`. Mesuré sur les 332
+     règlements : `dossierId` est toujours renseigné et toujours l'un des
+     dossiers des affectations — et sur les 7 règlements à cheval, le serveur
+     accepte **n'importe lequel** d'entre eux. Le repli sur la première
+     affectation ne couvre donc aucun cas réel connu ; il évite seulement de
+     faire dépendre l'écran d'un champ que le DTO déclare optionnel. */
+  const dossierPortee = e.dossierId ?? affectations[0]?.dossierId;
+  const modifiable = reglementModifiable(e.etat);
+
+  /* Le titre du logiciel de bureau, reconstitué : « CHÈQUE CIH N° 2007416 du
+     31/12/2025 ». C'est ainsi que le comptable nomme la pièce à l'oral, et
+     aucun champ ne le porte seul. */
+  const intitule = [
+    e.typeLibelle,
+    e.banqueNom,
+    e.reference ? `N° ${e.reference}` : null,
+    e.dateDocument ? `du ${formatDate(e.dateDocument)}` : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  async function annuler() {
+    if (!e || !dossierPortee) return;
+    const ok = await confirm({
+      title: 'Annuler le règlement',
+      message: `Annuler définitivement ce règlement de ${formatCurrency(e.montantBrut)} ? Cet état est terminal : il ne pourra plus être pointé.`,
+      confirmLabel: 'Annuler le règlement',
+      cancelLabel: 'Revenir',
+    });
+    if (!ok) return;
+    setBusy(true);
+    setErreurStatut(null);
+    try {
+      await modifierStatutReglement(dossierPortee, e.id, { statut: 'CANCELED' });
+      refetch();
+    } catch (err) {
+      setErreurStatut(messageErreurStatut(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <PageShell
-      title={e.reference || 'Règlement'}
+      title={intitule || e.reference || 'Règlement'}
       crumbs={[
         { label: 'Ventes' },
         { label: 'Encaissements', to: '/encaissements' },
-        { label: e.reference || '' },
+        { label: e.reference || 'Règlement' },
       ]}
+      fullHeight
       icon={<Wallet />}
       accent="var(--sec-dossier)"
       accentBg="var(--sec-dossier-bg)"
+      actions={
+        <Button variant="outline" size="sm" onClick={() => navigate('/encaissements')}>
+          Retour à la liste
+        </Button>
+      }
     >
-      <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate('/encaissements')}>
-        <ArrowLeft data-icon="inline-start" /> Retour à la liste
-      </Button>
-
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-hero font-semibold tracking-tight text-foreground">{e.reference || 'Règlement'}</h2>
-        <Badge tone={encaissementEtatTone(e.etat)}>{encaissementEtatLabel(e.etat)}</Badge>
-        <Badge tone={e.comptabilise ? 'success' : 'neutral'}>{e.comptabilise ? 'Comptabilisé' : 'Non comptabilisé'}</Badge>
-        {e.remisAuCentre && <Badge tone="info">Remis au centre</Badge>}
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <Card title="Détails" accent="var(--sec-dossier)">
-          <FieldGrid>
-            <Field label="Tiers réglant" value={e.tierNom} />
-            {/* Le payeur peut différer du tiers du règlement. Mesuré 332/332
-                renseigné, avec 94 valeurs distinctes : ce n'est pas un doublon
-                du tiers. */}
-            <Field label="Versement effectué par" value={e.tierPayeurNom} />
-            <Field label="Date pièce" value={formatDate(e.dateDocument)} />
-            <Field label="Échéance" value={formatDate(e.dateEcheance)} />
-            <Field label="Date règlement" value={formatDate(e.dateReglement)} />
-            <Field label="Type" value={e.typeLibelle} />
-            <Field label="Banque" value={e.banqueNom} />
-            <Field label="Compte" value={e.compteCode} />
-            <Field label="Dépôt" value={e.depotCode} />
-            <Field label="Entité" value={e.entiteLibelle} />
-            <Field label="Libellé" value={e.description} />
-          </FieldGrid>
-        </Card>
-
-        {/* -------------------------------------------------------------------
-            Les affectations. C'est la réponse à « ce règlement, il a payé
-            quoi ? », et elle n'existait pas : la fiche montrait un champ
-            « Dossier » unique, alimenté par le `dossierCode` de la *première*
-            ligne. Mesuré, un règlement réel solde trois échéances sur trois
-            dossiers différents — la fiche en affichait un et masquait deux.
-            ------------------------------------------------------------------- */}
-        <Card
-          title="Affectations"
-          accent="var(--sec-dossier)"
-          padded={false}
-        >
-          {affectations.length === 0 ? (
-            <EmptyState
-              title="Pas encore imputé"
-              message="Ce règlement est encaissé mais n'a été affecté à aucune échéance."
-            />
-          ) : (
-            <>
-              {dossiers.size > 1 && (
-                <p className="border-b border-border px-3 py-2 text-body text-muted-foreground">
-                  Ce règlement solde des échéances de <strong className="text-foreground">{dossiers.size} dossiers</strong>.
-                </p>
+      <FicheShell
+        ongletActif={tab}
+        onOngletChange={(v) => setTab(v as EncaissementTab)}
+        /* ---------------------------------------------------------------
+           Bande 1 — identité. Le logiciel de bureau met tout ça dans la barre
+           de titre de sa pièce de règlement (« Pièce de règlement : CHÉQUE CIH
+           N° 2007416 du 31/12/2025 ») plus la case « État » de son formulaire.
+           C'est une seule information — quelle pièce, où en est-elle — donc un
+           seul endroit.
+           --------------------------------------------------------------- */
+        identite={
+          <Card padded={false} accent="var(--sec-dossier)">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
+              <Badge tone="neutral" className="font-mono">{e.reference || '—'}</Badge>
+              <h2 className="min-w-0 truncate text-label font-semibold text-foreground">{intitule || 'Règlement'}</h2>
+              <Badge tone={encaissementEtatTone(e.etat)}>{encaissementEtatLabel(e.etat)}</Badge>
+              {/* La date d'encaissement au contact de l'état : ce sont deux
+                  encodages du même fait, et le serveur les écrit ensemble —
+                  pointer sans date est un 400. */}
+              {e.dateReglement && (
+                <span className="text-micro text-muted-foreground">pointé le {formatDate(e.dateReglement)}</span>
               )}
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-card">
-                    <TableHead>Dossier</TableHead>
-                    <TableHead>Échéance</TableHead>
-                    <TableHead>Catégorie</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Affecté</TableHead>
-                    <TableHead className="text-right">Montant échéance</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {affectations.map((a) => (
-                    <TableRow key={a.id}>
-                      <TableCell>
-                        {a.dossierId ? (
-                          <button
-                            type="button"
-                            className="text-(--info) hover:underline"
-                            onClick={() => navigate(`/dossiers/${a.dossierId}`)}
-                          >
-                            {a.dossierCode || 'Voir'}
-                          </button>
-                        ) : (
-                          a.dossierCode
-                        )}
-                      </TableCell>
-                      <TableCell className="truncate text-muted-foreground" title={a.echeanceCode}>
-                        {a.echeanceDescription || a.echeanceCode}
-                      </TableCell>
-                      <TableCell>{a.categorie ? <Badge tone="neutral">{a.categorie}</Badge> : null}</TableCell>
-                      <TableCell className="text-muted-foreground">{formatDate(a.dateEcheance)}</TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">
-                        {formatCurrency(a.montantAffecte)}
-                      </TableCell>
-                      {/* Le montant total de l'échéance, pour voir d'un coup si
-                          ce seul règlement la solde ou s'il n'en paie qu'une
-                          part. */}
-                      <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {formatCurrency(a.montantEcheance)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-                <TableFooter>
-                  <TableRow className="hover:bg-muted/50">
-                    <TableCell colSpan={4} className="text-micro text-muted-foreground">
-                      Total affecté
-                    </TableCell>
-                    <TableCell className="text-right text-micro font-semibold tabular-nums">
-                      {formatCurrency(totalAffecte)}
-                    </TableCell>
-                    <TableCell />
-                  </TableRow>
-                </TableFooter>
-              </Table>
-            </>
-          )}
-        </Card>
+              <Badge tone={e.comptabilise ? 'success' : 'neutral'}>
+                {e.comptabilise ? 'Comptabilisé' : 'Non comptabilisé'}
+              </Badge>
+              {e.remisAuCentre && <Badge tone="info">Remis au centre</Badge>}
 
-        <Card title="Montants" accent="var(--sec-dossier)">
-          <FieldGrid>
-            <Field label="Montant brut" value={formatCurrency(e.montantBrut)} />
-            {/* Vérifié 80/80 : brut − reste = la somme des affectations
-                ci-dessus. Les deux nombres se recoupent, ils ne se
-                contredisent pas. */}
-            <Field label="Reste à affecter" value={formatCurrency(e.montantBrutRestant)} />
-            <Field label="Montant net" value={formatCurrency(e.montantNet)} />
-            <Field label="Montant base" value={formatCurrency(e.montantBase)} />
-          </FieldGrid>
-        </Card>
-
-        <Card title="Suivi" accent="var(--sec-dossier)">
-          <FieldGrid>
-            <Field label="N° de reçu" value={e.recuCode} />
-            <Field label="Remis au centre" value={e.remisAuCentre ? 'Oui' : 'Non'} />
-            <Field label="Date de remise" value={formatDate(e.dateRemiseAuCentre)} />
-            <Field label="Bordereau" value={e.bordereauCode} />
-            <Field label="Date de bordereau" value={formatDate(e.dateBordereau)} />
-            <Field label="Créé par" value={e.creePar} />
-            <Field label="Modifié par" value={e.modifiePar} />
-          </FieldGrid>
-        </Card>
-
-        {e.notes && (
-          <Card title="Notes">
-            <p className="text-label text-foreground">{e.notes}</p>
+              <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-muted-foreground">
+                {e.tierNom && <span>{e.tierNom}</span>}
+                {e.entiteLibelle && <span>{e.entiteLibelle}</span>}
+                <span className="font-semibold tabular-nums text-foreground">{formatCurrency(e.montantBrut)}</span>
+              </span>
+            </div>
           </Card>
-        )}
+        }
+        /* ---------------------------------------------------------------
+           Bande 2a — le formulaire, les deux colonnes de champs du logiciel de
+           bureau réunies. **En lecture seule, et ce n'est pas un choix** :
+           `/api/encaissements/{id}` est servi en GET uniquement. La seule
+           écriture possible sur un règlement est son statut, portée par la
+           barre d'action plus bas.
+           --------------------------------------------------------------- */
+        formulaire={
+          <Card padded={false} className="h-full">
+            <div className="p-3">
+              <GrilleFiche>
+                <ChampLecture label="Entité" valeur={e.entiteLibelle} />
+                <ChampLecture label="Date pièce" valeur={formatDate(e.dateDocument)} />
+                <ChampLecture label="Échéance" valeur={formatDate(e.dateEcheance)} />
+                <ChampLecture label="Type" valeur={e.typeLibelle} />
 
-        {/* Ce qui manque encore à `GET /api/encaissements/{id}`, après la
-            livraison qui a apporté les affectations et le bloc Suivi :
-            retenue à la source et montant du timbre (mesurés non nuls mais
-            **toujours à zéro**, donc écartés du catalogue côté serveur),
-            notaire, dossier de groupe, C.R.A.S. et devise. Demande consignée
-            dans instructions/from_front.md (#3). */}
-      </div>
+                <ChampLecture label="Référence" valeur={e.reference} />
+                <ChampLecture label="Banque" valeur={e.banqueNom} />
+                <ChampLecture label="Compte" valeur={e.compteCode} />
+                <ChampLecture label="Dépôt" valeur={e.depotCode} />
+
+                <ChampLecture label="Tiers réglant" valeur={e.tierNom} />
+                {/* Le payeur peut différer du tiers du règlement. Mesuré
+                    332/332 renseigné, avec 94 valeurs distinctes : ce n'est
+                    pas un doublon du tiers. */}
+                <ChampLecture label="Versement effectué par" valeur={e.tierPayeurNom} />
+                <ChampLecture label="N° de reçu" valeur={e.recuCode} />
+                <ChampLecture
+                  label="Date de pointage"
+                  valeur={formatDate(e.dateReglement)}
+                  aide="Date d'encaissement effectif, écrite par le pointage. Vide tant que le règlement est en cours."
+                />
+
+                <ChampLecture label="Libellé" valeur={e.description} className="xl:col-span-2" />
+                {e.notes && <ChampLecture label="Notes" valeur={e.notes} className="xl:col-span-2" />}
+              </GrilleFiche>
+            </div>
+          </Card>
+        }
+        /* ---------------------------------------------------------------
+           Bande 2b — la synthèse. Le logiciel de bureau la pose en bandeau
+           sous son formulaire : Montant brut / Reste à affecter / Affecté.
+           Elle doit rester lisible pendant qu'on parcourt les affectations du
+           bas, d'où le panneau latéral plutôt qu'une carte de plus dans la
+           pile.
+           --------------------------------------------------------------- */
+        panneau={
+          <Card padded={false} className="flex h-full flex-col">
+            <Tabs
+              value={panneauTab}
+              onValueChange={(v) => setPanneauTab(v as PanneauTab)}
+              className="flex min-h-0 flex-1 flex-col gap-2 p-3"
+            >
+              <TabsList className="shrink-0">
+                <TabsTrigger value="montants">Montants</TabsTrigger>
+                <TabsTrigger value="tracabilite">Traçabilité</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="montants" className="min-h-0 flex-1 overflow-auto">
+                <table className="w-full text-body">
+                  <tbody>
+                    <LigneMontant libelle="Montant brut" valeur={e.montantBrut} fort />
+                    {/* Vérifié 80/80 : brut − reste = la somme des affectations
+                        de l'onglet du bas. Les deux nombres se recoupent, ils
+                        ne se contredisent pas — d'où l'affichage des deux. */}
+                    <LigneMontant libelle="Affecté" valeur={totalAffecte} />
+                    <LigneMontant libelle="Reste à affecter" valeur={e.montantBrutRestant} alerte />
+                    <LigneMontant libelle="Montant net" valeur={e.montantNet} separe />
+                    <LigneMontant libelle="Montant base" valeur={e.montantBase} />
+                  </tbody>
+                </table>
+              </TabsContent>
+
+              <TabsContent value="tracabilite" className="min-h-0 flex-1 overflow-auto">
+                <FieldGrid>
+                  <Field label="Remis au centre" value={e.remisAuCentre ? 'Oui' : 'Non'} />
+                  <Field label="Date de remise" value={formatDate(e.dateRemiseAuCentre)} />
+                  <Field label="Bordereau" value={e.bordereauCode} />
+                  <Field label="Date de bordereau" value={formatDate(e.dateBordereau)} />
+                </FieldGrid>
+                <div className="mt-2 border-t border-border pt-2">
+                  <FieldGrid>
+                    <Field label="Saisi par" value={e.creePar} />
+                    <Field label="Saisi le" value={formatDateTime(e.creeLe)} />
+                    <Field label="Modifié par" value={e.modifiePar} />
+                    <Field label="Modifié le" value={formatDateTime(e.modifieLe)} />
+                  </FieldGrid>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </Card>
+        }
+        /* ---------------------------------------------------------------
+           La barre d'action — le seul point d'écriture de l'écran. Elle n'est
+           montée que sur un règlement `IN_WORK` : `POINTED` et `CANCELED` sont
+           terminaux côté serveur, et proposer un bouton qui finira en 409 est
+           pire que de ne pas le proposer.
+           --------------------------------------------------------------- */
+        barreAction={
+          modifiable && dossierPortee ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-(--info-border) bg-(--info-bg) px-3 py-2">
+              <span className="text-label font-medium text-foreground">Règlement en cours</span>
+              <span className="min-w-0 text-micro text-muted-foreground">
+                Le pointage constate l'encaissement. Il exige une date et au moins une preuve de paiement — déposez-la
+                dans l'onglet « Documents joints ».
+              </span>
+              {erreurStatut && <span className="text-micro text-destructive">{erreurStatut}</span>}
+              <div className="ml-auto flex items-center gap-1.5">
+                <Button variant="ghost" size="sm" disabled={busy} onClick={annuler}>
+                  <Ban data-icon="inline-start" /> Annuler le règlement
+                </Button>
+                <Button size="sm" disabled={busy} onClick={() => setPointageOuvert(true)}>
+                  <ClipboardCheck data-icon="inline-start" /> Pointer
+                </Button>
+              </div>
+            </div>
+          ) : undefined
+        }
+        /* ---------------------------------------------------------------
+           Bande 3 — la zone large. Deux onglets sur les trois du logiciel de
+           bureau : « Historique » n'a aucun endpoint, il est consigné en
+           demande backend plutôt qu'affiché vide.
+           --------------------------------------------------------------- */
+        onglets={[
+          {
+            id: 'affectations',
+            libelle: 'Affectations',
+            compteur: affectations.length,
+            contenu: (
+              /* La réponse à « ce règlement, il a payé quoi ? ». Elle n'a
+                 longtemps pas existé : la fiche montrait un champ « Dossier »
+                 unique, alimenté par le `dossierCode` de la *première* ligne.
+                 Mesuré, sept règlements réels soldent des échéances de deux ou
+                 trois dossiers différents — la fiche en affichait un et
+                 masquait le reste. */
+              affectations.length === 0 ? (
+                <EmptyState
+                  title="Pas encore imputé"
+                  message="Ce règlement est encaissé mais n'a été affecté à aucune échéance."
+                />
+              ) : (
+                <>
+                  {dossiers.size > 1 && (
+                    <p className="border-b border-border px-3 py-2 text-body text-muted-foreground">
+                      Ce règlement solde des échéances de{' '}
+                      <strong className="text-foreground">{dossiers.size} dossiers</strong>.
+                    </p>
+                  )}
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-card">
+                        <TableHead>Dossier</TableHead>
+                        <TableHead>Échéance</TableHead>
+                        <TableHead>Catégorie</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="text-right">Affecté</TableHead>
+                        <TableHead className="text-right">Montant échéance</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {affectations.map((a) => (
+                        <TableRow key={a.id}>
+                          <TableCell>
+                            {a.dossierId ? (
+                              <Link to={`/dossiers/${a.dossierId}`} className="text-(--info) hover:underline">
+                                {a.dossierCode || 'Voir'}
+                              </Link>
+                            ) : (
+                              a.dossierCode
+                            )}
+                          </TableCell>
+                          <TableCell className="truncate text-muted-foreground" title={a.echeanceCode}>
+                            {a.echeanceDescription || a.echeanceCode}
+                          </TableCell>
+                          <TableCell>{a.categorie ? <Badge tone="neutral">{a.categorie}</Badge> : null}</TableCell>
+                          <TableCell className="text-muted-foreground">{formatDate(a.dateEcheance)}</TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums">
+                            {formatCurrency(a.montantAffecte)}
+                          </TableCell>
+                          {/* Le montant total de l'échéance, pour voir d'un
+                              coup si ce seul règlement la solde ou s'il n'en
+                              paie qu'une part. */}
+                          <TableCell className="text-right tabular-nums text-muted-foreground">
+                            {formatCurrency(a.montantEcheance)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                    <TableFooter>
+                      <TableRow className="hover:bg-muted/50">
+                        <TableCell colSpan={4} className="text-micro text-muted-foreground">
+                          Total affecté
+                        </TableCell>
+                        <TableCell className="text-right text-micro font-semibold tabular-nums">
+                          {formatCurrency(totalAffecte)}
+                        </TableCell>
+                        <TableCell />
+                      </TableRow>
+                    </TableFooter>
+                  </Table>
+                </>
+              )
+            ),
+          },
+          {
+            id: 'documents',
+            libelle: 'Documents joints',
+            contenu: dossierPortee ? (
+              <ReglementDocumentsJoints
+                dossierId={dossierPortee}
+                reglementId={e.id}
+                statut={e.etat}
+                /* Le nombre de preuves conditionne le pointage : un dépôt doit
+                   pouvoir débloquer la barre d'action sans recharger la page. */
+                onChanged={refetch}
+              />
+            ) : (
+              <EmptyState
+                title="Preuves indisponibles"
+                message="Les justificatifs sont rattachés au dossier portant l'échéance, et ce règlement n'en désigne aucun."
+              />
+            ),
+          },
+        ]}
+      />
+
+      {pointageOuvert && dossierPortee && (
+        <PointerReglementModal
+          dossierId={dossierPortee}
+          /* `EncaissementDetailDto` et `ReglementDto` décrivent la même ligne
+             `StlSettlement` avec des noms différents — l'adaptation tient en
+             trois champs, cf. `ReglementAPointer`. */
+          reglement={{
+            id: e.id,
+            montant: e.montantBrut,
+            typeLibelle: e.typeLibelle,
+            payeurNom: e.tierPayeurNom,
+          }}
+          onClose={() => setPointageOuvert(false)}
+          onPointed={async () => {
+            refetch();
+          }}
+        />
+      )}
     </PageShell>
+  );
+}
+
+/** Une ligne de la synthèse. Le rouge du reste à affecter est repris du
+ * logiciel de bureau, qui le porte aussi — mais il ne porte pas
+ * l'information seul : la ligne est étiquetée et les montants sont alignés. */
+function LigneMontant({
+  libelle,
+  valeur,
+  fort,
+  alerte,
+  separe,
+}: {
+  libelle: string;
+  valeur: number | undefined;
+  /** Le montant brut, la seule valeur que l'on cherche des yeux. */
+  fort?: boolean;
+  /** Coloré uniquement quand il reste réellement quelque chose à imputer. */
+  alerte?: boolean;
+  /** Trait de séparation au-dessus : sépare la synthèse d'affectation des
+   * montants de la pièce, qui ne s'additionnent pas entre eux. */
+  separe?: boolean;
+}) {
+  const reste = valeur ?? 0;
+  const colore = alerte && Math.abs(reste) > 0.005;
+  return (
+    <tr className={separe ? 'border-t border-border' : undefined}>
+      <th scope="row" className="py-1 pr-2 text-left text-body font-normal text-muted-foreground">
+        {libelle}
+      </th>
+      <td
+        className={[
+          'py-1 text-right tabular-nums',
+          fort ? 'text-label font-semibold text-foreground' : 'text-body',
+          colore ? 'font-semibold text-(--warning)' : fort ? '' : 'text-foreground',
+        ].join(' ')}
+      >
+        {formatCurrency(valeur)}
+      </td>
+    </tr>
   );
 }

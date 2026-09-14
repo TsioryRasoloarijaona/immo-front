@@ -1421,13 +1421,27 @@ export function uploadReglementPieceJointe(
   );
 }
 
+/** L'adresse de la preuve de paiement, sans l'ouvrir — ce que
+ * {@link openReglementPieceJointeFichier} consomme, et ce qu'un `<iframe>`
+ * d'aperçu prend pour `src`.
+ *
+ * Elle vise **l'endpoint**, jamais l'URL présignée qu'il renvoie : la signature
+ * n'est valable que quelques minutes, alors que l'endpoint la renouvelle à
+ * chaque chargement. Le cookie de session part bien sur cette sous-ressource,
+ * `localhost:5173` et `localhost:8080` étant le même site au sens `SameSite`
+ * (le port ne compte pas) ; le 302 conduit ensuite au stockage, qui sert le
+ * fichier en `inline` avec son vrai `content-type` et **sans** `X-Frame-Options`
+ * ni CSP — mesuré sur les pièces réelles, PDF comme JPEG. C'est cette absence
+ * qui rend l'aperçu intégré possible. */
+export function urlReglementPieceJointeFichier(dossierId: UUID, reglementId: UUID, pieceId: UUID): string {
+  return `${API_BASE_URL}/api/dossiers/${dossierId}/reglements/${reglementId}/pieces-jointes/${pieceId}/fichier`;
+}
+
 /** `GET .../reglements/{reglementId}/pieces-jointes/{pieceId}/fichier` — la
  * preuve de paiement. Redirection `302` vers le stockage, cf.
  * {@link openStoredFileInTab}. */
 export function openReglementPieceJointeFichier(dossierId: UUID, reglementId: UUID, pieceId: UUID): void {
-  openStoredFileInTab(
-    `${API_BASE_URL}/api/dossiers/${dossierId}/reglements/${reglementId}/pieces-jointes/${pieceId}/fichier`,
-  );
+  openStoredFileInTab(urlReglementPieceJointeFichier(dossierId, reglementId, pieceId));
 }
 
 /** `DELETE .../reglements/{reglementId}/pieces-jointes/{pieceId}` — retire un
