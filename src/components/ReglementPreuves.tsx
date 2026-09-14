@@ -85,7 +85,7 @@ export function ReglementPieceUpload({
       </label>
       <Input
         placeholder="Légende (ex. Chèque BMCE n° 123)"
-        className="w-55"
+        className="min-w-0 flex-1 basis-40"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
@@ -292,7 +292,7 @@ export function PointerReglementModal({
   const sansPreuve = !!pieces.data && pieces.data.length === 0;
 
   return (
-    <Modal title="Pointer le règlement" onClose={onClose} width={480}>
+    <Modal title="Pointer le règlement" onClose={onClose} width={560}>
       <div className="flex flex-col gap-4">
         <p className="text-body text-muted-foreground">
           Constater l'encaissement de <span className="font-semibold text-foreground">{formatCurrency(reglement.montant)}</span>
