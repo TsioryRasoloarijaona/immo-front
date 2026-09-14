@@ -1490,8 +1490,54 @@ export function listEncaissements(
     dateFin?: string;
   },
   pageable?: Pageable,
+  /** Voir `listProspections` : `colonnes` n'est pas un filtre, un nom hors
+   * catalogue renvoie 400, et `id` est servi qu'on le demande ou non.
+   *
+   * Ici la sélection **allège** la réponse plus qu'ailleurs : mesuré, les 27
+   * colonnes par défaut coûtent 572–694 ms sur une page de 20, une sélection
+   * de 16 en coûte 307–378. Décocher n'est pas qu'un confort d'affichage. */
+  options?: { colonnes?: string[]; depliage?: ParamsDepliage },
 ): Promise<PageDto<EncaissementDto>> {
-  return request('GET', '/api/encaissements', { query: withPageable(params, pageable) });
+  const query: Record<string, QueryValue> = withPageable(params, pageable);
+  if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
+  withDepliage(query, options?.depliage);
+  return request('GET', '/api/encaissements', { query });
+}
+
+/** Catalogue des colonnes sélectionnables de la liste des encaissements.
+ *
+ * Même contrat que les trois autres, mais bâti **sur mesure** : l'écran
+ * légataire fait un `SELECT StlSettlementView.*` — 107 colonnes, aucune
+ * nommée — et ne stocke aucune disposition de grille. Les 40 retenues sont
+ * celles qui portent une information réelle sur le périmètre servi.
+ *
+ * Deux réserves que le serveur documente et qu'il ne faut pas prendre pour des
+ * colonnes utiles : `depotId`/`depotCode` sont mesurés à **0 ligne sur 643**,
+ * `compteId`/`compteCode` à 12 et `dateReglement` à 10. */
+export function getColonnesEncaissements(): Promise<ColonneDto[]> {
+  return request('GET', '/api/referentiels/colonnes/encaissements');
+}
+
+/** `GET /api/encaissements/groupes` — la liste repliée en groupes.
+ *
+ * Mêmes filtres que `listEncaissements`, restriction `IsCredit = 1` et
+ * périmètre commercial compris : c'est ce qui garantit que la somme des
+ * effectifs égale le `totalElements` de la liste.
+ *
+ * **`dossierId` et `dossierCode` ne sont pas groupables**, et ce n'est pas un
+ * oubli : un règlement n'a pas de dossier, il a des lignes rattachées à des
+ * échéances. Mesuré — 643 règlements pour 654 couples (règlement, dossier),
+ * dont 8 règlements sur plusieurs dossiers — grouper par ce chemin les
+ * compterait plusieurs fois. Le catalogue le dit par booléen ; ne pas
+ * redéduire la liste ici. */
+export function listEncaissementsGroupes(
+  params: Parameters<typeof listEncaissements>[0],
+  groupes: ParamsGroupes,
+  pageable?: Pageable,
+): Promise<PageDto<GroupeDto>> {
+  return request('GET', '/api/encaissements/groupes', {
+    query: withGroupes(withPageable(params, pageable), groupes),
+  });
 }
 
 /** Ce que `GET /api/encaissements` **ne sert pas**, et qu'aucun filtre ne

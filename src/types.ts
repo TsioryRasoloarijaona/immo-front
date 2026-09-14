@@ -589,6 +589,8 @@ export type GroupeColonne =
   | 'CLOTURE'
   | 'ACTIVITE'
   | 'CONVERSION'
+  // Encaissements
+  | 'SUIVI'
   // Dossiers de vente
   | 'ACTEURS'
   | 'ORIGINE'
@@ -1823,6 +1825,39 @@ export interface EncaissementDto {
   banqueId?: UUID;
   banqueNom?: string;
   notes?: string;
+
+  // -- Ajouts de la livraison « catalogue de colonnes » ----------------------
+  // Le spec ne documente aucun de ces treize champs — les taux ci-dessous sont
+  // **mesurés** sur les 332 règlements servis, pas recopiés.
+  /** Libellé du règlement. **La colonne la plus informative du lot** :
+   * 332/332 renseignées, 327 valeurs distinctes, du genre
+   * « CHÈQUE BMCE BANK N° … du 01/09/2026 ». */
+  description?: string;
+  /** 332/332, 70 valeurs distinctes. Agrégeable — c'est un montant, donc une
+   * quantité sommable, pas un taux comme `remise` côté dossiers. */
+  montantBase?: number;
+  /** Le tiers qui **paie**, distinct du tiers du règlement : 332/332 et 94
+   * valeurs distinctes. Masqué de la grille comme les autres `*Id`. */
+  tierPayeurId?: UUID;
+  tierPayeurNom?: string;
+  /** 12/332 seulement. Servi parce que le contrat le publie ; ne pas en faire
+   * une colonne que l'on croit remplie. */
+  recuCode?: string;
+  /** 332/332. */
+  remisAuCentre?: boolean;
+  /** **1/332.** Voir `recuCode`. */
+  dateRemiseAuCentre?: string | null;
+  /** **0/332 mesuré** — la colonne existe et reste vide sur tout le périmètre
+   * servi. Laissée au catalogue plutôt que masquée : c'est au serveur de dire
+   * ce qu'il publie, pas au front de filtrer sur ses propres relevés. */
+  bordereauCode?: string;
+  /** **1/332.** */
+  dateBordereau?: string | null;
+  /** Traçabilité, 332/332 les quatre. */
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
 }
 
 /** Saisie d'un règlement. Le règlement naît toujours au statut `IN_WORK`.

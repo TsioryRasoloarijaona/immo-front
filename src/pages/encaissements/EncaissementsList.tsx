@@ -1,52 +1,42 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Info, RotateCcw, Search, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
+import { Card, EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
-import { DEFAULT_PAGE_SIZE, listEncaissements, listTranches, type EncaissementChampDate } from '../../lib/api';
+import EncaissementTable from '../../components/EncaissementTable';
+import ColumnSelector from '../../components/ColumnSelector';
+import BandeGroupement from '../../components/BandeGroupement';
+import {
+  DEFAULT_PAGE_SIZE,
+  listEncaissements,
+  listEncaissementsGroupes,
+  listTranches,
+  type EncaissementChampDate,
+} from '../../lib/api';
+import { useColonnesVisibles } from '../../lib/colonnes';
+import { DISPOSITION_ENCAISSEMENTS } from '../../lib/dispositions';
+import { useGroupement, useLignesGroupes } from '../../lib/groupement';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
-import { referentielItems, useComptesReferentiel, useDepotsReferentiel, useEntitesReferentiel, useTypesReglement } from '../../lib/referentiels';
+import {
+  referentielItems,
+  useColonnesEncaissements,
+  useComptesReferentiel,
+  useDepotsReferentiel,
+  useEntitesReferentiel,
+  useTypesReglement,
+} from '../../lib/referentiels';
 // `formatCurrency`/`formatDate` ne sont plus importés ici : DataGrid formate
 // lui-même selon le `type` de colonne (MONTANT, DATE), ce qui garantit que les
 // neuf écrans de liste formatent identiquement.
-import { ENCAISSEMENT_ETAT_LABELS, encaissementEtatLabel, encaissementEtatTone } from '../../lib/domain';
+import { ENCAISSEMENT_ETAT_LABELS } from '../../lib/domain';
 import type { EncaissementDto } from '../../types';
-
-/* `valeur` sur les deux colonnes à pastille : sans elle, tri et filtre
-   porteraient sur le code d'état brut (`IN_WORK`) alors que l'utilisateur voit
-   et tape le libellé. On compare toujours ce qui est affiché. */
-const COLONNES: ColonneGrille<EncaissementDto>[] = [
-  {
-    nom: 'etat',
-    libelle: 'État',
-    largeur: 9,
-    valeur: (r) => encaissementEtatLabel(r.etat),
-    rendu: (r) => <Badge tone={encaissementEtatTone(r.etat)}>{encaissementEtatLabel(r.etat)}</Badge>,
-  },
-  { nom: 'dateDocument', libelle: 'Date pièce', type: 'DATE', largeur: 9, classe: 'text-muted-foreground' },
-  { nom: 'dateReglement', libelle: 'Date rgt', type: 'DATE', largeur: 9, classe: 'text-muted-foreground' },
-  { nom: 'tierNom', libelle: 'Tiers', largeur: 16, classe: 'font-medium text-foreground', titre: (r) => r.tierNom || undefined },
-  { nom: 'dossierCode', libelle: 'Dossier', largeur: 11, classe: 'text-muted-foreground', titre: (r) => r.dossierCode || undefined },
-  { nom: 'typeLibelle', libelle: 'Type', largeur: 12, classe: 'text-muted-foreground', titre: (r) => r.typeLibelle || undefined },
-  { nom: 'montantBrut', libelle: 'Montant brut', type: 'MONTANT', largeur: 11, classe: 'text-foreground' },
-  { nom: 'montantBrutRestant', libelle: 'Restant', type: 'MONTANT', largeur: 11, classe: 'text-muted-foreground' },
-  { nom: 'reference', libelle: 'Réf.', largeur: 7, classe: 'text-muted-foreground', titre: (r) => r.reference || undefined },
-  {
-    nom: 'comptabilise',
-    libelle: 'Compt.',
-    type: 'BOOLEEN',
-    largeur: 5,
-    rendu: (r) => <Badge tone={r.comptabilise ? 'success' : 'neutral'}>{r.comptabilise ? 'Oui' : 'Non'}</Badge>,
-  },
-];
 
 type ComptabiliseFilter = 'all' | 'yes' | 'no';
 type ChampDate = EncaissementChampDate;
@@ -91,6 +81,26 @@ export default function EncaissementsList() {
   const [montantA, setMontantA] = useState('');
   const [page, setPage] = useState(0);
 
+  /* Le catalogue remplace les dix colonnes que cet écran déclarait en dur.
+     `masquees` y pèse plus qu'ailleurs : sept des vingt-sept colonnes servies
+     par défaut sont des clés UUID — voir `DISPOSITION_ENCAISSEMENTS`. */
+  const catalogue = useColonnesEncaissements();
+  const colonnes = useColonnesVisibles('encaissements', catalogue.data, DISPOSITION_ENCAISSEMENTS);
+  /* `undefined` tant que la sélection ne s'écarte pas des défauts — le hook
+     porte cette règle. Elle pèse ici : mesuré, les 27 colonnes par défaut
+     coûtent 572–694 ms sur une page de 20, une sélection de 16 en coûte
+     307–378. Décocher allège vraiment la requête. */
+  const colonnesDemandees = colonnes.demandees;
+
+  /* Changer d'axe de groupement, d'ordre ou de granularité change le jeu de
+     résultats : rester page 7 en passant de 38 groupes à 5 afficherait un
+     écran vide sans rien qui l'explique. */
+  const groupement = useGroupement(
+    'encaissements',
+    catalogue.data,
+    useCallback(() => setPage(0), []),
+  );
+
   function resetAndSet<T>(setter: (v: T) => void, v: T) {
     setPage(0);
     setter(v);
@@ -106,6 +116,7 @@ export default function EncaissementsList() {
     setCompteId(null);
     setDepotId(null);
     setTrancheId([]);
+    groupement.reinitialiser();
     setComptabilise('all');
     setChampDate('DATE_PIECE');
     setDateDebut('');
@@ -118,10 +129,10 @@ export default function EncaissementsList() {
   const hasActiveFilters =
     !!search || !!reference || entiteId.length > 0 || typeId.length > 0 || etat.length > 0 || !!compteId || !!depotId || trancheId.length > 0 || comptabilise !== 'all' || champDate !== 'DATE_PIECE' || !!dateDebut || !!dateFin || !!montantDe || !!montantA;
 
-  const { data, loading, error } = useApi(
-    () =>
-      listEncaissements(
-        {
+  /* Les filtres serveur, **mot pour mot les mêmes** pour la liste et pour les
+     groupes. C'est la condition de l'invariant qui rend l'écran lisible : la
+     somme des effectifs des groupes égale le total de la liste. */
+  const filtresServeur = {
           search: debouncedSearch || undefined,
           reference: reference || undefined,
           entiteId: entiteId.length > 0 ? entiteId : undefined,
@@ -136,13 +147,74 @@ export default function EncaissementsList() {
           dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
           montantDe: montantDe ? Number(montantDe) : undefined,
           montantA: montantA ? Number(montantA) : undefined,
-        },
-        { page, size: DEFAULT_PAGE_SIZE },
-      ),
-    [debouncedSearch, reference, entiteId.join(','), typeId.join(','), etat.join(','), compteId, depotId, trancheId.join(','), comptabilise, champDate, dateDebut, dateFin, montantDe, montantA, page],
+  };
+
+  /* Une liste repliée reste **une seule** grille : les en-têtes de groupe s'y
+     intercalent et chacun s'ouvre sur place. La pagination du bas numérote
+     alors les groupes, et chaque groupe pagine ses propres lignes par lots. */
+  const enGroupes = groupement.actif;
+
+  const clesFiltres = [
+    debouncedSearch,
+    reference,
+    entiteId.join(','),
+    typeId.join(','),
+    etat.join(','),
+    compteId,
+    depotId,
+    trancheId.join(','),
+    comptabilise,
+    champDate,
+    dateDebut,
+    dateFin,
+    montantDe,
+    montantA,
+    page,
+  ];
+
+  const liste = useApi(
+    () =>
+      enGroupes
+        ? Promise.resolve(null)
+        : listEncaissements(filtresServeur, { page, size: DEFAULT_PAGE_SIZE }, { colonnes: colonnesDemandees }),
+    [...clesFiltres, colonnesDemandees?.join(',') ?? '', enGroupes, groupement.cleDeps],
     'encaissements',
   );
+
+  /* Pas de `colonnes` ici : un groupe ne porte pas de ligne. */
+  const groupes = useApi(
+    () =>
+      enGroupes && groupement.paramsGroupes
+        ? listEncaissementsGroupes(filtresServeur, groupement.paramsGroupes, { page, size: DEFAULT_PAGE_SIZE })
+        : Promise.resolve(null),
+    [...clesFiltres, enGroupes, groupement.cleDeps],
+    'encaissements-groupes',
+  );
+
+  /* Les lignes d'un groupe déplié : le **même endpoint que la liste**,
+     restreint par `groupeColonne`/`groupeValeur`/`granularite`. Mêmes colonnes
+     demandées — une ligne doit se lire pareil dépliée ou à plat. */
+  const lignesGroupes = useLignesGroupes<EncaissementDto>(
+    (cle, taille) =>
+      listEncaissements(
+        filtresServeur,
+        /* Tri déterministe : « en charger davantage » redemande la page 0 avec
+           une taille plus grande, ce qui suppose que le lot précédent en soit
+           le préfixe. Sans départage, ce n'est pas garanti — voir le même
+           `sort` sur les trois autres écrans. */
+        { page: 0, size: taille, sort: ['docDate,desc', 'id,asc'] },
+        { colonnes: colonnesDemandees, depliage: groupement.depliagePour(cle) },
+      ),
+    `${clesFiltres.join('|')}|${groupement.cleDeps}|${colonnesDemandees?.join(',') ?? ''}`,
+  );
+
+  const data = liste.data;
   const rows = data?.content ?? [];
+  /** La page qui pilote le décompte et la pagination — groupes ou lignes. */
+  const pageAffichee = enGroupes ? groupes.data : liste.data;
+  const loading = enGroupes ? groupes.loading : liste.loading;
+  const error = enGroupes ? groupes.error : liste.error;
+  const vide = enGroupes ? (groupes.data?.content.length ?? 0) === 0 : rows.length === 0;
 
   /* Même source que les filtres Tranche des écrans Dossiers et Prospections :
      un seul appel, 16 tranches dans le portefeuille réel, et `size: 500` pour
@@ -266,13 +338,19 @@ export default function EncaissementsList() {
           </div>
         </Card>
 
-        {loading && !data && <LoadingState />}
+        {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul par
+            construction, si bien qu'un test sur lui rallumerait l'état de
+            chargement plein écran par-dessus des groupes déjà affichés. */}
+        {loading && !pageAffichee && <LoadingState />}
         {error && <ErrorState message={error} />}
-        {!error && data && (
+        {!error && pageAffichee && (
           <ResultsRegion loading={loading}>
-            <div className="flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <div className="flex shrink-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="text-body text-muted-foreground">
-                {(data?.totalElements ?? 0)} encaissement{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+                {enGroupes
+                  ? `${pageAffichee.totalElements} groupe${pageAffichee.totalElements > 1 ? 's' : ''}`
+                  : `${pageAffichee.totalElements} encaissement${pageAffichee.totalElements > 1 ? 's' : ''}`}
               </span>
               {/* Pourquoi cette mention est ici plutôt que nulle part.
                   Un règlement encaissé mais pas encore imputé à une échéance
@@ -291,35 +369,77 @@ export default function EncaissementsList() {
                 Les règlements pas encore imputés à une échéance ne figurent pas dans cette liste.
               </span>
             </div>
-            {rows.length === 0 ? (
-              <EmptyState
-                title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
-                message={
-                  hasActiveFilters
-                    ? 'Aucun encaissement ne correspond aux filtres actifs.'
-                    : "Aucun encaissement n'est encore enregistré."
-                }
-                action={
-                  hasActiveFilters ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
-                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                    </Button>
-                  ) : undefined
-                }
+            {colonnes.catalogueServi.length > 0 && (
+              <ColumnSelector
+                catalogue={colonnes.catalogueServi}
+                visibles={colonnes.visibles}
+                onBasculer={colonnes.basculer}
+                onReinitialiser={colonnes.reinitialiser}
+                estDefaut={colonnes.estDefaut}
               />
-            ) : (
-              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                <DataGrid
-                  rows={rows}
-                  colonnes={COLONNES}
-                  onOuvrir={(id) => navigate(`/encaissements/${id}`)}
-                  libelleLigne={(r) => `Ouvrir le règlement ${r.reference || ''}`.trim()}
-                />
-              </div>
             )}
+            </div>
+            {/* La bande est **hors** du test « y a-t-il des lignes » : un groupe
+                qui ne rend rien doit garder sa sortie vers les groupes, sinon
+                l'écran est sans issue. */}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
+              <BandeGroupement etat={groupement} />
+              {vide ? (
+                <EmptyState
+                  title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
+                  message={
+                    hasActiveFilters
+                      ? 'Aucun encaissement ne correspond aux filtres actifs.'
+                      : "Aucun encaissement n'est encore enregistré."
+                  }
+                  action={
+                    hasActiveFilters ? (
+                      <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
+                        <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                      </Button>
+                    ) : undefined
+                  }
+                />
+              ) : /* Le catalogue porte les libellés d'en-tête : sans lui il n'y
+                     a pas de tableau à dessiner, seulement des lignes sans
+                     colonnes. Mis en cache au niveau du module. */
+              colonnes.colonnes.length > 0 ? (
+                <EncaissementTable
+                  /* En mode groupé la grille ne lit pas `rows` : chaque groupe
+                     porte ses propres lignes. */
+                  rows={enGroupes ? [] : rows}
+                  colonnes={colonnes.colonnes}
+                  onOuvrir={(id) => navigate(`/encaissements/${id}`)}
+                  bandeauRegroupement={false}
+                  groupes={
+                    enGroupes && groupement.colonneGroupee
+                      ? {
+                          liste: groupes.data?.content ?? [],
+                          colonneLibelle: groupement.colonneGroupee.libelle,
+                          agregats: groupement.colonnesAgregats,
+                          estOuvert: lignesGroupes.estOuvert,
+                          etat: lignesGroupes.etat,
+                          basculer: lignesGroupes.basculer,
+                          chargerPlus: lignesGroupes.chargerPlus,
+                          lignesChargees: lignesGroupes.lignesChargees,
+                        }
+                      : undefined
+                  }
+                />
+              ) : catalogue.error ? (
+                <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
+              ) : (
+                <LoadingState />
+              )}
+            </div>
             <div className="shrink-0">
               {data && (
-                <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
+                <Pagination
+                  page={pageAffichee.page}
+                  totalPages={pageAffichee.totalPages}
+                  totalElements={pageAffichee.totalElements}
+                  onPageChange={setPage}
+                />
               )}
             </div>
           </ResultsRegion>

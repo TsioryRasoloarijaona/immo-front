@@ -100,6 +100,10 @@ export const useColonnesDossiers = makeCachedListHook(api.getColonnesDossiers);
 /** Liste des prospects. 47 colonnes, 10 par défaut. */
 export const useColonnesProspects = makeCachedListHook(api.getColonnesProspects);
 
+/** Liste des encaissements. 40 colonnes, 27 par défaut — dont **sept clés
+ * UUID**, d'où le `masquees` le plus fourni des quatre dispositions. */
+export const useColonnesEncaissements = makeCachedListHook(api.getColonnesEncaissements);
+
 /** {id, code, description} → Select `items` shape, description preferred. */
 export function referentielItems(list: ReferentielItemDto[]): { label: string; value: string }[] {
   return list.map((r) => ({ label: r.description || r.code || r.id, value: r.id }));

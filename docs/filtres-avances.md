@@ -350,6 +350,66 @@ Re-mesure du 11/09, inchangee : `statut=CONCRETISATION` rend 68 dossiers,
 rattrape l'ecart — « Remise des clés » se code `REMISE DES CLEFS`, « Annulé »
 se code `ANNULATION`. Il faut le backend.
 
+## Encaissements : catalogue de colonnes et groupement (14/09)
+
+L'ecran recoit le dispositif complet des trois autres listes : catalogue servi
+par le serveur, selecteur, et groupement depliant avec ses totaux. Il declarait
+jusqu'ici **dix colonnes en dur**.
+
+Catalogue mesure : **40 colonnes**, 27 `parDefaut`, 35 groupables, 2
+agregeables (`montantBrut` et `montantBase`, deux MONTANT — des quantites, rien
+a ajouter a `AGREGATS_SANS_SENS`). Cinq groupes : IDENTITE, ACTEURS, FINANCIER,
+**SUIVI** (nouveau) et AUDIT.
+
+### Le piege : sept cles UUID en vue par defaut
+
+`dossierId`, `tierId`, `typeId`, `entiteId`, `compteId`, `depotId`, `banqueId`
+sont **`parDefaut: true`**, plus `id` et `tierPayeurId` cochables. Sans
+`masquees`, la vue par defaut aurait affiche sept colonnes d'identifiants.
+C'est le meme ecart qu'ailleurs — le `parDefaut` du serveur decrit la charge
+utile, pas la grille — mais a sa plus grande echelle jusqu'ici.
+
+Apres masquage : **19 colonnes visibles**, verifie sans aucune valeur UUID
+servie hors `id`.
+
+### Demander moins de colonnes est plus rapide
+
+Mesure sur une page de 20 : les 27 colonnes par defaut coutent **572-694 ms**,
+une selection de 16 en coute **307-378**. Decocher n'est donc pas qu'un confort
+d'affichage sur cet ecran.
+
+### inclureSansValeur : la demonstration la plus nette a ce jour
+
+Le defaut serveur (`false`) retire le groupe des lignes sans valeur. Mesure sur
+cet ecran :
+
+| groupement | defaut | avec `true` |
+|---|---|---|
+| `compteCode` | **4 lignes sur 332** | 332 |
+| `tierNom` | 332 | 332 |
+| `etat` | 332 | 332 |
+
+Grouper par compte aurait donc affiche 4 reglements sur 332, en silence.
+`useGroupement` envoie toujours `true` : rien a faire dans l'ecran.
+
+### Verifications
+
+Somme des effectifs = `totalElements` sur cinq axes, filtre Tranche et
+recherche compris ; depliage exact par etat ; aucune valeur UUID dans la vue
+par defaut. 8 controles, tous verts.
+
+Deux colonnes que le serveur documente comme peu peuplees et qu'il ne faut pas
+prendre pour des filtres utiles : `depotId`/`depotCode` a **0 ligne sur 643**,
+`compteId`/`compteCode` a 12. Mesure des treize nouveaux champs du DTO :
+`description` 332/332 avec **327 valeurs distinctes** (la plus informative du
+lot), `montantBase` et `tierPayeurNom` 332/332, mais `recuCode` 12/332,
+`dateRemiseAuCentre` et `dateBordereau` 1/332, et `bordereauCode` **0/332**.
+Laissees au catalogue plutot que masquees : c'est au serveur de dire ce qu'il
+publie.
+
+**Les treize champs n'ont aucune description springdoc** — les taux ci-dessus
+sont mesures, pas lus. A signaler au backend (regle 10).
+
 ## Encaissements : filtre par tranche, et deux exclusions a connaitre (14/09)
 
 `GET /api/encaissements` gagne `trancheId` (repetable, OR). Le filtre traverse
