@@ -689,7 +689,7 @@ export default function DataGrid<T extends { id: string }>({
                             ({formatNumber(g.nombre)} item{g.nombre > 1 ? 's' : ''})
                           </span>
                           {groupes.agregats.length > 0 && (
-                            <span className="ml-auto flex shrink-0 items-center gap-3 pl-4 text-micro">
+                            <span className="flex shrink-0 items-center gap-3 pl-4 text-micro">
                               {groupes.agregats.map((a) => (
                                 <span key={a.jeton}>
                                   <span className="text-muted-foreground">{libelleAgregat(a)} : </span>
@@ -770,7 +770,7 @@ export default function DataGrid<T extends { id: string }>({
                   <span className="shrink-0 font-semibold">
                     Total sur {formatNumber(groupes.nombreTotal)} ligne(s)
                   </span>
-                  <span className="ml-auto flex shrink-0 items-center gap-3">
+                  <span className="flex shrink-0 items-center gap-3">
                     {groupes.agregats.map((a) => (
                       <span key={a.jeton}>
                         <span className="text-muted-foreground">{libelleAgregat(a)} : </span>
