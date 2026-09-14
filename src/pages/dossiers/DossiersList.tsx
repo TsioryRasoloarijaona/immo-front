@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, Eye, Folder, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -261,6 +261,13 @@ export default function DossiersList() {
    * groupes dépliés. Sans ça, cocher dans un groupe ne retrouverait pas le
    * dossier et la puce de sélection afficherait un UUID. */
   const dossiersVisibles = enGroupes ? lignesGroupes.lignesChargees : dossiers;
+
+  /* « Tout cocher » faisait un `find` par identifiant sur la liste visible,
+     soit 500 x 500 comparaisons sur le lot que cet ecran charge. */
+  const dossiersParId = useMemo(
+    () => new Map(dossiersVisibles.map((d) => [d.id, d])),
+    [dossiersVisibles],
+  );
 
   // Aggregate fetch (once, 16 tranches in the real portfolio per CLAUDE.md) —
   // populates the Tranche dropdown. Independent of the dossiers query above.
@@ -583,7 +590,7 @@ export default function DossiersList() {
                         ? {
                             ids: selectedIds,
                             onToggle: (id) => {
-                              const d = dossiersVisibles.find((x) => x.id === id);
+                              const d = dossiersParId.get(id);
                               if (d) toggleSelected(d);
                             },
                             onToggleAll: (ids) => {
@@ -591,7 +598,7 @@ export default function DossiersList() {
                               setSelectedLabels((prev) => {
                                 const next = { ...prev };
                                 for (const id of ids) {
-                                  const d = dossiersVisibles.find((x) => x.id === id);
+                                  const d = dossiersParId.get(id);
                                   if (d) next[id] = d.code || d.clientNom || d.id;
                                 }
                                 return next;
