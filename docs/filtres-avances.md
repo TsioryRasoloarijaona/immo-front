@@ -350,6 +350,61 @@ Re-mesure du 11/09, inchangee : `statut=CONCRETISATION` rend 68 dossiers,
 rattrape l'ecart — « Remise des clés » se code `REMISE DES CLEFS`, « Annulé »
 se code `ANNULATION`. Il faut le backend.
 
+## Audit de conformite types.ts vs spec (14/09)
+
+`types.ts` est un miroir des DTO **maintenu a la main** : c'est la que la derive
+se loge, et elle ne se voit ni au tsc ni au build puisque les champs sont
+optionnels. Confrontation exhaustive des **99 interfaces** qui ont un schema
+homonyme au spec.
+
+Resultat : **4 derives**, dont 3 reelles.
+
+### DossierDetailDto : trois champs fantomes, deux lignes mortes
+
+`titreFoncier`, `presentationCode` et `presentationLibelle` etaient declares sur
+le dossier. Le serveur les a deplaces sur `ArticleSummaryDto`. Mesure avant
+correction : **absents de la charge utile sur 25 fiches sur 25** — pas vides,
+absents. Or la fiche affichait deux lignes qui les lisaient : elles montraient
+un tiret en permanence, alors que `articles[0].presentationLibelle` est
+renseigne **25/25 dans la meme reponse**, un cran plus bas.
+
+Les deux lignes lisent desormais l'article. Le front declarait donc trois champs
+de trop sur le dossier **et** trois de moins sur l'article : la meme erreur vue
+des deux cotes.
+
+### Un ecart serveur a signaler sur titreFoncier
+
+Deux chemins divergent. La colonne `articleTitreFoncier` de la liste des
+dossiers le sert sur 33 dossiers sur 116. Sur huit de ces dossiers-la, la fiche
+ne le porte que **cinq fois** — les trois autres n'ont pas la cle dans leur
+article. Quand les deux sont presents, ils sont identiques. A confirmer cote
+backend : meme donnee, deux chemins, taux differents.
+
+### ProspectionDetailDto
+
+`typeProspectId` manquait (100 % cote serveur). Ajoute, sans consommateur pour
+l'instant — il n'y a pas de referentiel des types de tiers vers lequel lier.
+
+### CreerReglementRequest : la derive restante est voulue
+
+L'audit signale `dateReglement` comme manquant. **Ne pas l'ajouter** : le
+commentaire de `types.ts` le dit depuis longtemps, la fournir vaut 400. Elle se
+renseigne au passage a POINTED, qui exige une preuve de paiement — impossible
+avant que le reglement existe.
+
+A noter tout de meme : **le spec la publie alors que le serveur la refuse.** Le
+contrat et le comportement se contredisent sur ce champ ; c'est au backend de
+trancher, pas au front de suivre le spec a l'aveugle.
+
+### Les endpoints « sans appelant » de FEATURES.md sont faux
+
+L'index en annonce 17. Verification un par un contre `api.ts` : **16 sont bien
+appeles**, y compris `POST /api/auth/connexion` et les quatre catalogues de
+colonnes. Le detecteur a un defaut de correspondance sur les chemins a
+parametres. Un seul est reellement sans appelant :
+`GET /api/articles/{id}/sous-articles`. Outil a corriger — il est cense
+signaler des trous, il en invente seize.
+
 ## Agregats : cinq fonctions par colonne, et le total plein perimetre (14/09)
 
 Refactor **additif** : 166 operations inchangees, aucun endpoint touche. Mais

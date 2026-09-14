@@ -909,6 +909,10 @@ export interface ProspectionDetailDto {
    * `typeProspectionCode`, et ce n'est pas la même notion : celui-ci qualifie
    * le prospect, l'autre le document. Le piège est hérité de la liste. */
   typeProspect?: string | null;
+  /** Identifiant du type de tiers. **100 %.** Déclaré parce qu'il est au
+   * contrat ; aucun écran ne le consomme encore, faute de référentiel des
+   * types de tiers vers lequel lier. */
+  typeProspectId?: UUID | null;
   typeProspectLibelle?: string | null;
   /** Mobile de la fiche tiers. L'indicatif **n'a pas de `+`** — c'est `212`.
    * L'affichage se compose. */
@@ -1429,6 +1433,20 @@ export interface ArticleSummaryDto {
   immeubleId?: UUID;
   immeubleCode?: string;
   immeubleLibelle?: string;
+  /** Type de présentation du lot — la case « Présentation » de l'écran
+   * légataire. **25/25 mesuré** sur les articles de dossier, contrairement aux
+   * 23,2 % qu'annonçait l'ancien champ homonyme de `DossierDetailDto`. */
+  presentationCode?: string | null;
+  presentationLibelle?: string | null;
+  /** Numéro de titre foncier du lot.
+   *
+   * **Deux chemins serveur divergent ici, et il faut le savoir.** La colonne
+   * `articleTitreFoncier` de la liste des dossiers le sert sur 33 dossiers sur
+   * 116 ; sur huit de ces dossiers-là, la fiche ne le porte que cinq fois —
+   * les trois autres n'ont simplement pas la clé dans leur article. Quand les
+   * deux sont présents, ils sont **identiques**. Affichage conditionnel donc,
+   * et ne pas conclure d'une absence ici qu'il n'y en a pas. */
+  titreFoncier?: string | null;
 }
 
 export interface DossierListItemDto {
@@ -1673,11 +1691,15 @@ export interface DossierDetailDto {
    * dossiers : **ne pas en déduire un taux nul**, c'est une absence de saisie.
    * Mesuré à `0.2` sur l'échantillon, donc une fraction elle aussi. */
   tauxTVA?: number;
-  /** Numéro de titre foncier du lot. **69,6 %** — affichage conditionnel. */
-  titreFoncier?: string | null;
-  /** Type de présentation du lot — la case « Présentation ». **23,2 %**. */
-  presentationCode?: string | null;
-  presentationLibelle?: string | null;
+  /* `titreFoncier`, `presentationCode` et `presentationLibelle` ont été
+     déclarés ici et n'y sont plus : ce sont des attributs **du lot**, et le
+     serveur les a déplacés sur `ArticleSummaryDto`.
+
+     Mesuré avant de les retirer — ils étaient absents de la charge utile sur
+     **25 fiches sur 25**, pas seulement vides. Les deux lignes de la fiche qui
+     les affichaient montraient donc un tiret en permanence, alors que
+     `articles[0].presentationLibelle` est renseigné à 25/25 dans la même
+     réponse. Elles lisent désormais l'article. */
   /** Date de validité du statut courant — la date à droite du statut sur
    * l'écran légataire. **11,5 %** : elle n'a de sens que sur les statuts qui
    * expirent, la réservation au premier chef. */

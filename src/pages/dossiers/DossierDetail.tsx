@@ -1831,16 +1831,22 @@ export default function DossierDetail() {
                   aide="Le détail complet est dans l'onglet « Articles »."
                 />
                 <ChampLecture label="Catégorie" valeur={premierArticle?.categorieLibelle || premierArticle?.categorieCode} />
+                {/* Les deux lisent l'**article**, pas le dossier. Les champs
+                    homonymes de `DossierDetailDto` ont été retirés du contrat
+                    serveur : mesurés absents de la charge utile sur 25 fiches
+                    sur 25, ces deux lignes affichaient un tiret en permanence
+                    alors que la donnée était dans la même réponse, un cran
+                    plus bas. */}
                 <ChampLecture
                   label="Titre foncier"
-                  valeur={d.titreFoncier}
-                  aide="Renseigné sur 69,6 % des dossiers réels."
+                  valeur={premierArticle?.titreFoncier}
+                  aide="Numéro de titre foncier du lot. Souvent absent : 33 dossiers sur 116."
                 />
 
                 <ChampLecture
                   label="Présentation"
-                  valeur={d.presentationLibelle || d.presentationCode}
-                  aide="Type de présentation du lot. 23,2 % des dossiers."
+                  valeur={premierArticle?.presentationLibelle || premierArticle?.presentationCode}
+                  aide="Type de présentation du lot."
                 />
                 <ChampLecture label="Type" valeur={premierArticle?.typeLibelle || premierArticle?.typeCode} />
                 <ChampLecture label="Surface" valeur={premierArticle?.area ? `${premierArticle.area} m²` : null} />
