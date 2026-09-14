@@ -350,6 +350,43 @@ Re-mesure du 11/09, inchangee : `statut=CONCRETISATION` rend 68 dossiers,
 rattrape l'ecart — « Remise des clés » se code `REMISE DES CLEFS`, « Annulé »
 se code `ANNULATION`. Il faut le backend.
 
+## Encaissements : filtre par tranche, et deux exclusions a connaitre (14/09)
+
+`GET /api/encaissements` gagne `trancheId` (repetable, OR). Le filtre traverse
+reglement -> ligne -> echeance -> article : un reglement remonte des qu'**une**
+de ses echeances porte sur un lot de la tranche.
+
+Verifie contre le serveur : 332 reglements au total, ARS 287 et APF 45, les
+trois autres tranches a 0. Les cinq tranches partitionnent donc exactement le
+jeu, et `trancheId=ARS&trancheId=APF` rend bien 332 — le OR fonctionne, et
+aucun reglement ne chevauche deux tranches sur les donnees actuelles. Un UUID
+inconnu rend 0 en HTTP 200, pas une erreur.
+
+### Ce que la liste ne sert pas, et qu'aucun filtre ne ramenera
+
+La description de l'endpoint s'est enrichie de deux exclusions, toutes deux
+alignees sur l'ecran legataire :
+
+1. les **decaissements** (`StlSettlement.IsCredit` faux — typiquement un
+   remboursement a montant negatif) ;
+2. les **encaissements non affectes** — un reglement encaisse mais pas encore
+   impute a une echeance n'a aucune ligne, donc ne satisfait pas le critere
+   « rattache a une echeance de dossier de vente » sur lequel la liste entiere
+   repose.
+
+La seconde compte : le spec la chiffre a **16 pieces pour 6 435 400 DH**,
+toutes a l'etat IN_WORK, et **l'ecran legataire les affiche**. Un operateur qui
+compare les deux totaux constate donc un ecart de 6,4 MDH et conclut a un bug.
+
+L'ecran porte desormais une mention sous le compteur : « Les reglements pas
+encore imputes a une echeance ne figurent pas dans cette liste. » Sans chiffre —
+la liste ne les voit pas, et recopier une mesure qu'on ne peut pas rafraichir
+serait pire que de n'en donner aucune.
+
+Les servir suppose de changer le critere « Vente » cote backend : decision
+produit en attente (`instructions/FEATURE-encaissements-conformite-legataire.md`
+§4), pas un filtre trop strict qu'on pourrait desserrer cote front.
+
 ## Livraison spec : inclureSansValeur, article et delais (11/09)
 
 ### Le piege : un defaut serveur qui retire des lignes en silence

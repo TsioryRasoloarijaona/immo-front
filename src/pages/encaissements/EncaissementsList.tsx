@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RotateCcw, Search, Wallet } from 'lucide-react';
+import { Info, RotateCcw, Search, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
@@ -10,7 +10,7 @@ import { Input } from '../../components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
-import { DEFAULT_PAGE_SIZE, listEncaissements, type EncaissementChampDate } from '../../lib/api';
+import { DEFAULT_PAGE_SIZE, listEncaissements, listTranches, type EncaissementChampDate } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { referentielItems, useComptesReferentiel, useDepotsReferentiel, useEntitesReferentiel, useTypesReglement } from '../../lib/referentiels';
@@ -82,6 +82,7 @@ export default function EncaissementsList() {
   const [etat, setEtat] = useState<string[]>([]);
   const [compteId, setCompteId] = useState<string | null>(null);
   const [depotId, setDepotId] = useState<string | null>(null);
+  const [trancheId, setTrancheId] = useState<string[]>([]);
   const [comptabilise, setComptabilise] = useState<ComptabiliseFilter>('all');
   const [champDate, setChampDate] = useState<ChampDate>('DATE_PIECE');
   const [dateDebut, setDateDebut] = useState('');
@@ -104,6 +105,7 @@ export default function EncaissementsList() {
     setEtat([]);
     setCompteId(null);
     setDepotId(null);
+    setTrancheId([]);
     setComptabilise('all');
     setChampDate('DATE_PIECE');
     setDateDebut('');
@@ -114,7 +116,7 @@ export default function EncaissementsList() {
 
   // Drives the empty state's wording and its escape hatch — see ArticlesList.
   const hasActiveFilters =
-    !!search || !!reference || entiteId.length > 0 || typeId.length > 0 || etat.length > 0 || !!compteId || !!depotId || comptabilise !== 'all' || champDate !== 'DATE_PIECE' || !!dateDebut || !!dateFin || !!montantDe || !!montantA;
+    !!search || !!reference || entiteId.length > 0 || typeId.length > 0 || etat.length > 0 || !!compteId || !!depotId || trancheId.length > 0 || comptabilise !== 'all' || champDate !== 'DATE_PIECE' || !!dateDebut || !!dateFin || !!montantDe || !!montantA;
 
   const { data, loading, error } = useApi(
     () =>
@@ -125,6 +127,7 @@ export default function EncaissementsList() {
           entiteId: entiteId.length > 0 ? entiteId : undefined,
           typeId: typeId.length > 0 ? typeId : undefined,
           etat: etat.length > 0 ? etat : undefined,
+          trancheId: trancheId.length > 0 ? trancheId : undefined,
           compteId: compteId || undefined,
           depotId: depotId || undefined,
           comptabilise: comptabilise === 'yes' ? true : comptabilise === 'no' ? false : undefined,
@@ -136,10 +139,19 @@ export default function EncaissementsList() {
         },
         { page, size: DEFAULT_PAGE_SIZE },
       ),
-    [debouncedSearch, reference, entiteId.join(','), typeId.join(','), etat.join(','), compteId, depotId, comptabilise, champDate, dateDebut, dateFin, montantDe, montantA, page],
+    [debouncedSearch, reference, entiteId.join(','), typeId.join(','), etat.join(','), compteId, depotId, trancheId.join(','), comptabilise, champDate, dateDebut, dateFin, montantDe, montantA, page],
     'encaissements',
   );
   const rows = data?.content ?? [];
+
+  /* Même source que les filtres Tranche des écrans Dossiers et Prospections :
+     un seul appel, 16 tranches dans le portefeuille réel, et `size: 500` pour
+     ne pas dépendre de la pagination. Indépendant de la requête principale. */
+  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
+  const trancheItems = (tranches.data?.content ?? []).map((t) => ({
+    label: t.description || t.code || t.id,
+    value: t.id,
+  }));
 
   const entiteItems = referentielItems(entites.data);
   const typeItems = referentielItems(types.data);
@@ -180,6 +192,11 @@ export default function EncaissementsList() {
               <MultiSelectDropdown label="Entité" placeholder="Toutes" value={entiteId} onChange={(v) => resetAndSet(setEntiteId, v)} items={entiteItems} />
               <MultiSelectDropdown label="Type" placeholder="Tous" value={typeId} onChange={(v) => resetAndSet(setTypeId, v)} items={typeItems} />
               <MultiSelectDropdown label="État" placeholder="Tous" value={etat} onChange={(v) => resetAndSet(setEtat, v)} items={ETAT_ITEMS} />
+              {/* Le filtre traverse règlement → ligne → échéance → article :
+                  un règlement remonte dès qu'une seule de ses échéances porte
+                  sur un lot de la tranche, et un règlement à cheval sur deux
+                  tranches remonte pour les deux. */}
+              <MultiSelectDropdown label="Tranche" placeholder="Toutes" value={trancheId} onChange={(v) => resetAndSet(setTrancheId, v)} items={trancheItems} />
               <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
                 <RotateCcw data-icon="inline-start" /> Réinitialiser
               </Button>
@@ -253,8 +270,26 @@ export default function EncaissementsList() {
         {error && <ErrorState message={error} />}
         {!error && data && (
           <ResultsRegion loading={loading}>
-            <div className="shrink-0 text-body text-muted-foreground">
-              {(data?.totalElements ?? 0)} encaissement{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+            <div className="flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+              <span className="text-body text-muted-foreground">
+                {(data?.totalElements ?? 0)} encaissement{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+              </span>
+              {/* Pourquoi cette mention est ici plutôt que nulle part.
+                  Un règlement encaissé mais pas encore imputé à une échéance
+                  n'a aucune ligne, donc ne satisfait pas le critère « rattaché
+                  à une échéance de dossier de vente » sur lequel la liste
+                  repose : l'API ne le sert jamais, aucun filtre ne le
+                  ramènera. L'écran légataire, lui, les affiche.
+
+                  Sans cette phrase, un opérateur qui compare les deux totaux
+                  constate un écart et conclut à un bug. Le chiffre n'est pas
+                  repris — le spec l'établit à 16 pièces pour 6 435 400 DH,
+                  mais cette liste ne les voit pas et l'afficher reviendrait à
+                  recopier une mesure qu'on ne peut pas rafraîchir. */}
+              <span className="inline-flex items-center gap-1 text-micro text-muted-foreground">
+                <Info aria-hidden className="size-3 shrink-0" />
+                Les règlements pas encore imputés à une échéance ne figurent pas dans cette liste.
+              </span>
             </div>
             {rows.length === 0 ? (
               <EmptyState

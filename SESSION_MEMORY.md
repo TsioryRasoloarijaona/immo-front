@@ -1,5 +1,5 @@
 # Session Memory
-_Last updated: 2026-09-11T18:00:00Z_
+_Last updated: 2026-09-14T10:00:00Z_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
@@ -85,6 +85,7 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 | 147 | `git-flow sync` refuse : « local main has diverged » | Fixed | L'utilisateur avait commité le snapshot de spec **directement sur main** (`10c54b3 update docs`), pendant que ma branche portait le même. Contenu vérifié **identique octet pour octet** à `origin/main` → `reset --hard origin/main`, rien perdu |
 | 145 | **`inclureSansValeur` : le serveur cesse de servir le groupe des lignes vides, par defaut** — grouper les dossiers par avocat n'affichait plus que 23 lignes sur 116, en silence | Fixed | `inclureSansValeur: true` toujours envoye ; invariant somme = totalElements restaure et reverifie |
 | 146 | `ARTICLE` / `DELAIS` inconnus de `LIBELLES_GROUPE` ; `articleId` / `responsableVenteId` cochables et afficheraient des UUID | Fixed | Libellés ajoutés, les deux `*Id` dans `masquees` (bug #126 qui revient) |
+| 149 | Liste Encaissements : **6 435 400 DH d'encaissements non affectés absents**, que l'écran légataire affiche — un opérateur qui compare les totaux conclurait à un bug | Workaround | Mention sous le compteur ; servir ces pièces est une décision produit backend en attente |
 | 148 | **Le seuil de 30 j est annulé — toute relance échue repasse en rouge** (demande utilisateur, confirmée par la mesure #144) | Fixed | `relanceTardive` → `relanceEnRetard`, seuil supprimé. Page 1 : 17/20 en rouge. **Piste réglée, ne pas la rouvrir sans remesurer par page** |
 | 144 | Seuil de 30 j sur le fond rouge : mesure **apres** livraison, la liste etant triee par date d'alerte decroissante, **la page 1 passe de 17/20 a 0/20 rouge** — le repere se deplace aux pages 6+ | Open (constat) | Livre comme choisi ; relev̀e par page dans `docs/filtres-avances.md` pour arbitrer |
 | 143 | `PreProspectionsList` affirme en commentaire que `/api/pre-prospections` n'accepte pas `?colonnes=` — **mesuré, il l'accepte et l'honore** | Open (constat) | Non touché ; l'écran ne s'en sert pas. Commentaire à corriger, optimisation à prendre |

@@ -1472,6 +1472,11 @@ export function listEncaissements(
     compteId?: UUID;
     depotId?: UUID;
     dossierId?: UUID;
+    /** Répétable, OR. Un règlement remonte dès qu'**une** de ses échéances
+     * porte sur un lot de l'une des tranches citées — le filtre traverse donc
+     * règlement → ligne → échéance → article, et un règlement à cheval sur
+     * deux tranches remonte pour les deux. Absent : toutes. */
+    trancheId?: UUID[];
     tierId?: UUID;
     reference?: string;
     search?: string;
@@ -1488,6 +1493,29 @@ export function listEncaissements(
 ): Promise<PageDto<EncaissementDto>> {
   return request('GET', '/api/encaissements', { query: withPageable(params, pageable) });
 }
+
+/** Ce que `GET /api/encaissements` **ne sert pas**, et qu'aucun filtre ne
+ * ramènera.
+ *
+ * Deux exclusions, toutes deux alignées sur l'écran légataire et toutes deux
+ * documentées côté serveur :
+ *
+ * 1. les **décaissements** (`StlSettlement.IsCredit` faux — typiquement un
+ *    remboursement à montant négatif) ;
+ * 2. les **encaissements non affectés** — un règlement encaissé mais pas
+ *    encore imputé à une échéance n'a aucune ligne, donc ne satisfait pas le
+ *    critère « rattaché à une échéance de dossier de vente » sur lequel la
+ *    liste entière repose.
+ *
+ * La seconde compte : le spec la chiffre à **16 pièces pour 6 435 400 DH**,
+ * toutes à l'état `IN_WORK`, et l'écran légataire les affiche. Un opérateur
+ * qui compare les deux totaux trouvera donc un écart, et rien dans une liste
+ * filtrée ne lui dira pourquoi — d'où la mention portée par l'écran.
+ *
+ * Les servir suppose de changer le critère « Vente » côté backend : décision
+ * produit en attente, pas un filtre trop strict qu'on pourrait desserrer
+ * d'ici. Ne pas tenter de les récupérer autrement. */
+export const ENCAISSEMENTS_NON_AFFECTES_ABSENTS = true;
 
 export const getEntitesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/entites');
 export const getComptesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/comptes');
