@@ -177,6 +177,13 @@ enfin réelle, sur les trois listes dont le serveur sait grouper.
 
 - `src/lib/groupement.ts` — **nouveau**. `useGroupement`, `AGREGATS_SANS_SENS`,
   `GROUPEMENTS_SANS_INTERET`, dérivation de `paramsGroupes`/`depliage`.
+- `src/components/RechercheMenu.tsx` — **nouveau**. La barre de recherche
+  collante des menus déroulants, extraite de `ColumnSelector` quand la bande de
+  groupement en a eu besoin. **Ce qui justifie l'extraction, c'est l'effet
+  clavier**, pas le balisage : Base UI vole chaque frappe via sa recherche
+  par lettre, et le correctif doit être un écouteur **natif posé sur le champ**
+  — un `onKeyDown` React s'exécute trop tard, React déléguant à la racine.
+  Vérifié au grep du bundle : le jeu de touches n'existe qu'en un exemplaire.
 - `src/components/BandeGroupement.tsx` — **nouveau**. La bande réelle : menu de
   colonnes par sections, granularité (DATE seulement), ordre, Σ, dégrouper.
   Prop `bloque` pour la raison d'indisponibilité.
