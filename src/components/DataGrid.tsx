@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useDeferredValue, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, Sigma, SquareMinus, SquarePlus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './ui/table';
 import { formatCurrency, formatDate, formatNumber } from '../lib/format';
@@ -283,6 +283,12 @@ export default function DataGrid<T extends { id: string }>({
   const aDroite = (c: ColonneGrille<T>) => NUMERIQUES.includes(typeDe(c));
 
   const [filtres, setFiltres] = useState<Record<string, string>>({});
+  /* La ligne de filtres refiltre et retrie **toute la page chargee** a chaque
+     frappe — jusqu'a 500 lignes sur les dossiers — puis rerend le tableau. Fait
+     dans la foulee de la touche, c'est l'input qui attend. Les champs lisent
+     donc `filtres`, immediat, et le tableau lit `filtresDiff`, que React
+     recalcule sans bloquer la saisie. */
+  const filtresDiff = useDeferredValue(filtres);
   const [tri, setTri] = useState<{ nom: string; sens: 'asc' | 'desc' } | null>(null);
   const [sommes, setSommes] = useState<Set<string>>(new Set());
   const [cocheesLocales, setCocheesLocales] = useState<Set<string>>(new Set());
@@ -291,6 +297,11 @@ export default function DataGrid<T extends { id: string }>({
   const cochees = selection?.ids ?? cocheesLocales;
   const [depliee, setDepliee] = useState<string | null>(null);
 
+  /* `colonnes.find(...)` etait appele par agregat **et** par groupe : sur un
+     ecran replie, O(groupes x agregats x colonnes) a chaque rendu. L'index le
+     ramene a une lecture. */
+  const parNom = useMemo(() => new Map(colonnes.map((c) => [c.nom, c])), [colonnes]);
+
   /* Le filtre et le tri de la grille, isolés pour pouvoir s'appliquer soit à
      la liste plate, soit **à chaque groupe séparément**. Trier à l'intérieur
      d'un groupe est le seul tri qui ait un sens une fois la liste repliée :
@@ -298,18 +309,27 @@ export default function DataGrid<T extends { id: string }>({
      sortirait. */
   const appliquer = useCallback(
     (source: T[]) => {
-      const actifs = colonnes.filter((c) => (filtres[c.nom] ?? '').trim() !== '');
+      /* L'aiguille est invariante sur toute la passe : la normaliser ici plutot
+         que dans le predicat evite un `trim().toLowerCase()` par ligne et par
+         colonne filtree. Le meme parcours reconnait les colonnes actives, la
+         ou il en fallait deux. */
+      const actifs: { c: ColonneGrille<T>; aiguille: string }[] = [];
+      for (const c of colonnes) {
+        const aiguille = (filtresDiff[c.nom] ?? '').trim().toLowerCase();
+        if (aiguille !== '') actifs.push({ c, aiguille });
+      }
       const filtrees = actifs.length
         ? source.filter((r) =>
-            actifs.every((c) =>
-              texteComparable(r, c).toLowerCase().includes(filtres[c.nom].trim().toLowerCase()),
-            ),
+            actifs.every(({ c, aiguille }) => texteComparable(r, c).toLowerCase().includes(aiguille)),
           )
         : source;
       if (!tri) return filtrees;
-      const col = colonnes.find((c) => c.nom === tri.nom);
+      const col = parNom.get(tri.nom);
       if (!col) return filtrees;
       const signe = tri.sens === 'asc' ? 1 : -1;
+      /* Le type de la colonne ne change pas d'une comparaison a l'autre : le
+         tester dans le comparateur le recalculait O(n log n) fois. */
+      const numerique = NUMERIQUES.includes(typeDe(col));
       return [...filtrees].sort((a, b) => {
         const va = valeurDe(a, col);
         const vb = valeurDe(b, col);
@@ -317,11 +337,11 @@ export default function DataGrid<T extends { id: string }>({
         // de visite » veut dire « les visités d'abord », pas « les nulls ».
         if (va === null || va === undefined || va === '') return 1;
         if (vb === null || vb === undefined || vb === '') return -1;
-        if (NUMERIQUES.includes(typeDe(col))) return (Number(va) - Number(vb)) * signe;
+        if (numerique) return (Number(va) - Number(vb)) * signe;
         return String(va).localeCompare(String(vb), 'fr') * signe;
       });
     },
-    [colonnes, filtres, tri],
+    [colonnes, parNom, filtresDiff, tri],
   );
 
   const visibles = useMemo(() => appliquer(rows), [appliquer, rows]);
@@ -367,20 +387,33 @@ export default function DataGrid<T extends { id: string }>({
   /* Σ : somme pour les colonnes numériques, décompte des valeurs renseignées
      sinon — le comportement de la grille d'origine, où Σ sur une colonne
      texte affiche « Count ». */
-  const resume = (c: ColonneGrille<T>): string => {
-    if (NUMERIQUES.includes(typeDe(c))) {
-      const total = sommables.reduce((s, r) => {
-        const v = valeurDe(r, c);
-        return s + (typeof v === 'number' ? v : 0);
-      }, 0);
-      return typeDe(c) === 'MONTANT' ? formatCurrency(total) : formatNumber(total);
+  /* Le pied Sigma reparcourait toutes les lignes chargees **par colonne
+     sommee**, a chaque rendu — donc a chaque frappe dans la ligne de filtres.
+     Calcule une fois, et seulement pour les colonnes reellement cochees. */
+  const resumes = useMemo(() => {
+    const m = new Map<string, string>();
+    if (sommes.size === 0) return m;
+    for (const c of colonnes) {
+      if (!sommes.has(c.nom)) continue;
+      const type = typeDe(c);
+      if (NUMERIQUES.includes(type)) {
+        let total = 0;
+        for (const r of sommables) {
+          const v = valeurDe(r, c);
+          if (typeof v === 'number') total += v;
+        }
+        m.set(c.nom, type === 'MONTANT' ? formatCurrency(total) : formatNumber(total));
+      } else {
+        let renseignees = 0;
+        for (const r of sommables) {
+          const v = valeurDe(r, c);
+          if (v !== null && v !== undefined && v !== '') renseignees++;
+        }
+        m.set(c.nom, formatNumber(renseignees));
+      }
     }
-    const renseignees = sommables.filter((r) => {
-      const v = valeurDe(r, c);
-      return v !== null && v !== undefined && v !== '';
-    }).length;
-    return formatNumber(renseignees);
-  };
+    return m;
+  }, [colonnes, sommes, sommables]);
 
   const cliquable = Boolean(onOuvrir);
 
@@ -516,7 +549,7 @@ export default function DataGrid<T extends { id: string }>({
           {cochees.size > 0 && <span className="shrink-0">{cochees.size} sélectionnée(s)</span>}
           {tri && (
             <button type="button" className="shrink-0 truncate hover:text-foreground hover:underline" onClick={() => setTri(null)}>
-              Tri sur « {colonnes.find((c) => c.nom === tri.nom)?.libelle ?? tri.nom} » — retirer
+              Tri sur « {parNom.get(tri.nom)?.libelle ?? tri.nom} » — retirer
             </button>
           )}
           {sommes.size > 0 && (
@@ -696,7 +729,7 @@ export default function DataGrid<T extends { id: string }>({
                                   <span className="font-semibold tabular-nums">
                                     {formatAgregat(
                                       g.agregats?.[a.jeton],
-                                      colonnes.find((c) => c.nom === a.colonne.nom),
+                                      parNom.get(a.colonne.nom),
                                       a.fonction,
                                       a.colonne.type,
                                     )}
@@ -777,7 +810,7 @@ export default function DataGrid<T extends { id: string }>({
                         <span className="font-semibold tabular-nums">
                           {formatAgregat(
                             groupes.totaux?.[a.jeton],
-                            colonnes.find((c) => c.nom === a.colonne.nom),
+                            parNom.get(a.colonne.nom),
                             a.fonction,
                             a.colonne.type,
                           )}
@@ -802,7 +835,7 @@ export default function DataGrid<T extends { id: string }>({
                   className={cn('truncate text-micro', aDroite(c) && 'text-right tabular-nums')}
                   style={{ maxWidth: plafondColonne(c) }}
                 >
-                  {sommes.has(c.nom) ? resume(c) : null}
+                  {resumes.get(c.nom) ?? null}
                 </TableCell>
               ))}
             </TableRow>
