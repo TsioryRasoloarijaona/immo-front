@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ColonneDto } from '../types';
 
 /** Libellés des groupes du sélecteur. Le serveur envoie des clés
@@ -116,10 +116,14 @@ export function poidsColonne(nom: string, poids: Record<string, number>): number
 }
 
 const PREFIXE_STOCKAGE = 'arpent.colonnes.';
+/** Clé distincte de celle de la sélection : **quelles** colonnes et **dans
+ * quel ordre** sont deux préférences indépendantes. Les mélanger ferait perdre
+ * l'ordre à chaque fois qu'on coche une colonne, et inversement. */
+const PREFIXE_ORDRE = 'arpent.ordre-colonnes.';
 
-function lireStockees(cle: string): string[] | null {
+function lireNoms(cleComplete: string): string[] | null {
   try {
-    const brut = window.localStorage.getItem(PREFIXE_STOCKAGE + cle);
+    const brut = window.localStorage.getItem(cleComplete);
     if (!brut) return null;
     const parsed: unknown = JSON.parse(brut);
     if (!Array.isArray(parsed)) return null;
@@ -127,6 +131,108 @@ function lireStockees(cle: string): string[] | null {
   } catch {
     return null;
   }
+}
+
+function ecrireNoms(cleComplete: string, noms: string[] | null) {
+  try {
+    if (noms === null) window.localStorage.removeItem(cleComplete);
+    else window.localStorage.setItem(cleComplete, JSON.stringify(noms));
+  } catch {
+    // Navigation privée ou quota plein : la préférence vaut pour la session.
+  }
+}
+
+function lireStockees(cle: string): string[] | null {
+  return lireNoms(PREFIXE_STOCKAGE + cle);
+}
+
+/** L'ordre des colonnes, déplaçable à la souris ou au clavier, persisté par
+ * écran.
+ *
+ * **Vit dans `DataGrid` et non dans chaque écran**, pour la même raison que le
+ * reste de la chrome de grille : la fonction existe une fois, et les dix listes
+ * en héritent sans qu'aucune n'ait à la redéclarer.
+ *
+ * Il se superpose à `DispositionColonnes.ordre` sans le remplacer : ce dernier
+ * reste l'ordre *par défaut* de l'écran, celui-ci est la préférence de
+ * l'utilisateur. Tant qu'il n'a rien déplacé, rien n'est stocké et l'écran suit
+ * le défaut — même règle que la sélection, et même raison : un défaut d'écran
+ * peut évoluer, une préférence figée l'empêcherait d'arriver.
+ *
+ * **Une colonne absente de l'ordre stocké passe en fin**, dans l'ordre reçu.
+ * C'est la convention que `DispositionColonnes.ordre` applique déjà, et elle
+ * vaut ici pour la même raison : une colonne ajoutée au catalogue côté serveur
+ * doit apparaître, pas disparaître parce qu'une préférence enregistrée l'ignore.
+ *
+ * `cle` absente = ordre en mémoire seulement : la fonctionnalité marche, elle
+ * ne survit pas au rechargement. C'est le cas des écrans qui déclarent leurs
+ * colonnes en dur sans passer par le catalogue serveur. */
+export function useOrdreColonnes<C extends { nom: string }>(
+  cle: string | undefined,
+  colonnes: C[],
+): {
+  colonnesOrdonnees: C[];
+  /** Pose `nom` à la place de `cible`, les autres se décalent. */
+  deplacerVers: (nom: string, cible: string) => void;
+  /** D'un cran à gauche (`-1`) ou à droite (`+1`) — l'équivalent clavier du
+   * glisser, sans lequel la fonctionnalité serait à la souris seule. */
+  decaler: (nom: string, sens: -1 | 1) => void;
+  reinitialiser: () => void;
+  personnalise: boolean;
+} {
+  const [ordre, setOrdre] = useState<string[] | null>(() => (cle ? lireNoms(PREFIXE_ORDRE + cle) : null));
+
+  const colonnesOrdonnees = useMemo(() => {
+    if (!ordre || ordre.length === 0) return colonnes;
+    const parNom = new Map<string, C>(colonnes.map((c) => [c.nom, c]));
+    const place = new Set(ordre);
+    const connues = ordre.map((n) => parNom.get(n)).filter((c): c is C => c !== undefined);
+    return [...connues, ...colonnes.filter((c) => !place.has(c.nom))];
+  }, [colonnes, ordre]);
+
+  const enregistrer = useCallback(
+    (noms: string[] | null) => {
+      setOrdre(noms);
+      if (cle) ecrireNoms(PREFIXE_ORDRE + cle, noms);
+    },
+    [cle],
+  );
+
+  /* L'ordre est toujours réécrit **en entier**, à partir des colonnes
+     réellement affichées : stocker un ordre partiel rendrait la position d'une
+     colonne dépendante de celles qui étaient visibles au moment du
+     déplacement. */
+  const noms = colonnesOrdonnees.map((c) => c.nom);
+
+  const deplacerVers = useCallback(
+    (nom: string, cible: string) => {
+      const depuis = noms.indexOf(nom);
+      const vers = noms.indexOf(cible);
+      if (depuis === -1 || vers === -1 || depuis === vers) return;
+      const suivant = [...noms];
+      suivant.splice(depuis, 1);
+      suivant.splice(vers, 0, nom);
+      enregistrer(suivant);
+    },
+    [noms, enregistrer],
+  );
+
+  const decaler = useCallback(
+    (nom: string, sens: -1 | 1) => {
+      const depuis = noms.indexOf(nom);
+      const vers = depuis + sens;
+      if (depuis === -1 || vers < 0 || vers >= noms.length) return;
+      const suivant = [...noms];
+      suivant.splice(depuis, 1);
+      suivant.splice(vers, 0, nom);
+      enregistrer(suivant);
+    },
+    [noms, enregistrer],
+  );
+
+  const reinitialiser = useCallback(() => enregistrer(null), [enregistrer]);
+
+  return { colonnesOrdonnees, deplacerVers, decaler, reinitialiser, personnalise: !!ordre && ordre.length > 0 };
 }
 
 /** Sélection de colonnes persistée par écran.

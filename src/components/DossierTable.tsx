@@ -164,6 +164,7 @@ export default function DossierTable({
   colonnes,
   onOuvrir,
   onOuvrirProspection,
+  cleOrdre,
   selection,
   bandeauRegroupement,
   groupes,
@@ -172,6 +173,9 @@ export default function DossierTable({
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
   onOuvrirProspection: (prospectionId: string) => void;
+  /** Identité d'écran pour la persistance de l'ordre des colonnes.
+   * Passe-plat vers `DataGrid.cleOrdre`. */
+  cleOrdre?: string;
   /** Coupe le bandeau inerte de `DataGrid` : l'écran rend sa propre bande de
    * groupement au-dessus de la grille. Voir `DataGrid.bandeauRegroupement`. */
   bandeauRegroupement?: boolean;
@@ -201,6 +205,7 @@ export default function DossierTable({
 
   return (
     <DataGrid
+      cleOrdre={cleOrdre}
       rows={rows}
       colonnes={grille}
       onOuvrir={onOuvrir}

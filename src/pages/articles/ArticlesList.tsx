@@ -413,6 +413,7 @@ export default function ArticlesList() {
             ) : (
               <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
                 <DataGrid
+                  cleOrdre="articles"
                   rows={rows}
                   colonnes={colonnes}
                   onOuvrir={(id) => navigate(`/articles/${id}`)}

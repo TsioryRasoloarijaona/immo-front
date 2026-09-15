@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useDeferredValue, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, Sigma, SquareMinus, SquarePlus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './ui/table';
+import { useOrdreColonnes } from '../lib/colonnes';
 import { formatCurrency, formatDate, formatNumber } from '../lib/format';
 import { cn } from '../lib/utils';
 import {
@@ -188,7 +189,8 @@ function libelleAgregat(a: { colonne: ColonneDto; fonction: FonctionAgregat }): 
 
 export default function DataGrid<T extends { id: string }>({
   rows,
-  colonnes,
+  colonnes: colonnesRecues,
+  cleOrdre,
   onOuvrir,
   libelleLigne,
   minWidth,
@@ -200,6 +202,15 @@ export default function DataGrid<T extends { id: string }>({
 }: {
   rows: T[];
   colonnes: ColonneGrille<T>[];
+  /** Identité de l'écran pour la persistance de l'ordre des colonnes.
+   *
+   * Même clé que la sélection de colonnes (`useColonnesVisibles`) — c'est le
+   * même écran — mais un espace de stockage distinct : quelles colonnes et dans
+   * quel ordre sont deux préférences indépendantes.
+   *
+   * Absente, le glisser-déposer fonctionne quand même, en mémoire seulement :
+   * mieux vaut une grille réordonnable qui oublie qu'une grille figée. */
+  cleOrdre?: string;
   /** Sans lui, les lignes ne sont ni cliquables ni focusables — pour les
    * grilles de consultation pure. */
   onOuvrir?: (id: string) => void;
@@ -296,6 +307,30 @@ export default function DataGrid<T extends { id: string }>({
 
   const cochees = selection?.ids ?? cocheesLocales;
   const [depliee, setDepliee] = useState<string | null>(null);
+
+  /* ---------------------------------------------------------------------
+     L'ordre des colonnes, déplaçable.
+
+     Posé ici plutôt que dans chaque écran : la chrome de grille existe une
+     fois et les dix listes en héritent. Un écran n'a rien à déclarer, sinon sa
+     clé de persistance.
+
+     Le glisser natif du navigateur, sans bibliothèque — la grille n'a pas de
+     dépendance de ce genre et n'en gagne pas une pour ça. Il ne couvre pas le
+     clavier, d'où `decaler` sur Alt+Flèches : sans lui la fonctionnalité
+     serait à la souris seule, ce qui n'est pas une fonctionnalité.
+     --------------------------------------------------------------------- */
+  const {
+    colonnesOrdonnees: colonnes,
+    deplacerVers,
+    decaler,
+    reinitialiser: reinitialiserOrdre,
+    personnalise: ordrePersonnalise,
+  } = useOrdreColonnes(cleOrdre, colonnesRecues);
+  /** Colonne en cours de glissement, et celle survolée — deux états distincts :
+   * l'indicateur d'insertion se pose sur la seconde. */
+  const [glissee, setGlissee] = useState<string | null>(null);
+  const [surveeOrdre, setSurveeOrdre] = useState<string | null>(null);
 
   /* `colonnes.find(...)` etait appele par agregat **et** par groupe : sur un
      ecran replie, O(groupes x agregats x colonnes) a chaque rendu. L'index le
@@ -557,6 +592,14 @@ export default function DataGrid<T extends { id: string }>({
               {sommes.size} total(aux) — masquer
             </button>
           )}
+          {/* La sortie, au même endroit que celles du tri et des totaux : un
+              ordre déplacé sans moyen visible de revenir au défaut est un
+              piège, d'autant qu'il survit au rechargement. */}
+          {ordrePersonnalise && (
+            <button type="button" className="shrink-0 hover:text-foreground hover:underline" onClick={reinitialiserOrdre}>
+              Ordre des colonnes modifié — rétablir
+            </button>
+          )}
           <span className="ml-auto shrink-0 tabular-nums">
             {groupes
               ? `${formatNumber(groupes.liste.length)} groupe(s), ${formatNumber(sommables.length)} ligne(s) dépliée(s)`
@@ -597,8 +640,16 @@ export default function DataGrid<T extends { id: string }>({
                 aria-label={toutesCochees ? 'Tout décocher' : 'Tout cocher'}
               />
             </TableHead>
-            {colonnes.map((c) => {
+            {colonnes.map((c, iCol) => {
               const trie = tri?.nom === c.nom;
+              /* De quel côté poser le trait d'insertion. Les deux sens ne se
+                 valent pas : glisser vers la droite dépose **après** la colonne
+                 survolée, vers la gauche **avant** — conséquence du retrait
+                 puis de la réinsertion. Montrer le trait du mauvais côté
+                 annoncerait un résultat que le geste ne produit pas. */
+              const iGlissee = glissee ? colonnes.findIndex((x) => x.nom === glissee) : -1;
+              const estCible = !!glissee && glissee !== c.nom && surveeOrdre === c.nom;
+              const versLaDroite = iGlissee !== -1 && iGlissee < iCol;
               return (
                 <TableHead
                   key={c.nom}
@@ -606,16 +657,65 @@ export default function DataGrid<T extends { id: string }>({
                   // preflight Tailwind pose `border-collapse: collapse`, mode
                   // dans lequel Chrome ignore un `sticky` porté par un `<tr>`.
                   // Le fond opaque doit alors suivre sur chaque `<th>`.
-                  className="sticky top-0 z-10 bg-card whitespace-nowrap"
+                  className={cn(
+                    'sticky top-0 z-10 bg-card whitespace-nowrap cursor-grab',
+                    glissee === c.nom && 'cursor-grabbing opacity-50',
+                    // Trait d'insertion en ombre interne : aucun décalage de
+                    // mise en page, là où une bordure élargirait la cellule et
+                    // ferait tressauter toute la grille au survol.
+                    estCible &&
+                      (versLaDroite
+                        ? 'shadow-[inset_-2px_0_0_0_var(--brand)]'
+                        : 'shadow-[inset_2px_0_0_0_var(--brand)]'),
+                  )}
                   style={{ maxWidth: plafondColonne(c) }}
                   aria-sort={trie ? (tri.sens === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  draggable
+                  onDragStart={(ev) => {
+                    setGlissee(c.nom);
+                    // Firefox n'amorce pas de glissement sans charge utile.
+                    ev.dataTransfer.effectAllowed = 'move';
+                    ev.dataTransfer.setData('text/plain', c.nom);
+                  }}
+                  onDragOver={(ev) => {
+                    if (!glissee) return;
+                    // Sans `preventDefault`, la cellule n'est pas une cible de
+                    // dépôt et le curseur affiche « interdit ».
+                    ev.preventDefault();
+                    ev.dataTransfer.dropEffect = 'move';
+                    setSurveeOrdre(c.nom);
+                  }}
+                  onDrop={(ev) => {
+                    ev.preventDefault();
+                    const nom = glissee ?? ev.dataTransfer.getData('text/plain');
+                    if (nom) deplacerVers(nom, c.nom);
+                    setGlissee(null);
+                    setSurveeOrdre(null);
+                  }}
+                  onDragEnd={() => {
+                    setGlissee(null);
+                    setSurveeOrdre(null);
+                  }}
                 >
                   <span className={cn('flex items-center gap-1', aDroite(c) && 'justify-end')}>
                     <button
                       type="button"
                       className="min-w-0 whitespace-nowrap hover:underline"
                       onClick={() => basculerTri(c.nom)}
-                      title={`Trier par ${c.libelle}`}
+                      /* Alt et non les flèches nues : le bouton est dans une
+                         barre d'en-têtes que les flèches seules servent à
+                         parcourir. */
+                      onKeyDown={(ev) => {
+                        if (!ev.altKey) return;
+                        if (ev.key === 'ArrowLeft') {
+                          ev.preventDefault();
+                          decaler(c.nom, -1);
+                        } else if (ev.key === 'ArrowRight') {
+                          ev.preventDefault();
+                          decaler(c.nom, 1);
+                        }
+                      }}
+                      title={`Trier par ${c.libelle} — glisser l'en-tête, ou Alt+← / Alt+→, pour déplacer la colonne`}
                     >
                       {c.libelle}
                     </button>

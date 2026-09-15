@@ -296,6 +296,7 @@ export default function ProspectionsList() {
                      rechargé qu'une fois par session. */
               colonnes.colonnes.length > 0 ? (
                 <ProspectionTable
+                  cleOrdre="prospections"
                   /* En mode groupé la grille ne lit pas `rows` : chaque groupe
                      porte ses propres lignes. */
                   rows={enGroupes ? [] : rows}
