@@ -11,6 +11,21 @@ export function formatCurrency(value: number | null | undefined): string {
   return `${sign}${grouped},${parts[1]} DH`;
 }
 
+/** Montant abrégé pour un axe ou une étiquette de barre : `30,4 M`, `380 k`.
+ *
+ * Existe parce qu'un axe ne peut pas porter `30 448 000,00 DH` douze fois de
+ * suite sans se chevaucher. **Réservé aux étiquettes de graphique** — partout
+ * ailleurs, et dans l'infobulle qui accompagne ces barres, c'est
+ * `formatCurrency` qui fait foi. Un chiffre abrégé se survole pour être lu en
+ * entier, il ne remplace jamais la valeur exacte. */
+export function formatMontantCompact(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) return '—';
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1).replace('.', ',')} M`;
+  if (abs >= 1_000) return `${Math.round(value / 1_000)} k`;
+  return String(Math.round(value));
+}
+
 export function formatNumber(value: number | null | undefined, decimals = 0): string {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
   const parts = value.toFixed(decimals).split('.');

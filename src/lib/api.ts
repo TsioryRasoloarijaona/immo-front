@@ -64,6 +64,7 @@ import type {
   NouveauPreProspectDto,
   PieceJointeDto,
   RelanceProspectionDto,
+  SyntheseAnnuelleDto,
   EcheanceRelance,
   PorteeRelance,
   ProfilCategorieDto,
@@ -1720,6 +1721,24 @@ export function getSousArticlesReferentiel(articleId: UUID, filters?: ArticleRef
 
 export function getDashboard(): Promise<DashboardDto> {
   return request('GET', '/api/dashboard');
+}
+
+/** `GET /api/dashboard/annuel` — l'écran d'accueil du logiciel de bureau :
+ * l'échéancier mois par mois, les ventes concrétisées, les encaissements.
+ *
+ * **Les trois blocs ne se somment pas entre eux.** `echeancier` est du *dû*
+ * (`ComDocument.Amount`), `encaissements` du *réalisé*, `ventesConcretisees`
+ * un sous-ensemble des dossiers. Les présenter comme un tout serait un
+ * contresens — d'où trois zones distinctes à l'écran.
+ *
+ * **Des mois à venir sont renseignés**, et c'est voulu : mesuré en septembre
+ * 2026, octobre portait 380 000 DH et novembre 50 000. Une courbe arrêtée au
+ * mois courant masquerait de la donnée vraie.
+ *
+ * `annee` absente = année courante. Une année hors données répond `200` avec
+ * des compteurs à zéro, pas une erreur. */
+export function getSyntheseAnnuelle(annee?: number): Promise<SyntheseAnnuelleDto> {
+  return request('GET', '/api/dashboard/annuel', { query: { annee } });
 }
 
 /** `GET /api/dashboard/relances` — les échéances de relance encore armées,

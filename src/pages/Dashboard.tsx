@@ -1,7 +1,8 @@
 import { Children, useState, type ReactNode } from 'react';
 import { AlertCircle, AlertTriangle, ChevronRight, Coins, Folder, PhoneCall, Sparkles, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import PageShell from '../components/PageShell';
+import PageShell from '../components/PageShell';
+import SyntheseAnnuelle from '../components/SyntheseAnnuelle';
 import { Badge, Card, EmptyState, ErrorState, LoadingState, StatCard } from '../components/ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { usePreview } from '../lib/previewContext';
@@ -392,6 +393,12 @@ export default function Dashboard() {
             tone="warning"
           />
         </div>
+
+        {/* Après la rangée de chiffres, avant les listes : c'est du contexte
+            annuel, pas du travail à faire. Le bloc « À rappeler » garde la
+            tête, la synthèse s'intercale là où l'œil cherche « et l'année,
+            elle donne quoi ». */}
+        <SyntheseAnnuelle />
 
         <Card title="Vente — actualité" accent="var(--sec-accent)" padded={false}>
           {/* Briefly answers "what's new" and "what needs picking up" for

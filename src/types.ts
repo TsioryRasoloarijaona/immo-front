@@ -2494,6 +2494,68 @@ export interface NouveauPreProspectDto {
   dateCreation?: string | null;
 }
 
+/* ---------------------------------------------------------------------------
+   La synthèse annuelle — `GET /api/dashboard/annuel`.
+
+   Reprend l'écran d'accueil du logiciel de bureau, **y compris son assiette**,
+   pour que les chiffres restent comparables poste à poste pendant la
+   transition. Trois blocs qui ne se somment pas entre eux et qu'il ne faut
+   surtout pas présenter comme un tout : l'échéancier est du *dû*, les
+   encaissements sont du *réalisé*, les ventes concrétisées sont un *sous-
+   ensemble des dossiers*.
+   --------------------------------------------------------------------------- */
+
+/** Un mois de l'échéancier. **Montant dû, pas encaissé.** */
+export interface PointMensuelDto {
+  /** 1 à 12. */
+  mois: number;
+  /** Somme des échéances du mois. `0` quand il n'y en a aucune, **jamais
+   * `null`** — un mois vide reste un point de la courbe. */
+  montant: number;
+  /** Nombre d'échéances agrégées : ce qui distingue « un mois vide » d'« un
+   * mois à zéro ». Deux choses différentes, et seule cette colonne les
+   * sépare. */
+  lignes: number;
+}
+
+/** Les ventes concrétisées de l'année, sur l'assiette exacte du logiciel de
+ * bureau : date d'avance dans l'année **et** statut ayant atteint
+ * `CONCRETISATION`, hors sorties. */
+export interface VentesConcretiseesDto {
+  nombreDossiers: number;
+  prixTotal: number;
+  /** Avances, crédits et autofinancements, signés par le sens de la
+   * catégorie. Les frais n'y entrent pas — ce n'est donc pas « prixTotal
+   * moins le reste à payer ». */
+  montantRegle: number;
+  /** **Dossiers écartés faute de date d'avance, toutes années confondues.**
+   *
+   * Ce compteur n'existe que pour être affiché : sans lui, `nombreDossiers`
+   * se lirait comme le total des ventes de l'année alors qu'il ne couvre que
+   * les dossiers pourvus d'une `AdvanceDate`. Le spec l'annonce à 232 sur 387
+   * ; **mesuré 21 sur cette base**, identique sur 2024, 2025 et 2026 — c'est
+   * bien un décompte global, pas annuel. Afficher la valeur servie, jamais
+   * celle du spec. */
+  dossiersSansDateAvance: number;
+}
+
+/** Les encaissements de l'année. **Crédits seulement** : un décaissement
+ * n'est pas un encaissement négatif, il est hors sujet. */
+export interface EncaissementsAnnuelsDto {
+  nombreLignes: number;
+  montantTotal: number;
+}
+
+export interface SyntheseAnnuelleDto {
+  annee: number;
+  /** **Toujours 12 points, de janvier à décembre**, un mois sans échéance
+   * valant zéro — le client n'a jamais de trou à reboucher. Vérifié sur trois
+   * années : 12 points, `mois` de 1 à 12 dans l'ordre, aucun `montant` nul. */
+  echeancier: PointMensuelDto[];
+  ventesConcretisees: VentesConcretiseesDto;
+  encaissements: EncaissementsAnnuelsDto;
+}
+
 export interface CommercialListItemDto {
   id: UUID;
   code?: string;
