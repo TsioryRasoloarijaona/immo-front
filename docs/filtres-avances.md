@@ -851,3 +851,143 @@ Un point non vérifiable de mon côté : la règle « sur un dossier sorti,
 `netAPayer.reste` tombe à zéro ». Aucun dossier `ANNULATION` ni `DESISTEMENT`
 dans les 25 premiers de la base de test, donc l'affichage du bandeau
 « Dossier sorti » **n'a pas été vu en situation**.
+
+---
+
+# Filtre par colonne — demande backend (15/09)
+
+La ligne de filtres de la grille existe sur les **dix listes** et elle est
+entièrement **côté front**. Elle ne filtre que les lignes déjà chargées, c'est-à-dire
+la page courante. Ce n'est pas une limite d'implémentation qu'on aurait laissée
+traîner : c'est ce que fait la grille DevExpress du logiciel de bureau, et c'était
+suffisant tant que l'écran était une maquette. Ça ne l'est plus.
+
+## Pourquoi c'est un écran qui ment
+
+Le cas est mesuré sur `/api/encaissements`, 332 lignes, page de 20. Colonne
+« Type », valeurs réelles en base :
+
+```
+159  "CHÉQUE"            <- accent AIGU, orthographe fautive du legacy
+149  "VIREMENT"
+ 14  "CHEQUE SYNDIC"     <- sans accent
+  6  "CHEQUE NOTAIRE"
+  1  "VIREMENT COMPTE A COMPTE"
+  1  "CMI"
+  1  "CHEQUE CÉRTIFIÉ"
+  1  "ESPÈCES SYNDIC"
+```
+
+Ce que l'utilisateur obtient aujourd'hui en tapant dans cette colonne :
+
+| Saisie | Affiché | Réellement en base |
+|---|---|---|
+| `cheque` | **0 ligne** | 21 |
+| `chèque` (l'orthographe correcte) | **0 ligne** | 0 — la base écrit `CHÉQUE` |
+| en ignorant les accents | — | **180 sur 332** |
+
+Deux défauts se cumulent, et chacun suffirait :
+
+1. **La portée.** Le filtre ne voit que les 20 lignes chargées. Les 312 autres
+   sont hors de portée, et rien à l'écran ne le dit. « Aucun résultat » se lit
+   comme « il n'y en a pas », jamais comme « il n'y en a pas *sur cette page* ».
+2. **Les accents.** La comparaison est brute. Un commercial qui écrit
+   correctement « chèque » ne trouve **rien**, alors que 180 lignes correspondent.
+   Le précédent existe déjà côté serveur : `GET /api/hotline/recherche` documente
+   `nom` comme « sous-chaîne, insensible à la casse **ET aux accents** ».
+
+## Ce que le front fait exactement aujourd'hui
+
+À reproduire ou à contredire sciemment, pas par accident :
+
+- comparaison **« contient »**, insensible à la casse, sensible aux accents ;
+- elle porte sur la **forme affichée**, pas sur la valeur stockée. Une date se
+  compare en `JJ/MM/AAAA` — l'utilisateur voit `09/09/2026` et tape `09/09`, pas
+  `2026-09-09`. Un booléen se compare en `oui` / `non` ;
+- les glyphes `A` et `=` de l'en-tête annoncent le mode de comparaison mais **ne
+  l'ouvrent pas au choix** : les deux font un `contient`.
+
+## La forme demandée
+
+Elle doit épouser ce que le catalogue de colonnes fait déjà, pas ouvrir un
+mécanisme parallèle. `ColonneDto` porte `groupable`, `agregeable` et `fonctions` ;
+le front pilote déjà sa bande de groupement et son menu Σ à partir de ces trois
+champs. Le filtre par colonne est le même problème.
+
+### 1. Deux champs sur `ColonneDto`
+
+```jsonc
+{
+  "nom": "typeLibelle",
+  "filtrable": true,
+  "operateurs": ["CONTIENT", "EGAL"]     // dans l'ordre où le front doit les proposer
+}
+```
+
+Aujourd'hui `filtrable` n'existe pas — vérifié sur les quatre catalogues
+(`prospections` 56 colonnes, `dossiers` 56, `prospects` 47, `encaissements` 40).
+Sans ce drapeau le front ne peut qu'afficher une case de filtre sur **toutes** les
+colonnes et découvrir au 400 celles que le serveur refuse.
+
+### 2. Un paramètre à jetons, comme `?agregats=`
+
+`?agregats=prix:AVG` existe déjà et le front sait le composer et le décomposer
+(`lib/groupement.ts`). Même grammaire :
+
+```
+GET /api/encaissements?filtreColonne=typeLibelle:CONTIENT:cheque
+                      &filtreColonne=montantBrut:SUP:10000
+```
+
+Répétable, combiné en **ET**. Une colonne non `filtrable`, un opérateur qu'elle
+n'accepte pas, ou une valeur non parsable pour son type → **400 nommant la
+colonne**, jamais un 200 silencieux sur un périmètre plus large. Le précédent
+compte : `?statut=Concrétisation` rend aujourd'hui **0 dossier en HTTP 200** là où
+`?statut=CONCRETISATION` en rend 68 — un filtre ignoré sans bruit est pire qu'une
+erreur.
+
+### 3. Opérateurs par type
+
+| `type` | Opérateurs | Valeur attendue |
+|---|---|---|
+| `TEXTE` | `CONTIENT`, `EGAL`, `COMMENCE_PAR` | chaîne brute |
+| `NOMBRE`, `MONTANT` | `EGAL`, `SUP`, `INF`, `ENTRE` | nombre, `ENTRE` = `min..max` |
+| `DATE` | `EGAL`, `AVANT`, `APRES`, `ENTRE` | **ISO-8601**, voir ci-dessous |
+| `BOOLEEN` | `EGAL` | `true` / `false` |
+
+`CONTIENT` et `EGAL` sur `TEXTE` : **insensibles à la casse et aux accents**. C'est
+le point qui fait passer la colonne Type de 0 à 180 résultats.
+
+### 4. Les dates : le serveur reçoit de l'ISO, pas du `JJ/MM/AAAA`
+
+Le front compare aujourd'hui sur la forme affichée. Ce n'est **pas** ce qu'on
+demande de reproduire : un serveur qui accepte `09/09` s'occuperait de mise en
+forme, et devrait deviner si c'est un jour, un mois ou un préfixe. La conversion
+reste côté front, qui sait déjà ce qu'il affiche. Le serveur reçoit de l'ISO et
+une plage.
+
+## Ce que ça débloque, au-delà du filtre lui-même
+
+- **Le lot de 500 sur `/dossiers` disparaît.** Il n'existe que pour contourner le
+  filtre statut côté client (voir §« Demande backend — filtre statut » plus haut).
+- **Le groupement et le filtre peuvent enfin cohabiter.** Aujourd'hui ils
+  s'excluent, parce que `/groupes` renvoie des effectifs déjà calculés qu'un filtre
+  client ne peut pas recompter : les afficher quand même donnerait des totaux faux
+  présentés comme exacts.
+- **Le filtre devient paginable**, donc utilisable sur les 9 654 prospections.
+
+## Ce que le front fera une fois servi
+
+1. la ligne de filtres n'apparaît que sur les colonnes `filtrable` ;
+2. le glyphe d'en-tête cesse d'être décoratif et ouvre le choix d'opérateur, tiré
+   de `operateurs` ;
+3. la saisie est débouncée et envoyée au serveur ; la pagination et les compteurs
+   redeviennent justes ;
+4. le tri et le Σ côté client restent tels quels sur la page chargée — ils
+   répondent à une autre question et ne doivent pas être « unifiés ».
+
+## Priorité
+
+Au-dessus du reste de ce document. C'est la seule demande en cours dont l'absence
+produit un **résultat faux présenté comme complet**, sur les dix listes de
+l'application, et non une fonctionnalité manquante.
