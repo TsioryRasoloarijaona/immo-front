@@ -1,7 +1,8 @@
 import { Children, useState, type ReactNode } from 'react';
 import { AlertCircle, AlertTriangle, ChevronRight, Coins, Folder, PhoneCall, Sparkles, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import PageShell from '../components/PageShell';
+import PageShell from '../components/PageShell';
+import SyntheseAnnuelle from '../components/SyntheseAnnuelle';
 import { Badge, Card, EmptyState, ErrorState, LoadingState, StatCard } from '../components/ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { usePreview } from '../lib/previewContext';
@@ -43,6 +44,23 @@ const A_TRAITER_ETAPES = [PIPELINE_STAGES[0], 'A RAPPELER PAR LE COMMERCIAL', 'A
    mentir presque autant que le « 0 » d'avant — d'où la mention de la fenêtre
    et le lien vers l'arriéré complet.
    --------------------------------------------------------------------------- */
+
+/** Combien de lignes on affiche par colonne. */
+const LIGNES_AFFICHEES = 6;
+
+/** Combien on en demande au serveur — toute la file, pas les six affichées.
+ *
+ * **L'endpoint ignore `sort`** : `dateRelance,desc`, `joursDeRetard,asc` et
+ * leurs inverses rendent tous le même ordre, échéance croissante, figé côté
+ * serveur. Pour montrer les plus récentes il faut donc prendre la **fin** de la
+ * file. Inverser la page de six donnerait « les six plus anciennes à
+ * l'envers » — le genre de faux exact que cet écran a déjà servi une fois.
+ *
+ * Le surcoût est mesuré et négligeable : les 75 lignes de la file reviennent en
+ * 367 ms contre 118 pour six. La borne serveur de 30 jours garantit que cette
+ * file reste petite par construction ; `fileComplete` ci-dessous vérifie
+ * l'hypothèse au lieu de la supposer. */
+const TAILLE_FILE = 200;
 
 /** Une relance à passer. Le numéro est mis en avant parce que c'est l'action :
  * mesuré **50/50 renseigné** là où le nom manque une fois sur cinquante. Sur
@@ -94,6 +112,7 @@ function ColonneRelances({
   accentBg,
   etat,
   messageVide,
+  plusRecentesDAbord,
 }: {
   titre: string;
   precision?: string;
@@ -102,9 +121,27 @@ function ColonneRelances({
   accentBg: string;
   etat: { data: { content: RelanceProspectionDto[]; totalElements: number } | null; loading: boolean; error: string | null };
   messageVide: string;
+  /** `true` pour la colonne « En retard » : afficher la fin de la file, les
+   * plus récentes d'abord. Sans objet sur « Aujourd'hui », dont toutes les
+   * lignes sont à zéro jour. */
+  plusRecentesDAbord?: boolean;
 }) {
   const page = etat.data;
-  const reste = page ? page.totalElements - page.content.length : 0;
+  /* La fin de la file, renversée — le serveur ne sait trier que dans l'autre
+     sens. Voir `TAILLE_FILE`. */
+  const lignes = !page
+    ? []
+    : plusRecentesDAbord
+      ? page.content.slice(-LIGNES_AFFICHEES).reverse()
+      : page.content.slice(0, LIGNES_AFFICHEES);
+  /* Ce qui reste **non affiché**, pas ce qui reste non chargé : on charge
+     désormais toute la file pour pouvoir en prendre la fin, donc compter sur
+     `content.length` afficherait « et 0 de plus » en masquant 69 lignes. */
+  const reste = page ? page.totalElements - lignes.length : 0;
+  /* L'hypothèse « la file tient dans une page » est vérifiée, pas supposée :
+     si elle tombait, `slice(-6)` rendrait la fin du *premier lot* et non la
+     fin de la file — les plus récentes seraient fausses sans rien signaler. */
+  const fileComplete = !page || page.content.length >= page.totalElements;
   return (
     <div className="overflow-hidden rounded-lg border border-border" style={{ background: accentBg }}>
       <div className="h-0.5 w-full" style={{ background: accent }} />
@@ -122,9 +159,14 @@ function ColonneRelances({
         {page && page.content.length === 0 && (
           <p className="py-2 text-body text-muted-foreground">{messageVide}</p>
         )}
-        {page?.content.map((r) => <LigneRelance key={r.interactionId} r={r} />)}
+        {lignes.map((r) => <LigneRelance key={r.interactionId} r={r} />)}
         {reste > 0 && (
           <p className="pt-1.5 text-micro text-muted-foreground">et {reste} de plus</p>
+        )}
+        {!fileComplete && plusRecentesDAbord && (
+          <p className="pt-1.5 text-micro text-(--amber)">
+            File plus longue que prévu — ces lignes ne sont pas forcément les plus récentes.
+          </p>
         )}
       </div>
     </div>
@@ -273,11 +315,11 @@ export default function Dashboard() {
      2 relances en propre pour 75 côté équipe. */
   const [portee, setPortee] = useState<PorteeRelance>('MOI');
   const relancesJour = useApi(
-    () => listRelancesDashboard({ echeance: 'AUJOURDHUI', portee }, { size: 6 }),
+    () => listRelancesDashboard({ echeance: 'AUJOURDHUI', portee }, { size: TAILLE_FILE }),
     [portee],
   );
   const relancesRetard = useApi(
-    () => listRelancesDashboard({ echeance: 'RETARD', portee }, { size: 6 }),
+    () => listRelancesDashboard({ echeance: 'RETARD', portee }, { size: TAILLE_FILE }),
     [portee],
   );
   /* Date seule, pas un instant : le paramètre `jour` est un `format: date`. */
@@ -352,6 +394,7 @@ export default function Dashboard() {
               accentBg="var(--warning-bg)"
               etat={relancesRetard}
               messageVide="Aucun retard sur les 30 derniers jours."
+              plusRecentesDAbord
             />
           </div>
 
@@ -392,6 +435,12 @@ export default function Dashboard() {
             tone="warning"
           />
         </div>
+
+        {/* Après la rangée de chiffres, avant les listes : c'est du contexte
+            annuel, pas du travail à faire. Le bloc « À rappeler » garde la
+            tête, la synthèse s'intercale là où l'œil cherche « et l'année,
+            elle donne quoi ». */}
+        <SyntheseAnnuelle />
 
         <Card title="Vente — actualité" accent="var(--sec-accent)" padded={false}>
           {/* Briefly answers "what's new" and "what needs picking up" for
