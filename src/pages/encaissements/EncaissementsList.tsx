@@ -405,6 +405,7 @@ export default function EncaissementsList() {
                      colonnes. Mis en cache au niveau du module. */
               colonnes.colonnes.length > 0 ? (
                 <EncaissementTable
+                  cleOrdre="encaissements"
                   /* En mode groupé la grille ne lit pas `rows` : chaque groupe
                      porte ses propres lignes. */
                   rows={enGroupes ? [] : rows}

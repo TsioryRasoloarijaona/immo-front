@@ -106,6 +106,7 @@ export default function ClientsList() {
           ) : (
             <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
               <DataGrid
+                cleOrdre="clients"
                 rows={rows}
                 colonnes={COLONNES}
                 onOuvrir={(id) => navigate(`/clients/${id}`)}

@@ -93,10 +93,14 @@ export default function ProspectTable({
   rows,
   colonnes,
   onOuvrir,
+  cleOrdre,
 }: {
   rows: ProspectListItemDto[];
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
+  /** Identité d'écran pour la persistance de l'ordre des colonnes.
+   * Passe-plat vers `DataGrid.cleOrdre`. */
+  cleOrdre?: string;
 }) {
   const grille = useMemo<ColonneGrille<ProspectListItemDto>[]>(
     () =>
@@ -113,6 +117,7 @@ export default function ProspectTable({
 
   return (
     <DataGrid
+      cleOrdre={cleOrdre}
       rows={rows}
       colonnes={grille}
       onOuvrir={onOuvrir}

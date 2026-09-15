@@ -231,6 +231,7 @@ export default function PreProspectionsList() {
                 />
               ) : colonnes.colonnes.length > 0 ? (
                 <ProspectionTable
+                  cleOrdre="pre-prospections"
                   /* En mode groupé la grille ne lit pas `rows` : chaque groupe
                      porte ses propres lignes. */
                   rows={enGroupes ? [] : rows}

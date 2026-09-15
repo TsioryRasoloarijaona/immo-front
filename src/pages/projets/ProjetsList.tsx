@@ -55,6 +55,7 @@ export default function ProjetsList() {
       ) : (
         <div className="min-w-0 overflow-auto rounded-xl border border-border bg-card">
           <DataGrid
+            cleOrdre="projets"
             rows={filtered}
             colonnes={COLONNES}
             onOuvrir={(id) => navigate(`/projets/${id}`)}

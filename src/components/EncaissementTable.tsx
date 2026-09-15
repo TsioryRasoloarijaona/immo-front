@@ -94,12 +94,16 @@ export default function EncaissementTable({
   rows,
   colonnes,
   onOuvrir,
+  cleOrdre,
   bandeauRegroupement,
   groupes,
 }: {
   rows: EncaissementDto[];
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
+  /** Identité d'écran pour la persistance de l'ordre des colonnes.
+   * Passe-plat vers `DataGrid.cleOrdre`. */
+  cleOrdre?: string;
   /** Coupe le bandeau inerte de `DataGrid` : l'écran rend sa propre bande de
    * groupement au-dessus de la grille. Voir `DataGrid.bandeauRegroupement`. */
   bandeauRegroupement?: boolean;
@@ -127,6 +131,7 @@ export default function EncaissementTable({
 
   return (
     <DataGrid
+      cleOrdre={cleOrdre}
       rows={rows}
       colonnes={grille}
       onOuvrir={onOuvrir}

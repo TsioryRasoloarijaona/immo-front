@@ -556,6 +556,7 @@ export default function DossiersList() {
                     rechargé qu'une fois par session. */}
                 {colonnes.colonnes.length > 0 ? (
                   <DossierTable
+                    cleOrdre="dossiers"
                     /* En mode groupé la grille ne lit pas `rows` : chaque
                        groupe porte ses propres lignes. */
                     rows={enGroupes ? [] : dossiers}

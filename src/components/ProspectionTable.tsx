@@ -97,6 +97,7 @@ export default function ProspectionTable({
   rows,
   colonnes,
   onOuvrir,
+  cleOrdre,
   entite = 'prospection',
   bandeauRegroupement,
   groupes,
@@ -104,6 +105,9 @@ export default function ProspectionTable({
   rows: ProspectionListItemDto[];
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
+  /** Identité d'écran pour la persistance de l'ordre des colonnes.
+   * Passe-plat vers `DataGrid.cleOrdre`. */
+  cleOrdre?: string;
   /** Coupe le bandeau inerte de `DataGrid` : l'écran rend sa propre bande de
    * groupement au-dessus de la grille. Voir `DataGrid.bandeauRegroupement`. */
   bandeauRegroupement?: boolean;
@@ -134,6 +138,7 @@ export default function ProspectionTable({
 
   return (
     <DataGrid
+      cleOrdre={cleOrdre}
       rows={rows}
       colonnes={grille}
       onOuvrir={onOuvrir}

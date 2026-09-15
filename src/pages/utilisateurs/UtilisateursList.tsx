@@ -244,7 +244,7 @@ export default function UtilisateursList() {
               />
             ) : (
               <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                <DataGrid rows={rows} colonnes={colonnes} />
+                <DataGrid rows={rows} colonnes={colonnes} cleOrdre="utilisateurs" />
               </div>
             )}
             <div className="shrink-0">

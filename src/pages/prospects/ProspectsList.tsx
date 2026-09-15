@@ -141,7 +141,12 @@ export default function ProspectsList() {
                     a pas de tableau à dessiner, seulement des lignes sans
                     colonnes. */}
                 {colonnes.colonnes.length > 0 ? (
-                  <ProspectTable rows={rows} colonnes={colonnes.colonnes} onOuvrir={(id) => navigate(`/prospects/${id}`)} />
+                  <ProspectTable
+                    rows={rows}
+                    colonnes={colonnes.colonnes}
+                    cleOrdre="prospects"
+                    onOuvrir={(id) => navigate(`/prospects/${id}`)}
+                  />
                 ) : catalogue.error ? (
                   <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
                 ) : (
