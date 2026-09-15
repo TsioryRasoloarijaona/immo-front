@@ -1,14 +1,23 @@
-import { Children, type ReactNode } from 'react';
-import { AlertCircle, AlertTriangle, ArrowUpRight, ChevronRight, Coins, Folder, Sparkles, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react';
+import { Children, useState, type ReactNode } from 'react';
+import { AlertCircle, AlertTriangle, ChevronRight, Coins, Folder, PhoneCall, Sparkles, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import PageShell from '../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, LoadingState, StatCard } from '../components/ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { usePreview } from '../lib/previewContext';
-import { getDashboard, listClients, listDossiers, listPreProspections, listProspections } from '../lib/api';
+import {
+  getDashboard,
+  listClients,
+  listDossiers,
+  listNouveauxPreProspects,
+  listPreProspections,
+  listProspections,
+  listRelancesDashboard,
+} from '../lib/api';
 import { useApi } from '../lib/useApi';
-import { formatCurrency, formatDate, toApiDateTime } from '../lib/format';
-import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
+import { formatCurrency, formatDate, formatTelephone, toApiDateTime, todayISO } from '../lib/format';
+import { canonicalStatusLabel, estStatutSortie, toneForStatus } from '../lib/dossierStatus';
+import type { PorteeRelance, RelanceProspectionDto } from '../types';
 import { etapeBadgeTone, prospectionDisplayName, PIPELINE_STAGES } from '../lib/domain';
 
 // Étapes counted as "needs action" for the Vente actuality panel — the
@@ -17,6 +26,110 @@ import { etapeBadgeTone, prospectionDisplayName, PIPELINE_STAGES } from '../lib/
 // Not "2 EN COURS DE TRAITEMENT" onward — those are already being worked,
 // this bucket is specifically the ones nobody has picked up yet.
 const A_TRAITER_ETAPES = [PIPELINE_STAGES[0], 'A RAPPELER PAR LE COMMERCIAL', 'AFFAIRES A SUIVRE'];
+
+/* ---------------------------------------------------------------------------
+   La file du jour — le bloc que cet écran existe pour porter.
+
+   Ce qu'il remplace : une tuile « Relances en retard » alimentée par
+   `DashboardDto.relancesEnRetard`, qui porte les relances de **dossier**
+   (rappels de titre foncier) et que le serveur renvoie **vide**. L'écran
+   affichait donc 0 pendant que 75 relances *commerciales* attendaient d'être
+   passées. Deux populations, une seule câblée, et la mauvaise.
+
+   **Ce panneau est une file de travail, pas un compteur d'arriéré, et il le
+   dit.** `echeance=RETARD` est borné à 30 jours glissants côté serveur,
+   délibérément : la base porte 3 710 relances en retard dont 2 020 de plus
+   d'un an. Intituler ce bloc « relances en retard » sans plus le ferait
+   mentir presque autant que le « 0 » d'avant — d'où la mention de la fenêtre
+   et le lien vers l'arriéré complet.
+   --------------------------------------------------------------------------- */
+
+/** Une relance à passer. Le numéro est mis en avant parce que c'est l'action :
+ * mesuré **50/50 renseigné** là où le nom manque une fois sur cinquante. Sur
+ * une pré-prospection il est même la seule prise — aucune fiche tiers
+ * n'existe encore. */
+function LigneRelance({ r }: { r: RelanceProspectionDto }) {
+  const tel = (r.telephone ?? '').replace(/\s/g, '');
+  return (
+    <div className="flex min-w-0 items-baseline gap-2.5 border-b border-border py-1.5 last:border-b-0">
+      <span
+        className={`shrink-0 tabular-nums text-micro font-semibold ${r.joursDeRetard ? 'text-(--warning)' : 'text-(--info)'}`}
+        title={r.dateRelance ? `Échéance du ${formatDate(r.dateRelance)}` : undefined}
+      >
+        {r.joursDeRetard ? `${r.joursDeRetard} j` : "auj."}
+      </span>
+
+      <Link
+        to={`/${r.preProspection ? 'pre-prospections' : 'prospections'}/${r.prospectionId}`}
+        className="min-w-0 flex-1 truncate text-body font-semibold text-foreground no-underline hover:underline"
+      >
+        {r.prospectNom || <span className="font-normal text-muted-foreground italic">Lead sans nom</span>}
+      </Link>
+
+      {tel ? (
+        <a
+          href={`tel:${tel}`}
+          className="shrink-0 tabular-nums text-body text-(--info) no-underline hover:underline"
+          title="Appeler"
+        >
+          {formatTelephone(r.telephone)}
+        </a>
+      ) : (
+        <span className="shrink-0 text-micro text-muted-foreground">pas de numéro</span>
+      )}
+
+      <span className="hidden shrink-0 text-micro text-muted-foreground sm:inline">
+        {r.nonAffectee ? 'non affectée' : r.commercialNom || '—'}
+      </span>
+    </div>
+  );
+}
+
+/** Une des deux colonnes de la file : « Aujourd'hui » ou « En retard ». */
+function ColonneRelances({
+  titre,
+  precision,
+  icone,
+  accent,
+  accentBg,
+  etat,
+  messageVide,
+}: {
+  titre: string;
+  precision?: string;
+  icone: ReactNode;
+  accent: string;
+  accentBg: string;
+  etat: { data: { content: RelanceProspectionDto[]; totalElements: number } | null; loading: boolean; error: string | null };
+  messageVide: string;
+}) {
+  const page = etat.data;
+  const reste = page ? page.totalElements - page.content.length : 0;
+  return (
+    <div className="overflow-hidden rounded-lg border border-border" style={{ background: accentBg }}>
+      <div className="h-0.5 w-full" style={{ background: accent }} />
+      <div className="flex items-baseline gap-2 px-3 pt-2">
+        <span className="shrink-0" style={{ color: accent }}>{icone}</span>
+        <span className="text-label font-semibold text-foreground">{titre}</span>
+        {precision && <span className="text-micro text-muted-foreground">{precision}</span>}
+        <span className="ml-auto text-hero font-semibold tabular-nums" style={{ color: accent }}>
+          {page ? page.totalElements : '—'}
+        </span>
+      </div>
+      <div className="px-3 pb-2">
+        {etat.loading && !page && <span className="text-micro text-muted-foreground">Chargement…</span>}
+        {etat.error && <span className="text-micro text-destructive">{etat.error}</span>}
+        {page && page.content.length === 0 && (
+          <p className="py-2 text-body text-muted-foreground">{messageVide}</p>
+        )}
+        {page?.content.map((r) => <LigneRelance key={r.interactionId} r={r} />)}
+        {reste > 0 && (
+          <p className="pt-1.5 text-micro text-muted-foreground">et {reste} de plus</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function nDaysAgoISO(n: number): string {
   const d = new Date();
@@ -128,7 +241,14 @@ function KanbanItemRow({ onClick, to, children }: { onClick?: () => void; to?: s
 
 export default function Dashboard() {
   const { data: dashboard, loading, error } = useApi(() => getDashboard(), []);
-  const { data: prospectionsPage } = useApi(() => listProspections({ ouvertes: true }, { size: 7 }), []);
+  /* `sort` explicite : sans lui le serveur rend un ordre non déterministe —
+     le défaut déjà payé sur la pagination des listes — et la carte
+     « Prospections récentes » plus bas montrait six prospections ouvertes
+     prises au hasard sous un titre qui promettait les dernières. */
+  const { data: prospectionsPage } = useApi(
+    () => listProspections({ ouvertes: true }, { size: 7, sort: ['dateDocument,desc'] }),
+    [],
+  );
   const { data: dossiersPage } = useApi(() => listDossiers(undefined, { size: 7, sort: ['docDate,desc'] }), []);
   const { data: nouvellesPage } = useApi(
     () => listProspections({ ouvertes: true, dateDebut: toApiDateTime(nDaysAgoISO(7)) }, { size: 5, sort: ['dateDocument,desc'] }),
@@ -145,7 +265,24 @@ export default function Dashboard() {
     () => listPreProspections({ ouvertes: true }, { size: 4, sort: ['dateDocument,desc'] }),
     [],
   );
-  const { data: clientsPage } = useApi(() => listClients(undefined, { size: 4 }), []);
+  const { data: clientsPage } = useApi(() => listClients(undefined, { size: 4, sort: ['code,desc'] }), []);
+
+  /* `MOI` est le défaut du serveur et le bon défaut métier — un commercial
+     ouvre son tableau de bord pour voir *ses* rappels. La bascule vers
+     l'équipe reste à un clic, et elle compte : sur le jeu réel, ce compte voit
+     2 relances en propre pour 75 côté équipe. */
+  const [portee, setPortee] = useState<PorteeRelance>('MOI');
+  const relancesJour = useApi(
+    () => listRelancesDashboard({ echeance: 'AUJOURDHUI', portee }, { size: 6 }),
+    [portee],
+  );
+  const relancesRetard = useApi(
+    () => listRelancesDashboard({ echeance: 'RETARD', portee }, { size: 6 }),
+    [portee],
+  );
+  /* Date seule, pas un instant : le paramètre `jour` est un `format: date`. */
+  const leadsDuJour = useApi(() => listNouveauxPreProspects(todayISO(), { size: 5 }), []);
+
   const { previewDossier } = usePreview();
 
   if (loading) return <PageShell title="Dashboard"><LoadingState /></PageShell>;
@@ -153,12 +290,15 @@ export default function Dashboard() {
   if (!dashboard) return null;
 
   const statusCounts = dashboard.dossiersParEtape ?? [];
-  const relances = dashboard.relancesEnRetard ?? [];
-  // "Dossiers actifs" stat stays derived from the same aggregate the removed
-  // "Dossiers par étape" breakdown used to chart — only the bar-chart card
-  // itself was dropped in favor of the pipeline Kanban below, the number is
-  // still meaningful on its own.
-  const dossiersActifs = statusCounts.reduce((s, c) => s + (c.nombre ?? 0), 0);
+  /* « Actifs » veut dire ce que le serveur entend par là. `dossiersParEtape`
+     renvoie **toutes** les étapes, sorties comprises — 15 `ANNULATION` et 5
+     `DESISTEMENT` sur 116 —, et sommer le tableau entier annonçait donc 116
+     dossiers actifs. L'agrégat affiché juste à côté disait déjà le contraire :
+     `panierMoyen` divise `valeurPipeline` par 96, pas par 116. L'écran se
+     contredisait lui-même. */
+  const dossiersActifs = statusCounts
+    .filter((c) => !estStatutSortie(c.etape))
+    .reduce((s, c) => s + (c.nombre ?? 0), 0);
 
   return (
     <PageShell title="Dashboard" crumbs={[{ label: 'Portefeuille' }]}>
@@ -166,6 +306,69 @@ export default function Dashboard() {
           viewport (~900px tall) — dense stat row, then a 3-column bank of
           panels — rather than a single tall column that forces scrolling. */}
       <div className="flex flex-col gap-3">
+        {/* -----------------------------------------------------------------
+            Premier bloc, pleine largeur, avant même les chiffres du
+            portefeuille : c'est le travail de la journée, et le reste de
+            l'écran est du contexte. L'ordre de lecture porte la priorité —
+            un commercial qui ouvre l'application doit voir qui rappeler sans
+            chercher.
+            ----------------------------------------------------------------- */}
+        <Card
+          title="À rappeler"
+          accent="var(--warning)"
+          padded={false}
+          action={
+            <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
+              {(['MOI', 'EQUIPE'] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setPortee(v)}
+                  aria-pressed={portee === v}
+                  className={`rounded px-2 py-0.5 text-micro font-medium ${
+                    portee === v ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {v === 'MOI' ? 'Moi' : 'Équipe'}
+                </button>
+              ))}
+            </div>
+          }
+        >
+          <div className="grid grid-cols-1 gap-3 p-3 lg:grid-cols-2">
+            <ColonneRelances
+              titre="Aujourd'hui"
+              icone={<PhoneCall className="size-3.5" />}
+              accent="var(--info)"
+              accentBg="var(--info-bg)"
+              etat={relancesJour}
+              messageVide="Rien d'échu aujourd'hui."
+            />
+            <ColonneRelances
+              titre="En retard"
+              precision="1 à 30 jours"
+              icone={<AlertTriangle className="size-3.5" />}
+              accent="var(--warning)"
+              accentBg="var(--warning-bg)"
+              etat={relancesRetard}
+              messageVide="Aucun retard sur les 30 derniers jours."
+            />
+          </div>
+
+          {/* La borne de 30 jours est une décision serveur, pas un hasard de
+              pagination : la base porte 2 020 relances de plus d'un an, qui
+              feraient de ce panneau un cimetière plutôt qu'une file. Le dire
+              ici est ce qui sépare un chiffre juste d'un chiffre trompeur —
+              et le lien donne la sortie vers l'arriéré complet. */}
+          <p className="border-t border-border px-3 py-1.5 text-micro text-muted-foreground">
+            File de travail bornée aux 30 derniers jours. Les relances désarmées — prospection transformée en vente — n'y
+            figurent pas.{' '}
+            <Link to="/prospections" className="text-(--info) hover:underline">
+              Voir toutes les prospections
+            </Link>
+          </p>
+        </Card>
+
         <div className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-3">
           <StatCard icon={<Coins />} label="Valeur du pipeline" value={formatCurrency(dashboard.valeurPipeline)} tone="progress" />
           <StatCard icon={<TrendingUp />} label="Panier moyen" value={formatCurrency(dashboard.panierMoyen)} tone="info" />
@@ -177,7 +380,17 @@ export default function Dashboard() {
             tone="info"
           />
           <StatCard icon={<Folder />} label="Dossiers actifs" value={String(dossiersActifs)} tone="success" />
-          <StatCard icon={<AlertTriangle />} label="Relances en retard" value={String(relances.length)} tone="warning" />
+          {/* Ce que l'écran promettait de compter, enfin compté — et sur la
+              bonne population. La précision « 30 j » n'est pas décorative :
+              sans elle la tuile se lirait comme l'arriéré total, qu'elle
+              n'est pas. */}
+          <StatCard
+            icon={<AlertTriangle />}
+            label="Relances en retard"
+            value={relancesRetard.data ? String(relancesRetard.data.totalElements) : '—'}
+            sub="30 derniers jours"
+            tone="warning"
+          />
         </div>
 
         <Card title="Vente — actualité" accent="var(--sec-accent)" padded={false}>
@@ -297,36 +510,59 @@ export default function Dashboard() {
         </Card>
 
         <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+          {/* Prend la place de l'ancienne carte « Relances en retard », qui
+              lisait `DashboardDto.relancesEnRetard` — les relances de
+              *dossier*, que le serveur renvoie vides. Les relances
+              commerciales sont montées dans le bloc de tête ; cette place
+              revient aux leads du jour, l'autre moitié du travail entrant. */}
           <Card
-            title="Relances en retard"
+            title="Leads du jour"
             action={
-              <Link to="/dossiers" className="text-xs font-medium text-primary hover:underline">
+              <Link to="/pre-prospections" className="text-xs font-medium text-primary hover:underline">
                 Voir tout
               </Link>
             }
           >
-            {relances.length === 0 ? (
-              <EmptyState title="Rien en attente" message="Aucune relance en retard." />
+            {leadsDuJour.error && <ErrorState message={leadsDuJour.error} />}
+            {leadsDuJour.data && leadsDuJour.data.content.length === 0 ? (
+              /* Une journée à zéro est le cas courant, pas une panne :
+                 l'injection est automatique et arrive par rafales — la
+                 plupart des jours à zéro, puis des pointes à 20 ou 34,
+                 week-end compris. L'état vide doit donc rassurer, pas
+                 alerter. */
+              <EmptyState
+                title="Aucun lead aujourd'hui"
+                message="Les leads arrivent par rafales : une journée vide est normale."
+              />
             ) : (
               <div>
-                {relances.slice(0, 6).map((r) => (
-                  <button
-                    type="button"
-                    onClick={() => previewDossier(r.dossierId)}
-                    className="flex w-full items-center gap-2.5 border-b border-border py-2 text-left last:border-b-0"
-                    key={r.dossierId}
-                  >
-                    <span className="size-1.5 shrink-0 rounded-full bg-(--warning)" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-body font-semibold text-foreground">{r.clientNom || 'Client'}</div>
-                      <div className="truncate text-micro text-muted-foreground">Échéance {formatDate(r.dateEcheance)}</div>
+                {leadsDuJour.data?.content.map((l) => {
+                  const tel = (l.telephone ?? '').replace(/\s/g, '');
+                  return (
+                    <div
+                      className="flex items-baseline gap-2.5 border-b border-border py-2 last:border-b-0"
+                      key={l.prospectionId}
+                    >
+                      <Sparkles className="size-3 shrink-0 self-center text-(--info)" />
+                      <Link
+                        to={`/pre-prospections/${l.prospectionId}`}
+                        className="min-w-0 flex-1 truncate text-body font-semibold text-foreground no-underline hover:underline"
+                      >
+                        {l.nom || <span className="font-normal text-muted-foreground italic">Lead anonyme</span>}
+                      </Link>
+                      {/* Sur une pré-prospection, aucune fiche tiers n'existe
+                          encore : le numéro saisi au premier contact est la
+                          seule prise sur ce lead. */}
+                      {tel ? (
+                        <a href={`tel:${tel}`} className="shrink-0 tabular-nums text-body text-(--info) no-underline hover:underline">
+                          {formatTelephone(l.telephone)}
+                        </a>
+                      ) : (
+                        <span className="shrink-0 text-micro text-muted-foreground">pas de numéro</span>
+                      )}
                     </div>
-                    <div className="shrink-0 text-micro font-semibold text-(--warning)">
-                      {r.joursRetard ? `${r.joursRetard} j` : ''}
-                    </div>
-                    <ArrowUpRight className="size-3 shrink-0 text-muted-foreground" />
-                  </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </Card>
@@ -401,7 +637,12 @@ export default function Dashboard() {
                     <TableCell className="font-medium text-foreground">{d.clientNom || '—'}</TableCell>
                     <TableCell className="text-muted-foreground">{d.commercialNom || '—'}</TableCell>
                     <TableCell>
-                      <Badge tone="neutral">{d.statut || '—'}</Badge>
+                      {/* Le Kanban plus haut passait déjà par `canonicalStatusLabel`
+                          et `toneForStatus` ; ce tableau affichait le code brut
+                          (`CONCRETISATION`) sous une pastille neutre en dur. Le
+                          même champ se lisait de deux façons sur le même écran, et
+                          la couleur n'y portait plus rien. */}
+                      <Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || d.statut || '—'}</Badge>
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-foreground">{formatCurrency(d.prix)}</TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">

@@ -61,7 +61,11 @@ import type {
   Pageable,
   PayeurDto,
   PaysDto,
+  NouveauPreProspectDto,
   PieceJointeDto,
+  RelanceProspectionDto,
+  EcheanceRelance,
+  PorteeRelance,
   ProfilCategorieDto,
   ProjetDetailDto,
   ProjetListItemDto,
@@ -1716,6 +1720,48 @@ export function getSousArticlesReferentiel(articleId: UUID, filters?: ArticleRef
 
 export function getDashboard(): Promise<DashboardDto> {
   return request('GET', '/api/dashboard');
+}
+
+/** `GET /api/dashboard/relances` — les échéances de relance encore armées,
+ * triées par échéance croissante (le plus ancien retard d'abord).
+ *
+ * **Ce n'est pas le compte des relances en retard, et l'écran doit le dire.**
+ * `RETARD` est borné à 30 jours glissants côté serveur, délibérément : la base
+ * porte 3 710 relances en retard dont 2 020 de plus d'un an, et sans cette
+ * borne l'endpoint servirait un arriéré abandonné au lieu d'une file de
+ * travail. Mesuré à la livraison : 75 en `RETARD`/`EQUIPE`, 0 en
+ * `AUJOURDHUI`. L'arriéré complet se lit par les filtres de
+ * `GET /api/prospections`.
+ *
+ * Les relances non affectées (2,9 %) sont servies quelle que soit la portée,
+ * `MOI` compris — elles n'appartiennent à personne et un périmètre les rendrait
+ * invisibles à tout le monde. Elles portent `nonAffectee: true`. */
+export function listRelancesDashboard(
+  params?: { echeance?: EcheanceRelance; portee?: PorteeRelance },
+  pageable?: Pageable,
+): Promise<PageDto<RelanceProspectionDto>> {
+  return request('GET', '/api/dashboard/relances', {
+    query: withPageable({ echeance: params?.echeance, portee: params?.portee }, pageable),
+  });
+}
+
+/** `GET /api/dashboard/nouveaux-pre-prospects` — les leads créés le jour
+ * demandé (défaut : aujourd'hui), du plus récent au plus ancien.
+ *
+ * `jour` est une date seule (`YYYY-MM-DD`), pas un instant — d'où `todayISO()`
+ * et non `toApiDateTime()`. Pas de `portee` : une pré-prospection n'ayant pas
+ * de commercial, « les miennes » n'aurait aucun sens.
+ *
+ * **Une page vide est le cas courant**, pas une panne : l'injection est
+ * automatique et se fait par rafales, la plupart des jours à zéro puis des
+ * pointes à 20 ou 34 — week-end compris. */
+export function listNouveauxPreProspects(
+  jour?: string,
+  pageable?: Pageable,
+): Promise<PageDto<NouveauPreProspectDto>> {
+  return request('GET', '/api/dashboard/nouveaux-pre-prospects', {
+    query: withPageable({ jour }, pageable),
+  });
 }
 
 export function listCommerciaux(pageable?: Pageable): Promise<PageDto<CommercialListItemDto>> {
