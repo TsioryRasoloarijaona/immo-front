@@ -29,7 +29,6 @@ const Hotline = lazy(() => import('./pages/hotline/Hotline'));
 const ProspectionsList = lazy(() => import('./pages/prospections/ProspectionsList'));
 const PreProspectionsList = lazy(() => import('./pages/prospections/PreProspectionsList'));
 const ProspectionDetail = lazy(() => import('./pages/prospections/ProspectionDetail'));
-const NewProspection = lazy(() => import('./pages/prospections/NewProspection'));
 const OffresList = lazy(() => import('./pages/prospections/OffresList'));
 const EncaissementsList = lazy(() => import('./pages/encaissements/EncaissementsList'));
 const EncaissementDetail = lazy(() => import('./pages/encaissements/EncaissementDetail'));
@@ -80,7 +79,10 @@ function AuthenticatedApp() {
                   <Route path="/hotline" element={<Hotline />} />
                   <Route path="/calendrier" element={<Calendrier />} />
                   <Route path="/prospections" element={<ProspectionsList />} />
-                  <Route path="/prospections/nouveau" element={<NewProspection />} />
+                  {/* La saisie est une boîte, pas une page : la route rend la liste avec
+                      la boîte ouverte par-dessus. L'URL reste partageable et le
+                      bouton Retour la ferme. */}
+                  <Route path="/prospections/nouveau" element={<ProspectionsList nouveau />} />
                   <Route path="/pre-prospections" element={<PreProspectionsList />} />
                   <Route path="/pre-prospections/:id" element={<ProspectionDetail />} />
                   <Route path="/prospections/:id" element={<ProspectionDetail />} />

@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { lazy, Suspense, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, RotateCcw, Users } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -36,7 +36,16 @@ const ETAPE_ITEMS = [
   { label: 'Affaires à suivre', value: 'AFFAIRES A SUIVRE' },
 ];
 
-export default function ProspectionsList() {
+/* Chargée à la demande : ce formulaire tire une dizaine de référentiels et son
+   propre sélecteur de prospect. L'importer en statique l'aurait fait entrer
+   dans le lot de la liste, payé par tous ceux qui ne créent rien. */
+const NouvelleProspectionDialog = lazy(() => import('./NewProspection'));
+
+/* `nouveau` vient de la route `/prospections/nouveau`, qui rend cette liste
+   avec la boîte ouverte par-dessus. Une prop plutôt qu'un état local : c'est
+   l'URL qui porte l'intention, donc le bouton Retour ferme la boîte et le lien
+   reste partageable. */
+export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
@@ -342,6 +351,15 @@ export default function ProspectionsList() {
           </ResultsRegion>
         )}
       </div>
+
+      {/* `fallback={null}` : la boîte s'ouvre dès que son lot arrive. Un
+          indicateur clignoterait sur un chargement de quelques millisecondes,
+          et le voile de la modale dit déjà que quelque chose se passe. */}
+      {nouveau && (
+        <Suspense fallback={null}>
+          <NouvelleProspectionDialog onClose={() => navigate('/prospections')} />
+        </Suspense>
+      )}
     </PageShell>
   );
 }
