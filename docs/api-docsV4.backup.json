@@ -7762,6 +7762,51 @@
         }
       }
     },
+    "/api/dashboard/annuel": {
+      "get": {
+        "tags": [
+          "Tableau de bord"
+        ],
+        "summary": "Synthese annuelle facon logiciel de bureau",
+        "description": "Reprend l'ecran d'accueil d'OMRAN : l'echeancier mois par mois, les ventes                     concretisees et les encaissements de l'annee. L'assiette de chaque bloc est                     celle du logiciel de bureau, pour que les chiffres restent comparables poste                     a poste pendant la transition.\n\n**`echeancier` n'est pas un realise.** Il somme les montants *dus*                     (`ComDocument.Amount`), pas ce qui est entre en caisse. Des mois a venir y                     sont donc renseignes : en septembre 2026, octobre et novembre portaient deja                     380 000 et 50 000 DH. Une courbe qui s'arreterait au mois courant masquerait                     de la donnee vraie. Pour l'argent reellement encaisse, c'est le bloc                     `encaissements`.\n\n**`ventesConcretisees` ne couvre pas tous les dossiers.** L'assiette est la                     date d'avance (`ComFolder.AdvanceDate`), et **232 des 387 dossiers reels n'en                     ont pas** : ils sont structurellement absents, quelle que soit l'annee. Le                     champ `dossiersSansDateAvance` donne ce nombre pour que l'ecart soit                     affichable plutot que subi.\n\n**Les 12 mois sont toujours servis**, un mois vide valant zero : le client                     n'a jamais a deviner quels points manquent.\n\n**Perimetre commercial** : les trois blocs y sont soumis, comme le logiciel                     de bureau qui pose le meme filtre d'habilitation sur chacune de ses requetes.",
+        "operationId": "annuel",
+        "parameters": [
+          {
+            "name": "annee",
+            "in": "query",
+            "description": "Annee observee. Defaut : l'annee courante.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 2026
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Synthese calculee. Des compteurs a zero signifient qu'aucun dossier n'entre dans le perimetre de l'appelant sur cette annee, pas une erreur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyntheseAnnuelleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`annee` non numerique.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyntheseAnnuelleDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/commerciaux": {
       "get": {
         "tags": [
@@ -14546,6 +14591,101 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "EncaissementsAnnuelsDto": {
+        "type": "object",
+        "description": "Les encaissements de l'année. Seuls les crédits comptent : un décaissement n'est pas un encaissement négatif, il est hors sujet.",
+        "properties": {
+          "nombreLignes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lignes de règlement agrégées.",
+            "example": 82
+          },
+          "montantTotal": {
+            "type": "number",
+            "description": "Somme encaissée sur l'année. `0` si rien n'est entré.",
+            "example": 7623785
+          }
+        }
+      },
+      "PointMensuelDto": {
+        "type": "object",
+        "description": "Un mois de l'échéancier. Montant *dû* sur le mois, pas encaissé — des mois futurs peuvent donc être renseignés.",
+        "properties": {
+          "mois": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro du mois, de 1 à 12.",
+            "example": 8
+          },
+          "montant": {
+            "type": "number",
+            "description": "Somme des échéances du mois. `0` quand il n'y en a aucune, jamais `null` — un mois vide reste un point de la courbe.",
+            "example": 5766900
+          },
+          "lignes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre d'échéances agrégées. Utile pour distinguer « un mois vide » de « un mois à zéro ».",
+            "example": 8
+          }
+        }
+      },
+      "SyntheseAnnuelleDto": {
+        "type": "object",
+        "description": "Synthèse annuelle : l'échéancier mois par mois, les ventes concrétisées et les encaissements de l'année. Reprend l'écran d'accueil du logiciel de bureau, y compris son assiette, pour que les chiffres restent comparables pendant la transition.",
+        "properties": {
+          "annee": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Année observée.",
+            "example": 2026
+          },
+          "echeancier": {
+            "type": "array",
+            "description": "**Toujours 12 points, de janvier à décembre.** Un mois sans échéance vaut zéro et n'est jamais omis : une courbe doit pouvoir se tracer sans reboucher de trous côté client.",
+            "items": {
+              "$ref": "#/components/schemas/PointMensuelDto"
+            }
+          },
+          "ventesConcretisees": {
+            "$ref": "#/components/schemas/VentesConcretiseesDto",
+            "description": "Les ventes concrétisées de l'année."
+          },
+          "encaissements": {
+            "$ref": "#/components/schemas/EncaissementsAnnuelsDto",
+            "description": "Les encaissements de l'année."
+          }
+        }
+      },
+      "VentesConcretiseesDto": {
+        "type": "object",
+        "description": "Les ventes concrétisées de l'année, sur l'assiette exacte du logiciel de bureau : dossiers dont la date d'avance tombe dans l'année et dont le statut a atteint CONCRETISATION, hors sorties.",
+        "properties": {
+          "nombreDossiers": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de dossiers dans l'assiette.",
+            "example": 4
+          },
+          "prixTotal": {
+            "type": "number",
+            "description": "Somme des prix de vente. `0` si l'assiette est vide.",
+            "example": 4081900
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Ce qui a déjà été réglé sur ces dossiers — avances, crédits et autofinancements, signés par le sens de la catégorie. Les frais n'y entrent pas.",
+            "example": 1250000
+          },
+          "dossiersSansDateAvance": {
+            "type": "integer",
+            "format": "int64",
+            "description": "**Dossiers écartés faute de date d'avance**, toutes années confondues. 232 sur 387 en base réelle — 60 %. Ce compteur existe pour que ce trou d'assiette soit affichable : `nombreDossiers` ne couvre pas tous les dossiers, et l'ignorer ferait croire à un effondrement des ventes.",
+            "example": 232
           }
         }
       },

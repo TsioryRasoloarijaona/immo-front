@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Check, Search, TrendingUp, X } from 'lucide-react';
-import PageShell from '../../components/PageShell';
+import { Check, Search, X } from 'lucide-react';
+import Modal from '../../components/Modal';
 import { Card, EmptyState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
+import { DialogFooter } from '../../components/ui/dialog';
 import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
@@ -195,7 +196,21 @@ function ProspectPicker({
  * une seule page : le prospect doit exister avant la prospection (contrainte
  * métier confirmée), donc soit on en choisit un existant, soit on en crée un
  * nouveau juste avant d'appeler cet endpoint, dans le même clic "Créer". */
-export default function NewProspection() {
+/* La saisie d'une nouvelle prospection, en boîte plutôt qu'en page pleine.
+ *
+ * Ce n'était pas une page : une page est une destination, alors que ceci est
+ * une **interruption** du travail en cours — on regarde sa liste, on crée, on
+ * revient à sa liste. La page pleine faisait perdre ce contexte pour rien, et
+ * c'est précisément ce qu'une modale existe pour éviter.
+ *
+ * La route `/prospections/nouveau` est conservée et ouvre désormais cette boîte
+ * **au-dessus de la liste** : l'URL reste partageable, le bouton Retour ferme,
+ * et la liste reste visible derrière le voile — ce qui est justement le sens du
+ * geste. Le bouton de la liste n'a pas changé, il navigue toujours.
+ *
+ * La création réussie navigue vers la fiche créée, comme avant : c'est le seul
+ * moment où quitter la liste a du sens. */
+export default function NouvelleProspectionDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const [prospectMode, setProspectMode] = useState<'existing' | 'new'>('existing');
   const [selectedProspect, setSelectedProspect] = useState<ProspectListItemDto | null>(null);
@@ -284,14 +299,12 @@ export default function NewProspection() {
   }
 
   return (
-    <PageShell
-      title="Nouvelle prospection"
-      crumbs={[{ label: 'Ventes' }, { label: 'Prospections', to: '/prospections' }, { label: 'Nouvelle prospection' }]}
-      icon={<TrendingUp />}
-      accent="var(--sec-prospection)"
-      accentBg="var(--sec-prospection-bg)"
-    >
-      <div className="flex max-w-220 flex-col gap-3">
+    /* 920 : le formulaire tient une grille de trois colonnes et le tableau de
+       résultats du sélecteur de prospect. Plus étroit, la grille retombe à deux
+       colonnes et la boîte dépasse la hauteur d'écran. `Modal` borne déjà à
+       88vh et fait défiler au-delà. */
+    <Modal title="Nouvelle prospection" onClose={onClose} width={920}>
+      <div className="flex flex-col gap-3">
         <ProspectPicker
           mode={prospectMode}
           onModeChange={(m) => { setProspectMode(m); setSelectedProspect(null); }}
@@ -386,13 +399,19 @@ export default function NewProspection() {
         </Card>
 
         {submitError && <p className="text-body text-destructive">{submitError}</p>}
-
-        <div className="flex items-center justify-end border-t border-border pt-4">
-          <Button type="button" onClick={handleCreate} disabled={!canCreate || submitting}>
-            <Check data-icon="inline-start" /> {submitting ? 'Création…' : 'Créer la prospection'}
-          </Button>
-        </div>
       </div>
-    </PageShell>
+
+      {/* La sortie explicite, que la page pleine n'avait pas : elle comptait
+          sur le fil d'Ariane. Une boîte se ferme aussi par Échap et par le
+          voile, mais un bouton reste ce qu'on cherche des yeux. */}
+      <DialogFooter className="mt-5">
+        <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+          Annuler
+        </Button>
+        <Button type="button" onClick={handleCreate} disabled={!canCreate || submitting}>
+          <Check data-icon="inline-start" /> {submitting ? 'Création…' : 'Créer la prospection'}
+        </Button>
+      </DialogFooter>
+    </Modal>
   );
 }
