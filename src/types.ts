@@ -2405,6 +2405,95 @@ export interface DashboardDto {
   prospectionsTotal?: number;
 }
 
+/* ---------------------------------------------------------------------------
+   La file de travail du jour — `GET /api/dashboard/relances` et
+   `GET /api/dashboard/nouveaux-pre-prospects`.
+
+   À ne pas confondre avec `DashboardDto.relancesEnRetard` (`RelanceDto`)
+   juste au-dessus, qui porte les relances de **dossier** — les rappels de
+   titre foncier. Deux populations distinctes, et c'est la confusion des deux
+   qui faisait afficher « 0 » au tableau de bord : l'agrégat en renvoie
+   effectivement zéro, pendant que 75 relances **commerciales** attendaient.
+   --------------------------------------------------------------------------- */
+
+/** `AUJOURDHUI` : échéance au jour même. `RETARD` : de 1 à 30 jours.
+ *
+ * **La borne de 30 jours est voulue et structurante.** La base porte 3 710
+ * relances en retard, dont 2 020 de plus d'un an ; sans elle l'endpoint
+ * servirait un arriéré abandonné au lieu d'une liste de travail. L'écran doit
+ * donc se présenter comme une file du jour, jamais comme le compte des
+ * relances en retard — sinon il sous-estime la situation aussi gravement que
+ * le « 0 » qu'il remplace. L'arriéré complet se lit par les filtres de
+ * `GET /api/prospections`. */
+export type EcheanceRelance = 'AUJOURDHUI' | 'RETARD';
+
+/** `MOI` : les relances dont le commercial résolu est l'appelant. `EQUIPE` :
+ * tout son périmètre visible. Dans les deux cas les relances **non affectées
+ * sont incluses** — elles n'appartiennent à personne, les réserver à un
+ * périmètre les rendrait invisibles à tout le monde. */
+export type PorteeRelance = 'MOI' | 'EQUIPE';
+
+/** Une relance commerciale à traiter : l'échéance posée par un commercial sur
+ * une interaction, encore armée. Les relances désarmées (`WithoutRevival`,
+ * posé quand la prospection devient une vente) représentent 86 % des 39 335
+ * alertes de la base et n'apparaissent jamais ici ; les rappels de paiement
+ * rattachés à une échéance non plus. */
+export interface RelanceProspectionDto {
+  /** L'interaction qui porte la relance (`ComActionMessage`). C'est **elle**
+   * qu'il faudra viser pour désarmer ou reporter l'échéance, pas la
+   * prospection — à retenir le jour où l'écran gagnera ce geste. */
+  interactionId: UUID;
+  prospectionId: UUID;
+  /** Lead non encore qualifié : ni prospect ni commercial. Une telle relance
+   * est toujours `nonAffectee`. */
+  preProspection?: boolean;
+  /** `null` sur une pré-prospection dont le prospect n'existe pas encore — le
+   * `telephone` est alors le seul moyen de rappel. Mesuré 49/50 renseigné. */
+  prospectNom?: string | null;
+  /** Mobile, à défaut fixe, à défaut le numéro du premier contact. Mesuré
+   * **50/50 renseigné** : c'est la colonne sur laquelle l'écran peut compter. */
+  telephone?: string | null;
+  /** Jour où la relance était due. Date seule — la colonne légataire est un
+   * `datetime` mais les 3 765 relances armées sont toutes à minuit. */
+  dateRelance?: string | null;
+  /** `0` pour `AUJOURDHUI`, de 1 à 30 pour `RETARD`. */
+  joursDeRetard?: number;
+  /** Motif saisi par le commercial. Le spec l'annonce « fréquemment null » ;
+   * mesuré 50/50 renseigné sur la page en retard. Une relance sans motif
+   * reste une relance à passer. */
+  motif?: string | null;
+  /** Résolu par l'affectation de la prospection (97,1 %), à défaut par
+   * l'auteur de l'interaction. `null` avec `commercialNom` quand aucune des
+   * deux ne répond. */
+  commercialId?: UUID | null;
+  commercialNom?: string | null;
+  /** 2,9 % des cas. Ces lignes sont servies **quelle que soit la portée**,
+   * `MOI` compris. */
+  nonAffectee?: boolean;
+  /** Le dernier échange connu avec ce prospect au moment où l'échéance a été
+   * posée. */
+  derniereInteractionDate?: string | null;
+}
+
+/** Un lead non encore qualifié, arrivé dans la journée.
+ *
+ * **Les arrivées se font par rafales**, l'injection étant automatique : la
+ * plupart des jours sont à zéro, puis viennent des pointes à 20 ou 34. Le
+ * week-end n'est pas creux. Une journée vide est donc le cas courant et se lit
+ * « aucun lead », jamais « panne » — l'état vide de l'écran doit le dire. */
+export interface NouveauPreProspectDto {
+  /** La route de détail est celle des pré-prospections côté front. */
+  prospectionId: UUID;
+  code?: string | null;
+  /** `null` tant que le lead est anonyme. */
+  nom?: string | null;
+  /** Seule source possible sur une pré-prospection : aucune fiche tiers
+   * n'existe encore. */
+  telephone?: string | null;
+  email?: string | null;
+  dateCreation?: string | null;
+}
+
 export interface CommercialListItemDto {
   id: UUID;
   code?: string;

@@ -25,7 +25,27 @@ export const DOSSIER_STATUS_PIPELINE = [
   'Livraison provisoire',
 ] as const;
 
-export const DOSSIER_EXIT_STATUSES = ['Annulé', 'Désistement'] as const;
+export const DOSSIER_EXIT_STATUSES = ['Annulé', 'Désistement'] as const;
+
+/** Sorti du parcours — annulation ou désistement.
+ *
+ * Distinct de `DOSSIER_EXIT_STATUSES`, qui porte les **libellés** affichés, là
+ * où les agrégats serveur (`DashboardDto.dossiersParEtape`) et le filtre
+ * `?statut=` portent le **code brut** de `StrStatus.Code`. Les deux formes ne
+ * se rejoignent pas par normalisation : « Annulé » se code `ANNULATION`, et
+ * `normalizeStatus` rend `ANNULE` d'un côté, `ANNULATION` de l'autre. D'où les
+ * trois formes admises ici.
+ *
+ * Pourquoi c'est nécessaire : le tableau de bord sommait **tout**
+ * `dossiersParEtape` et annonçait 116 « dossiers actifs », dont 15 annulés et
+ * 5 désistés. Le serveur, lui, les exclut — son `panierMoyen` divise par 96,
+ * pas par 116 (vérifié : 96 289 349,997 / 96 = 1 003 014,06, la valeur
+ * servie). L'écran contredisait donc l'agrégat qu'il affichait juste à
+ * côté. */
+export function estStatutSortie(raw: string | undefined | null): boolean {
+  const n = normalizeStatus(raw);
+  return n === 'ANNULATION' || n === 'ANNULE' || n === 'DESISTEMENT';
+}
 
 const ALL_STATUSES = [...DOSSIER_STATUS_PIPELINE, ...DOSSIER_EXIT_STATUSES];
 

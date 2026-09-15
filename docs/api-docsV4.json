@@ -36,6 +36,10 @@
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
     },
     {
+      "name": "Tableau de bord",
+      "description": "Agrégats de la page d'accueil : valeur du pipeline, panier moyen, répartition des dossiers par étape, relances en retard et compteurs de prospections.\n\n**Entités juridiques en exploitation.** Tous les agrégats ne portent que sur les entités juridiques actives (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. L'assiette du tableau de bord est donc la même que celle de GET /api/dossiers et de GET /api/prospections ; les totaux ne sont pas comparables à ceux d'avant cette restriction.\n\n**Deux notions de « relance » cohabitent, et elles ne désignent pas la même chose.** `GET /api/dashboard/relances` sert les relances **commerciales** : une échéance posée par un commercial sur une interaction, encore armée — 3 765 en base réelle. Le champ `relancesEnRetard` de `GET /api/dashboard`, lui, parle des *dossiers* via `ComFolder.Revival1`/`Revival2`, colonnes **mortes en base réelle (0 ligne sur 358)** : ce champ est structurellement vide. Voir `instructions/FEATURE-dashboard-relances.md`."
+    },
+    {
       "name": "KPI commerciaux",
       "description": "Indicateurs de performance des commerciaux sur une période — activité réalisée (appels, visites, interactions), portefeuille confié (prospections, réactivité) et résultat (dossiers, montants, taux de transformation).\n\nDeux attributions cohabitent et il faut le savoir pour lire les chiffres : l'**activité** est comptée pour celui qui l'a saisie, le **portefeuille** pour le commercial assigné. Un chef qui appelle sur la prospection d'un commercial voit l'appel chez lui, pas chez l'autre.\n\nTous les compteurs respectent la visibilité par entité juridique et le périmètre commercial de l'appelant. Un commercial restreint verra donc des chiffres inférieurs à son activité réelle — c'est volontaire."
     },
@@ -70,10 +74,6 @@
     {
       "name": "Clients",
       "description": "Tiers ayant acheté — un `CfgTier` référencé par au moins un dossier de vente. Il n'y a pas d'entité Client distincte dans le schéma : la fiche et ses sous-ressources sont celles de /api/prospects.\n\n**Entités juridiques en exploitation.** La qualité de client se juge sur les seuls dossiers rattachés à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un tier dont tous les dossiers relèvent d'une entité hors exploitation n'est donc plus un client au sens de cet endpoint et disparaît de la liste ; les agrégats `nombreDossiers`, `totalAPayer` et `totalRegle` suivent la même assiette, pour qu'ils concordent avec GET /api/clients/{id}/dossiers."
-    },
-    {
-      "name": "Tableau de bord",
-      "description": "Agrégats de la page d'accueil : valeur du pipeline, panier moyen, répartition des dossiers par étape, relances en retard et compteurs de prospections.\n\n**Entités juridiques en exploitation.** Tous les agrégats ne portent que sur les entités juridiques actives (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. L'assiette du tableau de bord est donc la même que celle de GET /api/dossiers et de GET /api/prospections ; les totaux ne sont pas comparables à ceux d'avant cette restriction."
     }
   ],
   "paths": {
@@ -7621,7 +7621,7 @@
           "Tableau de bord"
         ],
         "summary": "Agrégats du tableau de bord",
-        "description": "Tous les chiffres sont calculés côté serveur à la volée, jamais stockés. `valeurPipeline` et `nombre de dossiers actifs` (qui donne le `panierMoyen`) excluent les dossiers en statut de sortie (annulation, désistement...). `relancesEnRetard` liste les dossiers dont une date de validité de relance est dépassée. `prospectionsOuvertes`/`prospectionsTotal` excluent les pré-prospections.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), *tous* les agrégats ci-dessus ne portent que sur ses projets affectés — un chiffre d'affaires global serait précisément la donnée que le périmètre masque. Les dossiers et prospections dont le projet ne se résout pas restent comptés pour tout le monde.",
+        "description": "Tous les chiffres sont calculés côté serveur à la volée, jamais stockés. `valeurPipeline` et `nombre de dossiers actifs` (qui donne le `panierMoyen`) excluent les dossiers en statut de sortie (annulation, désistement...). `relancesEnRetard` liste les dossiers dont une date de validité de relance est dépassée — **en pratique toujours vide**, les colonnes `Revival1`/`Revival2` n'étant renseignées sur aucune des 358 lignes réelles ; pour les relances commerciales, voir `GET /api/dashboard/relances`. `prospectionsOuvertes`/`prospectionsTotal` excluent les pré-prospections.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), *tous* les agrégats ci-dessus ne portent que sur ses projets affectés — un chiffre d'affaires global serait précisément la donnée que le périmètre masque. Les dossiers et prospections dont le projet ne se résout pas restent comptés pour tout le monde.",
         "operationId": "get",
         "responses": {
           "200": {
@@ -7630,6 +7630,131 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/DashboardDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/relances": {
+      "get": {
+        "tags": [
+          "Tableau de bord"
+        ],
+        "summary": "Les relances commerciales à traiter",
+        "description": "Les échéances de relance posées par les commerciaux sur leurs interactions, encore armées. C'est la file de travail de la journée.\n\n**Ce qui est exclu, et pourquoi c'est l'essentiel du filtre.** Une relance désarmée (`WithoutRevival`) n'apparaît jamais : c'est le drapeau posé quand la prospection est transformée en vente, et il couvre **86 % des 39 335 alertes de la base**. Sont également exclus les rappels de paiement rattachés à une échéance (`ComDocumentId` non nul), qui ne sont pas du travail commercial. Il reste 3 765 relances vivantes, une par prospection.\n\n**`echeance=RETARD` est borné à 30 jours glissants, délibérément.** La base porte 3 710 relances en retard, dont **2 020 de plus d'un an** et seulement 75 de moins de 30 jours. Sans cette borne l'endpoint servirait un arriéré abandonné au lieu d'une liste de travail. Pour atteindre l'arriéré complet, passer par les filtres de `GET /api/prospections`.\n\n**Les relances non affectées sont servies quelle que soit la `portee`**, y compris `MOI` : 108 relances (2,9 %) ne désignent personne — ni par l'affectation de la prospection, ni par l'auteur de l'interaction — et les 21 posées sur des pré-prospections en font toutes partie, une pré-prospection étant *définie* par l'absence de commercial. Les réserver à un périmètre les rendrait invisibles à tout le monde. Elles portent `nonAffectee: true`.\n\nTrié par échéance croissante : le plus ancien retard d'abord.",
+        "operationId": "relances",
+        "parameters": [
+          {
+            "name": "echeance",
+            "in": "query",
+            "description": "`AUJOURDHUI` : échéance au jour même. `RETARD` : en retard de 1 à 30 jours.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "AUJOURDHUI",
+              "enum": [
+                "AUJOURDHUI",
+                "RETARD"
+              ]
+            },
+            "example": "AUJOURDHUI"
+          },
+          {
+            "name": "portee",
+            "in": "query",
+            "description": "`MOI` : les relances dont le commercial résolu est l'appelant. `EQUIPE` : tout son périmètre visible. Dans les deux cas les relances non affectées sont incluses.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "MOI",
+              "enum": [
+                "MOI",
+                "EQUIPE"
+              ]
+            },
+            "example": "MOI"
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de relances. **Une page vide n'est pas une erreur** : un jour ouvré normal en compte 1 à 11, et un compte non rattaché à un employé ne possède aucune relance — il ne reçoit alors, sous `portee=MOI`, que les relances non affectées.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoRelanceProspectionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`echeance` ou `portee` hors des valeurs admises.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoRelanceProspectionDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/nouveaux-pre-prospects": {
+      "get": {
+        "tags": [
+          "Tableau de bord"
+        ],
+        "summary": "Les leads arrivés dans la journée",
+        "description": "Les pré-prospections créées le jour demandé — un lead non encore qualifié, sans prospect ni commercial (`CfgProspectId` et `CfgCommercialId` nuls), même discriminant que `GET /api/pre-prospections`.\n\n**Les arrivées se font par rafales, pas en continu**, l'injection des leads étant automatique : sur les 21 derniers jours mesurés, la plupart sont à zéro puis viennent des pointes à 11, 20, 31 et 34. **Le week-end n'est pas creux** ici, contrairement aux interactions — 34 leads sont arrivés un dimanche. Une journée vide est donc le cas courant et se lit « aucun lead », jamais « panne ».\n\nPas de paramètre `portee` : une pré-prospection n'ayant pas de commercial, « les miennes » n'aurait aucun sens. Seul le périmètre par projet s'applique.\n\nTrié du plus récent au plus ancien.",
+        "operationId": "nouveauxPreProspects",
+        "parameters": [
+          {
+            "name": "jour",
+            "in": "query",
+            "description": "Jour observé. Défaut : aujourd'hui. Sert surtout à rattraper la veille après un week-end chargé.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-09-15"
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de leads du jour. Vide le plus souvent — ce n'est pas une erreur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoNouveauPreProspectDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`jour` non parsable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoNouveauPreProspectDto"
                 }
               }
             }
@@ -14272,6 +14397,155 @@
           "joursRetard": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "PageDtoRelanceProspectionDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RelanceProspectionDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "RelanceProspectionDto": {
+        "type": "object",
+        "description": "Une relance commerciale à traiter : l'échéance posée par un commercial sur une interaction, encore armée. Une relance désarmée (prospection vendue) ou rattachée à une échéance de paiement n'apparaît jamais ici.",
+        "properties": {
+          "interactionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Interaction qui porte la relance (`ComActionMessage`). C'est elle qu'il faut viser pour désarmer ou reporter l'échéance, pas la prospection.",
+            "example": "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+          },
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Prospection ou pré-prospection concernée."
+          },
+          "preProspection": {
+            "type": "boolean",
+            "description": "`true` s'il s'agit d'une pré-prospection — un lead non encore qualifié, sans prospect ni commercial (`CfgProspectId` et `CfgCommercialId` nuls). Une telle relance est toujours `nonAffectee`."
+          },
+          "prospectNom": {
+            "type": "string",
+            "description": "Nom du prospect. `null` sur une pré-prospection dont le prospect n'a pas encore été créé — le `telephone` reste alors le seul moyen de rappel."
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Numéro joignable : le mobile de la fiche, à défaut son fixe, à défaut le numéro saisi au premier contact. Aucune de ces sources ne suffit seule ; ensemble elles couvrent 8 591 des 8 613 prospections ouvertes."
+          },
+          "dateRelance": {
+            "type": "string",
+            "format": "date",
+            "description": "Jour où la relance était due. La colonne légataire est un `datetime` mais son heure ne porte aucune information — les 3 765 relances armées sont toutes à minuit —, elle est donc ramenée au jour.",
+            "example": "2026-09-15"
+          },
+          "joursDeRetard": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Jours écoulés depuis l'échéance : `0` pour `echeance=AUJOURDHUI`, de 1 à 30 pour `echeance=RETARD`.",
+            "example": 3
+          },
+          "motif": {
+            "type": "string",
+            "description": "Motif saisi par le commercial (`AlertMessage`). Fréquemment `null` — une relance sans motif reste une relance à passer."
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Commercial à qui la relance revient. Résolu par l'affectation de la prospection d'abord (97,1 % des cas), à défaut par l'auteur de l'interaction. `null` quand aucune des deux sources ne renseigne personne."
+          },
+          "commercialNom": {
+            "type": "string",
+            "description": "Nom du commercial résolu. `null` en même temps que `commercialId`."
+          },
+          "nonAffectee": {
+            "type": "boolean",
+            "description": "`true` quand la relance n'appartient à personne — 2,9 % des cas en base réelle. **Ces lignes sont servies quelle que soit la `portee` demandée, y compris `MOI`** : n'étant à personne, les réserver à un périmètre les rendrait invisibles. À présenter comme une file à récupérer."
+          },
+          "derniereInteractionDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'interaction qui porte la relance — le dernier échange connu avec ce prospect au moment où l'échéance a été posée."
+          }
+        }
+      },
+      "NouveauPreProspectDto": {
+        "type": "object",
+        "description": "Un lead non encore qualifié, créé aujourd'hui. Les arrivées se font par rafales (injection automatique depuis le serveur legacy) et **le week-end n'est pas creux** — 34 leads un dimanche en base réelle. Une journée à zéro est le cas courant.",
+        "properties": {
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pré-prospection créée. La route de détail est celle des prospections : `GET /api/prospections/{id}`."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code légataire de la pré-prospection, s'il a été attribué."
+          },
+          "nom": {
+            "type": "string",
+            "description": "Nom ou raison sociale saisis au premier contact (`TempDescription`). `null` tant que le lead est anonyme."
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Numéro saisi au premier contact (`TempTel`) — sur une pré-prospection c'est la seule source possible, aucune fiche tiers n'existe encore."
+          },
+          "email": {
+            "type": "string",
+            "description": "E-mail saisi au premier contact (`TempEMail`)."
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Horodatage de création, qui sert aussi de critère du jour."
+          }
+        }
+      },
+      "PageDtoNouveauPreProspectDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NouveauPreProspectDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
