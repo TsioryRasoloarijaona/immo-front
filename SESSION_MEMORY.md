@@ -1,5 +1,5 @@
 # Session Memory
-_Last updated: 2026-09-15T17:00:00Z_
+_Last updated: 2026-09-16 — état vérifié, aucun travail nouveau depuis le 15/09_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
@@ -173,9 +173,11 @@ des captures. Les huit précédentes étaient à l'aveugle.
 - Vite `:5173`, backend Spring `:8080`, lancés par l'utilisateur. **Le backend
   est tombé une fois en cours de session** — `ECONNREFUSED`, redémarré par lui.
 - Identifiants de test : dans les sondes du scratchpad. **Non consignés ici.**
-- `main` à **`532e3a2`**. PR #41 à #48 fusionnées cette session.
-- Branche **`docs/demande-filtre-colonne`**, poussée, **non fusionnée** — un
-  commit, documentation seule.
+- `main` à **`532e3a2`**. PR #41 à #48 fusionnées le 15/09.
+- Branche **`docs/demande-filtre-colonne`**, poussée, **toujours non fusionnée
+  au 16/09** — **deux** commits : la demande backend (`7178179`) et la
+  consolidation de mémoire (`eed50d5`). Elle bloque le pas suivant : aucune
+  nouvelle branche ne peut partir d'un `main` à jour tant qu'elle attend.
 - **L'utilisateur fusionne vite, parfois en cours de tour.** Traiter `main` comme
   mouvant.
 
