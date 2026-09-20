@@ -58,9 +58,17 @@ export default function Pagination({
             <Button
               key={p}
               type="button"
-              variant={p === page ? 'default' : 'outline'}
+              /* `secondary`/`ghost` et non `default`/`outline` : depuis que
+                 --primary est l'encre (20/09), le variant default rendait la
+                 page active en pastille noire pleine où le chiffre se perdait.
+                 Pastille grise douce + chiffre en encre, lisible dans les deux
+                 thèmes ; les pages inactives en fantôme, façon Uxerflow. */
+              variant={p === page ? 'secondary' : 'ghost'}
               size="icon-sm"
-              className={cn('h-6.5 w-6.5 text-body tabular-nums', p === page && 'pointer-events-none')}
+              className={cn(
+                'h-6.5 w-6.5 text-body tabular-nums',
+                p === page ? 'pointer-events-none font-semibold text-foreground' : 'text-muted-foreground',
+              )}
               aria-label={`Page ${p + 1}`}
               aria-current={p === page ? 'page' : undefined}
               onClick={() => onPageChange(p)}
