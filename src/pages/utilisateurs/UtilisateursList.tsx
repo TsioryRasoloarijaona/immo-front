@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, KeyRound, RotateCcw, Search, Users } from 'lucide-react';
-import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
@@ -192,8 +192,7 @@ export default function UtilisateursList() {
       fullHeight
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <Card padded={false} className="shrink-0">
-          <div className="flex flex-wrap items-center gap-2.5 p-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
             <InputGroup className="min-w-55 flex-1">
               <InputGroupAddon>
                 <Search />
@@ -216,8 +215,7 @@ export default function UtilisateursList() {
                 </SelectGroup>
               </SelectContent>
             </Select>
-          </div>
-        </Card>
+        </div>
 
         {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}

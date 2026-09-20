@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Download, FileText, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, ResultsRegion } from '../../components/ui';
+import { Badge, EmptyState, ErrorState, Field, FieldGrid, LoadingState, ResultsRegion } from '../../components/ui';
 import DevisFormSection from '../../components/DevisFormSection';
 import Modal from '../../components/Modal';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
@@ -156,8 +156,7 @@ export default function OffresList() {
       <div className="flex h-full min-h-0 flex-col gap-3">
         {showCreate && <NouvelleOffreDialog onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); refetch(); }} />}
 
-        <Card padded={false} className="shrink-0">
-          <div className="flex flex-wrap items-center gap-2.5 p-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
             <InputGroup className="min-w-55 flex-1">
               <InputGroupAddon>
                 <Search />
@@ -220,8 +219,7 @@ export default function OffresList() {
             <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
               <RotateCcw data-icon="inline-start" /> Réinitialiser
             </Button>
-          </div>
-        </Card>
+        </div>
 
         {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}

@@ -478,7 +478,7 @@ export default function Hotline() {
           désormais, l'aide en micro — les fiches trouvées récupèrent la
           hauteur, et seule la zone de résultats défile. */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">
-      <Card className="shrink-0">
+      <div className="shrink-0">
         <form
           className="flex flex-wrap items-center gap-2.5"
           onSubmit={(e) => {
@@ -527,7 +527,7 @@ export default function Hotline() {
             </>
           )}
         </p>
-      </Card>
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
       {!query && (

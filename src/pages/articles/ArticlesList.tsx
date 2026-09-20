@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
@@ -292,8 +292,7 @@ export default function ArticlesList() {
       accentBg="var(--sec-tranche-bg)"
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <Card padded={false} className="shrink-0">
-          <div className="flex flex-wrap items-center gap-2.5 p-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
             <InputGroup className="min-w-55 flex-1">
               <InputGroupAddon>
                 <Search />
@@ -384,8 +383,7 @@ export default function ArticlesList() {
             <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
               <RotateCcw data-icon="inline-start" /> Réinitialiser
             </Button>
-          </div>
-        </Card>
+        </div>
 
         {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}

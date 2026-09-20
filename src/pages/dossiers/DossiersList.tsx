@@ -352,8 +352,7 @@ export default function DossiersList() {
       accentBg="var(--sec-dossier-bg)"
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <Card padded={false} className="shrink-0">
-          <div className="flex flex-wrap items-center gap-2.5 p-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
             <InputGroup className="min-w-55 flex-1">
               <InputGroupAddon>
                 <Search />
@@ -434,9 +433,9 @@ export default function DossiersList() {
             <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
               <RotateCcw data-icon="inline-start" /> Réinitialiser
             </Button>
-          </div>
-        </Card>
+        </div>
 
+        {/* Panneau d'action, pas un filtre : lui garde sa carte. */}
         <Card padded={false} className="shrink-0">
           <div className="flex flex-wrap items-center gap-2.5 p-3">
             <Select

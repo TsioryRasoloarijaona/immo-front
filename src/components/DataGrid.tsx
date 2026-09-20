@@ -623,15 +623,15 @@ export default function DataGrid<T extends { id: string }>({
         style={minWidth ? { minWidth } : undefined}
       >
         <TableHeader>
-          <TableRow className="hover:bg-card">
+          <TableRow className="hover:bg-transparent">
             {/* Gouttières. Volontairement NON figées à gauche : figer demande
                 un fond opaque par cellule de gouttière pour occulter ce qui
                 défile dessous, donc de rejouer à la main la couleur de ligne
                 courante et de pied — et rien dans la capture de référence ne
                 prouve que la grille d'origine les fige. */}
-            {rendreDetail && <TableHead className="sticky top-0 z-10 w-(--gutter-check) bg-card p-0" aria-label="Deplier" />}
-            <TableHead className="sticky top-0 z-10 w-(--gutter-mark) bg-card p-0" aria-label="Ligne courante" />
-            <TableHead className="sticky top-0 z-10 w-(--gutter-check) bg-card px-0 text-center">
+            {rendreDetail && <TableHead className="sticky top-0 z-10 w-(--gutter-check) bg-(--surface-hover) p-0" aria-label="Deplier" />}
+            <TableHead className="sticky top-0 z-10 w-(--gutter-mark) bg-(--surface-hover) p-0" aria-label="Ligne courante" />
+            <TableHead className="sticky top-0 z-10 w-(--gutter-check) bg-(--surface-hover) px-0 text-center">
               <input
                 type="checkbox"
                 className="size-3 cursor-pointer align-middle accent-(--brand)"
@@ -658,7 +658,10 @@ export default function DataGrid<T extends { id: string }>({
                   // dans lequel Chrome ignore un `sticky` porté par un `<tr>`.
                   // Le fond opaque doit alors suivre sur chaque `<th>`.
                   className={cn(
-                    'sticky top-0 z-10 bg-card whitespace-nowrap cursor-grab',
+                    // `bg-(--surface-hover)` : le bandeau d'en-tête gris de
+                    // table.tsx, redit ici parce que le collant exige un fond
+                    // opaque par cellule.
+                    'sticky top-0 z-10 bg-(--surface-hover) whitespace-nowrap cursor-grab',
                     glissee === c.nom && 'cursor-grabbing opacity-50',
                     // Trait d'insertion en ombre interne : aucun décalage de
                     // mise en page, là où une bordure élargirait la cellule et
@@ -897,7 +900,7 @@ export default function DataGrid<T extends { id: string }>({
               l'autre son intitulé. Deux totaux non étiquetés côte à côte se
               contrediraient. */}
           {groupes && groupes.agregats.length > 0 && (
-            <TableRow className="border-t-2 border-border bg-muted/60 hover:bg-muted/60">
+            <TableRow className="border-t border-border bg-(--surface-hover) hover:bg-(--surface-hover)">
               <TableCell colSpan={nbColonnes} className="whitespace-nowrap">
                 <span className="flex items-center gap-3 text-micro">
                   <span className="shrink-0 font-semibold">
