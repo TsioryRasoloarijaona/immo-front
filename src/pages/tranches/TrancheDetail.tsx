@@ -1,9 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Building2, Calendar, Coins, Scale } from 'lucide-react';
+import { Building2, Calendar, Coins, Scale } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, TogglePill } from '../../components/ui';
-import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import Pagination from '../../components/Pagination';
@@ -127,24 +126,26 @@ export default function TrancheDetail() {
       icon={<Building2 />}
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
+      fullHeight
     >
-      <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate('/tranches')}>
-        <ArrowLeft data-icon="inline-start" /> Retour à la liste
-      </Button>
-
-      <div className="mb-3">
-        <h2 className="text-hero font-semibold tracking-tight text-foreground">{t.description}</h2>
-        <div className="mt-1 text-label text-muted-foreground">
-          {t.code} · {t.ville ? <span className="capitalize">{t.ville}</span> : 'Ville non renseignée'}
+      {/* Redesign 20/09 : le bouton « Retour à la liste » et le bloc titre
+          hero redisaient le fil d'Ariane du PageShell (~90px) ; l'identité
+          tient sur une ligne, l'aperçu reste épinglé, et seules les règles
+          de gestion + les articles défilent. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">
+        <div className="flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="text-title font-semibold tracking-tight text-foreground">{t.description}</h2>
+          <span className="font-mono text-micro text-muted-foreground">{t.code}</span>
+          <span className="text-body text-muted-foreground">
+            {t.ville ? <span className="capitalize">{t.ville}</span> : 'Ville non renseignée'}
+          </span>
+          <span className="flex flex-wrap gap-1.5">
+            {t.estEnVente && <Badge tone="info">Vente</Badge>}
+            {t.estEnLocation && <Badge tone="info">Location</Badge>}
+          </span>
         </div>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {t.estEnVente && <Badge tone="info">Vente</Badge>}
-          {t.estEnLocation && <Badge tone="info">Location</Badge>}
-        </div>
-      </div>
 
-      <div className="flex flex-col gap-3">
-        <Card title="Aperçu du projet" accent="var(--sec-tranche)">
+        <Card title="Aperçu du projet" accent="var(--sec-tranche)" className="shrink-0">
           <FieldGrid>
             <Field label="Adresse" value={t.adresse} />
             <Field label="Ville" value={t.ville ? <span className="capitalize">{t.ville}</span> : undefined} />
@@ -158,31 +159,30 @@ export default function TrancheDetail() {
           </FieldGrid>
         </Card>
 
-        <div>
-          <div className="mb-2.5 flex items-center gap-2 text-body font-semibold uppercase tracking-wide text-muted-foreground">
-            <Calendar className="size-3.75" />
-            Règles de gestion
-          </div>
-          {SECTIONS.map((section) => (
-            <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card first:mt-0" key={section.title}>
-              <div className="flex items-center gap-2.5 border-b border-border px-5 py-3.5 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-primary">
-                {section.icon}
-                <div>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-body font-semibold uppercase tracking-wide text-muted-foreground">
+              <Calendar className="size-3.75" />
+              Règles de gestion
+            </div>
+            {SECTIONS.map((section) => (
+              <div className="mt-3 overflow-hidden rounded-xl border border-border bg-card first:mt-0" key={section.title}>
+                <div className="flex items-center gap-2.5 border-b border-border px-3.5 py-2 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-primary">
+                  {section.icon}
                   <h3 className="text-label font-semibold text-foreground">{section.title}</h3>
-                  <div className="mt-px text-xs text-muted-foreground">{section.desc}</div>
+                  <span className="text-micro text-muted-foreground">{section.desc}</span>
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-px bg-border">
+                  {section.fields.map((f) => (
+                    <div className="bg-card px-3.5 py-2" key={String(f.key)}>
+                      <div className="mb-0.5 text-micro text-muted-foreground">{f.label}</div>
+                      <div className="flex items-center gap-1.5 text-label font-semibold text-foreground">{renderValue(f.fmt, t[f.key])}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-px bg-border">
-                {section.fields.map((f) => (
-                  <div className="bg-card px-5 py-3.5" key={String(f.key)}>
-                    <div className="mb-1 text-xs text-muted-foreground">{f.label}</div>
-                    <div className="flex items-center gap-1.5 text-title font-semibold text-foreground">{renderValue(f.fmt, t[f.key])}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
         <Card
           title={`Articles (${articles.data?.totalElements ?? 0})`}
@@ -263,6 +263,7 @@ export default function TrancheDetail() {
             />
           )}
         </Card>
+        </div>
       </div>
     </PageShell>
   );

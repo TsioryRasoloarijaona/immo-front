@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, Eye, MapPin } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { Badge, Card, ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { getEvenementsCalendrier } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
@@ -150,10 +150,17 @@ export default function Calendrier() {
   );
 
   return (
-    <PageShell title="Calendrier" crumbs={[{ label: 'Calendrier' }]} icon={<Calendar />} accent="var(--sec-accent)" accentBg="var(--sec-accent-bg)">
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
-        <Card padded={false}>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4.5 py-3">
+    <PageShell title="Calendrier" crumbs={[{ label: 'Calendrier' }]} icon={<Calendar />} accent="var(--sec-accent)" accentBg="var(--sec-accent-bg)" fullHeight>
+      {/* Zéro-scroll (redesign 20/09) : la grille des six semaines s'étire
+          pour occuper la hauteur restante du viewport au lieu d'imposer
+          92px par cellule (min-h-23) — le mois entier tient à l'écran, la
+          colonne latérale défile en interne si besoin. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-1 lg:flex-row">
+        <Card
+          padded={false}
+          className="flex min-h-[420px] flex-1 flex-col lg:min-h-0 [&>[data-slot=card-content]]:flex [&>[data-slot=card-content]]:min-h-0 [&>[data-slot=card-content]]:flex-1 [&>[data-slot=card-content]]:flex-col"
+        >
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-2">
             <div className="text-title font-semibold text-foreground">
               {MONTH_LABELS[month.getMonth()]} {month.getFullYear()}
             </div>
@@ -174,15 +181,15 @@ export default function Calendrier() {
           {error && <div className="p-4"><ErrorState message={error} /></div>}
 
           {!loading && !error && (
-            <div>
-              <div className="grid grid-cols-7 border-b border-border">
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="grid shrink-0 grid-cols-7 border-b border-border">
                 {WEEKDAY_LABELS.map((w) => (
-                  <div key={w} className="px-2 py-2 text-center text-micro font-medium text-muted-foreground">
+                  <div key={w} className="px-2 py-1.5 text-center text-micro font-medium text-muted-foreground">
                     {w}
                   </div>
                 ))}
               </div>
-              <div className="grid grid-cols-7">
+              <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-6">
                 {grid.map((day) => {
                   const iso = toISODate(day);
                   const inMonth = day.getMonth() === month.getMonth();
@@ -207,14 +214,14 @@ export default function Calendrier() {
                         }
                       }}
                       className={cn(
-                        'flex min-h-23 cursor-pointer flex-col items-stretch gap-1 border-b border-r border-border p-1.5 text-left transition-colors last:border-r-0 [&:nth-child(7n)]:border-r-0 hover:bg-(--neutral-bg)',
+                        'flex min-h-0 cursor-pointer flex-col items-stretch gap-0.5 overflow-hidden border-b border-r border-border p-1 text-left transition-colors last:border-r-0 [&:nth-child(7n)]:border-r-0 hover:bg-(--neutral-bg)',
                         !inMonth && 'bg-(--muted)',
                         isSelected && 'bg-(--brand-bg) hover:bg-(--brand-bg)'
                       )}
                     >
                       <span
                         className={cn(
-                          'inline-flex size-6 items-center justify-center self-start rounded-full text-body font-medium',
+                          'inline-flex size-5.5 shrink-0 items-center justify-center self-start rounded-full text-body font-medium',
                           !inMonth && 'text-muted-foreground/60',
                           inMonth && !isToday && 'text-foreground',
                           isToday && 'bg-primary font-semibold text-primary-foreground'
@@ -222,7 +229,7 @@ export default function Calendrier() {
                       >
                         {day.getDate()}
                       </span>
-                      <div className="flex flex-col gap-1">
+                      <div className="flex min-h-0 flex-col gap-0.5 overflow-hidden">
                         {dayEvents.slice(0, 2).map((ev) => (
                           <EventPill key={ev.interactionId} ev={ev} onClick={() => setSelectedDate(iso)} />
                         ))}
@@ -238,10 +245,13 @@ export default function Calendrier() {
           )}
         </Card>
 
-        <div className="flex flex-col gap-4">
-          <Card title={`Le ${formatDate(selectedDate)}`}>
+        <div className="flex min-h-0 w-full flex-col gap-3 lg:w-[320px] lg:shrink-0">
+          <Card
+            title={`Le ${formatDate(selectedDate)}`}
+            className="flex min-h-0 flex-col [&>[data-slot=card-content]]:min-h-0 [&>[data-slot=card-content]]:overflow-y-auto"
+          >
             {selectedEvents.length === 0 ? (
-              <EmptyState title="Rien de prévu" message="Aucun rendez-vous ni visite ce jour-là." />
+              <p className="py-1 text-body text-muted-foreground">Rien de prévu — aucun rendez-vous ni visite ce jour-là.</p>
             ) : (
               <div className="flex flex-col gap-2.5">
                 {selectedEvents.map((ev) => (
@@ -251,9 +261,12 @@ export default function Calendrier() {
             )}
           </Card>
 
-          <Card title="À venir">
+          <Card
+            title="À venir"
+            className="flex min-h-0 flex-col [&>[data-slot=card-content]]:min-h-0 [&>[data-slot=card-content]]:overflow-y-auto"
+          >
             {upcoming.length === 0 ? (
-              <EmptyState title="Rien à venir" message="Aucun rendez-vous ou visite planifié pour les prochains jours." />
+              <p className="py-1 text-body text-muted-foreground">Aucun rendez-vous ou visite planifié pour les prochains jours.</p>
             ) : (
               <div className="flex flex-col">
                 {upcoming.map((ev) => (

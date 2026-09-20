@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Building2, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { listProjets, listProjetTranches } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { formatDate } from '../../lib/format';
@@ -21,6 +22,7 @@ const AGGREGATE_PAGE_SIZE = 200;
 export default function TranchesList() {
   const projets = useApi(() => listProjets({ page: 0, size: AGGREGATE_PAGE_SIZE }), []);
   const [search, setSearch] = useState('');
+  const navigate = useNavigate();
 
   const projetIds = useMemo(() => (projets.data?.content ?? []).map((p) => p.id), [projets.data]);
   const tranchesByProjet = useApi(
@@ -62,44 +64,67 @@ export default function TranchesList() {
       icon={<Building2 />}
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
+      fullHeight
     >
-      <div className="mb-3">
-        <InputGroup className="max-w-md">
-          <InputGroupAddon>
-            <Search />
-          </InputGroupAddon>
-          <InputGroupInput
-            placeholder="Rechercher un projet, une ville, un code…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </InputGroup>
-      </div>
-
-      <div className="mb-2.5 text-body text-muted-foreground">{filtered.length} tranche{filtered.length > 1 ? 's' : ''}</div>
-
-      {filtered.length === 0 ? (
-        <EmptyState title="Aucun résultat" />
-      ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3.5">
-          {filtered.map((t) => (
-            <Link
-              to={`/tranches/${t.id}`}
-              key={t.id}
-              className="block rounded-xl border border-border bg-card p-4.5 no-underline transition-[border-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:border-(--border-strong) hover:shadow-md"
-            >
-              <div className="mb-2.5">
-                <div className="mb-0.5 line-clamp-2 text-title font-semibold text-foreground">{t.description}</div>
-                <div className="font-mono text-micro text-muted-foreground">{t.code} · {projetById.get(t._projetId)}</div>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-x-3.5 gap-y-1.5 border-t border-border pt-3 text-body text-muted-foreground">
-                <span>{t.ville ? <span className="capitalize">{t.ville}</span> : 'Ville non renseignée'}</span>
-                <span>Livraison : {formatDate(t.dateLivraison) === '—' ? 'non planifiée' : formatDate(t.dateLivraison)}</span>
-              </div>
-            </Link>
-          ))}
+      {/* Redesign 20/09 : l'ancienne grille de cartes rendait cinq
+          informations pour ~120px de hauteur chacune — le pire ratio
+          densité/surface de l'app. Le portefeuille entier tient désormais
+          dans une table à la densité de grille (24px/ligne), triée par le
+          serveur, visible d'un seul regard. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2.5 pt-1">
+        <div className="flex shrink-0 items-center gap-3">
+          <InputGroup className="max-w-md">
+            <InputGroupAddon>
+              <Search />
+            </InputGroupAddon>
+            <InputGroupInput
+              placeholder="Rechercher un projet, une ville, un code…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </InputGroup>
+          <span className="text-body text-muted-foreground">
+            {filtered.length} tranche{filtered.length > 1 ? 's' : ''}
+          </span>
         </div>
-      )}
+
+        {filtered.length === 0 ? (
+          <EmptyState title="Aucun résultat" />
+        ) : (
+          <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent [&>*:first-child]:pl-3 [&>*:last-child]:pr-3">
+                  <TableHead className="text-muted-foreground">Description</TableHead>
+                  <TableHead className="text-muted-foreground">Code</TableHead>
+                  <TableHead className="text-muted-foreground">Projet</TableHead>
+                  <TableHead className="text-muted-foreground">Ville</TableHead>
+                  <TableHead className="text-muted-foreground">Livraison</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((t) => (
+                  <TableRow
+                    key={t.id}
+                    className="cursor-pointer hover:bg-(--surface-hover) [&>*:first-child]:pl-3 [&>*:last-child]:pr-3"
+                    onClick={() => navigate(`/tranches/${t.id}`)}
+                  >
+                    <TableCell className="max-w-[360px] truncate font-medium text-foreground" title={t.description ?? undefined}>
+                      {t.description || '—'}
+                    </TableCell>
+                    <TableCell className="font-mono text-micro text-muted-foreground">{t.code || '—'}</TableCell>
+                    <TableCell className="max-w-[240px] truncate text-muted-foreground">{projetById.get(t._projetId) || '—'}</TableCell>
+                    <TableCell className="capitalize text-muted-foreground">{t.ville || '—'}</TableCell>
+                    <TableCell className="tabular-nums text-muted-foreground">
+                      {formatDate(t.dateLivraison) === '—' ? 'non planifiée' : formatDate(t.dateLivraison)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
     </PageShell>
   );
 }

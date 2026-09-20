@@ -112,8 +112,9 @@ export default function PerformancesCommerciaux() {
       icon={<Trophy />}
       accent="var(--sec-accent)"
       accentBg="var(--sec-accent-bg)"
+      fullHeight
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">
         {/* La description de la page a été retirée, cet avertissement non : il
             change ce que le classement veut dire. Sans lui, une vingtaine de
             lignes se lisent comme l'effectif complet alors que c'est le nombre
@@ -138,7 +139,10 @@ export default function PerformancesCommerciaux() {
                 message="Aucun commercial n’a d’interaction, de prospection assignée ni de dossier sur cet intervalle. Élargissez la période."
               />
             ) : (
-              <div className="flex flex-col gap-5">
+              /* Redesign 20/09 : la page ne défile plus — le filtre de
+                 période reste épinglé, cette zone de résultats porte le
+                 seul défilement. */
+              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
                 <KpiFamilySection
                   titre={`Ensemble de la période — ${rows.length} commercial${rows.length > 1 ? 'aux' : ''} actif${rows.length > 1 ? 's' : ''}`}
                   description="Les compteurs sont des sommes ; les taux sont recalculés depuis les totaux, jamais moyennés entre les personnes. Le délai médian de première réponse n’apparaît pas ici : une médiane de médianes n’a pas de sens, il se lit par ligne dans le tableau."
