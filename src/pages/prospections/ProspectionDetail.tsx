@@ -1310,7 +1310,12 @@ export default function ProspectionDetail() {
                                 <span className="text-muted-foreground">—</span>
                               )}
                             </TableCell>
-                            <TableCell className="max-w-80 truncate text-muted-foreground" title={c.note ?? undefined}>
+                            {/* La note entière, jamais tronquée (demande du
+                                20/09) : la cellule replie le texte et la ligne
+                                grandit — h-(--row-h) est un minimum, pas un
+                                plafond. min-w évite que la colonne s'écrase,
+                                max-w qu'elle avale la table. */}
+                            <TableCell className="min-w-60 max-w-120 py-1 whitespace-normal text-muted-foreground">
                               {c.note || '—'}
                             </TableCell>
                             <TableCell>
