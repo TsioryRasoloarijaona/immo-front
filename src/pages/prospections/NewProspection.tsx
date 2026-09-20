@@ -89,7 +89,7 @@ function ProspectPicker({
 
       {mode === 'existing' && (
         selectedProspect ? (
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border bg-muted/30 px-3 py-2 text-label">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-muted/40 px-3 py-2 text-label">
             <span className="font-medium text-foreground">{personDisplayName(selectedProspect)}</span>
             <span className="text-muted-foreground">{selectedProspect.mobile || selectedProspect.telephone || '—'}</span>
             <span className="text-muted-foreground">{selectedProspect.email || '—'}</span>

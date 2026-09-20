@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, ChevronRight, Contact, Plus, UserCheck, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Contact, Plus, UserCheck, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -52,7 +52,7 @@ function AddContactRow({ onAdd }: { onAdd: (prospectId: string, relationTypeId: 
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/30 p-3">
+    <div className="flex flex-wrap items-end gap-2 rounded-lg bg-muted/40 p-3">
       <div className="flex flex-col gap-1">
         <label className="text-micro text-muted-foreground" htmlFor="contact-id">ID prospect à lier</label>
         <Input id="contact-id" className="w-55" placeholder="UUID du prospect" value={contactId} onChange={(e) => setContactId(e.target.value)} />
@@ -186,23 +186,24 @@ export default function ProspectDetail() {
       icon={isClientContext ? <UserCheck /> : <Contact />}
       accent={isClientContext ? 'var(--sec-client)' : 'var(--sec-prospect)'}
       accentBg={isClientContext ? 'var(--sec-client-bg)' : 'var(--sec-prospect-bg)'}
+      fullHeight
     >
-      <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate(listPath)}>
-        <ArrowLeft data-icon="inline-start" /> Retour à la liste
-      </Button>
-
-      <div className="mb-3.5">
-        <h2 className="text-hero font-semibold tracking-tight text-foreground">{personDisplayName(person)}</h2>
-        <div className="mt-1 text-label text-muted-foreground">
+      {/* Redesign 20/09 : cette fiche était la seule fiche à onglets qui
+          défilait en pleine page (ni FicheShell ni fullHeight), avec un
+          bouton « Retour » et un bloc titre hero qui redisaient le fil
+          d'Ariane (~90px). Même géométrie que Dossier/Prospection désormais :
+          identité sur une ligne, seuls les onglets défilent. */}
+      <div className="flex shrink-0 flex-wrap items-baseline gap-x-2 gap-y-1 pt-1 pb-3">
+        <h2 className="text-title font-semibold tracking-tight text-foreground">{personDisplayName(person)}</h2>
+        <span className="text-body text-muted-foreground">
           {person.code && <>Code {person.code} · </>}
           {person.type || 'Prospect'}
           {person.commercialNom && <> · Commercial : {person.commercialNom}</>}
-          {person.estAncienClient && <> · </>}
-          {person.estAncienClient && <Badge tone="info" className="ml-1">Ancien client</Badge>}
-        </div>
+        </span>
+        {person.estAncienClient && <Badge tone="info">Ancien client</Badge>}
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as ProspectTab)} className="gap-3">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as ProspectTab)} className="flex min-h-0 flex-1 flex-col gap-3">
         <TabsList>
           <TabsTrigger value="general">Général</TabsTrigger>
           <TabsTrigger value="contacts">
@@ -218,7 +219,7 @@ export default function ProspectDetail() {
           <TabsTrigger value="historique">Historique</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="general">
+        <TabsContent value="general" className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col gap-3">
             <Card
               title="Coordonnées"
@@ -324,7 +325,7 @@ export default function ProspectDetail() {
 
             {person.notes && (
               <Card title="Notes">
-                <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-label leading-relaxed text-foreground">
+                <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-label leading-relaxed text-foreground">
                   {person.notes}
                 </div>
               </Card>
@@ -332,7 +333,7 @@ export default function ProspectDetail() {
           </div>
         </TabsContent>
 
-        <TabsContent value="contacts">
+        <TabsContent value="contacts" className="min-h-0 flex-1 overflow-y-auto">
           <Card title="Contacts liés" action={<AddContactRow onAdd={async (contactId, relationTypeId) => { await addProspectContact(person.id, { contactProspectId: contactId, relationTypeId: relationTypeId ?? undefined }); await contacts.refetch(); }} />}>
             {contacts.loading && <LoadingState />}
             {contacts.error && <ErrorState message={contacts.error} />}
@@ -340,7 +341,7 @@ export default function ProspectDetail() {
             {contacts.data && contacts.data.length > 0 && (
               <div className="flex flex-col gap-2">
                 {contacts.data.map((c) => (
-                  <div key={c.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-label">
+                  <div key={c.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-muted/30 px-3 py-2 text-label">
                     <span className="font-medium text-foreground">{c.nomContact}</span>
                     <span className="text-muted-foreground">{c.telephoneContact}</span>
                     {c.relationType && <Badge tone="info">{c.relationType}</Badge>}
@@ -363,7 +364,7 @@ export default function ProspectDetail() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="prospections">
+        <TabsContent value="prospections" className="min-h-0 flex-1 overflow-y-auto">
           <Card title={`Prospections (${prospections.data?.totalElements ?? 0})`}>
             {prospections.loading && <LoadingState />}
             {prospections.error && <ErrorState message={prospections.error} />}
@@ -400,7 +401,7 @@ export default function ProspectDetail() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="dossiers">
+        <TabsContent value="dossiers" className="min-h-0 flex-1 overflow-y-auto">
           <Card title={`Dossiers (${dossiers.data?.totalElements ?? 0})`}>
             {dossiers.loading && <LoadingState />}
             {dossiers.error && <ErrorState message={dossiers.error} />}
@@ -437,7 +438,7 @@ export default function ProspectDetail() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="reglements">
+        <TabsContent value="reglements" className="min-h-0 flex-1 overflow-y-auto">
           <Card title={`Règlements (${reglements.data?.totalElements ?? 0})`}>
             {reglements.loading && <LoadingState />}
             {reglements.error && <ErrorState message={reglements.error} />}
@@ -474,7 +475,7 @@ export default function ProspectDetail() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="historique">
+        <TabsContent value="historique" className="min-h-0 flex-1 overflow-y-auto">
           <Card title="Historique">
             {historique.loading && <LoadingState />}
             {historique.error && <ErrorState message={historique.error} />}
@@ -562,7 +563,7 @@ function ProspectionRow({
                   {detail.data.fermee && <Field label="Raison de fermeture" value={detail.data.raisonFermeture || detail.data.raisonFermetureTexte} />}
                 </FieldGrid>
                 {detail.data.notes && (
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-body text-foreground">
+                  <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-2.5 text-body text-foreground">
                     {detail.data.notes}
                   </div>
                 )}
@@ -637,7 +638,7 @@ function DossierRow({
                   <Field label="Probabilité de finalisation" value={detail.data.probabiliteFinalisation != null ? `${Math.round(detail.data.probabiliteFinalisation * 100)} %` : undefined} />
                 </FieldGrid>
                 {detail.data.notes && (
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-body text-foreground">
+                  <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-2.5 text-body text-foreground">
                     {detail.data.notes}
                   </div>
                 )}

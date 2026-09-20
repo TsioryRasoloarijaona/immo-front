@@ -119,7 +119,7 @@ export function ActiviteCard({
       {a.derniereCommunicationMessage && (
         <div className="mt-3">
           <div className="mb-1.5 text-micro font-medium text-muted-foreground">Dernier échange</div>
-          <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-label leading-relaxed text-foreground">
+          <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-label leading-relaxed text-foreground">
             {a.derniereCommunicationMessage}
           </div>
         </div>

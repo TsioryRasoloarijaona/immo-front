@@ -12,6 +12,7 @@ import InteractionForm from '../../components/InteractionForm';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { TimelineList, TimelineRow } from '../../components/Timeline';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import FicheShell from '../../components/FicheShell';
 import { ChampLecture, ChampNotes, ChampRef, GrilleFiche } from '../../components/ChampsFiche';
 import MarqueurTri from '../../components/MarqueurTri';
@@ -487,7 +488,7 @@ function OffrePrixSection({
       {error && <p className="mt-2 text-micro text-destructive">{error}</p>}
 
       {resultat && (
-        <div className="mt-3 flex flex-col gap-0.5 rounded-md border border-border bg-background p-3">
+        <div className="mt-3 flex flex-col gap-0.5 rounded-lg bg-muted/40 p-3">
           {/* L'offre est créée avant l'envoi et le reste quoi qu'il arrive :
               son numéro s'affiche donc même quand les deux canaux échouent,
               sans quoi le commercial la croirait perdue et en régénérerait une
@@ -1262,68 +1263,84 @@ export default function ProspectionDetail() {
                   <p className="text-label text-muted-foreground">Aucune action enregistrée pour cette prospection.</p>
                 )}
                 {interactions.data && interactions.data.content.length > 0 && (
-                  <TimelineList>
-                    {interactions.data.content.map((c, i) => (
-                      <TimelineRow
-                        key={c.id}
-                        dernier={i === interactions.data!.content.length - 1}
-                        titre={
-                          <span className="flex flex-wrap items-center gap-1.5">
-                            <span className="inline-flex text-(--brand)">{interactionIcon(c.entrante)}</span>
-                            {c.actionType || (c.entrante ? 'Entrant' : 'Sortant')}
-                            {c.resultat && <Badge tone={c.dateRdv ? 'success' : 'neutral'}>{c.resultat}</Badge>}
-                            {/* `categorie` est renseignée à 100 % et sert de
-                                discriminant — mais dans le journal d'une
-                                prospection, la valeur ordinaire est justement
-                                « Prospection » (46 666 lignes sur 48 160). La
-                                badger sur chaque ligne serait 20 fois le même
-                                mot par page. On ne montre donc que l'exception :
-                                une réclamation ou une action de dossier remontée
-                                dans ce fil se voit immédiatement.
-                                À revoir sur une prospection réellement
-                                transformée, seul cas où le fil peut mélanger
-                                les catégories — invérifiable d'ici. */}
-                            {c.categorie && c.categorie !== CATEGORIE_INTERACTION_ORDINAIRE && (
-                              <Badge tone="info">{c.categorie}</Badge>
-                            )}
-                          </span>
-                        }
-                        meta={
-                          <span className="flex flex-wrap items-center gap-x-1.5">
-                            <span>
-                              {formatDateTime(c.date)} · {c.employeNom || 'Système'}
-                            </span>
-                            {/* Même règle : la tranche de l'interaction est
-                                presque toujours celle de la prospection, et la
-                                répéter à chaque ligne n'apprend rien. Affichée
-                                seulement quand elle diverge — ou quand la
-                                prospection n'en porte aucune, où elle devient
-                                la seule indication de ce dont il est question. */}
-                            {c.trancheId && c.trancheId !== p.trancheId && (
-                              <span>
-                                · {c.projetCode ? `${c.projetCode} — ` : ''}
-                                {c.trancheLibelle || c.trancheCode}
+                  /* Table dense au lieu de la timeline (demande du 20/09) :
+                     une ligne par action, triée serveur. Les règles
+                     d'affichage de l'ancienne timeline sont conservées :
+                     `categorie` n'apparaît que hors de l'ordinaire
+                     (« Prospection » = 46 666 lignes sur 48 160 — la badger
+                     partout serait 20 fois le même mot par page), et la
+                     tranche seulement quand elle diverge de celle de la
+                     prospection. */
+                  /* Sans cadre propre : le panneau d'onglet fournit déjà le
+                     sien — bordure sur bordure était un cadre dans le cadre. */
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead>Date</TableHead>
+                          <TableHead>Action</TableHead>
+                          <TableHead>Résultat</TableHead>
+                          <TableHead>Note</TableHead>
+                          <TableHead>Suivi</TableHead>
+                          <TableHead>Par</TableHead>
+                          <TableHead className="w-0 text-right" aria-label="Actions de ligne" />
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {interactions.data.content.map((c) => (
+                          <TableRow key={c.id}>
+                            <TableCell className="tabular-nums text-muted-foreground">{formatDateTime(c.date)}</TableCell>
+                            <TableCell className="font-medium text-foreground">
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="inline-flex text-muted-foreground">{interactionIcon(c.entrante)}</span>
+                                {c.actionType || (c.entrante ? 'Entrant' : 'Sortant')}
+                                {c.categorie && c.categorie !== CATEGORIE_INTERACTION_ORDINAIRE && (
+                                  <Badge tone="info">{c.categorie}</Badge>
+                                )}
+                                {c.trancheId && c.trancheId !== p.trancheId && (
+                                  <span className="text-micro font-normal text-muted-foreground">
+                                    {c.projetCode ? `${c.projetCode} — ` : ''}
+                                    {c.trancheLibelle || c.trancheCode}
+                                  </span>
+                                )}
                               </span>
-                            )}
-                          </span>
-                        }
-                        note={c.note}
-                        badges={
-                          (c.dateRdv || c.dateAlerte) && (
-                            <>
-                              {c.dateRdv && <Badge tone="success">RDV le {formatDateTime(c.dateRdv)}</Badge>}
-                              {c.dateAlerte && <Badge tone="warning">Alerte jusqu'au {formatDate(c.dateAlerte)}</Badge>}
-                            </>
-                          )
-                        }
-                        actions={
-                          c.resultatId && resultatsAvecRdv.has(c.resultatId) ? (
-                            <ConfirmationVisiteButton prospectionId={p.id} interactionId={c.id} />
-                          ) : undefined
-                        }
-                      />
-                    ))}
-                  </TimelineList>
+                            </TableCell>
+                            <TableCell>
+                              {c.resultat ? (
+                                <Badge tone={c.dateRdv ? 'success' : 'neutral'}>{c.resultat}</Badge>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            {/* La note entière, jamais tronquée (demande du
+                                20/09) : la cellule replie le texte et la ligne
+                                grandit — h-(--row-h) est un minimum, pas un
+                                plafond. min-w évite que la colonne s'écrase,
+                                max-w qu'elle avale la table. */}
+                            <TableCell className="min-w-60 max-w-120 py-1 whitespace-normal text-muted-foreground">
+                              {c.note || '—'}
+                            </TableCell>
+                            <TableCell>
+                              {c.dateRdv || c.dateAlerte ? (
+                                <span className="inline-flex items-center gap-1.5">
+                                  {c.dateRdv && <Badge tone="success">RDV le {formatDateTime(c.dateRdv)}</Badge>}
+                                  {c.dateAlerte && <Badge tone="warning">Alerte jusqu'au {formatDate(c.dateAlerte)}</Badge>}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">{c.employeNom || 'Système'}</TableCell>
+                            <TableCell className="text-right">
+                              {c.resultatId && resultatsAvecRdv.has(c.resultatId) ? (
+                                <ConfirmationVisiteButton prospectionId={p.id} interactionId={c.id} />
+                              ) : null}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
                 {interactions.data && (
                   <Pagination
@@ -1724,7 +1741,7 @@ function ChoixArticleSection({
           <button
             type="button"
             onClick={() => navigate(`/tranches/${trancheId}`)}
-            className="inline-flex w-fit items-center gap-1 rounded-md border border-border bg-(--neutral-bg) px-2.5 py-1 text-body font-semibold text-primary hover:underline"
+            className="inline-flex w-fit items-center gap-1 rounded-md bg-(--neutral-bg) px-2.5 py-1 text-body font-semibold text-primary hover:underline"
           >
             {currentTranche.data?.description || currentTranche.data?.code || 'Tranche'} <ArrowUpRight className="size-2.5" />
           </button>
@@ -1786,7 +1803,7 @@ function ArticleAssocieRow({
   const article = useApi(() => (item.articleId ? getArticle(item.articleId) : Promise.resolve(null)), [item.articleId]);
 
   return (
-    <div className="rounded-md border border-border px-3 py-2">
+    <div className="rounded-lg bg-muted/30 px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="text-label font-medium text-foreground">{item.tranche || item.trancheId}</span>
         <div className="flex items-center gap-1">
@@ -1886,7 +1903,7 @@ function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: 
   }
 
   return (
-    <div className="rounded-md border border-border px-3 py-2">
+    <div className="rounded-lg bg-muted/30 px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="text-label font-semibold text-foreground">{dv.code}</span>

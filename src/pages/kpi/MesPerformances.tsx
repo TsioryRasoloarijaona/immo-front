@@ -55,8 +55,9 @@ export default function MesPerformances() {
       icon={<Gauge />}
       accent="var(--brand)"
       accentBg="var(--brand-bg)"
+      fullHeight
     >
-      <div className="flex flex-col gap-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">
         {/* La description de la page a été retirée, cet avertissement non : ce
             n'est pas de la présentation mais une clé de lecture des chiffres.
             Sans lui, un commercial au périmètre restreint conclut que ses
@@ -81,7 +82,9 @@ export default function MesPerformances() {
 
         {!error && !sansEmploye && data && (
           <ResultsRegion loading={loading}>
-            <div className="flex flex-col gap-5">
+            {/* Redesign 20/09 : filtre de période épinglé, résultats seuls
+                défilants. */}
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
               <span className="text-micro text-muted-foreground">
                 Du {formatDate(data.du)} au {formatDate(data.au)}
               </span>

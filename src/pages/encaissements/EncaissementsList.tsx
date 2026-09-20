@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Info, RotateCcw, Search, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Card, EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
+import { EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
@@ -242,9 +242,8 @@ export default function EncaissementsList() {
       <div className="flex h-full min-h-0 flex-col gap-3">
         <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
 
-        <Card padded={false} className="shrink-0">
-          <div className="flex flex-col gap-2.5 p-3">
-            <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex shrink-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <InputGroup className="min-w-55 flex-1">
                 <InputGroupAddon>
                   <Search />
@@ -273,7 +272,7 @@ export default function EncaissementsList() {
                 <RotateCcw data-icon="inline-start" /> Réinitialiser
               </Button>
             </div>
-            <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
               <Select items={compteItems} value={compteId} onValueChange={(v) => resetAndSet(setCompteId, v as string | null)}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Compte…" />
@@ -335,8 +334,7 @@ export default function EncaissementsList() {
                 <Input type="number" placeholder="à" className="w-24" value={montantA} onChange={(e) => resetAndSet(setMontantA, e.target.value)} />
               </div>
             </div>
-          </div>
-        </Card>
+        </div>
 
         {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul par
             construction, si bien qu'un test sur lui rallumerait l'état de

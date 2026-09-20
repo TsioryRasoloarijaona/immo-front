@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import { RotateCcw, Search } from 'lucide-react';
-import { Card } from './ui';
 import MultiSelectDropdown from './MultiSelectDropdown';
 import { Button } from './ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group';
@@ -51,8 +50,10 @@ export default function ProspectionFilterBar({
   }
 
   return (
-    <Card padded={false} className="shrink-0">
-      <div className="flex flex-wrap items-center gap-2.5 p-3">
+    /* Toolbar nue (modernisation 20/09, référence Uxerflow) : les filtres
+       vivent directement sur la feuille — chaque contrôle porte son propre
+       liseré, la boîte Card autour ne faisait qu'ajouter un cadre au cadre. */
+    <div className="flex shrink-0 flex-wrap items-center gap-2">
         <InputGroup className="min-w-55 flex-1">
           <InputGroupAddon>
             <Search />
@@ -91,7 +92,6 @@ export default function ProspectionFilterBar({
         <Button type="button" variant="outline" size="sm" onClick={reset}>
           <RotateCcw data-icon="inline-start" /> Réinitialiser
         </Button>
-      </div>
-    </Card>
+    </div>
   );
 }

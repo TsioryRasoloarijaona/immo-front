@@ -88,7 +88,7 @@ function HotlineProspectionRow({ prospection: p, expanded, onToggle }: { prospec
                   {detail.data.fermee && <Field label="Raison de fermeture" value={detail.data.raisonFermeture || detail.data.raisonFermetureTexte} />}
                 </FieldGrid>
                 {detail.data.notes && (
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-body text-foreground">
+                  <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-2.5 text-body text-foreground">
                     {detail.data.notes}
                   </div>
                 )}
@@ -156,7 +156,7 @@ function HotlineDossierRow({ dossier: d, expanded, onToggle }: { dossier: Dossie
                   <Field label="Mode de paiement" value={detail.data.modePaie} />
                 </FieldGrid>
                 {detail.data.notes && (
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-body text-foreground">
+                  <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-2.5 text-body text-foreground">
                     {detail.data.notes}
                   </div>
                 )}
@@ -262,7 +262,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
               {tier.notes && (
                 <div>
                   <div className="mb-2 text-micro font-medium text-muted-foreground">Notes</div>
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-label leading-relaxed text-foreground">
+                  <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-label leading-relaxed text-foreground">
                     {tier.notes}
                   </div>
                 </div>
@@ -274,7 +274,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {prospections.length === 0 ? (
               <EmptyState title="Aucune prospection" />
             ) : (
-              <div className="overflow-x-auto rounded-md border border-border">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -306,7 +306,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {dossiers.length === 0 ? (
               <EmptyState title="Aucun dossier" />
             ) : (
-              <div className="overflow-x-auto rounded-md border border-border">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -338,7 +338,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {reglements.length === 0 ? (
               <EmptyState title="Aucun règlement" />
             ) : (
-              <div className="overflow-x-auto rounded-md border border-border">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -369,7 +369,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {interactions.length === 0 ? (
               <EmptyState title="Aucune interaction" />
             ) : (
-              <div className="rounded-md border border-border p-3">
+              <div className="rounded-lg bg-muted/30 p-3">
                 <TimelineList>
                   {interactions.map((c, i) => (
                     <TimelineRow
@@ -403,7 +403,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {historique.length === 0 ? (
               <EmptyState title="Aucun historique" />
             ) : (
-              <div className="rounded-md border border-border p-3">
+              <div className="rounded-lg bg-muted/30 p-3">
                 <TimelineList>
                   {historique.map((h, i) => (
                     <TimelineRow
@@ -471,30 +471,32 @@ export default function Hotline() {
   const appelsSansFiche = data?.appelsSansFiche ?? [];
 
   return (
-    <PageShell title="Hotline" crumbs={[{ label: 'Hotline' }]} icon={<Phone />} accent="var(--sec-accent)" accentBg="var(--sec-accent-bg)">
-      <Card>
+    <PageShell title="Hotline" crumbs={[{ label: 'Hotline' }]} icon={<Phone />} accent="var(--sec-accent)" accentBg="var(--sec-accent-bg)" fullHeight>
+      {/* Redesign 20/09 : l'écran est piloté par un appel entrant, mais le
+          bloc de recherche occupait ~160px en permanence (label + input
+          hauteur double + bouton lg + deux lignes d'aide). Une seule ligne
+          désormais, l'aide en micro — les fiches trouvées récupèrent la
+          hauteur, et seule la zone de résultats défile. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">
+      <div className="shrink-0">
         <form
-          className="flex flex-wrap items-end gap-2.5"
+          className="flex flex-wrap items-center gap-2.5"
           onSubmit={(e) => {
             e.preventDefault();
             submit();
           }}
         >
-          <div className="flex min-w-65 flex-1 flex-col gap-1">
-            <label htmlFor="hotline-critere" className="text-micro font-medium text-muted-foreground">
-              {mode === 'nom' ? "Nom de l'appelant" : "Numéro de téléphone de l'appelant"}
-            </label>
-            <Input
-              id="hotline-critere"
-              autoFocus
-              inputMode={mode === 'nom' ? 'text' : 'tel'}
-              placeholder={mode === 'nom' ? 'Ex. Benani' : '06 12 34 56 78'}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              className="h-10 text-title"
-            />
-          </div>
-          <div className="flex items-center gap-1 self-end rounded-md border border-border p-0.5">
+          <Input
+            id="hotline-critere"
+            autoFocus
+            aria-label={mode === 'nom' ? "Nom de l'appelant" : "Numéro de téléphone de l'appelant"}
+            inputMode={mode === 'nom' ? 'text' : 'tel'}
+            placeholder={mode === 'nom' ? "Nom de l'appelant — ex. Benani" : "Numéro de l'appelant — 06 12 34 56 78"}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            className="min-w-65 flex-1"
+          />
+          <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
             {(['telephone', 'nom'] as const).map((m) => (
               <Button
                 key={m}
@@ -508,11 +510,11 @@ export default function Hotline() {
               </Button>
             ))}
           </div>
-          <Button type="submit" size="lg" disabled={!saisieValide}>
+          <Button type="submit" size="sm" disabled={!saisieValide}>
             <Search data-icon="inline-start" /> Rechercher
           </Button>
         </form>
-        <p className="mt-2.5 text-body text-muted-foreground">
+        <p className="mt-1.5 text-micro text-muted-foreground">
           {mode === 'nom' ? (
             <>
               Recherche sur une partie du nom, sans tenir compte de la casse ni des accents — « hejer » trouve
@@ -525,10 +527,11 @@ export default function Hotline() {
             </>
           )}
         </p>
-      </Card>
+      </div>
 
+      <div className="min-h-0 flex-1 overflow-y-auto">
       {!query && (
-        <div className="mt-4">
+        <div className="mt-1">
           <EmptyState
             title={mode === 'nom' ? "En attente d'un nom" : "En attente d'un numéro"}
             message={
@@ -540,11 +543,11 @@ export default function Hotline() {
         </div>
       )}
 
-      {query && loading && <div className="mt-4"><LoadingState /></div>}
-      {query && error && <div className="mt-4"><ErrorState message={error} /></div>}
+      {query && loading && <div className="mt-1"><LoadingState /></div>}
+      {query && error && <div className="mt-1"><ErrorState message={error} /></div>}
 
       {query && !loading && !error && data && (
-        <div className="mt-4 flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <Card padded={false}>
             <div className="flex flex-wrap items-center justify-between gap-3 px-4.5 py-3.5">
               <div className="flex items-center gap-2.5">
@@ -616,7 +619,7 @@ export default function Hotline() {
               </p>
               <div className="flex flex-col gap-2">
                 {appelsSansFiche.map((p) => (
-                  <div key={p.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-md border border-border px-3 py-2.5">
+                  <div key={p.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-lg bg-muted/30 px-3 py-2.5">
                     <div className="min-w-0">
                       <div className="text-label font-medium text-foreground">{prospectionDisplayName(p)}</div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-micro text-muted-foreground">
@@ -635,6 +638,8 @@ export default function Hotline() {
           )}
         </div>
       )}
+      </div>
+      </div>
 
       {createForProspectionId && (
         <CreateProspectForm

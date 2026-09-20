@@ -62,7 +62,7 @@ export function Badge({
 const STAT_TONE_VARS: Record<BadgeTone, { fg: string; bg: string }> = {
   neutral: { fg: 'var(--muted-foreground)', bg: 'var(--neutral-bg)' },
   info: { fg: 'var(--info)', bg: 'var(--info-bg)' },
-  progress: { fg: 'var(--brand)', bg: 'var(--brand-bg)' },
+  progress: { fg: 'var(--progress)', bg: 'var(--progress-bg)' },
   success: { fg: 'var(--success)', bg: 'var(--success-bg)' },
   warning: { fg: 'var(--warning)', bg: 'var(--warning-bg)' },
   amber: { fg: 'var(--amber)', bg: 'var(--amber-bg)' },
@@ -162,7 +162,9 @@ export function Card({
       style={accent ? { borderLeftColor: accent } : undefined}
     >
       {title && (
-        <CardHeader className="gap-0 border-b border-border py-1.75">
+        /* py-2.5 (était 1.75) : respiration de la référence Uxerflow — le
+           chrome s'aère, la grille de données garde sa densité. */
+        <CardHeader className="gap-0 border-b border-border py-2.5">
           <CardTitle className="flex items-center gap-1.5 text-label">
             {accent && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: accent }} />}
             {title}
@@ -170,7 +172,7 @@ export function Card({
           {action && <CardAction>{action}</CardAction>}
         </CardHeader>
       )}
-      <CardContent className={padded ? 'py-2.5' : 'px-0 py-0'}>{children}</CardContent>
+      <CardContent className={padded ? 'py-3' : 'px-0 py-0'}>{children}</CardContent>
     </ShadcnCard>
   );
 }

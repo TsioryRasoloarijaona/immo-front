@@ -37,7 +37,12 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar collapsible="icon">
+      {/* variant="inset" (redesign 20/09, référence Uxerflow) : le fond de
+          fenêtre prend la couleur canvas (--sidebar, greige chaud), la
+          sidebar y vit à nu, et SidebarInset devient une FEUILLE flottante
+          (m-2 rounded-xl shadow) qui porte tout le contenu. PageShell
+          compense la marge : fullHeight y vaut calc(100svh - 1rem). */}
+      <Sidebar collapsible="icon" variant="inset">
         <SidebarHeader>
           <div className="flex items-center gap-1 px-1 py-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
             <Link
@@ -278,7 +283,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </SidebarContent>
 
         <SidebarFooter>
-          <div className="flex items-center gap-2 border-t border-sidebar-border px-2 pt-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+          <div className="flex items-center gap-2 px-2 pt-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
             <Link
               to="/profil"
               className="flex min-w-0 flex-1 flex-col leading-tight no-underline group-data-[collapsible=icon]:hidden"

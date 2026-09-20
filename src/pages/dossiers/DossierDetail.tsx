@@ -16,7 +16,6 @@ import {
 } from '../../components/ReglementPreuves';
 import { messageErreurStatut } from '../../lib/reglementRegles';
 import Pagination from '../../components/Pagination';
-import { TimelineList, TimelineRow } from '../../components/Timeline';
 import { Button } from '../../components/ui/button';
 import { DialogFooter } from '../../components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
@@ -83,7 +82,7 @@ import type { CreerEcheanceRequest, CreerReglementRequest, EcheanceDto, PieceJoi
 
 /** La zone large, en bas. Cinq onglets sur les douze du logiciel de bureau :
  * les cinq pour lesquels un endpoint existe. */
-type DossierTab = 'statut' | 'financier' | 'articles' | 'acquereurs' | 'documents' | 'historique';
+type DossierTab = 'statut' | 'financier' | 'articles' | 'acquereurs' | 'pieces' | 'documents' | 'historique';
 
 /** Le panneau étroit, à droite du formulaire. Il prend ce qui se lit en liste
  * de champs ; la zone large prend les tableaux et les chronologies. */
@@ -521,7 +520,7 @@ function AddPieceJointeRow({
   if (!open) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/30 p-2.5">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg bg-muted/40 p-2.5">
       <label className="flex h-8 min-w-0 max-w-70 flex-1 cursor-pointer items-center gap-2 truncate rounded-md border border-dashed border-input px-2.5 text-body text-muted-foreground hover:border-ring">
         <Upload className="size-3.5 shrink-0" />
         <span className="truncate">{file ? file.name : 'Choisir un fichier…'}</span>
@@ -1111,7 +1110,7 @@ function AcquereursDossier({ dossierId }: { dossierId: string }) {
   return (
     <div className="flex flex-col gap-2">
       {lignes.map((pa) => (
-        <div key={pa.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border p-2.5">
+        <div key={pa.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-muted/30 p-2.5">
           <Badge tone={pa.role === 'ACQUEREUR_PRINCIPAL' ? 'info' : 'neutral'}>
             {pa.role === 'ACQUEREUR_PRINCIPAL' ? 'Principal' : 'Co-acquéreur'}
           </Badge>
@@ -1292,9 +1291,11 @@ export default function DossierDetail() {
     </>
   );
 
-  const blocDocuments = (
+  /* Séparés en deux onglets le 20/09 sur demande : le générateur de
+     documents (action, rien d'enregistré) et les pièces jointes (données
+     du dossier) n'ont ni le même statut ni le même usage. */
+  const blocGeneres = (
     <>
-        <div className="flex flex-col gap-3.5">
         <Card title="Documents générés">
           <p className="mb-2.5 -mt-1 text-body text-muted-foreground">
             Générés à la demande à partir des données du dossier — rien n'est enregistré ici.
@@ -1307,6 +1308,11 @@ export default function DossierDetail() {
             ))}
           </div>
         </Card>
+    </>
+  );
+
+  const blocPieces = (
+    <>
         <Card
           title={`Pièces jointes (${pieces.data?.length ?? 0})`}
           action={
@@ -1352,7 +1358,6 @@ export default function DossierDetail() {
             </div>
           )}
         </Card>
-        </div>
     </>
   );
 
@@ -1365,17 +1370,36 @@ export default function DossierDetail() {
             <EmptyState title="Aucun historique" message="Aucun événement n'a encore été enregistré pour ce dossier." />
           )}
           {historique.data && historique.data.content.length > 0 && (
-            <TimelineList>
-              {historique.data.content.map((h, i) => (
-                <TimelineRow
-                  key={`${h.date}-${i}`}
-                  dernier={i === historique.data!.content.length - 1}
-                  titre={h.type || 'Événement'}
-                  meta={`${formatDateTime(h.date)} · ${h.utilisateur || 'Système'}`}
-                  note={h.description}
-                />
-              ))}
-            </TimelineList>
+            /* Table dense au lieu de la timeline (même demande que l'onglet
+               Actions de la prospection, 20/09) : une ligne par événement,
+               description entière — la cellule replie le texte et la ligne
+               grandit, h-(--row-h) est un minimum. */
+            /* Sans cadre propre : la Card qui l'entoure fournit déjà le
+               sien — bordure sur bordure était un cadre dans le cadre. */
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Date</TableHead>
+                    <TableHead>Événement</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Par</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {historique.data.content.map((h, i) => (
+                    <TableRow key={`${h.date}-${i}`}>
+                      <TableCell className="tabular-nums text-muted-foreground">{formatDateTime(h.date)}</TableCell>
+                      <TableCell className="font-medium text-foreground">{h.type || 'Événement'}</TableCell>
+                      <TableCell className="min-w-60 max-w-120 py-1 whitespace-normal text-muted-foreground">
+                        {h.description || '—'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{h.utilisateur || 'Système'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
           {historique.data && (
             <Pagination
@@ -1708,7 +1732,7 @@ export default function DossierDetail() {
                   articleDetails.data.map((a) => <ArticleCompactPreview key={a.id} article={a} defaultExpanded />)
                 ) : (
                   d.articles.map((a) => (
-                    <div key={a.id} className="rounded-md border border-border p-3">
+                    <div key={a.id} className="rounded-lg bg-muted/30 p-3">
                       <div className="mb-2 flex items-center gap-2">
                         <span className="text-label font-semibold text-foreground">{a.code}</span>
                         {articleDetails.loading && <span className="text-micro text-muted-foreground">chargement du détail…</span>}
@@ -1772,10 +1796,15 @@ export default function DossierDetail() {
             ),
           },
           {
-            id: 'documents',
-            libelle: 'Documents',
+            id: 'pieces',
+            libelle: 'Pièces jointes',
             compteur: pieces.data?.length ?? 0,
-            contenu: <div className="p-3">{blocDocuments}</div>,
+            contenu: <div className="p-3">{blocPieces}</div>,
+          },
+          {
+            id: 'documents',
+            libelle: 'Documents générés',
+            contenu: <div className="p-3">{blocGeneres}</div>,
           },
           {
             id: 'historique',

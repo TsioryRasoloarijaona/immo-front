@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Contact, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
@@ -78,8 +78,7 @@ export default function ProspectsList() {
       }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <Card padded={false} className="shrink-0">
-          <div className="flex flex-wrap items-center gap-2.5 p-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
             <InputGroup className="min-w-55 flex-1">
               <InputGroupAddon>
                 <Search />
@@ -94,8 +93,7 @@ export default function ProspectsList() {
             <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
               <RotateCcw data-icon="inline-start" /> Réinitialiser
             </Button>
-          </div>
-        </Card>
+        </div>
 
         {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}

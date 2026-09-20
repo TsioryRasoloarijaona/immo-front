@@ -60,7 +60,7 @@ export default function ProjetDetail() {
                 <Link
                   key={t.id}
                   to={`/tranches/${t.id}`}
-                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-label no-underline hover:bg-muted"
+                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-muted/30 px-3 py-2 text-label no-underline hover:bg-muted"
                 >
                   <span className="font-medium text-foreground">{t.description}</span>
                   <span className="text-muted-foreground">{t.code}</span>

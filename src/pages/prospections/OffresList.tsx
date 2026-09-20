@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Download, FileText, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, ResultsRegion } from '../../components/ui';
+import { Badge, EmptyState, ErrorState, Field, FieldGrid, LoadingState, ResultsRegion } from '../../components/ui';
 import DevisFormSection from '../../components/DevisFormSection';
 import Modal from '../../components/Modal';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
@@ -156,8 +156,7 @@ export default function OffresList() {
       <div className="flex h-full min-h-0 flex-col gap-3">
         {showCreate && <NouvelleOffreDialog onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); refetch(); }} />}
 
-        <Card padded={false} className="shrink-0">
-          <div className="flex flex-wrap items-center gap-2.5 p-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
             <InputGroup className="min-w-55 flex-1">
               <InputGroupAddon>
                 <Search />
@@ -220,8 +219,7 @@ export default function OffresList() {
             <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
               <RotateCcw data-icon="inline-start" /> Réinitialiser
             </Button>
-          </div>
-        </Card>
+        </div>
 
         {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}
@@ -332,7 +330,7 @@ function NouvelleOffreDialog({ onClose, onCreated }: { onClose: () => void; onCr
                 <button
                   key={p.id}
                   type="button"
-                  className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-left text-body hover:bg-muted/50"
+                  className="flex items-center justify-between gap-2 rounded-lg bg-muted/30 px-3 py-2 text-left text-body hover:bg-muted/50"
                   onClick={() => setPickedId(p.id)}
                 >
                   <span className="flex min-w-0 flex-col">
@@ -353,7 +351,7 @@ function NouvelleOffreDialog({ onClose, onCreated }: { onClose: () => void; onCr
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
             <span className="text-body">
               <span className="font-medium text-foreground">{picked.data ? prospectionDisplayName(picked.data) : 'Chargement…'}</span>
               {picked.data?.code && <span className="text-muted-foreground"> · {picked.data.code}</span>}

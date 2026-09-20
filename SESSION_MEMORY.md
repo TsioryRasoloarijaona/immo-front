@@ -1,60 +1,61 @@
 # Session Memory
-_Last updated: 2026-09-14T15:00:00Z_
+_Last updated: 2026-09-20_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
 
 ## 🎯 Current Objective
 
-Suivre les livraisons successives de la **spec V4** et maintenir le front en
-phase, écran par écran. Cette session a livré le **groupement dépliant** sur les
-listes, le **signalement des relances en retard**, puis la conversion complète de
-l'écran **Encaissements** (catalogue de colonnes, groupement, agrégats, fiche).
+**Redesign complet demandé le 20/09**, en TROIS mouvements successifs pilotés par
+l'utilisateur : (1) bleu Attio #2563EB validé sur maquette puis **rejeté** ; (2)
+indigo #4F46E5 livré (commits `29ac050`/`456b1a6`) ; (3) **capture de référence
+« Uxerflow » fournie** (« inspire-toi plutôt de ce style, surtout les spacing ») →
+style actuel, commit `b5eb507` : **canvas greige chaud + feuille blanche flottante
+(sidebar `variant="inset"`), accent orange #C2410C clair / #FB923C sombre, boutons
+primaires NOIRS (`--primary` découplé de `--brand`, une première), radius 12px,
+chrome aéré**. Constantes à travers les trois : hiérarchie de l'info en 4 niveaux,
+**zéro défilement de page**, densité de grille Omran 24px intouchée, statuts et
+glyphes intouchés. Construit **sur la branche `docs/demande-filtre-colonne`** à la
+demande explicite de l'utilisateur.
+
+Maquette (restée à l'état indigo, non mise à jour au style Uxerflow) :
+https://claude.ai/code/artifact/d5cdd55f-132c-47fa-a613-5e743d192d54
 
 ---
 
 ## ✅ What Worked
 
-1. **Lire le catalogue/les valeurs sur le backend vivant, jamais la prose du
-   spec.** C'est ce qui a produit tous les constats de la session. Exemples :
-   `dateDocument:MIN` rend une **chaîne ISO** là où le type disait `number` ;
-   `remise` est un ratio et la colonne affichait « 0 » partout.
-2. **Une sonde qui rejoue les requêtes du front et vérifie l'invariant
-   affiché**, pas l'endpoint. Le contrôle décisif, sans navigateur. Toujours
-   formuler l'invariant en une égalité vérifiable — ici
-   « somme des effectifs = `totalElements` ».
-3. **Corriger le typage fait travailler le compilateur pour soi.** Passer
-   `agregats` à `number | string | null` a pointé instantanément les deux sites
-   de `DataGrid` qui formataient une date en devise.
-4. **Étendre le garde quand le changement invalide ce qu'il mesure.**
-   `check-contrast` ne couvrait pas une *ligne* teintée ; étendu, il a trouvé un
-   échec WCAG réel (4,34:1 en sombre).
-5. **Réparer ses propres outils plutôt que les ignorer.** L'audit DTO criait au
-   loup faute de suivre `extends` — corrigé, pas contourné.
-6. **Message de commit par fichier** (`git commit --amend -F`). Les backticks
-   dans un message `git-flow commit` ont avalé un mot **trois fois**.
+1. **Maquette HTML avant le code.** L'utilisateur a choisi « montre des maquettes
+   d'abord », a validé la direction… puis rejeté le bleu. Le rejet a coûté un
+   republish d'artifact, pas une réécriture de l'app.
+2. **`npm run check:contrast` lit le CSS réel** : les 52 paires AA revalidées en une
+   commande après le remplacement complet de la palette. Zéro échec.
+3. **Grep du compilé après build** : 0 occurrence du violet (`5d396e`, `c9a6d6`),
+   6 de l'indigo, 0 de l'ancien fond gris — la migration est totale, prouvée.
+4. **Le mécanisme zéro-scroll existait déjà** (`fullHeight` de PageShell + chaîne
+   `min-h-0`) : 9 pages sur 18 l'avaient. Généraliser = poser la géométrie, pas
+   l'inventer. `Card` accepte `className` et son contenu est ciblable par
+   `[&>[data-slot=card-content]]:…` pour la distribution de hauteur.
+5. **Fusionner plutôt que compresser** : le Dashboard tenait en un viewport en
+   supprimant les doublons (prospections et dossiers rendus 2×, 3 KPI redondants,
+   « Leads du jour » vide 140px), pas en rapetissant les contenus. 10 appels → 8.
 
 ---
 
 ## ❌ What Failed / Course-corrections
 
-- **Le navigateur reste inatteignable — 8ᵉ session.** Rien de tout ce travail
-  n'a été vu à l'écran.
-- **Première forme du groupement : deux vues séparées.** Portes vertes,
-  16 contrôles API verts, poussée — puis **rejetée**, capture d'Omran à l'appui.
-  Il fallait un **dépliant**, groupes ouvrables plusieurs à la fois. La leçon
-  n'est pas technique : « replier une liste » avait deux lectures et j'ai choisi
-  la mienne sans demander, alors qu'une capture existait.
-- **Seuil de 30 j sur le fond rouge : livré puis annulé.** La liste sortant
-  triée par date d'alerte décroissante, le seuil ne filtrait pas le rouge, il le
-  **poussait aux pages 6+**. Page 1 passait de 17/20 à 0/20. **Piste réglée —
-  ne pas la rouvrir sans remesurer par page.**
-- **Ancres de splice trop larges ou à un mot près.** Plusieurs échecs ; borner
-  précisément, ou remplacer par plage de lignes.
-- **Heredocs bash** : cassent sur apostrophes et backticks. Écrire le script
-  Python dans le scratchpad, puis l'exécuter.
-- **`grep` sur les classes Tailwind à point** : Tailwind échappe (`.px-1\.5`),
-  donc `grep -oF`, sinon faux négatif.
+- **PowerShell a corrompu l'encodage de ProspectDetail.tsx** : un patch regex via
+  `Get-Content -Raw` + `WriteAllText` a lu l'UTF-8 sans BOM comme ANSI → mojibake
+  sur tous les accents (`â€”`, `RenseignÃ©`). Réparé par `git checkout --` puis
+  refait avec l'outil Edit. **Ne JAMAIS patcher un fichier du projet par le shell —
+  Write/Edit uniquement.** (Même famille que les heredocs bash de la session
+  précédente.)
+- **Guillemets doubles dans un message de commit via PowerShell 5.1** : les `"` de
+  l'argument natif ont éclaté le message en pathspecs. Message sans guillemets, ou
+  guillemets français.
+- **Le bleu #2563EB validé en maquette a été rejeté après coup** — troisième
+  direction de palette du projet. L'indigo a été choisi par élimination : statuts
+  réservés (vert/rouge/ambre), teal et bleu rejetés, violet quitté.
 
 ---
 
@@ -62,140 +63,134 @@ l'écran **Encaissements** (catalogue de colonnes, groupement, agrégats, fiche)
 
 | # | Error / Bug | Status | Fix applied |
 |---|-------------|--------|-------------|
-| 101 | 9 erreurs eslint préexistantes | Open | **La référence est 9** — ne pas la faire bouger |
-| 133/134 | Champs `temp*` de la prospection ; 8 onglets dossier sans endpoint | **Open (backend)** | Consignés dans `docs/filtres-avances.md` |
-| 136 | `remise` affichait « 0 » sur toute la colonne — ratio typé `NOMBRE`, commentaire affirmant l'inverse | Fixed | `formatPercent` ; mesuré -0,207865 à 0,988329 |
-| 137 | Granularité perdue au dépliage → `totalElements: 0` en **HTTP 200** | Fixed | Une seule granularité dérivée dans `useGroupement` |
-| 141 | **Ordre serveur non déterministe** — lot de 20 pas préfixe du lot de 40, par intermittence | Fixed | `sort=docDate,desc` **+** `id,asc` ; 15/15 stable. **Même aléa sur la pagination ordinaire**, non touché |
-| 142 | `--muted-foreground` sur ligne teintée = 4,34:1 en sombre (AA exige 4,5) | Fixed | Token `--retard-bg` à 0,07 → 4,77 / 4,81 ; 7 paires ajoutées au garde |
-| 145 | **`inclureSansValeur=false` par défaut** retire le groupe des lignes vides — dossiers/avocat : 23 lignes sur 116 ; encaissements/compte : **4 sur 332** | Fixed | `useGroupement` envoie toujours `true` |
-| 146/151 | Groupes de catalogue inconnus (`ARTICLE`, `DELAIS`, `SUIVI`) ; **7 des 27 colonnes `parDefaut` des encaissements sont des UUID** | Fixed | Libellés ajoutés ; `masquees` à 9 entrées → 19 colonnes visibles, aucun UUID servi |
-| 148 | Seuil de 30 j annulé, toute relance échue repasse en rouge | Fixed | `relanceEnRetard`, page 1 : 17/20 |
-| 152 | `agregats` typé `Record<string, number>` alors qu'un `MIN` sur DATE rend une chaîne et un `MIN` vide rend `null` | Fixed | `ValeurAgregat` ; le compilateur a pointé les 2 sites fautifs |
-| 154 | **3 champs fantômes sur `DossierDetailDto`** → 2 lignes de la fiche en tiret permanent, la donnée étant sur l'article | Fixed | Déplacés sur `ArticleSummaryDto`, la fiche lit `premierArticle` |
-| 155 | `FEATURES.md` annonce 17 endpoints « sans appelant » — **16 le sont à tort** | **Open (outil)** | Défaut de correspondance sur les chemins à paramètres |
-| 156 | Le spec publie `CreerReglementRequest.dateReglement` **alors que le serveur la refuse en 400** | **Open (backend)** | Non ajoutée ; contradiction contrat/comportement consignée |
-| 157 | Fiche encaissement : champ « Dossier » unique alimenté par la **première** ligne — un règlement soldant 3 dossiers n'en montrait qu'un | Fixed | Tableau des affectations ; invariant vérifié 80/80 |
+| 101 | 9 erreurs eslint préexistantes | Open | **La référence est 9** — inchangée après tout le redesign |
+| 155 | `FEATURES.md` invente 17 endpoints « sans appelant » | Open (outil) | — |
+| 156 | `CreerReglementRequest.dateReglement` publiée mais refusée en 400 | Open (backend) | — |
+| 164 | Kanban « Dossier de vente » compte les actifs, liste tout | Open | Toujours vrai dans le nouveau couloir (slice 3 de dossiersPage non filtré) |
+| 167 | `derniereAlerteDate` ni filtrable ni triable | Open (backend) | — |
+| 168 | Filtre par colonne client-side ment (chèque → 0/180) | Open (backend) | Demande dans `docs/filtres-avances.md`, PR toujours pas fusionnée |
+| 169 | **Corruption d'encodage par patch shell** (cette session) | Fixed | `git checkout` + Edit tool ; règle : jamais de patch par shell |
 
 ---
 
 ## 🔑 Key Points to Remember
 
-### Le groupement — un dépliant, pas deux écrans
-- Les en-têtes de groupe s'intercalent dans `DataGrid` (`groupes?:
-  GroupementGrille<T>`), **plusieurs ouverts à la fois**. Forme demandée,
-  capture d'Omran à l'appui ; une bascule entre deux vues a été rejetée.
-- Chaque groupe pagine ses lignes par lots de 20 (`TAILLE_LOT_GROUPE`).
-  « Charger plus » **redemande la page 0 avec une taille plus grande** — d'où
-  l'exigence d'un tri qui tranche (#141).
-- `useGroupement` envoie **toujours `inclureSansValeur: true`** (#145).
-- La bande est rendue **par l'écran**, hors du test « y a-t-il des lignes » :
-  sinon un groupe vide est sans issue.
+### La palette et l'architecture (état final : commit `b5eb507`)
+- **Style Uxerflow** : canvas greige `--sidebar #f2f0ea` (clair) / `#12100b`
+  (sombre) sous une **feuille flottante** — `Sidebar variant="inset"` dans
+  Layout.tsx, `PageShell fullHeight` compense la marge de la feuille avec
+  `md:h-[calc(100svh-1rem)]`, en-tête `md:rounded-t-xl`.
+- **`--brand` = orange #c2410c / #fb923c** (le coral #ff5a2d de la référence ne
+  tient pas 4,5:1 en texte ; orange-700 est le pas le plus vif qui passe, 5,2:1).
+  **`--primary` = encre noire #201d17** (blanc en sombre inversé #ece8dd) —
+  découplé de --brand : boutons noirs, orange réservé à la structure.
+  **Vigilance : brand orange vit près de --warning rouge et --amber** — tenable
+  parce que brand n'apparaît que dans le chrome et warning/amber que sur la donnée
+  (avec glyphes). Ne pas croiser.
+- Gris voilés **au chaud** en clair (la leçon « gris teinté = dessiné » tient, le
+  voile a tourné violet→indigo→greige). `--radius` 0.5→0.75rem. Charts hue 50.
+  Bande KPI du Dashboard = une carte segmentée `gap-px bg-border` (composant
+  local `KpiCell`), plus de StatCards ni d'icônes là.
+- **Retenue de l'orange (commit `5a636d1`, sur retour utilisateur)** :
+  `--sec-accent` = gris (`var(--text)`/`--neutral-bg`) — les ~80 puces d'icônes
+  d'entité sont neutres ; le **sombre est quasi neutre** (feuille `#1b1b19`,
+  canvas `#121211` — plus de brun) ; nouveau ton **`--progress` violet**
+  (`#6d28d9`/`#a78bfa`) découplé de --brand, consommé par badge.tsx,
+  `STAT_TONE_VARS` et la règle de grille. L'orange ne reste que : nav active,
+  focus, sélection, barres de la synthèse.
+- **L'en-tête d'index.css porte tout l'historique** — violet→essais→retour→
+  indigo→Uxerflow. Le lire avant tout changement. **Quatrième direction en un
+  jour : au moindre doute couleur, re-demander avant d'écrire.**
+- `TONE_GLYPH`, la densité de grille Omran (`--row-h` 24px), DataGrid : intouchés.
 
-### Les agrégats
-- `?agregats=` prend des **jetons** : `prix` (nu = SUM, revient nu) ou
-  `prix:AVG`. `jetonAgregat` / `decomposerJeton` dans `lib/groupement.ts`.
-- **`ColonneDto.fonctions` décide**, jamais le type : `montantBrut` accepte les
-  cinq, `montantBrutRestant` — MONTANT aussi — n'accepte ni MIN ni MAX.
-- **La valeur suit la fonction** : COUNT entier, MIN/MAX au type de la colonne
-  (donc chaîne ISO sur une date), `null` pour un MIN vide.
-- `SOMMES_SANS_SENS` n'écarte plus que **SUM** sur `remise` /
-  `probabiliteFinalisation` — la moyenne, elle, informe.
-- `PageGroupesDto.totaux` / `nombreTotal` = le « Total : » plein périmètre,
-  **distinct du pied Σ** qui ne somme que les lignes chargées. Les deux portent
-  leur intitulé.
-
-### Les catalogues de colonnes (4 écrans)
-- `parDefaut` décrit la **charge utile**, pas la grille → `masquees` par écran.
-  Encaissements : 9 entrées, dont 7 UUID `parDefaut`.
-- `toujoursDemandees` (dans `DispositionColonnes`) : colonnes demandées même
-  décochées, pour les besoins de rendu qui ne s'affichent pas — le fond rouge
-  des relances lit `derniereAlerteDate` + `fermee`.
-- Sur les encaissements, **décocher accélère vraiment** : 572–694 ms pour les
-  27 défauts contre 307–378 pour 16.
-
-### Pièges de données déjà payés
-- `remise`, `probabiliteFinalisation`, `quotePart` (dossier) sont des
-  **fractions** ; `PayeurDto.quotePart` est un pourcentage 0–100.
-- Le **filtre statut des dossiers** veut le code brut (`CONCRETISATION` → 68,
-  `Concrétisation` → **0 en HTTP 200**) et aucune normalisation ne rattrape
-  (« Remise des clés » → `REMISE DES CLEFS`). D'où le lot de 500 **et**
-  l'impossibilité de grouper tant qu'un statut est filtré.
-- Encaissements : **décaissements et non-affectés jamais servis** — ces derniers
-  chiffrés à 16 pièces / 6 435 400 DH par le spec. Mention portée à l'écran.
+### Le zéro-scroll (commits `29ac050` + `456b1a6`)
+- **Dashboard refondu** : fullHeight, bande KPI 4 tuiles, file « À rappeler » à
+  gauche (336px, deux sections empilées Aujourd'hui/En retard, bascule Moi/Équipe),
+  **pipeline fusionné en 5 couloirs** (Pré-prospection / À traiter (ambre) /
+  Prospections / Clients / Dossier de vente), synthèse annuelle + dossiers récents
+  en pied (`min-[1500px]:flex-row`). Supprimés : « Vente — actualité », « Leads du
+  jour », « Prospections récentes » (doublons), 1 StatCard relances (le compte vit
+  dans l'en-tête de la file).
+- **Sept pages converties** : Calendrier (grille 6 semaines étirée, cellules
+  flexibles), TranchesList (cartes → table dense), TrancheDetail (identité 1 ligne,
+  règles compactées, scroll interne), ProspectDetail/ClientDetail (géométrie
+  FicheShell, 6 TabsContent en `min-h-0 flex-1 overflow-y-auto`), Hotline
+  (recherche 1 ligne, résultats seuls défilants), MesPerformances,
+  PerformancesCommerciaux (filtre période épinglé).
+- **Restent en défilement de page** (non traités, par choix ou par risque) :
+  ProjetsList, les formulaires (NewDossier, NewProspect…), EncaissementDetail
+  (déjà fullHeight mais hors FicheShell), et les régimes minceur non faits :
+  barre de filtres Encaissements (2 rangées), carte « document en lot » de
+  DossiersList, fusion des 8 onglets de ProspectionDetail.
 
 ### Vérification
-- Quatre portes : `npx tsc -b --force`, `npx eslint src --ignore-pattern
-  'src/harness-densite.tsx'` → **9**, `npm run check:contrast`, `npm run build`.
-- **Les portes ne rendent rien.** Les deux contrôles utiles : le **grep du
-  JS/CSS compilé** (`grep -oF`, Tailwind scanne aussi les commentaires) et une
-  **sonde serveur qui vérifie l'invariant affiché**.
+- Quatre portes inchangées : `npx tsc -b --force` · eslint = **9** ·
+  `npm run check:contrast` · `npm run build`. Plus le grep du compilé.
+- **Rien n'a été vu au navigateur cette session** — tout le redesign est à
+  vérifier visuellement par l'utilisateur (thème sombre inclus, jamais rendu).
 
 ---
 
 ## 📁 Important Files & Paths
 
-- `src/lib/groupement.ts` — `useGroupement`, `useLignesGroupes`, jetons,
-  `SOMMES_SANS_SENS`, `LIBELLES_FONCTION`.
-- `src/components/DataGrid.tsx` — le dépliant (`GroupementGrille<T>`),
-  `formatAgregat`, la bande de totaux, `ColonneGrille.formatValeur`.
-- `src/components/BandeGroupement.tsx` — bande + menu Σ en sous-menus.
-- `src/components/RechercheMenu.tsx` — barre de recherche partagée. **L'effet
-  clavier natif est la raison de l'extraction**, pas le balisage.
-- `src/components/{Dossier,Prospection,Encaissement}Table.tsx` — adaptateurs
-  catalogue → `ColonneGrille`.
-- `src/lib/{colonnes,dispositions}.ts` — mécanisme et réglages par écran.
-- `src/pages/encaissements/EncaissementDetail.tsx` — fiche + affectations.
-- `docs/filtres-avances.md` — **toutes les mesures et demandes backend**.
-- Scratchpad : **`audit-complet.mjs`** (101 interfaces vs spec, suit `extends` —
-  doit rendre **une seule** dérive, voulue), `sonde-invariant.mjs`,
-  `sonde-agregats.mjs`, `sonde-affect.mjs`, `audit-sync.mjs`.
+- `src/index.css` — palette entière remplacée (light + dark), en-tête historique
+  enrichi d'une section « Redesign du 20/09 ».
+- `src/pages/Dashboard.tsx` — réécrit intégralement (structure un-viewport).
+- `src/pages/calendrier/Calendrier.tsx`, `src/pages/tranches/TranchesList.tsx`
+  (réécrit), `src/pages/tranches/TrancheDetail.tsx`,
+  `src/pages/prospects/ProspectDetail.tsx`, `src/pages/hotline/Hotline.tsx`,
+  `src/pages/kpi/MesPerformances.tsx`, `src/pages/kpi/PerformancesCommerciaux.tsx`.
+- Maquette : scratchpad `maquette-dashboard.html` → artifact
+  `d5cdd55f-132c-47fa-a613-5e743d192d54` (version indigo).
 
 ---
 
 ## 🔧 Environment & Config
 
-- Windows 11, PowerShell + Git Bash. Fichiers **CRLF** — normaliser en mémoire
-  avant tout splice Python.
-- Vite `:5173`, backend Spring `:8080`, lancés par l'utilisateur.
-- Identifiants du compte de test : dans les sondes du scratchpad. **Non
-  consignés ici.** ⚠️ Ils ont transité en clair dans plusieurs transcriptions.
-- **Aucun navigateur atteignable** (8ᵉ session).
-- `main` à **`5b93ba2`** — PR #37 à #40 fusionnées.
-- Branche **`feat/encaissements-filtre-tranche`**, poussée, **non fusionnée**,
-  6 commits : filtre tranche → catalogue+groupement → recherche menu →
-  fonctions d'agrégat → conformité types → affectations.
-- L'utilisateur commite parfois le snapshot de spec **directement sur `main`** :
-  `sync` refuse alors avec « diverged ». Vérifier l'identité octet pour octet
-  avant de proposer un `reset --hard`.
+- Windows 11, PowerShell 5.1 + Git Bash. Fichiers **CRLF** (les fichiers réécrits
+  par Write sont en LF — git les renormalisera, warning bénin).
+- Branche **`docs/demande-filtre-colonne`**, commits `7178179` (demande backend),
+  `eed50d5` (mémoire), `29ac050` (palette indigo+dashboard), `456b1a6`
+  (zéro-scroll ×7), `0851add` (mémoire), `b5eb507` (style Uxerflow),
+  `8d9f3d7` (mémoire), `5a636d1` (retenue de l'orange), `c220811`
+  (modernisation filtres/tables/bordures : règles verticales de colonnes
+  RETIRÉES de ui/table.tsx — restaurables si l'œil perd sa colonne à 12+
+  colonnes —, en-tête de table en bandeau `--surface-hover` avec libellés
+  muted redit sur les cellules collantes de DataGrid, séparateurs
+  `border/70`, pied Σ allégé, et les huit barres de filtres déboîtées en
+  toolbars nues — seule la carte « document en lot » de Dossiers reste),
+  `e8176c5`/`f416100` (onglet Actions prospection → table, note entière),
+  `53b9073` (Historique dossier → table), `bf7742a` (fiches : plus de
+  cadre dans le cadre), `329b3d2` (**équilibrage des bordures app-wide,
+  doctrine codifiée dans index.css près de --border** : un cadre par
+  zone, structure interne en surfaces bg-muted/30-40 ; --input éclairci,
+  sidebar sans border-t, header /70 sans séparateurs verticaux, couloirs
+  et colonnes du Dashboard, synthèse, Hotline, ReglementPreuves etc. en
+  surfaces).
+  **Poussée, PR toujours non fusionnée.** `origin/main` = `532e3a2`, inchangé
+  depuis le 15/09.
+- L'utilisateur écran **125 %** : viewport CSS ≈ 1536×~780.
 
 ---
 
 ## ⏭️ Next Step
 
-> **Faire fusionner la PR de `feat/encaissements-filtre-tranche`**, puis `sync`.
-> Elle porte six commits dont la conversion complète de l'écran Encaissements.
+> **Vérification visuelle par l'utilisateur** (`npm run dev`) : la feuille
+> flottante sur canvas greige (sidebar inset), le Dashboard orange/noir — un
+> seul viewport ? — puis le **thème sombre** (jamais rendu), puis Calendrier,
+> Tranches, fiche Client, Hotline. Ajuster sur retours avant les régimes
+> minceur.
 
 ### Backlog (par priorité)
 
-- [ ] **Vérifier au navigateur** — rien des huit dernières sessions n'a été vu.
-      Chemin le plus dense : `/encaissements` → sélecteur (5 sections dont
-      « Suivi », **aucun UUID**) → regrouper par État → ouvrir deux groupes →
-      Σ → *Montant brut ▸ Moyenne* → ouvrir une fiche à 3 affectations.
-      Puis `/dossiers` → Σ → *Date du dossier ▸ Minimum* : **doit s'afficher en
-      date, pas en montant** — c'est le test de toute la chaîne de formatage.
-- [ ] **#155 — réparer le détecteur d'endpoints de `FEATURES.md`** : 16 faux
-      positifs sur 17, il invente des trous.
-- [ ] **#156 — trancher `CreerReglementRequest.dateReglement`** : le spec la
-      publie, le serveur la refuse en 400.
-- [ ] **Divergence `titreFoncier`** entre deux chemins serveur : la liste le
-      sert sur 33/116, la fiche sur 5 de ces 8 échantillonnés. Valeurs
-      identiques quand les deux existent.
-- [ ] Demandes backend consignées : filtre statut dossiers (débloquerait le
-      groupement **et** supprimerait le lot de 500), champs `temp*`, 8 onglets
-      dossier, encaissements non affectés.
-- [ ] Ordre non déterministe sur la **pagination ordinaire** des listes (#141),
-      volontairement non touché.
-- [ ] Supprimer `harness-densite.tsx` (non suivi ; ses fixtures ont dû être
-      complétées deux fois cette session).
+- [ ] Retours visuels sur le redesign (palette indigo, densités, deux thèmes).
+- [ ] Régimes minceur restants : filtres Encaissements 1 rangée + popover, carte
+      « document en lot » de Dossiers → toolbar contextuelle à la sélection,
+      fusion des onglets pauvres de ProspectionDetail (8 → 6).
+- [ ] EncaissementDetail → FicheShell (uniformisation).
+- [ ] ProjetsList : borner la hauteur (`overflow-auto` non contraint, ligne 56).
+- [ ] #164 — couloir « Dossier de vente » : compte les actifs, liste tout.
+- [ ] Faire fusionner la PR `docs/demande-filtre-colonne` (elle porte maintenant
+      le redesign entier + la demande backend filtre par colonne).
+- [ ] #155, #156, #167, #168 — inchangés (backend/outillage).
 - [ ] 9 erreurs eslint préexistantes (#101).

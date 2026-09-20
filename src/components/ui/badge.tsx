@@ -23,7 +23,7 @@ const badgeVariants = cva(
         // pipeline stages, derived statuses, and toggle states.
         neutral: "bg-(--neutral-bg) text-foreground border-(--neutral-border)",
         info: "bg-(--info-bg) text-(--info) border-(--info-border)",
-        progress: "bg-(--brand-bg) text-(--brand) border-(--brand-border)",
+        progress: "bg-(--progress-bg) text-(--progress) border-(--progress-border)",
         success: "bg-(--success-bg) text-(--success) border-(--success-border)",
         warning: "bg-(--warning-bg) text-(--warning) border-(--warning-border)",
         amber: "bg-(--amber-bg) text-(--amber) border-(--amber-border)",

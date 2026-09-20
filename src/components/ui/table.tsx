@@ -77,7 +77,10 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "h-(--row-h) border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        // `border-border/70` : les séparateurs horizontaux descendent d'un
+        // cran (modernisation 20/09) — la ligne reste l'unité de lecture,
+        // le trait n'a besoin que de la suggérer.
+        "h-(--row-h) border-b border-border/70 transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
         className
       )}
       {...props}
@@ -85,26 +88,22 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
-/* Vertical column rules, at 60% against the horizontals' full strength.
-   At a 24px pitch with ten-plus columns the eye loses its column between two
-   adjacent date fields — which is exactly why the legacy grid draws them. The
-   asymmetry is deliberate: a row is still the primary unit (you read one lead
-   across), so horizontals lead and verticals only track. Equal weight turns
-   a dense grid into graph paper. `last:border-r-0` keeps the outer edge clean. */
-const RULE = "border-r border-border/60 last:border-r-0"
+/* Les règles verticales de colonnes (`border-r border-border/60`, héritées de
+   la grille Omran) ont été RETIRÉES le 20/09 sur demande explicite
+   (« revois les borders utilisés, modernise ») — la référence Uxerflow n'en a
+   aucune : les horizontales et le survol de ligne suffisent. Si l'œil perd sa
+   colonne sur les grilles à 12+ colonnes, c'est ici qu'on les restaure. */
 
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       data-slot="table-head"
       className={cn(
-        // Pas de fond ici : neuf écrans posent déjà le leur sur l'en-tête
-        // collant (`bg-card`/`bg-background`), et ProspectionTable le pose sur
-        // la cellule même — il gagnerait sur celui-ci. L'en-tête se distingue
-        // par son `border-b`, sa graisse et son `text-micro` contre le
-        // `text-body` du corps, sans toucher à la couleur.
-        "h-(--row-h-head) px-(--cell-px) text-left align-middle text-micro font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
-        RULE,
+        // Bandeau d'en-tête façon Uxerflow : fond gris doux + libellés en
+        // muted-foreground. Le fond vit sur la CELLULE (opaque, donc valable
+        // aussi pour les en-têtes collants) ; un écran qui pose le sien via
+        // className gagne quand même — cn/tailwind-merge garde le dernier bg.
+        "h-(--row-h-head) bg-(--surface-hover) px-(--cell-px) text-left align-middle text-micro font-medium whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0",
         className
       )}
       {...props}
@@ -118,7 +117,6 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
       data-slot="table-cell"
       className={cn(
         "px-(--cell-px) py-0 align-middle whitespace-nowrap text-body [&:has([role=checkbox])]:pr-0",
-        RULE,
         className
       )}
       {...props}
