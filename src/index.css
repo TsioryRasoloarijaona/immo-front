@@ -1,10 +1,11 @@
 /* ===========================================================================
    Ayad Développement — design tokens & global styles
 
-   Colour model: ONE brand accent (Ayad purple #5d396e, PRODUCT.md) carrying
-   every action, focus ring and section-identity chip, over plain neutral
-   grays, plus a small reserved set of status hues for state. Nothing else
-   gets a colour. Entities are told apart by icon *shape*, never by hue —
+   Colour model: ONE brand accent (indigo #4f46e5 since the 20/09 redesign —
+   see the note at the end of this header; formerly Ayad purple #5d396e)
+   carrying every action, focus ring and section-identity chip, over cool
+   tinted grays, plus a small reserved set of status hues for state. Nothing
+   else gets a colour. Entities are told apart by icon *shape*, never by hue —
    an earlier per-entity rainbow proved that unreadable.
 
    Dense, information-forward sales CRM layout (tight spacing/radius) so more
@@ -50,6 +51,25 @@
    produit (Arpent, sans logo — voir PRODUCT.md) et les glyphes de statut
    (TONE_GLYPH dans components/ui.tsx), qui empêchent la couleur d'être seule
    porteuse du sens.
+
+   ---------------------------------------------------------------------------
+   Redesign du 20/09/2026 — le violet est remplacé, sur demande explicite.
+   ---------------------------------------------------------------------------
+   L'utilisateur a demandé un redesign complet inspiré d'Attio/Linear/Pipedrive
+   (« change totalement même les palettes de couleurs »), a d'abord validé un
+   bleu #2563EB puis l'a rejeté (« choisi une autre couleur que le bleu »).
+   L'accent est désormais l'INDIGO #4F46E5 (référence Linear) : le vert, le
+   rouge et l'ambre sont réservés aux statuts, le teal et le bleu sont des
+   rejets documentés, l'indigo était la seule voie restante — et il garde une
+   parenté avec l'identité violette d'origine. 6,3:1 sur blanc, AA dans les
+   deux sens (texte indigo sur blanc, blanc sur aplat indigo).
+
+   Deux leçons de l'historique ci-dessus restent appliquées, pas abandonnées :
+   le fond de page est passé au BLANC PUR (la piste « cartes détachées par
+   filet et ombre » documentée plus haut est devenue la valeur), et les gris
+   restent TEINTÉS — le voile a seulement tourné du violet vers l'indigo
+   (froid). Les statuts (--success/--warning/--amber/--info) ne bougent pas :
+   leur validation AA sur leurs propres tintes reste valable.
    =========================================================================== */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -65,31 +85,29 @@
      page by page as the Tailwind + shadcn migration proceeds — do not add
      new usages, prefer the shadcn semantic vars underneath instead.
      ----------------------------------------------------------------------- */
-  --text: #55535e;
+  --text: #545769;
   /* Aligné sur --muted-foreground (5,4:1) — il était à 3,41:1, même échec AA,
      et il sert encore les classes héritées (badge, sidebar) plus bas. */
-  --text-muted: #6b6975;
-  --text-h: #17151f;
-  --bg: #f7f7f9;
+  --text-muted: #6a6d7d;
+  --text-h: #131726;
+  /* Blanc pur — redesign 20/09 : la piste documentée dans l'en-tête (cartes
+     détachées par filet et ombre, pas par remplissage) devient la valeur. */
+  --bg: #ffffff;
   --surface: #ffffff;
-  --surface-hover: #fafafa;
-  --border-strong: #d7d6dd;
+  --surface-hover: #f7f8fb;
+  --border-strong: #d3d6e0;
 
-  /* THE brand accent — Ayad purple, sampled from the identity mark and
-     declared binding in PRODUCT.md. It was briefly replaced by an achromatic
-     near-black "ink" while a per-entity rainbow was being unwound; that move
-     solved the rainbow but left the app with no brand colour at all (the
-     accent was literally Tailwind zinc-900) and, worse, with a *second*
-     structural accent (--sec-accent plum) competing with it. One accent,
-     used with discipline, replaces both — see --sec-accent below.
-     9.2:1 on white, so white-on-brand fills pass AA comfortably.
-     Hover darkens in light mode, matching the rest of the palette (the old
-     "hover brightens" exception existed only because near-black cannot get
-     visibly darker). */
-  --brand: #5d396e;
-  --brand-hover: #4c2e5b;
-  --brand-bg: rgba(93, 57, 110, 0.08);
-  --brand-border: rgba(93, 57, 110, 0.22);
+  /* THE brand accent — indigo #4F46E5 (référence Linear), redesign 20/09 ;
+     l'historique du violet Ayad qu'il remplace est dans l'en-tête. La
+     discipline ne change pas : UN accent pour actions ET structure (voir
+     --sec-accent below), les entités identifiées par la forme d'icône,
+     jamais par la teinte.
+     6,3:1 on white, so white-on-brand fills pass AA.
+     Hover darkens in light mode, matching the rest of the palette. */
+  --brand: #4f46e5;
+  --brand-hover: #4338ca;
+  --brand-bg: rgba(79, 70, 229, 0.08);
+  --brand-border: rgba(79, 70, 229, 0.22);
   /* Foreground color for text/icons sitting on a solid --brand fill. */
   --brand-contrast: #fff;
 
@@ -131,8 +149,8 @@
   --info-bg: rgba(28, 95, 192, 0.1);
   --info-border: rgba(28, 95, 192, 0.28);
 
-  --neutral-bg: rgba(85, 83, 94, 0.09);
-  --neutral-border: rgba(85, 83, 94, 0.22);
+  --neutral-bg: rgba(84, 87, 105, 0.09);
+  --neutral-border: rgba(84, 87, 105, 0.22);
 
   /* ---------------------------------------------------------------------
      Section-identity accent — icon chips (PageShell header, sidebar nav in
@@ -192,24 +210,24 @@
      shadcn/Tailwind semantic tokens — the system new components build on.
      Neutrals tuned to the same muted Linear/Stripe palette as --bg/--surface
      above (not shadcn's stock pure white/black); --primary and --accent
-     are seeded from the Ayad brand purple rather than the neutral preset.
+     are seeded from the indigo brand accent rather than the neutral preset.
      ----------------------------------------------------------------------- */
-  --background: #f7f7f9;
-  --foreground: #17151f;
+  --background: #ffffff;
+  --foreground: #131726;
   --card: #ffffff;
-  --card-foreground: #17151f;
+  --card-foreground: #131726;
   --popover: #ffffff;
-  --popover-foreground: #17151f;
+  --popover-foreground: #131726;
   --primary: var(--brand);
   --primary-foreground: var(--brand-contrast);
-  --secondary: #f0f0f3;
-  --secondary-foreground: #17151f;
-  --muted: #f0f0f3;
+  --secondary: #f1f2f7;
+  --secondary-foreground: #131726;
+  --muted: #f1f2f7;
   /* 5.4:1 on --card, up from #8b8a94's 3.41:1 — a straight AA failure at the
      11px this is mostly used at. It is the colour of every Field label, every
      breadcrumb, every secondary table cell and every helper caption, so this
      single value is the app's largest accessibility lever. */
-  --muted-foreground: #6b6975;
+  --muted-foreground: #6a6d7d;
   --accent: var(--brand-bg);
   --accent-foreground: var(--brand);
   /* ERRORS ONLY — deliberately deeper and less orange than --warning above,
@@ -218,8 +236,8 @@
      users had no way to tell "this deal died" from "your input is invalid". */
   --destructive: #7f1d1d;
   --destructive-foreground: #fff;
-  --border: #e6e5ea;
-  --input: #d7d6dd;
+  --border: #e4e6ee;
+  --input: #d3d6e0;
   --ring: var(--brand);
   /* Categorical ramp derived from the brand hue, walking hue as well as
      lightness so adjacent series stay separable — the previous ramp was
@@ -227,24 +245,24 @@
      with chart-1 at L=0.87 landing around 1.4:1 on a white card. Nothing
      consumes these yet; they are fixed now so the first chart added doesn't
      ship an invisible series. */
-  --chart-1: oklch(0.52 0.12 320);
-  --chart-2: oklch(0.60 0.11 265);
-  --chart-3: oklch(0.62 0.10 200);
-  --chart-4: oklch(0.58 0.11 150);
-  --chart-5: oklch(0.55 0.12 95);
+  --chart-1: oklch(0.52 0.17 277);
+  --chart-2: oklch(0.60 0.11 220);
+  --chart-3: oklch(0.62 0.10 165);
+  --chart-4: oklch(0.58 0.11 110);
+  --chart-5: oklch(0.55 0.12 55);
   /* Fond de jauge : un pas clair du MÊME ramp que --chart-1, pas un gris.
      Une jauge se lit sur toute sa longueur — piste et remplissage doivent
      appartenir à la même teinte pour que la portion vide reste lisible
      comme « le reste de la mesure » et non comme un séparateur neutre. */
-  --chart-1-track: oklch(0.93 0.03 320);
+  --chart-1-track: oklch(0.93 0.03 277);
   --radius: 0.5rem;
   --sidebar: #ffffff;
-  --sidebar-foreground: #55535e;
+  --sidebar-foreground: #545769;
   --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: var(--brand-contrast);
   --sidebar-accent: var(--brand-bg);
   --sidebar-accent-foreground: var(--brand);
-  --sidebar-border: #e6e5ea;
+  --sidebar-border: #e4e6ee;
   --sidebar-ring: var(--brand);
 }
 
@@ -258,25 +276,25 @@
 .dark {
   color-scheme: dark;
 
-  --text: #a7a5b3;
+  --text: #a5a8ba;
   /* Aligné sur --muted-foreground, cf. la note en mode clair. */
-  --text-muted: #8f8d99;
-  --text-h: #f2f1f6;
-  --bg: #111014;
-  --surface: #18171d;
-  --surface-hover: #1e1d24;
-  --border: #2a2932;
-  --border-strong: #38363f;
+  --text-muted: #8d90a1;
+  --text-h: #f0f1f7;
+  --bg: #101118;
+  --surface: #171822;
+  --surface-hover: #1d1e2a;
+  --border: #292b38;
+  --border-strong: #363948;
 
-  /* Same brand purple, lightened for contrast against a dark surface —
-     8.4:1 on --card. Still one hue, just the light end of the brand ramp. */
-  --brand: #c9a6d6;
-  --brand-hover: #dcc0e6;
-  --brand-bg: rgba(201, 166, 214, 0.14);
-  --brand-border: rgba(201, 166, 214, 0.32);
+  /* Same indigo accent, lightened for contrast against a dark surface —
+     9.1:1 on --card. Still one hue, just the light end of the brand ramp. */
+  --brand: #a5b4fc;
+  --brand-hover: #c7d2fe;
+  --brand-bg: rgba(165, 180, 252, 0.14);
+  --brand-border: rgba(165, 180, 252, 0.32);
   /* --brand is light here, so a solid fill needs a dark foreground instead
-     (white-on-light-purple fails contrast). 8.9:1. */
-  --brand-contrast: #111014;
+     (white-on-light-indigo fails contrast). 9.6:1. */
+  --brand-contrast: #101118;
 
   --success: #4ade80;
   --success-bg: rgba(74, 222, 128, 0.12);
@@ -298,8 +316,8 @@
   --info-bg: rgba(96, 165, 250, 0.12);
   --info-border: rgba(96, 165, 250, 0.3);
 
-  --neutral-bg: rgba(167, 165, 179, 0.1);
-  --neutral-border: rgba(167, 165, 179, 0.22);
+  --neutral-bg: rgba(165, 168, 186, 0.1);
+  --neutral-border: rgba(165, 168, 186, 0.22);
 
   /* Aliases --brand, exactly as in :root — one accent, not two. The old
      standalone plum also failed contrast here: 3.71:1 for the stepper's
@@ -328,47 +346,47 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32), 0 1px 3px rgba(0, 0, 0, 0.24);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
 
-  --background: #111014;
-  --foreground: #f2f1f6;
-  --card: #18171d;
-  --card-foreground: #f2f1f6;
-  --popover: #18171d;
-  --popover-foreground: #f2f1f6;
+  --background: #101118;
+  --foreground: #f0f1f7;
+  --card: #171822;
+  --card-foreground: #f0f1f7;
+  --popover: #171822;
+  --popover-foreground: #f0f1f7;
   --primary: var(--brand);
   --primary-foreground: var(--brand-contrast);
-  --secondary: #1e1d24;
-  --secondary-foreground: #f2f1f6;
-  --muted: #1e1d24;
+  --secondary: #1d1e2a;
+  --secondary-foreground: #f0f1f7;
+  --muted: #1d1e2a;
   /* 5.5:1 on --card, up from #75737f's 3.83:1 — the dark theme failed AA on
      the label colour too, so switching themes was never an escape hatch. */
-  --muted-foreground: #8f8d99;
+  --muted-foreground: #8d90a1;
   --accent: var(--brand-bg);
   --accent-foreground: var(--brand);
   /* ERRORS ONLY, and visibly hotter/more saturated than --warning's soft rose
      above — the inverse of the light-mode relationship, because on a dark
      surface it is saturation rather than depth that separates them. */
   --destructive: #f26d6d;
-  --destructive-foreground: #111014;
-  --input: #38363f;
+  --destructive-foreground: #101118;
+  --input: #363948;
   --ring: var(--brand);
   /* Lighter than the light-mode ramp — the previous values were byte-identical
      across both themes, which left chart-5 (L=0.269) near-invisible on a
      #18171d card. */
-  --chart-1: oklch(0.72 0.13 320);
-  --chart-2: oklch(0.75 0.12 265);
-  --chart-3: oklch(0.78 0.11 200);
-  --chart-4: oklch(0.76 0.12 150);
-  --chart-5: oklch(0.74 0.13 95);
+  --chart-1: oklch(0.72 0.13 277);
+  --chart-2: oklch(0.75 0.12 220);
+  --chart-3: oklch(0.78 0.11 165);
+  --chart-4: oklch(0.76 0.12 110);
+  --chart-5: oklch(0.74 0.13 55);
   /* En sombre la piste descend au lieu de monter : le mode sombre se choisit
      pas à pas depuis le même ramp, il ne s’obtient pas en inversant le clair. */
-  --chart-1-track: oklch(0.3 0.04 320);
-  --sidebar: #18171d;
-  --sidebar-foreground: #a7a5b3;
+  --chart-1-track: oklch(0.3 0.04 277);
+  --sidebar: #171822;
+  --sidebar-foreground: #a5a8ba;
   --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: var(--brand-contrast);
   --sidebar-accent: var(--brand-bg);
   --sidebar-accent-foreground: var(--brand);
-  --sidebar-border: #2a2932;
+  --sidebar-border: #292b38;
   --sidebar-ring: var(--brand);
 }
 
