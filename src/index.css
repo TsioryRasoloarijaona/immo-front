@@ -70,6 +70,36 @@
    restent TEINTÉS — le voile a seulement tourné du violet vers l'indigo
    (froid). Les statuts (--success/--warning/--amber/--info) ne bougent pas :
    leur validation AA sur leurs propres tintes reste valable.
+
+   ---------------------------------------------------------------------------
+   20/09, second mouvement — capture de référence « Uxerflow » fournie.
+   ---------------------------------------------------------------------------
+   L'indigo a vécu quelques heures : l'utilisateur a fourni une capture de
+   référence (dashboard SaaS type Uxerflow/orbit) avec « inspire-toi plutôt de
+   ce style, surtout aussi les spacing ». Le modèle de couleur devient :
+
+     canvas greige chaud (--sidebar) sous une FEUILLE blanche flottante
+       (sidebar variant="inset" — le contenu principal est une carte m-2
+       rounded-xl, voir Layout.tsx/PageShell.tsx) ;
+     boutons primaires NOIRS (--primary = encre, découplé de --brand pour la
+       première fois — la référence fait pareil : action = noir, accent =
+       orange) ;
+     accent ORANGE #c2410c (orange-700 — la teinte coral #ff5a2d de la
+       référence ne tient pas 4,5:1 en texte ; orange-700 est le pas le plus
+       vif qui passe, 5,2:1) pour liens actifs, focus, sélection, jauges ;
+     gris re-voilés au CHAUD (greige) — la leçon « gris teinté » tient
+       toujours, le voile a tourné une fois de plus.
+
+   Vigilance héritée de ce choix : --brand orange vit près de --warning rouge
+   et de --amber. La séparation tient parce que brand n'apparaît que dans le
+   chrome (nav active, liens, focus) et warning/amber que sur la donnée
+   (badges avec glyphe, lignes en retard). Ne pas introduire d'orange dans
+   les badges, ni de rouge dans le chrome.
+
+   Le spacing : la densité de GRILLE (--row-h 24px, mesurée sur Omran) ne
+   bouge pas — c'est la demande « max d'infos sans scroll » du même
+   utilisateur. Ce qui respire davantage : --radius 12px, paddings de cartes
+   et de page, bande KPI segmentée.
    =========================================================================== */
 @import "tailwindcss";
 @import "tw-animate-css";
@@ -85,29 +115,29 @@
      page by page as the Tailwind + shadcn migration proceeds — do not add
      new usages, prefer the shadcn semantic vars underneath instead.
      ----------------------------------------------------------------------- */
-  --text: #545769;
+  --text: #57534a;
   /* Aligné sur --muted-foreground (5,4:1) — il était à 3,41:1, même échec AA,
      et il sert encore les classes héritées (badge, sidebar) plus bas. */
-  --text-muted: #6a6d7d;
-  --text-h: #131726;
-  /* Blanc pur — redesign 20/09 : la piste documentée dans l'en-tête (cartes
-     détachées par filet et ombre, pas par remplissage) devient la valeur. */
+  --text-muted: #6d6a60;
+  --text-h: #201d17;
+  /* Blanc pur pour la feuille de contenu — le canvas greige vit sur
+     --sidebar (architecture inset, voir l'en-tête). */
   --bg: #ffffff;
   --surface: #ffffff;
-  --surface-hover: #f7f8fb;
-  --border-strong: #d3d6e0;
+  --surface-hover: #f7f5f0;
+  --border-strong: #d9d5cb;
 
-  /* THE brand accent — indigo #4F46E5 (référence Linear), redesign 20/09 ;
-     l'historique du violet Ayad qu'il remplace est dans l'en-tête. La
-     discipline ne change pas : UN accent pour actions ET structure (voir
-     --sec-accent below), les entités identifiées par la forme d'icône,
-     jamais par la teinte.
-     6,3:1 on white, so white-on-brand fills pass AA.
+  /* THE brand accent — orange #c2410c (référence Uxerflow du 20/09, second
+     mouvement ; l'historique violet→indigo est dans l'en-tête). Nouveauté de
+     cette itération : les ACTIONS primaires ne portent plus --brand mais
+     --primary (encre noire, comme la référence) — l'orange reste l'accent de
+     structure : nav active, liens, focus, sélection, jauges.
+     5,2:1 on white, so white-on-brand fills and orange text both pass AA.
      Hover darkens in light mode, matching the rest of the palette. */
-  --brand: #4f46e5;
-  --brand-hover: #4338ca;
-  --brand-bg: rgba(79, 70, 229, 0.08);
-  --brand-border: rgba(79, 70, 229, 0.22);
+  --brand: #c2410c;
+  --brand-hover: #9a3412;
+  --brand-bg: rgba(194, 65, 12, 0.08);
+  --brand-border: rgba(194, 65, 12, 0.25);
   /* Foreground color for text/icons sitting on a solid --brand fill. */
   --brand-contrast: #fff;
 
@@ -149,8 +179,8 @@
   --info-bg: rgba(28, 95, 192, 0.1);
   --info-border: rgba(28, 95, 192, 0.28);
 
-  --neutral-bg: rgba(84, 87, 105, 0.09);
-  --neutral-border: rgba(84, 87, 105, 0.22);
+  --neutral-bg: rgba(87, 83, 74, 0.09);
+  --neutral-border: rgba(87, 83, 74, 0.22);
 
   /* ---------------------------------------------------------------------
      Section-identity accent — icon chips (PageShell header, sidebar nav in
@@ -189,9 +219,9 @@
   --sec-tranche-bg: var(--sec-accent-bg);
   --sec-projet-bg: var(--sec-accent-bg);
 
-  --shadow-sm: 0 1px 2px rgba(20, 18, 30, 0.04);
-  --shadow-md: 0 4px 16px rgba(20, 18, 30, 0.07), 0 1px 3px rgba(20, 18, 30, 0.05);
-  --shadow-lg: 0 12px 32px rgba(20, 18, 30, 0.12), 0 2px 6px rgba(20, 18, 30, 0.06);
+  --shadow-sm: 0 1px 2px rgba(32, 29, 23, 0.04);
+  --shadow-md: 0 4px 16px rgba(32, 29, 23, 0.07), 0 1px 3px rgba(32, 29, 23, 0.05);
+  --shadow-lg: 0 12px 32px rgba(32, 29, 23, 0.12), 0 2px 6px rgba(32, 29, 23, 0.06);
 
   --sans:
     'Geist Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -213,21 +243,24 @@
      are seeded from the indigo brand accent rather than the neutral preset.
      ----------------------------------------------------------------------- */
   --background: #ffffff;
-  --foreground: #131726;
+  --foreground: #201d17;
   --card: #ffffff;
-  --card-foreground: #131726;
+  --card-foreground: #201d17;
   --popover: #ffffff;
-  --popover-foreground: #131726;
-  --primary: var(--brand);
-  --primary-foreground: var(--brand-contrast);
-  --secondary: #f1f2f7;
-  --secondary-foreground: #131726;
-  --muted: #f1f2f7;
+  --popover-foreground: #201d17;
+  /* Découplé de --brand (une première) : l'action primaire est NOIRE comme
+     dans la référence — le bouton « Add New Product » de la capture. L'orange
+     reste l'accent de structure, jamais le remplissage d'un bouton. */
+  --primary: #201d17;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f2ed;
+  --secondary-foreground: #201d17;
+  --muted: #f4f2ed;
   /* 5.4:1 on --card, up from #8b8a94's 3.41:1 — a straight AA failure at the
      11px this is mostly used at. It is the colour of every Field label, every
      breadcrumb, every secondary table cell and every helper caption, so this
      single value is the app's largest accessibility lever. */
-  --muted-foreground: #6a6d7d;
+  --muted-foreground: #6d6a60;
   --accent: var(--brand-bg);
   --accent-foreground: var(--brand);
   /* ERRORS ONLY — deliberately deeper and less orange than --warning above,
@@ -236,8 +269,8 @@
      users had no way to tell "this deal died" from "your input is invalid". */
   --destructive: #7f1d1d;
   --destructive-foreground: #fff;
-  --border: #e4e6ee;
-  --input: #d3d6e0;
+  --border: #e9e6de;
+  --input: #d9d5cb;
   --ring: var(--brand);
   /* Categorical ramp derived from the brand hue, walking hue as well as
      lightness so adjacent series stay separable — the previous ramp was
@@ -245,24 +278,29 @@
      with chart-1 at L=0.87 landing around 1.4:1 on a white card. Nothing
      consumes these yet; they are fixed now so the first chart added doesn't
      ship an invisible series. */
-  --chart-1: oklch(0.52 0.17 277);
-  --chart-2: oklch(0.60 0.11 220);
-  --chart-3: oklch(0.62 0.10 165);
-  --chart-4: oklch(0.58 0.11 110);
-  --chart-5: oklch(0.55 0.12 55);
+  --chart-1: oklch(0.55 0.15 50);
+  --chart-2: oklch(0.60 0.11 355);
+  --chart-3: oklch(0.62 0.10 300);
+  --chart-4: oklch(0.58 0.11 245);
+  --chart-5: oklch(0.55 0.12 190);
   /* Fond de jauge : un pas clair du MÊME ramp que --chart-1, pas un gris.
      Une jauge se lit sur toute sa longueur — piste et remplissage doivent
      appartenir à la même teinte pour que la portion vide reste lisible
      comme « le reste de la mesure » et non comme un séparateur neutre. */
-  --chart-1-track: oklch(0.93 0.03 277);
-  --radius: 0.5rem;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #545769;
+  --chart-1-track: oklch(0.93 0.03 50);
+  /* 12px — la référence arrondit généreusement : cartes rounded-xl ≈ 17px,
+     boutons ≈ 10px. */
+  --radius: 0.75rem;
+  /* Le CANVAS de l'architecture inset : la sidebar ET le fond de fenêtre
+     vivent sur ce greige chaud, la feuille de contenu flotte en blanc
+     par-dessus (SidebarInset m-2 rounded-xl shadow). */
+  --sidebar: #f2f0ea;
+  --sidebar-foreground: #57534a;
   --sidebar-primary: var(--brand);
-  --sidebar-primary-foreground: var(--brand-contrast);
-  --sidebar-accent: var(--brand-bg);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(194, 65, 12, 0.09);
   --sidebar-accent-foreground: var(--brand);
-  --sidebar-border: #e4e6ee;
+  --sidebar-border: #e2dfd6;
   --sidebar-ring: var(--brand);
 }
 
@@ -276,25 +314,25 @@
 .dark {
   color-scheme: dark;
 
-  --text: #a5a8ba;
+  --text: #b1ada2;
   /* Aligné sur --muted-foreground, cf. la note en mode clair. */
-  --text-muted: #8d90a1;
-  --text-h: #f0f1f7;
-  --bg: #101118;
-  --surface: #171822;
-  --surface-hover: #1d1e2a;
-  --border: #292b38;
-  --border-strong: #363948;
+  --text-muted: #969180;
+  --text-h: #f2f0e9;
+  --bg: #1c1913;
+  --surface: #1c1913;
+  --surface-hover: #262218;
+  --border: #322e25;
+  --border-strong: #423d31;
 
-  /* Same indigo accent, lightened for contrast against a dark surface —
-     9.1:1 on --card. Still one hue, just the light end of the brand ramp. */
-  --brand: #a5b4fc;
-  --brand-hover: #c7d2fe;
-  --brand-bg: rgba(165, 180, 252, 0.14);
-  --brand-border: rgba(165, 180, 252, 0.32);
+  /* Same orange accent, lightened for contrast against a dark surface —
+     7.7:1 on --card. Still one hue, just the light end of the brand ramp. */
+  --brand: #fb923c;
+  --brand-hover: #fdba74;
+  --brand-bg: rgba(251, 146, 60, 0.14);
+  --brand-border: rgba(251, 146, 60, 0.32);
   /* --brand is light here, so a solid fill needs a dark foreground instead
-     (white-on-light-indigo fails contrast). 9.6:1. */
-  --brand-contrast: #101118;
+     (white-on-light-orange fails contrast). 8:1. */
+  --brand-contrast: #1a1710;
 
   --success: #4ade80;
   --success-bg: rgba(74, 222, 128, 0.12);
@@ -316,8 +354,8 @@
   --info-bg: rgba(96, 165, 250, 0.12);
   --info-border: rgba(96, 165, 250, 0.3);
 
-  --neutral-bg: rgba(165, 168, 186, 0.1);
-  --neutral-border: rgba(165, 168, 186, 0.22);
+  --neutral-bg: rgba(177, 173, 162, 0.1);
+  --neutral-border: rgba(177, 173, 162, 0.22);
 
   /* Aliases --brand, exactly as in :root — one accent, not two. The old
      standalone plum also failed contrast here: 3.71:1 for the stepper's
@@ -346,47 +384,50 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32), 0 1px 3px rgba(0, 0, 0, 0.24);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
 
-  --background: #101118;
-  --foreground: #f0f1f7;
-  --card: #171822;
-  --card-foreground: #f0f1f7;
-  --popover: #171822;
-  --popover-foreground: #f0f1f7;
-  --primary: var(--brand);
-  --primary-foreground: var(--brand-contrast);
-  --secondary: #1d1e2a;
-  --secondary-foreground: #f0f1f7;
-  --muted: #1d1e2a;
+  --background: #1c1913;
+  --foreground: #f2f0e9;
+  --card: #1c1913;
+  --card-foreground: #f2f0e9;
+  --popover: #221e16;
+  --popover-foreground: #f2f0e9;
+  /* Le bouton noir du clair devient clair sur sombre — même découplage. */
+  --primary: #ece8dd;
+  --primary-foreground: #1c1913;
+  --secondary: #262218;
+  --secondary-foreground: #f2f0e9;
+  --muted: #262218;
   /* 5.5:1 on --card, up from #75737f's 3.83:1 — the dark theme failed AA on
      the label colour too, so switching themes was never an escape hatch. */
-  --muted-foreground: #8d90a1;
+  --muted-foreground: #969180;
   --accent: var(--brand-bg);
   --accent-foreground: var(--brand);
   /* ERRORS ONLY, and visibly hotter/more saturated than --warning's soft rose
      above — the inverse of the light-mode relationship, because on a dark
      surface it is saturation rather than depth that separates them. */
   --destructive: #f26d6d;
-  --destructive-foreground: #101118;
-  --input: #363948;
+  --destructive-foreground: #1a1710;
+  --input: #423d31;
   --ring: var(--brand);
   /* Lighter than the light-mode ramp — the previous values were byte-identical
      across both themes, which left chart-5 (L=0.269) near-invisible on a
      #18171d card. */
-  --chart-1: oklch(0.72 0.13 277);
-  --chart-2: oklch(0.75 0.12 220);
-  --chart-3: oklch(0.78 0.11 165);
-  --chart-4: oklch(0.76 0.12 110);
-  --chart-5: oklch(0.74 0.13 55);
+  --chart-1: oklch(0.72 0.13 50);
+  --chart-2: oklch(0.75 0.12 355);
+  --chart-3: oklch(0.78 0.11 300);
+  --chart-4: oklch(0.76 0.12 245);
+  --chart-5: oklch(0.74 0.13 190);
   /* En sombre la piste descend au lieu de monter : le mode sombre se choisit
      pas à pas depuis le même ramp, il ne s’obtient pas en inversant le clair. */
-  --chart-1-track: oklch(0.3 0.04 277);
-  --sidebar: #171822;
-  --sidebar-foreground: #a5a8ba;
+  --chart-1-track: oklch(0.3 0.04 50);
+  /* Canvas sombre, un cran SOUS la feuille — l'inverse du clair où le
+     canvas est plus foncé que la feuille blanche. */
+  --sidebar: #12100b;
+  --sidebar-foreground: #b1ada2;
   --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: var(--brand-contrast);
   --sidebar-accent: var(--brand-bg);
   --sidebar-accent-foreground: var(--brand);
-  --sidebar-border: #292b38;
+  --sidebar-border: #2a261e;
   --sidebar-ring: var(--brand);
 }
 
@@ -482,7 +523,10 @@ table {
 }
 
 .page {
-  padding: 10px 24px 16px;
+  /* Référence Uxerflow : le contenu respire davantage dans la feuille —
+     14px/28px au lieu de 10px/24px. La densité de grille, elle, ne bouge
+     pas (voir « Grid density » plus bas). */
+  padding: 14px 28px 20px;
   max-width: 1680px;
   width: 100%;
   margin: 0 auto;

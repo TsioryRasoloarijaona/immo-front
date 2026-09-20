@@ -1,9 +1,9 @@
 import { Children, useState, type ReactNode } from 'react';
-import { AlertCircle, AlertTriangle, ChevronRight, Coins, Folder, PhoneCall, TrendingUp, UserCheck, UserPlus, Users } from 'lucide-react';
+import { AlertCircle, AlertTriangle, ChevronRight, Folder, PhoneCall, UserCheck, UserPlus, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import PageShell from '../components/PageShell';
 import SyntheseAnnuelle from '../components/SyntheseAnnuelle';
-import { Badge, Card, ErrorState, LoadingState, StatCard } from '../components/ui';
+import { Badge, Card, ErrorState, LoadingState } from '../components/ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { usePreview } from '../lib/previewContext';
 import {
@@ -266,6 +266,18 @@ function KanbanColumn({
   );
 }
 
+/** Une section de la bande KPI segmentée — label micro, gros chiffre
+ * tabulaire, précision en dessous. */
+function KpiCell({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="flex flex-col gap-0.5 bg-card px-4 py-2.5">
+      <span className="text-micro font-medium text-muted-foreground">{label}</span>
+      <span className="text-hero font-semibold tabular-nums tracking-tight text-foreground">{value}</span>
+      {sub && <span className="text-micro text-muted-foreground">{sub}</span>}
+    </div>
+  );
+}
+
 /** Shared hover-pill treatment for every Kanban row. */
 function KanbanItemRow({ onClick, to, children }: { onClick?: () => void; to?: string; children: ReactNode }) {
   const className =
@@ -345,29 +357,18 @@ export default function Dashboard() {
           bande KPI ; l'état du pipeline au centre ; le contexte annuel et les
           derniers dossiers en pied. */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-1">
-        <div className="grid shrink-0 grid-cols-2 gap-3 xl:grid-cols-4">
-          <StatCard icon={<Coins />} label="Valeur du pipeline" value={formatCurrency(dashboard.valeurPipeline)} tone="progress" />
-          <StatCard
-            icon={<TrendingUp />}
-            label="Panier moyen"
-            value={formatCurrency(dashboard.panierMoyen)}
-            sub={`sur ${dossiersActifs} dossiers actifs`}
-            tone="neutral"
-          />
-          <StatCard
-            icon={<Users />}
+        {/* Bande KPI segmentée (référence Uxerflow) : UNE carte, quatre
+            sections séparées par un filet — pas quatre cartes. Le chiffre
+            porte la hiérarchie, pas une icône colorée. */}
+        <div className="grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border xl:grid-cols-4">
+          <KpiCell label="Valeur du pipeline" value={formatCurrency(dashboard.valeurPipeline)} />
+          <KpiCell label="Panier moyen" value={formatCurrency(dashboard.panierMoyen)} sub={`sur ${dossiersActifs} dossiers actifs`} />
+          <KpiCell
             label="Prospections ouvertes"
             value={String(dashboard.prospectionsOuvertes ?? 0)}
             sub={`sur ${dashboard.prospectionsTotal ?? 0} au total`}
-            tone="info"
           />
-          <StatCard
-            icon={<Folder />}
-            label="Dossiers actifs"
-            value={String(dossiersActifs)}
-            sub={`sur ${dossiersTotal} au total`}
-            tone="success"
-          />
+          <KpiCell label="Dossiers actifs" value={String(dossiersActifs)} sub={`sur ${dossiersTotal} au total`} />
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 xl:flex-row">

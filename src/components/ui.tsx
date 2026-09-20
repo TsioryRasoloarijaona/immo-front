@@ -162,7 +162,9 @@ export function Card({
       style={accent ? { borderLeftColor: accent } : undefined}
     >
       {title && (
-        <CardHeader className="gap-0 border-b border-border py-1.75">
+        /* py-2.5 (était 1.75) : respiration de la référence Uxerflow — le
+           chrome s'aère, la grille de données garde sa densité. */
+        <CardHeader className="gap-0 border-b border-border py-2.5">
           <CardTitle className="flex items-center gap-1.5 text-label">
             {accent && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: accent }} />}
             {title}
@@ -170,7 +172,7 @@ export function Card({
           {action && <CardAction>{action}</CardAction>}
         </CardHeader>
       )}
-      <CardContent className={padded ? 'py-2.5' : 'px-0 py-0'}>{children}</CardContent>
+      <CardContent className={padded ? 'py-3' : 'px-0 py-0'}>{children}</CardContent>
     </ShadcnCard>
   );
 }

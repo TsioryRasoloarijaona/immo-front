@@ -67,14 +67,16 @@ export default function PageShell({
   const isCommercial = user?.roles?.includes('Commercial') ?? false;
 
   return (
-    <div className={cn(fullHeight && 'flex h-svh flex-col overflow-hidden')}>
+    <div className={cn(fullHeight && 'flex h-svh flex-col overflow-hidden md:h-[calc(100svh-1rem)]')}>
       {/* `py-2` et non plus `py-2.5 md:py-3` : l'en-tête ne porte plus qu'une
           ligne de texte. Sa hauteur est désormais plancherée par les boutons
           d'action à droite (`size-sm`, 32px), pas par le texte — descendre le
           padding plus bas ne gagnerait donc rien et collerait les boutons au
           filet. C'est aussi pourquoi la puce d'icône reste à `size-7` : à 28px
           elle passe sous ce plancher et ne coûte aucune hauteur. */}
-      <header className="sticky top-0 z-5 flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background/88 px-4 py-2 backdrop-blur-sm md:px-7">
+      {/* `md:rounded-t-xl` : l'en-tête épouse les coins de la feuille inset
+          au lieu de les équarrir. */}
+      <header className="sticky top-0 z-5 flex shrink-0 items-center justify-between gap-4 border-b border-border bg-background/88 px-4 py-2 backdrop-blur-sm md:rounded-t-xl md:px-7">
         <div className="flex min-w-0 items-center gap-2">
           <SidebarTrigger title="Afficher/masquer la barre latérale" />
           <Separator orientation="vertical" className="mr-1 h-5" />
