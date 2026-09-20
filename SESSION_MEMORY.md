@@ -152,7 +152,13 @@ https://claude.ai/code/artifact/d5cdd55f-132c-47fa-a613-5e743d192d54
 - Branche **`docs/demande-filtre-colonne`**, commits `7178179` (demande backend),
   `eed50d5` (mémoire), `29ac050` (palette indigo+dashboard), `456b1a6`
   (zéro-scroll ×7), `0851add` (mémoire), `b5eb507` (style Uxerflow),
-  `8d9f3d7` (mémoire), `5a636d1` (retenue de l'orange).
+  `8d9f3d7` (mémoire), `5a636d1` (retenue de l'orange), `c220811`
+  (modernisation filtres/tables/bordures : règles verticales de colonnes
+  RETIRÉES de ui/table.tsx — restaurables si l'œil perd sa colonne à 12+
+  colonnes —, en-tête de table en bandeau `--surface-hover` avec libellés
+  muted redit sur les cellules collantes de DataGrid, séparateurs
+  `border/70`, pied Σ allégé, et les huit barres de filtres déboîtées en
+  toolbars nues — seule la carte « document en lot » de Dossiers reste).
   **Poussée, PR toujours non fusionnée.** `origin/main` = `532e3a2`, inchangé
   depuis le 15/09.
 - L'utilisateur écran **125 %** : viewport CSS ≈ 1536×~780.
