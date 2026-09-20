@@ -6,16 +6,20 @@ _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\a
 
 ## 🎯 Current Objective
 
-**Redesign complet demandé le 20/09** (inspiration Attio/Linear/Pipedrive) : nouvelle
-palette **indigo #4F46E5 sur fond blanc pur** (le violet Ayad est remplacé — le bleu
-#2563EB a été proposé puis **rejeté par l'utilisateur**), hiérarchie de l'information
-en 4 niveaux (agir/argent/état/métadonnées), et **zéro défilement de page** partout.
-Construit **sur la branche `docs/demande-filtre-colonne`** à la demande explicite de
-l'utilisateur (« construit dans le même branch »), qui portait déjà la demande
-backend du filtre par colonne.
+**Redesign complet demandé le 20/09**, en TROIS mouvements successifs pilotés par
+l'utilisateur : (1) bleu Attio #2563EB validé sur maquette puis **rejeté** ; (2)
+indigo #4F46E5 livré (commits `29ac050`/`456b1a6`) ; (3) **capture de référence
+« Uxerflow » fournie** (« inspire-toi plutôt de ce style, surtout les spacing ») →
+style actuel, commit `b5eb507` : **canvas greige chaud + feuille blanche flottante
+(sidebar `variant="inset"`), accent orange #C2410C clair / #FB923C sombre, boutons
+primaires NOIRS (`--primary` découplé de `--brand`, une première), radius 12px,
+chrome aéré**. Constantes à travers les trois : hiérarchie de l'info en 4 niveaux,
+**zéro défilement de page**, densité de grille Omran 24px intouchée, statuts et
+glyphes intouchés. Construit **sur la branche `docs/demande-filtre-colonne`** à la
+demande explicite de l'utilisateur.
 
-Maquette validée avant le code : https://claude.ai/code/artifact/d5cdd55f-132c-47fa-a613-5e743d192d54
-(Dashboard 1512×712, un 1080p à 125 %).
+Maquette (restée à l'état indigo, non mise à jour au style Uxerflow) :
+https://claude.ai/code/artifact/d5cdd55f-132c-47fa-a613-5e743d192d54
 
 ---
 
@@ -71,15 +75,25 @@ Maquette validée avant le code : https://claude.ai/code/artifact/d5cdd55f-132c-
 
 ## 🔑 Key Points to Remember
 
-### La palette (commit `29ac050`)
-- **Accent unique indigo** : `--brand #4f46e5` clair / `#a5b4fc` sombre, hover
-  `#4338ca`/`#c7d2fe`. `--bg`/`--background` = **blanc pur** (la piste documentée
-  « cartes détachées par filet et ombre » est devenue la valeur). Gris **re-voilés
-  vers l'indigo** (la leçon « gris teinté = dessiné » est conservée, seule la teinte
-  du voile a tourné). Statuts inchangés. Charts oklch hue 320→277.
-- **L'en-tête d'index.css porte tout l'historique** — violet→essais→retour→indigo.
-  Le lire avant tout changement de couleur. C'est la **troisième** direction ; en
-  cas de nouveau doute, re-demander à l'utilisateur avant d'écrire.
+### La palette et l'architecture (état final : commit `b5eb507`)
+- **Style Uxerflow** : canvas greige `--sidebar #f2f0ea` (clair) / `#12100b`
+  (sombre) sous une **feuille flottante** — `Sidebar variant="inset"` dans
+  Layout.tsx, `PageShell fullHeight` compense la marge de la feuille avec
+  `md:h-[calc(100svh-1rem)]`, en-tête `md:rounded-t-xl`.
+- **`--brand` = orange #c2410c / #fb923c** (le coral #ff5a2d de la référence ne
+  tient pas 4,5:1 en texte ; orange-700 est le pas le plus vif qui passe, 5,2:1).
+  **`--primary` = encre noire #201d17** (blanc en sombre inversé #ece8dd) —
+  découplé de --brand : boutons noirs, orange réservé à la structure.
+  **Vigilance : brand orange vit près de --warning rouge et --amber** — tenable
+  parce que brand n'apparaît que dans le chrome et warning/amber que sur la donnée
+  (avec glyphes). Ne pas croiser.
+- Gris voilés **au chaud** (la leçon « gris teinté = dessiné » tient, le voile a
+  tourné violet→indigo→greige). `--radius` 0.5→0.75rem. Charts hue 50 (orange).
+  Bande KPI du Dashboard = une carte segmentée `gap-px bg-border` (composant
+  local `KpiCell`), plus de StatCards ni d'icônes là.
+- **L'en-tête d'index.css porte tout l'historique** — violet→essais→retour→
+  indigo→Uxerflow. Le lire avant tout changement. **Quatrième direction en un
+  jour : au moindre doute couleur, re-demander avant d'écrire.**
 - `TONE_GLYPH`, la densité de grille Omran (`--row-h` 24px), DataGrid : intouchés.
 
 ### Le zéro-scroll (commits `29ac050` + `456b1a6`)
@@ -129,7 +143,8 @@ Maquette validée avant le code : https://claude.ai/code/artifact/d5cdd55f-132c-
 - Windows 11, PowerShell 5.1 + Git Bash. Fichiers **CRLF** (les fichiers réécrits
   par Write sont en LF — git les renormalisera, warning bénin).
 - Branche **`docs/demande-filtre-colonne`**, commits `7178179` (demande backend),
-  `eed50d5` (mémoire), `29ac050` (palette+dashboard), `456b1a6` (zéro-scroll ×7).
+  `eed50d5` (mémoire), `29ac050` (palette indigo+dashboard), `456b1a6`
+  (zéro-scroll ×7), `0851add` (mémoire), `b5eb507` (style Uxerflow).
   **Poussée, PR toujours non fusionnée.** `origin/main` = `532e3a2`, inchangé
   depuis le 15/09.
 - L'utilisateur écran **125 %** : viewport CSS ≈ 1536×~780.
@@ -138,10 +153,11 @@ Maquette validée avant le code : https://claude.ai/code/artifact/d5cdd55f-132c-
 
 ## ⏭️ Next Step
 
-> **Vérification visuelle par l'utilisateur** (`npm run dev`) : Dashboard en
-> indigo/blanc — un seul viewport ? — puis thème sombre (jamais rendu), puis
-> Calendrier, Tranches, fiche Client, Hotline. Ajuster sur retours avant de
-> poursuivre les régimes minceur.
+> **Vérification visuelle par l'utilisateur** (`npm run dev`) : la feuille
+> flottante sur canvas greige (sidebar inset), le Dashboard orange/noir — un
+> seul viewport ? — puis le **thème sombre** (jamais rendu), puis Calendrier,
+> Tranches, fiche Client, Hotline. Ajuster sur retours avant les régimes
+> minceur.
 
 ### Backlog (par priorité)
 
