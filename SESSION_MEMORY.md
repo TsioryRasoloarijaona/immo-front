@@ -87,10 +87,17 @@ https://claude.ai/code/artifact/d5cdd55f-132c-47fa-a613-5e743d192d54
   **Vigilance : brand orange vit près de --warning rouge et --amber** — tenable
   parce que brand n'apparaît que dans le chrome et warning/amber que sur la donnée
   (avec glyphes). Ne pas croiser.
-- Gris voilés **au chaud** (la leçon « gris teinté = dessiné » tient, le voile a
-  tourné violet→indigo→greige). `--radius` 0.5→0.75rem. Charts hue 50 (orange).
+- Gris voilés **au chaud** en clair (la leçon « gris teinté = dessiné » tient, le
+  voile a tourné violet→indigo→greige). `--radius` 0.5→0.75rem. Charts hue 50.
   Bande KPI du Dashboard = une carte segmentée `gap-px bg-border` (composant
   local `KpiCell`), plus de StatCards ni d'icônes là.
+- **Retenue de l'orange (commit `5a636d1`, sur retour utilisateur)** :
+  `--sec-accent` = gris (`var(--text)`/`--neutral-bg`) — les ~80 puces d'icônes
+  d'entité sont neutres ; le **sombre est quasi neutre** (feuille `#1b1b19`,
+  canvas `#121211` — plus de brun) ; nouveau ton **`--progress` violet**
+  (`#6d28d9`/`#a78bfa`) découplé de --brand, consommé par badge.tsx,
+  `STAT_TONE_VARS` et la règle de grille. L'orange ne reste que : nav active,
+  focus, sélection, barres de la synthèse.
 - **L'en-tête d'index.css porte tout l'historique** — violet→essais→retour→
   indigo→Uxerflow. Le lire avant tout changement. **Quatrième direction en un
   jour : au moindre doute couleur, re-demander avant d'écrire.**
@@ -144,7 +151,8 @@ https://claude.ai/code/artifact/d5cdd55f-132c-47fa-a613-5e743d192d54
   par Write sont en LF — git les renormalisera, warning bénin).
 - Branche **`docs/demande-filtre-colonne`**, commits `7178179` (demande backend),
   `eed50d5` (mémoire), `29ac050` (palette indigo+dashboard), `456b1a6`
-  (zéro-scroll ×7), `0851add` (mémoire), `b5eb507` (style Uxerflow).
+  (zéro-scroll ×7), `0851add` (mémoire), `b5eb507` (style Uxerflow),
+  `8d9f3d7` (mémoire), `5a636d1` (retenue de l'orange).
   **Poussée, PR toujours non fusionnée.** `origin/main` = `532e3a2`, inchangé
   depuis le 15/09.
 - L'utilisateur écran **125 %** : viewport CSS ≈ 1536×~780.
