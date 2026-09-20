@@ -1,61 +1,63 @@
 # Session Memory
-_Last updated: 2026-09-20_
+_Last updated: 2026-09-20 (fin de session — le grand redesign)_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
 
 ## 🎯 Current Objective
 
-**Redesign complet demandé le 20/09**, en TROIS mouvements successifs pilotés par
-l'utilisateur : (1) bleu Attio #2563EB validé sur maquette puis **rejeté** ; (2)
-indigo #4F46E5 livré (commits `29ac050`/`456b1a6`) ; (3) **capture de référence
-« Uxerflow » fournie** (« inspire-toi plutôt de ce style, surtout les spacing ») →
-style actuel, commit `b5eb507` : **canvas greige chaud + feuille blanche flottante
-(sidebar `variant="inset"`), accent orange #C2410C clair / #FB923C sombre, boutons
-primaires NOIRS (`--primary` découplé de `--brand`, une première), radius 12px,
-chrome aéré**. Constantes à travers les trois : hiérarchie de l'info en 4 niveaux,
-**zéro défilement de page**, densité de grille Omran 24px intouchée, statuts et
-glyphes intouchés. Construit **sur la branche `docs/demande-filtre-colonne`** à la
-demande explicite de l'utilisateur.
+**Redesign complet de l'application, piloté en direct par l'utilisateur sur une
+seule journée**, construit sur la branche `docs/demande-filtre-colonne` à sa
+demande explicite. Quatre directions de palette en 24 h : bleu Attio (validé en
+maquette puis rejeté) → indigo (livré puis remplacé) → **style « Uxerflow »
+final** : canvas greige + feuille blanche flottante, accent orange, boutons
+noirs. Puis quatre passes de raffinement sur retours : retenue de l'orange,
+modernisation filtres/tables, équilibrage des bordures app-wide, conversions
+timeline→table. Constantes tenues de bout en bout : zéro défilement de page,
+densité de grille Omran 24 px, statuts+glyphes intouchés, AA vérifié à chaque
+commit.
 
-Maquette (restée à l'état indigo, non mise à jour au style Uxerflow) :
+Maquette (restée à l'état indigo) :
 https://claude.ai/code/artifact/d5cdd55f-132c-47fa-a613-5e743d192d54
 
 ---
 
 ## ✅ What Worked
 
-1. **Maquette HTML avant le code.** L'utilisateur a choisi « montre des maquettes
-   d'abord », a validé la direction… puis rejeté le bleu. Le rejet a coûté un
-   republish d'artifact, pas une réécriture de l'app.
-2. **`npm run check:contrast` lit le CSS réel** : les 52 paires AA revalidées en une
-   commande après le remplacement complet de la palette. Zéro échec.
-3. **Grep du compilé après build** : 0 occurrence du violet (`5d396e`, `c9a6d6`),
-   6 de l'indigo, 0 de l'ancien fond gris — la migration est totale, prouvée.
-4. **Le mécanisme zéro-scroll existait déjà** (`fullHeight` de PageShell + chaîne
-   `min-h-0`) : 9 pages sur 18 l'avaient. Généraliser = poser la géométrie, pas
-   l'inventer. `Card` accepte `className` et son contenu est ciblable par
-   `[&>[data-slot=card-content]]:…` pour la distribution de hauteur.
-5. **Fusionner plutôt que compresser** : le Dashboard tenait en un viewport en
-   supprimant les doublons (prospections et dossiers rendus 2×, 3 KPI redondants,
-   « Leads du jour » vide 140px), pas en rapetissant les contenus. 10 appels → 8.
+1. **Maquette avant code** : le rejet du bleu a coûté un republish d'artifact,
+   pas une réécriture.
+2. **Tout passe par les tokens** : quatre palettes successives sans jamais
+   toucher un composant — `index.css` est le seul point de vérité couleur.
+3. **`npm run check:contrast` à chaque palette** : 52 paires AA revalidées en
+   une commande, zéro échec sur les quatre directions.
+4. **Grep du CSS compilé après chaque build** : preuve de migration totale
+   (0 trace du violet, puis 0 trace de l'indigo, puis 0 brun en sombre).
+5. **`variant="inset"` de la sidebar shadcn vendorisée** : l'architecture
+   « feuille flottante » de la référence existait déjà dans le code — un prop,
+   pas une réécriture.
+6. **Édits mécaniques en N appels Edit** plutôt qu'un regex shell (cf. échec
+   encodage ci-dessous).
+7. **Doctrine écrite au moment du geste** : la règle des bordures est codifiée
+   dans `index.css` près de `--border`, l'historique des palettes dans
+   l'en-tête — la prochaine session lit le pourquoi sur place.
 
 ---
 
-## ❌ What Failed / Course-corrections
+## ❌ What Failed
 
-- **PowerShell a corrompu l'encodage de ProspectDetail.tsx** : un patch regex via
-  `Get-Content -Raw` + `WriteAllText` a lu l'UTF-8 sans BOM comme ANSI → mojibake
-  sur tous les accents (`â€”`, `RenseignÃ©`). Réparé par `git checkout --` puis
-  refait avec l'outil Edit. **Ne JAMAIS patcher un fichier du projet par le shell —
-  Write/Edit uniquement.** (Même famille que les heredocs bash de la session
-  précédente.)
-- **Guillemets doubles dans un message de commit via PowerShell 5.1** : les `"` de
-  l'argument natif ont éclaté le message en pathspecs. Message sans guillemets, ou
-  guillemets français.
-- **Le bleu #2563EB validé en maquette a été rejeté après coup** — troisième
-  direction de palette du projet. L'indigo a été choisi par élimination : statuts
-  réservés (vert/rouge/ambre), teal et bleu rejetés, violet quitté.
+- **Patch regex via PowerShell** (`Get-Content -Raw` + `WriteAllText`) →
+  UTF-8 sans BOM lu comme ANSI, mojibake sur tous les accents de
+  ProspectionDetail.tsx. Réparé par `git checkout --` + refait à l'outil Edit.
+  **Règle : le shell ne touche jamais un fichier source.** (Consigné en
+  mémoire persistante.)
+- **Guillemets doubles dans un message de commit** → PowerShell 5.1 éclate
+  l'argument natif en pathspecs. Messages sans `"`.
+- **Commentaire JSX `{/* */}` inséré dans une expression parenthésée** →
+  erreur de syntaxe (il faut `/* */` JS). Attrapé par tsc avant commit, deux
+  fois le même piège dans la même passe.
+- **Le bleu #2563EB validé sur maquette a quand même été rejeté** : une
+  validation de maquette n'immunise pas contre un revirement — livrer petit et
+  tôt reste la seule vraie protection.
 
 ---
 
@@ -63,134 +65,124 @@ https://claude.ai/code/artifact/d5cdd55f-132c-47fa-a613-5e743d192d54
 
 | # | Error / Bug | Status | Fix applied |
 |---|-------------|--------|-------------|
-| 101 | 9 erreurs eslint préexistantes | Open | **La référence est 9** — inchangée après tout le redesign |
+| 101 | 9 erreurs eslint préexistantes | Open | **La référence est 9** — inchangée après ~15 commits de redesign |
 | 155 | `FEATURES.md` invente 17 endpoints « sans appelant » | Open (outil) | — |
 | 156 | `CreerReglementRequest.dateReglement` publiée mais refusée en 400 | Open (backend) | — |
-| 164 | Kanban « Dossier de vente » compte les actifs, liste tout | Open | Toujours vrai dans le nouveau couloir (slice 3 de dossiersPage non filtré) |
+| 164 | Couloir « Dossier de vente » compte les actifs, liste tout | Open | slice(3) de dossiersPage non filtré |
 | 167 | `derniereAlerteDate` ni filtrable ni triable | Open (backend) | — |
-| 168 | Filtre par colonne client-side ment (chèque → 0/180) | Open (backend) | Demande dans `docs/filtres-avances.md`, PR toujours pas fusionnée |
-| 169 | **Corruption d'encodage par patch shell** (cette session) | Fixed | `git checkout` + Edit tool ; règle : jamais de patch par shell |
+| 168 | Filtre par colonne client-side ment (chèque → 0/180) | Open (backend) | Demande dans `docs/filtres-avances.md`, PR non fusionnée |
+| 169 | Corruption d'encodage par patch shell | Fixed | `git checkout` + Edit tool |
+| 170 | JSX comment dans expression JS ×2 | Fixed | `/* */` au lieu de `{/* */}` |
 
 ---
 
 ## 🔑 Key Points to Remember
 
-### La palette et l'architecture (état final : commit `b5eb507`)
-- **Style Uxerflow** : canvas greige `--sidebar #f2f0ea` (clair) / `#12100b`
-  (sombre) sous une **feuille flottante** — `Sidebar variant="inset"` dans
-  Layout.tsx, `PageShell fullHeight` compense la marge de la feuille avec
-  `md:h-[calc(100svh-1rem)]`, en-tête `md:rounded-t-xl`.
-- **`--brand` = orange #c2410c / #fb923c** (le coral #ff5a2d de la référence ne
-  tient pas 4,5:1 en texte ; orange-700 est le pas le plus vif qui passe, 5,2:1).
-  **`--primary` = encre noire #201d17** (blanc en sombre inversé #ece8dd) —
-  découplé de --brand : boutons noirs, orange réservé à la structure.
-  **Vigilance : brand orange vit près de --warning rouge et --amber** — tenable
-  parce que brand n'apparaît que dans le chrome et warning/amber que sur la donnée
-  (avec glyphes). Ne pas croiser.
-- Gris voilés **au chaud** en clair (la leçon « gris teinté = dessiné » tient, le
-  voile a tourné violet→indigo→greige). `--radius` 0.5→0.75rem. Charts hue 50.
-  Bande KPI du Dashboard = une carte segmentée `gap-px bg-border` (composant
-  local `KpiCell`), plus de StatCards ni d'icônes là.
-- **Retenue de l'orange (commit `5a636d1`, sur retour utilisateur)** :
-  `--sec-accent` = gris (`var(--text)`/`--neutral-bg`) — les ~80 puces d'icônes
-  d'entité sont neutres ; le **sombre est quasi neutre** (feuille `#1b1b19`,
-  canvas `#121211` — plus de brun) ; nouveau ton **`--progress` violet**
-  (`#6d28d9`/`#a78bfa`) découplé de --brand, consommé par badge.tsx,
-  `STAT_TONE_VARS` et la règle de grille. L'orange ne reste que : nav active,
-  focus, sélection, barres de la synthèse.
-- **L'en-tête d'index.css porte tout l'historique** — violet→essais→retour→
-  indigo→Uxerflow. Le lire avant tout changement. **Quatrième direction en un
-  jour : au moindre doute couleur, re-demander avant d'écrire.**
-- `TONE_GLYPH`, la densité de grille Omran (`--row-h` 24px), DataGrid : intouchés.
+### L'état final du design (commits `29ac050` → `a2f9c2e`)
+- **Architecture** : `Sidebar variant="inset"` (Layout.tsx) — canvas greige
+  `--sidebar` (#f2f0ea clair / #121211 sombre), sidebar nue dessus, contenu
+  dans une feuille blanche flottante. `PageShell fullHeight` =
+  `md:h-[calc(100svh-1rem)]` (compense la marge m-2 de la feuille), en-tête
+  `md:rounded-t-xl`, filet /70, sans séparateurs verticaux.
+- **Couleurs** : `--brand` orange #c2410c / #fb923c (le coral #ff5a2d de la
+  référence ne passe pas AA). `--primary` = encre noire #201d17 (inversé clair
+  en sombre) — **découplé de --brand** : boutons noirs, orange réservé à la
+  structure (nav active, focus, sélection, barres du graphe). Sombre quasi
+  NEUTRE (feuille #1b1b19). `--sec-accent` = gris (`var(--text)`) : les ~80
+  puces d'icônes d'entité sont neutres. Nouveau ton **`--progress` violet**
+  (#6d28d9/#a78bfa) découplé de brand (badge.tsx, STAT_TONE_VARS, règle de
+  grille). Statuts success/warning/amber/info inchangés.
+- **Doctrine bordures (codifiée dans index.css près de --border)** : UN cadre
+  par zone (conteneur de liste, panneau d'onglets, popover, contrôle) ; toute
+  structure interne = surface `bg-muted/30-40 rounded-lg` sans bordure.
+  `--input` à peine plus soutenu que `--border`. Règles verticales de colonnes
+  RETIRÉES de ui/table.tsx (restaurables, note sur place) ; en-tête de table =
+  bandeau `--surface-hover` (redit sur les cellules collantes de DataGrid) ;
+  séparateurs de lignes /70 ; les huit barres de filtres sont des toolbars
+  nues (seul le panneau « document en lot » de Dossiers garde sa carte).
+- **Zéro-scroll partout** : Dashboard refondu un-viewport (file « À
+  rappeler » + 5 couloirs fusionnés + synthèse + dossiers récents, 10→8
+  appels), Calendrier étiré, TranchesList en table dense, TrancheDetail /
+  ProspectDetail alignés sur la géométrie FicheShell, Hotline, 2 pages KPI.
+  Radius 12 px, page 14/28 px, cartes py-2.5/3, KPI en carte segmentée
+  (`KpiCell` local à Dashboard.tsx).
+- **Timeline → table** : onglet Actions de la prospection (note ENTIÈRE,
+  cellule `whitespace-normal min-w-60 max-w-120`, la ligne grandit) et onglet
+  Historique du dossier. Timelines restantes : Historique prospection,
+  fiche prospect/client, Hotline.
+- **Dossier** : Pièces jointes et Documents générés = **deux onglets séparés**
+  (ids `pieces` / `documents`).
 
-### Le zéro-scroll (commits `29ac050` + `456b1a6`)
-- **Dashboard refondu** : fullHeight, bande KPI 4 tuiles, file « À rappeler » à
-  gauche (336px, deux sections empilées Aujourd'hui/En retard, bascule Moi/Équipe),
-  **pipeline fusionné en 5 couloirs** (Pré-prospection / À traiter (ambre) /
-  Prospections / Clients / Dossier de vente), synthèse annuelle + dossiers récents
-  en pied (`min-[1500px]:flex-row`). Supprimés : « Vente — actualité », « Leads du
-  jour », « Prospections récentes » (doublons), 1 StatCard relances (le compte vit
-  dans l'en-tête de la file).
-- **Sept pages converties** : Calendrier (grille 6 semaines étirée, cellules
-  flexibles), TranchesList (cartes → table dense), TrancheDetail (identité 1 ligne,
-  règles compactées, scroll interne), ProspectDetail/ClientDetail (géométrie
-  FicheShell, 6 TabsContent en `min-h-0 flex-1 overflow-y-auto`), Hotline
-  (recherche 1 ligne, résultats seuls défilants), MesPerformances,
-  PerformancesCommerciaux (filtre période épinglé).
-- **Restent en défilement de page** (non traités, par choix ou par risque) :
-  ProjetsList, les formulaires (NewDossier, NewProspect…), EncaissementDetail
-  (déjà fullHeight mais hors FicheShell), et les régimes minceur non faits :
-  barre de filtres Encaissements (2 rangées), carte « document en lot » de
-  DossiersList, fusion des 8 onglets de ProspectionDetail.
+### Pièges de session
+- Le shell ne touche JAMAIS un fichier source (encodage). Commits sans `"`.
+- Vérifier la branche avant d'éditer ET avant de commiter.
+- **Cinquième direction de couleur = re-demander avant d'écrire.** L'historique
+  complet vit dans l'en-tête d'index.css.
+- Captures utilisateur en 125 % : diviser par 1,25.
 
 ### Vérification
-- Quatre portes inchangées : `npx tsc -b --force` · eslint = **9** ·
-  `npm run check:contrast` · `npm run build`. Plus le grep du compilé.
-- **Rien n'a été vu au navigateur cette session** — tout le redesign est à
-  vérifier visuellement par l'utilisateur (thème sombre inclus, jamais rendu).
+- Cinq portes : `npx tsc -b --force` · eslint = **9** · `npm run
+  check:contrast` · `npm run build` · grep du CSS compilé.
+- **Rien de cette session n'a été vu au navigateur par moi** ; l'utilisateur a
+  validé itérativement sur son écran.
 
 ---
 
 ## 📁 Important Files & Paths
 
-- `src/index.css` — palette entière remplacée (light + dark), en-tête historique
-  enrichi d'une section « Redesign du 20/09 ».
-- `src/pages/Dashboard.tsx` — réécrit intégralement (structure un-viewport).
-- `src/pages/calendrier/Calendrier.tsx`, `src/pages/tranches/TranchesList.tsx`
-  (réécrit), `src/pages/tranches/TrancheDetail.tsx`,
-  `src/pages/prospects/ProspectDetail.tsx`, `src/pages/hotline/Hotline.tsx`,
-  `src/pages/kpi/MesPerformances.tsx`, `src/pages/kpi/PerformancesCommerciaux.tsx`.
-- Maquette : scratchpad `maquette-dashboard.html` → artifact
-  `d5cdd55f-132c-47fa-a613-5e743d192d54` (version indigo).
+- `src/index.css` — palette Uxerflow entière + doctrine bordures + historique
+  des quatre directions dans l'en-tête. LE fichier à lire avant tout geste
+  design.
+- `src/components/Layout.tsx` — `variant="inset"`, footer sidebar sans border.
+- `src/components/PageShell.tsx` — fullHeight calc, header allégé.
+- `src/components/ui/table.tsx` — bandeau d'en-tête, plus de règles
+  verticales ; `src/components/DataGrid.tsx` — bandes allégées, en-têtes
+  collants sur `--surface-hover`.
+- `src/components/ui.tsx` — Card aérée, STAT_TONE_VARS.progress violet ;
+  `src/components/ui/badge.tsx` — variant progress.
+- `src/pages/Dashboard.tsx` — réécrit (un viewport, KpiCell, 5 couloirs).
+- `src/components/ProspectionFilterBar.tsx` + les 7 pages listes — filtres en
+  toolbars nues.
+- `src/pages/dossiers/DossierDetail.tsx` — Historique en table, onglets
+  Pièces jointes / Documents générés séparés.
+- `src/pages/prospections/ProspectionDetail.tsx` — onglet Actions en table,
+  note entière.
 
 ---
 
 ## 🔧 Environment & Config
 
-- Windows 11, PowerShell 5.1 + Git Bash. Fichiers **CRLF** (les fichiers réécrits
-  par Write sont en LF — git les renormalisera, warning bénin).
-- Branche **`docs/demande-filtre-colonne`**, commits `7178179` (demande backend),
-  `eed50d5` (mémoire), `29ac050` (palette indigo+dashboard), `456b1a6`
-  (zéro-scroll ×7), `0851add` (mémoire), `b5eb507` (style Uxerflow),
-  `8d9f3d7` (mémoire), `5a636d1` (retenue de l'orange), `c220811`
-  (modernisation filtres/tables/bordures : règles verticales de colonnes
-  RETIRÉES de ui/table.tsx — restaurables si l'œil perd sa colonne à 12+
-  colonnes —, en-tête de table en bandeau `--surface-hover` avec libellés
-  muted redit sur les cellules collantes de DataGrid, séparateurs
-  `border/70`, pied Σ allégé, et les huit barres de filtres déboîtées en
-  toolbars nues — seule la carte « document en lot » de Dossiers reste),
-  `e8176c5`/`f416100` (onglet Actions prospection → table, note entière),
-  `53b9073` (Historique dossier → table), `bf7742a` (fiches : plus de
-  cadre dans le cadre), `329b3d2` (**équilibrage des bordures app-wide,
-  doctrine codifiée dans index.css près de --border** : un cadre par
-  zone, structure interne en surfaces bg-muted/30-40 ; --input éclairci,
-  sidebar sans border-t, header /70 sans séparateurs verticaux, couloirs
-  et colonnes du Dashboard, synthèse, Hotline, ReglementPreuves etc. en
-  surfaces).
-  **Poussée, PR toujours non fusionnée.** `origin/main` = `532e3a2`, inchangé
-  depuis le 15/09.
-- L'utilisateur écran **125 %** : viewport CSS ≈ 1536×~780.
+- Windows 11, PowerShell 5.1 + Git Bash, fichiers CRLF (Write produit du LF,
+  git renormalise — warning bénin). Écran utilisateur à 125 %.
+- Vite `:5173`, backend Spring `:8080`, lancés par l'utilisateur.
+- Branche **`docs/demande-filtre-colonne`** — commits de la session :
+  `29ac050` (indigo+dashboard), `456b1a6` (zéro-scroll ×7), `b5eb507`
+  (Uxerflow), `5a636d1` (retenue orange), `c220811` (filtres/tables),
+  `e8176c5`/`f416100` (Actions→table), `53b9073` (Historique→table),
+  `bf7742a` (fiches sans sur-cadre), `329b3d2` (équilibrage bordures),
+  `a2f9c2e` (onglets pièces/documents), + commits mémoire intercalés.
+  **Poussée, PR toujours non fusionnée.** `origin/main` = `532e3a2` (15/09).
 
 ---
 
 ## ⏭️ Next Step
 
-> **Vérification visuelle par l'utilisateur** (`npm run dev`) : la feuille
-> flottante sur canvas greige (sidebar inset), le Dashboard orange/noir — un
-> seul viewport ? — puis le **thème sombre** (jamais rendu), puis Calendrier,
-> Tranches, fiche Client, Hotline. Ajuster sur retours avant les régimes
-> minceur.
+> **Tour de validation visuelle complet par l'utilisateur** sur l'état final
+> (`npm run dev`) : Dashboard, une liste (Prospections), une fiche dossier
+> (nouveaux onglets), Calendrier, **thème sombre neutre** — puis décider :
+> fusionner la PR (elle porte tout le redesign + la demande backend du filtre
+> par colonne) ou continuer les raffinements.
 
 ### Backlog (par priorité)
 
-- [ ] Retours visuels sur le redesign (palette indigo, densités, deux thèmes).
-- [ ] Régimes minceur restants : filtres Encaissements 1 rangée + popover, carte
-      « document en lot » de Dossiers → toolbar contextuelle à la sélection,
-      fusion des onglets pauvres de ProspectionDetail (8 → 6).
-- [ ] EncaissementDetail → FicheShell (uniformisation).
-- [ ] ProjetsList : borner la hauteur (`overflow-auto` non contraint, ligne 56).
+- [ ] Retours visuels sur l'état final (clair ET sombre).
+- [ ] Faire fusionner la PR `docs/demande-filtre-colonne` (14+ commits).
+- [ ] Barre d'action flottante à la sélection (référence « 2 Selected ») à la
+      place de la carte « document en lot » de DossiersList.
+- [ ] Uniformiser les timelines restantes en tables si souhaité (Historique
+      prospection, fiche prospect/client, Hotline).
 - [ ] #164 — couloir « Dossier de vente » : compte les actifs, liste tout.
-- [ ] Faire fusionner la PR `docs/demande-filtre-colonne` (elle porte maintenant
-      le redesign entier + la demande backend filtre par colonne).
-- [ ] #155, #156, #167, #168 — inchangés (backend/outillage).
-- [ ] 9 erreurs eslint préexistantes (#101).
+- [ ] EncaissementDetail → FicheShell ; fusion des onglets pauvres de
+      ProspectionDetail (8 → 6) ; ProjetsList à borner.
+- [ ] #155, #156, #167, #168 — backend/outillage, inchangés.
+- [ ] 9 erreurs eslint préexistantes (#101) ; supprimer `harness-densite.tsx`.
