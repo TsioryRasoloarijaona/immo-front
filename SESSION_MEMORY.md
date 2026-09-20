@@ -158,7 +158,15 @@ https://claude.ai/code/artifact/d5cdd55f-132c-47fa-a613-5e743d192d54
   colonnes —, en-tête de table en bandeau `--surface-hover` avec libellés
   muted redit sur les cellules collantes de DataGrid, séparateurs
   `border/70`, pied Σ allégé, et les huit barres de filtres déboîtées en
-  toolbars nues — seule la carte « document en lot » de Dossiers reste).
+  toolbars nues — seule la carte « document en lot » de Dossiers reste),
+  `e8176c5`/`f416100` (onglet Actions prospection → table, note entière),
+  `53b9073` (Historique dossier → table), `bf7742a` (fiches : plus de
+  cadre dans le cadre), `329b3d2` (**équilibrage des bordures app-wide,
+  doctrine codifiée dans index.css près de --border** : un cadre par
+  zone, structure interne en surfaces bg-muted/30-40 ; --input éclairci,
+  sidebar sans border-t, header /70 sans séparateurs verticaux, couloirs
+  et colonnes du Dashboard, synthèse, Hotline, ReglementPreuves etc. en
+  surfaces).
   **Poussée, PR toujours non fusionnée.** `origin/main` = `532e3a2`, inchangé
   depuis le 15/09.
 - L'utilisateur écran **125 %** : viewport CSS ≈ 1536×~780.
