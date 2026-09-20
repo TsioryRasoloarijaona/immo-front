@@ -283,7 +283,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </SidebarContent>
 
         <SidebarFooter>
-          <div className="flex items-center gap-2 border-t border-sidebar-border px-2 pt-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+          <div className="flex items-center gap-2 px-2 pt-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
             <Link
               to="/profil"
               className="flex min-w-0 flex-1 flex-col leading-tight no-underline group-data-[collapsible=icon]:hidden"

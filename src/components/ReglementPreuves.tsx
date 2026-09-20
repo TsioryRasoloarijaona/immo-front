@@ -139,7 +139,7 @@ export function ReglementPiecesJointesPanel({
   const raisonBlocage = raisonPreuveVerrouillee(statut, pieces.data?.length);
 
   return (
-    <div className="mt-1.5 flex flex-col gap-2 rounded-md border border-border bg-background/60 px-2.5 py-2">
+    <div className="mt-1.5 flex flex-col gap-2 rounded-lg bg-muted/30 px-2.5 py-2">
       <span className="text-micro font-medium text-muted-foreground">Preuves de paiement</span>
       {pieces.loading && <span className="text-micro text-muted-foreground">Chargement…</span>}
       {pieces.error && <span className="text-micro text-destructive">{pieces.error}</span>}
@@ -313,7 +313,7 @@ export function PointerReglementModal({
           </FormField>
         </FieldGroup>
 
-        <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 px-2.5 py-2">
+        <div className="flex flex-col gap-2 rounded-lg bg-muted/40 px-2.5 py-2">
           <span className="text-micro font-medium text-muted-foreground">Preuve de paiement</span>
           {pieces.loading && <span className="text-micro text-muted-foreground">Chargement…</span>}
           {pieces.error && <span className="text-micro text-destructive">{pieces.error}</span>}
@@ -478,7 +478,7 @@ export function ReglementDocumentsJoints({
         </div>
       </div>
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg border border-border bg-muted/20">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-lg bg-muted/30">
         {!selectionnee ? (
           <div className="flex flex-1 items-center justify-center px-4 text-center text-body text-muted-foreground">
             Déposez un chèque scanné, un avis de virement ou un reçu pour l'afficher ici.

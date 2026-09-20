@@ -330,7 +330,7 @@ function NouvelleOffreDialog({ onClose, onCreated }: { onClose: () => void; onCr
                 <button
                   key={p.id}
                   type="button"
-                  className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-left text-body hover:bg-muted/50"
+                  className="flex items-center justify-between gap-2 rounded-lg bg-muted/30 px-3 py-2 text-left text-body hover:bg-muted/50"
                   onClick={() => setPickedId(p.id)}
                 >
                   <span className="flex min-w-0 flex-col">
@@ -351,7 +351,7 @@ function NouvelleOffreDialog({ onClose, onCreated }: { onClose: () => void; onCr
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/30 px-3 py-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/40 px-3 py-2">
             <span className="text-body">
               <span className="font-medium text-foreground">{picked.data ? prospectionDisplayName(picked.data) : 'Chargement…'}</span>
               {picked.data?.code && <span className="text-muted-foreground"> · {picked.data.code}</span>}

@@ -282,8 +282,14 @@
      users had no way to tell "this deal died" from "your input is invalid". */
   --destructive: #7f1d1d;
   --destructive-foreground: #fff;
+  /* Doctrine des bordures (équilibrage du 20/09) : UN cadre par zone —
+     conteneur de liste, panneau d'onglets, popover, contrôle. Tout
+     regroupement interne est une SURFACE (bg-muted/30-40, rounded-lg),
+     jamais une boîte bordée. --input volontairement à peine plus soutenu
+     que --border : les contrôles des toolbars nues ne doivent pas crier
+     plus fort que les cadres qu'ils côtoient. */
   --border: #e9e6de;
-  --input: #d9d5cb;
+  --input: #e0dcd2;
   --ring: var(--brand);
   /* Categorical ramp derived from the brand hue, walking hue as well as
      lightness so adjacent series stay separable — the previous ramp was
@@ -427,7 +433,7 @@
      surface it is saturation rather than depth that separates them. */
   --destructive: #f26d6d;
   --destructive-foreground: #1b1b19;
-  --input: #403f3a;
+  --input: #3a3933;
   --ring: var(--brand);
   /* Lighter than the light-mode ramp — the previous values were byte-identical
      across both themes, which left chart-5 (L=0.269) near-invisible on a

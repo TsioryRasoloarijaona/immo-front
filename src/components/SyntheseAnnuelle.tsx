@@ -199,7 +199,7 @@ export default function SyntheseAnnuelle() {
               une barre unique n'est pas un graphique.
               --------------------------------------------------------------- */}
           <section className="flex min-w-0 flex-col gap-2">
-            <div className="rounded-lg border border-border px-3 py-2">
+            <div className="rounded-lg bg-muted/30 px-3 py-2">
               <div className="flex items-baseline gap-2">
                 <h3 className="text-label font-semibold text-foreground">Ventes concrétisées</h3>
                 <span className="ml-auto text-hero font-semibold tabular-nums text-foreground">
@@ -236,7 +236,7 @@ export default function SyntheseAnnuelle() {
               )}
             </div>
 
-            <div className="rounded-lg border border-border px-3 py-2">
+            <div className="rounded-lg bg-muted/30 px-3 py-2">
               <div className="flex items-baseline gap-2">
                 <h3 className="text-label font-semibold text-foreground">Encaissements</h3>
                 <span className="text-micro text-muted-foreground">réellement entré en caisse</span>

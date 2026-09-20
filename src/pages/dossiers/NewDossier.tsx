@@ -697,7 +697,7 @@ export default function NewDossier() {
               {schemaFinancement.data && (
                 <>
                   {latestDevis?.montants?.prixVenteTTC != null && (
-                    <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-2 text-label">
+                    <div className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2 text-label">
                       <span className="font-medium text-foreground">Prix réel (TTC, depuis le devis)</span>
                       <span className="font-semibold tabular-nums text-foreground">{formatCurrency(latestDevis.montants.prixVenteTTC)}</span>
                     </div>
@@ -709,7 +709,7 @@ export default function NewDossier() {
                   ) : (
                     <div className="flex flex-col gap-1.5">
                       {(schemaFinancement.data.lignes ?? []).map((ligne, i) => (
-                        <div key={i} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-label">
+                        <div key={i} className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2 text-label">
                           <span className="flex items-center gap-2 font-medium text-foreground">
                             {ligne.categorie}
                             {ligne.exclureDuPrix && <Badge tone="neutral">Hors prix</Badge>}

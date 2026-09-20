@@ -572,7 +572,7 @@ export default function DataGrid<T extends { id: string }>({
            filet. Sur ces écrans-là le groupement n'existe pas côté serveur —
            le bandeau tient la place et l'énonce, plutôt que de mentir avec
            une cible inerte. */
-        <div className="flex h-6 shrink-0 items-center gap-1.5 border-b border-border bg-muted/40 px-2 text-micro text-muted-foreground">
+        <div className="flex h-6 shrink-0 items-center gap-1.5 bg-muted/40 px-2 text-micro text-muted-foreground">
           <span className="truncate opacity-70">
             Faites glisser un en-tête de colonne ici pour regrouper par cette colonne
           </span>
@@ -580,7 +580,7 @@ export default function DataGrid<T extends { id: string }>({
         </div>
       )}
       {(tri || sommes.size > 0 || cochees.size > 0) && (
-        <div className="flex h-5 shrink-0 items-center gap-3 border-b border-border bg-card px-2 text-micro text-muted-foreground">
+        <div className="flex h-5 shrink-0 items-center gap-3 border-b border-border/70 bg-card px-2 text-micro text-muted-foreground">
           {cochees.size > 0 && <span className="shrink-0">{cochees.size} sélectionnée(s)</span>}
           {tri && (
             <button type="button" className="shrink-0 truncate hover:text-foreground hover:underline" onClick={() => setTri(null)}>

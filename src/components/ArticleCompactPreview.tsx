@@ -38,7 +38,7 @@ export default function ArticleCompactPreview({
   if (loading) return <p className="text-body text-muted-foreground">Chargement…</p>;
   if (!article) return <span className="text-body text-muted-foreground">{emptyLabel}</span>;
   return (
-    <div className={bare ? '' : 'rounded-md border border-border bg-(--neutral-bg) p-3'}>
+    <div className={bare ? '' : 'rounded-lg bg-(--neutral-bg) p-3'}>
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-label font-semibold text-foreground">{article.code}</span>
         {article.statut && <Badge tone={article.statut === 'DISPONIBLE' ? 'success' : 'warning'}>{article.statut}</Badge>}

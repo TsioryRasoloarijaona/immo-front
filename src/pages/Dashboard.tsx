@@ -166,7 +166,7 @@ function ColonneRelances({
      fin de la file — les plus récentes seraient fausses sans rien signaler. */
   const fileComplete = !page || page.content.length >= page.totalElements;
   return (
-    <div className="overflow-hidden rounded-lg border border-border" style={{ background: accentBg }}>
+    <div className="overflow-hidden rounded-lg" style={{ background: accentBg }}>
       <div className="h-0.5 w-full" style={{ background: accent }} />
       <div className="flex items-baseline gap-2 px-3 pt-2">
         <span className="shrink-0" style={{ color: accent }}>{icone}</span>
@@ -229,7 +229,7 @@ function KanbanColumn({
 }) {
   const items = Children.toArray(children).filter(Boolean);
   return (
-    <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-(--neutral-bg)/50">
+    <div className="flex min-h-0 flex-col overflow-hidden rounded-lg bg-(--neutral-bg)/50">
       <span aria-hidden className="block h-0.75 shrink-0" style={{ background: accent }} />
       <div className="flex items-center justify-between gap-2 border-b border-border/70 px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-1.5">

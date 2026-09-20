@@ -88,7 +88,7 @@ function HotlineProspectionRow({ prospection: p, expanded, onToggle }: { prospec
                   {detail.data.fermee && <Field label="Raison de fermeture" value={detail.data.raisonFermeture || detail.data.raisonFermetureTexte} />}
                 </FieldGrid>
                 {detail.data.notes && (
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-body text-foreground">
+                  <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-2.5 text-body text-foreground">
                     {detail.data.notes}
                   </div>
                 )}
@@ -156,7 +156,7 @@ function HotlineDossierRow({ dossier: d, expanded, onToggle }: { dossier: Dossie
                   <Field label="Mode de paiement" value={detail.data.modePaie} />
                 </FieldGrid>
                 {detail.data.notes && (
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-body text-foreground">
+                  <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-2.5 text-body text-foreground">
                     {detail.data.notes}
                   </div>
                 )}
@@ -262,7 +262,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
               {tier.notes && (
                 <div>
                   <div className="mb-2 text-micro font-medium text-muted-foreground">Notes</div>
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-label leading-relaxed text-foreground">
+                  <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-label leading-relaxed text-foreground">
                     {tier.notes}
                   </div>
                 </div>
@@ -274,7 +274,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {prospections.length === 0 ? (
               <EmptyState title="Aucune prospection" />
             ) : (
-              <div className="overflow-x-auto rounded-md border border-border">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -306,7 +306,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {dossiers.length === 0 ? (
               <EmptyState title="Aucun dossier" />
             ) : (
-              <div className="overflow-x-auto rounded-md border border-border">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -338,7 +338,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {reglements.length === 0 ? (
               <EmptyState title="Aucun règlement" />
             ) : (
-              <div className="overflow-x-auto rounded-md border border-border">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
@@ -619,7 +619,7 @@ export default function Hotline() {
               </p>
               <div className="flex flex-col gap-2">
                 {appelsSansFiche.map((p) => (
-                  <div key={p.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-md border border-border px-3 py-2.5">
+                  <div key={p.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-lg bg-muted/30 px-3 py-2.5">
                     <div className="min-w-0">
                       <div className="text-label font-medium text-foreground">{prospectionDisplayName(p)}</div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-micro text-muted-foreground">

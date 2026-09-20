@@ -79,7 +79,7 @@ function EventCard({ ev }: { ev: EvenementCalendrierDto }) {
   const visite = isVisiteEvenement(ev);
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-md border border-border p-3">
+    <div className="flex flex-col gap-1.5 rounded-lg bg-muted/30 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Badge tone={eventTone(ev)}>{visite ? 'Visite' : 'Rendez-vous'}</Badge>
         {ev.resultatDescription && ev.resultatDescription !== ev.resultatCode && (

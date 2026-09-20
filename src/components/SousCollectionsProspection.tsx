@@ -118,7 +118,7 @@ function ListeEditable({
         <ul className="flex flex-wrap gap-1.5">
           {lignes.map((l) => (
             <li key={l.id}>
-              <span className="inline-flex items-center gap-1 rounded-md border border-border bg-secondary/40 py-0.5 pr-0.5 pl-2 text-body">
+              <span className="inline-flex items-center gap-1 rounded-md bg-secondary py-0.5 pr-0.5 pl-2 text-body">
                 <span className="text-foreground">{l.libelle}</span>
                 {l.secondaire && <span className="text-muted-foreground">· {l.secondaire}</span>}
                 <button
