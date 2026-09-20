@@ -56,11 +56,11 @@ export default function Layout({ children }: { children: ReactNode }) {
                   sombre, la normale (encre) le clair. Le mot-symbole passe en
                   encre — c'est le sommet orange de la marque qui porte
                   l'accent, pas le texte. Rail replié : la marque seule. */}
-              <img src="/brand/arpent-mark.svg" alt="" aria-hidden className="size-7 shrink-0 dark:hidden" />
-              <img src="/brand/arpent-mark-inverse.svg" alt="" aria-hidden className="hidden size-7 shrink-0 dark:block" />
+              <img src="/brand/arpent-mark.svg" alt="" aria-hidden className="size-9 shrink-0 dark:hidden" />
+              <img src="/brand/arpent-mark-inverse.svg" alt="" aria-hidden className="hidden size-9 shrink-0 dark:block" />
               <span
                 aria-hidden={true}
-                className="block shrink-0 font-heading text-title leading-none font-black tracking-tighter text-foreground group-data-[collapsible=icon]:hidden"
+                className="block shrink-0 font-heading text-page leading-none font-black tracking-tighter text-foreground group-data-[collapsible=icon]:hidden"
               >
                 Arpent
               </span>

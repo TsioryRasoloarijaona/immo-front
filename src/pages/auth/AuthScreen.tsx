@@ -21,8 +21,8 @@ export default function AuthScreen({
           {/* Même marque que la barre latérale (Layout.tsx) : le
               « A »-pignon d'Arpent, variante inverse en sombre, mot-symbole
               en encre — l'orange vit dans le sommet de la marque. */}
-          <img src="/brand/arpent-mark.svg" alt="" aria-hidden className="size-9 shrink-0 dark:hidden" />
-          <img src="/brand/arpent-mark-inverse.svg" alt="" aria-hidden className="hidden size-9 shrink-0 dark:block" />
+          <img src="/brand/arpent-mark.svg" alt="" aria-hidden className="size-13 shrink-0 dark:hidden" />
+          <img src="/brand/arpent-mark-inverse.svg" alt="" aria-hidden className="hidden size-13 shrink-0 dark:block" />
           <span className="font-heading text-hero leading-none font-black tracking-tighter text-foreground">Arpent</span>
           <div className="flex flex-col leading-tight">
             <span className="text-xs text-muted-foreground">CRM immobilier</span>
