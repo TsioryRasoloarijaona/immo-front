@@ -82,7 +82,7 @@ import type { CreerEcheanceRequest, CreerReglementRequest, EcheanceDto, PieceJoi
 
 /** La zone large, en bas. Cinq onglets sur les douze du logiciel de bureau :
  * les cinq pour lesquels un endpoint existe. */
-type DossierTab = 'statut' | 'financier' | 'articles' | 'acquereurs' | 'documents' | 'historique';
+type DossierTab = 'statut' | 'financier' | 'articles' | 'acquereurs' | 'pieces' | 'documents' | 'historique';
 
 /** Le panneau étroit, à droite du formulaire. Il prend ce qui se lit en liste
  * de champs ; la zone large prend les tableaux et les chronologies. */
@@ -1291,9 +1291,11 @@ export default function DossierDetail() {
     </>
   );
 
-  const blocDocuments = (
+  /* Séparés en deux onglets le 20/09 sur demande : le générateur de
+     documents (action, rien d'enregistré) et les pièces jointes (données
+     du dossier) n'ont ni le même statut ni le même usage. */
+  const blocGeneres = (
     <>
-        <div className="flex flex-col gap-3.5">
         <Card title="Documents générés">
           <p className="mb-2.5 -mt-1 text-body text-muted-foreground">
             Générés à la demande à partir des données du dossier — rien n'est enregistré ici.
@@ -1306,6 +1308,11 @@ export default function DossierDetail() {
             ))}
           </div>
         </Card>
+    </>
+  );
+
+  const blocPieces = (
+    <>
         <Card
           title={`Pièces jointes (${pieces.data?.length ?? 0})`}
           action={
@@ -1351,7 +1358,6 @@ export default function DossierDetail() {
             </div>
           )}
         </Card>
-        </div>
     </>
   );
 
@@ -1790,10 +1796,15 @@ export default function DossierDetail() {
             ),
           },
           {
-            id: 'documents',
-            libelle: 'Documents',
+            id: 'pieces',
+            libelle: 'Pièces jointes',
             compteur: pieces.data?.length ?? 0,
-            contenu: <div className="p-3">{blocDocuments}</div>,
+            contenu: <div className="p-3">{blocPieces}</div>,
+          },
+          {
+            id: 'documents',
+            libelle: 'Documents générés',
+            contenu: <div className="p-3">{blocGeneres}</div>,
           },
           {
             id: 'historique',
