@@ -179,6 +179,14 @@
   --info-bg: rgba(28, 95, 192, 0.1);
   --info-border: rgba(28, 95, 192, 0.28);
 
+  /* Ton « progress » (étapes en avancement) — DÉCOUPLÉ de --brand depuis le
+     passage à l'accent orange : un badge d'étape orange devenait illisible à
+     côté de l'ambre, et redonnait à l'accent un rôle de donnée qu'on vient
+     de lui retirer. Violet : distinct des cinq autres familles. 7:1. */
+  --progress: #6d28d9;
+  --progress-bg: rgba(109, 40, 217, 0.09);
+  --progress-border: rgba(109, 40, 217, 0.28);
+
   --neutral-bg: rgba(87, 83, 74, 0.09);
   --neutral-border: rgba(87, 83, 74, 0.22);
 
@@ -199,8 +207,13 @@
      across 25 files don't have to churn; they all resolve here. Do not
      reintroduce a per-entity hue — icon *shape* identifies the entity, and
      colour is reserved for state. */
-  --sec-accent: var(--brand);
-  --sec-accent-bg: var(--brand-bg);
+  /* 20/09, retenue demandée (« réduit l'influence de l'orange ») : les puces
+     d'icônes d'entité repassent en GRIS — la forme de l'icône porte déjà
+     l'identité, l'orange n'y ajoutait que du bruit sur ~80 sites. L'accent
+     orange ne reste que là où il signifie quelque chose : nav active, focus,
+     sélection, jauges. */
+  --sec-accent: var(--text);
+  --sec-accent-bg: var(--neutral-bg);
 
   --sec-prospection: var(--sec-accent);
   --sec-preprospection: var(--sec-accent);
@@ -314,15 +327,19 @@
 .dark {
   color-scheme: dark;
 
-  --text: #b1ada2;
+  /* Sombre quasi NEUTRE (retenue de l'orange, 20/09) : le voile brun-orangé
+     du premier jet (« bg en dark ») tirait tout le thème vers l'accent. Le
+     sombre garde un souffle de chaleur (composante bleue un cran sous les
+     autres), plus aucun brun. */
+  --text: #acaba4;
   /* Aligné sur --muted-foreground, cf. la note en mode clair. */
-  --text-muted: #969180;
-  --text-h: #f2f0e9;
-  --bg: #1c1913;
-  --surface: #1c1913;
-  --surface-hover: #262218;
-  --border: #322e25;
-  --border-strong: #423d31;
+  --text-muted: #93928a;
+  --text-h: #f1f0ec;
+  --bg: #1b1b19;
+  --surface: #1b1b19;
+  --surface-hover: #242421;
+  --border: #31312d;
+  --border-strong: #403f3a;
 
   /* Same orange accent, lightened for contrast against a dark surface —
      7.7:1 on --card. Still one hue, just the light end of the brand ramp. */
@@ -332,7 +349,7 @@
   --brand-border: rgba(251, 146, 60, 0.32);
   /* --brand is light here, so a solid fill needs a dark foreground instead
      (white-on-light-orange fails contrast). 8:1. */
-  --brand-contrast: #1a1710;
+  --brand-contrast: #1b1b19;
 
   --success: #4ade80;
   --success-bg: rgba(74, 222, 128, 0.12);
@@ -354,14 +371,18 @@
   --info-bg: rgba(96, 165, 250, 0.12);
   --info-border: rgba(96, 165, 250, 0.3);
 
-  --neutral-bg: rgba(177, 173, 162, 0.1);
-  --neutral-border: rgba(177, 173, 162, 0.22);
+  /* Voir le bloc clair — pas le --brand orange. 6,4:1 sur --card. */
+  --progress: #a78bfa;
+  --progress-bg: rgba(167, 139, 250, 0.12);
+  --progress-border: rgba(167, 139, 250, 0.3);
 
-  /* Aliases --brand, exactly as in :root — one accent, not two. The old
-     standalone plum also failed contrast here: 3.71:1 for the stepper's
-     past-step numerals and 4.11:1 for white on the current-step fill. */
-  --sec-accent: var(--brand);
-  --sec-accent-bg: var(--brand-bg);
+  --neutral-bg: rgba(172, 171, 164, 0.1);
+  --neutral-border: rgba(172, 171, 164, 0.22);
+
+  /* Gris neutre, comme en clair — voir la note du :root (retenue de
+     l'orange, 20/09). */
+  --sec-accent: var(--text);
+  --sec-accent-bg: var(--neutral-bg);
 
   --sec-prospection: var(--sec-accent);
   --sec-preprospection: var(--sec-accent);
@@ -384,29 +405,29 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32), 0 1px 3px rgba(0, 0, 0, 0.24);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3);
 
-  --background: #1c1913;
-  --foreground: #f2f0e9;
-  --card: #1c1913;
-  --card-foreground: #f2f0e9;
-  --popover: #221e16;
-  --popover-foreground: #f2f0e9;
+  --background: #1b1b19;
+  --foreground: #f1f0ec;
+  --card: #1b1b19;
+  --card-foreground: #f1f0ec;
+  --popover: #222220;
+  --popover-foreground: #f1f0ec;
   /* Le bouton noir du clair devient clair sur sombre — même découplage. */
-  --primary: #ece8dd;
-  --primary-foreground: #1c1913;
-  --secondary: #262218;
-  --secondary-foreground: #f2f0e9;
-  --muted: #262218;
+  --primary: #eaeae5;
+  --primary-foreground: #1b1b19;
+  --secondary: #242421;
+  --secondary-foreground: #f1f0ec;
+  --muted: #242421;
   /* 5.5:1 on --card, up from #75737f's 3.83:1 — the dark theme failed AA on
      the label colour too, so switching themes was never an escape hatch. */
-  --muted-foreground: #969180;
+  --muted-foreground: #93928a;
   --accent: var(--brand-bg);
   --accent-foreground: var(--brand);
   /* ERRORS ONLY, and visibly hotter/more saturated than --warning's soft rose
      above — the inverse of the light-mode relationship, because on a dark
      surface it is saturation rather than depth that separates them. */
   --destructive: #f26d6d;
-  --destructive-foreground: #1a1710;
-  --input: #423d31;
+  --destructive-foreground: #1b1b19;
+  --input: #403f3a;
   --ring: var(--brand);
   /* Lighter than the light-mode ramp — the previous values were byte-identical
      across both themes, which left chart-5 (L=0.269) near-invisible on a
@@ -420,14 +441,15 @@
      pas à pas depuis le même ramp, il ne s’obtient pas en inversant le clair. */
   --chart-1-track: oklch(0.3 0.04 50);
   /* Canvas sombre, un cran SOUS la feuille — l'inverse du clair où le
-     canvas est plus foncé que la feuille blanche. */
-  --sidebar: #12100b;
-  --sidebar-foreground: #b1ada2;
+     canvas est plus foncé que la feuille blanche. Neutre, comme le reste
+     du thème sombre. */
+  --sidebar: #121211;
+  --sidebar-foreground: #acaba4;
   --sidebar-primary: var(--brand);
   --sidebar-primary-foreground: var(--brand-contrast);
   --sidebar-accent: var(--brand-bg);
   --sidebar-accent-foreground: var(--brand);
-  --sidebar-border: #2a261e;
+  --sidebar-border: #292926;
   --sidebar-ring: var(--brand);
 }
 
@@ -626,7 +648,7 @@ table {
   color: var(--info);
 }
 [data-slot='table-cell'] [data-slot='badge'][data-variant='progress'] {
-  color: var(--brand);
+  color: var(--progress);
 }
 [data-slot='table-cell'] [data-slot='badge'][data-variant='success'] {
   color: var(--success);

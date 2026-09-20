@@ -62,7 +62,7 @@ export function Badge({
 const STAT_TONE_VARS: Record<BadgeTone, { fg: string; bg: string }> = {
   neutral: { fg: 'var(--muted-foreground)', bg: 'var(--neutral-bg)' },
   info: { fg: 'var(--info)', bg: 'var(--info-bg)' },
-  progress: { fg: 'var(--brand)', bg: 'var(--brand-bg)' },
+  progress: { fg: 'var(--progress)', bg: 'var(--progress-bg)' },
   success: { fg: 'var(--success)', bg: 'var(--success-bg)' },
   warning: { fg: 'var(--warning)', bg: 'var(--warning-bg)' },
   amber: { fg: 'var(--amber)', bg: 'var(--amber-bg)' },
