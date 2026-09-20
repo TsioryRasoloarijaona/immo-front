@@ -50,18 +50,19 @@ export default function Layout({ children }: { children: ReactNode }) {
               className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-1 no-underline group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:px-0"
               title="Arpent"
             >
-              {/* Mot-symbole, pas d'icône raster — un seul mot mis en forme
-                  porte l'identité, ce qui est cohérent avec un accent
-                  achromatique (voir index.css) : il n'y a plus de couleur de
-                  marque à mettre dans une image. Les variantes
-                  group-data-[collapsible=icon] gardent une lettre unique quand
-                  le rail se réduit à la largeur d'icône. */}
+              {/* La marque Arpent (adoptée le 20/09) : le « A »-pignon aux
+                  pieds d'arpentage, encre + sommet orange. Deux <img> plutôt
+                  qu'un filtre CSS : la variante inverse (crème) porte le
+                  sombre, la normale (encre) le clair. Le mot-symbole passe en
+                  encre — c'est le sommet orange de la marque qui porte
+                  l'accent, pas le texte. Rail replié : la marque seule. */}
+              <img src="/brand/arpent-mark.svg" alt="" aria-hidden className="size-7 shrink-0 dark:hidden" />
+              <img src="/brand/arpent-mark-inverse.svg" alt="" aria-hidden className="hidden size-7 shrink-0 dark:block" />
               <span
                 aria-hidden={true}
-                className="block shrink-0 font-heading text-hero leading-none font-black tracking-tighter text-(--brand) group-data-[collapsible=icon]:text-page"
+                className="block shrink-0 font-heading text-title leading-none font-black tracking-tighter text-foreground group-data-[collapsible=icon]:hidden"
               >
-                <span className="group-data-[collapsible=icon]:hidden">Arpent</span>
-                <span className="hidden group-data-[collapsible=icon]:inline">A</span>
+                Arpent
               </span>
               <span className="sr-only">Arpent</span>
               <div className="flex min-w-0 flex-col leading-tight group-data-[collapsible=icon]:hidden">
