@@ -16,7 +16,6 @@ import {
 } from '../../components/ReglementPreuves';
 import { messageErreurStatut } from '../../lib/reglementRegles';
 import Pagination from '../../components/Pagination';
-import { TimelineList, TimelineRow } from '../../components/Timeline';
 import { Button } from '../../components/ui/button';
 import { DialogFooter } from '../../components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
@@ -1365,17 +1364,34 @@ export default function DossierDetail() {
             <EmptyState title="Aucun historique" message="Aucun événement n'a encore été enregistré pour ce dossier." />
           )}
           {historique.data && historique.data.content.length > 0 && (
-            <TimelineList>
-              {historique.data.content.map((h, i) => (
-                <TimelineRow
-                  key={`${h.date}-${i}`}
-                  dernier={i === historique.data!.content.length - 1}
-                  titre={h.type || 'Événement'}
-                  meta={`${formatDateTime(h.date)} · ${h.utilisateur || 'Système'}`}
-                  note={h.description}
-                />
-              ))}
-            </TimelineList>
+            /* Table dense au lieu de la timeline (même demande que l'onglet
+               Actions de la prospection, 20/09) : une ligne par événement,
+               description entière — la cellule replie le texte et la ligne
+               grandit, h-(--row-h) est un minimum. */
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>Date</TableHead>
+                    <TableHead>Événement</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Par</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {historique.data.content.map((h, i) => (
+                    <TableRow key={`${h.date}-${i}`}>
+                      <TableCell className="tabular-nums text-muted-foreground">{formatDateTime(h.date)}</TableCell>
+                      <TableCell className="font-medium text-foreground">{h.type || 'Événement'}</TableCell>
+                      <TableCell className="min-w-60 max-w-120 py-1 whitespace-normal text-muted-foreground">
+                        {h.description || '—'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{h.utilisateur || 'Système'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
           {historique.data && (
             <Pagination
