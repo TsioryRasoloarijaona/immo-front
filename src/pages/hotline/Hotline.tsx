@@ -369,7 +369,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {interactions.length === 0 ? (
               <EmptyState title="Aucune interaction" />
             ) : (
-              <div className="rounded-md border border-border p-3">
+              <div className="rounded-lg bg-muted/30 p-3">
                 <TimelineList>
                   {interactions.map((c, i) => (
                     <TimelineRow
@@ -403,7 +403,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {historique.length === 0 ? (
               <EmptyState title="Aucun historique" />
             ) : (
-              <div className="rounded-md border border-border p-3">
+              <div className="rounded-lg bg-muted/30 p-3">
                 <TimelineList>
                   {historique.map((h, i) => (
                     <TimelineRow

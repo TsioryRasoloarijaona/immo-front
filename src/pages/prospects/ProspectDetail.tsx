@@ -52,7 +52,7 @@ function AddContactRow({ onAdd }: { onAdd: (prospectId: string, relationTypeId: 
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/30 p-3">
+    <div className="flex flex-wrap items-end gap-2 rounded-lg bg-muted/40 p-3">
       <div className="flex flex-col gap-1">
         <label className="text-micro text-muted-foreground" htmlFor="contact-id">ID prospect à lier</label>
         <Input id="contact-id" className="w-55" placeholder="UUID du prospect" value={contactId} onChange={(e) => setContactId(e.target.value)} />
@@ -325,7 +325,7 @@ export default function ProspectDetail() {
 
             {person.notes && (
               <Card title="Notes">
-                <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-3 text-label leading-relaxed text-foreground">
+                <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-label leading-relaxed text-foreground">
                   {person.notes}
                 </div>
               </Card>
@@ -341,7 +341,7 @@ export default function ProspectDetail() {
             {contacts.data && contacts.data.length > 0 && (
               <div className="flex flex-col gap-2">
                 {contacts.data.map((c) => (
-                  <div key={c.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-label">
+                  <div key={c.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-muted/30 px-3 py-2 text-label">
                     <span className="font-medium text-foreground">{c.nomContact}</span>
                     <span className="text-muted-foreground">{c.telephoneContact}</span>
                     {c.relationType && <Badge tone="info">{c.relationType}</Badge>}
@@ -563,7 +563,7 @@ function ProspectionRow({
                   {detail.data.fermee && <Field label="Raison de fermeture" value={detail.data.raisonFermeture || detail.data.raisonFermetureTexte} />}
                 </FieldGrid>
                 {detail.data.notes && (
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-body text-foreground">
+                  <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-2.5 text-body text-foreground">
                     {detail.data.notes}
                   </div>
                 )}
@@ -638,7 +638,7 @@ function DossierRow({
                   <Field label="Probabilité de finalisation" value={detail.data.probabiliteFinalisation != null ? `${Math.round(detail.data.probabiliteFinalisation * 100)} %` : undefined} />
                 </FieldGrid>
                 {detail.data.notes && (
-                  <div className="whitespace-pre-wrap rounded-md border border-border bg-background p-2.5 text-body text-foreground">
+                  <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-2.5 text-body text-foreground">
                     {detail.data.notes}
                   </div>
                 )}

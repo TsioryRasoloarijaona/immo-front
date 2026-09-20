@@ -177,7 +177,7 @@ export default function ArticleDetail() {
           <Card title={`Sous-lots (${a.sousLots.length})`}>
             <div className="flex flex-col gap-2">
               {a.sousLots.map((s) => (
-                <div key={s.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-label">
+                <div key={s.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-muted/30 px-3 py-2 text-label">
                   <span className="font-medium text-foreground">{s.code}</span>
                   <span className="text-muted-foreground">{s.description}</span>
                   <span className="font-medium tabular-nums text-foreground">{formatCurrency(s.salePrice)}</span>

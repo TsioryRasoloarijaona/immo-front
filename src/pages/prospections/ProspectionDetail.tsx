@@ -488,7 +488,7 @@ function OffrePrixSection({
       {error && <p className="mt-2 text-micro text-destructive">{error}</p>}
 
       {resultat && (
-        <div className="mt-3 flex flex-col gap-0.5 rounded-md border border-border bg-background p-3">
+        <div className="mt-3 flex flex-col gap-0.5 rounded-lg bg-muted/40 p-3">
           {/* L'offre est créée avant l'envoi et le reste quoi qu'il arrive :
               son numéro s'affiche donc même quand les deux canaux échouent,
               sans quoi le commercial la croirait perdue et en régénérerait une
@@ -1271,7 +1271,9 @@ export default function ProspectionDetail() {
                      partout serait 20 fois le même mot par page), et la
                      tranche seulement quand elle diverge de celle de la
                      prospection. */
-                  <div className="overflow-x-auto rounded-xl border border-border">
+                  /* Sans cadre propre : le panneau d'onglet fournit déjà le
+                     sien — bordure sur bordure était un cadre dans le cadre. */
+                  <div className="overflow-x-auto">
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
@@ -1739,7 +1741,7 @@ function ChoixArticleSection({
           <button
             type="button"
             onClick={() => navigate(`/tranches/${trancheId}`)}
-            className="inline-flex w-fit items-center gap-1 rounded-md border border-border bg-(--neutral-bg) px-2.5 py-1 text-body font-semibold text-primary hover:underline"
+            className="inline-flex w-fit items-center gap-1 rounded-md bg-(--neutral-bg) px-2.5 py-1 text-body font-semibold text-primary hover:underline"
           >
             {currentTranche.data?.description || currentTranche.data?.code || 'Tranche'} <ArrowUpRight className="size-2.5" />
           </button>
@@ -1801,7 +1803,7 @@ function ArticleAssocieRow({
   const article = useApi(() => (item.articleId ? getArticle(item.articleId) : Promise.resolve(null)), [item.articleId]);
 
   return (
-    <div className="rounded-md border border-border px-3 py-2">
+    <div className="rounded-lg bg-muted/30 px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="text-label font-medium text-foreground">{item.tranche || item.trancheId}</span>
         <div className="flex items-center gap-1">
@@ -1901,7 +1903,7 @@ function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: 
   }
 
   return (
-    <div className="rounded-md border border-border px-3 py-2">
+    <div className="rounded-lg bg-muted/30 px-3 py-2">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className="text-label font-semibold text-foreground">{dv.code}</span>
