@@ -40,6 +40,10 @@
       "description": "Agrégats de la page d'accueil : valeur du pipeline, panier moyen, répartition des dossiers par étape, relances en retard et compteurs de prospections.\n\n**Entités juridiques en exploitation.** Tous les agrégats ne portent que sur les entités juridiques actives (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. L'assiette du tableau de bord est donc la même que celle de GET /api/dossiers et de GET /api/prospections ; les totaux ne sont pas comparables à ceux d'avant cette restriction.\n\n**Deux notions de « relance » cohabitent, et elles ne désignent pas la même chose.** `GET /api/dashboard/relances` sert les relances **commerciales** : une échéance posée par un commercial sur une interaction, encore armée — 3 765 en base réelle. Le champ `relancesEnRetard` de `GET /api/dashboard`, lui, parle des *dossiers* via `ComFolder.Revival1`/`Revival2`, colonnes **mortes en base réelle (0 ligne sur 358)** : ce champ est structurellement vide. Voir `instructions/FEATURE-dashboard-relances.md`."
     },
     {
+      "name": "Synchronisation",
+      "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Réservé au rôle Administrateur."
+    },
+    {
       "name": "KPI commerciaux",
       "description": "Indicateurs de performance des commerciaux sur une période — activité réalisée (appels, visites, interactions), portefeuille confié (prospections, réactivité) et résultat (dossiers, montants, taux de transformation).\n\nDeux attributions cohabitent et il faut le savoir pour lire les chiffres : l'**activité** est comptée pour celui qui l'a saisie, le **portefeuille** pour le commercial assigné. Un chef qui appelle sur la prospection d'un commercial voit l'appel chez lui, pas chez l'autre.\n\nTous les compteurs respectent la visibilité par entité juridique et le périmètre commercial de l'appelant. Un commercial restreint verra donc des chiffres inférieurs à son activité réelle — c'est volontaire."
     },
@@ -401,6 +405,48 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ReinitialiserMotDePasseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/synchronisation": {
+      "post": {
+        "tags": [
+          "Synchronisation"
+        ],
+        "summary": "Déclenche immédiatement un cycle de synchronisation descendante",
+        "description": "Rapatrie sur-le-champ, dans la copie de lecture, ce que le logiciel de bureau a écrit sur la base de référence depuis le dernier cycle — au lieu d'attendre le cycle automatique (toutes les deux minutes). Renvoie le bilan du cycle : lignes fusionnées, supprimées, tables traitées.\n\n**Synchrone** : la réponse n'arrive qu'une fois le cycle terminé (quelques secondes en régime normal ; plus long si une table doit repartir d'une reconstruction complète). **Un seul cycle à la fois** : si un cycle automatique ou manuel tourne déjà, l'appel renvoie 409 sans rien relancer. L'opération est idempotente et sans risque de doublon. Réservé au rôle Administrateur.",
+        "operationId": "declencher",
+        "responses": {
+          "200": {
+            "description": "Cycle exécuté ; le corps décrit ce qui a été rapatrié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynchronisationResultatDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynchronisationResultatDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Soit un cycle est déjà en cours, soit l'application tourne en mono-base (aucune base de référence distincte) : rien n'est déclenché. Le message précise le cas.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynchronisationResultatDto"
                 }
               }
             }
@@ -8842,6 +8888,48 @@
             "type": "string",
             "description": "Adresse de destination, masquée — permet de vérifier d'un coup d'œil que le message part au bon endroit. Résolue depuis `AdmUser.Email`, à défaut depuis l'email de la fiche employé (`CfgTier`).",
             "example": "j***@exemple.ma"
+          }
+        }
+      },
+      "SynchronisationResultatDto": {
+        "type": "object",
+        "description": "Bilan du cycle de synchronisation descendante qui vient de s'exécuter.",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Version Change Tracking de la source atteinte par ce cycle. Sert de repère de diagnostic ; null si le Change Tracking n'est pas actif sur la source (le cycle n'a alors rien pu faire).",
+            "example": 1287
+          },
+          "fusions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de lignes insérées ou mises à jour dans la copie depuis la source (créations et modifications faites hors CRM, typiquement par le logiciel de bureau).",
+            "example": 12
+          },
+          "suppressions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de lignes supprimées de la copie parce qu'elles ont disparu de la source.",
+            "example": 1
+          },
+          "tablesTraitees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de tables traitées sans erreur — leur filigrane a avancé.",
+            "example": 23
+          },
+          "tablesEnEchec": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de tables en échec sur ce cycle : leur filigrane est resté inchangé et elles seront rejouées au cycle suivant. 0 en fonctionnement nominal.",
+            "example": 0
+          },
+          "dureeMs": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Durée du cycle en millisecondes.",
+            "example": 2340
           }
         }
       },

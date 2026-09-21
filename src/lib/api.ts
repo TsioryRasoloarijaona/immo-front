@@ -92,6 +92,7 @@ import type {
   ResultatInteractionDto,
   SchemaFinancementDto,
   SimulerSchemaFinancementRequest,
+  SynchronisationResultatDto,
   TitreDto,
   TransformerProspectionRequest,
   TrancheDetailDto,
@@ -1990,4 +1991,27 @@ export function listPerformancesCommerciaux(params?: { du?: string; au?: string 
  * aucun commercial dont parler, ce qui mérite son propre message. */
 export function getMesPerformances(params?: { du?: string; au?: string }): Promise<PerformanceCommercialDto> {
   return request('GET', '/api/kpi/commerciaux/moi', { query: { du: params?.du, au: params?.au } });
+}
+
+// ---------------------------------------------------------------------------
+// Synchronisation
+// ---------------------------------------------------------------------------
+
+/** `POST /api/synchronisation` — rapatrie sur-le-champ, dans la copie de
+ * lecture, ce que le logiciel de bureau a écrit sur la base de référence
+ * depuis le dernier cycle, au lieu d'attendre le cycle automatique (toutes
+ * les deux minutes). Renvoie le bilan du cycle.
+ *
+ * **Synchrone** : la réponse n'arrive qu'une fois le cycle terminé — quelques
+ * secondes en régime normal, plus long si une table repart d'une
+ * reconstruction complète. **409** si un cycle (automatique ou manuel) tourne
+ * déjà, ou si l'application est en mono-base : rien n'est relancé, le message
+ * précise le cas. **403 hors rôle `Administrateur`.** Idempotent, sans risque
+ * de doublon.
+ *
+ * En tant que mutation, l'appel vide déjà les caches GET/valeurs via
+ * `request` — l'appelant doit ensuite déclencher `refetchAllApis()`
+ * (useApi.ts) pour que les pages montées relisent des données fraîches. */
+export function declencherSynchronisation(): Promise<SynchronisationResultatDto> {
+  return request('POST', '/api/synchronisation');
 }
