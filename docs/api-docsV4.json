@@ -561,6 +561,8 @@
         "tags": [
           "prospect-controller"
         ],
+        "summary": "Contacts du prospect",
+        "description": "Contacts (conjoint, notaire, apporteur…) liés au prospect — lignes `CfgTierContact` jointes au `CfgTier` de chaque personne (nom, mobile, téléphone, e-mail) et à son type de relation.",
         "operationId": "getContacts",
         "parameters": [
           {
@@ -593,6 +595,8 @@
         "tags": [
           "prospect-controller"
         ],
+        "summary": "Ajoute un contact au prospect",
+        "description": "La personne-contact est soit un `CfgTier` existant (`contactProspectId`), soit **créée à la volée** (`nouveauContact`) puis liée — comme l'écran légataire, qui insère un nouveau `CfgTier` puis le lien `CfgTierContact`. Fournir l'un **ou** l'autre ; `relationTypeId` est obligatoire.",
         "operationId": "ajouterContact",
         "parameters": [
           {
@@ -617,7 +621,27 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Contact créé/lié et rattaché.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactProspectDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`relationTypeId` manquant ; ni `contactProspectId` ni `nouveauContact` (ou les deux) ; ou référentiel introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactProspectDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun prospect avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -1493,6 +1517,116 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/DevisDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections/{id}/contacts": {
+      "get": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Contacts du prospect de la prospection",
+        "description": "Les contacts (conjoint, notaire, apporteur…) du prospect lié à cette prospection — lignes `CfgTierContact`, jointes au `CfgTier` de chaque personne pour le nom, le mobile, le téléphone et l'e-mail. Destiné à accompagner l'affichage du détail de la prospection.\n\nUne pré-prospection (sans prospect encore lié) renvoie une **liste vide**, jamais une erreur : le lead n'est pas perdu.",
+        "operationId": "getContacts_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste des contacts (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactProspectDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContactProspectDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Ajoute un contact au prospect de la prospection",
+        "description": "Rattache un contact au prospect lié à la prospection. La personne-contact est soit un `CfgTier` existant (`contactProspectId`), soit **créée à la volée** (`nouveauContact` : nom, prénom, mobile, téléphone, e-mail…) puis liée — c'est ce que fait l'écran légataire, qui insère un nouveau `CfgTier` puis le lien `CfgTierContact`. Fournir l'un **ou** l'autre. `relationTypeId` (type de relation, p.ex. « Conjoint ») est obligatoire.\n\nMême effet que `POST /api/prospects/{prospectId}/contacts`, mais adressé par la prospection : le prospect est résolu depuis elle.",
+        "operationId": "ajouterContact_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerContactProspectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Contact créé/lié et rattaché.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactProspectDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`relationTypeId` manquant ; ni `contactProspectId` ni `nouveauContact` (ou les deux) ; référentiel introuvable ; ou la prospection n'a pas encore de prospect.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactProspectDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactProspectDto"
                 }
               }
             }
@@ -9384,37 +9518,60 @@
         "properties": {
           "contactProspectId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Tiers (CfgTier) existant à lier comme contact. Alternative à `nouveauContact`."
+          },
+          "nouveauContact": {
+            "$ref": "#/components/schemas/CreerProspectRequest",
+            "description": "Personne-contact à créer à la volée puis lier (flux OMRAN). Alternative à `contactProspectId`. Au moins `nom` ou `raisonSociale` requis."
           },
           "relationTypeId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Type de relation (CfgRelationType → `CfgRelationTypeId`), p.ex. « Conjoint », « Notaire ». **Obligatoire.**"
           }
-        }
+        },
+        "required": [
+          "relationTypeId"
+        ]
       },
       "ContactProspectDto": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Id du lien CfgTierContact (sert au DELETE)."
           },
           "contactProspectId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Id du CfgTier de la personne-contact."
           },
           "nomContact": {
-            "type": "string"
+            "type": "string",
+            "description": "Nom affiché de la personne-contact (CfgTier)."
+          },
+          "mobileContact": {
+            "type": "string",
+            "description": "Mobile de la personne-contact (CfgTier.Mobile)."
           },
           "telephoneContact": {
-            "type": "string"
+            "type": "string",
+            "description": "Téléphone fixe de la personne-contact (CfgTier.Phone)."
+          },
+          "emailContact": {
+            "type": "string",
+            "description": "E-mail de la personne-contact (CfgTier.EMail)."
           },
           "relationTypeId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Id du type de relation (CfgRelationType)."
           },
           "relationType": {
-            "type": "string"
+            "type": "string",
+            "description": "Libellé du type de relation, p.ex. « Conjoint »."
           }
         }
       },

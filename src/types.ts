@@ -315,18 +315,33 @@ export interface CreerProspectionRequest {
 }
 
 // A prospect's own contact book (contacts personnels — e.g. spouse, agent) —
-// each entry links to another Prospect record by id, tagged with a relation
-// type (référentiel types-relation-contact).
+// each entry links to another CfgTier record, tagged with a relation type
+// (référentiel types-relation-contact). Spec du 21/09 : la personne-contact
+// est soit un tiers existant (`contactProspectId`), soit créée à la volée
+// (`nouveauContact`, flux OMRAN — insertion du CfgTier puis du lien
+// CfgTierContact). Fournir l'un OU l'autre — 400 si aucun ou les deux.
 export interface CreerContactProspectRequest {
-  contactProspectId: UUID;
-  relationTypeId?: UUID;
+  /** Tiers (CfgTier) existant à lier comme contact. Alternative à `nouveauContact`. */
+  contactProspectId?: UUID;
+  /** Personne-contact à créer à la volée puis lier. Au moins `nom` ou
+   * `raisonSociale` requis. */
+  nouveauContact?: CreerProspectRequest;
+  /** Type de relation (CfgRelationType), p.ex. « Conjoint », « Notaire ».
+   * Obligatoire (400 sans lui — spec du 21/09). */
+  relationTypeId: UUID;
 }
 
 export interface ContactProspectDto {
+  /** Id du lien CfgTierContact (sert au DELETE). */
   id: UUID;
+  /** Id du CfgTier de la personne-contact. */
   contactProspectId?: UUID;
   nomContact?: string;
+  /** Mobile de la personne-contact (CfgTier.Mobile). */
+  mobileContact?: string;
   telephoneContact?: string;
+  /** E-mail de la personne-contact (CfgTier.EMail). */
+  emailContact?: string;
   relationTypeId?: UUID;
   relationType?: string;
 }
