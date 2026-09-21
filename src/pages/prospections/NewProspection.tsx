@@ -267,10 +267,15 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
 
   const isMorale = !!newProspectForm.raisonSociale?.trim();
   const newProspectReady = (newProspectForm.prenom?.trim() && newProspectForm.nom?.trim()) || isMorale;
-  const canCreate = prospectMode === 'existing' ? !!selectedProspect : !!newProspectReady;
+  const prospectReady = prospectMode === 'existing' ? !!selectedProspect : !!newProspectReady;
+  // Champs obligatoires du POST /api/prospections (spec du 21/09, alignés sur
+  // l'écran légataire) : tranche, nature, type, source de contact et notes non
+  // vides — le backend renvoie 400 sans eux, autant griser le bouton avant.
+  const champsObligatoiresOk = !!trancheId && !!etapeId && !!typeContactId && !!origineId && !!notes.trim();
+  const canCreate = prospectReady && champsObligatoiresOk;
 
   async function handleCreate() {
-    if (!canCreate) return;
+    if (!canCreate || !trancheId || !etapeId || !typeContactId || !origineId) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -278,16 +283,16 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
       const body: CreerProspectionRequest = {
         prospectId,
         commercialId: prospectionCommercialId || undefined,
-        trancheId: trancheId || undefined,
+        trancheId,
         articleId: articleId || undefined,
-        origineId: origineId || undefined,
+        origineId,
         origineSupportId: origineSupportId || undefined,
         vocationId: vocationId || undefined,
-        typeContactId: typeContactId || undefined,
+        typeContactId,
         actionCommercialeId: actionCommercialeId || undefined,
-        etapeId: etapeId || undefined,
+        etapeId,
         ancienClient: ancienClient || undefined,
-        notes: notes.trim() || undefined,
+        notes: notes.trim(),
       };
       const prospection = await createProspection(body);
       navigate(`/prospections/${prospection.id}`);
@@ -323,7 +328,7 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
               </Select>
             </FormField>
             <FormField>
-              <FieldLabel htmlFor="pr-tranche">Tranche</FieldLabel>
+              <FieldLabel htmlFor="pr-tranche">Tranche *</FieldLabel>
               <Select items={trancheItems} value={trancheId} onValueChange={(v) => { setTrancheId((v as string) || null); setArticleId(null); }} disabled={!projetId}>
                 <SelectTrigger id="pr-tranche" className="w-full"><SelectValue placeholder={projetId ? 'Choisir…' : 'Choisir un projet d\'abord'} /></SelectTrigger>
                 <SelectContent><SelectGroup>{trancheItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
@@ -344,14 +349,14 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
               </Select>
             </FormField>
             <FormField>
-              <FieldLabel htmlFor="pr-nature">Nature</FieldLabel>
+              <FieldLabel htmlFor="pr-nature">Nature *</FieldLabel>
               <Select items={etapeItems} value={etapeId} onValueChange={(v) => setEtapeId((v as string) || null)}>
                 <SelectTrigger id="pr-nature" className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
                 <SelectContent><SelectGroup>{etapeItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
             </FormField>
             <FormField>
-              <FieldLabel htmlFor="pr-typeContact">Type</FieldLabel>
+              <FieldLabel htmlFor="pr-typeContact">Type *</FieldLabel>
               <Select items={typeContactItems} value={typeContactId} onValueChange={(v) => setTypeContactId((v as string) || null)}>
                 <SelectTrigger id="pr-typeContact" className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
                 <SelectContent><SelectGroup>{typeContactItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
@@ -365,7 +370,7 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
               </Select>
             </FormField>
             <FormField>
-              <FieldLabel htmlFor="pr-origine">Source de contact</FieldLabel>
+              <FieldLabel htmlFor="pr-origine">Source de contact *</FieldLabel>
               <Select items={origineItems} value={origineId} onValueChange={(v) => { setOrigineId((v as string) || null); setOrigineSupportId(null); }}>
                 <SelectTrigger id="pr-origine" className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
                 <SelectContent><SelectGroup>{origineItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
@@ -393,7 +398,7 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
           </label>
 
           <FormField className="mt-3.5">
-            <FieldLabel htmlFor="pr-notes">Notes</FieldLabel>
+            <FieldLabel htmlFor="pr-notes">Notes *</FieldLabel>
             <Textarea id="pr-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
           </FormField>
         </Card>

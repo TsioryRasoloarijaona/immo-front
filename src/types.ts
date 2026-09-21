@@ -280,17 +280,27 @@ export type ModifierProspectRequest = CreerProspectRequest;
 // follows the same optional-partial-update semantics as
 // `ModifierProspectionRequest`. `code` is always server-generated
 // (AdmSequence "Prospection", format "AA/NNNNN"), never sent by the client.
+/** Champs obligatoires (spec du 21/09, alignés sur l'écran légataire) :
+ * `prospectId`, `trancheId`, `origineId`, `typeContactId`, `etapeId` et
+ * `notes` (non vide). Le commercial reste optionnel — posé plus tard par
+ * `POST /api/prospections/{id}/transformer` sinon. */
 export interface CreerProspectionRequest {
   prospectId: UUID;
   commercialId?: UUID;
-  trancheId?: UUID;
+  /** Tranche/projet (CfgTranche), champ « Tranche ». Obligatoire. */
+  trancheId: UUID;
+  /** Optionnel ; s'il est fourni il DOIT appartenir à `trancheId` (400 sinon). */
   articleId?: UUID;
-  origineId?: UUID;
+  /** Source de contact (ComProspectionOrigin). Obligatoire. */
+  origineId: UUID;
   origineSupportId?: UUID;
   vocationId?: UUID;
-  typeContactId?: UUID;
+  /** Type (ComActionMessageType), champ « Type ». Obligatoire — à distinguer
+   * de la vocation (`vocationId`). */
+  typeContactId: UUID;
   actionCommercialeId?: UUID;
-  etapeId?: UUID;
+  /** Nature/étape (ComProspectionKind), champ « Nature ». Obligatoire. */
+  etapeId: UUID;
   surface?: number;
   surfaceJusqua?: number;
   prix?: number;
@@ -300,7 +310,8 @@ export interface CreerProspectionRequest {
   financementCredit?: number;
   financementAutre?: number;
   ancienClient?: boolean;
-  notes?: string;
+  /** Notes libres, champ « Notes ». Obligatoire (non vide). */
+  notes: string;
 }
 
 // A prospect's own contact book (contacts personnels — e.g. spouse, agent) —
@@ -1007,7 +1018,15 @@ export interface ProspectionDetailDto {
 }
 
 export interface TransformerProspectionRequest {
-  commercialId?: UUID;
+  /** Commercial (CfgTier) affecté à la prospection. Obligatoire (spec du 21/09). */
+  commercialId: UUID;
+  /** Tranche (projet) à rattacher — posée ou remplacée au moment de la
+   * transformation. Si omise, la prospection doit **déjà** porter une tranche,
+   * sinon 400. */
+  trancheId?: UUID;
+  /** Article/lot principal optionnel. S'il est fourni, il DOIT appartenir à la
+   * tranche effective (celle de `trancheId`, ou celle déjà posée) — 400 sinon. */
+  articleId?: UUID;
 }
 
 /** General-purpose PATCH for a Prospection's editable fields — supersedes
