@@ -2959,3 +2959,31 @@ export interface PerformanceCommercialDto {
    * courte le dénominateur est faible et le taux très bruyant. */
   tauxProspectionVersDossier?: number | null;
 }
+
+// ---------------------------------------------------------------------------
+// Synchronisation (V4). POST /api/synchronisation — déclenche immédiatement un
+// cycle de synchronisation descendante (base de référence → copie de lecture)
+// au lieu d'attendre le cycle automatique (toutes les deux minutes). Appel
+// SYNCHRONE : la réponse n'arrive qu'une fois le cycle terminé. 409 si un
+// cycle tourne déjà ou si l'application est en mono-base. Réservé au rôle
+// Administrateur.
+// ---------------------------------------------------------------------------
+
+/** Bilan du cycle de synchronisation descendante qui vient de s'exécuter. */
+export interface SynchronisationResultatDto {
+  /** Version Change Tracking de la source atteinte par ce cycle. Repère de
+   * diagnostic ; `null` si le Change Tracking n'est pas actif sur la source
+   * (le cycle n'a alors rien pu faire). */
+  version?: number | null;
+  /** Lignes insérées ou mises à jour dans la copie depuis la source (écrites
+   * hors CRM, typiquement par le logiciel de bureau). */
+  fusions?: number;
+  /** Lignes supprimées de la copie parce qu'elles ont disparu de la source. */
+  suppressions?: number;
+  /** Tables traitées sans erreur — leur filigrane a avancé. */
+  tablesTraitees?: number;
+  /** Tables en échec sur ce cycle, rejouées au cycle suivant. 0 en nominal. */
+  tablesEnEchec?: number;
+  /** Durée du cycle en millisecondes. */
+  dureeMs?: number;
+}

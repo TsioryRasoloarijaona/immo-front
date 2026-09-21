@@ -16,6 +16,7 @@ import {
   SidebarRail,
 } from './ui/sidebar';
 import { Button } from './ui/button';
+import SyncButton from './SyncButton';
 import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
 
@@ -293,6 +294,10 @@ export default function Layout({ children }: { children: ReactNode }) {
               <span className="truncate text-label font-medium text-foreground hover:text-primary">{user?.description || user?.username}</span>
               <span className="truncate text-xs text-muted-foreground">{user?.roles?.join(', ') || user?.username}</span>
             </Link>
+            {/* Synchronisation manuelle — POST /api/synchronisation est
+                réservé au rôle Administrateur (403 sinon) : ne pas montrer
+                aux autres un bouton qui ne peut qu'échouer. */}
+            {isAdmin && <SyncButton />}
             <Button
               type="button"
               variant="ghost"

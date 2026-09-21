@@ -28,6 +28,23 @@ export function useDebouncedValue<T>(value: T, delay = 300): T {
   return debounced;
 }
 
+/** Registre des `run` de tous les `useApi` actuellement montés.
+ *
+ * Sert au bouton de synchronisation (POST /api/synchronisation) : une fois le
+ * cycle terminé, les données affichées peuvent être périmées sur *toutes* les
+ * pages — pas seulement celle qui a cliqué. Les caches sont déjà vidés (toute
+ * mutation passe par `clearApiCache` dans api.ts), mais un `useApi` monté ne
+ * relit rien tant que ses deps ne bougent pas : ce registre permet de re-runner
+ * chaque requête montée, en gardant les données précédentes visibles pendant
+ * le refetch (même comportement que `refetch`). */
+const mountedRunners = new Set<() => void>();
+
+/** Re-lance toutes les requêtes `useApi` actuellement montées. À appeler
+ * après une invalidation globale hors-page (cycle de synchronisation). */
+export function refetchAllApis(): void {
+  for (const run of mountedRunners) run();
+}
+
 export interface ApiState<T> {
   data: T | null;
   loading: boolean;
@@ -112,6 +129,15 @@ export function useApi<T>(
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(run, deps);
+
+  // Inscription au registre global pour `refetchAllApis` — voir en tête de
+  // fichier. `run` est stable (useCallback []), une inscription par montage.
+  useEffect(() => {
+    mountedRunners.add(run);
+    return () => {
+      mountedRunners.delete(run);
+    };
+  }, [run]);
 
   return { data, loading, error, refetch: run };
 }
