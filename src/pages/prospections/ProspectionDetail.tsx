@@ -22,7 +22,6 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Separator } from '../../components/ui/separator';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { cn } from '../../lib/utils';
 import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../../lib/format';
 import {
@@ -75,6 +74,7 @@ import {
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import ContactsProspect from '../../components/ContactsProspect';
+import TransformerProspectionDialog from '../../components/TransformerProspectionDialog';
 import { useFormulaireFiche } from '../../lib/formulaireFiche';
 import {
   referentielItems,
@@ -95,6 +95,7 @@ import type {
   EnvoyerOffrePrixRequest,
   ResultatEnvoiOffreDto,
   ResultatEnvoiVisiteDto,
+  TransformerProspectionRequest,
 } from '../../types';
 
 /** Les sept onglets du logiciel de bureau, dans son ordre. `article` garde
@@ -578,7 +579,7 @@ export default function ProspectionDetail() {
   const [toast, setToast] = useState<string | null>(null);
   const [showCreateProspect, setShowCreateProspect] = useState(false);
   const [showInteractionForm, setShowInteractionForm] = useState(false);
-  const [transformCommercial, setTransformCommercial] = useState<string | null>(null);
+  const [showTransform, setShowTransform] = useState(false);
   const [showArchiver, setShowArchiver] = useState(false);
   const [raisonId, setRaisonId] = useState<string | null>(null);
   const [raisonTexte, setRaisonTexte] = useState('');
@@ -675,14 +676,17 @@ export default function ProspectionDetail() {
   const joursInactivite = typeof p.activite?.joursInactivite === 'number' ? p.activite.joursInactivite : null;
   const nbInteractions = typeof p.activite?.nbInteractions === 'number' ? p.activite.nbInteractions : null;
 
-  async function handleTransform(commercialId: string) {
+  /** Depuis la spec du 21/09 la transformation porte aussi la tranche
+   * (obligatoire côté serveur si la prospection n'en a pas déjà une — 400
+   * sinon) et l'article : le corps complet vient de la boîte de dialogue,
+   * plus d'appel « commercial seul ». Les erreurs restent à la boîte, qui
+   * les affiche sur place. */
+  async function handleTransform(body: TransformerProspectionRequest) {
     setBusy(true);
     try {
-      await transformerProspection(p!.id, { commercialId });
+      await transformerProspection(p!.id, body);
       await refetch();
-      showToast('Prospection transformée — commercial assigné.');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : "Échec de l'opération.");
+      showToast('Prospection transformée — commercial et tranche posés.');
     } finally {
       setBusy(false);
     }
@@ -776,29 +780,14 @@ export default function ProspectionDetail() {
               <Plus data-icon="inline-start" /> Créer prospect
             </Button>
           ) : !p.commercialId ? (
-            ownCommercial ? (
-              <Button size="sm" onClick={() => handleTransform(ownCommercial.id)} disabled={busy}>
-                Transformer · {commercialLabel(ownCommercial)}
-              </Button>
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <Select items={commercialItems} value={transformCommercial} onValueChange={(v) => setTransformCommercial(v as string | null)}>
-                  <SelectTrigger size="sm" className="w-44">
-                    <SelectValue placeholder="Commercial…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {commercialItems.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <Button size="sm" onClick={() => transformCommercial && handleTransform(transformCommercial)} disabled={!transformCommercial || busy}>
-                  Transformer
-                </Button>
-              </div>
-            )
+            /* La transformation choisit désormais commercial + tranche (+
+               article) dans une boîte — le geste « un clic, mon compte »
+               d'avant enverrait un corps sans tranche, 400 dès que la
+               prospection n'en porte pas. Le commercial du compte reste le
+               pré-choix de la boîte. */
+            <Button size="sm" onClick={() => setShowTransform(true)} disabled={busy}>
+              Transformer
+            </Button>
           ) : dossierIssu ? (
             <Button size="sm" onClick={() => navigate(`/dossiers/${dossierIssu.id}`)}>
               <ArrowUpRight data-icon="inline-start" /> Dossier {dossierIssu.code ?? ''}
@@ -1458,6 +1447,17 @@ export default function ProspectionDetail() {
           },
         ].filter((o) => !(isPre && ONGLETS_PROSPECTION_SEULE.has(o.id)))}
       />
+
+      {showTransform && (
+        <TransformerProspectionDialog
+          initialCommercialId={ownCommercial?.id ?? null}
+          initialTrancheId={p.trancheId ?? null}
+          initialArticleId={p.articleId ?? null}
+          commercialItems={commercialItems}
+          onClose={() => setShowTransform(false)}
+          onSubmit={handleTransform}
+        />
+      )}
 
       {showCreateProspect && (
         <CreateProspectForm
