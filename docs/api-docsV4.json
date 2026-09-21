@@ -809,7 +809,7 @@
           "Prospections"
         ],
         "summary": "Crée une prospection qualifiée pour un prospect existant",
-        "description": "instructions/from_front.md demande #9 — le point d'entrée du bouton \"Nouvelle prospection\", pour le cas où le prospect existe déjà (créé au préalable via `POST /api/prospects`, déjà câblé côté front). `prospectId` est **obligatoire** ; tous les autres champs sont optionnels et suivent la même sémantique que `PATCH /api/prospections/{id}` (mise à jour uniquement des champs fournis). `code` est toujours généré serveur (compteur `AdmSequence` \"Prospection\", format \"AA/NNNNN\"), jamais fourni par le client. `commercialId` peut être fourni directement ici pour obtenir une prospection immédiatement complète en un seul appel — sinon `POST /api/prospections/{id}/transformer` peut l'assigner ensuite. `trancheId`/`articleId` suivent la même validation croisée que `PATCH .../tranche-principale` (l'article doit appartenir à la tranche fournie). Pour un lead brut/non identifié (walk-in, appel entrant sans prospect connu), voir plutôt le flux pré-prospection (`GET /api/pre-prospections` + `POST .../creer-prospect` + `POST .../transformer`) — non couvert par cet endpoint.",
+        "description": "instructions/from_front.md demande #9 — le point d'entrée du bouton \"Nouvelle prospection\", pour le cas où le prospect existe déjà (créé au préalable via `POST /api/prospects`, déjà câblé côté front).\n\n**Champs obligatoires (alignés sur l'écran légataire OMRAN)** : `prospectId`, `notes` (Notes, non vide), `origineId` (Source de contact), `typeContactId` (Type — attention, c'est `ComActionMessageType`, à ne pas confondre avec la vocation `vocationId`), `etapeId` (Nature) et `trancheId` (Tranche). Un de ces champs manquant ⟶ 400 nommant le champ. `commercialId` reste optionnel (OMRAN ne le bloque pas à la création). Les autres champs sont optionnels et suivent la même sémantique que `PATCH /api/prospections/{id}` (mise à jour uniquement des champs fournis). `code` est toujours généré serveur (compteur `AdmSequence` \"Prospection\", format \"AA/NNNNN\"), jamais fourni par le client. `commercialId` peut être fourni directement ici pour obtenir une prospection immédiatement complète en un seul appel — sinon `POST /api/prospections/{id}/transformer` peut l'assigner ensuite. `trancheId`/`articleId` suivent la même validation croisée que `PATCH .../tranche-principale` (l'article doit appartenir à la tranche fournie). Pour un lead brut/non identifié (walk-in, appel entrant sans prospect connu), voir plutôt le flux pré-prospection (`GET /api/pre-prospections` + `POST .../creer-prospect` + `POST .../transformer`) — non couvert par cet endpoint.",
         "operationId": "creerProspection",
         "requestBody": {
           "content": {
@@ -833,7 +833,7 @@
             }
           },
           "400": {
-            "description": "`prospectId` manquant, ou un id fourni (prospect/commercial/tranche/article/origine/...) est introuvable, ou l'article fourni n'appartient pas à la tranche fournie.",
+            "description": "Un champ obligatoire est manquant (`prospectId`, `notes`, `origineId`, `typeContactId`, `etapeId`, `trancheId`), ou un id fourni (prospect/commercial/tranche/article/origine/type/nature/...) est introuvable, ou l'article fourni n'appartient pas à la tranche fournie.",
             "content": {
               "*/*": {
                 "schema": {
@@ -1006,6 +1006,8 @@
         "tags": [
           "Prospections"
         ],
+        "summary": "Transforme une pré-prospection en prospection (commercial + tranche)",
+        "description": "Dernière étape de qualification d'un lead : affecte le commercial et **garantit qu'une tranche (projet) est rattachée**. Requiert qu'un prospect soit déjà lié via `POST /api/pre-prospections/{id}/creer-prospect` — 400 sinon.\n\n**La tranche est obligatoire.** Règle métier plus stricte que le légataire (qui n'impose rien au niveau base — seule `PKey` est NOT NULL sur `ComProspection`), justifiée sur données réelles : 99,83 % des prospections qualifiées (14 700/14 725) portent déjà une tranche. Fournir `trancheId` pour la poser/remplacer ici (avec périmètre commercial et cohérence `articleId`, comme `PATCH .../tranche-principale`) ; si `trancheId` est omis, la prospection doit **déjà** en porter une, faute de quoi la transformation est refusée (400).",
         "operationId": "transformer",
         "parameters": [
           {
@@ -1030,7 +1032,37 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Prospection transformée : commercial affecté et tranche garantie.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`commercialId` manquant ; aucun prospect lié ; commercial/tranche/article introuvable ; l'article ne appartient pas à la tranche ; ou aucune tranche fournie ni déjà présente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Le projet de la tranche fournie n'est pas dans le périmètre commercial de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -9391,43 +9423,53 @@
         "properties": {
           "prospectId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Prospect (CfgTier) déjà existant à rattacher. Obligatoire."
           },
           "commercialId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Commercial (CfgTier) affecté. Optionnel : fourni ici pour une prospection immédiatement complète, sinon posé plus tard par `POST /api/prospections/{id}/transformer`."
           },
           "trancheId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Tranche/projet (CfgTranche → `StkHierarchyId`), champ « Tranche ». **Obligatoire** (aligné sur l'écran légataire)."
           },
           "articleId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Article/lot principal (StkItem). Optionnel ; s'il est fourni il DOIT appartenir à `trancheId` (400 sinon)."
           },
           "origineId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Source de contact (ComProspectionOrigin → `ComProspectionOriginId`), champ « Source de contact ». **Obligatoire**."
           },
           "origineSupportId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Support d'origine (ComProspectionOriginSupport). Optionnel."
           },
           "vocationId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Vocation (StkVocation), p.ex. VENTE. Optionnel — à ne pas confondre avec le champ « Type » qui est `typeContactId`."
           },
           "typeContactId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Type (ComActionMessageType → `ComActionMessageTypeId`), champ « Type ». **Obligatoire**. À distinguer de la vocation (`vocationId`)."
           },
           "actionCommercialeId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Action commerciale (ComAction). Optionnel."
           },
           "etapeId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Nature/étape (ComProspectionKind → `ComProspectionKindId`), champ « Nature ». **Obligatoire**."
           },
           "surface": {
             "type": "number"
@@ -9457,9 +9499,18 @@
             "type": "boolean"
           },
           "notes": {
-            "type": "string"
+            "type": "string",
+            "description": "Notes libres, champ « Notes ». **Obligatoire** (non vide) — aligné sur l'écran légataire."
           }
-        }
+        },
+        "required": [
+          "etapeId",
+          "notes",
+          "origineId",
+          "prospectId",
+          "trancheId",
+          "typeContactId"
+        ]
       },
       "ActiviteProspectionDto": {
         "type": "object",
@@ -9950,9 +10001,26 @@
         "properties": {
           "commercialId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Commercial (CfgTier) affecté à la prospection. Obligatoire.",
+            "example": "5ca4a41f-35d1-4e89-a521-4e9c363ac99b"
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche (projet) à rattacher, `ComProspection.StkHierarchyId`. Fourni ici pour poser ou remplacer la tranche au moment de la transformation. S'il est omis, la prospection doit **déjà** porter une tranche — sinon 400, la tranche étant obligatoire pour transformer. Contrôle de périmètre commercial : rattacher à un projet non affecté renvoie 403.",
+            "example": "5eee12f0-03ea-4008-9808-4109b6e242bf"
+          },
+          "articleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Article/lot principal (StkItem) optionnel. S'il est fourni, il DOIT appartenir à la tranche effective (celle de `trancheId`, ou celle déjà posée si `trancheId` est omis) — 400 sinon. Même validation croisée que `PATCH /api/prospections/{id}/tranche-principale`.",
+            "example": "null"
           }
-        }
+        },
+        "required": [
+          "commercialId"
+        ]
       },
       "AjouterProfilRequest": {
         "type": "object",
