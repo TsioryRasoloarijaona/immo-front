@@ -32,16 +32,16 @@
       "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front.\n\n**Entités juridiques en exploitation.** Seuls les événements rattachés — par leur prospection ou par leur dossier — à une entité juridique active (`CfgCompany.IsActive`) sont renvoyés : aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un événement qu'aucune prospection ni aucun dossier ne rattache à une entité reste affiché."
     },
     {
+      "name": "Synchronisation",
+      "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
+    },
+    {
       "name": "Hotline",
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
     },
     {
       "name": "Tableau de bord",
       "description": "Agrégats de la page d'accueil : valeur du pipeline, panier moyen, répartition des dossiers par étape, relances en retard et compteurs de prospections.\n\n**Entités juridiques en exploitation.** Tous les agrégats ne portent que sur les entités juridiques actives (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. L'assiette du tableau de bord est donc la même que celle de GET /api/dossiers et de GET /api/prospections ; les totaux ne sont pas comparables à ceux d'avant cette restriction.\n\n**Deux notions de « relance » cohabitent, et elles ne désignent pas la même chose.** `GET /api/dashboard/relances` sert les relances **commerciales** : une échéance posée par un commercial sur une interaction, encore armée — 3 765 en base réelle. Le champ `relancesEnRetard` de `GET /api/dashboard`, lui, parle des *dossiers* via `ComFolder.Revival1`/`Revival2`, colonnes **mortes en base réelle (0 ligne sur 358)** : ce champ est structurellement vide. Voir `instructions/FEATURE-dashboard-relances.md`."
-    },
-    {
-      "name": "Synchronisation",
-      "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Réservé au rôle Administrateur."
     },
     {
       "name": "KPI commerciaux",
@@ -418,7 +418,7 @@
           "Synchronisation"
         ],
         "summary": "Déclenche immédiatement un cycle de synchronisation descendante",
-        "description": "Rapatrie sur-le-champ, dans la copie de lecture, ce que le logiciel de bureau a écrit sur la base de référence depuis le dernier cycle — au lieu d'attendre le cycle automatique (toutes les deux minutes). Renvoie le bilan du cycle : lignes fusionnées, supprimées, tables traitées.\n\n**Synchrone** : la réponse n'arrive qu'une fois le cycle terminé (quelques secondes en régime normal ; plus long si une table doit repartir d'une reconstruction complète). **Un seul cycle à la fois** : si un cycle automatique ou manuel tourne déjà, l'appel renvoie 409 sans rien relancer. L'opération est idempotente et sans risque de doublon. Réservé au rôle Administrateur.",
+        "description": "Rapatrie sur-le-champ, dans la copie de lecture, ce que le logiciel de bureau a écrit sur la base de référence depuis le dernier cycle — au lieu d'attendre le cycle automatique (toutes les deux minutes). Renvoie le bilan du cycle : lignes fusionnées, supprimées, tables traitées.\n\n**Synchrone** : la réponse n'arrive qu'une fois le cycle terminé (quelques secondes en régime normal ; plus long si une table doit repartir d'une reconstruction complète). **Un seul cycle à la fois** : si un cycle automatique ou manuel tourne déjà, l'appel renvoie 409 sans rien relancer. L'opération est idempotente et sans risque de doublon. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide).",
         "operationId": "declencher",
         "responses": {
           "200": {
@@ -432,7 +432,7 @@
             }
           },
           "403": {
-            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "description": "L'appelant n'est ni Administrateur ni commercial.",
             "content": {
               "*/*": {
                 "schema": {

@@ -1,25 +1,40 @@
 import { useEffect, useRef, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { Button } from './ui/button';
 import { ApiError, declencherSynchronisation } from '../lib/api';
 import { refetchAllApis } from '../lib/useApi';
+import { useAuth } from '../lib/auth';
+import { cn } from '../lib/utils';
 import type { SynchronisationResultatDto } from '../types';
 
-/** Bouton « Synchroniser les données » du pied de sidebar — admin seulement
- * (le rendu est gardé par `isAdmin` dans Layout, comme le module
- * Administration).
+/** Les rôles auxquels le backend ouvre `POST /api/synchronisation` (spec du
+ * 21/09, MB4) : l'Administrateur et les trois déclinaisons commerciales.
+ * Tout autre rôle recevrait 403 — on ne lui montre pas un bouton qui ne peut
+ * qu'échouer. */
+const ROLES_SYNCHRONISATION = ['Administrateur', 'Commercial', 'Commercial Chef', 'Commercial Aide'];
+
+/** Bouton flottant « Synchroniser » — bas droit de l'écran, au-dessus de la
+ * feuille (MB4 : accessible aux commerciaux, et bien plus visible que
+ * l'ancienne icône du pied de sidebar).
  *
- * Déclenche `POST /api/synchronisation` : rapatriement immédiat de ce que le
- * logiciel de bureau a écrit sur la base de référence, au lieu d'attendre le
- * cycle automatique. L'appel est SYNCHRONE côté backend — quelques secondes
- * en régime normal — d'où l'icône qui tourne et le bouton désactivé pendant
- * toute la durée du cycle. Un 409 (cycle déjà en cours, ou mono-base) n'est
- * pas une panne : le message du backend est montré tel quel.
+ * Le choix de la pilule flottante plutôt qu'un emplacement de barre : le
+ * geste est global (il rafraîchit *toutes* les données, pas celles d'une
+ * page), transverse à la navigation, et occasionnel — exactement le profil
+ * d'un bouton d'action flottant. La pilule porte son libellé en permanence :
+ * une icône seule au même endroit se lirait comme un « rafraîchir la page »
+ * quelconque, alors que ceci rapatrie ce que le logiciel de bureau a écrit.
+ *
+ * Déclenche `POST /api/synchronisation` : rapatriement immédiat depuis la
+ * base de référence, au lieu d'attendre le cycle automatique (2 min).
+ * L'appel est SYNCHRONE côté backend — quelques secondes — d'où l'icône qui
+ * tourne et le bouton inerte pendant le cycle. Un 409 (cycle déjà en cours,
+ * ou mono-base) n'est pas une panne : le message du backend est montré tel
+ * quel.
  *
  * Au succès, les caches sont déjà vidés (toute mutation passe par
- * `clearApiCache`) ; `refetchAllApis()` re-lance alors chaque `useApi` monté
- * pour que la page affichée relise des données fraîches sans navigation. */
+ * `clearApiCache`) ; `refetchAllApis()` re-lance chaque `useApi` monté pour
+ * que la page affichée relise des données fraîches sans navigation. */
 export default function SyncButton() {
+  const { user } = useAuth();
   const [enCours, setEnCours] = useState(false);
   const [toast, setToast] = useState<{ message: string; erreur: boolean } | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -29,6 +44,9 @@ export default function SyncButton() {
       if (timerRef.current !== null) clearTimeout(timerRef.current);
     };
   }, []);
+
+  const autorise = user?.roles?.some((r) => ROLES_SYNCHRONISATION.includes(r)) ?? false;
+  if (!autorise) return null;
 
   function montrerToast(message: string, erreur: boolean) {
     if (timerRef.current !== null) clearTimeout(timerRef.current);
@@ -74,24 +92,30 @@ export default function SyncButton() {
 
   return (
     <>
-      <Button
+      <button
         type="button"
-        variant="ghost"
-        size="icon-sm"
-        title="Synchroniser les données"
+        title="Rapatrier les dernières écritures du logiciel de bureau"
         aria-label="Synchroniser les données"
         disabled={enCours}
         onClick={() => void synchroniser()}
+        className={cn(
+          'fixed bottom-5 right-5 z-40 flex h-10 items-center gap-2 rounded-full bg-foreground pl-3.5 pr-4.5',
+          'text-label font-medium text-background shadow-lg transition-all duration-200',
+          'hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand)',
+          'disabled:translate-y-0 disabled:opacity-80',
+        )}
       >
-        <RefreshCw className={enCours ? 'animate-spin' : undefined} />
-      </Button>
+        <RefreshCw className={cn('size-4', enCours && 'animate-spin')} />
+        {enCours ? 'Synchronisation…' : 'Synchroniser'}
+      </button>
       {toast && (
         <div
           role="status"
           aria-live="polite"
-          className={`fixed bottom-6 right-6 z-50 max-w-sm rounded-lg px-4.5 py-3 text-label font-medium shadow-lg ${
-            toast.erreur ? 'border border-destructive/40 bg-background text-destructive' : 'bg-foreground text-background'
-          }`}
+          className={cn(
+            'fixed bottom-18 right-5 z-50 max-w-sm rounded-lg px-4.5 py-3 text-label font-medium shadow-lg',
+            toast.erreur ? 'border border-destructive/40 bg-background text-destructive' : 'bg-foreground text-background',
+          )}
         >
           {toast.message}
         </div>
