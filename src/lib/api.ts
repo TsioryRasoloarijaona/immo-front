@@ -787,6 +787,21 @@ export function removeProspectionAutreTranche(prospectionId: UUID, itemId: UUID)
   return request('DELETE', `/api/prospections/${prospectionId}/autres-tranches/${itemId}`);
 }
 
+/** `GET /api/prospections/{id}/contacts` — les contacts (conjoint, notaire,
+ * apporteur…) du prospect lié à cette prospection. Une pré-prospection (sans
+ * prospect encore lié) renvoie une **liste vide**, jamais une erreur. */
+export function listProspectionContacts(prospectionId: UUID): Promise<ContactProspectDto[]> {
+  return request('GET', `/api/prospections/${prospectionId}/contacts`);
+}
+/** `POST /api/prospections/{id}/contacts` — même effet que
+ * `POST /api/prospects/{prospectId}/contacts`, mais adressé par la
+ * prospection : le prospect est résolu depuis elle. 400 si `relationTypeId`
+ * manque, si ni `contactProspectId` ni `nouveauContact` (ou les deux), ou si
+ * la prospection n'a pas encore de prospect. */
+export function addProspectionContact(prospectionId: UUID, body: CreerContactProspectRequest): Promise<ContactProspectDto> {
+  return request('POST', `/api/prospections/${prospectionId}/contacts`, { body });
+}
+
 export function listDevis(prospectionId: UUID, pageable?: Pageable): Promise<PageDto<DevisDto>> {
   return request('GET', `/api/prospections/${prospectionId}/devis`, { query: withPageable(undefined, pageable) });
 }

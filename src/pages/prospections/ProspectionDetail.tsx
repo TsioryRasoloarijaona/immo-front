@@ -56,8 +56,11 @@ import {
   getTranchesReferentiel,
   listDevis,
   listInteractions,
+  addProspectionContact,
   listProspectionAutresTranches,
+  listProspectionContacts,
   listProspectionHistorique,
+  removeProspectContact,
   modifierProspection,
   modifierTranchePrincipale,
   removeProspectionAutreTranche,
@@ -71,6 +74,7 @@ import {
   type ArticleReferentielFilters,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import ContactsProspect from '../../components/ContactsProspect';
 import { useFormulaireFiche } from '../../lib/formulaireFiche';
 import {
   referentielItems,
@@ -619,6 +623,10 @@ export default function ProspectionDetail() {
   );
 
   const autresTranches = useApi(() => (id ? listProspectionAutresTranches(id) : Promise.resolve([])), [id], 'prospection-autres-tranches');
+  // Le carnet de contacts du prospect lié (spec du 21/09) — adressé par la
+  // prospection, le serveur résout le prospect. Une pré-prospection renvoie
+  // une liste vide, jamais une erreur.
+  const contactsLies = useApi(() => (id ? listProspectionContacts(id) : Promise.resolve([])), [id], 'prospection-contacts');
   const [devisPage, setDevisPage] = useState(0);
   const devis = useApi(() => listDevis(id!, { page: devisPage, size: 20 }), [id, devisPage], 'prospection-devis');
 
@@ -1414,6 +1422,27 @@ export default function ProspectionDetail() {
                           <Button variant="outline" size="sm" onClick={() => navigate(`/prospects/${p.prospectId}`)}>
                             <ArrowUpRight data-icon="inline-start" /> Ouvrir la fiche prospect
                           </Button>
+                        </div>
+
+                        {/* Le carnet de contacts (conjoint, notaire, apporteur…),
+                            sous la fiche tiers — l'endpoint prospection-scopé
+                            existe précisément pour accompagner cet écran. Le
+                            retrait passe par le prospect : le DELETE n'existe
+                            que sous /api/prospects/{id}/contacts. */}
+                        <div className="flex flex-col gap-2">
+                          <h3 className="text-label font-medium text-foreground">Contacts liés</h3>
+                          <ContactsProspect
+                            contacts={contactsLies}
+                            onAdd={async (body) => {
+                              await addProspectionContact(p!.id, body);
+                              await contactsLies.refetch();
+                              showToast('Contact ajouté.');
+                            }}
+                            onRemove={async (linkId) => {
+                              await removeProspectContact(p!.prospectId!, linkId);
+                              contactsLies.refetch();
+                            }}
+                          />
                         </div>
                       </div>
                     )}

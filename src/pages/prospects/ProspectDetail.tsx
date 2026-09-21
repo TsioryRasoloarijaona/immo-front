@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Contact, Plus, UserCheck, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Contact, UserCheck } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -8,7 +8,6 @@ import { TimelineList, TimelineRow } from '../../components/Timeline';
 import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import {
@@ -29,71 +28,11 @@ import { useApi } from '../../lib/useApi';
 import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
 import { toneForStatus } from '../../lib/dossierStatus';
 import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../../lib/format';
-import { referentielItems, useTypesRelationContact } from '../../lib/referentiels';
 import TelephoneField from '../../components/TelephoneField';
+import ContactsProspect from '../../components/ContactsProspect';
 import type { DossierListItemDto, ModifierProspectRequest, ProspectionListItemDto } from '../../types';
 
 type ProspectTab = 'general' | 'contacts' | 'prospections' | 'dossiers' | 'reglements' | 'historique';
-
-function AddContactRow({ onAdd }: { onAdd: (prospectId: string, relationTypeId: string | null) => Promise<void> }) {
-  const [open, setOpen] = useState(false);
-  const [contactId, setContactId] = useState('');
-  const [relationTypeId, setRelationTypeId] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const relationTypes = useTypesRelationContact();
-  const relationItems = [{ label: '— Non renseigné —', value: '' }, ...referentielItems(relationTypes.data)];
-
-  if (!open) {
-    return (
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-        <Plus data-icon="inline-start" /> Lier un contact
-      </Button>
-    );
-  }
-
-  return (
-    <div className="flex flex-wrap items-end gap-2 rounded-lg bg-muted/40 p-3">
-      <div className="flex flex-col gap-1">
-        <label className="text-micro text-muted-foreground" htmlFor="contact-id">ID prospect à lier</label>
-        <Input id="contact-id" className="w-55" placeholder="UUID du prospect" value={contactId} onChange={(e) => setContactId(e.target.value)} />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-micro text-muted-foreground" htmlFor="relation-type">Relation</label>
-        <Select items={relationItems} value={relationTypeId ?? ''} onValueChange={(v) => setRelationTypeId((v as string) || null)}>
-          <SelectTrigger id="relation-type" size="sm" className="w-45">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              {relationItems.map((item) => (
-                <SelectItem key={item.value || '__none'} value={item.value}>{item.label}</SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </div>
-      <Button
-        type="button"
-        size="sm"
-        disabled={busy || !contactId.trim()}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            await onAdd(contactId.trim(), relationTypeId);
-            setOpen(false);
-            setContactId('');
-            setRelationTypeId(null);
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        Ajouter
-      </Button>
-      <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>Annuler</Button>
-    </div>
-  );
-}
 
 export default function ProspectDetail() {
   const { id } = useParams();
@@ -334,33 +273,18 @@ export default function ProspectDetail() {
         </TabsContent>
 
         <TabsContent value="contacts" className="min-h-0 flex-1 overflow-y-auto">
-          <Card title="Contacts liés" action={<AddContactRow onAdd={async (contactId, relationTypeId) => { await addProspectContact(person.id, { contactProspectId: contactId, relationTypeId: relationTypeId ?? undefined }); await contacts.refetch(); }} />}>
-            {contacts.loading && <LoadingState />}
-            {contacts.error && <ErrorState message={contacts.error} />}
-            {contacts.data && contacts.data.length === 0 && <EmptyState title="Aucun contact lié" />}
-            {contacts.data && contacts.data.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {contacts.data.map((c) => (
-                  <div key={c.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-muted/30 px-3 py-2 text-label">
-                    <span className="font-medium text-foreground">{c.nomContact}</span>
-                    <span className="text-muted-foreground">{c.telephoneContact}</span>
-                    {c.relationType && <Badge tone="info">{c.relationType}</Badge>}
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      aria-label="Retirer"
-                      onClick={async () => {
-                        await removeProspectContact(person.id, c.id);
-                        contacts.refetch();
-                      }}
-                    >
-                      <X className="text-destructive" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
+          <Card title="Contacts liés">
+            <ContactsProspect
+              contacts={contacts}
+              onAdd={async (body) => {
+                await addProspectContact(person.id, body);
+                await contacts.refetch();
+              }}
+              onRemove={async (linkId) => {
+                await removeProspectContact(person.id, linkId);
+                contacts.refetch();
+              }}
+            />
           </Card>
         </TabsContent>
 
