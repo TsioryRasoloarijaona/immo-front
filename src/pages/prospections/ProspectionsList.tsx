@@ -10,6 +10,7 @@ import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import ProspectionFiltresAvances from '../../components/ProspectionFiltresAvances';
 import ProspectionTable from '../../components/ProspectionTable';
 import BandeGroupement from '../../components/BandeGroupement';
+import { useActionsLigneProspection } from '../../components/ActionsLigneProspection';
 import { DEFAULT_PAGE_SIZE, listProspections, listProspectionsGroupes, listTranches } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { useGroupement, useLignesGroupes } from '../../lib/groupement';
@@ -176,6 +177,17 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
     `${clesFiltres.join('|')}|${groupement.cleDeps}|${colonnesDemandees?.join(',') ?? ''}`,
   );
 
+  /* Le menu « ⋯ » de chaque ligne : les gestes de la fiche sans l'ouvrir.
+     Après une mutation, la liste (ou les groupes) se recharge — données
+     précédentes visibles pendant l'aller-retour, comme tout refetch. */
+  const actionsLigne = useActionsLigneProspection({
+    entite: 'prospection',
+    onMutation: () => {
+      liste.refetch();
+      groupes.refetch();
+    },
+  });
+
   const data = liste.data;
   const rows = data?.content ?? [];
   /** La page qui pilote le décompte et la pagination — groupes ou lignes. */
@@ -312,6 +324,7 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
                   colonnes={colonnes.colonnes}
                   onOuvrir={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
                   bandeauRegroupement={false}
+                  actions={actionsLigne.rendu}
                   groupes={
                     enGroupes && groupement.colonneGroupee
                       ? {
@@ -360,6 +373,8 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
           <NouvelleProspectionDialog onClose={() => navigate('/prospections')} />
         </Suspense>
       )}
+
+      {actionsLigne.boites}
     </PageShell>
   );
 }

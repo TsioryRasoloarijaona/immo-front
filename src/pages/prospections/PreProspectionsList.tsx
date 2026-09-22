@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/button';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import ProspectionTable from '../../components/ProspectionTable';
 import BandeGroupement from '../../components/BandeGroupement';
+import { useActionsLigneProspection } from '../../components/ActionsLigneProspection';
 import { DEFAULT_PAGE_SIZE, listPreProspections, listPreProspectionsGroupes, listTranches } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { useGroupement, useLignesGroupes } from '../../lib/groupement';
@@ -148,6 +149,17 @@ export default function PreProspectionsList() {
     `${clesFiltres.join('|')}|${groupement.cleDeps}`,
   );
 
+  /* Le menu « ⋯ » de chaque ligne — voir ProspectionsList, même mécanique.
+     Ici l'item de conversion est « Transformer en prospect » : toutes les
+     lignes de cette liste sont sans prospect lié par définition. */
+  const actionsLigne = useActionsLigneProspection({
+    entite: 'pré-prospection',
+    onMutation: () => {
+      liste.refetch();
+      groupes.refetch();
+    },
+  });
+
   const data = liste.data;
   const rows = data?.content ?? [];
   /** La page qui pilote le décompte et la pagination — groupes ou lignes. */
@@ -239,6 +251,7 @@ export default function PreProspectionsList() {
                   entite="pré-prospection"
                   onOuvrir={(prospectionId) => navigate(`/pre-prospections/${prospectionId}`)}
                   bandeauRegroupement={false}
+                  actions={actionsLigne.rendu}
                   groupes={
                     enGroupes && groupement.colonneGroupee
                       ? {
@@ -278,6 +291,8 @@ export default function PreProspectionsList() {
           </ResultsRegion>
         )}
       </div>
+
+      {actionsLigne.boites}
     </PageShell>
   );
 }

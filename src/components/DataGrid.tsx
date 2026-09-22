@@ -198,6 +198,7 @@ export default function DataGrid<T extends { id: string }>({
   selection,
   classeLigne,
   rendreDetail,
+  actions,
   groupes,
 }: {
   rows: T[];
@@ -266,6 +267,13 @@ export default function DataGrid<T extends { id: string }>({
    * déjà teintée. */
   classeLigne?: (row: T) => string | undefined;
   rendreDetail?: (row: T) => ReactNode;
+  /** Colonne « Actions » **statique** en tête de grille, après les
+   * gouttières : un rendu par ligne
+   * (menu contextuel, boutons), volontairement hors tri, filtre, Σ et
+   * glisser-déposer — ces chromes comparent des valeurs et cette colonne
+   * n'en porte pas. Les clics et touches y sont arrêtés avant la ligne,
+   * sinon ouvrir le menu ouvrirait aussi la fiche. */
+  actions?: (row: T) => ReactNode;
   /** Groupement **déplié sur place**, comme dans le logiciel de bureau.
    *
    * Quand il est fourni, le corps du tableau n'est plus une suite de lignes
@@ -455,7 +463,7 @@ export default function DataGrid<T extends { id: string }>({
   /* Les gouttières : indicateur de ligne courante, case à cocher, et le
      chevron de maître-détail quand il existe. Sert au `colSpan` des lignes qui
      couvrent toute la largeur — en-têtes de groupe et leurs pieds. */
-  const nbColonnes = colonnes.length + (rendreDetail ? 3 : 2);
+  const nbColonnes = colonnes.length + (rendreDetail ? 3 : 2) + (actions ? 1 : 0);
 
   /* Extraite de la boucle : la même ligne se rend à plat ou sous un en-tête de
      groupe, et la dupliquer serait le meilleur moyen de faire diverger les
@@ -534,6 +542,18 @@ export default function DataGrid<T extends { id: string }>({
               aria-label={libelleLigne ? `Sélectionner — ${libelleLigne(r)}` : 'Sélectionner la ligne'}
             />
           </TableCell>
+          {actions && (
+            <TableCell
+              className="px-1 text-center"
+              /* Le clic ouvre le menu, pas la fiche ; Entrée sur le
+                 déclencheur focalisé remonterait sinon jusqu'au onKeyDown de
+                 la ligne et naviguerait par-dessus le menu ouvert. */
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              {actions(r)}
+            </TableCell>
+          )}
           {colonnes.map((c) => (
             <TableCell
               key={c.nom}
@@ -640,6 +660,14 @@ export default function DataGrid<T extends { id: string }>({
                 aria-label={toutesCochees ? 'Tout décocher' : 'Tout cocher'}
               />
             </TableHead>
+            {actions && (
+              /* Ni triable, ni déplaçable, ni sommable : l'en-tête est un
+                 libellé nu, pas un bouton. En tête de grille, avec les
+                 gouttières — un geste, pas une donnée. */
+              <TableHead className="sticky top-0 z-10 bg-(--surface-hover) px-1 text-center whitespace-nowrap">
+                Actions
+              </TableHead>
+            )}
             {colonnes.map((c, iCol) => {
               const trie = tri?.nom === c.nom;
               /* De quel côté poser le trait d'insertion. Les deux sens ne se
@@ -755,6 +783,7 @@ export default function DataGrid<T extends { id: string }>({
             {rendreDetail && <TableHead className="h-(--row-h-filter) w-(--gutter-check) bg-card p-0" />}
             <TableHead className="h-(--row-h-filter) w-(--gutter-mark) bg-card p-0" />
             <TableHead className="h-(--row-h-filter) w-(--gutter-check) bg-card p-0" />
+            {actions && <TableHead className="h-(--row-h-filter) bg-card p-0" />}
             {colonnes.map((c) => (
               <TableHead key={c.nom} className="h-(--row-h-filter) bg-card p-0">
                 <span className="flex h-full items-center">
@@ -932,6 +961,7 @@ export default function DataGrid<T extends { id: string }>({
               {rendreDetail && <TableCell className="w-(--gutter-check) p-0" />}
               <TableCell className="w-(--gutter-mark) p-0" />
               <TableCell className="w-(--gutter-check) p-0" />
+              {actions && <TableCell className="px-1" />}
               {colonnes.map((c) => (
                 <TableCell
                   key={c.nom}
