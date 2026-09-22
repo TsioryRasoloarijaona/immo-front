@@ -1,63 +1,55 @@
 # Session Memory
-_Last updated: 2026-09-20 (fin de session — le grand redesign)_
+_Last updated: 2026-09-21 (session « les 5 mises à jour de spec du jour »)_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
 
 ## 🎯 Current Objective
 
-**Redesign complet de l'application, piloté en direct par l'utilisateur sur une
-seule journée**, construit sur la branche `docs/demande-filtre-colonne` à sa
-demande explicite. Quatre directions de palette en 24 h : bleu Attio (validé en
-maquette puis rejeté) → indigo (livré puis remplacé) → **style « Uxerflow »
-final** : canvas greige + feuille blanche flottante, accent orange, boutons
-noirs. Puis quatre passes de raffinement sur retours : retenue de l'orange,
-modernisation filtres/tables, équilibrage des bordures app-wide, conversions
-timeline→table. Constantes tenues de bout en bout : zéro défilement de page,
-densité de grille Omran 24 px, statuts+glyphes intouchés, AA vérifié à chaque
-commit.
-
-Maquette (restée à l'état indigo) :
-https://claude.ai/code/artifact/d5cdd55f-132c-47fa-a613-5e743d192d54
+**Suivre les mises à jour successives du spec V4 poussées par le backend dans
+la même journée**, une PR par mise à jour, dans la boucle : l'utilisateur fait
+`docs:update` (ou me dit « check the spec ») → diff structurel contre HEAD →
+demander la branche → implémenter → build+lint → commit → push → il fusionne
+sur GitHub → sync. Cinq lots livrés aujourd'hui, le cinquième en cours.
 
 ---
 
 ## ✅ What Worked
 
-1. **Maquette avant code** : le rejet du bleu a coûté un republish d'artifact,
-   pas une réécriture.
-2. **Tout passe par les tokens** : quatre palettes successives sans jamais
-   toucher un composant — `index.css` est le seul point de vérité couleur.
-3. **`npm run check:contrast` à chaque palette** : 52 paires AA revalidées en
-   une commande, zéro échec sur les quatre directions.
-4. **Grep du CSS compilé après chaque build** : preuve de migration totale
-   (0 trace du violet, puis 0 trace de l'indigo, puis 0 brun en sombre).
-5. **`variant="inset"` de la sidebar shadcn vendorisée** : l'architecture
-   « feuille flottante » de la référence existait déjà dans le code — un prop,
-   pas une réécriture.
-6. **Édits mécaniques en N appels Edit** plutôt qu'un regex shell (cf. échec
-   encodage ci-dessous).
-7. **Doctrine écrite au moment du geste** : la règle des bordures est codifiée
-   dans `index.css` près de `--border`, l'historique des palettes dans
-   l'en-tête — la prochaine session lit le pourquoi sur place.
+1. **Le diff structurel du spec en une commande node** (ops ajoutées/retirées,
+   schémas, props, `required`) contre `git show HEAD:docs/api-docsV4.json`
+   extrait dans le scratchpad — a cerné chaque mise à jour en secondes.
+   Étendu ce jour aux changements de `required` : c'est lui qui a révélé les
+   champs devenus obligatoires.
+2. **La danse du stash** pour couper une branche avec le spec déjà modifié :
+   `git stash push docs/...` → `git-flow start` → `git stash pop` (start
+   refuse les fichiers non commis, commit refuse main).
+3. **`refetchAllApis()`** : registre module-level des `run` de tous les
+   `useApi` montés (Set, inscription par effet) — après la synchro, chaque
+   page relit ses données sans navigation, données précédentes visibles.
+4. **Réutiliser les gestes existants** : le sélecteur recherche-ou-création de
+   `ContactsProspect` copie le `ProspectPicker` de NewProspection ; la boîte
+   de transformation copie la cascade projet→tranche→article.
+5. **AskUserQuestion avant chaque branche** — la réponse « check again the
+   spec » a évité de construire sur un spec périmé (le back venait d'ouvrir
+   la synchro aux commerciaux).
+6. **Grep du CSS compilé avec `-F`** : les classes fractionnaires y sont
+   échappées (`.px-4\.5`) — un grep regex conclut à tort qu'elles manquent.
 
 ---
 
 ## ❌ What Failed
 
-- **Patch regex via PowerShell** (`Get-Content -Raw` + `WriteAllText`) →
-  UTF-8 sans BOM lu comme ANSI, mojibake sur tous les accents de
-  ProspectionDetail.tsx. Réparé par `git checkout --` + refait à l'outil Edit.
-  **Règle : le shell ne touche jamais un fichier source.** (Consigné en
-  mémoire persistante.)
-- **Guillemets doubles dans un message de commit** → PowerShell 5.1 éclate
-  l'argument natif en pathspecs. Messages sans `"`.
-- **Commentaire JSX `{/* */}` inséré dans une expression parenthésée** →
-  erreur de syntaxe (il faut `/* */` JS). Attrapé par tsc avant commit, deux
-  fois le même piège dans la même passe.
-- **Le bleu #2563EB validé sur maquette a quand même été rejeté** : une
-  validation de maquette n'immunise pas contre un revirement — livrer petit et
-  tôt reste la seule vraie protection.
+- **Pilule flottante bas-droit pour la synchro** → recouvrait la pagination
+  des listes (elle vit exactement là). Déplacée dans le pied de sidebar,
+  pleine largeur au-dessus du profil. Le pourquoi est commenté dans
+  SyncButton.tsx.
+- **Édits faits sur `main` sans le voir** (lot « champs obligatoires ») :
+  l'utilisateur avait fusionné la PR et le checkout était revenu sur main ;
+  le guard-branch n'a PAS bloqué mes Edit. Rattrapé par stash → branche →
+  pop. **Vérifier `git branch --show-current` avant le premier édit de
+  chaque lot, pas seulement au début de session.**
+- **`bash /tmp` n'existe pas ici** (`C:\tmp`) → toujours le scratchpad.
 
 ---
 
@@ -65,124 +57,110 @@ https://claude.ai/code/artifact/d5cdd55f-132c-47fa-a613-5e743d192d54
 
 | # | Error / Bug | Status | Fix applied |
 |---|-------------|--------|-------------|
-| 101 | 9 erreurs eslint préexistantes | Open | **La référence est 9** — inchangée après ~15 commits de redesign |
-| 155 | `FEATURES.md` invente 17 endpoints « sans appelant » | Open (outil) | — |
+| 101 | Erreurs eslint préexistantes — **la référence est passée de 9 à 10** (`use-mobile.ts` setState-in-effect, arrivé sur main entre les sessions) | Open | — |
+| 155 | `FEATURES.md` invente des endpoints « sans appelant » (18 affichés) | Open (outil) | — |
 | 156 | `CreerReglementRequest.dateReglement` publiée mais refusée en 400 | Open (backend) | — |
-| 164 | Couloir « Dossier de vente » compte les actifs, liste tout | Open | slice(3) de dossiersPage non filtré |
+| 164 | Couloir « Dossier de vente » compte les actifs, liste tout | Open | — |
 | 167 | `derniereAlerteDate` ni filtrable ni triable | Open (backend) | — |
-| 168 | Filtre par colonne client-side ment (chèque → 0/180) | Open (backend) | Demande dans `docs/filtres-avances.md`, PR non fusionnée |
-| 169 | Corruption d'encodage par patch shell | Fixed | `git checkout` + Edit tool |
-| 170 | JSX comment dans expression JS ×2 | Fixed | `/* */` au lieu de `{/* */}` |
+| 168 | Filtre par colonne client-side ment (chèque → 0/180) | Open (backend) | — |
+| 171 | Transform « commercial seul » → 400 dès que la prospection n'a pas de tranche | Fixed | Boîte TransformerProspectionDialog (commercial+tranche+article) |
+| 172 | Ajout de contact par UUID brut, relation optionnelle → 400 nouveau spec | Fixed | ContactsProspect (recherche ou création à la volée, relation obligatoire) |
 
 ---
 
 ## 🔑 Key Points to Remember
 
-### L'état final du design (commits `29ac050` → `a2f9c2e`)
-- **Architecture** : `Sidebar variant="inset"` (Layout.tsx) — canvas greige
-  `--sidebar` (#f2f0ea clair / #121211 sombre), sidebar nue dessus, contenu
-  dans une feuille blanche flottante. `PageShell fullHeight` =
-  `md:h-[calc(100svh-1rem)]` (compense la marge m-2 de la feuille), en-tête
-  `md:rounded-t-xl`, filet /70, sans séparateurs verticaux.
-- **Couleurs** : `--brand` orange #c2410c / #fb923c (le coral #ff5a2d de la
-  référence ne passe pas AA). `--primary` = encre noire #201d17 (inversé clair
-  en sombre) — **découplé de --brand** : boutons noirs, orange réservé à la
-  structure (nav active, focus, sélection, barres du graphe). Sombre quasi
-  NEUTRE (feuille #1b1b19). `--sec-accent` = gris (`var(--text)`) : les ~80
-  puces d'icônes d'entité sont neutres. Nouveau ton **`--progress` violet**
-  (#6d28d9/#a78bfa) découplé de brand (badge.tsx, STAT_TONE_VARS, règle de
-  grille). Statuts success/warning/amber/info inchangés.
-- **Doctrine bordures (codifiée dans index.css près de --border)** : UN cadre
-  par zone (conteneur de liste, panneau d'onglets, popover, contrôle) ; toute
-  structure interne = surface `bg-muted/30-40 rounded-lg` sans bordure.
-  `--input` à peine plus soutenu que `--border`. Règles verticales de colonnes
-  RETIRÉES de ui/table.tsx (restaurables, note sur place) ; en-tête de table =
-  bandeau `--surface-hover` (redit sur les cellules collantes de DataGrid) ;
-  séparateurs de lignes /70 ; les huit barres de filtres sont des toolbars
-  nues (seul le panneau « document en lot » de Dossiers garde sa carte).
-- **Zéro-scroll partout** : Dashboard refondu un-viewport (file « À
-  rappeler » + 5 couloirs fusionnés + synthèse + dossiers récents, 10→8
-  appels), Calendrier étiré, TranchesList en table dense, TrancheDetail /
-  ProspectDetail alignés sur la géométrie FicheShell, Hotline, 2 pages KPI.
-  Radius 12 px, page 14/28 px, cartes py-2.5/3, KPI en carte segmentée
-  (`KpiCell` local à Dashboard.tsx).
-- **Timeline → table** : onglet Actions de la prospection (note ENTIÈRE,
-  cellule `whitespace-normal min-w-60 max-w-120`, la ligne grandit) et onglet
-  Historique du dossier. Timelines restantes : Historique prospection,
-  fiche prospect/client, Hotline.
-- **Dossier** : Pièces jointes et Documents générés = **deux onglets séparés**
-  (ids `pieces` / `documents`).
+### Les 5 lots du 21/09 (spec V4, dans l'ordre)
+1. **`POST /api/synchronisation`** (PR #52, fusionnée) — bouton admin +
+   `refetchAllApis()`. Synchrone, 409 si cycle en cours/mono-base.
+2. **Champs obligatoires prospection** (PR #53, fusionnée) —
+   `CreerProspectionRequest` exige trancheId/origineId/typeContactId/etapeId/
+   notes ; libellés `*` + bouton grisé dans NewProspection.
+   `TransformerProspectionRequest.commercialId` requis, +trancheId/articleId.
+3. **Contacts** (feat/contacts-prospect, fusionnée) — GET/POST
+   `/api/prospections/{id}/contacts` ; `relationTypeId` obligatoire ;
+   `nouveauContact` (création CfgTier à la volée) ; DTO +mobileContact/
+   emailContact. Composant partagé `ContactsProspect` (fiche prospect +
+   onglet Contacts de la prospection). Le DELETE n'existe que côté
+   `/api/prospects/{id}/contacts/{contactId}`.
+4. **Transformation** (feat/transformer-tranche-article, fusionnée) — boîte
+   `TransformerProspectionDialog` : Commercial* (préselect compte connecté),
+   Tranche* (référentiel, préselect p.trancheId), Article optionnel en
+   cascade. Remplace les deux chemins inline de la barre d'actions.
+5. **MB4 — synchro pour les commerciaux** (feat/sync-flottant, EN COURS,
+   non commis) — le back a ouvert l'endpoint à Administrateur + Commercial +
+   Commercial Chef + Commercial Aide (`ROLES_SYNCHRONISATION` dans
+   SyncButton). Bouton déplacé : pied de sidebar pleine largeur (flottant
+   rejeté). Spec re-tiré via `npm run docs:update` — seules les descriptions
+   ont bougé.
 
-### Pièges de session
-- Le shell ne touche JAMAIS un fichier source (encodage). Commits sans `"`.
-- Vérifier la branche avant d'éditer ET avant de commiter.
-- **Cinquième direction de couleur = re-demander avant d'écrire.** L'historique
-  complet vit dans l'en-tête d'index.css.
-- Captures utilisateur en 125 % : diviser par 1,25.
+### La boucle git (rappel opérationnel)
+- `node .claude/scripts/git-flow.mjs` (depuis `prototype/`) : sync → start →
+  commit → push ; `feature-index.mjs add <slug>` + `generate` AVANT push.
+- Toujours demander (AskUserQuestion) avant `start`. Commits sans `"` ni
+  accents dans le message.
+- L'utilisateur fusionne lui-même et revient : « is updated » signifie
+  souvent PR fusionnée + `docs:update` déjà refait.
+
+### Pièges
+- Le shell ne touche JAMAIS un fichier source (encodage) ; scratchpad, pas
+  `/tmp` ; captures écran ÷1,25 ; vérifier la branche avant CHAQUE lot.
+- `useApi` : re-render sur `!error && data` ; le cache de valeurs vit dans
+  `apiCache.ts`, vidé par toute mutation via `request()`.
 
 ### Vérification
-- Cinq portes : `npx tsc -b --force` · eslint = **9** · `npm run
-  check:contrast` · `npm run build` · grep du CSS compilé.
-- **Rien de cette session n'a été vu au navigateur par moi** ; l'utilisateur a
-  validé itérativement sur son écran.
+- Portes : `npm run build` (tsc+vite) · eslint = **10** · grep CSS compilé
+  en `-F` si classes fractionnaires. Rien vu au navigateur par moi —
+  validation visuelle par l'utilisateur à chaque lot.
 
 ---
 
 ## 📁 Important Files & Paths
 
-- `src/index.css` — palette Uxerflow entière + doctrine bordures + historique
-  des quatre directions dans l'en-tête. LE fichier à lire avant tout geste
-  design.
-- `src/components/Layout.tsx` — `variant="inset"`, footer sidebar sans border.
-- `src/components/PageShell.tsx` — fullHeight calc, header allégé.
-- `src/components/ui/table.tsx` — bandeau d'en-tête, plus de règles
-  verticales ; `src/components/DataGrid.tsx` — bandes allégées, en-têtes
-  collants sur `--surface-hover`.
-- `src/components/ui.tsx` — Card aérée, STAT_TONE_VARS.progress violet ;
-  `src/components/ui/badge.tsx` — variant progress.
-- `src/pages/Dashboard.tsx` — réécrit (un viewport, KpiCell, 5 couloirs).
-- `src/components/ProspectionFilterBar.tsx` + les 7 pages listes — filtres en
-  toolbars nues.
-- `src/pages/dossiers/DossierDetail.tsx` — Historique en table, onglets
-  Pièces jointes / Documents générés séparés.
-- `src/pages/prospections/ProspectionDetail.tsx` — onglet Actions en table,
-  note entière.
+- `src/components/SyncButton.tsx` — bouton synchro (pied de sidebar, rôles
+  dans `ROLES_SYNCHRONISATION`, toast bilan 8 s, historique flottant→sidebar
+  en commentaire). **Modifs non commises sur feat/sync-flottant.**
+- `src/components/Layout.tsx` — rend `<SyncButton />` dans SidebarFooter
+  (au-dessus du profil). Non commis.
+- `src/lib/useApi.ts` — `refetchAllApis()` + registre `mountedRunners`.
+- `src/components/ContactsProspect.tsx` — carnet de contacts partagé.
+- `src/components/TransformerProspectionDialog.tsx` — boîte de transformation.
+- `src/pages/prospections/NewProspection.tsx` — champs `*` + garde
+  `champsObligatoiresOk`.
+- `docs/api-docsV4.json` — re-tiré (rôles synchro) ; non commis sur la
+  branche courante avec le backup.
+- Diff spec : script node inline, baseline `git show HEAD:docs/api-docsV4.json`
+  extraite dans le scratchpad (voir mémoire persistante
+  `spec-diff-baseline-is-head`).
 
 ---
 
 ## 🔧 Environment & Config
 
-- Windows 11, PowerShell 5.1 + Git Bash, fichiers CRLF (Write produit du LF,
-  git renormalise — warning bénin). Écran utilisateur à 125 %.
-- Vite `:5173`, backend Spring `:8080`, lancés par l'utilisateur.
-- Branche **`docs/demande-filtre-colonne`** — commits de la session :
-  `29ac050` (indigo+dashboard), `456b1a6` (zéro-scroll ×7), `b5eb507`
-  (Uxerflow), `5a636d1` (retenue orange), `c220811` (filtres/tables),
-  `e8176c5`/`f416100` (Actions→table), `53b9073` (Historique→table),
-  `bf7742a` (fiches sans sur-cadre), `329b3d2` (équilibrage bordures),
-  `a2f9c2e` (onglets pièces/documents), + commits mémoire intercalés.
-  **Poussée, PR toujours non fusionnée.** `origin/main` = `532e3a2` (15/09).
+- Windows 11, PowerShell 5.1 + Git Bash ; Vite `:5173`, Spring `:8080`
+  lancés par l'utilisateur ; backend joignable (docs:update OK).
+- Branche courante : **`feat/sync-flottant`** — modifs non commises :
+  SyncButton.tsx, Layout.tsx, docs/api-docsV4{,.backup}.json.
+- PR fusionnées ce jour : #52 (synchro), #53 (champs obligatoires),
+  contacts-prospect, transformer-tranche-article.
 
 ---
 
 ## ⏭️ Next Step
 
-> **Tour de validation visuelle complet par l'utilisateur** sur l'état final
-> (`npm run dev`) : Dashboard, une liste (Prospections), une fiche dossier
-> (nouveaux onglets), Calendrier, **thème sombre neutre** — puis décider :
-> fusionner la PR (elle porte tout le redesign + la demande backend du filtre
-> par colonne) ou continuer les raffinements.
+> **Attendre la validation visuelle de l'utilisateur sur le bouton synchro en
+> pied de sidebar** (clair/sombre, rail replié, rôle commercial) — puis
+> `git-flow commit front` + `feature-index add sync-flottant` + `generate` +
+> `push`, et attendre sa fusion.
 
 ### Backlog (par priorité)
 
-- [ ] Retours visuels sur l'état final (clair ET sombre).
-- [ ] Faire fusionner la PR `docs/demande-filtre-colonne` (14+ commits).
-- [ ] Barre d'action flottante à la sélection (référence « 2 Selected ») à la
-      place de la carte « document en lot » de DossiersList.
-- [ ] Uniformiser les timelines restantes en tables si souhaité (Historique
-      prospection, fiche prospect/client, Hotline).
-- [ ] #164 — couloir « Dossier de vente » : compte les actifs, liste tout.
-- [ ] EncaissementDetail → FicheShell ; fusion des onglets pauvres de
-      ProspectionDetail (8 → 6) ; ProjetsList à borner.
-- [ ] #155, #156, #167, #168 — backend/outillage, inchangés.
-- [ ] 9 erreurs eslint préexistantes (#101) ; supprimer `harness-densite.tsx`.
+- [ ] Committer/pousser feat/sync-flottant une fois validé (travail fini non
+      commis — ne pas le laisser traîner).
+- [ ] Timelines restantes → tables si souhaité (Historique prospection,
+      fiche prospect/client, Hotline).
+- [ ] #164 — couloir « Dossier de vente » ; EncaissementDetail → FicheShell ;
+      fusion des onglets pauvres de ProspectionDetail.
+- [ ] Barre d'action flottante à la sélection (DossiersList).
+- [ ] #155, #156, #167, #168 — backend/outillage.
+- [ ] 10 erreurs eslint préexistantes (#101) ; supprimer `harness-densite.tsx`.

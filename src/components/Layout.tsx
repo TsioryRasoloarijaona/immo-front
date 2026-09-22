@@ -285,6 +285,12 @@ export default function Layout({ children }: { children: ReactNode }) {
         </SidebarContent>
 
         <SidebarFooter>
+          {/* Synchronisation manuelle (MB4) — pleine largeur au-dessus du
+              profil, visible sur toutes les pages sans rien recouvrir (la
+              pilule flottante essayée d'abord cachait la pagination). Le
+              composant se cache lui-même pour les rôles auxquels le backend
+              refuse l'appel. */}
+          <SyncButton />
           <div className="flex items-center gap-2 px-2 pt-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
             <Link
               to="/profil"
@@ -321,11 +327,6 @@ export default function Layout({ children }: { children: ReactNode }) {
           concerné, et c'est celui-ci. Avec, chaque page garde sa largeur et le
           débordement est absorbé par son propre conteneur de défilement. */}
       <SidebarInset className="min-w-0">{children}</SidebarInset>
-
-      {/* Synchronisation manuelle (MB4) — pilule flottante bas droit, hors du
-          flux de la feuille. Le composant se cache lui-même pour les rôles
-          auxquels le backend refuse l'appel. */}
-      <SyncButton />
     </SidebarProvider>
   );
 }

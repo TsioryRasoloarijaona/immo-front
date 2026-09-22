@@ -12,16 +12,15 @@ import type { SynchronisationResultatDto } from '../types';
  * qu'échouer. */
 const ROLES_SYNCHRONISATION = ['Administrateur', 'Commercial', 'Commercial Chef', 'Commercial Aide'];
 
-/** Bouton flottant « Synchroniser » — bas droit de l'écran, au-dessus de la
- * feuille (MB4 : accessible aux commerciaux, et bien plus visible que
- * l'ancienne icône du pied de sidebar).
+/** Bouton « Synchroniser » du pied de sidebar (MB4 : accessible aux
+ * commerciaux, et bien plus visible que l'ancienne icône seule).
  *
- * Le choix de la pilule flottante plutôt qu'un emplacement de barre : le
- * geste est global (il rafraîchit *toutes* les données, pas celles d'une
- * page), transverse à la navigation, et occasionnel — exactement le profil
- * d'un bouton d'action flottant. La pilule porte son libellé en permanence :
- * une icône seule au même endroit se lirait comme un « rafraîchir la page »
- * quelconque, alors que ceci rapatrie ce que le logiciel de bureau a écrit.
+ * L'emplacement a été décidé en deux temps : une pilule flottante bas droit
+ * a été essayée puis retirée — elle recouvrait la pagination des listes,
+ * qui vit exactement là. Le pied de sidebar est l'endroit qui reste visible
+ * sur toutes les pages sans jamais rien recouvrir ; le bouton y est pleine
+ * largeur, encre sur fond clair, pour rester un vrai geste et non une icône
+ * anonyme. Rail replié : l'icône seule, centrée.
  *
  * Déclenche `POST /api/synchronisation` : rapatriement immédiat depuis la
  * base de référence, au lieu d'attendre le cycle automatique (2 min).
@@ -99,21 +98,22 @@ export default function SyncButton() {
         disabled={enCours}
         onClick={() => void synchroniser()}
         className={cn(
-          'fixed bottom-5 right-5 z-40 flex h-10 items-center gap-2 rounded-full bg-foreground pl-3.5 pr-4.5',
-          'text-label font-medium text-background shadow-lg transition-all duration-200',
-          'hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand)',
-          'disabled:translate-y-0 disabled:opacity-80',
+          'flex h-8 w-full items-center justify-center gap-2 rounded-lg bg-foreground px-3',
+          'text-label font-medium text-background shadow-sm transition-opacity duration-200',
+          'hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand)',
+          'disabled:opacity-80',
+          'group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:self-center group-data-[collapsible=icon]:px-0',
         )}
       >
-        <RefreshCw className={cn('size-4', enCours && 'animate-spin')} />
-        {enCours ? 'Synchronisation…' : 'Synchroniser'}
+        <RefreshCw className={cn('size-4 shrink-0', enCours && 'animate-spin')} />
+        <span className="group-data-[collapsible=icon]:hidden">{enCours ? 'Synchronisation…' : 'Synchroniser'}</span>
       </button>
       {toast && (
         <div
           role="status"
           aria-live="polite"
           className={cn(
-            'fixed bottom-18 right-5 z-50 max-w-sm rounded-lg px-4.5 py-3 text-label font-medium shadow-lg',
+            'fixed bottom-6 right-6 z-50 max-w-sm rounded-lg px-4.5 py-3 text-label font-medium shadow-lg',
             toast.erreur ? 'border border-destructive/40 bg-background text-destructive' : 'bg-foreground text-background',
           )}
         >
