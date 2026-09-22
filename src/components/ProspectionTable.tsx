@@ -118,7 +118,7 @@ export default function ProspectionTable({
    * deux écrans lisent le même DTO mais un lecteur d'écran doit entendre
    * « pré-prospection » sur l'un et « prospection » sur l'autre. */
   entite?: 'prospection' | 'pré-prospection';
-  /** Colonne « Actions » statique en fin de grille — le menu par ligne des
+  /** Colonne « Actions » statique en tête de grille — le menu par ligne des
    * deux listes. Passe-plat vers `DataGrid.actions`. */
   actions?: (p: ProspectionListItemDto) => ReactNode;
 }) {

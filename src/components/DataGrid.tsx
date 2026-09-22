@@ -267,7 +267,8 @@ export default function DataGrid<T extends { id: string }>({
    * déjà teintée. */
   classeLigne?: (row: T) => string | undefined;
   rendreDetail?: (row: T) => ReactNode;
-  /** Colonne « Actions » **statique** en fin de grille : un rendu par ligne
+  /** Colonne « Actions » **statique** en tête de grille, après les
+   * gouttières : un rendu par ligne
    * (menu contextuel, boutons), volontairement hors tri, filtre, Σ et
    * glisser-déposer — ces chromes comparent des valeurs et cette colonne
    * n'en porte pas. Les clics et touches y sont arrêtés avant la ligne,
@@ -541,18 +542,6 @@ export default function DataGrid<T extends { id: string }>({
               aria-label={libelleLigne ? `Sélectionner — ${libelleLigne(r)}` : 'Sélectionner la ligne'}
             />
           </TableCell>
-          {colonnes.map((c) => (
-            <TableCell
-              key={c.nom}
-              /* `truncate` ne mord plus qu'au-delà du plafond : sans
-                 largeur imposée, une valeur courte s'affiche en entier. */
-              className={cn('truncate', aDroite(c) && 'text-right tabular-nums', c.classe)}
-              style={{ maxWidth: plafondColonne(c) }}
-              title={c.titre?.(r)}
-            >
-              {c.rendu ? c.rendu(r) : rendreParType(valeurDe(r, c), typeDe(c))}
-            </TableCell>
-          ))}
           {actions && (
             <TableCell
               className="px-1 text-center"
@@ -565,6 +554,18 @@ export default function DataGrid<T extends { id: string }>({
               {actions(r)}
             </TableCell>
           )}
+          {colonnes.map((c) => (
+            <TableCell
+              key={c.nom}
+              /* `truncate` ne mord plus qu'au-delà du plafond : sans
+                 largeur imposée, une valeur courte s'affiche en entier. */
+              className={cn('truncate', aDroite(c) && 'text-right tabular-nums', c.classe)}
+              style={{ maxWidth: plafondColonne(c) }}
+              title={c.titre?.(r)}
+            >
+              {c.rendu ? c.rendu(r) : rendreParType(valeurDe(r, c), typeDe(c))}
+            </TableCell>
+          ))}
         </TableRow>
         {rendreDetail && estDepliee && (
           /* `colSpan` couvre les colonnes plus les gouttieres : chevron
@@ -659,6 +660,14 @@ export default function DataGrid<T extends { id: string }>({
                 aria-label={toutesCochees ? 'Tout décocher' : 'Tout cocher'}
               />
             </TableHead>
+            {actions && (
+              /* Ni triable, ni déplaçable, ni sommable : l'en-tête est un
+                 libellé nu, pas un bouton. En tête de grille, avec les
+                 gouttières — un geste, pas une donnée. */
+              <TableHead className="sticky top-0 z-10 bg-(--surface-hover) px-1 text-center whitespace-nowrap">
+                Actions
+              </TableHead>
+            )}
             {colonnes.map((c, iCol) => {
               const trie = tri?.nom === c.nom;
               /* De quel côté poser le trait d'insertion. Les deux sens ne se
@@ -767,13 +776,6 @@ export default function DataGrid<T extends { id: string }>({
                 </TableHead>
               );
             })}
-            {actions && (
-              /* Ni triable, ni déplaçable, ni sommable : l'en-tête est un
-                 libellé nu, pas un bouton. */
-              <TableHead className="sticky top-0 z-10 bg-(--surface-hover) px-1 text-center whitespace-nowrap">
-                Actions
-              </TableHead>
-            )}
           </TableRow>
           {/* Ligne de filtres. Le glyphe annonce le mode de comparaison — `A`
               pour « contient », `=` pour une égalité de forme affichée. */}
@@ -781,6 +783,7 @@ export default function DataGrid<T extends { id: string }>({
             {rendreDetail && <TableHead className="h-(--row-h-filter) w-(--gutter-check) bg-card p-0" />}
             <TableHead className="h-(--row-h-filter) w-(--gutter-mark) bg-card p-0" />
             <TableHead className="h-(--row-h-filter) w-(--gutter-check) bg-card p-0" />
+            {actions && <TableHead className="h-(--row-h-filter) bg-card p-0" />}
             {colonnes.map((c) => (
               <TableHead key={c.nom} className="h-(--row-h-filter) bg-card p-0">
                 <span className="flex h-full items-center">
@@ -801,7 +804,6 @@ export default function DataGrid<T extends { id: string }>({
                 </span>
               </TableHead>
             ))}
-            {actions && <TableHead className="h-(--row-h-filter) bg-card p-0" />}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -959,6 +961,7 @@ export default function DataGrid<T extends { id: string }>({
               {rendreDetail && <TableCell className="w-(--gutter-check) p-0" />}
               <TableCell className="w-(--gutter-mark) p-0" />
               <TableCell className="w-(--gutter-check) p-0" />
+              {actions && <TableCell className="px-1" />}
               {colonnes.map((c) => (
                 <TableCell
                   key={c.nom}
@@ -968,7 +971,6 @@ export default function DataGrid<T extends { id: string }>({
                   {resumes.get(c.nom) ?? null}
                 </TableCell>
               ))}
-              {actions && <TableCell className="px-1" />}
             </TableRow>
           </TableFooter>
         )}
