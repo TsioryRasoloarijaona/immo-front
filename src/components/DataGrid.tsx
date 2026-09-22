@@ -198,6 +198,7 @@ export default function DataGrid<T extends { id: string }>({
   selection,
   classeLigne,
   rendreDetail,
+  actions,
   groupes,
 }: {
   rows: T[];
@@ -266,6 +267,12 @@ export default function DataGrid<T extends { id: string }>({
    * déjà teintée. */
   classeLigne?: (row: T) => string | undefined;
   rendreDetail?: (row: T) => ReactNode;
+  /** Colonne « Actions » **statique** en fin de grille : un rendu par ligne
+   * (menu contextuel, boutons), volontairement hors tri, filtre, Σ et
+   * glisser-déposer — ces chromes comparent des valeurs et cette colonne
+   * n'en porte pas. Les clics et touches y sont arrêtés avant la ligne,
+   * sinon ouvrir le menu ouvrirait aussi la fiche. */
+  actions?: (row: T) => ReactNode;
   /** Groupement **déplié sur place**, comme dans le logiciel de bureau.
    *
    * Quand il est fourni, le corps du tableau n'est plus une suite de lignes
@@ -455,7 +462,7 @@ export default function DataGrid<T extends { id: string }>({
   /* Les gouttières : indicateur de ligne courante, case à cocher, et le
      chevron de maître-détail quand il existe. Sert au `colSpan` des lignes qui
      couvrent toute la largeur — en-têtes de groupe et leurs pieds. */
-  const nbColonnes = colonnes.length + (rendreDetail ? 3 : 2);
+  const nbColonnes = colonnes.length + (rendreDetail ? 3 : 2) + (actions ? 1 : 0);
 
   /* Extraite de la boucle : la même ligne se rend à plat ou sous un en-tête de
      groupe, et la dupliquer serait le meilleur moyen de faire diverger les
@@ -546,6 +553,18 @@ export default function DataGrid<T extends { id: string }>({
               {c.rendu ? c.rendu(r) : rendreParType(valeurDe(r, c), typeDe(c))}
             </TableCell>
           ))}
+          {actions && (
+            <TableCell
+              className="px-1 text-center"
+              /* Le clic ouvre le menu, pas la fiche ; Entrée sur le
+                 déclencheur focalisé remonterait sinon jusqu'au onKeyDown de
+                 la ligne et naviguerait par-dessus le menu ouvert. */
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+            >
+              {actions(r)}
+            </TableCell>
+          )}
         </TableRow>
         {rendreDetail && estDepliee && (
           /* `colSpan` couvre les colonnes plus les gouttieres : chevron
@@ -748,6 +767,13 @@ export default function DataGrid<T extends { id: string }>({
                 </TableHead>
               );
             })}
+            {actions && (
+              /* Ni triable, ni déplaçable, ni sommable : l'en-tête est un
+                 libellé nu, pas un bouton. */
+              <TableHead className="sticky top-0 z-10 bg-(--surface-hover) px-1 text-center whitespace-nowrap">
+                Actions
+              </TableHead>
+            )}
           </TableRow>
           {/* Ligne de filtres. Le glyphe annonce le mode de comparaison — `A`
               pour « contient », `=` pour une égalité de forme affichée. */}
@@ -775,6 +801,7 @@ export default function DataGrid<T extends { id: string }>({
                 </span>
               </TableHead>
             ))}
+            {actions && <TableHead className="h-(--row-h-filter) bg-card p-0" />}
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -941,6 +968,7 @@ export default function DataGrid<T extends { id: string }>({
                   {resumes.get(c.nom) ?? null}
                 </TableCell>
               ))}
+              {actions && <TableCell className="px-1" />}
             </TableRow>
           </TableFooter>
         )}
