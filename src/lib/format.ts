@@ -82,9 +82,27 @@ export function formatDateTime(value: string | null | undefined): string {
 // some request DTOs (e.g. ChangerStatutRequest.date) are typed
 // `format: date-time` and reject a date-only string with a 400 — pad it out
 // to midnight ISO so it deserializes as a LocalDateTime/OffsetDateTime.
-export function toApiDateTime(dateOnly: string | null | undefined): string | undefined {
-  if (!dateOnly) return undefined;
-  return `${dateOnly}T00:00:00`;
+// An `<input type="datetime-local">` (date du RDV) gives "YYYY-MM-DDTHH:mm"
+// without seconds: only the seconds are padded then, the chosen time stays.
+export function toApiDateTime(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  if (value.includes('T')) return value.length === 16 ? `${value}:00` : value;
+  return `${value}T00:00:00`;
+}
+
+/** `HH:mm` d'une valeur date-time, ou `null` quand elle n'en porte pas — ou
+ * porte minuit pile, l'heure de remplissage des saisies à la journée : tous
+ * les RDV pris avant le passage du champ en date+heure sont à `T00:00:00`,
+ * et leur afficher « 00:00 » inventerait un horaire que la donnée n'a pas.
+ * Le prix accepté : un vrai RDV à minuit s'affiche sans heure — improbable
+ * pour une visite immobilière, et préférable au mensonge inverse. */
+export function formatHeure(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const m = /^\d{4}-\d{2}-\d{2}[T ](\d{2}):(\d{2})/.exec(value);
+  if (!m) return null;
+  const [, h, min] = m;
+  if (h === '00' && min === '00') return null;
+  return `${h}:${min}`;
 }
 
 export function todayISO(): string {

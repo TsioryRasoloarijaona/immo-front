@@ -97,8 +97,12 @@ export default function InteractionForm({
 
           {isRdv && (
             <FormField>
-              <FieldLabel htmlFor="action-date-rdv">Date du rendez-vous</FieldLabel>
-              <Input id="action-date-rdv" type="date" value={dateRdv} onChange={(e) => setDateRdv(e.target.value)} required />
+              <FieldLabel htmlFor="action-date-rdv">Date et heure du rendez-vous</FieldLabel>
+              {/* `datetime-local`, plus `date` : un RDV se prend à une heure,
+                  et le calendrier l'affiche désormais (formatHeure). Les RDV
+                  saisis avant ce champ restent à minuit — traités « jour
+                  entier » à l'affichage, pas « 00:00 ». */}
+              <Input id="action-date-rdv" type="datetime-local" value={dateRdv} onChange={(e) => setDateRdv(e.target.value)} required />
             </FormField>
           )}
 

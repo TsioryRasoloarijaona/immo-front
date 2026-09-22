@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, Eye, MapPin } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, Clock, Eye, MapPin } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
@@ -7,7 +7,7 @@ import { getEvenementsCalendrier } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { usePreview } from '../../lib/previewContext';
 import { isVisiteEvenement } from '../../lib/domain';
-import { formatDate } from '../../lib/format';
+import { formatDate, formatHeure } from '../../lib/format';
 import { cn } from '../../lib/utils';
 import type { EvenementCalendrierDto } from '../../types';
 
@@ -15,9 +15,10 @@ import type { EvenementCalendrierDto } from '../../types';
 // GET /api/calendrier/evenements (V4) : une entrée par interaction dont le
 // résultat impliquait une date de RDV (Rendez vous pris / RDV reporté / Le
 // prospect veut faire une visite du projet — voir InteractionForm.tsx).
-// L'input `type="date"` de ce formulaire ne capture jamais d'heure, donc les
-// événements sont traités ici comme des créneaux "jour entier", pas
-// horodatés — on n'invente pas une heure que la donnée ne porte pas.
+// Ce formulaire capture désormais date **et** heure (`datetime-local`) ;
+// l'heure est affichée quand elle existe. Les RDV saisis avant ce champ
+// sont tous à `T00:00:00` : `formatHeure` les rend sans heure — créneau
+// « jour entier », on n'invente pas un horaire que la donnée ne porte pas.
 
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MONTH_LABELS = [
@@ -58,6 +59,7 @@ function eventTone(ev: EvenementCalendrierDto): 'amber' | 'info' {
 
 function EventPill({ ev, onClick }: { ev: EvenementCalendrierDto; onClick: () => void }) {
   const visite = isVisiteEvenement(ev);
+  const heure = formatHeure(ev.dateDebut);
   return (
     <button
       type="button"
@@ -66,9 +68,10 @@ function EventPill({ ev, onClick }: { ev: EvenementCalendrierDto; onClick: () =>
         'flex w-full items-center gap-1.5 truncate rounded px-1.5 py-0.75 text-left text-micro font-medium',
         visite ? 'bg-(--amber-bg) text-(--amber)' : 'bg-(--info-bg) text-(--info)'
       )}
-      title={ev.sujet || (visite ? 'Visite' : 'Rendez-vous')}
+      title={`${heure ? `${heure} — ` : ''}${ev.sujet || (visite ? 'Visite' : 'Rendez-vous')}`}
     >
       <span className="size-1.5 shrink-0 rounded-full bg-current" />
+      {heure && <span className="shrink-0 tabular-nums">{heure}</span>}
       <span className="truncate">{ev.prospectNom || ev.sujet || (visite ? 'Visite' : 'RDV')}</span>
     </button>
   );
@@ -77,6 +80,7 @@ function EventPill({ ev, onClick }: { ev: EvenementCalendrierDto; onClick: () =>
 function EventCard({ ev }: { ev: EvenementCalendrierDto }) {
   const { previewProspection } = usePreview();
   const visite = isVisiteEvenement(ev);
+  const heure = formatHeure(ev.dateDebut);
 
   return (
     <div className="flex flex-col gap-1.5 rounded-lg bg-muted/30 p-3">
@@ -89,6 +93,11 @@ function EventCard({ ev }: { ev: EvenementCalendrierDto }) {
       <div className="text-label font-semibold text-foreground">{ev.prospectNom || 'Prospect inconnu'}</div>
       {ev.sujet && <div className="text-body text-muted-foreground">{ev.sujet}</div>}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-muted-foreground">
+        {heure && (
+          <span className="inline-flex items-center gap-1 tabular-nums">
+            <Clock className="size-3" /> {heure}
+          </span>
+        )}
         {ev.lieu && (
           <span className="inline-flex items-center gap-1">
             <MapPin className="size-3" /> {ev.lieu}
@@ -134,6 +143,10 @@ export default function Calendrier() {
       if (!map.has(day)) map.set(day, []);
       map.get(day)!.push(ev);
     }
+    /* Ordre horaire dans chaque jour, maintenant que l'heure existe : les
+       RDV « jour entier » (minuit, saisis avant le champ date+heure) passent
+       naturellement en tête — l'ISO se compare tel quel. */
+    for (const list of map.values()) list.sort((a, b) => (a.dateDebut ?? '').localeCompare(b.dateDebut ?? ''));
     return map;
   }, [events]);
 
@@ -279,7 +292,10 @@ export default function Calendrier() {
                     <span className={cn('size-2 shrink-0 rounded-full', isVisiteEvenement(ev) ? 'bg-(--amber)' : 'bg-(--info)')} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-body font-medium text-foreground">{ev.prospectNom || ev.sujet || '—'}</div>
-                      <div className="text-micro text-muted-foreground">{formatDate(ev.dateDebut)}</div>
+                      <div className="text-micro text-muted-foreground tabular-nums">
+                        {formatDate(ev.dateDebut)}
+                        {formatHeure(ev.dateDebut) && ` à ${formatHeure(ev.dateDebut)}`}
+                      </div>
                     </div>
                   </button>
                 ))}
