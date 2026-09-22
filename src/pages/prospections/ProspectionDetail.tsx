@@ -736,7 +736,7 @@ export default function ProspectionDetail() {
       await archiverProspection(p!.id, { raisonId: raisonId ?? undefined, raisonTexte: raisonTexte.trim() || undefined });
       setShowArchiver(false);
       await refetch();
-      showToast('Prospection clôturée.');
+      showToast('Prospection archivée.');
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Échec de l'opération.");
     } finally {
@@ -769,7 +769,7 @@ export default function ProspectionDetail() {
               onClick={() => setShowArchiver(true)}
               disabled={busy}
             >
-              Clôturer
+              Archiver
             </Button>
           )}
           <Separator orientation="vertical" className="h-6" />
@@ -1034,7 +1034,7 @@ export default function ProspectionDetail() {
               {showArchiver && (
                 <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5">
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-label font-semibold text-destructive">Clôturer la prospection</span>
+                    <span className="text-label font-semibold text-destructive">Archiver la prospection</span>
                     <Button variant="ghost" size="sm" onClick={() => setShowArchiver(false)}>Annuler</Button>
                   </div>
                   <div className="flex flex-wrap items-end gap-2">
@@ -1047,7 +1047,7 @@ export default function ProspectionDetail() {
                       <Input value={raisonTexte} onChange={(e) => setRaisonTexte(e.target.value)} className="h-7" />
                     </div>
                     <Button size="sm" onClick={handleArchiver} disabled={busy} className="text-destructive-foreground">
-                      Confirmer la clôture
+                      Confirmer l'archivage
                     </Button>
                   </div>
                 </div>
