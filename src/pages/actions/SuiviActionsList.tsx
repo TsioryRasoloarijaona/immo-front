@@ -65,6 +65,12 @@ function lendemain(jour: string): string {
 export default function SuiviActionsList() {
   const { user } = useAuth();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
+  /* FEATURE-suivi-actions.md §3bis (23/09) : l'administrateur voit le suivi
+     général ; tout autre rôle ne reçoit que **ses propres actions**, liste et
+     groupes — le serveur l'impose, l'écran s'y conforme en masquant le
+     sélecteur d'utilisateur (demander quelqu'un d'autre rendrait une page
+     vide, sans 403) et en le disant. Même rôle que `GET /api/kpi/commerciaux`. */
+  const isAdmin = user?.roles?.includes('Administrateur') ?? false;
   const typesAction = useTypesContactProspection();
 
   const [dateDebut, setDateDebut] = useState(premierDuMois);
@@ -203,8 +209,11 @@ export default function SuiviActionsList() {
      Hors période, exprès : un utilisateur sans action ce mois-ci doit rester
      choisissable pour élargir la période ensuite. */
   const utilisateurs = useApi(
-    () => listSuiviActionsGroupes({}, { groupBy: 'utilisateur', tri: 'LIBELLE' }, { page: 0, size: 200 }),
-    [],
+    () =>
+      isAdmin
+        ? listSuiviActionsGroupes({}, { groupBy: 'utilisateur', tri: 'LIBELLE' }, { page: 0, size: 200 })
+        : Promise.resolve(null),
+    [isAdmin],
     'suivi-actions-utilisateurs',
   );
   const utilisateurItems = (utilisateurs.data?.content ?? [])
@@ -217,8 +226,8 @@ export default function SuiviActionsList() {
 
   return (
     <PageShell
-      title="Suivi des actions"
-      crumbs={[{ label: 'Ventes' }, { label: 'Suivi' }, { label: 'Suivi des actions' }]}
+      title={isAdmin ? 'Suivi des actions' : 'Mes actions'}
+      crumbs={[{ label: 'Ventes' }, { label: 'Suivi' }, { label: isAdmin ? 'Suivi des actions' : 'Mes actions' }]}
       fullHeight
       icon={<ListChecks />}
       accent="var(--sec-accent)"
@@ -256,7 +265,9 @@ export default function SuiviActionsList() {
               <InputGroupInput type="date" aria-label="Au" value={dateFin} onChange={(e) => resetAndSet(setDateFin, e.target.value)} />
             </InputGroup>
           </div>
-          <MultiSelectDropdown label="Utilisateur" placeholder="Tous" value={utilisateur} onChange={(v) => resetAndSet(setUtilisateur, v)} items={utilisateurItems} />
+          {isAdmin && (
+            <MultiSelectDropdown label="Utilisateur" placeholder="Tous" value={utilisateur} onChange={(v) => resetAndSet(setUtilisateur, v)} items={utilisateurItems} />
+          )}
           <MultiSelectDropdown label="Action" placeholder="Toutes" value={typeId} onChange={(v) => resetAndSet(setTypeId, v)} items={typeItems} />
           <MultiSelectDropdown label="Tranche" placeholder="Toutes" value={trancheId} onChange={(v) => resetAndSet(setTrancheId, v)} items={trancheItems} />
           <Select items={SYSTEME_ITEMS} value={systeme} onValueChange={(v) => resetAndSet(setSysteme, v as SystemeFilter)}>
@@ -304,7 +315,9 @@ export default function SuiviActionsList() {
                   message={
                     hasActiveFilters
                       ? 'Aucune action ne correspond aux filtres actifs.'
-                      : "Aucune action n'a été saisie ce mois-ci."
+                      : isAdmin
+                        ? "Aucune action n'a été saisie ce mois-ci."
+                        : "Vous n'avez saisi aucune action ce mois-ci."
                   }
                   action={
                     <Button type="button" variant="outline" size="sm" onClick={resetFilters}>

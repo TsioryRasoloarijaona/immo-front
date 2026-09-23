@@ -213,9 +213,9 @@ export default function Layout({ children }: { children: ReactNode }) {
                   {/* Pour le commercial, le suivi de ses propres actions est
                       une vue de soi, à côté de ses performances — pas une
                       liste d'entités de vente. Décision utilisateur du 23/09. */}
-                  <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip="Suivi des actions">
+                  <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip="Mes actions">
                     <ListChecks />
-                    Suivi des actions
+                    Mes actions
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -244,9 +244,12 @@ export default function Layout({ children }: { children: ReactNode }) {
                   </SidebarMenuItem>
                 )}
                 <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip="Suivi des actions">
+                  {/* Le serveur ne sert le suivi général qu'à l'administrateur
+                      (FEATURE-suivi-actions.md §3bis) ; les autres rôles y
+                      voient leurs propres actions, et le libellé le dit. */}
+                  <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip={isAdmin ? 'Suivi des actions' : 'Mes actions'}>
                     <ListChecks />
-                    Suivi des actions
+                    {isAdmin ? 'Suivi des actions' : 'Mes actions'}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
