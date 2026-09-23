@@ -29,6 +29,7 @@ export function moduleForPath(pathname: string): string | null {
   if (
     pathname.startsWith('/hotline') ||
     pathname.startsWith('/calendrier') ||
+    pathname.startsWith('/suivi-actions') ||
     pathname.startsWith('/prospections') ||
     pathname.startsWith('/pre-prospections') ||
     pathname.startsWith('/prospects') ||

@@ -626,6 +626,10 @@ export type GroupeColonne =
   // Prospects
   | 'ADRESSE'
   | 'PROFESSION'
+  // Suivi des actions
+  | 'ACTION'
+  | 'RATTACHEMENT'
+  | 'IDENTIFIANTS'
   // Les trois catalogues
   | 'AUDIT';
 
@@ -1164,6 +1168,68 @@ export interface LigneImportDto {
   code?: string | null;
   /** Prospections existantes au même contact (`DOUBLON` et `DEJA_IMPORTEE`). */
   doublonIds?: UUID[] | null;
+}
+
+// --- Suivi des actions (`GET /api/suivi-actions`, `/groupes`, catalogue
+// `GET /api/referentiels/colonnes/suivi-actions`) — FEATURE-suivi-actions.md.
+// L'écran OMRAN « Suivi des actions » : appels, visites, messages saisis par
+// chaque commercial. Consultation seule. ---
+
+/** Une action commerciale telle que l'affiche l'écran OMRAN. **Seules les
+ * colonnes demandées par `?colonnes=` sont présentes** ; `id` toujours.
+ * `rang`, `alerteActive`, `etat` et `personnel` sont calculées pour la page
+ * servie : ni triables ni groupables. */
+export interface SuiviActionDto {
+  id: UUID;
+  /** Auteur tel qu'écrit sur la ligne (`UserName`) — la colonne que filtre
+   * OMRAN. « Système » ou vide pour une action générée. */
+  utilisateur?: string | null;
+  typeAction?: string | null;
+  /** Rang parmi les actions du même type pour le même tiers, 1 = la plus
+   * récente (hors système et impayées). */
+  rang?: number | null;
+  /** `DocDate`. */
+  dateAction?: string | null;
+  /** `AlertValidityDate`, null si aucune alerte. */
+  dateAlerte?: string | null;
+  alerteActive?: boolean | null;
+  /** Prospection, Dossier de vente… */
+  categorie?: string | null;
+  /** Sous-catégorie, p.ex. « Rendez vous pris ». */
+  resultat?: string | null;
+  /** Note saisie (`AlertMessage`). */
+  message?: string | null;
+  impaye?: boolean | null;
+  /** Générée par le système (relance, événement…). */
+  systeme?: boolean | null;
+  /** Rarement renseigné : le type porte le sens. */
+  entrante?: boolean | null;
+  /** Commercial concerné — pas l'auteur. Vide sur 23 % des actions réelles. */
+  commercial?: string | null;
+  personnel?: string | null;
+  tiersNom?: string | null;
+  prospectionCode?: string | null;
+  dossierCode?: string | null;
+  /** Statut du dossier de l'action, sinon du dossier né de sa prospection,
+   * sinon sa catégorie. */
+  etat?: string | null;
+  articleCode?: string | null;
+  articleLibelle?: string | null;
+  /** Tranche résolue comme OMRAN : celle de la prospection, sinon de l'article. */
+  trancheCode?: string | null;
+  trancheLibelle?: string | null;
+  programme?: string | null;
+  entite?: string | null;
+  typeId?: UUID | null;
+  categorieId?: UUID | null;
+  tiersId?: UUID | null;
+  prospectionId?: UUID | null;
+  dossierId?: UUID | null;
+  trancheId?: UUID | null;
+  creePar?: string | null;
+  creeLe?: string | null;
+  modifiePar?: string | null;
+  modifieLe?: string | null;
 }
 
 /** Rapport d'import de leads — même forme pour l'aperçu et l'import. */

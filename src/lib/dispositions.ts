@@ -556,3 +556,89 @@ export const DISPOSITION_ENCAISSEMENTS: DispositionColonnes = {
      porter sur plusieurs dossiers (654 couples pour 643 reglements), donc le
      code affiche ne designe pas toujours une cible unique. */
 };
+
+// ---------------------------------------------------------------------------
+// Suivi des actions (FEATURE-suivi-actions.md §4)
+// ---------------------------------------------------------------------------
+
+/* L'ordre de la doc OMRAN « Suivi des actions », groupe par groupe : l'action
+   elle-meme, ses acteurs, son rattachement. Les identifiants et l'audit ferment
+   la marche — hors defaut cote serveur, proposes par le selecteur. */
+const ORDRE_SUIVI_ACTIONS = [
+  'utilisateur',
+  'typeAction',
+  'rang',
+  'dateAction',
+  'dateAlerte',
+  'alerteActive',
+  'categorie',
+  'resultat',
+  'message',
+  'entrante',
+  'systeme',
+  'impaye',
+  'commercial',
+  'personnel',
+  'tiersNom',
+  'prospectionCode',
+  'dossierCode',
+  'etat',
+  'articleCode',
+  'articleLibelle',
+  'trancheCode',
+  'trancheLibelle',
+  'programme',
+  'entite',
+  'creePar',
+  'creeLe',
+  'modifiePar',
+  'modifieLe',
+];
+
+const POIDS_SUIVI_ACTIONS: Record<string, number> = {
+  utilisateur: 12,
+  typeAction: 11,
+  rang: 4,
+  dateAction: 11,
+  dateAlerte: 11,
+  alerteActive: 6,
+  categorie: 10,
+  resultat: 12,
+  // La note saisie, `nvarchar(max)` : la colonne qui a le plus besoin de
+  // largeur, et celle que `truncate` coupe le plus souvent.
+  message: 24,
+  entrante: 6,
+  systeme: 6,
+  impaye: 6,
+  commercial: 12,
+  personnel: 12,
+  tiersNom: 16,
+  prospectionCode: 8,
+  dossierCode: 8,
+  etat: 10,
+  articleCode: 8,
+  articleLibelle: 14,
+  trancheCode: 7,
+  trancheLibelle: 14,
+  programme: 12,
+  entite: 10,
+  creePar: 12,
+  creeLe: 10,
+  modifiePar: 12,
+  modifieLe: 10,
+};
+
+/** Les deux cles que la ligne ouvre : une action se lit depuis sa
+ * prospection, a defaut depuis son dossier. Demandees toujours, jamais
+ * affichees — voir `SuiviActionsList`. */
+export const CLES_OUVERTURE_SUIVI_ACTION = ['prospectionId', 'dossierId'];
+
+export const DISPOSITION_SUIVI_ACTIONS: DispositionColonnes = {
+  ordre: ORDRE_SUIVI_ACTIONS,
+  poids: POIDS_SUIVI_ACTIONS,
+  /* Tout le groupe IDENTIFIANTS du catalogue : des cles de jointure que le
+     selecteur n'a pas a proposer. `prospectionId` et `dossierId` sont
+     neanmoins demandees a chaque appel (`CLES_OUVERTURE_SUIVI_ACTION`) : c'est
+     par elles que le clic sur une ligne ouvre la fiche. */
+  masquees: new Set(['id', 'typeId', 'categorieId', 'tiersId', 'prospectionId', 'dossierId', 'trancheId']),
+};

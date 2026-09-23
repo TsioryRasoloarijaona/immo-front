@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Building2, Calendar, Contact, FileText, Folder, Gauge, Home, KeyRound, LayoutDashboard, LayoutGrid, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
+import { Building2, Calendar, Contact, FileText, Folder, Gauge, Home, KeyRound, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -110,6 +110,14 @@ export default function Layout({ children }: { children: ReactNode }) {
                   <SidebarMenuButton render={<NavLink to="/calendrier" />} isActive={location.pathname.startsWith('/calendrier')} tooltip="Calendrier">
                     <Calendar />
                     Calendrier
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  {/* Avec Hotline et Calendrier, les trois écrans d'activité
+                      du jour, avant les listes d'entités. */}
+                  <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip="Suivi des actions">
+                    <ListChecks />
+                    Suivi des actions
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
