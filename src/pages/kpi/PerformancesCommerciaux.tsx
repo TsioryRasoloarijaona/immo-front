@@ -108,7 +108,7 @@ export default function PerformancesCommerciaux() {
   return (
     <AdminGuard
       title="Performances commerciales"
-      crumbs={[{ label: 'Administration' }, { label: 'Performances commerciales' }]}
+      crumbs={[{ label: 'Ventes' }, { label: 'Suivi' }, { label: 'Performances commerciales' }]}
       icon={<Trophy />}
       accent="var(--sec-accent)"
       accentBg="var(--sec-accent-bg)"

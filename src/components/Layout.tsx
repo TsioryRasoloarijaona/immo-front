@@ -113,14 +113,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  {/* Avec Hotline et Calendrier, les trois écrans d'activité
-                      du jour, avant les listes d'entités. */}
-                  <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip="Suivi des actions">
-                    <ListChecks />
-                    Suivi des actions
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
                   <SidebarMenuButton render={<NavLink to="/prospections" />} isActive={location.pathname.startsWith('/prospections')} tooltip="Prospections">
                     <Users style={{ color: 'var(--sec-prospection)' }} />
                     Prospections
@@ -217,6 +209,46 @@ export default function Layout({ children }: { children: ReactNode }) {
                     Mes performances
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                  {/* Pour le commercial, le suivi de ses propres actions est
+                      une vue de soi, à côté de ses performances — pas une
+                      liste d'entités de vente. Décision utilisateur du 23/09. */}
+                  <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip="Suivi des actions">
+                    <ListChecks />
+                    Suivi des actions
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+          )}
+
+          {/* Section « Suivi » des autres rôles, dans le module Vente : le
+              pilotage de l'activité — le classement des commerciaux, sorti
+              d'Administration où il n'avait rien d'administratif, et le
+              suivi des actions. Route-gated comme Ventes ; le commercial a
+              les siens dans Profil. */}
+          {!isCommercial && activeModule === 'vente' && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Suivi</SidebarGroupLabel>
+              <SidebarMenu>
+                {isAdmin && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      render={<NavLink to="/performances" />}
+                      isActive={location.pathname.startsWith('/performances')}
+                      tooltip="Performances commerciales"
+                    >
+                      <Trophy />
+                      Performances commerciales
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                <SidebarMenuItem>
+                  <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip="Suivi des actions">
+                    <ListChecks />
+                    Suivi des actions
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroup>
           )}
@@ -275,16 +307,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                   >
                     <KeyRound />
                     Réinitialiser un mot de passe
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<NavLink to="/performances" />}
-                    isActive={location.pathname.startsWith('/performances')}
-                    tooltip="Performances commerciales"
-                  >
-                    <Trophy />
-                    Performances commerciales
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

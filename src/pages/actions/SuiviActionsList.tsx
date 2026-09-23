@@ -218,7 +218,7 @@ export default function SuiviActionsList() {
   return (
     <PageShell
       title="Suivi des actions"
-      crumbs={[{ label: 'Ventes' }, { label: 'Suivi des actions' }]}
+      crumbs={[{ label: 'Ventes' }, { label: 'Suivi' }, { label: 'Suivi des actions' }]}
       fullHeight
       icon={<ListChecks />}
       accent="var(--sec-accent)"
