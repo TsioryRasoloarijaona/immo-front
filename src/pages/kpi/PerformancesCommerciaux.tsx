@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Coins, Folder, Phone, TrendingUp, Trophy, Users } from 'lucide-react';
+import { Coins, Folder, ListChecks, Phone, TrendingUp, Trophy, Users } from 'lucide-react';
 import { Card, EmptyState, ErrorState, LoadingState, ResultsRegion, StatCard } from '../../components/ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import AdminGuard from '../utilisateurs/AdminGuard';
@@ -25,13 +25,35 @@ function tauxGlobal(numerateur: number, denominateur: number): number | null {
   return denominateur > 0 ? numerateur / denominateur : null;
 }
 
+/** Clé React d’une ligne. Depuis FEATURE-suivi-actions.md §7, un compte sans
+ * fiche employé a **sa propre ligne** : `commercialId` nul, `utilisateurId`
+ * renseigné. Sans ce repli, seize lignes partageraient la clé « undefined ». */
+function cleLigne(r: PerformanceCommercialDto): string {
+  return r.commercialId ?? r.utilisateurId ?? r.commercialNom ?? '?';
+}
+
+/** Les actions par type de tout le classement : sommes par libellé, du plus
+ * au moins fréquent — le même ordre que le serveur donne par ligne. */
+function actionsParTypeGlobal(rows: PerformanceCommercialDto[]): { type: string; nombre: number }[] {
+  const parType = new Map<string, number>();
+  for (const r of rows) {
+    for (const a of r.actionsParType ?? []) {
+      const type = a.type || '(sans type)';
+      parType.set(type, (parType.get(type) ?? 0) + (a.nombre ?? 0));
+    }
+  }
+  return [...parType.entries()].map(([type, nombre]) => ({ type, nombre })).sort((a, b) => b.nombre - a.nombre);
+}
+
 /** Colonnes du tableau détaillé. `sortable` porte l’accesseur numérique ; le tri
  * se fait côté client, le jeu tenant dans quelques dizaines de lignes. */
 type SortKey =
   | 'dossiersCrees'
   | 'montantTotal'
   | 'appelsPasses'
+  | 'interactionsTotal'
   | 'rdvObtenus'
+  | 'tauxActionVersRdv'
   | 'prospectionsAssignees'
   | 'prospectionsPrisesEnCharge'
   | 'tauxPriseEnCharge'
@@ -70,6 +92,7 @@ export default function PerformancesCommerciaux() {
     const prospectionsPrisesEnCharge = somme(rows, (r) => r.prospectionsPrisesEnCharge);
     const dossiersCrees = somme(rows, (r) => r.dossiersCrees);
     const montantTotal = somme(rows, (r) => r.montantTotal);
+    const interactionsTotal = somme(rows, (r) => r.interactionsTotal);
     return {
       appelsPasses,
       rdvObtenus,
@@ -77,17 +100,23 @@ export default function PerformancesCommerciaux() {
       prospectionsPrisesEnCharge,
       dossiersCrees,
       montantTotal,
-      interactionsTotal: somme(rows, (r) => r.interactionsTotal),
+      interactionsTotal,
+      actionsParType: actionsParTypeGlobal(rows),
       visitesRealisees: somme(rows, (r) => r.visitesRealisees),
       panierMoyen: dossiersCrees > 0 ? montantTotal / dossiersCrees : null,
       tauxPriseEnCharge: tauxGlobal(prospectionsPrisesEnCharge, prospectionsAssignees),
       tauxAppelVersRdv: tauxGlobal(rdvObtenus, appelsPasses),
+      tauxActionVersRdv: tauxGlobal(rdvObtenus, interactionsTotal),
       tauxProspectionVersDossier: tauxGlobal(dossiersCrees, prospectionsAssignees),
     };
   }, [rows]);
 
   const maxDossiers = Math.max(0, ...rows.map((r) => r.dossiersCrees ?? 0));
   const maxAppels = Math.max(0, ...rows.map((r) => r.appelsPasses ?? 0));
+  const maxActionsParType = Math.max(0, ...totaux.actionsParType.map((a) => a.nombre));
+  /** Comptes sans fiche employé, à signaler sous le classement : leurs
+   * actions comptent, leur portefeuille est vide par construction. */
+  const comptesSansEmploye = rows.filter((r) => !r.commercialId && r.utilisateurId).length;
 
   function enTete(key: SortKey, libelle: string, classe = 'text-right') {
     return (
@@ -151,6 +180,7 @@ export default function PerformancesCommerciaux() {
                     <StatCard icon={<Folder />} label="Dossiers créés" value={formatNumber(totaux.dossiersCrees)} tone="success" />
                     <StatCard icon={<Coins />} label="Montant total" value={formatCurrency(totaux.montantTotal)} tone="progress" />
                     <StatCard icon={<TrendingUp />} label="Panier moyen" value={formatCurrency(totaux.panierMoyen)} tone="info" />
+                    <StatCard icon={<ListChecks />} label="Actions" value={formatNumber(totaux.interactionsTotal)} sub="hors « Système »" tone="neutral" />
                     <StatCard icon={<Phone />} label="Appels passés" value={formatNumber(totaux.appelsPasses)} tone="info" />
                     <StatCard icon={<Users />} label="Prospections assignées" value={formatNumber(totaux.prospectionsAssignees)} tone="neutral" />
                   </div>
@@ -161,6 +191,13 @@ export default function PerformancesCommerciaux() {
                       numerateur={totaux.prospectionsPrisesEnCharge}
                       denominateur={totaux.prospectionsAssignees}
                       aide="Prospections assignées ayant reçu au moins une interaction."
+                    />
+                    <RatioStat
+                      label="Taux action → RDV"
+                      ratio={totaux.tauxActionVersRdv}
+                      numerateur={totaux.rdvObtenus}
+                      denominateur={totaux.interactionsTotal}
+                      aide="Les rendez-vous rapportés à toute l’activité, pas seulement au téléphone."
                     />
                     <RatioStat
                       label="Taux appel → RDV"
@@ -178,12 +215,12 @@ export default function PerformancesCommerciaux() {
                   </div>
                 </KpiFamilySection>
 
-                <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
                   <Card title="Classement — dossiers créés">
                     <div className="flex flex-col">
                       {rows.map((r) => (
                         <RankBarRow
-                          key={`${r.commercialId}-dossiers`}
+                          key={`${cleLigne(r)}-dossiers`}
                           label={r.commercialNom || '—'}
                           value={r.dossiersCrees ?? 0}
                           max={maxDossiers}
@@ -198,13 +235,27 @@ export default function PerformancesCommerciaux() {
                         .sort((a, b) => (b.appelsPasses ?? 0) - (a.appelsPasses ?? 0))
                         .map((r) => (
                           <RankBarRow
-                            key={`${r.commercialId}-appels`}
+                            key={`${cleLigne(r)}-appels`}
                             label={r.commercialNom || '—'}
                             value={r.appelsPasses ?? 0}
                             max={maxAppels}
                             sub={`${formatNumber(r.rdvObtenus)} RDV`}
                           />
                         ))}
+                    </div>
+                  </Card>
+                  {/* Le détail de « Actions » par type, sommé sur le classement :
+                      téléphone sortant, visite, note, message… La somme des
+                      barres égale la carte « Actions » au-dessus. */}
+                  <Card title="Actions par type">
+                    <div className="flex flex-col">
+                      {totaux.actionsParType.length === 0 ? (
+                        <p className="text-body text-muted-foreground">Aucune action sur la période.</p>
+                      ) : (
+                        totaux.actionsParType.map((a) => (
+                          <RankBarRow key={a.type} label={a.type} value={a.nombre} max={maxActionsParType} />
+                        ))
+                      )}
                     </div>
                   </Card>
                 </div>
@@ -215,6 +266,7 @@ export default function PerformancesCommerciaux() {
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
                           <TableHead>Commercial</TableHead>
+                          {enTete('interactionsTotal', 'Actions')}
                           {enTete('appelsPasses', 'Appels')}
                           {enTete('rdvObtenus', 'RDV')}
                           <TableHead className="text-right">Visites</TableHead>
@@ -224,14 +276,23 @@ export default function PerformancesCommerciaux() {
                           {enTete('delaiMedianPremiereReponseHeures', 'Délai médian 1re rép.')}
                           {enTete('dossiersCrees', 'Dossiers')}
                           {enTete('montantTotal', 'Montant')}
+                          {enTete('tauxActionVersRdv', 'Action → RDV')}
                           {enTete('tauxAppelVersRdv', 'Appel → RDV')}
                           {enTete('tauxProspectionVersDossier', 'Prosp. → dossier')}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {rowsTriees.map((r) => (
-                          <TableRow key={r.commercialId} className="hover:bg-muted/40">
-                            <TableCell className="font-medium text-foreground">{r.commercialNom || '—'}</TableCell>
+                          <TableRow key={cleLigne(r)} className="hover:bg-muted/40">
+                            <TableCell className="font-medium text-foreground">
+                              {r.commercialNom || '—'}
+                              {/* Un compte sans fiche employé : ses actions comptent,
+                                  son portefeuille est vide par construction. */}
+                              {!r.commercialId && r.utilisateurId && (
+                                <span className="text-micro font-normal text-muted-foreground"> (compte)</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums text-muted-foreground">{formatNumber(r.interactionsTotal)}</TableCell>
                             <TableCell className="text-right tabular-nums text-muted-foreground">{formatNumber(r.appelsPasses)}</TableCell>
                             <TableCell className="text-right tabular-nums text-muted-foreground">{formatNumber(r.rdvObtenus)}</TableCell>
                             <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -254,6 +315,12 @@ export default function PerformancesCommerciaux() {
                             <TableCell className="text-right tabular-nums font-medium text-foreground">{formatNumber(r.dossiersCrees)}</TableCell>
                             <TableCell className="text-right tabular-nums text-muted-foreground">{formatCurrency(r.montantTotal)}</TableCell>
                             <TableCell className="text-right tabular-nums text-foreground">
+                              {formatPercent(r.tauxActionVersRdv)}
+                              <span className="text-micro text-muted-foreground">
+                                {' '}({formatNumber(r.rdvObtenus)}/{formatNumber(r.interactionsTotal)})
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums text-foreground">
                               {formatPercent(r.tauxAppelVersRdv)}
                               <span className="text-micro text-muted-foreground">
                                 {' '}({formatNumber(r.rdvObtenus)}/{formatNumber(r.appelsPasses)})
@@ -273,10 +340,16 @@ export default function PerformancesCommerciaux() {
                 </Card>
 
                 <p className="max-w-180 text-micro text-muted-foreground">
-                  L’activité (appels, visites, interactions) est comptée pour celui qui l’a saisie ;
-                  le portefeuille (prospections assignées, dossiers) pour le commercial assigné. Un
-                  responsable qui appelle sur la prospection d’un commercial voit l’appel chez lui —
-                  l’écart entre les deux familles est volontaire et se lit.
+                  L’activité (actions de tout type, hors « Système ») est comptée pour celui qui l’a
+                  saisie ; le portefeuille (prospections assignées, dossiers) pour le commercial
+                  assigné. Un responsable qui appelle sur la prospection d’un commercial voit l’appel
+                  chez lui — l’écart entre les deux familles est volontaire et se lit.
+                  {comptesSansEmploye > 0 && (
+                    <>
+                      {' '}Les lignes marquées « (compte) » sont des comptes sans fiche employé :
+                      leurs actions comptent, ils n’ont pas de portefeuille.
+                    </>
+                  )}
                 </p>
               </div>
             )}

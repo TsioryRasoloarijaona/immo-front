@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Coins, Folder, Gauge, Phone, PhoneIncoming, Sparkles, TrendingUp, UserCheck, Users } from 'lucide-react';
+import { Coins, Folder, Gauge, ListChecks, Phone, PhoneIncoming, Sparkles, TrendingUp, UserCheck, Users } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Card, EmptyState, ErrorState, LoadingState, ResultsRegion, StatCard } from '../../components/ui';
 import PeriodeFilterBar from '../../components/kpi/PeriodeFilterBar';
 import { emptyPeriode, type Periode } from '../../components/kpi/periode';
-import { KpiFamilySection, RatioStat } from '../../components/kpi/KpiMarks';
+import { KpiFamilySection, RankBarRow, RatioStat } from '../../components/kpi/KpiMarks';
 import { ApiError, getMesPerformances } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { formatCurrency, formatDate, formatHeures, formatNumber } from '../../lib/format';
@@ -13,6 +13,10 @@ import type { PerformanceCommercialDto } from '../../types';
 /** Le 404 de cet endpoint n'est pas une panne : il dit « ce compte n'est
  * rattaché à aucune fiche employé », donc qu'il n'existe aucun commercial dont
  * parler. Il mérite son propre message, pas un bandeau d'erreur.
+ *
+ * Depuis FEATURE-suivi-actions.md §7 (23/09), un compte sans employé reçoit
+ * **200** avec l'activité du compte (portefeuille vide). Le repli 404 est
+ * conservé pour un backend antérieur ; il ne se déclenche plus sur la cible.
  *
  * Or `useApi` aplatit toute erreur en chaîne et jette le `status` (useApi.ts).
  * Plutôt que de refaire un hook de chargement à côté — avec sa garde de réponse
@@ -113,8 +117,26 @@ export default function MesPerformances() {
                     sub={`${formatNumber(data.visitesRealisees)} réalisée${(data.visitesRealisees ?? 0) > 1 ? 's' : ''}`}
                     tone="progress"
                   />
-                  <StatCard icon={<Users />} label="Interactions" value={formatNumber(data.interactionsTotal)} tone="neutral" />
+                  <StatCard icon={<ListChecks />} label="Actions" value={formatNumber(data.interactionsTotal)} sub="hors « Système »" tone="neutral" />
                 </div>
+                {/* Le détail de « Actions » par type, du plus au moins fréquent
+                    — la somme des barres égale la carte. Une action « Système »
+                    (note générée pendant une session) n'est pas la vôtre et
+                    n'y figure pas. */}
+                {(data.actionsParType?.length ?? 0) > 0 && (
+                  <Card title="Actions par type">
+                    <div className="flex flex-col">
+                      {data.actionsParType!.map((a) => (
+                        <RankBarRow
+                          key={a.type || '(sans type)'}
+                          label={a.type || '(sans type)'}
+                          value={a.nombre ?? 0}
+                          max={Math.max(0, ...data.actionsParType!.map((x) => x.nombre ?? 0))}
+                        />
+                      ))}
+                    </div>
+                  </Card>
+                )}
               </KpiFamilySection>
 
               <KpiFamilySection
@@ -154,6 +176,13 @@ export default function MesPerformances() {
                   <StatCard icon={<TrendingUp />} label="Panier moyen" value={formatCurrency(data.panierMoyen)} tone="info" />
                 </div>
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-3">
+                  <RatioStat
+                    label="Taux action → RDV"
+                    ratio={data.tauxActionVersRdv}
+                    numerateur={data.rdvObtenus}
+                    denominateur={data.interactionsTotal}
+                    aide="Les rendez-vous rapportés à toute votre activité, pas seulement au téléphone."
+                  />
                   <RatioStat
                     label="Taux appel → RDV"
                     ratio={data.tauxAppelVersRdv}
