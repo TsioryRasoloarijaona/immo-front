@@ -1,5 +1,5 @@
 # Session Memory
-_Last updated: 2026-09-22 (session « archiver, colonne Actions, RDV horodaté, grand nettoyage »)_
+_Last updated: 2026-09-23 (session « création de pré-prospection + import CSV des leads »)_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
@@ -7,53 +7,48 @@ _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\a
 ## 🎯 Current Objective
 
 **Petites features front à la demande, une PR par lot**, dans la boucle
-habituelle : demande → diff spec si besoin → AskUserQuestion avant la branche →
-implémenter → build+lint → commit+push → l'utilisateur fusionne → sync. Trois
-lots livrés et fusionnés ce 22/09 (PR #58, #60), puis nettoyage complet des
-branches. **Rien en cours — arbre propre sur `main`.**
+habituelle : demande → diff spec → AskUserQuestion avant la branche →
+implémenter → build+lint → commit+push → l'utilisateur fusionne → sync.
+Lot du 23/09 : **branche `feat/creation-pre-prospection` poussée, PR en
+attente de fusion** — voir « Next Step ».
 
 ---
 
 ## ✅ What Worked
 
-1. **Vérifier le spec live avant de conclure** : `curl :8080/api-docs` comparé
-   au snapshot a prouvé que « le nouvel endpoint archive » était déjà couvert
-   (archiverProspection existait de bout en bout) — la demande réelle était un
-   renommage de libellé.
-2. **Colonne statique dans DataGrid via un prop `actions`** — rendue aux
-   4 rangées (en-tête, filtres, corps, pied Σ), hors tri/filtre/Σ/drag, avec
-   `stopPropagation` sur click **et** keydown (sinon Entrée sur le menu
-   naviguait vers la fiche). Déplacée fin → **tête de grille** sur demande.
-3. **Hook `useActionsLigneProspection` → `{ rendu, boites }`** : le menu ⋯ et
-   ses dialogues vivent une fois, les deux listes ne câblent que
-   `actions={...rendu}` + `{...boites}`. Réutilise les dialogues existants de
-   la fiche (InteractionForm, CreateProspectForm, TransformerProspectionDialog).
-4. **Items de menu déduits de la ligne, pas de l'écran** : `!prospectId` →
-   « Transformer en prospect », `prospectId && !commercialId` → « Transformer
-   en prospection », `!fermee` → « Archiver » — mêmes conditions que la barre
-   d'actions de la fiche.
-5. **`formatHeure` qui masque minuit** : les RDV saisis avant le passage en
-   `datetime-local` sont tous à `T00:00:00` → affichés « jour entier », jamais
-   « 00:00 ». `toApiDateTime` étendu : `…THH:mm` (datetime-local) → `+:00`,
-   date nue → `T00:00:00` — aucun autre appelant ne change.
-6. **Nettoyage de branches en deux passes** : `git branch --merged/--no-merged`
-   des deux côtés, inspection des non-fusionnées (`git log main..X`,
-   `git show --stat`) AVANT suppression — les 3 « non fusionnées » ne
-   portaient que des consolidations SESSION_MEMORY périmées.
+1. **Diff structurel du spec, pas `git diff` brut** : un script node compare
+   `git show HEAD:docs/api-docsV4.json` au fichier de travail (ops ajoutées /
+   retirées / modifiées, schémas idem, puis diff champ par champ des « modifiées »).
+   Résultat en 30 s : 3 ops + 5 schémas nouveaux, tout le reste = descriptions
+   et renumérotation `findAll_N` — aucun changement cassant.
+2. **Lire la FEATURE backend** (`immo-crm/instructions/FEATURE-creation-pre-prospection.md`)
+   avant de concevoir : sa section « Impact front » décrit le parcours voulu
+   (boîte de création ; import en deux temps avec liste déroulante de tranche
+   pré-sélectionnée sur `trancheSuggereeId`).
+3. **`postMultipart` existait déjà** dans `api.ts` (champ `fichier`, query
+   string pour le reste, pas de Content-Type manuel) — les deux appels
+   d'import sont des one-liners.
+4. **Dialogue de création = même convention que `NewProspection`** : route
+   `/pre-prospections/nouveau` → la liste rend la boîte par-dessus (prop
+   `nouveau`), `lazy()` pour ne pas charger les référentiels dans le lot de la
+   liste. Sans doublon → navigation vers la fiche ; avec doublons → la boîte
+   bascule sur un panneau ambre qui les nomme (créée quand même).
+5. **Import = page dédiée** `/pre-prospections/import` (choix utilisateur) :
+   machine à états locale `fichier → apercu → resultat`, même fichier renvoyé
+   aux deux endpoints, filtre client par statut au-dessus du tableau.
+6. **`git-flow start` refuse les fichiers non commis** et `commit` refuse
+   `main` : stash ciblé des 3 fichiers → `start` → `stash pop`. Le
+   `backup.json` n'était que du LF/CRLF, git l'a laissé tomber tout seul.
 
 ---
 
 ## ❌ What Failed
 
-- **`git stash pop` sur un stash eol-only** → `No valid patches in input`. Le
-  spec ne différait de HEAD que par LF/CRLF ; le stash était vide de contenu.
-  Réflexe : `git stash show --stat` vide → `git stash drop`, pas pop.
-- **`feature-index add` avant le commit** → « Nothing to record » (il lit
-  `main..HEAD`). Ordre : `git-flow commit` → `feature-index add` + `generate`
-  → `git-flow push`.
-- **`git branch -d` sur une branche fusionnée à main mais en écart avec son
-  tracking distant** (feat/dossier-contexte) → refus ; `-D` après avoir
-  vérifié `--merged main`.
+- **`/tmp` sous Git Bash → `C:\tmp` pour node** : ENOENT. Écrire les fichiers
+  temporaires dans le scratchpad de session, jamais `/tmp`.
+- **`git-flow start` avec l'arbre sale** → « has 3 uncommitted files. Commit
+  them on the current branch first » alors qu'on est sur `main` où `commit`
+  est interdit. Contournement : stash → start → pop.
 
 ---
 
@@ -62,100 +57,105 @@ branches. **Rien en cours — arbre propre sur `main`.**
 | # | Error / Bug | Status | Fix applied |
 |---|-------------|--------|-------------|
 | 101 | Erreurs eslint préexistantes — référence **10** | Open | — |
-| 155 | `FEATURES.md` invente des endpoints « sans appelant » (18 affichés) | Open (outil) | — |
+| 155 | `FEATURES.md` invente des endpoints « sans appelant » (20 affichés) | Open (outil) | — |
 | 156 | `CreerReglementRequest.dateReglement` publiée mais refusée en 400 | Open (backend) | — |
 | 164 | Couloir « Dossier de vente » compte les actifs, liste tout | Open | — |
 | 167 | `derniereAlerteDate` ni filtrable ni triable | Open (backend) | — |
 | 168 | Filtre par colonne client-side ment (chèque → 0/180) | Open (backend) | — |
-| 180 | **Pas d'endpoint « désarchiver »** dans l'API (seul `PATCH /archiver` existe — vérifié spec + live) | Open (backend) | Item de menu grisé « Bientôt » sur les lignes archivées, à câbler quand le back livre |
-| 181 | Mode groupé : les lignes d'un groupe déjà déplié ne se rafraîchissent pas après une mutation du menu Actions (`useLignesGroupes` porte son propre état) | Open (limite documentée) | Commenté dans les deux listes |
+| 180 | **Pas d'endpoint « désarchiver »** (vérifié spec du 23/09 : toujours absent) | Open (backend) | Item grisé « Bientôt » |
+| 181 | Mode groupé : lignes d'un groupe déplié non rafraîchies après mutation | Open (limite documentée) | — |
+| 182 | Import : le tableau rend jusqu'à 5 000 lignes d'un bloc (table simple, pas de virtualisation) | Open (à surveiller) | Filtre par statut pour réduire ; virtualiser si lent |
 
 ---
 
 ## 🔑 Key Points to Remember
 
-### Les 3 lots du 22/09 (tous fusionnés)
-1. **PR #58 `fix/libelle-archiver`** — le geste de clôture s'appelle
-   désormais **« Archiver »** partout dans la fiche (bouton, panneau,
-   confirmation, toast). Les badges de *statut* « Clôturée » (listes, filtres)
-   n'ont PAS changé — décision explicite.
-2. **PR #60 `feat/actions-liste-prospections`** — colonne **Actions** statique
-   en **tête** de grille sur Prospections + Pré-prospections : menu ⋯ par
-   ligne (Ajouter une action / Transformer en prospect / Transformer en
-   prospection / Archiver / Désarchiver grisé). Toast + refetch après
-   mutation.
-3. **Même PR #60** — prise de RDV en **date et heure**
-   (`datetime-local` dans InteractionForm) ; le calendrier affiche l'heure
-   (pastille, carte du jour, « À venir ») et trie chaque jour par heure.
-
-### Nettoyage git (22/09)
-- **Toutes les branches locales et distantes supprimées** — il ne reste que
-  `main` (= `1c106c8`, merge PR #60) des deux côtés. 3 branches ne différant
-  que par des commits SESSION_MEMORY périmés jetées : `533d8fc`, `61e4deb`,
-  `e87f825` (récupérables ~90 j via reflog).
+### Lot du 23/09 — `feat/creation-pre-prospection` (front ET back, même nom)
+- **Spec** : 3 nouveaux endpoints `POST /api/pre-prospections`,
+  `POST …/import/apercu`, `POST …/import?trancheId=…` (+ `etapeId, origineId,
+  origineSupportId, typeContactId, actionCommercialeId`). Réponse de création
+  **enveloppée** `{ preProspection, doublons }`. Doublons **signalés, jamais
+  refusés**.
+- **Backend** : sur sa propre branche `feat/creation-pre-prospection`
+  (2 commits, non fusionnée au 23/09) mais **c'est celle qui tourne sur :8080**
+  (routes vérifiées en live). Changement de discriminant `StrEntity` : la liste
+  des pré-prospections gagne ~847 lignes qui portent désormais parfois
+  `prospectNom`/`commercialNom` — le menu Actions dérive ses items de la ligne,
+  donc rien à changer, mais à regarder en navigateur.
+- **Téléphone de pré-prospection = un seul champ texte** (`TempTel`, tel quel,
+  retrouvé par ses 9 derniers chiffres) → `Input inputMode="tel"`, pas
+  `TelephoneField` (qui suppose indicatif + numéro).
+- **Tons des statuts d'import** : NOUVELLE→success ✓, DOUBLON→amber ⚠,
+  DEJA_IMPORTEE→neutral (sans glyphe : rien à faire), ERREUR→warning ✗.
+- Routes statiques `/pre-prospections/nouveau` et `/import` déclarées **avant**
+  `/pre-prospections/:id` dans `App.tsx`.
 
 ### La boucle git (rappel opérationnel)
 - `node .claude/scripts/git-flow.mjs` depuis `prototype/` ; toujours
   AskUserQuestion avant `start` ; commits sans `"` ni accents ;
   `feature-index add` APRÈS commit, AVANT push.
-- Écrire sur `main` (ex. ce fichier) : créer
-  `prototype/.claude/allow-main-edits`, écrire, **le supprimer aussitôt**.
+- Arbre sale sur `main` (spec rafraîchi par l'utilisateur) : `git stash push
+  -- <fichiers>` → `start` → `stash pop` → premier commit = le snapshot.
+- Écrire sur `main` (ex. ce fichier) : `prototype/.claude/allow-main-edits`,
+  écrire, **le supprimer aussitôt**. Sur une branche : pas besoin.
 
 ### Pièges
 - Le shell ne touche JAMAIS un fichier source (encodage) ; scratchpad, pas
   `/tmp` ; captures ÷1,25 ; vérifier `git branch --show-current` avant le
   premier édit de chaque lot.
 - Un spec « modifié » peut n'être que du bruit LF/CRLF — diff structurel
-  d'abord, et le stash d'un tel diff est vide (drop, pas pop).
+  d'abord.
 - `useApi` : rendre sur `!error && data` ; `refetch` garde les données
   précédentes visibles.
 
 ### Vérification
-- Portes : `npm run build` (tsc+vite) · eslint = **10**. Pas de navigateur
-  depuis la session — validation visuelle par l'utilisateur à chaque lot
-  (faite pour les 3 lots, PR fusionnées).
+- Portes : `npm run build` (tsc+vite) ✓ · eslint = **10** ✓ (23/09). Pas de
+  navigateur depuis la session — **validation visuelle par l'utilisateur
+  attendue** sur ce lot (création avec/sans doublon, import d'un export Meta,
+  réimport → tout en `DEJA_IMPORTEE`).
 
 ---
 
 ## 📁 Important Files & Paths
 
-- `src/components/ActionsLigneProspection.tsx` — **nouveau** : hook
-  `useActionsLigneProspection` (menu ⋯ + dialogues + toast des listes).
-- `src/components/ArchiverProspectionDialog.tsx` — **nouveau** : boîte
-  Raison + Détail → `PATCH /archiver` (le parent passe l'appel).
-- `src/components/DataGrid.tsx` — prop `actions` (colonne statique en tête,
-  hors chrome de grille).
-- `src/components/ProspectionTable.tsx` — passe-plat `actions`.
-- `src/pages/prospections/{ProspectionsList,PreProspectionsList}.tsx` —
-  câblage `actionsLigne` (rendu + boites + refetch).
-- `src/components/InteractionForm.tsx` — champ RDV en `datetime-local`.
-- `src/lib/format.ts` — `formatHeure` (null si minuit) ; `toApiDateTime`
-  accepte date nue ET datetime-local.
-- `src/pages/calendrier/Calendrier.tsx` — heure sur pastilles/cartes/À venir,
-  tri horaire intra-jour.
-- `src/pages/prospections/ProspectionDetail.tsx` — libellés « Archiver ».
+- `src/pages/prospections/NewPreProspection.tsx` — **nouveau** :
+  `NouvellePreProspectionDialog` (Contact + Prospection, panneau doublons).
+- `src/pages/prospections/ImportPreProspections.tsx` — **nouveau** : page
+  d'import en 3 étapes, `TableauLignes` (table simple, colonne Code après import).
+- `src/pages/prospections/PreProspectionsList.tsx` — prop `nouveau`, boutons
+  « Importer des leads » / « Nouvelle pré-prospection » dans `PageShell.actions`.
+- `src/lib/api.ts` — `creerPreProspection`, `apercuImportPreProspections`,
+  `importerPreProspections`, `ImportPreProspectionsParams`.
+- `src/types.ts` — section « Pré-prospection : création & import »
+  (`CreerPreProspectionRequest`, `PreProspectionCreeeDto`,
+  `DoublonPreProspectionDto`, `StatutLigneImport`, `LigneImportDto`,
+  `RapportImportPreProspectionsDto`).
+- `src/App.tsx` — 2 routes ajoutées.
+- `docs/api-docsV4.json` — snapshot du 23/09 (commit `15e4489`).
+- `immo-crm/instructions/FEATURE-creation-pre-prospection.md` — le contrat
+  (lecture seule côté front).
 
 ---
 
 ## 🔧 Environment & Config
 
 - Windows 11, PowerShell 5.1 + Git Bash ; Vite `:5173`, Spring `:8080` lancés
-  par l'utilisateur ; backend joignable (`/api-docs` vérifié ce jour).
-- `main` = `1c106c8`, arbre propre, **aucune autre branche** (nettoyage 22/09).
-- Ce fichier est écrit sur `main` via `allow-main-edits` et laissé **non
-  commis** — au prochain `git-flow start`, le stasher ou le committer sur la
-  branche du lot.
+  par l'utilisateur ; backend joignable, sur `feat/creation-pre-prospection`.
+- Front : branche `feat/creation-pre-prospection` = `main` (`1c106c8`) +
+  snapshot spec + feature + ce fichier. `main` intact.
 
 ---
 
 ## ⏭️ Next Step
 
-> **Rien en cours.** À la reprise : demander à l'utilisateur le prochain lot
-> (ou « check the spec » si le backend a livré — notamment l'endpoint
-> **désarchiver** attendu pour câbler l'item grisé du menu Actions).
+> **Attendre la fusion de la PR front `feat/creation-pre-prospection`** (URL
+> imprimée par `git-flow push`) après validation visuelle par l'utilisateur.
+> Puis `node .claude/scripts/git-flow.mjs sync front`, et demander le lot suivant.
 
 ### Backlog (par priorité)
 
+- [ ] Retours visuels sur ce lot (largeur des colonnes du rapport, libellés).
+- [ ] #182 — virtualiser `TableauLignes` si un fichier de 5 000 lignes rame.
 - [ ] Câbler « Désarchiver » (#180) dès que le back expose l'endpoint.
 - [ ] #181 — rafraîchir les lignes des groupes dépliés après mutation.
 - [ ] #164 — couloir « Dossier de vente » ; EncaissementDetail → FicheShell ;
