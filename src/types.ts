@@ -1079,6 +1079,122 @@ export interface ArchiverProspectionRequest {
   raisonTexte?: string;
 }
 
+// --- Pré-prospection : création (`POST /api/pre-prospections`) et import CSV
+// des leads (`POST /api/pre-prospections/import/apercu` puis `/import`) —
+// FEATURE-creation-pre-prospection.md. Le contact vit en champs libres
+// (`TempDescription`/`TempTel`/`TempEMail`) : aucune fiche prospect n'est
+// créée ici, c'est l'objet de `creer-prospect` puis `transformer`. ---
+
+/** Lead brut, non qualifié. Seul `nom` est obligatoire ; le serveur pose le
+ * code (`AA/NNNNN`, même compteur que les prospections), la date, `IsClosed =
+ * false`, l'auteur, et la vocation `VENTE` si aucune n'est fournie. */
+export interface CreerPreProspectionRequest {
+  /** `TempDescription`, 255 max, non blanc — 400 sinon. */
+  nom: string;
+  /** `TempTel`, 255 max, stocké tel quel (la hotline le retrouve par ses
+   * 9 derniers chiffres, quel que soit le format). */
+  telephone?: string;
+  /** `TempEMail`, 255 max. */
+  email?: string;
+  /** `Notes`, 1 000 max. */
+  notes?: string;
+  /** Optionnel ; 400 si inconnue, **403** si son projet est hors du périmètre
+   * commercial de l'appelant. */
+  trancheId?: UUID;
+  /** Exige `trancheId` et doit lui appartenir (400 sinon). */
+  articleId?: UUID;
+  etapeId?: UUID;
+  origineId?: UUID;
+  origineSupportId?: UUID;
+  typeContactId?: UUID;
+  actionCommercialeId?: UUID;
+  /** Absente : la vocation de code `VENTE`. */
+  vocationId?: UUID;
+}
+
+/** Prospection existante au même contact que celle qui vient d'être créée. */
+export interface DoublonPreProspectionDto {
+  /** Ouvrable par `GET /api/prospections/{id}`. */
+  id: UUID;
+  /** P.ex. `26/05940` ; peut être atypique (`50`) sur les leads injectés. */
+  code?: string | null;
+  /** `UserCreateDateTime`, null sur certaines lignes anciennes ou importées. */
+  dateCreation?: string | null;
+}
+
+/** Réponse 201 de la création. Les doublons sont **signalés, jamais
+ * refusés** : OMRAN enregistre lui aussi une ligne par soumission. */
+export interface PreProspectionCreeeDto {
+  preProspection: ProspectionDetailDto;
+  /** Même nom (sans casse ni espaces de bord), même téléphone (9 derniers
+   * chiffres) et même email (sans casse) — un champ absent des deux côtés
+   * compte comme égal. Les plus récents d'abord, 50 au plus, et seulement
+   * ceux que l'appelant a le droit de voir. **Vide = aucun doublon visible.** */
+  doublons: DoublonPreProspectionDto[];
+}
+
+/** Sort d'une ligne du fichier importé :
+ * - `NOUVELLE` — aucun contact identique connu ; créée.
+ * - `DOUBLON` — même contact qu'une prospection existante (ou qu'une ligne
+ *   plus haut) mais **autre date** de soumission : créée quand même, signalée.
+ * - `DEJA_IMPORTEE` — même contact **et même date** (à la minute) : le même
+ *   lead réimporté ; ignorée.
+ * - `ERREUR` — ligne inexploitable (`message`) ; ignorée. */
+export type StatutLigneImport = 'NOUVELLE' | 'DOUBLON' | 'DEJA_IMPORTEE' | 'ERREUR';
+
+/** Une ligne du fichier importé : ce qui en a été extrait, et son sort. */
+export interface LigneImportDto {
+  /** Numéro de ligne dans le fichier, l'en-tête étant la ligne 1. */
+  ligne: number;
+  /** Colonne « Créé », devenue la date du document. Null si illisible. */
+  dateCreation?: string | null;
+  nom?: string | null;
+  /** « Téléphone », à défaut « Numéro WhatsApp », à défaut le secondaire. */
+  telephone?: string | null;
+  email?: string | null;
+  /** Colonne « Formulaire », recopiée dans les notes. */
+  formulaire?: string | null;
+  statut: StatutLigneImport;
+  /** Explication du statut, en clair — null pour `NOUVELLE`. */
+  message?: string | null;
+  /** Pré-prospection créée. **Toujours null dans l'aperçu**, et pour
+   * `DEJA_IMPORTEE` / `ERREUR`. */
+  preProspectionId?: UUID | null;
+  /** Code de la pré-prospection créée (`AA/NNNNN`). Null comme `preProspectionId`. */
+  code?: string | null;
+  /** Prospections existantes au même contact (`DOUBLON` et `DEJA_IMPORTEE`). */
+  doublonIds?: UUID[] | null;
+}
+
+/** Rapport d'import de leads — même forme pour l'aperçu et l'import. */
+export interface RapportImportPreProspectionsDto {
+  /** `false` pour l'aperçu (rien n'est écrit), `true` après l'import. */
+  importe: boolean;
+  /** Tranche à laquelle **toutes** les lignes ont été rattachées. Null dans l'aperçu. */
+  trancheId?: UUID | null;
+  trancheCode?: string | null;
+  /** Tranche **proposée** : celle dont le code est le premier mot du nom de
+   * formulaire (`APF FORM 02*2026` → `APF`), si tous les formulaires du fichier
+   * désignent la même. Null sinon — l'utilisateur choisit. */
+  trancheSuggereeId?: UUID | null;
+  trancheSuggereeCode?: string | null;
+  /** Noms de formulaires distincts trouvés dans le fichier. */
+  formulaires: string[];
+  /** Mises en garde à montrer avant de confirmer (p.ex. plusieurs tranches). */
+  avertissements: string[];
+  /** Lignes de données (en-tête et lignes vides exclues). */
+  totalLignes: number;
+  nouvelles: number;
+  /** Créées elles aussi. */
+  doublons: number;
+  /** Ignorées. */
+  dejaImportees: number;
+  /** Ignorées. */
+  erreurs: number;
+  /** Le détail, ligne par ligne, dans l'ordre du fichier. */
+  lignes: LigneImportDto[];
+}
+
 // --- Prospection sub-collections (each a simple {id, xxxId, xxx} link row,
 // with a matching Ajouter*Request to add one and a DELETE by itemId) ---
 
