@@ -1,55 +1,54 @@
 # Session Memory
-_Last updated: 2026-09-21 (session « les 5 mises à jour de spec du jour »)_
+_Last updated: 2026-09-23 (session « création de pré-prospection + import CSV des leads »)_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
 
 ## 🎯 Current Objective
 
-**Suivre les mises à jour successives du spec V4 poussées par le backend dans
-la même journée**, une PR par mise à jour, dans la boucle : l'utilisateur fait
-`docs:update` (ou me dit « check the spec ») → diff structurel contre HEAD →
-demander la branche → implémenter → build+lint → commit → push → il fusionne
-sur GitHub → sync. Cinq lots livrés aujourd'hui, le cinquième en cours.
+**Petites features front à la demande, une PR par lot**, dans la boucle
+habituelle : demande → diff spec → AskUserQuestion avant la branche →
+implémenter → build+lint → commit+push → l'utilisateur fusionne → sync.
+Lot du 23/09 : **branche `feat/creation-pre-prospection` poussée, PR en
+attente de fusion** — voir « Next Step ».
 
 ---
 
 ## ✅ What Worked
 
-1. **Le diff structurel du spec en une commande node** (ops ajoutées/retirées,
-   schémas, props, `required`) contre `git show HEAD:docs/api-docsV4.json`
-   extrait dans le scratchpad — a cerné chaque mise à jour en secondes.
-   Étendu ce jour aux changements de `required` : c'est lui qui a révélé les
-   champs devenus obligatoires.
-2. **La danse du stash** pour couper une branche avec le spec déjà modifié :
-   `git stash push docs/...` → `git-flow start` → `git stash pop` (start
-   refuse les fichiers non commis, commit refuse main).
-3. **`refetchAllApis()`** : registre module-level des `run` de tous les
-   `useApi` montés (Set, inscription par effet) — après la synchro, chaque
-   page relit ses données sans navigation, données précédentes visibles.
-4. **Réutiliser les gestes existants** : le sélecteur recherche-ou-création de
-   `ContactsProspect` copie le `ProspectPicker` de NewProspection ; la boîte
-   de transformation copie la cascade projet→tranche→article.
-5. **AskUserQuestion avant chaque branche** — la réponse « check again the
-   spec » a évité de construire sur un spec périmé (le back venait d'ouvrir
-   la synchro aux commerciaux).
-6. **Grep du CSS compilé avec `-F`** : les classes fractionnaires y sont
-   échappées (`.px-4\.5`) — un grep regex conclut à tort qu'elles manquent.
+1. **Diff structurel du spec, pas `git diff` brut** : un script node compare
+   `git show HEAD:docs/api-docsV4.json` au fichier de travail (ops ajoutées /
+   retirées / modifiées, schémas idem, puis diff champ par champ des « modifiées »).
+   Résultat en 30 s : 3 ops + 5 schémas nouveaux, tout le reste = descriptions
+   et renumérotation `findAll_N` — aucun changement cassant.
+2. **Lire la FEATURE backend** (`immo-crm/instructions/FEATURE-creation-pre-prospection.md`)
+   avant de concevoir : sa section « Impact front » décrit le parcours voulu
+   (boîte de création ; import en deux temps avec liste déroulante de tranche
+   pré-sélectionnée sur `trancheSuggereeId`).
+3. **`postMultipart` existait déjà** dans `api.ts` (champ `fichier`, query
+   string pour le reste, pas de Content-Type manuel) — les deux appels
+   d'import sont des one-liners.
+4. **Dialogue de création = même convention que `NewProspection`** : route
+   `/pre-prospections/nouveau` → la liste rend la boîte par-dessus (prop
+   `nouveau`), `lazy()` pour ne pas charger les référentiels dans le lot de la
+   liste. Sans doublon → navigation vers la fiche ; avec doublons → la boîte
+   bascule sur un panneau ambre qui les nomme (créée quand même).
+5. **Import = page dédiée** `/pre-prospections/import` (choix utilisateur) :
+   machine à états locale `fichier → apercu → resultat`, même fichier renvoyé
+   aux deux endpoints, filtre client par statut au-dessus du tableau.
+6. **`git-flow start` refuse les fichiers non commis** et `commit` refuse
+   `main` : stash ciblé des 3 fichiers → `start` → `stash pop`. Le
+   `backup.json` n'était que du LF/CRLF, git l'a laissé tomber tout seul.
 
 ---
 
 ## ❌ What Failed
 
-- **Pilule flottante bas-droit pour la synchro** → recouvrait la pagination
-  des listes (elle vit exactement là). Déplacée dans le pied de sidebar,
-  pleine largeur au-dessus du profil. Le pourquoi est commenté dans
-  SyncButton.tsx.
-- **Édits faits sur `main` sans le voir** (lot « champs obligatoires ») :
-  l'utilisateur avait fusionné la PR et le checkout était revenu sur main ;
-  le guard-branch n'a PAS bloqué mes Edit. Rattrapé par stash → branche →
-  pop. **Vérifier `git branch --show-current` avant le premier édit de
-  chaque lot, pas seulement au début de session.**
-- **`bash /tmp` n'existe pas ici** (`C:\tmp`) → toujours le scratchpad.
+- **`/tmp` sous Git Bash → `C:\tmp` pour node** : ENOENT. Écrire les fichiers
+  temporaires dans le scratchpad de session, jamais `/tmp`.
+- **`git-flow start` avec l'arbre sale** → « has 3 uncommitted files. Commit
+  them on the current branch first » alors qu'on est sur `main` où `commit`
+  est interdit. Contournement : stash → start → pop.
 
 ---
 
@@ -57,110 +56,112 @@ sur GitHub → sync. Cinq lots livrés aujourd'hui, le cinquième en cours.
 
 | # | Error / Bug | Status | Fix applied |
 |---|-------------|--------|-------------|
-| 101 | Erreurs eslint préexistantes — **la référence est passée de 9 à 10** (`use-mobile.ts` setState-in-effect, arrivé sur main entre les sessions) | Open | — |
-| 155 | `FEATURES.md` invente des endpoints « sans appelant » (18 affichés) | Open (outil) | — |
+| 101 | Erreurs eslint préexistantes — référence **10** | Open | — |
+| 155 | `FEATURES.md` invente des endpoints « sans appelant » (20 affichés) | Open (outil) | — |
 | 156 | `CreerReglementRequest.dateReglement` publiée mais refusée en 400 | Open (backend) | — |
 | 164 | Couloir « Dossier de vente » compte les actifs, liste tout | Open | — |
 | 167 | `derniereAlerteDate` ni filtrable ni triable | Open (backend) | — |
 | 168 | Filtre par colonne client-side ment (chèque → 0/180) | Open (backend) | — |
-| 171 | Transform « commercial seul » → 400 dès que la prospection n'a pas de tranche | Fixed | Boîte TransformerProspectionDialog (commercial+tranche+article) |
-| 172 | Ajout de contact par UUID brut, relation optionnelle → 400 nouveau spec | Fixed | ContactsProspect (recherche ou création à la volée, relation obligatoire) |
+| 180 | **Pas d'endpoint « désarchiver »** (vérifié spec du 23/09 : toujours absent) | Open (backend) | Item grisé « Bientôt » |
+| 181 | Mode groupé : lignes d'un groupe déplié non rafraîchies après mutation | Open (limite documentée) | — |
+| 182 | Import : le tableau rend jusqu'à 5 000 lignes d'un bloc (table simple, pas de virtualisation) | Open (à surveiller) | Filtre par statut pour réduire ; virtualiser si lent |
 
 ---
 
 ## 🔑 Key Points to Remember
 
-### Les 5 lots du 21/09 (spec V4, dans l'ordre)
-1. **`POST /api/synchronisation`** (PR #52, fusionnée) — bouton admin +
-   `refetchAllApis()`. Synchrone, 409 si cycle en cours/mono-base.
-2. **Champs obligatoires prospection** (PR #53, fusionnée) —
-   `CreerProspectionRequest` exige trancheId/origineId/typeContactId/etapeId/
-   notes ; libellés `*` + bouton grisé dans NewProspection.
-   `TransformerProspectionRequest.commercialId` requis, +trancheId/articleId.
-3. **Contacts** (feat/contacts-prospect, fusionnée) — GET/POST
-   `/api/prospections/{id}/contacts` ; `relationTypeId` obligatoire ;
-   `nouveauContact` (création CfgTier à la volée) ; DTO +mobileContact/
-   emailContact. Composant partagé `ContactsProspect` (fiche prospect +
-   onglet Contacts de la prospection). Le DELETE n'existe que côté
-   `/api/prospects/{id}/contacts/{contactId}`.
-4. **Transformation** (feat/transformer-tranche-article, fusionnée) — boîte
-   `TransformerProspectionDialog` : Commercial* (préselect compte connecté),
-   Tranche* (référentiel, préselect p.trancheId), Article optionnel en
-   cascade. Remplace les deux chemins inline de la barre d'actions.
-5. **MB4 — synchro pour les commerciaux** (feat/sync-flottant, EN COURS,
-   non commis) — le back a ouvert l'endpoint à Administrateur + Commercial +
-   Commercial Chef + Commercial Aide (`ROLES_SYNCHRONISATION` dans
-   SyncButton). Bouton déplacé : pied de sidebar pleine largeur (flottant
-   rejeté). Spec re-tiré via `npm run docs:update` — seules les descriptions
-   ont bougé.
+### Lot du 23/09 — `feat/creation-pre-prospection` (front ET back, même nom)
+- **Spec** : 3 nouveaux endpoints `POST /api/pre-prospections`,
+  `POST …/import/apercu`, `POST …/import?trancheId=…` (+ `etapeId, origineId,
+  origineSupportId, typeContactId, actionCommercialeId`). Réponse de création
+  **enveloppée** `{ preProspection, doublons }`. Doublons **signalés, jamais
+  refusés**.
+- **Backend** : sur sa propre branche `feat/creation-pre-prospection`
+  (2 commits, non fusionnée au 23/09) mais **c'est celle qui tourne sur :8080**
+  (routes vérifiées en live). Changement de discriminant `StrEntity` : la liste
+  des pré-prospections gagne ~847 lignes qui portent désormais parfois
+  `prospectNom`/`commercialNom` — le menu Actions dérive ses items de la ligne,
+  donc rien à changer, mais à regarder en navigateur.
+- **Téléphone de pré-prospection = un seul champ texte** (`TempTel`, tel quel,
+  retrouvé par ses 9 derniers chiffres) → `Input inputMode="tel"`, pas
+  `TelephoneField` (qui suppose indicatif + numéro).
+- **Tons des statuts d'import** : NOUVELLE→success ✓, DOUBLON→amber ⚠,
+  DEJA_IMPORTEE→neutral (sans glyphe : rien à faire), ERREUR→warning ✗.
+- Routes statiques `/pre-prospections/nouveau` et `/import` déclarées **avant**
+  `/pre-prospections/:id` dans `App.tsx`.
 
 ### La boucle git (rappel opérationnel)
-- `node .claude/scripts/git-flow.mjs` (depuis `prototype/`) : sync → start →
-  commit → push ; `feature-index.mjs add <slug>` + `generate` AVANT push.
-- Toujours demander (AskUserQuestion) avant `start`. Commits sans `"` ni
-  accents dans le message.
-- L'utilisateur fusionne lui-même et revient : « is updated » signifie
-  souvent PR fusionnée + `docs:update` déjà refait.
+- `node .claude/scripts/git-flow.mjs` depuis `prototype/` ; toujours
+  AskUserQuestion avant `start` ; commits sans `"` ni accents ;
+  `feature-index add` APRÈS commit, AVANT push.
+- Arbre sale sur `main` (spec rafraîchi par l'utilisateur) : `git stash push
+  -- <fichiers>` → `start` → `stash pop` → premier commit = le snapshot.
+- Écrire sur `main` (ex. ce fichier) : `prototype/.claude/allow-main-edits`,
+  écrire, **le supprimer aussitôt**. Sur une branche : pas besoin.
 
 ### Pièges
 - Le shell ne touche JAMAIS un fichier source (encodage) ; scratchpad, pas
-  `/tmp` ; captures écran ÷1,25 ; vérifier la branche avant CHAQUE lot.
-- `useApi` : re-render sur `!error && data` ; le cache de valeurs vit dans
-  `apiCache.ts`, vidé par toute mutation via `request()`.
+  `/tmp` ; captures ÷1,25 ; vérifier `git branch --show-current` avant le
+  premier édit de chaque lot.
+- Un spec « modifié » peut n'être que du bruit LF/CRLF — diff structurel
+  d'abord.
+- `useApi` : rendre sur `!error && data` ; `refetch` garde les données
+  précédentes visibles.
 
 ### Vérification
-- Portes : `npm run build` (tsc+vite) · eslint = **10** · grep CSS compilé
-  en `-F` si classes fractionnaires. Rien vu au navigateur par moi —
-  validation visuelle par l'utilisateur à chaque lot.
+- Portes : `npm run build` (tsc+vite) ✓ · eslint = **10** ✓ (23/09). Pas de
+  navigateur depuis la session — **validation visuelle par l'utilisateur
+  attendue** sur ce lot (création avec/sans doublon, import d'un export Meta,
+  réimport → tout en `DEJA_IMPORTEE`).
 
 ---
 
 ## 📁 Important Files & Paths
 
-- `src/components/SyncButton.tsx` — bouton synchro (pied de sidebar, rôles
-  dans `ROLES_SYNCHRONISATION`, toast bilan 8 s, historique flottant→sidebar
-  en commentaire). **Modifs non commises sur feat/sync-flottant.**
-- `src/components/Layout.tsx` — rend `<SyncButton />` dans SidebarFooter
-  (au-dessus du profil). Non commis.
-- `src/lib/useApi.ts` — `refetchAllApis()` + registre `mountedRunners`.
-- `src/components/ContactsProspect.tsx` — carnet de contacts partagé.
-- `src/components/TransformerProspectionDialog.tsx` — boîte de transformation.
-- `src/pages/prospections/NewProspection.tsx` — champs `*` + garde
-  `champsObligatoiresOk`.
-- `docs/api-docsV4.json` — re-tiré (rôles synchro) ; non commis sur la
-  branche courante avec le backup.
-- Diff spec : script node inline, baseline `git show HEAD:docs/api-docsV4.json`
-  extraite dans le scratchpad (voir mémoire persistante
-  `spec-diff-baseline-is-head`).
+- `src/pages/prospections/NewPreProspection.tsx` — **nouveau** :
+  `NouvellePreProspectionDialog` (Contact + Prospection, panneau doublons).
+- `src/pages/prospections/ImportPreProspections.tsx` — **nouveau** : page
+  d'import en 3 étapes, `TableauLignes` (table simple, colonne Code après import).
+- `src/pages/prospections/PreProspectionsList.tsx` — prop `nouveau`, boutons
+  « Importer des leads » / « Nouvelle pré-prospection » dans `PageShell.actions`.
+- `src/lib/api.ts` — `creerPreProspection`, `apercuImportPreProspections`,
+  `importerPreProspections`, `ImportPreProspectionsParams`.
+- `src/types.ts` — section « Pré-prospection : création & import »
+  (`CreerPreProspectionRequest`, `PreProspectionCreeeDto`,
+  `DoublonPreProspectionDto`, `StatutLigneImport`, `LigneImportDto`,
+  `RapportImportPreProspectionsDto`).
+- `src/App.tsx` — 2 routes ajoutées.
+- `docs/api-docsV4.json` — snapshot du 23/09 (commit `15e4489`).
+- `immo-crm/instructions/FEATURE-creation-pre-prospection.md` — le contrat
+  (lecture seule côté front).
 
 ---
 
 ## 🔧 Environment & Config
 
-- Windows 11, PowerShell 5.1 + Git Bash ; Vite `:5173`, Spring `:8080`
-  lancés par l'utilisateur ; backend joignable (docs:update OK).
-- Branche courante : **`feat/sync-flottant`** — modifs non commises :
-  SyncButton.tsx, Layout.tsx, docs/api-docsV4{,.backup}.json.
-- PR fusionnées ce jour : #52 (synchro), #53 (champs obligatoires),
-  contacts-prospect, transformer-tranche-article.
+- Windows 11, PowerShell 5.1 + Git Bash ; Vite `:5173`, Spring `:8080` lancés
+  par l'utilisateur ; backend joignable, sur `feat/creation-pre-prospection`.
+- Front : branche `feat/creation-pre-prospection` = `main` (`1c106c8`) +
+  snapshot spec + feature + ce fichier. `main` intact.
 
 ---
 
 ## ⏭️ Next Step
 
-> **Attendre la validation visuelle de l'utilisateur sur le bouton synchro en
-> pied de sidebar** (clair/sombre, rail replié, rôle commercial) — puis
-> `git-flow commit front` + `feature-index add sync-flottant` + `generate` +
-> `push`, et attendre sa fusion.
+> **Attendre la fusion de la PR front `feat/creation-pre-prospection`** (URL
+> imprimée par `git-flow push`) après validation visuelle par l'utilisateur.
+> Puis `node .claude/scripts/git-flow.mjs sync front`, et demander le lot suivant.
 
 ### Backlog (par priorité)
 
-- [ ] Committer/pousser feat/sync-flottant une fois validé (travail fini non
-      commis — ne pas le laisser traîner).
-- [ ] Timelines restantes → tables si souhaité (Historique prospection,
-      fiche prospect/client, Hotline).
+- [ ] Retours visuels sur ce lot (largeur des colonnes du rapport, libellés).
+- [ ] #182 — virtualiser `TableauLignes` si un fichier de 5 000 lignes rame.
+- [ ] Câbler « Désarchiver » (#180) dès que le back expose l'endpoint.
+- [ ] #181 — rafraîchir les lignes des groupes dépliés après mutation.
 - [ ] #164 — couloir « Dossier de vente » ; EncaissementDetail → FicheShell ;
       fusion des onglets pauvres de ProspectionDetail.
+- [ ] Timelines restantes → tables (Historique prospection, fiche
+      prospect/client, Hotline).
 - [ ] Barre d'action flottante à la sélection (DossiersList).
 - [ ] #155, #156, #167, #168 — backend/outillage.
 - [ ] 10 erreurs eslint préexistantes (#101) ; supprimer `harness-densite.tsx`.

@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react';
+import { Suspense, lazy, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RotateCcw, UserPlus } from 'lucide-react';
+import { Plus, RotateCcw, Upload, UserPlus } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
@@ -39,7 +39,14 @@ const ETAPE_ITEMS = [
 // filter bar and real server-side filtering as ProspectionsList/DossiersList
 // — GET /api/pre-prospections accepts the same param set as
 // /api/prospections as of the docs/api-docsV4.json 88-route revision.
-export default function PreProspectionsList() {
+
+/* Chargée à la demande, comme la nouvelle prospection : une dizaine de
+   référentiels que la liste seule n'a pas à payer. */
+const NouvellePreProspectionDialog = lazy(() => import('./NewPreProspection'));
+
+/* `nouveau` vient de la route `/pre-prospections/nouveau` — la liste avec la
+   boîte de saisie ouverte par-dessus, même convention que `/prospections/nouveau`. */
+export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } = {}) {
   const navigate = useNavigate();
   const { commerciaux } = useAppData();
   const origines = useOriginesProspection();
@@ -182,6 +189,18 @@ export default function PreProspectionsList() {
       icon={<UserPlus />}
       accent="var(--sec-preprospection)"
       accentBg="var(--sec-preprospection-bg)"
+      actions={
+        <>
+          {/* L'import est une page, pas une boîte : un rapport de plusieurs
+              milliers de lignes veut toute la largeur. */}
+          <Button type="button" size="sm" variant="outline" onClick={() => navigate('/pre-prospections/import')}>
+            <Upload data-icon="inline-start" /> Importer des leads
+          </Button>
+          <Button type="button" size="sm" onClick={() => navigate('/pre-prospections/nouveau')}>
+            <Plus data-icon="inline-start" /> Nouvelle pré-prospection
+          </Button>
+        </>
+      }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
         <ProspectionFilterBar
@@ -291,6 +310,21 @@ export default function PreProspectionsList() {
           </ResultsRegion>
         )}
       </div>
+
+      {/* `fallback={null}` : le voile de la modale suffit pendant les quelques
+          millisecondes du chargement du lot. La fermeture rafraîchit la liste :
+          une création avec doublons se ferme ici sans naviguer vers la fiche. */}
+      {nouveau && (
+        <Suspense fallback={null}>
+          <NouvellePreProspectionDialog
+            onClose={() => {
+              navigate('/pre-prospections');
+              liste.refetch();
+              groupes.refetch();
+            }}
+          />
+        </Suspense>
+      )}
 
       {actionsLigne.boites}
     </PageShell>

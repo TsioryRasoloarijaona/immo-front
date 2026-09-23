@@ -33,6 +33,7 @@ import type {
   CreerEmployeRequest,
   CreerEmployeResponse,
   CreerInteractionRequest,
+  CreerPreProspectionRequest,
   CreerProspectRequest,
   CreerProspectionRequest,
   CreerReglementRequest,
@@ -63,6 +64,8 @@ import type {
   PaysDto,
   NouveauPreProspectDto,
   PieceJointeDto,
+  PreProspectionCreeeDto,
+  RapportImportPreProspectionsDto,
   RelanceProspectionDto,
   SyntheseAnnuelleDto,
   EcheanceRelance,
@@ -700,6 +703,43 @@ export function listPreProspectionsGroupes(
 
 export function creerProspectFromPreProspection(id: UUID, body: CreerProspectRequest): Promise<ProspectionDetailDto> {
   return request('POST', `/api/pre-prospections/${id}/creer-prospect`, { body });
+}
+
+/** `POST /api/pre-prospections` — un lead brut, comme l'écran
+ * « Pré-prospection » d'OMRAN. Réponse **enveloppée** `{ preProspection,
+ * doublons }` : les doublons sont signalés, jamais refusés (400 nom absent ou
+ * référentiel inconnu, 403 tranche hors périmètre). */
+export function creerPreProspection(body: CreerPreProspectionRequest): Promise<PreProspectionCreeeDto> {
+  return request('POST', '/api/pre-prospections', { body });
+}
+
+/** Référentiels de l'import CSV — chacun remplace le défaut serveur (Nature
+ * `1 A TRAITER`, source `FACEBOOK`, type `WEB`). `trancheId` seul est
+ * obligatoire : **toutes** les lignes du fichier y sont rattachées. */
+export interface ImportPreProspectionsParams {
+  trancheId: UUID;
+  etapeId?: UUID;
+  origineId?: UUID;
+  origineSupportId?: UUID;
+  typeContactId?: UUID;
+  actionCommercialeId?: UUID;
+}
+
+/** `POST /api/pre-prospections/import/apercu` — étape 1 de l'import : le
+ * fichier est lu, rien n'est écrit. Le rapport donne le sort de chaque ligne
+ * et propose une tranche (`trancheSuggereeId`) quand tous les formulaires du
+ * fichier désignent la même. 400 : fichier vide, colonne « Nom » absente,
+ * plus de 5 000 lignes. */
+export function apercuImportPreProspections(fichier: File): Promise<RapportImportPreProspectionsDto> {
+  return postMultipart<RapportImportPreProspectionsDto>('/api/pre-prospections/import/apercu', fichier);
+}
+
+/** `POST /api/pre-prospections/import` — étape 2 : **le même fichier**, avec
+ * la tranche choisie après l'aperçu. Tout ou rien pour les erreurs de requête
+ * (400 tranche inconnue, 403 hors périmètre : aucune ligne écrite) ; les
+ * lignes `ERREUR` n'empêchent pas les autres. */
+export function importerPreProspections(fichier: File, params: ImportPreProspectionsParams): Promise<RapportImportPreProspectionsDto> {
+  return postMultipart<RapportImportPreProspectionsDto>('/api/pre-prospections/import', fichier, { ...params });
 }
 
 export function transformerProspection(id: UUID, body: TransformerProspectionRequest): Promise<ProspectionDetailDto> {

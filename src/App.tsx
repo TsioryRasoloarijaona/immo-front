@@ -28,6 +28,7 @@ const Calendrier = lazy(() => import('./pages/calendrier/Calendrier'));
 const Hotline = lazy(() => import('./pages/hotline/Hotline'));
 const ProspectionsList = lazy(() => import('./pages/prospections/ProspectionsList'));
 const PreProspectionsList = lazy(() => import('./pages/prospections/PreProspectionsList'));
+const ImportPreProspections = lazy(() => import('./pages/prospections/ImportPreProspections'));
 const ProspectionDetail = lazy(() => import('./pages/prospections/ProspectionDetail'));
 const OffresList = lazy(() => import('./pages/prospections/OffresList'));
 const EncaissementsList = lazy(() => import('./pages/encaissements/EncaissementsList'));
@@ -84,6 +85,9 @@ function AuthenticatedApp() {
                       bouton Retour la ferme. */}
                   <Route path="/prospections/nouveau" element={<ProspectionsList nouveau />} />
                   <Route path="/pre-prospections" element={<PreProspectionsList />} />
+                  {/* Les deux routes statiques avant `:id`, sinon il les capture. */}
+                  <Route path="/pre-prospections/nouveau" element={<PreProspectionsList nouveau />} />
+                  <Route path="/pre-prospections/import" element={<ImportPreProspections />} />
                   <Route path="/pre-prospections/:id" element={<ProspectionDetail />} />
                   <Route path="/prospections/:id" element={<ProspectionDetail />} />
                   <Route path="/prospections/:id/nouveau-dossier" element={<NewDossier />} />
