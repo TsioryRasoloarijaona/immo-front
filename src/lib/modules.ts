@@ -29,6 +29,10 @@ export function moduleForPath(pathname: string): string | null {
   if (
     pathname.startsWith('/hotline') ||
     pathname.startsWith('/calendrier') ||
+    pathname.startsWith('/suivi-actions') ||
+    // Le classement des commerciaux a quitté Administration pour la section
+    // « Suivi » du module Vente (23/09) : c'est du pilotage d'activité.
+    pathname.startsWith('/performances') ||
     pathname.startsWith('/prospections') ||
     pathname.startsWith('/pre-prospections') ||
     pathname.startsWith('/prospects') ||
@@ -42,13 +46,9 @@ export function moduleForPath(pathname: string): string | null {
   if (pathname.startsWith('/tranches') || pathname.startsWith('/articles') || pathname.startsWith('/projets')) {
     return 'patrimoine';
   }
-  // `/performances` (classement des commerciaux) est une page d'administration
-  // sans être sous /utilisateurs. Sans cette ligne le sous-menu Administration
-  // ne s'affiche pas : Layout.tsx le conditionne à `activeModule ===
-  // 'administration'`, et la page s'ouvrirait sans navigation autour d'elle.
-  // `/mes-performances` n'en relève pas : elle est destinée au commercial, dont
-  // les groupes de sidebar ne dépendent pas de la route.
-  if (pathname.startsWith('/utilisateurs') || pathname.startsWith('/performances')) {
+  // `/mes-performances` ne relève d'aucun module : elle est destinée au
+  // commercial, dont les groupes de sidebar ne dépendent pas de la route.
+  if (pathname.startsWith('/utilisateurs')) {
     return 'administration';
   }
   if (pathname.startsWith('/bientot/')) {

@@ -93,6 +93,7 @@ import type {
   FiltresAvancesProspection,
   ResultatEnvoiOffreDto,
   ResultatInteractionDto,
+  SuiviActionDto,
   SchemaFinancementDto,
   SimulerSchemaFinancementRequest,
   SynchronisationResultatDto,
@@ -1609,6 +1610,63 @@ export function listEncaissements(
  * `compteId`/`compteCode` à 12 et `dateReglement` à 10. */
 export function getColonnesEncaissements(): Promise<ColonneDto[]> {
   return request('GET', '/api/referentiels/colonnes/encaissements');
+}
+
+/** `GET /api/referentiels/colonnes/suivi-actions` — catalogue de l'écran
+ * « Suivi des actions » (FEATURE-suivi-actions.md §4) : établi sur la vue
+ * OMRAN `ComActionMessageView`, filtré par la mesure sur 48 213 actions
+ * réelles. Non groupables : `rang`, `alerteActive`, `etat`, `personnel`
+ * (calculées pour la page servie) et `message`. **Aucune colonne
+ * agrégeable** : la mesure d'un groupe est son effectif. */
+export function getColonnesSuiviActions(): Promise<ColonneDto[]> {
+  return request('GET', '/api/referentiels/colonnes/suivi-actions');
+}
+
+/** Filtres de `GET /api/suivi-actions` — tous optionnels, combinés en ET.
+ * **Période fin exclue**, comme OMRAN : `dateDebut <= DocDate < dateFin` ;
+ * un jour J = `dateDebut=J T00:00` et `dateFin=J+1 T00:00`. */
+export type SuiviActionsFilterParams = {
+  dateDebut?: string;
+  dateFin?: string;
+  /** Tranche **résolue** (celle de la prospection, sinon de l'article). OU. */
+  trancheId?: string[];
+  /** `UserName` de l'action, égalité exacte. Valeurs présentes :
+   * `/groupes?groupBy=utilisateur`. OU. */
+  utilisateur?: string[];
+  /** ComActionMessageType.id — même référentiel que `getTypesContactProspection`. OU. */
+  typeId?: string[];
+  categorieId?: string[];
+  /** `true` = système seules, `false` = saisies seules, absent = tout. */
+  systeme?: boolean;
+};
+
+/** `GET /api/suivi-actions` — la grille de l'écran OMRAN, colonnes au choix.
+ * Tri par défaut `docDate,desc` ; seules les propriétés de l'action sont
+ * triables. Les actions système sont listées comme dans OMRAN. */
+export function listSuiviActions(
+  params: SuiviActionsFilterParams,
+  pageable?: Pageable,
+  options?: { colonnes?: string[]; depliage?: ParamsDepliage },
+): Promise<PageDto<SuiviActionDto>> {
+  const query: Record<string, QueryValue> = withPageable(params, pageable);
+  if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
+  withDepliage(query, options?.depliage);
+  return request('GET', '/api/suivi-actions', { query });
+}
+
+/** `GET /api/suivi-actions/groupes` — un groupe par valeur de `groupBy`, avec
+ * son effectif = nombre d'actions sur tout le périmètre filtré. Recette de
+ * l'écran : appels passés par jour d'un commercial =
+ * `utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR`.
+ * `agregats` rend 400 : rien n'est agrégeable ici. */
+export function listSuiviActionsGroupes(
+  params: SuiviActionsFilterParams,
+  groupes: ParamsGroupes,
+  pageable?: Pageable,
+): Promise<PageGroupesDto> {
+  return request('GET', '/api/suivi-actions/groupes', {
+    query: withGroupes(withPageable(params, pageable), groupes),
+  });
 }
 
 /** `GET /api/encaissements/groupes` — la liste repliée en groupes.

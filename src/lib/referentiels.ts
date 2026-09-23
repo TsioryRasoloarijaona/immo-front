@@ -104,6 +104,10 @@ export const useColonnesProspects = makeCachedListHook(api.getColonnesProspects)
  * UUID**, d'où le `masquees` le plus fourni des quatre dispositions. */
 export const useColonnesEncaissements = makeCachedListHook(api.getColonnesEncaissements);
 
+/** Suivi des actions. 35 colonnes ; par défaut celles de la doc OMRAN qui
+ * portent de l'information, les identifiants et l'audit hors défaut. */
+export const useColonnesSuiviActions = makeCachedListHook(api.getColonnesSuiviActions);
+
 /** {id, code, description} → Select `items` shape, description preferred. */
 export function referentielItems(list: ReferentielItemDto[]): { label: string; value: string }[] {
   return list.map((r) => ({ label: r.description || r.code || r.id, value: r.id }));

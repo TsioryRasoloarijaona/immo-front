@@ -17,7 +17,7 @@
     },
     {
       "name": "Référentiels",
-      "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
+      "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. Sans filtre `categorieId`, les **annexes** (`IsUnderItem` — parkings, terrasses, jardins, mêmes racines sans parent) sont écartées, comme dans l'écran Articles du logiciel de bureau ; cocher explicitement leur catégorie les fait réapparaître. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
     },
     {
       "name": "Articles",
@@ -30,6 +30,10 @@
     {
       "name": "Calendrier",
       "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front.\n\n**Entités juridiques en exploitation.** Seuls les événements rattachés — par leur prospection ou par leur dossier — à une entité juridique active (`CfgCompany.IsActive`) sont renvoyés : aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un événement qu'aucune prospection ni aucun dossier ne rattache à une entité reste affiché."
+    },
+    {
+      "name": "Suivi des actions",
+      "description": "L'écran OMRAN « Suivi des actions » : les actions commerciales (appels, visites, messages, notes…) saisies par chaque utilisateur, sur une période. Doc OMRAN : https://help.omranestate.com/SUIVIDESACTIONS.html — détail dans `instructions/FEATURE-suivi-actions.md`.\n\n**Même requête qu'OMRAN**, relevée dans sa trace d'audit : `ComActionMessageView WHERE CfgTrancheId IN (…) AND DocDate >= début AND DocDate < fin [AND UserName = …]`. Mêmes colonnes, même tranche résolue (catégorie Prospection → tranche de la prospection, sinon de l'article), même rang, même état — construits sur la table plutôt que sur la vue, qui coûte 6,6 s la page.\n\n**Compter les appels d'un commercial jour par jour** — le cas d'usage principal (94 % des actions de l'année sont des appels sortants) : `GET /api/suivi-actions/groupes?utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR&dateDebut=…&dateFin=…`. L'effectif de chaque groupe est le nombre d'actions ; la somme des effectifs égale le `totalElements` de la liste aux mêmes filtres.\n\n**Qui voit quoi.** Le suivi **général** est réservé au rôle `Administrateur`. Tout autre utilisateur ne voit que **ses propres actions** — sur la liste comme dans les groupes : celles écrites à son nom (`UserName`), plus celles de son compte hors lignes « Système » (actions générées pendant sa session, qu'OMRAN attribue à « Système »). Pour lui, le filtre `utilisateur` ne peut que restreindre : demander quelqu'un d'autre rend une page vide, jamais un 403 qui confirmerait l'existence de ses actions. Le front masque donc le sélecteur d'utilisateur hors administrateur.\n\n**Périmètre commercial** : appliqué par le service, liste et groupes — une action dont le projet (par la prospection, puis par le dossier) est hors périmètre n'apparaît ni dans la liste ni dans un effectif. Actions d'entités juridiques inactives exclues, comme partout."
     },
     {
       "name": "Synchronisation",
@@ -64,16 +68,16 @@
       "description": "Dossiers de vente (ComFolder) — cycle de vie, échéancier, pièces jointes et génération de documents.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de dossier — y compris les routes imbriquées (échéancier, règlements, pièces jointes, historique, générateurs de documents) — un dossier hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Cette collection ne renvoie que les dossiers rattachés à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, y compris aux rôles qui en sont exemptés (dont Administrateur). Un dossier masqué renvoie 404 sur toutes les routes portant son identifiant, exactement comme un dossier inexistant."
     },
     {
-      "name": "Pré-prospections",
-      "description": "Leads bruts non encore qualifiés (ComProspection sans CfgProspectId ni CfgCommercialId) — même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
-    },
-    {
       "name": "Prospections",
       "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
     {
       "name": "Utilisateurs (admin)",
       "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur : liste des comptes, création d'employé, réinitialisation de mot de passe, et affectation des projets qui composent le périmètre commercial d'un utilisateur."
+    },
+    {
+      "name": "Pré-prospections",
+      "description": "Leads bruts non encore qualifiés : ComProspection de type légataire `ComPreProspection` (`StrEntity`), le discriminant d'OMRAN lui-même — une pré-prospection peut donc déjà porter un prospect ou un commercial tant qu'elle n'a pas été transformée. Même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
     {
       "name": "Clients",
@@ -1804,6 +1808,193 @@
         }
       }
     },
+    "/api/pre-prospections": {
+      "get": {
+        "tags": [
+          "Pré-prospections"
+        ],
+        "summary": "Liste paginée des pré-prospections",
+        "description": "Mêmes filtres que GET /api/prospections (étape, origine, commercial, tranche(s), plage de dates, recherche libre, ouvertes) appliqués aux leads non encore qualifiés. Voir instructions/filtres-avances.md point 5.\n\n**Périmètre commercial** : si l'appelant est restreint, cette liste ne contient que les pré-prospections de ses projets affectés, scopées par le projet de leur tranche visée. Les pré-prospections sans tranche restent visibles de tous. Le filtre `commercial` s'applique : une pré-prospection saisie dans OMRAN peut déjà porter un commercial (~780 en base réelle).",
+        "operationId": "findAll_3",
+        "parameters": [
+          {
+            "name": "etape",
+            "in": "query",
+            "description": "Code(s) ComProspectionKind (\"Nature\"/étape) à filtrer. Répéter le paramètre pour plusieurs étapes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "origine",
+            "in": "query",
+            "description": "Code(s) ComProspectionOrigin à filtrer. Répéter le paramètre pour plusieurs origines.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "commercial",
+            "in": "query",
+            "description": "Id(s) du commercial (CfgTier.id, cfgCommercial). Répéter le paramètre pour plusieurs commerciaux.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche visée (CfgTranche.id, ComProspection.stkHierarchy). Répéter le paramètre pour plusieurs tranches.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Borne inférieure (incluse) sur la date du document, format ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Borne supérieure (incluse) sur la date du document, format ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ouvertes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "groupeColonne",
+            "in": "query",
+            "description": "Déplie un groupe : restreint la liste aux pré-prospections d'un groupe renvoyé par `GET /api/pre-prospections/groupes`.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "origine"
+          },
+          {
+            "name": "groupeValeur",
+            "in": "query",
+            "description": "Valeur du groupe à déplier — la `cle` renvoyée telle quelle par `/groupes`. Omise avec `groupeColonne` fourni : le groupe sans valeur.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité si `groupeColonne` est une date. Défaut : MOIS.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoProspectionListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Pré-prospections"
+        ],
+        "summary": "Crée une pré-prospection (lead brut)",
+        "description": "Équivalent de l'écran « Pré-prospection » d'OMRAN, dont la trace d'audit fixe la séquence : code tiré du compteur `AdmSequence` « Prospection » (format `AA/NNNNN`, **le même compteur que les prospections**), type de document `ComPreProspection`, contact saisi en champs libres (`TempDescription`, `TempTel`, `TempEMail`) — **aucune fiche prospect n'est créée**.\n\nSeul `nom` est obligatoire. Posés par le serveur : code, date du document (maintenant), `IsClosed = false`, auteur (utilisateur connecté), vocation `VENTE` si aucune n'est fournie. Jamais de prospect ni de commercial : c'est l'objet de `POST /api/pre-prospections/{id}/creer-prospect` puis `POST /api/prospections/{id}/transformer`.\n\n**Doublons signalés, jamais refusés.** La réponse liste les prospections existantes au même contact (même nom, même téléphone sur ses 9 derniers chiffres, même email — un champ absent des deux côtés compte comme égal). OMRAN enregistre lui aussi une ligne par soumission ; à l'écran d'avertir. Seuls les doublons **visibles de l'appelant** (périmètre commercial) sont listés : un contact hors périmètre n'est jamais révélé.\n\nLa ligne créée apparaît aussitôt dans `GET /api/pre-prospections` et dans le logiciel de bureau.",
+        "operationId": "creer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerPreProspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Pré-prospection créée ; `doublons` vide si aucun contact identique n'existe.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreProspectionCreeeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`nom` absent ou blanc ; champ trop long (nom/telephone/email 255, notes 1 000) ; référentiel inconnu (tranche, article, étape, origine, support, type, action, vocation) ; `articleId` sans `trancheId` ou hors de la tranche."
+          },
+          "403": {
+            "description": "La tranche fournie appartient à un projet hors du périmètre commercial de l'appelant."
+          }
+        }
+      }
+    },
     "/api/pre-prospections/{id}/creer-prospect": {
       "post": {
         "tags": [
@@ -1868,6 +2059,159 @@
         }
       }
     },
+    "/api/pre-prospections/import": {
+      "post": {
+        "tags": [
+          "Pré-prospections"
+        ],
+        "summary": "Import CSV de leads — étape 2 : création, toutes lignes sur une seule tranche",
+        "description": "Crée une pré-prospection par ligne `NOUVELLE` ou `DOUBLON` du fichier, **toutes rattachées à `trancheId`** — la tranche choisie par l'utilisateur après l'aperçu (`POST /api/pre-prospections/import/apercu`). **Une seule tranche par fichier** : un fichier qui en mêle plusieurs doit être découpé avant l'import.\n\nChaque ligne créée est une pré-prospection complète, exactement comme `POST /api/pre-prospections` : code `AA/NNNNN` du compteur « Prospection », type `ComPreProspection`, `IsClosed = false`, auteur = utilisateur connecté, vocation `VENTE`. Référentiels posés par défaut — le motif des leads déjà injectés depuis ces formulaires — chacun remplaçable par son paramètre : Nature `1 A TRAITER` (`etapeId`), source `FACEBOOK` (`origineId`), type `WEB` (`typeContactId`). Un défaut absent du référentiel est laissé vide.\n\n**Tout ou rien** pour les erreurs de requête (tranche inconnue ou hors périmètre : aucune ligne écrite). Les lignes en `ERREUR` n'empêchent pas les autres. Le rapport renvoyé a la forme de l'aperçu, avec `importe = true` et l'identifiant et le code de chaque pré-prospection créée.\n\n**Format attendu** — l'export CSV des leads (Meta / Leads Center), en-tête : `Créé, Nom, Adresse e-mail, Source, Formulaire, Canal, Étape, Propriétaire, Étiquettes, Téléphone, Numéro de téléphone secondaire, Numéro WhatsApp`.\n- Colonnes reconnues **par leur nom** (casse et accents ignorés), dans n'importe quel ordre ; les colonnes inconnues sont ignorées. Seule `Nom` est indispensable (400 sinon).\n- Séparateur `,` ou `;` (un fichier réenregistré par Excel en français), déduit de l'en-tête. Encodage UTF-8 (avec ou sans BOM), à défaut Windows-1252.\n- 5 000 lignes au plus (400 au-delà) ; lignes vides ignorées.\n\n**Ce que devient chaque colonne**\n| Colonne | Pré-prospection |\n|---|---|\n| Créé (`09/23/2026 1:45am`, mois en premier) | date du document `DocDate` — la date de soumission du lead |\n| Nom | `TempDescription` |\n| Adresse e-mail | `TempEMail` |\n| Téléphone (à défaut WhatsApp, à défaut secondaire) | `TempTel`, tel qu'écrit |\n| Formulaire, Source, Canal, Étape, Étiquettes, Propriétaire (sauf « Unassigned »), autres numéros | recopiés dans `Notes` |\n\n**Sort de chaque ligne** (`statut`) :\n- `NOUVELLE` — créée.\n- `DOUBLON` — même contact (nom, téléphone sur ses 9 derniers chiffres, email ; casse ignorée) qu'une prospection existante ou qu'une ligne plus haut, mais **autre date** : c'est une nouvelle soumission, **créée quand même** et signalée.\n- `DEJA_IMPORTEE` — même contact **et même date** (à la minute) : le même lead réimporté, **ignoré**. Réimporter un fichier, ou un export qui chevauche le précédent, ne crée donc rien deux fois.\n\n**Périmètre commercial** : seuls les doublons visibles de l'appelant sont nommés (`doublonIds`, codes dans `message`). Un lead déjà importé sur un projet hors périmètre est bien ignoré, avec le message « Lead déjà importé » et rien d'autre ; un simple homonyme hors périmètre ne fait pas un `DOUBLON`.\n- `ERREUR` — nom vide, date vide ou illisible, champ trop long : **ignorée**, les autres lignes passent.",
+        "operationId": "importer",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche (CfgTranche.id) choisie dans la liste déroulante. **Obligatoire** : toutes les lignes du fichier y sont rattachées.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "etapeId",
+            "in": "query",
+            "description": "Nature (ComProspectionKind). Défaut : `1 A TRAITER`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "origineId",
+            "in": "query",
+            "description": "Source de contact (ComProspectionOrigin). Défaut : `FACEBOOK`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "origineSupportId",
+            "in": "query",
+            "description": "Support d'origine (ComProspectionOriginSupport). Défaut : aucun.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "typeContactId",
+            "in": "query",
+            "description": "Type (ComActionMessageType). Défaut : `WEB`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "actionCommercialeId",
+            "in": "query",
+            "description": "Action commerciale / campagne (ComAction). Défaut : aucune.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Le fichier CSV exporté — le même que pour l'aperçu."
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Import effectué ; rapport ligne par ligne.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RapportImportPreProspectionsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`trancheId` absent ou inconnu ; fichier absent, vide, sans colonne `Nom` ou de plus de 5 000 lignes ; référentiel fourni inconnu."
+          },
+          "403": {
+            "description": "La tranche appartient à un projet hors du périmètre commercial de l'appelant — rien n'est écrit."
+          }
+        }
+      }
+    },
+    "/api/pre-prospections/import/apercu": {
+      "post": {
+        "tags": [
+          "Pré-prospections"
+        ],
+        "summary": "Import CSV de leads — étape 1 : aperçu (rien n'est écrit)",
+        "description": "Première étape de l'import : envoie le fichier, reçoit **tout ce qui en a été extrait**, ligne par ligne, avec le sort que l'import réservera à chacune. **Rien n'est écrit.**\n\n**Un fichier = une tranche.** L'export ne dit pas à quelle tranche les leads appartiennent : après l'aperçu, l'écran **demande la tranche** (liste déroulante), et cette tranche unique vaudra pour toutes les lignes du fichier. Pour la pré-sélectionner, l'aperçu propose `trancheSuggereeId` : la tranche dont le code est le premier mot du formulaire (`APF FORM 02*2026 - GISK` → `APF`), quand tous les formulaires du fichier désignent la même. Un fichier qui mêle plusieurs tranches revient avec un `avertissements` : le découper.\n\nÉtape 2 : `POST /api/pre-prospections/import` avec **le même fichier** et la tranche choisie.\n\n**Format attendu** — l'export CSV des leads (Meta / Leads Center), en-tête : `Créé, Nom, Adresse e-mail, Source, Formulaire, Canal, Étape, Propriétaire, Étiquettes, Téléphone, Numéro de téléphone secondaire, Numéro WhatsApp`.\n- Colonnes reconnues **par leur nom** (casse et accents ignorés), dans n'importe quel ordre ; les colonnes inconnues sont ignorées. Seule `Nom` est indispensable (400 sinon).\n- Séparateur `,` ou `;` (un fichier réenregistré par Excel en français), déduit de l'en-tête. Encodage UTF-8 (avec ou sans BOM), à défaut Windows-1252.\n- 5 000 lignes au plus (400 au-delà) ; lignes vides ignorées.\n\n**Ce que devient chaque colonne**\n| Colonne | Pré-prospection |\n|---|---|\n| Créé (`09/23/2026 1:45am`, mois en premier) | date du document `DocDate` — la date de soumission du lead |\n| Nom | `TempDescription` |\n| Adresse e-mail | `TempEMail` |\n| Téléphone (à défaut WhatsApp, à défaut secondaire) | `TempTel`, tel qu'écrit |\n| Formulaire, Source, Canal, Étape, Étiquettes, Propriétaire (sauf « Unassigned »), autres numéros | recopiés dans `Notes` |\n\n**Sort de chaque ligne** (`statut`) :\n- `NOUVELLE` — créée.\n- `DOUBLON` — même contact (nom, téléphone sur ses 9 derniers chiffres, email ; casse ignorée) qu'une prospection existante ou qu'une ligne plus haut, mais **autre date** : c'est une nouvelle soumission, **créée quand même** et signalée.\n- `DEJA_IMPORTEE` — même contact **et même date** (à la minute) : le même lead réimporté, **ignoré**. Réimporter un fichier, ou un export qui chevauche le précédent, ne crée donc rien deux fois.\n\n**Périmètre commercial** : seuls les doublons visibles de l'appelant sont nommés (`doublonIds`, codes dans `message`). Un lead déjà importé sur un projet hors périmètre est bien ignoré, avec le message « Lead déjà importé » et rien d'autre ; un simple homonyme hors périmètre ne fait pas un `DOUBLON`.\n- `ERREUR` — nom vide, date vide ou illisible, champ trop long : **ignorée**, les autres lignes passent.",
+        "operationId": "apercuImport",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Le fichier CSV exporté, tel quel."
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rapport d'aperçu (`importe = false`, `preProspectionId` toujours null).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/RapportImportPreProspectionsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fichier absent ou vide, colonne `Nom` introuvable, plus de 5 000 lignes."
+          }
+        }
+      }
+    },
     "/api/mon-compte/changer-mot-de-passe": {
       "post": {
         "tags": [
@@ -1917,7 +2261,7 @@
         ],
         "summary": "Liste paginée des dossiers de vente",
         "description": "Filtre optionnellement par statut (multi-sélection, une valeur pour un seul statut se comporte comme avant), commercial, entité (projet), tranche(s), plage de dates sur un jalon au choix, et recherche libre sur le code du dossier OU le nom/prénom/raison sociale du client lié. Voir instructions/filtres-avances.md pour le détail des filtres avancés.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), cette liste ne contient que les dossiers de ses projets affectés — filtrage côté serveur, appliqué en plus des filtres ci-dessus. Le front ne doit pas refiltrer par projet lui-même. Les dossiers dont le projet ne se résout pas restent visibles de tous.",
-        "operationId": "findAll_3",
+        "operationId": "findAll_4",
         "parameters": [
           {
             "name": "statut",
@@ -3624,7 +3968,7 @@
         ],
         "summary": "Liste paginée des tranches, à plat",
         "description": "Toutes les tranches, tous projets confondus, ou filtrées sur un seul projet via `projetId`. Évite le contournement N+1 (GET /api/projets puis GET /api/projets/{id}/tranches pour chacun) pour peupler une checklist de filtre côté front — voir instructions/filtres-avances.md point 2.",
-        "operationId": "findAll_4",
+        "operationId": "findAll_5",
         "parameters": [
           {
             "name": "projetId",
@@ -3842,6 +4186,340 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/suivi-actions": {
+      "get": {
+        "tags": [
+          "Suivi des actions"
+        ],
+        "summary": "Liste des actions commerciales, colonnes au choix",
+        "description": "La grille de l'écran OMRAN. Tous les filtres sont optionnels et se combinent en ET.\n\n**Période fin exclue**, comme OMRAN : `dateDebut <= DocDate < dateFin`. Un jour J = `dateDebut=J T00:00` et `dateFin=J+1 T00:00`.\n\n**Colonnes** : `?colonnes=` choisit les champs servis (catalogue et liste blanche : `GET /api/referentiels/colonnes/suivi-actions`). `rang`, `alerteActive`, `etat` et `personnel` sont calculées pour la page servie, et seulement quand elles sont demandées : ni triables ni groupables.\n\n**Tri** : `sort=docDate,desc` par défaut ; seules les propriétés de l'action (`docDate`, `userName`, `alertValidityDate`…) sont triables.\n\nLes actions **système** (relances, événements générés) sont listées, comme dans OMRAN — `systeme=false` pour ne garder que les saisies.",
+        "operationId": "findAll_6",
+        "parameters": [
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Début de période, **inclus** (`DocDate >= dateDebut`), ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-09-01T00:00:00"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Fin de période, **exclue** (`DocDate < dateFin`), ISO-8601 — comme la requête OMRAN.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-10-01T00:00:00"
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche(s) résolue(s) à la manière d'OMRAN (catégorie Prospection → tranche de la prospection, sinon de l'article). Répétable, OU.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "utilisateur",
+            "in": "query",
+            "description": "Utilisateur(s) — `UserName` de l'action, **égalité exacte**, la colonne que filtre OMRAN. Valeurs présentes : `/api/suivi-actions/groupes?groupBy=utilisateur`. Répétable, OU. **Utile à l'administrateur seulement** : pour un autre rôle, la liste est déjà réduite à ses propres actions et ce filtre ne peut que la restreindre davantage.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "Khadija ELKORRI"
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Type(s) d'action (ComActionMessageType.id). Répétable, OU.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Catégorie(s) (ComActionMessageCategory.id). Répétable, OU.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "systeme",
+            "in": "query",
+            "description": "`true` = actions système seules, `false` = saisies seules, absent = tout (comme OMRAN).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes à servir, répétable ou séparées par des virgules. Absent : la grille OMRAN. `id` est toujours servi.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "utilisateur,typeAction,dateAction,tiersNom,prospectionCode,trancheCode"
+          },
+          {
+            "name": "groupeColonne",
+            "in": "query",
+            "description": "Déplie un groupe renvoyé par `/groupes` : le nom de la colonne groupée.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "dateAction"
+          },
+          {
+            "name": "groupeValeur",
+            "in": "query",
+            "description": "La `cle` du groupe, telle que renvoyée par `/groupes`. Omise avec `groupeColonne` : le groupe sans valeur.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité si `groupeColonne` est une date — la même qu'à `/groupes`. Défaut : MOIS.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "JOUR"
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page d'actions",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoSuiviActionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Nom de colonne hors catalogue (le corps liste les noms valides) ; `groupeColonne` non groupable."
+          }
+        }
+      }
+    },
+    "/api/suivi-actions/groupes": {
+      "get": {
+        "tags": [
+          "Suivi des actions"
+        ],
+        "summary": "Actions repliées en groupes, avec effectifs — les comptes par jour, par utilisateur…",
+        "description": "La bande de groupement de la grille OMRAN, calculée côté serveur : **un groupe par valeur** de `groupBy`, avec son effectif = **le nombre d'actions**. Les effectifs portent sur tout le périmètre filtré, pas sur une page.\n\n**Mêmes filtres que la liste**, mêmes noms, même périmètre : la somme des effectifs égale le `totalElements` de `GET /api/suivi-actions` aux mêmes filtres (avec `inclureSansValeur=true`).\n\nRecettes :\n- **appels passés par jour** d'un commercial : `utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR` ;\n- **activité par utilisateur** sur une période : `groupBy=utilisateur` ;\n- **par type d'action** : `groupBy=typeAction` ;\n- **par tranche** : `groupBy=trancheCode`.\n\nPour ouvrir un groupe : `GET /api/suivi-actions?groupeColonne=<groupBy>&groupeValeur=<cle>` (+ la même `granularite`).\n\n**Aucune colonne n'est agrégeable** : la mesure est l'effectif. `agregats` rend donc 400. Colonnes groupables : le catalogue (`groupable = true`).",
+        "operationId": "grouper",
+        "parameters": [
+          {
+            "name": "groupBy",
+            "in": "query",
+            "description": "Colonne de groupement. **Requis.** Un seul niveau.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "dateAction"
+          },
+          {
+            "name": "agregats",
+            "in": "query",
+            "description": "Aucune colonne de ce catalogue n'est agrégeable : laisser vide.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité si `groupBy` est une date. **JOUR** pour les comptes quotidiens. Défaut : MOIS.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "JOUR"
+          },
+          {
+            "name": "tri",
+            "in": "query",
+            "description": "LIBELLE (croissant, défaut) ou NOMBRE (effectif décroissant).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LIBELLE",
+                "NOMBRE"
+              ]
+            }
+          },
+          {
+            "name": "inclureSansValeur",
+            "in": "query",
+            "description": "Inclure le groupe des actions sans valeur sur la colonne groupée. Faux par défaut.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "utilisateur",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "systeme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes, paginés comme une liste",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageGroupesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`groupBy` absent, inconnu ou non groupable (`rang`, `alerteActive`, `etat`, `personnel`, `message`) ; `agregats` fourni."
           }
         }
       }
@@ -4809,6 +5487,31 @@
         }
       }
     },
+    "/api/referentiels/colonnes/suivi-actions": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Catalogue des colonnes du suivi des actions",
+        "description": "Colonnes de `GET /api/suivi-actions` : nom (à passer dans `?colonnes=`), libellé, groupe d'affichage, type, sélection par défaut, et les booléens `groupable` / `agregeable` qui pilotent `/groupes`.\n\n**Établi sur l'écran OMRAN** : les colonnes de la vue `ComActionMessageView` que lit l'écran « Suivi des actions » et que liste sa documentation, **filtrées par la mesure** sur les 48 213 actions réelles. Désistement, transfert client, transfert produit (0 ligne), SAV (2), location, offre et syndic (0) n'y figurent pas.\n\n**Non groupables** : `rang`, `alerteActive`, `etat`, `personnel` — calculées pour la page servie seulement — et `message`, un `nvarchar(max)`. **Aucune colonne agrégeable** : la mesure d'un groupe est son effectif, le nombre d'actions.\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
+        "operationId": "getColonnesSuiviActions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ColonneDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/colonnes/prospects": {
       "get": {
         "tags": [
@@ -5518,7 +6221,7 @@
         ],
         "summary": "Liste des prospections repliée en groupes, avec effectifs et totaux",
         "description": "Reproduit la bande de groupement du logiciel de bureau : un groupe par valeur distincte de `groupBy`, portant son effectif et les sommes demandées.\n\n**Les effectifs portent sur tout le périmètre filtré, pas sur une page** — c'est la raison d'être de cet endpoint : la liste étant paginée, grouper côté front ne grouperait qu'une page et fausserait tous les totaux.\n\n**Filtres identiques à `GET /api/prospections`**, filtres avancés et périmètre commercial compris. Pour ouvrir un groupe : `GET /api/prospections?groupeColonne=<groupBy>&groupeValeur=<cle>`.\n\n**Seules les colonnes servies par l'entité sont groupables.** Les colonnes du groupe `ACTIVITE` (`joursInactivite`, `nbInteractions`…) et de `CONVERSION` viennent de la vue légataire `ComSaleProspectionView`, chargée par une requête distincte : elles n'existent pas dans le graphe d'entités et ne peuvent donc pas servir de clé de groupement. `GET /api/referentiels/colonnes/prospections` donne la liste exacte via le booléen `groupable`.",
-        "operationId": "grouper",
+        "operationId": "grouper_1",
         "parameters": [
           {
             "name": "groupBy",
@@ -5701,7 +6404,7 @@
         "tags": [
           "projet-controller"
         ],
-        "operationId": "findAll_5",
+        "operationId": "findAll_7",
         "parameters": [
           {
             "name": "pageable",
@@ -5796,165 +6499,14 @@
         }
       }
     },
-    "/api/pre-prospections": {
-      "get": {
-        "tags": [
-          "Pré-prospections"
-        ],
-        "summary": "Liste paginée des pré-prospections",
-        "description": "Mêmes filtres que GET /api/prospections (étape, origine, commercial, tranche(s), plage de dates, recherche libre, ouvertes) appliqués aux leads non encore qualifiés. Voir instructions/filtres-avances.md point 5.\n\n**Périmètre commercial** : si l'appelant est restreint, cette liste ne contient que les pré-prospections de ses projets affectés. À noter — une pré-prospection n'a par construction **aucun commercial** (c'est justement ce qui la définit) : seul le projet de sa tranche visée peut la scoper, le filtre `commercial` ne renverra jamais rien ici. Les pré-prospections sans tranche restent visibles de tous.",
-        "operationId": "findAll_6",
-        "parameters": [
-          {
-            "name": "etape",
-            "in": "query",
-            "description": "Code(s) ComProspectionKind (\"Nature\"/étape) à filtrer. Répéter le paramètre pour plusieurs étapes.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          },
-          {
-            "name": "origine",
-            "in": "query",
-            "description": "Code(s) ComProspectionOrigin à filtrer. Répéter le paramètre pour plusieurs origines.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          },
-          {
-            "name": "commercial",
-            "in": "query",
-            "description": "Id(s) du commercial (CfgTier.id, cfgCommercial). Répéter le paramètre pour plusieurs commerciaux.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "trancheId",
-            "in": "query",
-            "description": "Id(s) de tranche visée (CfgTranche.id, ComProspection.stkHierarchy). Répéter le paramètre pour plusieurs tranches.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "dateDebut",
-            "in": "query",
-            "description": "Borne inférieure (incluse) sur la date du document, format ISO-8601.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
-          },
-          {
-            "name": "dateFin",
-            "in": "query",
-            "description": "Borne supérieure (incluse) sur la date du document, format ISO-8601.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
-          },
-          {
-            "name": "search",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "ouvertes",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
-            "name": "groupeColonne",
-            "in": "query",
-            "description": "Déplie un groupe : restreint la liste aux pré-prospections d'un groupe renvoyé par `GET /api/pre-prospections/groupes`.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "example": "origine"
-          },
-          {
-            "name": "groupeValeur",
-            "in": "query",
-            "description": "Valeur du groupe à déplier — la `cle` renvoyée telle quelle par `/groupes`. Omise avec `groupeColonne` fourni : le groupe sans valeur.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "granularite",
-            "in": "query",
-            "description": "Granularité si `groupeColonne` est une date. Défaut : MOIS.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "JOUR",
-                "MOIS",
-                "ANNEE"
-              ]
-            }
-          },
-          {
-            "name": "pageable",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Pageable"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoProspectionListItemDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/pre-prospections/groupes": {
       "get": {
         "tags": [
           "Pré-prospections"
         ],
         "summary": "Liste des pré-prospections repliée en groupes, avec effectifs et totaux",
-        "description": "Même mécanique que `GET /api/prospections/groupes`, appliquée au périmètre des pré-prospections (`CfgProspectId IS NULL AND CfgCommercialId IS NULL`).\n\n**Les effectifs portent sur tout le périmètre filtré, pas sur une page.** Pour ouvrir un groupe : `GET /api/pre-prospections?groupeColonne=<groupBy>&groupeValeur=<cle>`.\n\nDeux colonnes n'ont ici aucun intérêt et rendront un groupe unique à valeur nulle : `prospectNom` et `commercialNom`, nuls par définition sur ce périmètre. Elles restent acceptées plutôt que refusées par un cas particulier — le résultat est exact, simplement sans information.",
-        "operationId": "grouper_1",
+        "description": "Même mécanique que `GET /api/prospections/groupes`, appliquée au périmètre des pré-prospections (type légataire `ComPreProspection`).\n\n**Les effectifs portent sur tout le périmètre filtré, pas sur une page.** Pour ouvrir un groupe : `GET /api/pre-prospections?groupeColonne=<groupBy>&groupeValeur=<cle>`.\n\n`prospectNom` et `commercialNom` sont nuls sur la plupart des lignes (leads non encore qualifiés) : grouper dessus donne surtout le groupe sans valeur.",
+        "operationId": "grouper_2",
         "parameters": [
           {
             "name": "groupBy",
@@ -6346,7 +6898,7 @@
         ],
         "summary": "Liste paginée des encaissements (règlements de Dossiers de vente)",
         "description": "Toujours restreint aux règlements liés à au moins une échéance de Dossier de vente (les règlements d'achat/location, s'il y en a, ne remontent jamais ici), et aux **encaissements** : un décaissement (`StlSettlement.IsCredit` faux, typiquement un remboursement à montant négatif) ne remonte jamais, comme sur l'écran legacy. `montantBrutRestant` (calculé : montant brut moins la part déjà affectée à une échéance) et `montantNet` (montant brut moins retenue source/timbre) sont calculés côté serveur, jamais stockés. `etat` accepte les 3 valeurs confirmées sur données réelles (IN_WORK, POINTED, CANCELED) — l'écran legacy propose aussi \"Impayé(e)\"/\"Perdu(e)\" comme filtres mais aucune ligne réelle ne les porte à ce jour ; passés tel quel (comparaison insensible à la casse), donc utilisables dès qu'un vrai code sera confirmé, sans changement d'API.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), cette liste ne contient que les règlements portant au moins une ligne rattachée à un dossier d'un de ses projets affectés. Les règlements dont aucune ligne ne résout de projet restent visibles de tous.\n\n**Encaissements non affectés : volontairement absents.** Un règlement encaissé mais pas encore imputé à une échéance n'a aucune ligne, donc ne remonte pas ici. L'écran legacy les affiche (il les reconnaît sous `StlSettlementRelationView.Origin = 'StlSettlement-NonAffecte'`) : 16 pièces pour 6 435 400 DH sur les données réelles, toutes à l'état IN_WORK. Les servir suppose de changer le critère \"Vente\" — décision produit en attente, voir `instructions/FEATURE-encaissements-conformite-legataire.md` §4. Ne pas confondre avec un filtre trop strict : c'est un choix assumé.",
-        "operationId": "findAll_7",
+        "operationId": "findAll_8",
         "parameters": [
           {
             "name": "entiteId",
@@ -6644,7 +7196,7 @@
         ],
         "summary": "Liste des encaissements repliée en groupes, avec effectifs et totaux",
         "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par valeur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Pourquoi cet endpoint plutôt qu'un groupement côté front** : la liste est paginée. Grouper une page ne donnerait que des groupes tronqués et des totaux faux. Les effectifs et totaux ci-dessous portent sur **tout le périmètre filtré**, pas sur une page.\n\n**Les filtres sont exactement ceux de `GET /api/encaissements`** — mêmes noms, même sémantique, restriction `IsCredit = 1` et périmètre commercial compris. Un même jeu de filtres des deux côtés garantit que la somme des effectifs des groupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET /api/encaissements` avec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/encaissements` (booléens `groupable` / `agregeable`). **`dossierId` et `dossierCode` n'en sont pas**, et ce n'est pas un oubli : un règlement n'a pas de dossier, il a des lignes rattachées à des échéances. Mesuré sur les données réelles — 643 règlements, 654 couples (règlement, dossier), 8 règlements portant sur plusieurs dossiers — grouper par ce chemin compterait ces 8 plusieurs fois et la somme des effectifs ne retomberait plus sur le total de la liste. Même chose pour `montantBrutRestant` et `montantNet`, calculés en Java et absents de la base.",
-        "operationId": "grouper_2",
+        "operationId": "grouper_3",
         "parameters": [
           {
             "name": "groupBy",
@@ -7564,7 +8116,7 @@
         ],
         "summary": "Liste des dossiers repliée en groupes, avec effectifs et totaux",
         "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par valeur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Pourquoi cet endpoint plutôt qu'un groupement côté front** : la liste est paginée. Grouper une page ne donnerait que des groupes tronqués et des totaux faux. Les effectifs et totaux ci-dessous portent sur **tout le périmètre filtré**, pas sur une page.\n\n**Les filtres sont exactement ceux de `GET /api/dossiers`** — mêmes noms, même sémantique, périmètre commercial compris. Un même jeu de filtres des deux côtés garantit que la somme des effectifs des groupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET /api/dossiers` avec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/dossiers` (booléens `groupable` / `agregeable`). Toutes les colonnes ne le sont pas, et c'est mesuré : un montant porte presque autant de valeurs distinctes que de lignes, une date exacte aussi — d'où `granularite` pour les dates et le refus de grouper un montant.",
-        "operationId": "grouper_3",
+        "operationId": "grouper_4",
         "parameters": [
           {
             "name": "groupBy",
@@ -7748,7 +8300,7 @@
         ],
         "summary": "Liste paginée de toutes les offres (devis), tous prospections confondues",
         "description": "Filtre optionnellement par recherche libre sur le code de l'offre, tranche(s), commercial, et plage de dates sur la date de l'offre (dateDocument). Chaque ligne porte prospectionId/prospectionCode pour la colonne \"Prospection\" et le lien cliquable vers la prospection d'origine. sommePrixVenteTTCPage est calculé uniquement sur la page renvoyée, pas sur l'ensemble des résultats filtrés — voir la description du champ.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seules les offres portant une tranche d'un de ses projets affectés sont renvoyées (plus celles sans tranche, dont le projet ne se résout pas). Ce filtre s'ajoute aux filtres ci-dessus : demander explicitement une `trancheId` hors périmètre renvoie une page vide, pas une erreur. `sommePrixVenteTTCPage` porte donc sur les seules lignes visibles.",
-        "operationId": "findAll_8",
+        "operationId": "findAll_9",
         "parameters": [
           {
             "name": "search",
@@ -7927,7 +8479,7 @@
           "Tableau de bord"
         ],
         "summary": "Les leads arrivés dans la journée",
-        "description": "Les pré-prospections créées le jour demandé — un lead non encore qualifié, sans prospect ni commercial (`CfgProspectId` et `CfgCommercialId` nuls), même discriminant que `GET /api/pre-prospections`.\n\n**Les arrivées se font par rafales, pas en continu**, l'injection des leads étant automatique : sur les 21 derniers jours mesurés, la plupart sont à zéro puis viennent des pointes à 11, 20, 31 et 34. **Le week-end n'est pas creux** ici, contrairement aux interactions — 34 leads sont arrivés un dimanche. Une journée vide est donc le cas courant et se lit « aucun lead », jamais « panne ».\n\nPas de paramètre `portee` : une pré-prospection n'ayant pas de commercial, « les miennes » n'aurait aucun sens. Seul le périmètre par projet s'applique.\n\nTrié du plus récent au plus ancien.",
+        "description": "Les pré-prospections créées le jour demandé — un lead non encore qualifié, de type légataire `ComPreProspection`, même discriminant que `GET /api/pre-prospections`.\n\n**Les arrivées se font par rafales, pas en continu**, l'injection des leads étant automatique : sur les 21 derniers jours mesurés, la plupart sont à zéro puis viennent des pointes à 11, 20, 31 et 34. **Le week-end n'est pas creux** ici, contrairement aux interactions — 34 leads sont arrivés un dimanche. Une journée vide est donc le cas courant et se lit « aucun lead », jamais « panne ».\n\nPas de paramètre `portee` : une pré-prospection n'ayant pas de commercial, « les miennes » n'aurait aucun sens. Seul le périmètre par projet s'applique.\n\nTrié du plus récent au plus ancien.",
         "operationId": "nouveauxPreProspects",
         "parameters": [
           {
@@ -8024,7 +8576,7 @@
         "tags": [
           "commercial-controller"
         ],
-        "operationId": "findAll_9",
+        "operationId": "findAll_10",
         "parameters": [
           {
             "name": "pageable",
@@ -8056,7 +8608,7 @@
         ],
         "summary": "Liste des clients",
         "description": "Les tiers portant au moins un dossier de vente sur une entité juridique en exploitation, avec leurs agrégats calculés côté serveur (nombre de dossiers, total à payer, total réglé). Une page vide signifie qu'aucun client ne correspond, pas une erreur.",
-        "operationId": "findAll_10",
+        "operationId": "findAll_11",
         "parameters": [
           {
             "name": "search",
@@ -8243,7 +8795,7 @@
         ],
         "summary": "Catalogue transverse des articles",
         "description": "Liste paginée de tous les articles racine et sous-articles, toutes tranches confondues — pour parcourir/rechercher le patrimoine sans devoir d'abord choisir une Tranche (contrairement à `GET /api/tranches/{id}/articles`, point d'entrée à privilégier quand la tranche est déjà connue). `search` filtre en sous-chaîne sur `code` OU `description` (insensible à la casse). `trancheId` restreint à une ou plusieurs tranches (OR) sans changer d'écran. `statut` filtre sur la disponibilité mais, à la différence des autres endpoints Article, **n'a pas de valeur par défaut ici** : absent = tous les statuts (DISPONIBLE + OCCUPE), pour une vraie vue catalogue. Restreint aux entités juridiques actives (ADMOD/GHRIZA), comme les autres listings Projet/Tranche/Article. Filtres de parité avec la grille legacy \"Articles\" (instructions/from_front.md #4) : `entiteId` (CfgCompany, voir `GET /api/referentiels/entites`), `natureId` (StkKind, voir `GET /api/referentiels/natures`), `vocationId` (StkVocation, voir `GET /api/referentiels/vocations`), `etageId` (StkFloor, voir `GET /api/referentiels/etages`), et les plages `prixDe`/`prixA` (sur `comSalePrice`) et `surfaceDe`/`surfaceA` (sur `area`), bornes inclusives et indépendamment optionnelles.",
-        "operationId": "findAll_11",
+        "operationId": "findAll_12",
         "parameters": [
           {
             "name": "search",
@@ -10267,8 +10819,8 @@
           "nombrePiecesJointes": {
             "type": "integer",
             "format": "int32",
-            "description": "Nombre de plans joints. Toujours 0 sur le canal WhatsApp : l'envoi d'un document par UltraMsg exige une URL publique, or les URL du stockage expirent en quinze minutes.",
-            "example": 1
+            "description": "Nombre de pièces jointes. **Toujours 0 désormais** : la confirmation de visite n'emporte plus de plan — elle porte l'adresse du projet et un lien de localisation (voir FEATURE-mail-visite-localisation.md). Champ conservé pour ne pas casser les clients existants.",
+            "example": 0
           }
         }
       },
@@ -10378,10 +10930,13 @@
           },
           "employeId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Id de l'employé lié (`CfgEmployeeId`). Renseigné sur 77 % des interactions réelles seulement — `null` ne veut pas dire auteur inconnu, voir `employeNom`."
           },
           "employeNom": {
-            "type": "string"
+            "type": "string",
+            "description": "**Nom d'affichage de l'auteur — toujours renseigné quand la base le connaît (99,996 % des lignes réelles).** L'employé lié quand il existe, sinon le compte qui a saisi l'interaction (`UserName`, puis `UserCreate`) — c'est ce que le logiciel de bureau affiche. Ne PAS afficher de repli type « Système » côté client sur la seule absence d'`employeId`.",
+            "example": "Khadija ELKORRI"
           },
           "actionTypeId": {
             "type": "string",
@@ -10786,6 +11341,258 @@
           },
           "articleDescription": {
             "type": "string"
+          }
+        }
+      },
+      "CreerPreProspectionRequest": {
+        "type": "object",
+        "description": "Création d'une pré-prospection (lead brut, non qualifié). Seul `nom` est obligatoire ; le prospect (`CfgTier`) et le commercial ne se posent pas ici mais par `POST /api/pre-prospections/{id}/creer-prospect` puis `POST /api/prospections/{id}/transformer`.",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "description": "Nom du contact tel que saisi (`TempDescription`, 255 caractères max). **Obligatoire**, non blanc. Renseigné sur 99,9 % des pré-prospections réelles.",
+            "example": "Karim Bennani"
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Téléphone, stocké tel quel (`TempTel`, 255 max). C'est ce champ que la hotline retrouve par numéro, quel que soit le format.",
+            "example": "0612345678"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email (`TempEMail`, 255 max).",
+            "example": "k.bennani@example.com"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes libres (`Notes`, 1 000 caractères max)."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche visée (CfgTranche → `StkHierarchyId`). Optionnel ; 400 si inconnue, **403** si son projet est hors du périmètre commercial de l'appelant."
+          },
+          "articleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Article/lot visé (StkItem). Optionnel ; exige `trancheId` et doit lui appartenir (400 sinon)."
+          },
+          "etapeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Nature/étape (ComProspectionKind → `ComProspectionKindId`). Optionnel."
+          },
+          "origineId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Source de contact (ComProspectionOrigin). Optionnel."
+          },
+          "origineSupportId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Support d'origine (ComProspectionOriginSupport). Optionnel."
+          },
+          "typeContactId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type (ComActionMessageType → `ComActionMessageTypeId`). Optionnel."
+          },
+          "actionCommercialeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Action commerciale / campagne (ComAction). Optionnel."
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Vocation (StkVocation). Absente : la vocation de code `VENTE` — celle de 100 % des pré-prospections réelles qui en portent une."
+          }
+        },
+        "required": [
+          "nom"
+        ]
+      },
+      "DoublonPreProspectionDto": {
+        "type": "object",
+        "description": "Prospection ou pré-prospection existante portant le même contact (nom, téléphone, email) que celle qui vient d'être créée.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant (ComProspection.PKey) — ouvrable par `GET /api/prospections/{id}`."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du document, p.ex. `26/05940`. Peut être atypique (`50`) sur les leads injectés par n8n.",
+            "example": "26/05940"
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création (`UserCreateDateTime`), null sur certaines lignes anciennes ou importées."
+          }
+        }
+      },
+      "PreProspectionCreeeDto": {
+        "type": "object",
+        "description": "Pré-prospection créée, accompagnée des doublons détectés. Les doublons sont **signalés, jamais refusés** : OMRAN enregistre lui aussi une ligne par soumission.",
+        "properties": {
+          "preProspection": {
+            "$ref": "#/components/schemas/ProspectionDetailDto",
+            "description": "La pré-prospection créée, sous la même forme que `GET /api/prospections/{id}`."
+          },
+          "doublons": {
+            "type": "array",
+            "description": "Prospections existantes au même contact : même nom (sans casse ni espaces de bord), même téléphone (9 derniers chiffres) et même email (sans casse) — un champ absent des deux côtés compte comme égal. Les plus récentes d'abord, 50 au plus, et **seulement ceux que l'appelant a le droit de voir** (périmètre commercial). **Vide = aucun doublon visible.**",
+            "items": {
+              "$ref": "#/components/schemas/DoublonPreProspectionDto"
+            }
+          }
+        }
+      },
+      "LigneImportDto": {
+        "type": "object",
+        "description": "Une ligne du fichier importé : les informations extraites et son sort.",
+        "properties": {
+          "ligne": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro de ligne dans le fichier, l'en-tête étant la ligne 1 — celui qu'affiche un tableur.",
+            "example": 2
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de soumission du lead (colonne « Créé »), devenue la date du document (`DocDate`). Null si illisible.",
+            "example": "2026-09-23T01:45:00"
+          },
+          "nom": {
+            "type": "string",
+            "description": "Nom du contact (`TempDescription`).",
+            "example": "Imane Bennis"
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Téléphone retenu, tel qu'écrit dans le fichier (`TempTel`) : « Téléphone », à défaut « Numéro WhatsApp », à défaut le numéro secondaire.",
+            "example": "+212663434434"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email (`TempEMail`).",
+            "example": "Imanebennis68@gmail.com"
+          },
+          "formulaire": {
+            "type": "string",
+            "description": "Formulaire publicitaire d'origine (colonne « Formulaire »), recopié dans les notes.",
+            "example": "APF FORM 02*2026 - GISK"
+          },
+          "statut": {
+            "type": "string",
+            "description": "Sort de la ligne :\n- `NOUVELLE` — aucun contact identique connu ; créée.\n- `DOUBLON` — même contact (nom, téléphone, email) qu'une prospection existante mais **autre date** de soumission : créée quand même, et signalée (`doublonIds`).\n- `DEJA_IMPORTEE` — même contact **et même date** (à la minute) qu'une ligne existante, en base ou plus haut dans le fichier : c'est le même lead réimporté ; **ignorée**.\n- `ERREUR` — ligne inexploitable (`message`) ; ignorée.",
+            "enum": [
+              "NOUVELLE",
+              "DOUBLON",
+              "DEJA_IMPORTEE",
+              "ERREUR"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Explication du statut, en clair — null pour `NOUVELLE`."
+          },
+          "preProspectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pré-prospection créée. **Toujours null dans l'aperçu**, et pour `DEJA_IMPORTEE` / `ERREUR`."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la pré-prospection créée (`AA/NNNNN`). Null comme `preProspectionId`.",
+            "example": "26/05949"
+          },
+          "doublonIds": {
+            "type": "array",
+            "description": "Prospections existantes au même contact (statuts `DOUBLON` et `DEJA_IMPORTEE`) — ouvrables par `GET /api/prospections/{id}`. Une ligne en double **dans le fichier** n'y figure qu'après l'import réel.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "RapportImportPreProspectionsDto": {
+        "type": "object",
+        "description": "Rapport d'import de leads : ce qui a été lu, et ce qui est (aperçu) ou a été (import) fait de chaque ligne. Même forme pour l'aperçu et l'import.",
+        "properties": {
+          "importe": {
+            "type": "boolean",
+            "description": "`false` pour l'aperçu (rien n'est écrit), `true` après l'import."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche à laquelle **toutes** les lignes ont été rattachées. Null dans l'aperçu."
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Code de cette tranche. Null dans l'aperçu.",
+            "example": "APF"
+          },
+          "trancheSuggereeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche **proposée** pour pré-sélectionner la liste déroulante : celle dont le code est le premier mot du nom de formulaire (`APF FORM 02*2026` → `APF`), si **tous** les formulaires du fichier désignent la même. Null sinon — l'utilisateur choisit. Ce n'est qu'une proposition : c'est `trancheId` envoyé à l'import qui décide."
+          },
+          "trancheSuggereeCode": {
+            "type": "string",
+            "description": "Code de la tranche proposée.",
+            "example": "APF"
+          },
+          "formulaires": {
+            "type": "array",
+            "description": "Noms de formulaires distincts trouvés dans le fichier.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "avertissements": {
+            "type": "array",
+            "description": "Mises en garde à montrer avant de confirmer — p.ex. un fichier dont les formulaires désignent plusieurs tranches, alors qu'un import n'en accepte qu'une.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "totalLignes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de lignes de données (en-tête et lignes vides exclues)."
+          },
+          "nouvelles": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lignes `NOUVELLE`."
+          },
+          "doublons": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lignes `DOUBLON` — créées elles aussi."
+          },
+          "dejaImportees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lignes `DEJA_IMPORTEE` — ignorées."
+          },
+          "erreurs": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lignes `ERREUR` — ignorées."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Le détail, ligne par ligne, dans l'ordre du fichier.",
+            "items": {
+              "$ref": "#/components/schemas/LigneImportDto"
+            }
           }
         }
       },
@@ -12347,6 +13154,271 @@
           }
         }
       },
+      "PageDtoSuiviActionDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SuiviActionDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "SuiviActionDto": {
+        "type": "object",
+        "description": "Une action commerciale (appel, visite, message, note…) telle que l'affiche l'écran OMRAN « Suivi des actions ». Seules les colonnes demandées par `?colonnes=` sont présentes — catalogue : `GET /api/referentiels/colonnes/suivi-actions`.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de l'action (ComActionMessage.PKey). Toujours servi."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Auteur de l'action tel qu'écrit sur la ligne (`UserName`) — la colonne sur laquelle filtre l'écran OMRAN. « Système » ou vide pour une action générée.",
+            "example": "Khadija ELKORRI"
+          },
+          "typeAction": {
+            "type": "string",
+            "description": "Type d'action (ComActionMessageType).",
+            "example": "Téléphone Sortant"
+          },
+          "rang": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang de l'action parmi celles du même type pour le même tiers, **1 = la plus récente** (hors actions système et impayées) — la règle de la vue OMRAN. Calculé pour la page servie : ni triable ni groupable.",
+            "example": 1
+          },
+          "dateAction": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'action (`DocDate`)."
+          },
+          "dateAlerte": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'alerte / de la relance (`AlertValidityDate`). Null si aucune."
+          },
+          "alerteActive": {
+            "type": "boolean",
+            "description": "L'alerte de cette action est-elle encore active (`AdmAlertData.Active`) ? `false` si aucune alerte. Calculé pour la page servie."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Catégorie (Prospection, Dossier de vente…).",
+            "example": "Prospection"
+          },
+          "resultat": {
+            "type": "string",
+            "description": "Résultat (sous-catégorie).",
+            "example": "Rendez vous pris"
+          },
+          "message": {
+            "type": "string",
+            "description": "Note saisie (`AlertMessage`)."
+          },
+          "impaye": {
+            "type": "boolean",
+            "description": "Action marquée impayé (`IsUnpaid`)."
+          },
+          "systeme": {
+            "type": "boolean",
+            "description": "Action générée par le système (`IsSystem`) — relance, événement… Listée comme dans OMRAN ; filtrable par `?systeme=false`."
+          },
+          "entrante": {
+            "type": "boolean",
+            "description": "Action entrante (`IsIn`). Rarement renseigné : le type porte le sens."
+          },
+          "commercial": {
+            "type": "string",
+            "description": "Commercial concerné (`CfgEmployeeId` → `CfgTier.Description`) — pas l'auteur, qui est `utilisateur`. Vide sur 23 % des actions réelles."
+          },
+          "personnel": {
+            "type": "string",
+            "description": "Personnel : employé du compte auteur, sinon le compte, sinon le commercial — règle de la vue OMRAN. Calculé pour la page servie."
+          },
+          "tiersNom": {
+            "type": "string",
+            "description": "Tiers (prospect/client) de l'action (`CfgTier.Description`)."
+          },
+          "prospectionCode": {
+            "type": "string",
+            "description": "Code de la prospection rattachée.",
+            "example": "26/05947"
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code du dossier de vente rattaché."
+          },
+          "etat": {
+            "type": "string",
+            "description": "État : statut du dossier de l'action, sinon du dossier né de sa prospection, sinon sa catégorie — règle de la vue OMRAN. Calculé pour la page servie."
+          },
+          "articleCode": {
+            "type": "string",
+            "description": "Code de l'article rattaché."
+          },
+          "articleLibelle": {
+            "type": "string",
+            "description": "Libellé de l'article rattaché."
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Tranche **résolue comme OMRAN** : catégorie Prospection → tranche de la prospection, sinon tranche de l'article.",
+            "example": "APF"
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Libellé de la tranche résolue."
+          },
+          "programme": {
+            "type": "string",
+            "description": "Programme (projet) de la tranche résolue."
+          },
+          "entite": {
+            "type": "string",
+            "description": "Entité juridique du programme."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du type d'action."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la catégorie."
+          },
+          "tiersId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du tiers — ouvrir la fiche prospect/client."
+          },
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la prospection — `GET /api/prospections/{id}`."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du dossier — `GET /api/dossiers/{id}`."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la tranche résolue."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Créé par (`UserCreate`)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Créé le (`UserCreateDateTime`)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Modifié par (`UserUpdate`)."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Modifié le (`UserUpdateDateTime`)."
+          }
+        }
+      },
+      "GroupeDto": {
+        "type": "object",
+        "description": "Un groupe de la liste repliée — l'équivalent d'un en-tête « Client : Adnane ES-SAIYDY (1 item) » suivi de sa bande « Total : » dans le logiciel de bureau.\n\nLes groupes sont **repliés** : ils portent l'effectif et les totaux, pas les lignes. Pour obtenir les lignes d'un groupe, rappeler la liste correspondante avec `?groupeColonne=<la colonne groupée>&groupeValeur=<la clé ci-dessous>`.",
+        "properties": {
+          "cle": {
+            "description": "Valeur technique du groupe, à réémettre telle quelle dans `?groupeValeur=` pour déplier le groupe. Selon la colonne groupée : un identifiant (groupement par client/commercial/notaire), un code (statut, tranche, origine), un booléen, ou un entier de période (`202507` pour juillet 2025, `2025` pour l'année).\n\n**`null` est une valeur de groupe légitime** : ce sont les lignes sans valeur sur la colonne groupée. Le groupe est renvoyé et non masqué, sans quoi la somme des effectifs cesserait de retomber sur le total de la liste.",
+            "example": "CONCRETISATION"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé affichable du groupe. Identique à `cle` pour la plupart des colonnes ; dérivé pour les groupements par tiers (priorité raison sociale > description > prénom + nom, exactement comme la colonne correspondante de la liste) et pour les périodes (`juillet 2025`). `null` pour le groupe des lignes sans valeur.",
+            "example": "CONCRETISATION"
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lignes du groupe — le « (1 item) » de l'écran légataire.",
+            "example": 12
+          },
+          "agregats": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Résultats des agrégats demandés via `?agregats=`, **indexés par le jeton envoyé** — `prix` pour un nom nu, `prix:AVG` pour un nom qualifié. Vide si `agregats` n'est pas fourni.\n\nUn nom nu vaut toujours une somme et revient sous ce nom nu : la réponse d'une intégration existante est donc inchangée par l'ouverture du menu Σ.\n\n**Le type de la valeur suit la fonction** : nombre décimal pour `SUM` et `AVG`, entier pour `COUNT`, et pour `MIN`/`MAX` le type de la colonne — donc une date ISO-8601 sur une colonne date. Une somme dont toutes les lignes du groupe sont nulles vaut `0`, jamais `null` : c'est un total, pas une valeur absente. Un `MIN`/`MAX` sans aucune valeur vaut `null`, lui — il n'existe pas de minimum de rien, et `0` serait un mensonge.",
+            "example": {
+              "prix": 1350000,
+              "prix:AVG": 675000
+            }
+          }
+        }
+      },
+      "PageGroupesDto": {
+        "type": "object",
+        "description": "Groupes paginés, plus le total général sur tout le périmètre filtré.",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupeDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de **groupes**, pas de lignes — c'est ce qui est paginé ici."
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totaux": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Les mêmes agrégats que dans chaque groupe, mais calculés sur **tout le périmètre filtré** : la bande « Total : » de bas de grille, par opposition à celle d'un en-tête de groupe. Indexés par le même jeton. Vide si `agregats` n'est pas fourni.\n\nSuit `inclureSansValeur` à l'identique : sinon ce total et la somme des groupes désigneraient deux populations différentes.",
+            "example": {
+              "montantBrut": 117600
+            }
+          },
+          "nombreTotal": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre total de lignes agrégées — l'effectif dont `totaux` est tiré. Avec `inclureSansValeur=true`, égale le `totalElements` de la liste non groupée.",
+            "example": 643
+          }
+        }
+      },
       "ReferentielItemDto": {
         "type": "object",
         "properties": {
@@ -13179,7 +14251,7 @@
           },
           "typeProspectionCode": {
             "type": "string",
-            "description": "Code du type de document — **c'est ce champ qu'il faut tester**, jamais le libellé. `ComProspection`, `ComPreProspection`, `RntProspection`.\n\nAttention : cette liste applique une **heuristique** (`CfgProspectId`/`CfgCommercialId`) qui n'est pas celle du légataire. Elle y laisse donc **830 lignes de code `ComPreProspection`** et 4 de code `RntProspection` (location). Ce champ est précisément ce qui rend l'écart visible et comptable ; il ne le corrige pas.",
+            "description": "Code du type de document — **c'est ce champ qu'il faut tester**, jamais le libellé. `ComProspection`, `ComPreProspection`, `RntProspection`.\n\nSur `GET /api/pre-prospections`, toujours `ComPreProspection` ; sur `GET /api/prospections`, jamais — les deux listes se partagent les lignes sur ce seul critère. Cette dernière garde les 4 prospections de location (`RntProspection`) et les 4 lignes sans type (`null`).",
             "example": "ComProspection"
           },
           "typeProspection": {
@@ -13592,7 +14664,7 @@
           },
           "typeProspection": {
             "type": "array",
-            "description": "Code(s) de type de document légataire (`StrEntity.Code`). Répétable. Filtre sur le **discriminant réel** du logiciel de bureau, et non sur l'heuristique que cette liste applique par ailleurs.\n\nC'est ce qui rend l'écart mesurable : `?typeProspection=ComPreProspection` isole les **830 pré-prospections** que l'heuristique laisse dans la liste de vente, et `RntProspection` les 4 prospections de location qui s'y trouvent aussi. Valeurs connues : `ComProspection`, `ComPreProspection`, `RntProspection`, `PrmProspection`, `RomProspection`.\n\nUn code inconnu ne provoque pas d'erreur : il ne correspond à aucune prospection et le résultat est vide. Les 4 lignes sans `StrEntityId` sont exclues dès que ce filtre est actif — elles n'ont aucun type.",
+            "description": "Code(s) de type de document légataire (`StrEntity.Code`). Répétable. La liste écarte déjà `ComPreProspection` (servies par `GET /api/pre-prospections`) : ce filtre sert surtout à isoler `RntProspection`, les 4 prospections de location présentes dans la liste de vente. Valeurs connues : `ComProspection`, `ComPreProspection`, `RntProspection`, `PrmProspection`, `RomProspection`.\n\nUn code inconnu ne provoque pas d'erreur : il ne correspond à aucune prospection et le résultat est vide. Les 4 lignes sans `StrEntityId` sont exclues dès que ce filtre est actif — elles n'ont aucun type.",
             "example": "ComPreProspection",
             "items": {
               "type": "string"
@@ -13685,79 +14757,6 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
-          }
-        }
-      },
-      "GroupeDto": {
-        "type": "object",
-        "description": "Un groupe de la liste repliée — l'équivalent d'un en-tête « Client : Adnane ES-SAIYDY (1 item) » suivi de sa bande « Total : » dans le logiciel de bureau.\n\nLes groupes sont **repliés** : ils portent l'effectif et les totaux, pas les lignes. Pour obtenir les lignes d'un groupe, rappeler la liste correspondante avec `?groupeColonne=<la colonne groupée>&groupeValeur=<la clé ci-dessous>`.",
-        "properties": {
-          "cle": {
-            "description": "Valeur technique du groupe, à réémettre telle quelle dans `?groupeValeur=` pour déplier le groupe. Selon la colonne groupée : un identifiant (groupement par client/commercial/notaire), un code (statut, tranche, origine), un booléen, ou un entier de période (`202507` pour juillet 2025, `2025` pour l'année).\n\n**`null` est une valeur de groupe légitime** : ce sont les lignes sans valeur sur la colonne groupée. Le groupe est renvoyé et non masqué, sans quoi la somme des effectifs cesserait de retomber sur le total de la liste.",
-            "example": "CONCRETISATION"
-          },
-          "libelle": {
-            "type": "string",
-            "description": "Libellé affichable du groupe. Identique à `cle` pour la plupart des colonnes ; dérivé pour les groupements par tiers (priorité raison sociale > description > prénom + nom, exactement comme la colonne correspondante de la liste) et pour les périodes (`juillet 2025`). `null` pour le groupe des lignes sans valeur.",
-            "example": "CONCRETISATION"
-          },
-          "nombre": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Nombre de lignes du groupe — le « (1 item) » de l'écran légataire.",
-            "example": 12
-          },
-          "agregats": {
-            "type": "object",
-            "additionalProperties": {},
-            "description": "Résultats des agrégats demandés via `?agregats=`, **indexés par le jeton envoyé** — `prix` pour un nom nu, `prix:AVG` pour un nom qualifié. Vide si `agregats` n'est pas fourni.\n\nUn nom nu vaut toujours une somme et revient sous ce nom nu : la réponse d'une intégration existante est donc inchangée par l'ouverture du menu Σ.\n\n**Le type de la valeur suit la fonction** : nombre décimal pour `SUM` et `AVG`, entier pour `COUNT`, et pour `MIN`/`MAX` le type de la colonne — donc une date ISO-8601 sur une colonne date. Une somme dont toutes les lignes du groupe sont nulles vaut `0`, jamais `null` : c'est un total, pas une valeur absente. Un `MIN`/`MAX` sans aucune valeur vaut `null`, lui — il n'existe pas de minimum de rien, et `0` serait un mensonge.",
-            "example": {
-              "prix": 1350000,
-              "prix:AVG": 675000
-            }
-          }
-        }
-      },
-      "PageGroupesDto": {
-        "type": "object",
-        "description": "Groupes paginés, plus le total général sur tout le périmètre filtré.",
-        "properties": {
-          "content": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/GroupeDto"
-            }
-          },
-          "page": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "size": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalElements": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Nombre de **groupes**, pas de lignes — c'est ce qui est paginé ici."
-          },
-          "totalPages": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totaux": {
-            "type": "object",
-            "additionalProperties": {},
-            "description": "Les mêmes agrégats que dans chaque groupe, mais calculés sur **tout le périmètre filtré** : la bande « Total : » de bas de grille, par opposition à celle d'un en-tête de groupe. Indexés par le même jeton. Vide si `agregats` n'est pas fourni.\n\nSuit `inclureSansValeur` à l'identique : sinon ce total et la somme des groupes désigneraient deux populations différentes.",
-            "example": {
-              "montantBrut": 117600
-            }
-          },
-          "nombreTotal": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Nombre total de lignes agrégées — l'effectif dont `totaux` est tiré. Avec `inclureSansValeur=true`, égale le `totalElements` de la liste non groupée.",
-            "example": 643
           }
         }
       },
@@ -14802,7 +15801,7 @@
           },
           "preProspection": {
             "type": "boolean",
-            "description": "`true` s'il s'agit d'une pré-prospection — un lead non encore qualifié, sans prospect ni commercial (`CfgProspectId` et `CfgCommercialId` nuls). Une telle relance est toujours `nonAffectee`."
+            "description": "`true` s'il s'agit d'une pré-prospection — un lead non encore transformé, de type légataire `ComPreProspection`, même discriminant que `GET /api/pre-prospections`. Une pré-prospection saisie dans OMRAN peut déjà porter un commercial : `nonAffectee` n'est donc pas systématique."
           },
           "prospectNom": {
             "type": "string",

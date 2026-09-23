@@ -1,5 +1,5 @@
 # Session Memory
-_Last updated: 2026-09-23 (session « création de pré-prospection + import CSV des leads »)_
+_Last updated: 2026-09-23 (session « création de pré-prospection + import CSV » puis « suivi des actions »)_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
@@ -9,8 +9,35 @@ _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\a
 **Petites features front à la demande, une PR par lot**, dans la boucle
 habituelle : demande → diff spec → AskUserQuestion avant la branche →
 implémenter → build+lint → commit+push → l'utilisateur fusionne → sync.
-Lot du 23/09 : **branche `feat/creation-pre-prospection` poussée, PR en
-attente de fusion** — voir « Next Step ».
+Deux lots le 23/09 : `feat/creation-pre-prospection` **fusionné** (main
+`3b24a4b`), puis **`feat/suivi-actions` poussé, PR en attente de fusion** —
+voir « Next Step ».
+
+### Lot 2 du 23/09 — `feat/suivi-actions` (écran OMRAN « Suivi des actions »)
+- **Spec** : 3 nouveaux endpoints `GET /api/suivi-actions` (`?colonnes=`,
+  filtres `dateDebut/dateFin` **fin exclue**, `trancheId[]`, `utilisateur[]`,
+  `typeId[]`, `categorieId[]`, `systeme`), `GET …/groupes` (`groupBy` requis,
+  **rien d'agrégeable**), catalogue `GET /api/referentiels/colonnes/suivi-actions`.
+  Tout le reste du diff = renumérotation `operationId`.
+- **Réutilise la mécanique des listes à catalogue** (patron
+  `EncaissementsList` + `EncaissementTable`) : `useColonnesSuiviActions`,
+  `useColonnesVisibles('suivi-actions', …, DISPOSITION_SUIVI_ACTIONS)`,
+  `useGroupement`, `useLignesGroupes`, `DataGrid` via `SuiviActionTable`.
+- **`?colonnes=` part toujours** sur cet écran (contrairement aux autres) :
+  `CLES_OUVERTURE_SUIVI_ACTION` = `prospectionId`, `dossierId` sont hors
+  défaut serveur et le clic sur une ligne ouvre la prospection, à défaut le
+  dossier. Une requête supplémentaire à la première peinture, documentée.
+- **Période par défaut = mois courant** (choix utilisateur), « Au » inclusif
+  à l'écran → `lendemain(au)T00:00:00` envoyé.
+- **Filtre Utilisateur** alimenté par `/groupes?groupBy=utilisateur` hors
+  période (valeurs réelles + effectif), comme la spec le prescrit.
+- **Pas de filtre Catégorie** : aucun référentiel `ComActionMessageCategory`
+  dans l'API (#183). Le filtre de colonne client-side de la grille couvre.
+- `GroupeColonne` + `LIBELLES_GROUPE` étendus : ACTION, RATTACHEMENT,
+  IDENTIFIANTS. Sidebar : après Calendrier, icône `ListChecks`, accent
+  `--sec-accent`. Route `/suivi-actions` ajoutée à `modules.ts`.
+- Piège TS : un `interface` de filtres n'est pas assignable au `Record<…>`
+  de `withPageable` — déclarer les `*FilterParams` en `type`.
 
 ---
 
@@ -65,6 +92,7 @@ attente de fusion** — voir « Next Step ».
 | 180 | **Pas d'endpoint « désarchiver »** (vérifié spec du 23/09 : toujours absent) | Open (backend) | Item grisé « Bientôt » |
 | 181 | Mode groupé : lignes d'un groupe déplié non rafraîchies après mutation | Open (limite documentée) | — |
 | 182 | Import : le tableau rend jusqu'à 5 000 lignes d'un bloc (table simple, pas de virtualisation) | Open (à surveiller) | Filtre par statut pour réduire ; virtualiser si lent |
+| 183 | Suivi des actions : pas de référentiel `ComActionMessageCategory` dans l'API → pas de filtre Catégorie | Open (backend) | Filtre de colonne client-side de la grille en attendant |
 
 ---
 
@@ -148,13 +176,15 @@ attente de fusion** — voir « Next Step ».
 
 ## ⏭️ Next Step
 
-> **Attendre la fusion de la PR front `feat/creation-pre-prospection`** (URL
-> imprimée par `git-flow push`) après validation visuelle par l'utilisateur.
-> Puis `node .claude/scripts/git-flow.mjs sync front`, et demander le lot suivant.
+> **Attendre la fusion de la PR front `feat/suivi-actions`** (URL imprimée
+> par `git-flow push`) après validation visuelle par l'utilisateur. Puis
+> `node .claude/scripts/git-flow.mjs sync front`, et demander le lot suivant.
 
 ### Backlog (par priorité)
 
-- [ ] Retours visuels sur ce lot (largeur des colonnes du rapport, libellés).
+- [ ] Retours visuels sur le suivi des actions (poids des colonnes, libellé
+      du filtre Utilisateur avec effectif) et sur l'import CSV.
+- [ ] #183 — filtre Catégorie dès qu'un référentiel existe.
 - [ ] #182 — virtualiser `TableauLignes` si un fichier de 5 000 lignes rame.
 - [ ] Câbler « Désarchiver » (#180) dès que le back expose l'endpoint.
 - [ ] #181 — rafraîchir les lignes des groupes dépliés après mutation.

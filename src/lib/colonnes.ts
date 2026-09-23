@@ -24,6 +24,10 @@ export const LIBELLES_GROUPE: Record<string, string> = {
   // Prospects
   ADRESSE: 'Adresse',
   PROFESSION: 'Profession',
+  // Suivi des actions
+  ACTION: 'Action',
+  RATTACHEMENT: 'Rattachement',
+  IDENTIFIANTS: 'Identifiants',
   // Les trois catalogues
   AUDIT: 'Traçabilité',
 };

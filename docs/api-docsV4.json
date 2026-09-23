@@ -32,6 +32,10 @@
       "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front.\n\n**Entités juridiques en exploitation.** Seuls les événements rattachés — par leur prospection ou par leur dossier — à une entité juridique active (`CfgCompany.IsActive`) sont renvoyés : aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un événement qu'aucune prospection ni aucun dossier ne rattache à une entité reste affiché."
     },
     {
+      "name": "Suivi des actions",
+      "description": "L'écran OMRAN « Suivi des actions » : les actions commerciales (appels, visites, messages, notes…) saisies par chaque utilisateur, sur une période. Doc OMRAN : https://help.omranestate.com/SUIVIDESACTIONS.html — détail dans `instructions/FEATURE-suivi-actions.md`.\n\n**Même requête qu'OMRAN**, relevée dans sa trace d'audit : `ComActionMessageView WHERE CfgTrancheId IN (…) AND DocDate >= début AND DocDate < fin [AND UserName = …]`. Mêmes colonnes, même tranche résolue (catégorie Prospection → tranche de la prospection, sinon de l'article), même rang, même état — construits sur la table plutôt que sur la vue, qui coûte 6,6 s la page.\n\n**Compter les appels d'un commercial jour par jour** — le cas d'usage principal (94 % des actions de l'année sont des appels sortants) : `GET /api/suivi-actions/groupes?utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR&dateDebut=…&dateFin=…`. L'effectif de chaque groupe est le nombre d'actions ; la somme des effectifs égale le `totalElements` de la liste aux mêmes filtres.\n\n**Qui voit quoi.** Le suivi **général** est réservé au rôle `Administrateur`. Tout autre utilisateur ne voit que **ses propres actions** — sur la liste comme dans les groupes : celles écrites à son nom (`UserName`), plus celles de son compte hors lignes « Système » (actions générées pendant sa session, qu'OMRAN attribue à « Système »). Pour lui, le filtre `utilisateur` ne peut que restreindre : demander quelqu'un d'autre rend une page vide, jamais un 403 qui confirmerait l'existence de ses actions. Le front masque donc le sélecteur d'utilisateur hors administrateur.\n\n**Périmètre commercial** : appliqué par le service, liste et groupes — une action dont le projet (par la prospection, puis par le dossier) est hors périmètre n'apparaît ni dans la liste ni dans un effectif. Actions d'entités juridiques inactives exclues, comme partout."
+    },
+    {
       "name": "Synchronisation",
       "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
     },
@@ -4186,6 +4190,340 @@
         }
       }
     },
+    "/api/suivi-actions": {
+      "get": {
+        "tags": [
+          "Suivi des actions"
+        ],
+        "summary": "Liste des actions commerciales, colonnes au choix",
+        "description": "La grille de l'écran OMRAN. Tous les filtres sont optionnels et se combinent en ET.\n\n**Période fin exclue**, comme OMRAN : `dateDebut <= DocDate < dateFin`. Un jour J = `dateDebut=J T00:00` et `dateFin=J+1 T00:00`.\n\n**Colonnes** : `?colonnes=` choisit les champs servis (catalogue et liste blanche : `GET /api/referentiels/colonnes/suivi-actions`). `rang`, `alerteActive`, `etat` et `personnel` sont calculées pour la page servie, et seulement quand elles sont demandées : ni triables ni groupables.\n\n**Tri** : `sort=docDate,desc` par défaut ; seules les propriétés de l'action (`docDate`, `userName`, `alertValidityDate`…) sont triables.\n\nLes actions **système** (relances, événements générés) sont listées, comme dans OMRAN — `systeme=false` pour ne garder que les saisies.",
+        "operationId": "findAll_6",
+        "parameters": [
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "description": "Début de période, **inclus** (`DocDate >= dateDebut`), ISO-8601.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-09-01T00:00:00"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "description": "Fin de période, **exclue** (`DocDate < dateFin`), ISO-8601 — comme la requête OMRAN.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-10-01T00:00:00"
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche(s) résolue(s) à la manière d'OMRAN (catégorie Prospection → tranche de la prospection, sinon de l'article). Répétable, OU.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "utilisateur",
+            "in": "query",
+            "description": "Utilisateur(s) — `UserName` de l'action, **égalité exacte**, la colonne que filtre OMRAN. Valeurs présentes : `/api/suivi-actions/groupes?groupBy=utilisateur`. Répétable, OU. **Utile à l'administrateur seulement** : pour un autre rôle, la liste est déjà réduite à ses propres actions et ce filtre ne peut que la restreindre davantage.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "Khadija ELKORRI"
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Type(s) d'action (ComActionMessageType.id). Répétable, OU.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Catégorie(s) (ComActionMessageCategory.id). Répétable, OU.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "systeme",
+            "in": "query",
+            "description": "`true` = actions système seules, `false` = saisies seules, absent = tout (comme OMRAN).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes à servir, répétable ou séparées par des virgules. Absent : la grille OMRAN. `id` est toujours servi.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "utilisateur,typeAction,dateAction,tiersNom,prospectionCode,trancheCode"
+          },
+          {
+            "name": "groupeColonne",
+            "in": "query",
+            "description": "Déplie un groupe renvoyé par `/groupes` : le nom de la colonne groupée.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "dateAction"
+          },
+          {
+            "name": "groupeValeur",
+            "in": "query",
+            "description": "La `cle` du groupe, telle que renvoyée par `/groupes`. Omise avec `groupeColonne` : le groupe sans valeur.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité si `groupeColonne` est une date — la même qu'à `/groupes`. Défaut : MOIS.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "JOUR"
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page d'actions",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoSuiviActionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Nom de colonne hors catalogue (le corps liste les noms valides) ; `groupeColonne` non groupable."
+          }
+        }
+      }
+    },
+    "/api/suivi-actions/groupes": {
+      "get": {
+        "tags": [
+          "Suivi des actions"
+        ],
+        "summary": "Actions repliées en groupes, avec effectifs — les comptes par jour, par utilisateur…",
+        "description": "La bande de groupement de la grille OMRAN, calculée côté serveur : **un groupe par valeur** de `groupBy`, avec son effectif = **le nombre d'actions**. Les effectifs portent sur tout le périmètre filtré, pas sur une page.\n\n**Mêmes filtres que la liste**, mêmes noms, même périmètre : la somme des effectifs égale le `totalElements` de `GET /api/suivi-actions` aux mêmes filtres (avec `inclureSansValeur=true`).\n\nRecettes :\n- **appels passés par jour** d'un commercial : `utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR` ;\n- **activité par utilisateur** sur une période : `groupBy=utilisateur` ;\n- **par type d'action** : `groupBy=typeAction` ;\n- **par tranche** : `groupBy=trancheCode`.\n\nPour ouvrir un groupe : `GET /api/suivi-actions?groupeColonne=<groupBy>&groupeValeur=<cle>` (+ la même `granularite`).\n\n**Aucune colonne n'est agrégeable** : la mesure est l'effectif. `agregats` rend donc 400. Colonnes groupables : le catalogue (`groupable = true`).",
+        "operationId": "grouper",
+        "parameters": [
+          {
+            "name": "groupBy",
+            "in": "query",
+            "description": "Colonne de groupement. **Requis.** Un seul niveau.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "dateAction"
+          },
+          {
+            "name": "agregats",
+            "in": "query",
+            "description": "Aucune colonne de ce catalogue n'est agrégeable : laisser vide.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Granularité si `groupBy` est une date. **JOUR** pour les comptes quotidiens. Défaut : MOIS.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "JOUR"
+          },
+          {
+            "name": "tri",
+            "in": "query",
+            "description": "LIBELLE (croissant, défaut) ou NOMBRE (effectif décroissant).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LIBELLE",
+                "NOMBRE"
+              ]
+            }
+          },
+          {
+            "name": "inclureSansValeur",
+            "in": "query",
+            "description": "Inclure le groupe des actions sans valeur sur la colonne groupée. Faux par défaut.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "utilisateur",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "systeme",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes, paginés comme une liste",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageGroupesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`groupBy` absent, inconnu ou non groupable (`rang`, `alerteActive`, `etat`, `personnel`, `message`) ; `agregats` fourni."
+          }
+        }
+      }
+    },
     "/api/referentiels/vocations": {
       "get": {
         "tags": [
@@ -5149,6 +5487,31 @@
         }
       }
     },
+    "/api/referentiels/colonnes/suivi-actions": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Catalogue des colonnes du suivi des actions",
+        "description": "Colonnes de `GET /api/suivi-actions` : nom (à passer dans `?colonnes=`), libellé, groupe d'affichage, type, sélection par défaut, et les booléens `groupable` / `agregeable` qui pilotent `/groupes`.\n\n**Établi sur l'écran OMRAN** : les colonnes de la vue `ComActionMessageView` que lit l'écran « Suivi des actions » et que liste sa documentation, **filtrées par la mesure** sur les 48 213 actions réelles. Désistement, transfert client, transfert produit (0 ligne), SAV (2), location, offre et syndic (0) n'y figurent pas.\n\n**Non groupables** : `rang`, `alerteActive`, `etat`, `personnel` — calculées pour la page servie seulement — et `message`, un `nvarchar(max)`. **Aucune colonne agrégeable** : la mesure d'un groupe est son effectif, le nombre d'actions.\n\nRéférentiel statique, sans paramètre : cacheable côté client.",
+        "operationId": "getColonnesSuiviActions",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ColonneDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/colonnes/prospects": {
       "get": {
         "tags": [
@@ -5858,7 +6221,7 @@
         ],
         "summary": "Liste des prospections repliée en groupes, avec effectifs et totaux",
         "description": "Reproduit la bande de groupement du logiciel de bureau : un groupe par valeur distincte de `groupBy`, portant son effectif et les sommes demandées.\n\n**Les effectifs portent sur tout le périmètre filtré, pas sur une page** — c'est la raison d'être de cet endpoint : la liste étant paginée, grouper côté front ne grouperait qu'une page et fausserait tous les totaux.\n\n**Filtres identiques à `GET /api/prospections`**, filtres avancés et périmètre commercial compris. Pour ouvrir un groupe : `GET /api/prospections?groupeColonne=<groupBy>&groupeValeur=<cle>`.\n\n**Seules les colonnes servies par l'entité sont groupables.** Les colonnes du groupe `ACTIVITE` (`joursInactivite`, `nbInteractions`…) et de `CONVERSION` viennent de la vue légataire `ComSaleProspectionView`, chargée par une requête distincte : elles n'existent pas dans le graphe d'entités et ne peuvent donc pas servir de clé de groupement. `GET /api/referentiels/colonnes/prospections` donne la liste exacte via le booléen `groupable`.",
-        "operationId": "grouper",
+        "operationId": "grouper_1",
         "parameters": [
           {
             "name": "groupBy",
@@ -6041,7 +6404,7 @@
         "tags": [
           "projet-controller"
         ],
-        "operationId": "findAll_6",
+        "operationId": "findAll_7",
         "parameters": [
           {
             "name": "pageable",
@@ -6143,7 +6506,7 @@
         ],
         "summary": "Liste des pré-prospections repliée en groupes, avec effectifs et totaux",
         "description": "Même mécanique que `GET /api/prospections/groupes`, appliquée au périmètre des pré-prospections (type légataire `ComPreProspection`).\n\n**Les effectifs portent sur tout le périmètre filtré, pas sur une page.** Pour ouvrir un groupe : `GET /api/pre-prospections?groupeColonne=<groupBy>&groupeValeur=<cle>`.\n\n`prospectNom` et `commercialNom` sont nuls sur la plupart des lignes (leads non encore qualifiés) : grouper dessus donne surtout le groupe sans valeur.",
-        "operationId": "grouper_1",
+        "operationId": "grouper_2",
         "parameters": [
           {
             "name": "groupBy",
@@ -6535,7 +6898,7 @@
         ],
         "summary": "Liste paginée des encaissements (règlements de Dossiers de vente)",
         "description": "Toujours restreint aux règlements liés à au moins une échéance de Dossier de vente (les règlements d'achat/location, s'il y en a, ne remontent jamais ici), et aux **encaissements** : un décaissement (`StlSettlement.IsCredit` faux, typiquement un remboursement à montant négatif) ne remonte jamais, comme sur l'écran legacy. `montantBrutRestant` (calculé : montant brut moins la part déjà affectée à une échéance) et `montantNet` (montant brut moins retenue source/timbre) sont calculés côté serveur, jamais stockés. `etat` accepte les 3 valeurs confirmées sur données réelles (IN_WORK, POINTED, CANCELED) — l'écran legacy propose aussi \"Impayé(e)\"/\"Perdu(e)\" comme filtres mais aucune ligne réelle ne les porte à ce jour ; passés tel quel (comparaison insensible à la casse), donc utilisables dès qu'un vrai code sera confirmé, sans changement d'API.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), cette liste ne contient que les règlements portant au moins une ligne rattachée à un dossier d'un de ses projets affectés. Les règlements dont aucune ligne ne résout de projet restent visibles de tous.\n\n**Encaissements non affectés : volontairement absents.** Un règlement encaissé mais pas encore imputé à une échéance n'a aucune ligne, donc ne remonte pas ici. L'écran legacy les affiche (il les reconnaît sous `StlSettlementRelationView.Origin = 'StlSettlement-NonAffecte'`) : 16 pièces pour 6 435 400 DH sur les données réelles, toutes à l'état IN_WORK. Les servir suppose de changer le critère \"Vente\" — décision produit en attente, voir `instructions/FEATURE-encaissements-conformite-legataire.md` §4. Ne pas confondre avec un filtre trop strict : c'est un choix assumé.",
-        "operationId": "findAll_7",
+        "operationId": "findAll_8",
         "parameters": [
           {
             "name": "entiteId",
@@ -6833,7 +7196,7 @@
         ],
         "summary": "Liste des encaissements repliée en groupes, avec effectifs et totaux",
         "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par valeur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Pourquoi cet endpoint plutôt qu'un groupement côté front** : la liste est paginée. Grouper une page ne donnerait que des groupes tronqués et des totaux faux. Les effectifs et totaux ci-dessous portent sur **tout le périmètre filtré**, pas sur une page.\n\n**Les filtres sont exactement ceux de `GET /api/encaissements`** — mêmes noms, même sémantique, restriction `IsCredit = 1` et périmètre commercial compris. Un même jeu de filtres des deux côtés garantit que la somme des effectifs des groupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET /api/encaissements` avec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/encaissements` (booléens `groupable` / `agregeable`). **`dossierId` et `dossierCode` n'en sont pas**, et ce n'est pas un oubli : un règlement n'a pas de dossier, il a des lignes rattachées à des échéances. Mesuré sur les données réelles — 643 règlements, 654 couples (règlement, dossier), 8 règlements portant sur plusieurs dossiers — grouper par ce chemin compterait ces 8 plusieurs fois et la somme des effectifs ne retomberait plus sur le total de la liste. Même chose pour `montantBrutRestant` et `montantNet`, calculés en Java et absents de la base.",
-        "operationId": "grouper_2",
+        "operationId": "grouper_3",
         "parameters": [
           {
             "name": "groupBy",
@@ -7753,7 +8116,7 @@
         ],
         "summary": "Liste des dossiers repliée en groupes, avec effectifs et totaux",
         "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par valeur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Pourquoi cet endpoint plutôt qu'un groupement côté front** : la liste est paginée. Grouper une page ne donnerait que des groupes tronqués et des totaux faux. Les effectifs et totaux ci-dessous portent sur **tout le périmètre filtré**, pas sur une page.\n\n**Les filtres sont exactement ceux de `GET /api/dossiers`** — mêmes noms, même sémantique, périmètre commercial compris. Un même jeu de filtres des deux côtés garantit que la somme des effectifs des groupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET /api/dossiers` avec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/dossiers` (booléens `groupable` / `agregeable`). Toutes les colonnes ne le sont pas, et c'est mesuré : un montant porte presque autant de valeurs distinctes que de lignes, une date exacte aussi — d'où `granularite` pour les dates et le refus de grouper un montant.",
-        "operationId": "grouper_3",
+        "operationId": "grouper_4",
         "parameters": [
           {
             "name": "groupBy",
@@ -7937,7 +8300,7 @@
         ],
         "summary": "Liste paginée de toutes les offres (devis), tous prospections confondues",
         "description": "Filtre optionnellement par recherche libre sur le code de l'offre, tranche(s), commercial, et plage de dates sur la date de l'offre (dateDocument). Chaque ligne porte prospectionId/prospectionCode pour la colonne \"Prospection\" et le lien cliquable vers la prospection d'origine. sommePrixVenteTTCPage est calculé uniquement sur la page renvoyée, pas sur l'ensemble des résultats filtrés — voir la description du champ.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seules les offres portant une tranche d'un de ses projets affectés sont renvoyées (plus celles sans tranche, dont le projet ne se résout pas). Ce filtre s'ajoute aux filtres ci-dessus : demander explicitement une `trancheId` hors périmètre renvoie une page vide, pas une erreur. `sommePrixVenteTTCPage` porte donc sur les seules lignes visibles.",
-        "operationId": "findAll_8",
+        "operationId": "findAll_9",
         "parameters": [
           {
             "name": "search",
@@ -8213,7 +8576,7 @@
         "tags": [
           "commercial-controller"
         ],
-        "operationId": "findAll_9",
+        "operationId": "findAll_10",
         "parameters": [
           {
             "name": "pageable",
@@ -8245,7 +8608,7 @@
         ],
         "summary": "Liste des clients",
         "description": "Les tiers portant au moins un dossier de vente sur une entité juridique en exploitation, avec leurs agrégats calculés côté serveur (nombre de dossiers, total à payer, total réglé). Une page vide signifie qu'aucun client ne correspond, pas une erreur.",
-        "operationId": "findAll_10",
+        "operationId": "findAll_11",
         "parameters": [
           {
             "name": "search",
@@ -8432,7 +8795,7 @@
         ],
         "summary": "Catalogue transverse des articles",
         "description": "Liste paginée de tous les articles racine et sous-articles, toutes tranches confondues — pour parcourir/rechercher le patrimoine sans devoir d'abord choisir une Tranche (contrairement à `GET /api/tranches/{id}/articles`, point d'entrée à privilégier quand la tranche est déjà connue). `search` filtre en sous-chaîne sur `code` OU `description` (insensible à la casse). `trancheId` restreint à une ou plusieurs tranches (OR) sans changer d'écran. `statut` filtre sur la disponibilité mais, à la différence des autres endpoints Article, **n'a pas de valeur par défaut ici** : absent = tous les statuts (DISPONIBLE + OCCUPE), pour une vraie vue catalogue. Restreint aux entités juridiques actives (ADMOD/GHRIZA), comme les autres listings Projet/Tranche/Article. Filtres de parité avec la grille legacy \"Articles\" (instructions/from_front.md #4) : `entiteId` (CfgCompany, voir `GET /api/referentiels/entites`), `natureId` (StkKind, voir `GET /api/referentiels/natures`), `vocationId` (StkVocation, voir `GET /api/referentiels/vocations`), `etageId` (StkFloor, voir `GET /api/referentiels/etages`), et les plages `prixDe`/`prixA` (sur `comSalePrice`) et `surfaceDe`/`surfaceA` (sur `area`), bornes inclusives et indépendamment optionnelles.",
-        "operationId": "findAll_11",
+        "operationId": "findAll_12",
         "parameters": [
           {
             "name": "search",
@@ -12791,6 +13154,271 @@
           }
         }
       },
+      "PageDtoSuiviActionDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SuiviActionDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "SuiviActionDto": {
+        "type": "object",
+        "description": "Une action commerciale (appel, visite, message, note…) telle que l'affiche l'écran OMRAN « Suivi des actions ». Seules les colonnes demandées par `?colonnes=` sont présentes — catalogue : `GET /api/referentiels/colonnes/suivi-actions`.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de l'action (ComActionMessage.PKey). Toujours servi."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Auteur de l'action tel qu'écrit sur la ligne (`UserName`) — la colonne sur laquelle filtre l'écran OMRAN. « Système » ou vide pour une action générée.",
+            "example": "Khadija ELKORRI"
+          },
+          "typeAction": {
+            "type": "string",
+            "description": "Type d'action (ComActionMessageType).",
+            "example": "Téléphone Sortant"
+          },
+          "rang": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang de l'action parmi celles du même type pour le même tiers, **1 = la plus récente** (hors actions système et impayées) — la règle de la vue OMRAN. Calculé pour la page servie : ni triable ni groupable.",
+            "example": 1
+          },
+          "dateAction": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'action (`DocDate`)."
+          },
+          "dateAlerte": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'alerte / de la relance (`AlertValidityDate`). Null si aucune."
+          },
+          "alerteActive": {
+            "type": "boolean",
+            "description": "L'alerte de cette action est-elle encore active (`AdmAlertData.Active`) ? `false` si aucune alerte. Calculé pour la page servie."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Catégorie (Prospection, Dossier de vente…).",
+            "example": "Prospection"
+          },
+          "resultat": {
+            "type": "string",
+            "description": "Résultat (sous-catégorie).",
+            "example": "Rendez vous pris"
+          },
+          "message": {
+            "type": "string",
+            "description": "Note saisie (`AlertMessage`)."
+          },
+          "impaye": {
+            "type": "boolean",
+            "description": "Action marquée impayé (`IsUnpaid`)."
+          },
+          "systeme": {
+            "type": "boolean",
+            "description": "Action générée par le système (`IsSystem`) — relance, événement… Listée comme dans OMRAN ; filtrable par `?systeme=false`."
+          },
+          "entrante": {
+            "type": "boolean",
+            "description": "Action entrante (`IsIn`). Rarement renseigné : le type porte le sens."
+          },
+          "commercial": {
+            "type": "string",
+            "description": "Commercial concerné (`CfgEmployeeId` → `CfgTier.Description`) — pas l'auteur, qui est `utilisateur`. Vide sur 23 % des actions réelles."
+          },
+          "personnel": {
+            "type": "string",
+            "description": "Personnel : employé du compte auteur, sinon le compte, sinon le commercial — règle de la vue OMRAN. Calculé pour la page servie."
+          },
+          "tiersNom": {
+            "type": "string",
+            "description": "Tiers (prospect/client) de l'action (`CfgTier.Description`)."
+          },
+          "prospectionCode": {
+            "type": "string",
+            "description": "Code de la prospection rattachée.",
+            "example": "26/05947"
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code du dossier de vente rattaché."
+          },
+          "etat": {
+            "type": "string",
+            "description": "État : statut du dossier de l'action, sinon du dossier né de sa prospection, sinon sa catégorie — règle de la vue OMRAN. Calculé pour la page servie."
+          },
+          "articleCode": {
+            "type": "string",
+            "description": "Code de l'article rattaché."
+          },
+          "articleLibelle": {
+            "type": "string",
+            "description": "Libellé de l'article rattaché."
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Tranche **résolue comme OMRAN** : catégorie Prospection → tranche de la prospection, sinon tranche de l'article.",
+            "example": "APF"
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Libellé de la tranche résolue."
+          },
+          "programme": {
+            "type": "string",
+            "description": "Programme (projet) de la tranche résolue."
+          },
+          "entite": {
+            "type": "string",
+            "description": "Entité juridique du programme."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du type d'action."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la catégorie."
+          },
+          "tiersId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du tiers — ouvrir la fiche prospect/client."
+          },
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la prospection — `GET /api/prospections/{id}`."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du dossier — `GET /api/dossiers/{id}`."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la tranche résolue."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Créé par (`UserCreate`)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Créé le (`UserCreateDateTime`)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Modifié par (`UserUpdate`)."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Modifié le (`UserUpdateDateTime`)."
+          }
+        }
+      },
+      "GroupeDto": {
+        "type": "object",
+        "description": "Un groupe de la liste repliée — l'équivalent d'un en-tête « Client : Adnane ES-SAIYDY (1 item) » suivi de sa bande « Total : » dans le logiciel de bureau.\n\nLes groupes sont **repliés** : ils portent l'effectif et les totaux, pas les lignes. Pour obtenir les lignes d'un groupe, rappeler la liste correspondante avec `?groupeColonne=<la colonne groupée>&groupeValeur=<la clé ci-dessous>`.",
+        "properties": {
+          "cle": {
+            "description": "Valeur technique du groupe, à réémettre telle quelle dans `?groupeValeur=` pour déplier le groupe. Selon la colonne groupée : un identifiant (groupement par client/commercial/notaire), un code (statut, tranche, origine), un booléen, ou un entier de période (`202507` pour juillet 2025, `2025` pour l'année).\n\n**`null` est une valeur de groupe légitime** : ce sont les lignes sans valeur sur la colonne groupée. Le groupe est renvoyé et non masqué, sans quoi la somme des effectifs cesserait de retomber sur le total de la liste.",
+            "example": "CONCRETISATION"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé affichable du groupe. Identique à `cle` pour la plupart des colonnes ; dérivé pour les groupements par tiers (priorité raison sociale > description > prénom + nom, exactement comme la colonne correspondante de la liste) et pour les périodes (`juillet 2025`). `null` pour le groupe des lignes sans valeur.",
+            "example": "CONCRETISATION"
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lignes du groupe — le « (1 item) » de l'écran légataire.",
+            "example": 12
+          },
+          "agregats": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Résultats des agrégats demandés via `?agregats=`, **indexés par le jeton envoyé** — `prix` pour un nom nu, `prix:AVG` pour un nom qualifié. Vide si `agregats` n'est pas fourni.\n\nUn nom nu vaut toujours une somme et revient sous ce nom nu : la réponse d'une intégration existante est donc inchangée par l'ouverture du menu Σ.\n\n**Le type de la valeur suit la fonction** : nombre décimal pour `SUM` et `AVG`, entier pour `COUNT`, et pour `MIN`/`MAX` le type de la colonne — donc une date ISO-8601 sur une colonne date. Une somme dont toutes les lignes du groupe sont nulles vaut `0`, jamais `null` : c'est un total, pas une valeur absente. Un `MIN`/`MAX` sans aucune valeur vaut `null`, lui — il n'existe pas de minimum de rien, et `0` serait un mensonge.",
+            "example": {
+              "prix": 1350000,
+              "prix:AVG": 675000
+            }
+          }
+        }
+      },
+      "PageGroupesDto": {
+        "type": "object",
+        "description": "Groupes paginés, plus le total général sur tout le périmètre filtré.",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GroupeDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de **groupes**, pas de lignes — c'est ce qui est paginé ici."
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totaux": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Les mêmes agrégats que dans chaque groupe, mais calculés sur **tout le périmètre filtré** : la bande « Total : » de bas de grille, par opposition à celle d'un en-tête de groupe. Indexés par le même jeton. Vide si `agregats` n'est pas fourni.\n\nSuit `inclureSansValeur` à l'identique : sinon ce total et la somme des groupes désigneraient deux populations différentes.",
+            "example": {
+              "montantBrut": 117600
+            }
+          },
+          "nombreTotal": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre total de lignes agrégées — l'effectif dont `totaux` est tiré. Avec `inclureSansValeur=true`, égale le `totalElements` de la liste non groupée.",
+            "example": 643
+          }
+        }
+      },
       "ReferentielItemDto": {
         "type": "object",
         "properties": {
@@ -14132,79 +14760,6 @@
           }
         }
       },
-      "GroupeDto": {
-        "type": "object",
-        "description": "Un groupe de la liste repliée — l'équivalent d'un en-tête « Client : Adnane ES-SAIYDY (1 item) » suivi de sa bande « Total : » dans le logiciel de bureau.\n\nLes groupes sont **repliés** : ils portent l'effectif et les totaux, pas les lignes. Pour obtenir les lignes d'un groupe, rappeler la liste correspondante avec `?groupeColonne=<la colonne groupée>&groupeValeur=<la clé ci-dessous>`.",
-        "properties": {
-          "cle": {
-            "description": "Valeur technique du groupe, à réémettre telle quelle dans `?groupeValeur=` pour déplier le groupe. Selon la colonne groupée : un identifiant (groupement par client/commercial/notaire), un code (statut, tranche, origine), un booléen, ou un entier de période (`202507` pour juillet 2025, `2025` pour l'année).\n\n**`null` est une valeur de groupe légitime** : ce sont les lignes sans valeur sur la colonne groupée. Le groupe est renvoyé et non masqué, sans quoi la somme des effectifs cesserait de retomber sur le total de la liste.",
-            "example": "CONCRETISATION"
-          },
-          "libelle": {
-            "type": "string",
-            "description": "Libellé affichable du groupe. Identique à `cle` pour la plupart des colonnes ; dérivé pour les groupements par tiers (priorité raison sociale > description > prénom + nom, exactement comme la colonne correspondante de la liste) et pour les périodes (`juillet 2025`). `null` pour le groupe des lignes sans valeur.",
-            "example": "CONCRETISATION"
-          },
-          "nombre": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Nombre de lignes du groupe — le « (1 item) » de l'écran légataire.",
-            "example": 12
-          },
-          "agregats": {
-            "type": "object",
-            "additionalProperties": {},
-            "description": "Résultats des agrégats demandés via `?agregats=`, **indexés par le jeton envoyé** — `prix` pour un nom nu, `prix:AVG` pour un nom qualifié. Vide si `agregats` n'est pas fourni.\n\nUn nom nu vaut toujours une somme et revient sous ce nom nu : la réponse d'une intégration existante est donc inchangée par l'ouverture du menu Σ.\n\n**Le type de la valeur suit la fonction** : nombre décimal pour `SUM` et `AVG`, entier pour `COUNT`, et pour `MIN`/`MAX` le type de la colonne — donc une date ISO-8601 sur une colonne date. Une somme dont toutes les lignes du groupe sont nulles vaut `0`, jamais `null` : c'est un total, pas une valeur absente. Un `MIN`/`MAX` sans aucune valeur vaut `null`, lui — il n'existe pas de minimum de rien, et `0` serait un mensonge.",
-            "example": {
-              "prix": 1350000,
-              "prix:AVG": 675000
-            }
-          }
-        }
-      },
-      "PageGroupesDto": {
-        "type": "object",
-        "description": "Groupes paginés, plus le total général sur tout le périmètre filtré.",
-        "properties": {
-          "content": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/GroupeDto"
-            }
-          },
-          "page": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "size": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totalElements": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Nombre de **groupes**, pas de lignes — c'est ce qui est paginé ici."
-          },
-          "totalPages": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "totaux": {
-            "type": "object",
-            "additionalProperties": {},
-            "description": "Les mêmes agrégats que dans chaque groupe, mais calculés sur **tout le périmètre filtré** : la bande « Total : » de bas de grille, par opposition à celle d'un en-tête de groupe. Indexés par le même jeton. Vide si `agregats` n'est pas fourni.\n\nSuit `inclureSansValeur` à l'identique : sinon ce total et la somme des groupes désigneraient deux populations différentes.",
-            "example": {
-              "montantBrut": 117600
-            }
-          },
-          "nombreTotal": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Nombre total de lignes agrégées — l'effectif dont `totaux` est tiré. Avec `inclureSansValeur=true`, égale le `totalElements` de la liste non groupée.",
-            "example": 643
-          }
-        }
-      },
       "PageDtoProjetListItemDto": {
         "type": "object",
         "properties": {
@@ -14317,14 +14872,36 @@
           }
         }
       },
+      "ActionParTypeDto": {
+        "type": "object",
+        "description": "Nombre d'actions d'un type (ComActionMessageType) sur la période.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Libellé du type, tel que le référentiel le porte. « (sans type) » pour les actions sans type (9 sur 12 mois en base réelle).",
+            "example": "Téléphone Sortant"
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre d'actions de ce type.",
+            "example": 312
+          }
+        }
+      },
       "PerformanceCommercialDto": {
         "type": "object",
-        "description": "Performance d'un commercial sur une période. Trois familles d'indicateurs : l'activité réalisée (appels, visites, interactions), le portefeuille confié (prospections, dossiers, réactivité) et le résultat (montants, taux de transformation).\n\nDeux attributions différentes cohabitent volontairement, et il faut le savoir pour lire les chiffres. L'activité est comptée pour **celui qui l'a faite** : un chef qui appelle sur la prospection d'un commercial voit l'appel chez lui. Le portefeuille est compté pour **le commercial assigné**, qu'il ait ou non passé les appels lui-même. Les deux coïncident dans 86 % des cas réels ; l'écart est exactement ce qu'on veut voir.\n\nTous les compteurs respectent la visibilité par entité juridique et le périmètre commercial de l'appelant : un commercial restreint verra des chiffres inférieurs à son activité réelle.",
+        "description": "Performance d'un commercial sur une période. Trois familles d'indicateurs : l'activité réalisée (toutes les actions, détaillées par type), le portefeuille confié (prospections, dossiers, réactivité) et le résultat (montants, taux de transformation).\n\nDeux attributions différentes cohabitent volontairement, et il faut le savoir pour lire les chiffres. L'activité est comptée pour **celui qui l'a faite** : un chef qui appelle sur la prospection d'un commercial voit l'appel chez lui. Le portefeuille est compté pour **le commercial assigné**, qu'il ait ou non passé les appels lui-même. Les deux coïncident dans 86 % des cas réels ; l'écart est exactement ce qu'on veut voir.\n\nTous les compteurs respectent la visibilité par entité juridique et le périmètre commercial de l'appelant : un commercial restreint verra des chiffres inférieurs à son activité réelle.",
         "properties": {
           "commercialId": {
             "type": "string",
             "format": "uuid",
-            "description": "Identifiant du commercial (CfgTier.PKey), et non celui de son compte utilisateur — un même employé peut porter deux comptes, dont les chiffres sont additionnés ici."
+            "description": "Identifiant du commercial (CfgTier.PKey), et non celui de son compte utilisateur — un même employé peut porter deux comptes, dont les chiffres sont additionnés ici. **Null** pour un compte rattaché à aucun employé (16 comptes sur 75) : la ligne est alors celle du compte, identifié par `utilisateurId`."
+          },
+          "utilisateurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Compte (AdmUser.PKey) — renseigné **seulement** quand le compte n'est rattaché à aucun employé, et qu'il n'y a donc pas de `commercialId`. Ces comptes n'apparaissaient pas avant que l'attribution suive le suivi des actions : leurs actions n'étaient comptées nulle part. Ils n'ont pas de portefeuille (prospections, dossiers), assigné à un commercial."
           },
           "commercialNom": {
             "type": "string",
@@ -14376,8 +14953,15 @@
           "interactionsTotal": {
             "type": "integer",
             "format": "int64",
-            "description": "Toutes interactions confondues sur la période, y compris notes et messages.",
+            "description": "Toutes les actions de la période, **actions « Système » exclues** : appels, visites, notes, messages, mails, WEB. Les actions générées pendant une session (quasi toutes des notes) ne sont pas celles de l'utilisateur — elles gonflaient ce total, jusqu'à 212 sur 228 pour un compte réel.",
             "example": 384
+          },
+          "actionsParType": {
+            "type": "array",
+            "description": "Le détail de `interactionsTotal` **par type d'action**, du plus au moins fréquent — tous les types du référentiel, pas seulement les appels. La somme des `nombre` égale `interactionsTotal`. Liste vide si aucune action.",
+            "items": {
+              "$ref": "#/components/schemas/ActionParTypeDto"
+            }
           },
           "prospectionsTraitees": {
             "type": "integer",
@@ -14434,6 +15018,11 @@
             "type": "number",
             "description": "`rdvObtenus / appelsPasses`, entre 0 et 1 — l'efficacité au téléphone. `null` si aucun appel passé.",
             "example": 0.058
+          },
+          "tauxActionVersRdv": {
+            "type": "number",
+            "description": "`rdvObtenus / interactionsTotal`, entre 0 et 1 — les rendez-vous rapportés à **toute** l'activité, pas seulement au téléphone. `null` si aucune action.",
+            "example": 0.047
           },
           "tauxProspectionVersDossier": {
             "type": "number",

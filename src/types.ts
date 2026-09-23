@@ -626,6 +626,10 @@ export type GroupeColonne =
   // Prospects
   | 'ADRESSE'
   | 'PROFESSION'
+  // Suivi des actions
+  | 'ACTION'
+  | 'RATTACHEMENT'
+  | 'IDENTIFIANTS'
   // Les trois catalogues
   | 'AUDIT';
 
@@ -1164,6 +1168,68 @@ export interface LigneImportDto {
   code?: string | null;
   /** Prospections existantes au même contact (`DOUBLON` et `DEJA_IMPORTEE`). */
   doublonIds?: UUID[] | null;
+}
+
+// --- Suivi des actions (`GET /api/suivi-actions`, `/groupes`, catalogue
+// `GET /api/referentiels/colonnes/suivi-actions`) — FEATURE-suivi-actions.md.
+// L'écran OMRAN « Suivi des actions » : appels, visites, messages saisis par
+// chaque commercial. Consultation seule. ---
+
+/** Une action commerciale telle que l'affiche l'écran OMRAN. **Seules les
+ * colonnes demandées par `?colonnes=` sont présentes** ; `id` toujours.
+ * `rang`, `alerteActive`, `etat` et `personnel` sont calculées pour la page
+ * servie : ni triables ni groupables. */
+export interface SuiviActionDto {
+  id: UUID;
+  /** Auteur tel qu'écrit sur la ligne (`UserName`) — la colonne que filtre
+   * OMRAN. « Système » ou vide pour une action générée. */
+  utilisateur?: string | null;
+  typeAction?: string | null;
+  /** Rang parmi les actions du même type pour le même tiers, 1 = la plus
+   * récente (hors système et impayées). */
+  rang?: number | null;
+  /** `DocDate`. */
+  dateAction?: string | null;
+  /** `AlertValidityDate`, null si aucune alerte. */
+  dateAlerte?: string | null;
+  alerteActive?: boolean | null;
+  /** Prospection, Dossier de vente… */
+  categorie?: string | null;
+  /** Sous-catégorie, p.ex. « Rendez vous pris ». */
+  resultat?: string | null;
+  /** Note saisie (`AlertMessage`). */
+  message?: string | null;
+  impaye?: boolean | null;
+  /** Générée par le système (relance, événement…). */
+  systeme?: boolean | null;
+  /** Rarement renseigné : le type porte le sens. */
+  entrante?: boolean | null;
+  /** Commercial concerné — pas l'auteur. Vide sur 23 % des actions réelles. */
+  commercial?: string | null;
+  personnel?: string | null;
+  tiersNom?: string | null;
+  prospectionCode?: string | null;
+  dossierCode?: string | null;
+  /** Statut du dossier de l'action, sinon du dossier né de sa prospection,
+   * sinon sa catégorie. */
+  etat?: string | null;
+  articleCode?: string | null;
+  articleLibelle?: string | null;
+  /** Tranche résolue comme OMRAN : celle de la prospection, sinon de l'article. */
+  trancheCode?: string | null;
+  trancheLibelle?: string | null;
+  programme?: string | null;
+  entite?: string | null;
+  typeId?: UUID | null;
+  categorieId?: UUID | null;
+  tiersId?: UUID | null;
+  prospectionId?: UUID | null;
+  dossierId?: UUID | null;
+  trancheId?: UUID | null;
+  creePar?: string | null;
+  creeLe?: string | null;
+  modifiePar?: string | null;
+  modifieLe?: string | null;
 }
 
 /** Rapport d'import de leads — même forme pour l'aperçu et l'import. */
@@ -3054,10 +3120,23 @@ export interface HotlineResultDto {
  *
  * Tous les compteurs respectent la visibilité par entité juridique et le
  * périmètre commercial de l’appelant. */
+/** Nombre d'actions d'un type (ComActionMessageType) sur la période. */
+export interface ActionParTypeDto {
+  /** Libellé du type tel que le référentiel le porte ; « (sans type) » pour
+   * les actions sans type (9 sur 12 mois en base réelle). */
+  type?: string;
+  nombre?: number;
+}
+
 export interface PerformanceCommercialDto {
   /** `CfgTier.PKey` du commercial, **pas** l’id de son compte utilisateur —
-   * un même employé peut porter deux comptes, additionnés ici. */
-  commercialId?: UUID;
+   * un même employé peut porter deux comptes, additionnés ici. **Null** pour
+   * un compte rattaché à aucun employé (16 comptes sur 75) : la ligne est
+   * alors celle du compte, identifié par `utilisateurId`. */
+  commercialId?: UUID | null;
+  /** Compte (AdmUser.PKey) — renseigné **seulement** quand le compte n'est
+   * rattaché à aucun employé. Ces comptes n'ont pas de portefeuille. */
+  utilisateurId?: UUID | null;
   commercialNom?: string;
   du?: string;
   au?: string;
@@ -3072,7 +3151,14 @@ export interface PerformanceCommercialDto {
    * faire une visite ». Un engagement obtenu, pas une visite réalisée. */
   visitesDecrochees?: number;
   rdvObtenus?: number;
+  /** Toutes les actions de la période, **actions « Système » exclues** :
+   * appels, visites, notes, messages, mails, WEB. Les actions générées
+   * pendant une session gonflaient ce total (jusqu'à 212 sur 228). */
   interactionsTotal?: number;
+  /** Le détail de `interactionsTotal` par type, du plus au moins fréquent —
+   * tous les types du référentiel. La somme des `nombre` égale
+   * `interactionsTotal`. Vide si aucune action. */
+  actionsParType?: ActionParTypeDto[];
 
   // --- Portefeuille confié : compté pour le commercial assigné ---
   /** Prospections **distinctes** sur lesquelles il a saisi au moins une
@@ -3104,6 +3190,9 @@ export interface PerformanceCommercialDto {
   /** `rdvObtenus / appelsPasses`, 0–1 — l’efficacité au téléphone.
    * `null` si aucun appel passé. */
   tauxAppelVersRdv?: number | null;
+  /** `rdvObtenus / interactionsTotal`, 0–1 — les rendez-vous rapportés à
+   * **toute** l'activité, pas seulement au téléphone. `null` si aucune action. */
+  tauxActionVersRdv?: number | null;
   /** `dossiersCrees / prospectionsAssignees`, 0–1. `null` si aucune
    * prospection assignée. **À lire avec son effectif** : sur une période
    * courte le dénominateur est faible et le taux très bruyant. */

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Building2, Calendar, Contact, FileText, Folder, Gauge, Home, KeyRound, LayoutDashboard, LayoutGrid, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
+import { Building2, Calendar, Contact, FileText, Folder, Gauge, Home, KeyRound, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -209,6 +209,49 @@ export default function Layout({ children }: { children: ReactNode }) {
                     Mes performances
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                  {/* Pour le commercial, le suivi de ses propres actions est
+                      une vue de soi, à côté de ses performances — pas une
+                      liste d'entités de vente. Décision utilisateur du 23/09. */}
+                  <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip="Mes actions">
+                    <ListChecks />
+                    Mes actions
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+          )}
+
+          {/* Section « Suivi » des autres rôles, dans le module Vente : le
+              pilotage de l'activité — le classement des commerciaux, sorti
+              d'Administration où il n'avait rien d'administratif, et le
+              suivi des actions. Route-gated comme Ventes ; le commercial a
+              les siens dans Profil. */}
+          {!isCommercial && activeModule === 'vente' && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Suivi</SidebarGroupLabel>
+              <SidebarMenu>
+                {isAdmin && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      render={<NavLink to="/performances" />}
+                      isActive={location.pathname.startsWith('/performances')}
+                      tooltip="Performances commerciales"
+                    >
+                      <Trophy />
+                      Performances commerciales
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                <SidebarMenuItem>
+                  {/* Le serveur ne sert le suivi général qu'à l'administrateur
+                      (FEATURE-suivi-actions.md §3bis) ; les autres rôles y
+                      voient leurs propres actions, et le libellé le dit. */}
+                  <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip={isAdmin ? 'Suivi des actions' : 'Mes actions'}>
+                    <ListChecks />
+                    {isAdmin ? 'Suivi des actions' : 'Mes actions'}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroup>
           )}
@@ -267,16 +310,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                   >
                     <KeyRound />
                     Réinitialiser un mot de passe
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<NavLink to="/performances" />}
-                    isActive={location.pathname.startsWith('/performances')}
-                    tooltip="Performances commerciales"
-                  >
-                    <Trophy />
-                    Performances commerciales
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
