@@ -117,6 +117,19 @@ export default function SuiviActionsList() {
   const hasActiveFilters =
     dateDebut !== premierDuMois() || dateFin !== todayISO() || utilisateur.length > 0 || typeId.length > 0 || trancheId.length > 0 || systeme !== 'all';
 
+  /* Deux raccourcis de période, parce que l'écran sert d'abord à répondre à
+     « qu'a-t-on fait aujourd'hui ? » et « ce mois-ci ? ». Ils posent les deux
+     dates, et s'allument quand les champs y correspondent — saisir la même
+     plage à la main allume donc le même bouton. */
+  const aujourdhui = todayISO();
+  const estAujourdhui = dateDebut === aujourdhui && dateFin === aujourdhui;
+  const estCeMois = dateDebut === premierDuMois() && dateFin === aujourdhui;
+  function poserPeriode(debut: string, fin: string) {
+    setPage(0);
+    setDateDebut(debut);
+    setDateFin(fin);
+  }
+
   /* Les filtres serveur, mot pour mot les mêmes pour la liste et les groupes :
      la somme des effectifs des groupes égale le total de la liste. */
   const filtresServeur: SuiviActionsFilterParams = {
@@ -215,6 +228,26 @@ export default function SuiviActionsList() {
         <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              size="sm"
+              variant={estAujourdhui ? 'default' : 'outline'}
+              aria-pressed={estAujourdhui}
+              onClick={() => poserPeriode(aujourdhui, aujourdhui)}
+            >
+              Aujourd'hui
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={estCeMois ? 'default' : 'outline'}
+              aria-pressed={estCeMois}
+              onClick={() => poserPeriode(premierDuMois(), aujourdhui)}
+            >
+              Ce mois
+            </Button>
+          </div>
           <div className="flex items-center gap-1.5">
             <InputGroup className="w-32.5">
               <InputGroupInput type="date" aria-label="Du" value={dateDebut} onChange={(e) => resetAndSet(setDateDebut, e.target.value)} />
