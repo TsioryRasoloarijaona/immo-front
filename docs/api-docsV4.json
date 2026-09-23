@@ -32,16 +32,16 @@
       "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front.\n\n**Entités juridiques en exploitation.** Seuls les événements rattachés — par leur prospection ou par leur dossier — à une entité juridique active (`CfgCompany.IsActive`) sont renvoyés : aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un événement qu'aucune prospection ni aucun dossier ne rattache à une entité reste affiché."
     },
     {
+      "name": "Suivi des actions",
+      "description": "L'écran OMRAN « Suivi des actions » : les actions commerciales (appels, visites, messages, notes…) saisies par chaque utilisateur, sur une période. Doc OMRAN : https://help.omranestate.com/SUIVIDESACTIONS.html — détail dans `instructions/FEATURE-suivi-actions.md`.\n\n**Même requête qu'OMRAN**, relevée dans sa trace d'audit : `ComActionMessageView WHERE CfgTrancheId IN (…) AND DocDate >= début AND DocDate < fin [AND UserName = …]`. Mêmes colonnes, même tranche résolue (catégorie Prospection → tranche de la prospection, sinon de l'article), même rang, même état — construits sur la table plutôt que sur la vue, qui coûte 6,6 s la page.\n\n**Compter les appels d'un commercial jour par jour** — le cas d'usage principal (94 % des actions de l'année sont des appels sortants) : `GET /api/suivi-actions/groupes?utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR&dateDebut=…&dateFin=…`. L'effectif de chaque groupe est le nombre d'actions ; la somme des effectifs égale le `totalElements` de la liste aux mêmes filtres.\n\n**Qui voit quoi.** Le suivi **général** est réservé au rôle `Administrateur`. Tout autre utilisateur ne voit que **ses propres actions** — sur la liste comme dans les groupes : celles écrites à son nom (`UserName`), plus celles de son compte hors lignes « Système » (actions générées pendant sa session, qu'OMRAN attribue à « Système »). Pour lui, le filtre `utilisateur` ne peut que restreindre : demander quelqu'un d'autre rend une page vide, jamais un 403 qui confirmerait l'existence de ses actions. Le front masque donc le sélecteur d'utilisateur hors administrateur.\n\n**Périmètre commercial** : appliqué par le service, liste et groupes — une action dont le projet (par la prospection, puis par le dossier) est hors périmètre n'apparaît ni dans la liste ni dans un effectif. Actions d'entités juridiques inactives exclues, comme partout."
+    },
+    {
       "name": "Synchronisation",
       "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
     },
     {
       "name": "Hotline",
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
-    },
-    {
-      "name": "Suivi des actions",
-      "description": "L'écran OMRAN « Suivi des actions » : les actions commerciales (appels, visites, messages, notes…) saisies par chaque utilisateur, sur une période. Doc OMRAN : https://help.omranestate.com/SUIVIDESACTIONS.html — détail dans `instructions/FEATURE-suivi-actions.md`.\n\n**Même requête qu'OMRAN**, relevée dans sa trace d'audit : `ComActionMessageView WHERE CfgTrancheId IN (…) AND DocDate >= début AND DocDate < fin [AND UserName = …]`. Mêmes colonnes, même tranche résolue (catégorie Prospection → tranche de la prospection, sinon de l'article), même rang, même état — construits sur la table plutôt que sur la vue, qui coûte 6,6 s la page.\n\n**Compter les appels d'un commercial jour par jour** — le cas d'usage principal (94 % des actions de l'année sont des appels sortants) : `GET /api/suivi-actions/groupes?utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR&dateDebut=…&dateFin=…`. L'effectif de chaque groupe est le nombre d'actions ; la somme des effectifs égale le `totalElements` de la liste aux mêmes filtres.\n\n**Périmètre commercial** : appliqué par le service, liste et groupes — une action dont le projet (par la prospection, puis par le dossier) est hors périmètre n'apparaît ni dans la liste ni dans un effectif. Actions d'entités juridiques inactives exclues, comme partout."
     },
     {
       "name": "Tableau de bord",
@@ -4237,7 +4237,7 @@
           {
             "name": "utilisateur",
             "in": "query",
-            "description": "Utilisateur(s) — `UserName` de l'action, **égalité exacte**, la colonne que filtre OMRAN. Valeurs présentes : `/api/suivi-actions/groupes?groupBy=utilisateur`. Répétable, OU.",
+            "description": "Utilisateur(s) — `UserName` de l'action, **égalité exacte**, la colonne que filtre OMRAN. Valeurs présentes : `/api/suivi-actions/groupes?groupBy=utilisateur`. Répétable, OU. **Utile à l'administrateur seulement** : pour un autre rôle, la liste est déjà réduite à ses propres actions et ce filtre ne peut que la restreindre davantage.",
             "required": false,
             "schema": {
               "type": "array",

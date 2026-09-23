@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ListChecks, RotateCcw } from 'lucide-react';
+import ActionDetailDialog from '../../components/ActionDetailDialog';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
@@ -63,7 +63,6 @@ function lendemain(jour: string): string {
  * inclusif, et c'est le lendemain à minuit qui part en `dateFin`. Par défaut,
  * le mois courant — décision utilisateur du 23/09. */
 export default function SuiviActionsList() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const typesAction = useTypesContactProspection();
@@ -182,19 +181,20 @@ export default function SuiviActionsList() {
   const error = enGroupes ? groupes.error : liste.error;
   const vide = enGroupes ? (groupes.data?.content.length ?? 0) === 0 : rows.length === 0;
 
-  /* Ouvrir une ligne : la prospection, à défaut le dossier. `DataGrid` ne
-     rend que l'id de l'action, d'où la table id → ligne sur ce qui est à
-     l'écran — la page à plat ou les groupes dépliés. */
+  /* Ouvrir une ligne : une boîte de détail, pas une navigation — l'action
+     n'a pas de fiche à elle, et la liste (page, filtres, groupe déplié) doit
+     rester derrière. `DataGrid` ne rend que l'id, d'où la table id → ligne
+     sur ce qui est à l'écran : la page à plat ou les groupes dépliés. */
   const lignesParId = useMemo(() => {
     const m = new Map<string, SuiviActionDto>();
     for (const r of data?.content ?? []) m.set(r.id, r);
     for (const r of lignesGroupes.lignesChargees) m.set(r.id, r);
     return m;
   }, [data, lignesGroupes.lignesChargees]);
+  const [actionOuverte, setActionOuverte] = useState<SuiviActionDto | null>(null);
   function ouvrir(id: string) {
     const r = lignesParId.get(id);
-    if (r?.prospectionId) navigate(`/prospections/${r.prospectionId}`);
-    else if (r?.dossierId) navigate(`/dossiers/${r.dossierId}`);
+    if (r) setActionOuverte(r);
   }
 
   /* Le filtre Utilisateur, comme la spec le prescrit : les valeurs réellement
@@ -353,6 +353,10 @@ export default function SuiviActionsList() {
           </ResultsRegion>
         )}
       </div>
+
+      {actionOuverte && (
+        <ActionDetailDialog action={actionOuverte} catalogue={catalogue.data} onClose={() => setActionOuverte(null)} />
+      )}
     </PageShell>
   );
 }
