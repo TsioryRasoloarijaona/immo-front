@@ -14,8 +14,9 @@ fusionne → sync. Deux lots le 23/09, **tous deux fusionnés** :
 (5 itérations sur la même PR). `main` = `c37a7ff`.
 
 **Lot du 24/09 : `fix/dashboard-pipeline`** (front seul, un fichier :
-`src/pages/Dashboard.tsx`) — commité et poussé, **PR ouverte, en attente de
-la fusion par l'utilisateur**, puis `sync`.
+`src/pages/Dashboard.tsx`) — commité (`5561b17` amendé) et poussé, **PR
+ouverte, en attente de la fusion par l'utilisateur**, puis `sync` :
+https://github.com/TsioryRasoloarijaona/immo-front/compare/main...fix%2Fdashboard-pipeline?expand=1
 
 ---
 
@@ -42,6 +43,17 @@ la fusion par l'utilisateur**, puis `sync`.
    `start` → `stash pop` → premier commit = le snapshot du spec.
 7. **Itérer sur la même PR** : commit + `feature-index add` + `push` à chaque
    retour utilisateur, la PR suit.
+8. **(24/09) Un couloir vide à côté d'un KPI non nul = requête en échec, pas
+   donnée absente.** Diagnostic en 5 min : comparer le `sort` des appels qui
+   marchent (`docDate`, `code`) à ceux qui échouent (`dateDocument`), puis
+   lire l'entité JPA (`ComProspection.docDate`) et `GlobalExceptionHandler`
+   (`PropertyReferenceException` → 400). Lecture seule du back, aucune
+   requête authentifiée nécessaire.
+9. **Plan mode + AskUserQuestion avec `preview` ASCII** pour un choix de
+   disposition : l'utilisateur tranche en un clic entre deux maquettes.
+10. **`git-flow start` avec `SESSION_MEMORY.md` sale** : `git stash push --
+    SESSION_MEMORY.md` → `start` → `stash pop`, puis le fichier part dans le
+    commit de la branche (plus besoin d'`allow-main-edits`).
 
 ---
 
@@ -56,6 +68,10 @@ la fusion par l'utilisateur**, puis `sync`.
 - **`(dto as Record<string, unknown>)`** → TS2352 ; passer par `as unknown as`.
 - **`useMemo` dépendant d'un `rows = data?.content ?? []`** → warning
   exhaustive-deps ; dépendre de `data` et dériver dedans.
+- **`git-flow commit` n'ajoute pas le trailer `Co-Authored-By`** → amender le
+  message (`git commit --amend -m` avec `printf`) **avant** le `push`.
+- **`sort=dateDocument,desc` sur `/api/prospections`** → 400 « Propriété de
+  tri invalide » : le tri se résout sur l'entité, pas sur le DTO.
 
 ---
 
