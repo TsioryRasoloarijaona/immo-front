@@ -35,13 +35,29 @@ import { etapeBadgeTone, prospectionDisplayName, PIPELINE_STAGES } from '../lib/
    - « Vente — actualité » (Nouveau / À traiter) : « À traiter » devient un
      couloir à part entière du pipeline (c'est une étape de travail, ambre) ;
      « Nouveau (7 j) » disparaît — les couloirs sont déjà triés
-     dateDocument,desc, leurs premières lignes SONT les nouvelles.
+     docDate,desc, leurs premières lignes SONT les nouvelles.
    - « Leads du jour » : vide la plupart des jours (l'injection arrive par
      rafales), il coûtait 140px d'état vide. Le couloir Pré-prospections
      porte la même information, triée par date.
    - « Prospections récentes » : doublon strict du couloir Prospections.
    Appels au montage : 10 → 8 (− listNouveauxPreProspects, − la requête
    « Nouveau 7 j »).
+
+   Retouche 24/09 — le viewport unique est abandonné pour le Pipeline.
+
+   Au format nominal (1536px CSS) cinq couloirs sur une ligne faisaient 220px
+   chacun : « Pré-prospec… », « À t… non prise… », « Dossier de … ». Illisible
+   pour l'écran censé donner l'état du flux d'un coup d'œil. Décision
+   utilisateur : deux couloirs par ligne, le dernier en pleine largeur, cinq
+   lignes visibles par couloir au lieu de trois. La carte prend sa hauteur
+   naturelle et la colonne racine (`overflow-y-auto`) défile — c'est le prix
+   assumé.
+
+   Même passe : les trois couloirs prospection étaient vides depuis le 20/09.
+   Le tri passait `dateDocument` (nom du champ DTO) là où Spring Data attend
+   la propriété d'entité `docDate` — 400 « Propriété de tri invalide », avalé
+   parce que seul `data` était lu. Corrigé, et `KanbanColumn` affiche
+   désormais l'erreur au lieu de la déguiser en « Aucune … / 0 ».
    --------------------------------------------------------------------------- */
 
 // Étapes counted as "needs action" for the À traiter lane — the pipeline's
@@ -50,6 +66,10 @@ import { etapeBadgeTone, prospectionDisplayName, PIPELINE_STAGES } from '../lib/
 // TRAITEMENT" onward — those are already being worked, this bucket is
 // specifically the ones nobody has picked up yet.
 const A_TRAITER_ETAPES = [PIPELINE_STAGES[0], 'A RAPPELER PAR LE COMMERCIAL', 'AFFAIRES A SUIVRE'];
+
+/** Lignes visibles par couloir du Pipeline — cinq depuis que les couloirs
+ * font une demi-largeur (24/09) ; trois quand ils en faisaient un cinquième. */
+const LIGNES_COULOIR = 5;
 
 /* ---------------------------------------------------------------------------
    La file du jour — le bloc que cet écran existe pour porter.
@@ -205,10 +225,12 @@ function KanbanColumn({
   subtitle,
   count,
   emptyMessage,
+  error,
   viewAllTo,
   accent = 'var(--sec-accent)',
   accentBg = 'var(--sec-accent-bg)',
   countTone = 'neutral',
+  className = '',
   children,
 }: {
   icon: ReactNode;
@@ -217,6 +239,11 @@ function KanbanColumn({
   subtitle?: string;
   count: number | undefined;
   emptyMessage: string;
+  /** Message d'échec de la requête du couloir. Rendu à la place de
+   * `emptyMessage`, et le compte devient `—` : un 400 sur le tri a passé
+   * quatre jours déguisé en « Aucune pré-prospection. / 0 » parce que rien
+   * ne distinguait « vide » de « pas chargé ». */
+  error?: string | null;
   /** Shown as a "Voir tout" footer link when the real total exceeds what's
    * previewed here — every column only ever renders a handful of records. */
   viewAllTo: string;
@@ -225,11 +252,13 @@ function KanbanColumn({
   /** 'neutral' (the count is just a tally) or 'accent' (the count *is* the
    * urgency signal, so it gets the same color as the lane). */
   countTone?: 'neutral' | 'accent';
+  /** Fusionné sur la racine — sert au couloir en pleine largeur. */
+  className?: string;
   children: ReactNode;
 }) {
   const items = Children.toArray(children).filter(Boolean);
   return (
-    <div className="flex min-h-0 flex-col overflow-hidden rounded-lg bg-(--neutral-bg)/50">
+    <div className={`flex min-h-0 flex-col overflow-hidden rounded-lg bg-(--neutral-bg)/50 ${className}`}>
       <span aria-hidden className="block h-0.75 shrink-0" style={{ background: accent }} />
       <div className="flex items-center justify-between gap-2 border-b border-border/70 px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-1.5">
@@ -243,11 +272,13 @@ function KanbanColumn({
           className="shrink-0 rounded-full px-1.75 py-0.5 text-micro font-bold tabular-nums shadow-xs"
           style={countTone === 'accent' ? { color: accent, background: accentBg } : { color: 'var(--foreground)', background: 'var(--secondary)' }}
         >
-          {count ?? 0}
+          {count ?? (error ? '—' : 0)}
         </span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden p-1.5">
-        {items.length === 0 ? (
+        {error ? (
+          <p className="px-1.5 py-2 text-micro text-(--destructive)">{error}</p>
+        ) : items.length === 0 ? (
           <p className="px-1.5 py-2 text-micro text-muted-foreground">{emptyMessage}</p>
         ) : (
           items
@@ -300,21 +331,36 @@ export default function Dashboard() {
   const { data: dashboard, loading, error } = useApi(() => getDashboard(), []);
   /* `sort` explicite : sans lui le serveur rend un ordre non déterministe —
      le défaut déjà payé sur la pagination des listes. Les premières lignes de
-     chaque couloir sont ce que « récent » veut dire sur cet écran. */
-  const { data: prospectionsPage } = useApi(
-    () => listProspections({ ouvertes: true }, { size: 7, sort: ['dateDocument,desc'] }),
+     chaque couloir sont ce que « récent » veut dire sur cet écran.
+
+     Le nom à passer est la **propriété d'entité** (`docDate`), pas le champ
+     DTO (`dateDocument`) : Spring Data résout le tri sur l'entité et répond
+     400 « Propriété de tri invalide » sinon. `id,asc` départage les ex æquo,
+     comme sur les listes (docs/filtres-avances.md) — sans lui l'ordre des
+     dates égales dépend du plan SQL du moment. */
+  const TRI_PROSPECTIONS = ['docDate,desc', 'id,asc'];
+  const { data: prospectionsPage, error: prospectionsErreur } = useApi(
+    () => listProspections({ ouvertes: true }, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
     [],
   );
-  const { data: dossiersPage } = useApi(() => listDossiers(undefined, { size: 7, sort: ['docDate,desc'] }), []);
-  const { data: aTraiterPage } = useApi(
-    () => listProspections({ ouvertes: true, etape: A_TRAITER_ETAPES }, { size: 5, sort: ['dateDocument,desc'] }),
+  /* 7 et non `LIGNES_COULOIR` : la même page alimente aussi « Dossiers
+     récents », qui rend tout ce qu'elle reçoit. */
+  const { data: dossiersPage, error: dossiersErreur } = useApi(
+    () => listDossiers(undefined, { size: 7, sort: ['docDate,desc'] }),
     [],
   );
-  const { data: preProspectionsPage } = useApi(
-    () => listPreProspections({ ouvertes: true }, { size: 4, sort: ['dateDocument,desc'] }),
+  const { data: aTraiterPage, error: aTraiterErreur } = useApi(
+    () => listProspections({ ouvertes: true, etape: A_TRAITER_ETAPES }, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
     [],
   );
-  const { data: clientsPage } = useApi(() => listClients(undefined, { size: 4, sort: ['code,desc'] }), []);
+  const { data: preProspectionsPage, error: preProspectionsErreur } = useApi(
+    () => listPreProspections({ ouvertes: true }, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
+    [],
+  );
+  const { data: clientsPage, error: clientsErreur } = useApi(
+    () => listClients(undefined, { size: LIGNES_COULOIR, sort: ['code,desc'] }),
+    [],
+  );
 
   /* `MOI` est le défaut du serveur et le bon défaut métier — un commercial
      ouvre son tableau de bord pour voir *ses* rappels. La bascule vers
@@ -437,25 +483,31 @@ export default function Dashboard() {
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
             {/* -----------------------------------------------------------
-                Niveau 3 — l'état du flux, en une seule bande de cinq
-                couloirs : pré-prospection → à traiter → prospection →
+                Niveau 3 — l'état du flux, cinq couloirs dans l'ordre du
+                flux : pré-prospection → à traiter → prospection →
                 client → dossier. « À traiter » est un couloir d'urgence
                 (ambre) intercalé à sa place réelle dans le flux ; les
                 autres sont des entités (accent partagé, l'icône
                 distingue). Comptes serveur réels (totalElements), pas des
                 estimations client. Pas de drag/drop — un enregistrement
                 change d'étape par sa propre action métier.
+
+                Deux couloirs par ligne (24/09), le dernier en pleine
+                largeur : à cinq sur une ligne les titres se tronquaient au
+                format nominal. La carte prend sa hauteur naturelle, la
+                colonne racine défile — voir le commentaire de tête.
                 ----------------------------------------------------------- */}
-            <Card title="Pipeline" accent="var(--sec-accent)" padded={false} className="flex min-h-[176px] flex-1 flex-col [&>[data-slot=card-content]]:flex [&>[data-slot=card-content]]:min-h-0 [&>[data-slot=card-content]]:flex-1 [&>[data-slot=card-content]]:flex-col">
-              <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto p-3 sm:grid-cols-3 xl:grid-cols-5">
+            <Card title="Pipeline" accent="var(--sec-accent)" padded={false} className="shrink-0">
+              <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2">
                 <KanbanColumn
                   icon={<UserPlus />}
                   title="Pré-prospection"
                   count={preProspectionsPage?.totalElements}
                   emptyMessage="Aucune pré-prospection."
+                  error={preProspectionsErreur}
                   viewAllTo="/pre-prospections"
                 >
-                  {preProspectionsPage?.content.slice(0, 3).map((p) => (
+                  {preProspectionsPage?.content.slice(0, LIGNES_COULOIR).map((p) => (
                     <KanbanItemRow to={`/pre-prospections/${p.id}`} key={p.id}>
                       <span className="min-w-0 flex-1 truncate">{prospectionDisplayName(p)}</span>
                       <span className="shrink-0 text-micro text-muted-foreground">{formatDate(p.dateDocument)}</span>
@@ -469,12 +521,13 @@ export default function Dashboard() {
                   subtitle="non prises en charge"
                   count={aTraiterPage?.totalElements}
                   emptyMessage="Rien à traiter — pipeline à jour."
+                  error={aTraiterErreur}
                   viewAllTo="/prospections"
                   accent="var(--amber)"
                   accentBg="var(--amber-bg)"
                   countTone="accent"
                 >
-                  {aTraiterPage?.content.slice(0, 3).map((p) => (
+                  {aTraiterPage?.content.slice(0, LIGNES_COULOIR).map((p) => (
                     <KanbanItemRow to={`/prospections/${p.id}`} key={p.id}>
                       <span className="min-w-0 flex-1 truncate">{prospectionDisplayName(p)}</span>
                       <Badge tone={etapeBadgeTone(p.etape, p.fermee)} className="shrink-0 text-micro">
@@ -489,9 +542,10 @@ export default function Dashboard() {
                   title="Prospections"
                   count={dashboard.prospectionsOuvertes}
                   emptyMessage="Aucune prospection ouverte."
+                  error={prospectionsErreur}
                   viewAllTo="/prospections"
                 >
-                  {prospectionsPage?.content.slice(0, 3).map((p) => (
+                  {prospectionsPage?.content.slice(0, LIGNES_COULOIR).map((p) => (
                     <KanbanItemRow to={`/prospections/${p.id}`} key={p.id}>
                       <span className="min-w-0 flex-1 truncate">{prospectionDisplayName(p)}</span>
                       <Badge tone={etapeBadgeTone(p.etape, p.fermee)} className="shrink-0 text-micro">
@@ -501,16 +555,31 @@ export default function Dashboard() {
                   ))}
                 </KanbanColumn>
 
-                <KanbanColumn icon={<UserCheck />} title="Clients" count={clientsPage?.totalElements} emptyMessage="Aucun client." viewAllTo="/clients">
-                  {clientsPage?.content.slice(0, 3).map((c) => (
+                <KanbanColumn
+                  icon={<UserCheck />}
+                  title="Clients"
+                  count={clientsPage?.totalElements}
+                  emptyMessage="Aucun client."
+                  error={clientsErreur}
+                  viewAllTo="/clients"
+                >
+                  {clientsPage?.content.slice(0, LIGNES_COULOIR).map((c) => (
                     <KanbanItemRow to={`/clients/${c.id}`} key={c.id}>
                       <span className="min-w-0 truncate">{c.nomAffiche || '—'}</span>
                     </KanbanItemRow>
                   ))}
                 </KanbanColumn>
 
-                <KanbanColumn icon={<Folder />} title="Dossier de vente" count={dossiersActifs} emptyMessage="Aucun dossier actif." viewAllTo="/dossiers">
-                  {dossiersPage?.content.slice(0, 3).map((d) => (
+                <KanbanColumn
+                  icon={<Folder />}
+                  title="Dossier de vente"
+                  count={dossiersActifs}
+                  emptyMessage="Aucun dossier actif."
+                  error={dossiersErreur}
+                  viewAllTo="/dossiers"
+                  className="sm:col-span-2"
+                >
+                  {dossiersPage?.content.slice(0, LIGNES_COULOIR).map((d) => (
                     <KanbanItemRow onClick={() => previewDossier(d.id)} key={d.id}>
                       <span className="min-w-0 flex-1 truncate">{d.clientNom || '—'}</span>
                       <Badge tone={toneForStatus(d.statut)} className="shrink-0 text-micro">
