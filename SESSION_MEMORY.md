@@ -1,5 +1,5 @@
 # Session Memory
-_Last updated: 2026-09-24T01:30 (session « Dashboard : couloirs Pipeline vides + 2 par ligne »)_
+_Last updated: 2026-09-24T11:00 (session « Désarchiver une prospection »)_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
@@ -13,10 +13,12 @@ fusionne → sync. Deux lots le 23/09, **tous deux fusionnés** :
 `feat/creation-pre-prospection` (PR #73 côté front) puis `feat/suivi-actions`
 (5 itérations sur la même PR). `main` = `c37a7ff`.
 
-**Lot du 24/09 : `fix/dashboard-pipeline`** (front seul, un fichier :
-`src/pages/Dashboard.tsx`) — commité (`5561b17` amendé) et poussé, **PR
-ouverte, en attente de la fusion par l'utilisateur**, puis `sync` :
-https://github.com/TsioryRasoloarijaona/immo-front/compare/main...fix%2Fdashboard-pipeline?expand=1
+**Lot du 24/09 (1) : `fix/dashboard-pipeline`** — fusionné (PR #64),
+`main` = `d54490f`, branche locale supprimée.
+
+**Lot du 24/09 (2) : `feat/desarchiver-prospection`** (front seul, suit la
+branche back du même nom, pas encore fusionnée côté `immo-back`) — commité
+et poussé, **PR ouverte, en attente de la fusion**, puis `sync front`.
 
 ---
 
@@ -85,7 +87,7 @@ https://github.com/TsioryRasoloarijaona/immo-front/compare/main...fix%2Fdashboar
 | 164 | Couloir « Dossier de vente » compte les actifs, liste tout | Open | — |
 | 167 | `derniereAlerteDate` ni filtrable ni triable | Open (backend) | — |
 | 168 | Filtre par colonne client-side ment (chèque → 0/180) | Open (backend) | — |
-| 180 | **Pas d'endpoint « désarchiver »** (vérifié 23/09, toujours absent) | Open (backend) | Item grisé « Bientôt » |
+| 180 | Pas d'endpoint « désarchiver » | Fixed (24/09) | `PATCH /api/prospections/{id}/desarchiver` câblé : menu de ligne + bouton fiche |
 | 181 | Mode groupé : lignes d'un groupe déplié non rafraîchies après mutation | Open (limite documentée) | — |
 | 182 | Import CSV : le tableau rend jusqu'à 5 000 lignes d'un bloc | Open (à surveiller) | Filtre par statut ; virtualiser si lent |
 | 183 | Suivi des actions : pas de référentiel `ComActionMessageCategory` → pas de filtre Catégorie | Open (backend) | Filtre de colonne client-side de la grille |
@@ -154,6 +156,23 @@ https://github.com/TsioryRasoloarijaona/immo-front/compare/main...fix%2Fdashboar
   option « 3 puis 2 » refusée).
 - `dossiersPage` reste à `size: 7` : « Dossiers récents » rend toute la page.
 
+### Lot du 24/09 (2) — `feat/desarchiver-prospection` (PR ouverte)
+- Spec : `PATCH /api/prospections/{id}/desarchiver` sans corps → 200
+  `ProspectionDetailDto`, 404, **409 si pas archivée**. Seul `fermee` change :
+  `dateFermeture` / `raisonFermeture*` **conservés** (88 prospections ouvertes
+  en prod en portent), relances non réarmées. `archiver` désarme désormais les
+  relances (contrat inchangé). `/kpi/commerciaux/moi` : descriptions seules.
+- **« Archivée » se lit sur `fermee`, jamais sur `dateFermeture`** — déjà le
+  cas partout (grep 24/09) avant ce lot.
+- Menu de ligne (`ActionsLigneProspection`) : « Désarchiver » réel à la place
+  de l'item grisé « Bientôt », sans boîte (toast + `onMutation`).
+- Fiche (`ProspectionDetail`) : bouton « Désarchiver » (`ArchiveRestore`)
+  quand `fermee` ; bloc clôture affiché si `fermee || dateFermeture`, libellé
+  « Date d'archivage » / « Dernier archivage » ; condition `!isPre` retirée
+  (l'app sait archiver une pré-prospection, la donnée décide).
+- `sync front` n'a pas supprimé `fix/dashboard-pipeline` (lancé depuis
+  `main`) → `git branch -d` à la main.
+
 ### La boucle git (rappel opérationnel)
 - `node .claude/scripts/git-flow.mjs` depuis `prototype/` ; toujours
   AskUserQuestion avant `start` ; commits sans `"` ni accents ;
@@ -220,11 +239,11 @@ https://github.com/TsioryRasoloarijaona/immo-front/compare/main...fix%2Fdashboar
 
 ## ⏭️ Next Step
 
-> **PR `fix/dashboard-pipeline` en attente de fusion.** Quand l'utilisateur
-> confirme : `node .claude/scripts/git-flow.mjs sync front` depuis
-> `prototype/`, puis demander le prochain lot. Retour visuel attendu de
-> l'utilisateur : couloirs prospection remplis (Prospections = KPI), 2 par
-> ligne, titres entiers, page qui défile ; backend arrêté → message rouge + `—`.
+> **PR `feat/desarchiver-prospection` en attente de fusion.** Quand
+> l'utilisateur confirme : `node .claude/scripts/git-flow.mjs sync front`
+> depuis `prototype/`, vérifier que la branche locale est supprimée, puis
+> demander le prochain lot. Le backend lancé doit être celui de la branche
+> back `feat/desarchiver-prospection` (sinon 404 sur `/desarchiver`).
 
 ### Backlog (par priorité)
 
@@ -233,7 +252,8 @@ https://github.com/TsioryRasoloarijaona/immo-front/compare/main...fix%2Fdashboar
 - [ ] #183 — filtre Catégorie dès qu'un référentiel existe.
 - [ ] #184 — détail d'action complet si un endpoint par id arrive.
 - [ ] #182 — virtualiser `TableauLignes` si un fichier de 5 000 lignes rame.
-- [ ] Câbler « Désarchiver » (#180) dès que le back expose l'endpoint.
+- [ ] Boîte d'archivage : prévenir que les relances seront désarmées et ne
+      reviendront pas au désarchivage (si l'utilisateur le souhaite).
 - [ ] #181 — rafraîchir les lignes des groupes dépliés après mutation.
 - [ ] #164 — couloir « Dossier de vente » ; EncaissementDetail → FicheShell ;
       fusion des onglets pauvres de ProspectionDetail.
