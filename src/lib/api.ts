@@ -755,6 +755,14 @@ export function archiverProspection(id: UUID, body: ArchiverProspectionRequest):
   return request('PATCH', `/api/prospections/${id}/archiver`, { body });
 }
 
+/** Inverse d'`archiverProspection`, sans corps. Seul `fermee` repasse à
+ * `false` : date et motif de clôture restent renseignés (fidèle à OMRAN), et
+ * les relances désarmées à l'archivage ne sont pas réarmées. 409 si la
+ * prospection n'est pas archivée. */
+export function desarchiverProspection(id: UUID): Promise<ProspectionDetailDto> {
+  return request('PATCH', `/api/prospections/${id}/desarchiver`);
+}
+
 export function modifierProspection(id: UUID, body: ModifierProspectionRequest): Promise<ProspectionDetailDto> {
   return request('PATCH', `/api/prospections/${id}`, { body });
 }

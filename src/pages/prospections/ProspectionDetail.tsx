@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, Send, UserPlus, Users, X } from 'lucide-react';
+import { ArchiveRestore, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, Send, UserPlus, Users, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { ActiviteCard, DossierIssuBanner, InactiviteBadge } from '../../components/ActiviteProspection';
@@ -41,6 +41,7 @@ import {
   addInteraction,
   addProspectionAutreTranche,
   archiverProspection,
+  desarchiverProspection,
   changerEtapeProspection,
   envoyerOffrePrix,
   creerDevis,
@@ -744,6 +745,19 @@ export default function ProspectionDetail() {
     }
   }
 
+  async function handleDesarchiver() {
+    setBusy(true);
+    try {
+      await desarchiverProspection(p!.id);
+      await refetch();
+      showToast('Prospection désarchivée.');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Échec de l'opération.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <PageShell
       title={name}
@@ -770,6 +784,11 @@ export default function ProspectionDetail() {
               disabled={busy}
             >
               Archiver
+            </Button>
+          )}
+          {p.fermee && (
+            <Button variant="outline" size="sm" onClick={() => void handleDesarchiver()} disabled={busy}>
+              <ArchiveRestore data-icon="inline-start" /> Désarchiver
             </Button>
           )}
           <Separator orientation="vertical" className="h-6" />
@@ -1020,11 +1039,16 @@ export default function ProspectionDetail() {
                     aide="L'indicatif est servi sans le « + » — il est composé ici."
                   />
                   {!isPre && <ChampLecture label="Email" valeur={p.emailFiche || p.tempEmail} className="col-span-2" />}
-                  {/* Clôture : mesurée à 0 % sur les pré-prospections — aucune
-                      n'est jamais clôturée. Pas de place réservée. */}
-                  {!isPre && p.fermee && (
+                  {/* Clôture : pas de place réservée. Le désarchivage conserve
+                      date et motif (fidèle à OMRAN) — une fiche rouverte les
+                      montre donc comme « dernier archivage ». L'état se lit
+                      sur `fermee`, jamais sur la présence de la date. */}
+                  {(p.fermee || !!p.dateFermeture) && (
                     <>
-                      <ChampLecture label="Date d'archivage" valeur={formatDate(p.dateFermeture)} />
+                      <ChampLecture
+                        label={p.fermee ? "Date d'archivage" : 'Dernier archivage'}
+                        valeur={formatDate(p.dateFermeture)}
+                      />
                       <ChampLecture label="Raison" valeur={p.raisonFermeture} />
                     </>
                   )}
