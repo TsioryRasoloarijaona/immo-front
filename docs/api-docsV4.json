@@ -3703,11 +3703,67 @@
         }
       }
     },
+    "/api/prospections/{id}/desarchiver": {
+      "patch": {
+        "tags": [
+          "Prospections"
+        ],
+        "summary": "Désarchive une prospection (la rouvre dans le pipeline)",
+        "description": "Inverse de `archiver` : `fermee` repasse à `false` et la prospection réapparaît dans la liste `?ouvertes=true`. Sans corps.\n\n**Fidèle au légataire : seule `fermee` change.** `dateFermeture`, `raisonFermeture*` sont **conservés** (OMRAN ne les efface pas — 88 prospections vente ouvertes en base réelle portent encore date et motif de clôture, ce sont des désarchivées), et les relances désarmées à l'archivage ne sont pas réarmées. **Le badge « Archivée » doit donc se brancher sur `fermee`, jamais sur la présence de `dateFermeture`.**",
+        "operationId": "desarchiver",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la prospection archivée.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Prospection rouverte (`fermee = false`, date et motif de clôture toujours renseignés).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id, ou prospection hors du périmètre commercial de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La prospection n'est pas archivée (`fermee` false ou absent) — rien à rouvrir.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prospections/{id}/archiver": {
       "patch": {
         "tags": [
           "Prospections"
         ],
+        "summary": "Archive une prospection (clôture avec motif)",
+        "description": "Sort la prospection du pipeline : `fermee = true`, `dateFermeture` = maintenant, motif posé depuis `raisonId` (référentiel `ComProspectionClosingReason`) et/ou `raisonTexte` (libre) — **au moins l'un des deux est requis** (400 sinon).\n\nReproduit la séquence du légataire relevée dans sa trace d'audit : les **relances en cours de la prospection sont désarmées** (`WithoutRevival`), comme lors d'une transformation en vente — elles disparaissent du tableau de bord des relances. Les relances rattachées à une échéance de dossier ne sont pas touchées.\n\nRéversible par `PATCH /api/prospections/{id}/desarchiver`.",
         "operationId": "archiver",
         "parameters": [
           {
@@ -3732,7 +3788,27 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Prospection archivée (`fermee = true`).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ni `raisonId` ni `raisonTexte` fourni, ou `raisonId` inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune prospection avec cet id, ou prospection hors du périmètre commercial de l'appelant.",
             "content": {
               "*/*": {
                 "schema": {
@@ -6777,7 +6853,7 @@
           "KPI commerciaux"
         ],
         "summary": "Mes performances commerciales",
-        "description": "Les indicateurs du commercial rattaché au compte connecté, sur la période demandée.\n\n**Renvoie 200 avec tous les compteurs à zéro** quand rien n'a été fait sur la période — pas une erreur. Le 404 est réservé au cas où le compte n'est rattaché à aucun employé, auquel cas il n'y a pas de commercial dont parler.\n\nLes taux valent `null`, jamais `0`, quand leur dénominateur est nul : « aucun appel passé » et « des appels, aucun rendez-vous » sont deux situations opposées. Afficher « — » plutôt que « 0 % ».",
+        "description": "Les indicateurs du commercial rattaché au compte connecté, sur la période demandée — ou ceux du **compte lui-même** s'il n'est rattaché à aucun employé (`commercialId` nul, `utilisateurId` renseigné, pas de portefeuille).\n\n**L'activité compte toutes les actions**, détaillées dans `actionsParType`, actions « Système » exclues ; l'auteur suit la règle du suivi des actions.\n\n**Renvoie 200 avec tous les compteurs à zéro** quand rien n'a été fait sur la période — pas une erreur. Le 404 est réservé à un appel sans compte applicatif identifiable.\n\nLes taux valent `null`, jamais `0`, quand leur dénominateur est nul : « aucun appel passé » et « des appels, aucun rendez-vous » sont deux situations opposées. Afficher « — » plutôt que « 0 % ».",
         "operationId": "moi_1",
         "parameters": [
           {
@@ -6825,7 +6901,7 @@
             }
           },
           "404": {
-            "description": "Le compte connecté n'est rattaché à aucun employé.",
+            "description": "Aucun compte applicatif identifiable dans le jeton.",
             "content": {
               "*/*": {
                 "schema": {
@@ -10509,25 +10585,31 @@
             "description": "Autre financement. **Mort : 0 ligne.** Ne pas afficher."
           },
           "fermee": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Prospection archivée (`ComProspection.IsClosed`). **Seul indicateur fiable de l'état archivé** : après un désarchivage, `dateFermeture` et `raisonFermeture*` restent renseignés (88 prospections vente ouvertes en base réelle en portent). `null` équivaut à `false` (saisie OMRAN ancienne). Bascule par `PATCH .../archiver` et `PATCH .../desarchiver`."
           },
           "dateFermeture": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Date du dernier archivage. **Conservée après désarchivage** — ne pas s'en servir pour déduire `fermee`. 62,9 %."
           },
           "raisonFermetureId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Id du motif de clôture (`ComProspectionClosingReason`). Conservé après désarchivage."
           },
           "raisonFermeture": {
-            "type": "string"
+            "type": "string",
+            "description": "Libellé du motif de clôture. 60,5 %. Conservé après désarchivage.",
+            "example": "Hors budget"
           },
           "raisonFermetureCode": {
             "type": "string",
             "description": "Code du motif de clôture. 60,5 % — ne vaut quelque chose que sur une prospection fermée."
           },
           "raisonFermetureTexte": {
-            "type": "string"
+            "type": "string",
+            "description": "Motif de clôture saisi librement (`ClosingReasonText`), complément ou substitut du motif référentiel. Conservé après désarchivage."
           },
           "ancienClient": {
             "type": "boolean"
@@ -14048,7 +14130,8 @@
             "type": "string"
           },
           "fermee": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Prospection archivée (`IsClosed`). **Seul indicateur fiable** : `dateFermeture`/`raisonFermeture` survivent à un désarchivage. `null` équivaut à `false`. `?ouvertes=true` ne renvoie que `false`/`null`."
           },
           "prix": {
             "type": "number",
@@ -14187,7 +14270,7 @@
           "dateFermeture": {
             "type": "string",
             "format": "date-time",
-            "description": "Date de clôture de la prospection. 62,9 %."
+            "description": "Date du dernier archivage. 62,9 %. **Conservée après désarchivage** — lire `fermee` pour l'état."
           },
           "raisonFermeture": {
             "type": "string",

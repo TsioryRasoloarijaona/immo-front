@@ -11,7 +11,7 @@ import InteractionForm from './InteractionForm';
 import CreateProspectForm from './CreateProspectForm';
 import TransformerProspectionDialog from './TransformerProspectionDialog';
 import ArchiverProspectionDialog from './ArchiverProspectionDialog';
-import { addInteraction, archiverProspection, transformerProspection } from '../lib/api';
+import { addInteraction, archiverProspection, desarchiverProspection, transformerProspection } from '../lib/api';
 import { useAppData, commercialLabel } from '../lib/appData';
 import { useAuth } from '../lib/auth';
 import { prospectionDisplayName } from '../lib/domain';
@@ -30,11 +30,9 @@ import type { ProspectionListItemDto } from '../types';
  * sans commercial « Transformer en prospection » — les mêmes conditions que
  * la barre d'actions de la fiche.
  *
- * « Désarchiver » est montré grisé sur les lignes archivées : **l'API n'a
- * pas d'endpoint inverse de `PATCH /archiver`** (spec V4 vérifiée le
- * 22/09). L'item annonce le geste et son indisponibilité — la convention
- * « Bientôt » de l'app — plutôt que de le taire ; à câbler quand le back
- * livrera l'endpoint. */
+ * « Désarchiver » remplace « Archiver » sur les lignes archivées (`fermee`,
+ * jamais `dateFermeture`, qui survit au désarchivage). Sans boîte : le geste
+ * ne demande rien et se défait par un nouvel archivage. */
 type Boite = {
   type: 'interaction' | 'archiver' | 'creerProspect' | 'transformer';
   ligne: ProspectionListItemDto;
@@ -70,6 +68,17 @@ export function useActionsLigneProspection({
 
   const nomEntite = entite === 'pré-prospection' ? 'Pré-prospection' : 'Prospection';
 
+  function desarchiver(p: ProspectionListItemDto) {
+    desarchiverProspection(p.id)
+      .then(() => {
+        onMutation();
+        showToast(`${nomEntite} désarchivée.`);
+      })
+      .catch((err: unknown) =>
+        showToast(err instanceof Error ? err.message : 'Échec du désarchivage.'),
+      );
+  }
+
   const rendu = (p: ProspectionListItemDto) => (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -99,11 +108,8 @@ export function useActionsLigneProspection({
             Archiver
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem disabled>
+          <DropdownMenuItem onClick={() => desarchiver(p)}>
             Désarchiver
-            <span className="ml-auto rounded-full bg-(--amber-bg) px-1.25 text-micro font-bold text-(--amber)">
-              Bientôt
-            </span>
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>
