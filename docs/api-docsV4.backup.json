@@ -524,7 +524,7 @@
           "prospect-controller"
         ],
         "summary": "Crée un prospect",
-        "description": "`nom` ou `raisonSociale` est requis ; tout le reste est optionnel.\n\n**Un numéro de téléphone ne s'enregistre jamais seul.** Fournir `mobile` impose `indicatifMobile`, fournir `telephone` impose `indicatifTelephone` — sinon **400**. L'indicatif est l'indicatif pays sans le `+` (`\"212\"`, le `+` étant toléré et retiré), et il doit exister dans le référentiel : voir GET /api/referentiels/pays, champ `indicatifTelephone`. C'est ce contrôle qui rend l'envoi WhatsApp fiable en aval — un numéro sans indicatif est inenvoyable, un indicatif fautif expédie le message à un inconnu.\n\n**Le numéro est normalisé avant écriture**, au format que porte déjà la base : 9 chiffres deviennent `6 98 29 80 95` (espacé, zéro initial retiré) — la forme de 98,8 % des fiches existantes ; toute autre longueur est stockée en chiffres nus, comme le sont déjà les mobiles nord-américains à 10 chiffres. La valeur relue peut donc différer de celle envoyée.",
+        "description": "`nom` ou `raisonSociale` est requis ; tout le reste est optionnel.\n\n**Un numéro de téléphone ne s'enregistre jamais seul.** Fournir `mobile` impose `indicatifMobile`, fournir `telephone` impose `indicatifTelephone` — sinon **400**. L'indicatif est l'indicatif pays sans le `+` (`\"212\"`, le `+` étant toléré et retiré), et il doit exister dans le référentiel : voir GET /api/referentiels/pays, champ `indicatifTelephone`. C'est ce contrôle qui rend l'envoi WhatsApp fiable en aval — un numéro sans indicatif est inenvoyable, un indicatif fautif expédie le message à un inconnu.\n\n**Le numéro est normalisé avant écriture**, au format que porte déjà la base : 9 chiffres deviennent `6 98 29 80 95` (espacé, zéro initial retiré) — la forme de 98,8 % des fiches existantes ; toute autre longueur est stockée en chiffres nus, comme le sont déjà les mobiles nord-américains à 10 chiffres. La valeur relue peut donc différer de celle envoyée.\n\n**Contrôle de doublon d'identité.** Avant toute écriture, les fiches prospect/client au même nom, téléphone ou email sont recherchées (règles de `GET /api/prospects/doublons`) ; s'il y en a et que `ignorerDoublons` n'est pas `true`, **409** avec la liste `doublons`.",
         "operationId": "create",
         "requestBody": {
           "content": {
@@ -549,6 +549,16 @@
           },
           "400": {
             "description": "`nom`/`raisonSociale` absents ; numéro fourni sans son indicatif, ou indicatif seul sans numéro ; indicatif absent du référentiel ; numéro hors de 6–14 chiffres ; référence (type, pays, profession...) inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Des fiches prospect/client existantes portent le même nom, téléphone ou email (mêmes règles que `GET /api/prospects/doublons`) et `ignorerDoublons` n'est pas `true`. Corps : `doublons`, liste de `ProspectDoublonDto` avec leurs `criteres` — l'écran demande « est-ce l'une de ces personnes ? » et renvoie avec `ignorerDoublons: true` pour un nouveau contact. Voir `FEATURE-doublons-prospect-projet.md` §2.",
             "content": {
               "*/*": {
                 "schema": {
@@ -879,6 +889,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Le prospect a déjà une prospection **ouverte** sur le projet de cette tranche — un prospect n'a qu'une prospection ouverte par projet, c'est sur elle qu'on ajoute des dossiers. Corps : `prospectionExistante` (id, code, date, nature, commercial, tranche, projet). Une prospection fermée ne bloque pas. Voir `FEATURE-doublons-prospect-projet.md` §3.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
           }
         }
       }
@@ -1091,6 +1111,16 @@
           },
           "404": {
             "description": "Aucune prospection avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Le prospect lié a déjà une prospection **ouverte** sur le projet de la tranche effective (`trancheId` fourni, sinon celle déjà portée) — la transformation en créerait une seconde. Ouvrir `prospectionExistante` à la place ; une prospection fermée ne bloque pas. Voir `FEATURE-doublons-prospect-projet.md` §3.",
             "content": {
               "*/*": {
                 "schema": {
@@ -1995,13 +2025,87 @@
         }
       }
     },
+    "/api/pre-prospections/{id}/lier-prospect": {
+      "post": {
+        "tags": [
+          "Pré-prospections"
+        ],
+        "summary": "Rattache un prospect existant à une pré-prospection",
+        "description": "Le pendant de `creer-prospect` pour la réponse « c'est l'une de ces personnes » à la liste de doublons : pose un `CfgTier` **existant** comme prospect de la pré-prospection, sans rien créer. Valide uniquement sur une pré-prospection sans prospect lié (400 sinon) ; seuls les tiers de type prospect ou client (`PRO`, `PRORNT`, `CLI`, `CLIRNT`) sont acceptés — le même sous-ensemble que `GET /api/prospects/doublons`. L'étape suivante reste `POST /api/prospections/{id}/transformer`.\n\n**Un prospect, un projet, une prospection.** Si la pré-prospection porte déjà une tranche et que ce prospect a une prospection **ouverte** sur le projet de cette tranche, le rattachement est refusé en **409** : la bonne action est d'ouvrir `prospectionExistante` et d'y ajouter un dossier. Voir `FEATURE-doublons-prospect-projet.md` §3.\n\n**Périmètre commercial** : une pré-prospection hors du périmètre de l'appelant renvoie 404, comme partout ailleurs.",
+        "operationId": "lierProspect",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la pré-prospection (ComProspection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LierProspectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Prospect rattaché ; la pré-prospection sous la forme de `GET /api/prospections/{id}`. Historique : « Prospect existant rattaché : … ».",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`prospectId` manquant ou introuvable ; cette prospection a déjà un prospect lié ; le tiers n'est pas une fiche prospect ou client.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune pré-prospection avec cet id, ou pré-prospection hors du périmètre commercial de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Le prospect a déjà une prospection **ouverte** sur le projet de la tranche portée par la pré-prospection. Corps : `prospectionExistante`.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pre-prospections/{id}/creer-prospect": {
       "post": {
         "tags": [
           "Pré-prospections"
         ],
         "summary": "Crée la fiche prospect d'une pré-prospection et la lui rattache",
-        "description": "Première étape de qualification d'un lead brut : crée un `CfgTier` à partir des informations fournies et le pose comme prospect de la pré-prospection. Valide uniquement sur une pré-prospection (aucun prospect déjà lié) — 400 sinon. L'étape suivante est `POST /api/prospections/{id}/transformer`, qui assigne le commercial et achève la transformation en prospection.\n\n**Périmètre commercial** : une pré-prospection hors du périmètre de l'appelant renvoie 404, comme partout ailleurs.",
+        "description": "Première étape de qualification d'un lead brut : crée un `CfgTier` à partir des informations fournies et le pose comme prospect de la pré-prospection. Valide uniquement sur une pré-prospection (aucun prospect déjà lié) — 400 sinon. L'étape suivante est `POST /api/prospections/{id}/transformer`, qui assigne le commercial et achève la transformation en prospection.\n\n**Contrôle de doublon d'identité.** Avant toute écriture, les fiches prospect/client existantes au même nom, téléphone ou email sont recherchées (mêmes règles que `GET /api/prospects/doublons`). S'il y en a et que `ignorerDoublons` n'est pas `true`, la création est refusée en **409** avec la liste `doublons` : l'écran demande « est-ce l'une de ces personnes ? ». Oui → `POST /api/pre-prospections/{id}/lier-prospect` avec son id. Non → renvoyer le même corps avec `ignorerDoublons: true`. Voir `FEATURE-doublons-prospect-projet.md` §2.\n\n**Périmètre commercial** : une pré-prospection hors du périmètre de l'appelant renvoie 404, comme partout ailleurs.",
         "operationId": "creerProspect",
         "parameters": [
           {
@@ -2037,7 +2141,7 @@
             }
           },
           "400": {
-            "description": "Cette prospection a déjà un prospect lié.",
+            "description": "Cette prospection a déjà un prospect lié ; ou `nom`/`raisonSociale` absents, numéro sans indicatif, référence inconnue (mêmes règles que `POST /api/prospects`).",
             "content": {
               "*/*": {
                 "schema": {
@@ -2048,6 +2152,16 @@
           },
           "404": {
             "description": "Aucune pré-prospection avec cet id, ou pré-prospection hors du périmètre commercial de l'appelant — les deux cas sont volontairement indiscernables. Également renvoyé (plutôt qu'un 400) lorsque l'identifiant fourni n'est pas un UUID valide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Des fiches prospect/client existantes portent le même nom, téléphone ou email et `ignorerDoublons` n'est pas `true`. Corps : `doublons`, liste de `ProspectDoublonDto` avec leurs `criteres`.",
             "content": {
               "*/*": {
                 "schema": {
@@ -3651,6 +3765,16 @@
           },
           "404": {
             "description": "Aucune prospection avec cet id, ou prospection hors du périmètre commercial de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La tranche cible est sur un **autre projet** et le prospect lié y a déjà une prospection **ouverte** (un prospect n'a qu'une prospection ouverte par projet). Changer de tranche au sein du même projet n'est jamais refusé. Corps : `prospectionExistante`. Voir `FEATURE-doublons-prospect-projet.md` §3.",
             "content": {
               "*/*": {
                 "schema": {
@@ -6046,6 +6170,105 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PageDtoDossierListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospects/doublons": {
+      "get": {
+        "tags": [
+          "prospect-controller"
+        ],
+        "summary": "Fiches prospect/client existantes correspondant à une identité",
+        "description": "Le contrôle d'identité à faire **avant** de créer un prospect — depuis une pré-prospection ou directement — pour éviter les doublons. Renvoie les fiches de type prospect ou client (`PRO`, `PRORNT`, `CLI`, `CLIRNT`) qui correspondent à l'identité saisie sur **au moins un** critère, chacune avec ses `criteres` :\n\n- `NOM` : `prenom` + `nom` (ou `raisonSociale` seule) en minuscules et sans aucun espace, comparé à prénom+nom, nom+prénom, `Description` et `SocialReason` de la fiche normalisés pareil — la règle d'OMRAN, qui rend « El Mehdi LAHLOU » et « El MEHDI LAHLOU » égaux ;\n- `TELEPHONE` : 9 derniers chiffres de `telephone` ou de `mobile`, contre les quatre numéros de la fiche, quel que soit le format stocké ;\n- `EMAIL` : sans casse ni espaces de bord.\n\nLes valeurs bidon ne sont pas des critères : téléphone de moins de 9 chiffres ou à 9 chiffres identiques (`000000000`), email sans `@` (`-`, `nd`). **Un homonyme au contact différent est le cas courant** (237 groupes sur 244 dans les données réelles) : la liste est là pour que l'utilisateur tranche, pas pour refuser. Tri : le plus de critères d'abord, puis les plus récentes ; 50 au plus. **Vide = aucune fiche ne correspond.** Pas de périmètre commercial : les prospects n'y sont pas soumis.\n\nLe même contrôle est appliqué par `POST /api/prospects` et `POST /api/pre-prospections/{id}/creer-prospect` (409 sauf `ignorerDoublons: true`). Voir `FEATURE-doublons-prospect-projet.md` §2.",
+        "operationId": "doublons",
+        "parameters": [
+          {
+            "name": "nom",
+            "in": "query",
+            "description": "Nom de famille (ou nom complet si `prenom` est vide).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "Lahlou"
+          },
+          {
+            "name": "prenom",
+            "in": "query",
+            "description": "Prénom.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "El Mehdi"
+          },
+          {
+            "name": "raisonSociale",
+            "in": "query",
+            "description": "Raison sociale, pour une personne morale.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "telephone",
+            "in": "query",
+            "description": "Téléphone fixe, n'importe quel format.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "0674146033"
+          },
+          {
+            "name": "mobile",
+            "in": "query",
+            "description": "Mobile, n'importe quel format.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "+212 6 74 14 60 33"
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "description": "Email.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "elmehdi.lahlou76@gmail.com"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiches correspondantes, éventuellement aucune.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProspectDoublonDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Aucun critère utilisable : tous les paramètres sont absents, ou ne portent que des valeurs bidon.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProspectDoublonDto"
+                  }
                 }
               }
             }
@@ -9847,6 +10070,11 @@
           },
           "pieceIdentite": {
             "$ref": "#/components/schemas/PieceIdentiteRequest"
+          },
+          "ignorerDoublons": {
+            "type": "boolean",
+            "default": false,
+            "description": "Confirmation « nouveau contact ». Absent ou `false` : **409** avec la liste `doublons` si une fiche prospect/client existante porte le même nom, téléphone ou email (mêmes règles que `GET /api/prospects/doublons`). `true` : crée quand même."
           }
         }
       },
@@ -11531,6 +11759,20 @@
             }
           }
         }
+      },
+      "LierProspectRequest": {
+        "type": "object",
+        "description": "Rattachement d'un prospect existant à une pré-prospection (réponse « c'est l'une de ces personnes » à la liste de doublons).",
+        "properties": {
+          "prospectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fiche existante (CfgTier) de type prospect ou client — typiquement un `id` renvoyé par `GET /api/prospects/doublons` ou par le 409 de `creer-prospect`. Obligatoire ; 400 si inconnue ou d'un autre type de tiers."
+          }
+        },
+        "required": [
+          "prospectId"
+        ]
       },
       "LigneImportDto": {
         "type": "object",
@@ -14671,6 +14913,79 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "ProspectDoublonDto": {
+        "type": "object",
+        "description": "Fiche prospect ou client existante (CfgTier de type PRO/PRORNT/CLI/CLIRNT) correspondant à l'identité saisie sur au moins un critère. Sert à demander à l'utilisateur « est-ce l'une de ces personnes ? » avant de créer une fiche.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant (CfgTier.PKey) — ouvrable par `GET /api/prospects/{id}`, rattachable par `POST /api/pre-prospections/{id}/lier-prospect`."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la fiche, p.ex. `26/14428`.",
+            "example": "26/14428"
+          },
+          "nom": {
+            "type": "string",
+            "description": "Nom affiché (raison sociale, sinon `Description`, sinon prénom + nom).",
+            "example": "Badr ARH"
+          },
+          "prenom": {
+            "type": "string",
+            "description": "Prénom (`FirstName`)."
+          },
+          "nomFamille": {
+            "type": "string",
+            "description": "Nom de famille (`LastName`)."
+          },
+          "raisonSociale": {
+            "type": "string",
+            "description": "Raison sociale (`SocialReason`), null pour un particulier."
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Téléphone fixe (`Phone`), tel que stocké."
+          },
+          "mobile": {
+            "type": "string",
+            "description": "Mobile (`Mobile`), tel que stocké : `6 65 68 09 64`.",
+            "example": "6 65 68 09 64"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email (`EMail`), tel que stocké."
+          },
+          "ville": {
+            "type": "string",
+            "description": "Ville (`City`)."
+          },
+          "type": {
+            "type": "string",
+            "description": "Code du type de tiers : `PRO`, `PRORNT`, `CLI` ou `CLIRNT`.",
+            "example": "PRO"
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création de la fiche (`UserCreateDateTime`), null sur des lignes anciennes."
+          },
+          "criteres": {
+            "type": "array",
+            "description": "Critères sur lesquels la fiche correspond — jamais vide. Une fiche qui correspond sur plusieurs critères est listée avant les autres.",
+            "items": {
+              "type": "string",
+              "description": "Critère sur lequel une fiche existante correspond à l'identité saisie. `NOM` : prénom + nom (ou raison sociale) sans casse ni espaces, dans les deux ordres ; `TELEPHONE` : 9 derniers chiffres d'un des numéros de la fiche ; `EMAIL` : sans casse.",
+              "enum": [
+                "NOM",
+                "TELEPHONE",
+                "EMAIL"
+              ]
+            }
           }
         }
       },
