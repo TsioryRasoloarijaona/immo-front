@@ -5,10 +5,11 @@ import { Button } from './ui/button';
 import { DialogFooter } from './ui/dialog';
 import { Field as FormField, FieldLabel } from './ui/field';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { getArticlesReferentiel, getTranchesReferentiel } from '../lib/api';
+import ProspectionExistanteNotice from './ProspectionExistanteNotice';
+import { getArticlesReferentiel, getTranchesReferentiel, prospectionExistanteDepuisErreur } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { referentielItems } from '../lib/referentiels';
-import type { TransformerProspectionRequest } from '../types';
+import type { ProspectionExistanteDto, TransformerProspectionRequest } from '../types';
 
 /** La transformation pré-prospection → prospection, en boîte.
  *
@@ -43,6 +44,10 @@ export default function TransformerProspectionDialog({
   const [articleId, setArticleId] = useState<string | null>(initialArticleId ?? null);
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  // 409 « un prospect, un projet, une prospection » : le prospect lié a déjà
+  // une prospection ouverte sur le projet de la tranche choisie. Pas une
+  // erreur de saisie — une redirection, voir `ProspectionExistanteNotice`.
+  const [existante, setExistante] = useState<ProspectionExistanteDto | null>(null);
 
   const tranches = useApi(() => getTranchesReferentiel(), [], 'referentiel-tranches');
   const articles = useApi(
@@ -59,10 +64,12 @@ export default function TransformerProspectionDialog({
     if (!canSubmit || !commercialId || !trancheId) return;
     setBusy(true);
     setErreur(null);
+    setExistante(null);
     try {
       await onSubmit({ commercialId, trancheId, articleId: articleId || undefined });
       onClose();
     } catch (err) {
+      setExistante(prospectionExistanteDepuisErreur(err));
       setErreur(err instanceof Error ? err.message : "Échec de la transformation.");
     } finally {
       setBusy(false);
@@ -106,7 +113,11 @@ export default function TransformerProspectionDialog({
           </Select>
         </FormField>
 
-        {erreur && <p className="text-body text-destructive">{erreur}</p>}
+        {existante ? (
+          <ProspectionExistanteNotice existante={existante} message={erreur} onOuvrir={onClose} />
+        ) : (
+          erreur && <p className="text-body text-destructive">{erreur}</p>
+        )}
       </div>
 
       <DialogFooter className="mt-5">

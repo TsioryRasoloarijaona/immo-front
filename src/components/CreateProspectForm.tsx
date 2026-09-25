@@ -1,13 +1,21 @@
 import { useState } from 'react';
 import Modal from './Modal';
 import TelephoneField, { INDICATIF_MAROC } from './TelephoneField';
-import type { CreerProspectRequest, ProspectionDetailDto } from '../types';
+import type { CreerProspectRequest, ProspectDoublonDto, ProspectionDetailDto, ProspectionExistanteDto } from '../types';
+import DoublonsProspectPanel from './DoublonsProspectPanel';
+import ProspectionExistanteNotice from './ProspectionExistanteNotice';
 import { Button } from './ui/button';
 import { DialogFooter } from './ui/dialog';
 import { Field as FormField, FieldGroup, FieldLabel } from './ui/field';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { creerProspectFromPreProspection, getTierKindsForType } from '../lib/api';
+import {
+  creerProspectFromPreProspection,
+  doublonsDepuisErreur,
+  getTierKindsForType,
+  lierProspectAPreProspection,
+  prospectionExistanteDepuisErreur,
+} from '../lib/api';
 import { toApiDateTime } from '../lib/format';
 import { useApi } from '../lib/useApi';
 import {
@@ -127,6 +135,13 @@ export default function CreateProspectForm({
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Réponse 409 `doublons` de creer-prospect : le serveur a trouvé des fiches
+  // au même nom, téléphone ou email et attend que l'utilisateur tranche. Ce
+  // n'est pas une erreur — voir `DoublonsProspectPanel`.
+  const [doublons, setDoublons] = useState<ProspectDoublonDto[] | null>(null);
+  // Réponse 409 `prospectionExistante` de lier-prospect : la personne choisie
+  // a déjà une prospection ouverte sur le projet de cette pré-prospection.
+  const [existante, setExistante] = useState<ProspectionExistanteDto | null>(null);
 
   const titres = useTitres();
   const sexes = useSexes();
@@ -142,10 +157,9 @@ export default function CreateProspectForm({
 
   const paysItems = pays.data.map((p) => ({ label: p.description || p.code || p.id, value: p.id }));
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!prenom.trim() || !nom.trim() || !telephone.trim()) return;
-    const body: CreerProspectRequest = {
+  function construireCorps(ignorerDoublons: boolean): CreerProspectRequest {
+    return {
+      ignorerDoublons: ignorerDoublons || undefined,
       prenom: prenom.trim(),
       nom: nom.trim(),
       telephone: telephone.trim(),
@@ -190,17 +204,60 @@ export default function CreateProspectForm({
             }
           : undefined,
     };
+  }
+
+  /** Envoie la création. Sur 409 `doublons`, la question « est-ce l'une de
+   * ces personnes ? » remplace le message d'erreur ; « Nouveau contact »
+   * rappelle cette même fonction avec `ignorerDoublons: true`. */
+  async function envoyer(ignorerDoublons: boolean) {
     setSubmitting(true);
     setError(null);
+    setExistante(null);
     try {
-      const updated = await creerProspectFromPreProspection(preProspectionId, body);
+      const updated = await creerProspectFromPreProspection(preProspectionId, construireCorps(ignorerDoublons));
       onSubmit(updated);
       onClose();
     } catch (err) {
+      const trouves = doublonsDepuisErreur(err);
+      if (trouves && trouves.length > 0) {
+        setDoublons(trouves);
+        return;
+      }
+      setDoublons(null);
       setError(err instanceof Error ? err.message : 'Échec de la création.');
     } finally {
       setSubmitting(false);
     }
+  }
+
+  /** « C'est cette personne » : rattache la fiche existante à la place
+   * d'en créer une. Le 409 `prospectionExistante` (déjà une prospection
+   * ouverte sur ce projet) se lit comme une redirection, pas une erreur. */
+  async function rattacher(doublon: ProspectDoublonDto) {
+    setSubmitting(true);
+    setError(null);
+    setExistante(null);
+    try {
+      const updated = await lierProspectAPreProspection(preProspectionId, { prospectId: doublon.id });
+      onSubmit(updated);
+      onClose();
+    } catch (err) {
+      const deja = prospectionExistanteDepuisErreur(err);
+      if (deja) {
+        setExistante(deja);
+        setError(err instanceof Error ? err.message : null);
+        return;
+      }
+      setError(err instanceof Error ? err.message : 'Échec du rattachement.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!prenom.trim() || !nom.trim() || !telephone.trim()) return;
+    await envoyer(false);
   }
 
   return (
@@ -337,11 +394,35 @@ export default function CreateProspectForm({
           </div>
         </FieldGroup>
 
-        {error && <p className="mt-3 text-body text-destructive">{error}</p>}
+        {existante ? (
+          <div className="mt-3">
+            <ProspectionExistanteNotice existante={existante} message={error} onOuvrir={onClose} />
+          </div>
+        ) : (
+          error && <p className="mt-3 text-body text-destructive">{error}</p>
+        )}
+
+        {doublons && doublons.length > 0 && (
+          <div className="mt-3">
+            <DoublonsProspectPanel
+              doublons={doublons}
+              libelleChoisir="Rattacher"
+              busy={submitting}
+              onChoisir={(d) => void rattacher(d)}
+              onNouveauContact={() => void envoyer(true)}
+            />
+          </div>
+        )}
 
         <DialogFooter className="mt-5">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Annuler</Button>
-          <Button type="submit" disabled={submitting}>{submitting ? 'Création…' : 'Créer'}</Button>
+          {/* Une fois la question posée, le geste principal est dans le
+              panneau (« Rattacher » / « Nouveau contact ») : le bouton Créer
+              se retire pour ne pas proposer un troisième chemin qui ne ferait
+              que reposer la même question. */}
+          {!doublons && (
+            <Button type="submit" disabled={submitting}>{submitting ? 'Création…' : 'Créer'}</Button>
+          )}
         </DialogFooter>
       </form>
     </Modal>

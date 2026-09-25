@@ -76,6 +76,10 @@ import type {
   PerformanceCommercialDto,
   ProjetPerimetreDto,
   ProspectDetailDto,
+  ProspectDoublonDto,
+  ProspectionExistanteDto,
+  RechercheDoublonsProspectParams,
+  LierProspectRequest,
   ProspectListItemDto,
   ProspectionAutreTrancheDto,
   ProspectionCategorieDto,
@@ -461,8 +465,48 @@ export function listClientDossiers(clientId: UUID, pageable?: Pageable): Promise
   return request('GET', `/api/clients/${clientId}/dossiers`, { query: withPageable(undefined, pageable) });
 }
 
+/** `POST /api/prospects`. Depuis `FEATURE-doublons-prospect-projet.md` §2
+ * la création peut répondre **409** là où elle répondait 201 : une fiche
+ * prospect/client existante porte le même nom, téléphone ou email et
+ * `ignorerDoublons` n'est pas `true`. Le corps porte `doublons` — lire avec
+ * `doublonsDepuisErreur` et demander « est-ce l'une de ces personnes ? »
+ * avant de renvoyer avec `ignorerDoublons: true`. Ne pas gérer ce 409 fait
+ * « échouer » la création sur tout homonyme, qui est le cas courant. */
 export function createProspect(body: CreerProspectRequest): Promise<ProspectDetailDto> {
   return request('POST', '/api/prospects', { body });
+}
+
+/** `GET /api/prospects/doublons` — le contrôle d'identité à faire **avant**
+ * de créer un prospect. Fiches prospect/client correspondant sur au moins un
+ * critère (`NOM`, `TELEPHONE`, `EMAIL`), le plus de critères d'abord puis les
+ * plus récentes, 50 au plus. **Vide = aucune fiche ne correspond.** 400 si
+ * aucun paramètre exploitable. Pas de périmètre commercial : les prospects
+ * n'y sont pas soumis. Le même contrôle est appliqué par `createProspect` et
+ * `creerProspectFromPreProspection` — cet endpoint sert à prévenir pendant
+ * la saisie, pas à remplacer le 409. */
+export function rechercherDoublonsProspect(params: RechercheDoublonsProspectParams): Promise<ProspectDoublonDto[]> {
+  return request('GET', '/api/prospects/doublons', { query: { ...params } });
+}
+
+/** Extrait la liste `doublons` d'un 409 de `createProspect` /
+ * `creerProspectFromPreProspection`. `null` pour toute autre erreur — un 409
+ * sans `doublons` n'en est pas un de ce type et doit rester une phrase. */
+export function doublonsDepuisErreur(err: unknown): ProspectDoublonDto[] | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  const doublons = err.problem?.doublons;
+  return Array.isArray(doublons) ? (doublons as ProspectDoublonDto[]) : null;
+}
+
+/** Extrait `prospectionExistante` d'un 409 « un prospect, un projet, une
+ * prospection » (`createProspection`, `transformerProspection`,
+ * `modifierTranchePrincipale`, `lierProspectAPreProspection`). `null` pour
+ * toute autre erreur. */
+export function prospectionExistanteDepuisErreur(err: unknown): ProspectionExistanteDto | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  const existante = err.problem?.prospectionExistante;
+  return existante && typeof existante === 'object' && typeof (existante as { id?: unknown }).id === 'string'
+    ? (existante as ProspectionExistanteDto)
+    : null;
 }
 
 export function updateProspect(id: UUID, body: ModifierProspectRequest): Promise<ProspectDetailDto> {
@@ -702,8 +746,23 @@ export function listPreProspectionsGroupes(
   });
 }
 
+/** `POST /api/pre-prospections/{id}/creer-prospect`. Même contrôle de doublon
+ * que `createProspect` : 409 + `doublons` sauf `ignorerDoublons: true`. Oui à
+ * « c'est l'une de ces personnes » → `lierProspectAPreProspection` ; non →
+ * renvoyer le même corps avec `ignorerDoublons: true`. */
 export function creerProspectFromPreProspection(id: UUID, body: CreerProspectRequest): Promise<ProspectionDetailDto> {
   return request('POST', `/api/pre-prospections/${id}/creer-prospect`, { body });
+}
+
+/** `POST /api/pre-prospections/{id}/lier-prospect` — le pendant de
+ * `creer-prospect` quand la personne existe déjà : pose un CfgTier existant
+ * comme prospect de la pré-prospection, sans rien créer. 400 si un prospect
+ * est déjà lié ou si le tiers n'est pas prospect/client ; **409** avec
+ * `prospectionExistante` si la pré-prospection porte une tranche et que ce
+ * prospect a déjà une prospection ouverte sur son projet. L'étape suivante
+ * reste `transformerProspection`. */
+export function lierProspectAPreProspection(id: UUID, body: LierProspectRequest): Promise<ProspectionDetailDto> {
+  return request('POST', `/api/pre-prospections/${id}/lier-prospect`, { body });
 }
 
 /** `POST /api/pre-prospections` — un lead brut, comme l'écran

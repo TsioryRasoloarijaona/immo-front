@@ -10,14 +10,18 @@ import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { Textarea } from '../../components/ui/textarea';
+import DoublonsProspectPanel from '../../components/DoublonsProspectPanel';
+import ProspectionExistanteNotice from '../../components/ProspectionExistanteNotice';
 import {
   createProspect,
   createProspection,
+  doublonsDepuisErreur,
   getSupportsForOrigine,
   listProjetTranches,
   listProjets,
   listProspects,
   listTrancheArticles,
+  prospectionExistanteDepuisErreur,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
@@ -32,7 +36,13 @@ import {
   useVocations,
 } from '../../lib/referentiels';
 import TelephoneField, { INDICATIF_MAROC } from '../../components/TelephoneField';
-import type { CreerProspectRequest, CreerProspectionRequest, ProspectListItemDto } from '../../types';
+import type {
+  CreerProspectRequest,
+  CreerProspectionRequest,
+  ProspectDoublonDto,
+  ProspectListItemDto,
+  ProspectionExistanteDto,
+} from '../../types';
 
 // Indicatifs pré-remplis, comme sur les autres formulaires de création : c'est
 // leur absence qui produit les numéros que le canal WhatsApp rejette.
@@ -264,6 +274,14 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // 409 `doublons` de la création du prospect (mode « Nouveau prospect ») :
+  // des fiches au même nom, téléphone ou email existent. Une question, pas
+  // une erreur — voir `DoublonsProspectPanel`.
+  const [doublons, setDoublons] = useState<ProspectDoublonDto[] | null>(null);
+  // 409 `prospectionExistante` de la création de la prospection : ce prospect
+  // a déjà une prospection ouverte sur ce projet. Une redirection, pas une
+  // erreur — voir `ProspectionExistanteNotice`.
+  const [existante, setExistante] = useState<ProspectionExistanteDto | null>(null);
 
   const isMorale = !!newProspectForm.raisonSociale?.trim();
   const newProspectReady = (newProspectForm.prenom?.trim() && newProspectForm.nom?.trim()) || isMorale;
@@ -274,12 +292,69 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
   const champsObligatoiresOk = !!trancheId && !!etapeId && !!typeContactId && !!origineId && !!notes.trim();
   const canCreate = prospectReady && champsObligatoiresOk;
 
-  async function handleCreate() {
+  /** Choisit une fiche existante à la place du nouveau prospect saisi — la
+   * réponse « c'est cette personne » à la liste de doublons. La bascule en
+   * mode « existant » rend la sélection visible dans le sélecteur, comme si
+   * l'utilisateur l'avait cherchée lui-même. */
+  function choisirDoublon(d: ProspectDoublonDto) {
+    setDoublons(null);
+    setSubmitError(null);
+    setProspectMode('existing');
+    setSelectedProspect({
+      id: d.id,
+      code: d.code ?? undefined,
+      prenom: d.prenom ?? undefined,
+      nom: d.nomFamille ?? undefined,
+      raisonSociale: d.raisonSociale ?? undefined,
+      telephone: d.telephone ?? undefined,
+      mobile: d.mobile ?? undefined,
+      email: d.email ?? undefined,
+      ville: d.ville ?? undefined,
+      type: d.type ?? undefined,
+    });
+  }
+
+  async function handleCreate(ignorerDoublons = false) {
     if (!canCreate || !trancheId || !etapeId || !typeContactId || !origineId) return;
     setSubmitting(true);
     setSubmitError(null);
+    setExistante(null);
+    let prospectId: string;
+    if (prospectMode === 'existing') {
+      prospectId = selectedProspect!.id;
+    } else {
+      try {
+        const cree = await createProspect({ ...newProspectForm, ignorerDoublons: ignorerDoublons || undefined });
+        prospectId = cree.id;
+        // La fiche existe désormais : si la prospection échoue juste après,
+        // un second clic ne doit pas la recréer (et retomber sur le 409
+        // doublon qu'elle produirait contre elle-même). On bascule donc en
+        // mode « existant » sur la fiche créée.
+        setDoublons(null);
+        choisirDoublon({
+          id: cree.id,
+          code: cree.code,
+          prenom: cree.prenom,
+          nomFamille: cree.nom,
+          raisonSociale: cree.raisonSociale,
+          telephone: cree.telephone,
+          mobile: cree.mobile,
+          email: cree.email,
+          ville: cree.ville,
+          criteres: [],
+        });
+      } catch (err) {
+        const trouves = doublonsDepuisErreur(err);
+        if (trouves && trouves.length > 0) setDoublons(trouves);
+        else {
+          setDoublons(null);
+          setSubmitError(err instanceof Error ? err.message : 'Échec de la création du prospect.');
+        }
+        setSubmitting(false);
+        return;
+      }
+    }
     try {
-      const prospectId = prospectMode === 'existing' ? selectedProspect!.id : (await createProspect(newProspectForm)).id;
       const body: CreerProspectionRequest = {
         prospectId,
         commercialId: prospectionCommercialId || undefined,
@@ -297,6 +372,7 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
       const prospection = await createProspection(body);
       navigate(`/prospections/${prospection.id}`);
     } catch (err) {
+      setExistante(prospectionExistanteDepuisErreur(err));
       setSubmitError(err instanceof Error ? err.message : 'Échec de la création.');
     } finally {
       setSubmitting(false);
@@ -403,7 +479,21 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
           </FormField>
         </Card>
 
-        {submitError && <p className="text-body text-destructive">{submitError}</p>}
+        {doublons && doublons.length > 0 && prospectMode === 'new' && (
+          <DoublonsProspectPanel
+            doublons={doublons}
+            libelleChoisir="Choisir"
+            busy={submitting}
+            onChoisir={choisirDoublon}
+            onNouveauContact={() => void handleCreate(true)}
+          />
+        )}
+
+        {existante ? (
+          <ProspectionExistanteNotice existante={existante} message={submitError} onOuvrir={onClose} />
+        ) : (
+          submitError && <p className="text-body text-destructive">{submitError}</p>
+        )}
       </div>
 
       {/* La sortie explicite, que la page pleine n'avait pas : elle comptait
@@ -413,7 +503,9 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
         <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
           Annuler
         </Button>
-        <Button type="button" onClick={handleCreate} disabled={!canCreate || submitting}>
+        {/* Pas `onClick={handleCreate}` : l'événement de clic passerait pour
+            `ignorerDoublons` et court-circuiterait le contrôle de doublon. */}
+        <Button type="button" onClick={() => { setDoublons(null); void handleCreate(false); }} disabled={!canCreate || submitting}>
           <Check data-icon="inline-start" /> {submitting ? 'Création…' : 'Créer la prospection'}
         </Button>
       </DialogFooter>
