@@ -628,17 +628,21 @@ const POIDS_SUIVI_ACTIONS: Record<string, number> = {
   modifieLe: 10,
 };
 
-/** Les deux cles que la ligne ouvre : une action se lit depuis sa
- * prospection, a defaut depuis son dossier. Demandees toujours, jamais
- * affichees — voir `SuiviActionsList`. */
-export const CLES_OUVERTURE_SUIVI_ACTION = ['prospectionId', 'dossierId'];
+/** Les cles que la ligne ouvre : une action se lit depuis sa prospection, a
+ * defaut depuis son dossier ; `tiersId` sert au detail (`ActionDetailDialog`)
+ * a charger la fiche de la personne — telephone, email, et le critere du
+ * bouton « Voir hotline » — car `SuiviActionDto` ne porte pas ses
+ * coordonnees. Demandees toujours, jamais affichees — voir
+ * `SuiviActionsList`. */
+export const CLES_OUVERTURE_SUIVI_ACTION = ['prospectionId', 'dossierId', 'tiersId'];
 
 export const DISPOSITION_SUIVI_ACTIONS: DispositionColonnes = {
   ordre: ORDRE_SUIVI_ACTIONS,
   poids: POIDS_SUIVI_ACTIONS,
   /* Tout le groupe IDENTIFIANTS du catalogue : des cles de jointure que le
-     selecteur n'a pas a proposer. `prospectionId` et `dossierId` sont
-     neanmoins demandees a chaque appel (`CLES_OUVERTURE_SUIVI_ACTION`) : c'est
-     par elles que le clic sur une ligne ouvre la fiche. */
+     selecteur n'a pas a proposer. `prospectionId`, `dossierId` et `tiersId`
+     sont neanmoins demandees a chaque appel (`CLES_OUVERTURE_SUIVI_ACTION`) :
+     c'est par elles que le clic sur une ligne ouvre la fiche et que le detail
+     retrouve la personne. */
   masquees: new Set(['id', 'typeId', 'categorieId', 'tiersId', 'prospectionId', 'dossierId', 'trancheId']),
 };
