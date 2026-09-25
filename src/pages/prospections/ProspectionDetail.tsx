@@ -7,6 +7,7 @@ import { ActiviteCard, DossierIssuBanner, InactiviteBadge } from '../../componen
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
 import ArticleResultsList from '../../components/ArticleResultsList';
 import CreateProspectForm, { type CreateProspectInitial } from '../../components/CreateProspectForm';
+import ProspectionExistanteNotice from '../../components/ProspectionExistanteNotice';
 import DevisFormSection from '../../components/DevisFormSection';
 import InteractionForm from '../../components/InteractionForm';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
@@ -63,6 +64,7 @@ import {
   removeProspectContact,
   modifierProspection,
   modifierTranchePrincipale,
+  prospectionExistanteDepuisErreur,
   removeProspectionAutreTranche,
   renvoyerEmailVisite,
   transformerProspection,
@@ -1571,6 +1573,11 @@ function ArticleCascadePicker({
   const [sousArticleId, setSousArticleId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 409 « un prospect, un projet, une prospection » sur `onModifier` : la
+  // tranche cible est sur un **autre projet** où le prospect a déjà une
+  // prospection ouverte. Changer de tranche au sein du même projet n'est
+  // jamais refusé. Une redirection, pas une erreur.
+  const [existante, setExistante] = useState<ReturnType<typeof prospectionExistanteDepuisErreur>>(null);
 
   const isPrincipalTranche = !principalTrancheId || trancheId === principalTrancheId;
 
@@ -1611,6 +1618,7 @@ function ArticleCascadePicker({
     if (!trancheId) return;
     setSaving(true);
     setError(null);
+    setExistante(null);
     try {
       await action(trancheId, sousArticleId || articleId || undefined);
       setProjetId(null);
@@ -1620,6 +1628,7 @@ function ArticleCascadePicker({
       setArticleId(null);
       setSousArticleId(null);
     } catch (err) {
+      setExistante(prospectionExistanteDepuisErreur(err));
       setError(err instanceof Error ? err.message : "Échec de l'opération.");
     } finally {
       setSaving(false);
@@ -1730,7 +1739,11 @@ function ArticleCascadePicker({
             : 'Tranche différente de la tranche principale — utilisez « Ajouter » pour l\'associer comme intérêt secondaire.'}
         </p>
       )}
-      {error && <p className="text-body text-destructive">{error}</p>}
+      {existante ? (
+        <ProspectionExistanteNotice existante={existante} message={error} />
+      ) : (
+        error && <p className="text-body text-destructive">{error}</p>
+      )}
     </div>
   );
 }

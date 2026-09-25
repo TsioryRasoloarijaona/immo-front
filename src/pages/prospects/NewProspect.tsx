@@ -7,11 +7,12 @@ import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { createProspect } from '../../lib/api';
+import { createProspect, doublonsDepuisErreur } from '../../lib/api';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { referentielItems, useTierTypes } from '../../lib/referentiels';
+import DoublonsProspectPanel from '../../components/DoublonsProspectPanel';
 import TelephoneField, { INDICATIF_MAROC } from '../../components/TelephoneField';
-import type { CreerProspectRequest } from '../../types';
+import type { CreerProspectRequest, ProspectDoublonDto } from '../../types';
 
 // Les indicatifs partent renseignés : c'est leur absence qui produit les
 // numéros que le canal WhatsApp rejette, et la quasi-totalité des prospects
@@ -31,6 +32,9 @@ export default function NewProspect() {
   const [form, setForm] = useState<CreerProspectRequest>(EMPTY);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // 409 `doublons` : des fiches au même nom, téléphone ou email existent.
+  // Pas une erreur — une question, voir `DoublonsProspectPanel`.
+  const [doublons, setDoublons] = useState<ProspectDoublonDto[] | null>(null);
 
   const { commerciaux } = useAppData();
   const tierTypes = useTierTypes();
@@ -44,14 +48,24 @@ export default function NewProspect() {
   const isMorale = !!form.raisonSociale?.trim();
   const canCreate = (form.prenom?.trim() && form.nom?.trim()) || isMorale;
 
-  async function handleCreate() {
+  /** Sur 409 `doublons`, la question « est-ce l'une de ces personnes ? »
+   * remplace le message d'erreur ; « Nouveau contact » rappelle cette même
+   * fonction avec `ignorerDoublons: true`. « Ouvrir la fiche » navigue vers
+   * la fiche existante — en création directe il n'y a rien à rattacher. */
+  async function handleCreate(ignorerDoublons = false) {
     if (!canCreate) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const prospect = await createProspect(form);
+      const prospect = await createProspect({ ...form, ignorerDoublons: ignorerDoublons || undefined });
       navigate(`/prospects/${prospect.id}`);
     } catch (err) {
+      const trouves = doublonsDepuisErreur(err);
+      if (trouves && trouves.length > 0) {
+        setDoublons(trouves);
+        return;
+      }
+      setDoublons(null);
       setSubmitError(err instanceof Error ? err.message : 'Échec de la création.');
     } finally {
       setSubmitting(false);
@@ -151,9 +165,23 @@ export default function NewProspect() {
 
         {submitError && <p className="text-body text-destructive">{submitError}</p>}
 
+        {doublons && doublons.length > 0 && (
+          <DoublonsProspectPanel
+            doublons={doublons}
+            libelleChoisir="Ouvrir la fiche"
+            busy={submitting}
+            onChoisir={(d) => navigate(`/prospects/${d.id}`)}
+            onNouveauContact={() => void handleCreate(true)}
+          />
+        )}
+
         <div className="flex items-center justify-end border-t border-border pt-4">
-          <Button type="button" onClick={handleCreate} disabled={!canCreate || submitting}>
-            <Check data-icon="inline-start" /> {submitting ? 'Création…' : 'Créer le prospect'}
+          {/* Une fois la question posée, le geste principal est dans le
+              panneau (« Ouvrir la fiche » / « Nouveau contact »). Le bouton
+              reste actif pour un formulaire retouché — retoucher est la
+              troisième réponse possible à un homonyme. */}
+          <Button type="button" onClick={() => { setDoublons(null); void handleCreate(false); }} disabled={!canCreate || submitting}>
+            <Check data-icon="inline-start" /> {submitting ? 'Création…' : doublons ? 'Réessayer' : 'Créer le prospect'}
           </Button>
         </div>
       </div>

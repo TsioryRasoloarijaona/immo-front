@@ -271,9 +271,103 @@ export interface CreerProspectRequest {
   adresse2?: string;
   adresse3?: string;
   pieceIdentite?: PieceIdentiteRequest;
+  /** Confirmation « nouveau contact ». Absent ou `false` : **409** avec la
+   * liste `doublons` si une fiche prospect/client existante porte le même
+   * nom, téléphone ou email (règles de `GET /api/prospects/doublons`).
+   * `true` : crée quand même. Lu par `POST /api/prospects` et
+   * `POST /api/pre-prospections/{id}/creer-prospect` ; ignoré en PATCH. */
+  ignorerDoublons?: boolean;
 }
 
 export type ModifierProspectRequest = CreerProspectRequest;
+
+/** Critère sur lequel une fiche existante correspond à l'identité saisie
+ * (`FEATURE-doublons-prospect-projet.md` §2) :
+ * - `NOM` — prénom + nom (ou raison sociale) en minuscules et **sans aucun
+ *   espace**, dans les deux ordres — la règle d'OMRAN, qui rend « El Mehdi
+ *   LAHLOU » et « El MEHDI LAHLOU » égaux ;
+ * - `TELEPHONE` — 9 derniers chiffres d'un des quatre numéros de la fiche ;
+ * - `EMAIL` — sans casse ni espaces de bord. */
+export type CritereDoublon = 'NOM' | 'TELEPHONE' | 'EMAIL';
+
+/** Fiche prospect ou client existante (CfgTier de type PRO/PRORNT/CLI/CLIRNT)
+ * correspondant à l'identité saisie sur au moins un critère. Sert à demander
+ * « est-ce l'une de ces personnes ? » avant de créer une fiche. Servie par
+ * `GET /api/prospects/doublons` et dans le corps 409 (`doublons`) de
+ * `POST /api/prospects` et `POST /api/pre-prospections/{id}/creer-prospect`.
+ *
+ * **Un homonyme au contact différent est le cas courant** (237 groupes sur
+ * 244 dans les données réelles) : la liste est là pour que l'utilisateur
+ * tranche, pas pour refuser. */
+export interface ProspectDoublonDto {
+  /** CfgTier.PKey — ouvrable par `GET /api/prospects/{id}`, rattachable par
+   * `POST /api/pre-prospections/{id}/lier-prospect`. */
+  id: UUID;
+  /** P.ex. `26/14428`. */
+  code?: string | null;
+  /** Nom affiché (raison sociale, sinon `Description`, sinon prénom + nom). */
+  nom?: string | null;
+  prenom?: string | null;
+  nomFamille?: string | null;
+  /** Null pour un particulier. */
+  raisonSociale?: string | null;
+  /** Tel que stocké. */
+  telephone?: string | null;
+  /** Tel que stocké : `6 65 68 09 64`. */
+  mobile?: string | null;
+  email?: string | null;
+  ville?: string | null;
+  /** Code du type de tiers : `PRO`, `PRORNT`, `CLI` ou `CLIRNT`. */
+  type?: string | null;
+  /** `UserCreateDateTime`, null sur des lignes anciennes. */
+  dateCreation?: string | null;
+  /** Jamais vide. Une fiche qui correspond sur plusieurs critères est listée
+   * avant les autres. */
+  criteres: CritereDoublon[];
+}
+
+/** Critères de `GET /api/prospects/doublons` — tous optionnels, mais 400 si
+ * aucun n'est exploitable (téléphone de moins de 9 chiffres ou à 9 chiffres
+ * identiques, email sans `@` ne comptent pas). */
+export interface RechercheDoublonsProspectParams {
+  /** Nom de famille (ou nom complet si `prenom` est vide). */
+  nom?: string;
+  prenom?: string;
+  raisonSociale?: string;
+  /** N'importe quel format. */
+  telephone?: string;
+  /** N'importe quel format. */
+  mobile?: string;
+  email?: string;
+}
+
+/** `POST /api/pre-prospections/{id}/lier-prospect` — réponse « c'est l'une
+ * de ces personnes » à la liste de doublons : pose un CfgTier **existant**
+ * comme prospect de la pré-prospection, sans rien créer. */
+export interface LierProspectRequest {
+  /** Typiquement un `id` de `ProspectDoublonDto`. 400 si inconnu ou d'un
+   * autre type de tiers que prospect/client. */
+  prospectId: UUID;
+}
+
+/** Corps `prospectionExistante` du 409 « un prospect, un projet, une
+ * prospection » (`FEATURE-doublons-prospect-projet.md` §3) — renvoyé par
+ * `POST /api/prospections`, `POST /api/prospections/{id}/transformer`,
+ * `PATCH /api/prospections/{id}/tranche-principale` (seulement si le projet
+ * change) et `POST /api/pre-prospections/{id}/lier-prospect`. Le prospect a
+ * déjà une prospection **ouverte** sur ce projet : la bonne action est de
+ * l'ouvrir et d'y ajouter un dossier, pas d'en créer une seconde. Une
+ * prospection fermée ne bloque jamais. */
+export interface ProspectionExistanteDto {
+  /** Ouvrable par `GET /api/prospections/{id}`. */
+  id: UUID;
+  code?: string | null;
+  dateDocument?: string | null;
+  etapeLibelle?: string | null;
+  commercialNom?: string | null;
+  trancheCode?: string | null;
+  projetCode?: string | null;
+}
 
 // `POST /api/prospections` (from_front.md demande #9) — `prospectId` is the
 // only required field (400 if missing/unresolvable); everything else
