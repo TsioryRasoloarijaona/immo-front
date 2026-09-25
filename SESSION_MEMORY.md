@@ -270,9 +270,9 @@ refuse. L'utilisateur décide (drop ou petite PR).
 - `components/HotlineResultDialog.tsx` : `Modal` 960, `rechercherHotline`
   par `CritereHotline`, pied « Ouvrir la hotline ». Ouvert **par-dessus**
   le détail (Dialog imbriqué, Base UI le supporte).
-- Critère du bouton : numéro dès qu'il est chargé, sinon `tiersNom` (≥ 2),
-  sinon désactivé ; **bouton désactivé tant que la fiche charge** pour ne
-  pas chercher par nom une seconde avant d'avoir le numéro.
+- Critère du bouton : **le numéro seulement, jamais le nom** (décision
+  utilisateur, 2e itération) — sans numéro le bouton est désactivé avec un
+  `title` qui dit pourquoi ; désactivé aussi tant que la fiche charge.
 - Détail réorganisé : bloc Personne en tête (avatar, nom, code, type, badges,
   coordonnées, boutons « Fiche » et « Voir hotline »), message étiqueté,
   sections en `dl` libellé/valeur avec `break-words`, deux sections côte à

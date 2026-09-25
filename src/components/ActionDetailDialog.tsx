@@ -78,15 +78,11 @@ export default function ActionDetailDialog({
   const indicatif = fiche?.mobile ? fiche.indicatifMobile : fiche?.indicatifTelephone;
   const telephoneAffiche = numero ? formatTelephone(numero, indicatif) : null;
 
-  /* Le critère hotline : le numéro dès qu'on l'a, sinon le nom (2 caractères
-     minimum côté serveur). Tant que la fiche charge, on attend : chercher par
-     nom alors qu'un numéro arrive une seconde plus tard donnerait deux
-     résultats différents pour le même clic. */
-  const critereDisponible: CritereHotline | null = numero
-    ? { telephone: numero }
-    : (action.tiersNom?.trim().length ?? 0) >= 2
-      ? { nom: action.tiersNom!.trim() }
-      : null;
+  /* Le critère hotline : **le numéro, jamais le nom** (décision utilisateur
+     du 25/09) — un homonyme est le cas courant, un numéro identifie. Sans
+     numéro, le bouton reste désactivé et dit pourquoi. Tant que la fiche
+     charge, on attend. */
+  const critereDisponible: CritereHotline | null = numero ? { telephone: numero } : null;
   const hotlineEnAttente = !!action.tiersId && prospect.loading && !fiche;
 
   /* Les champs renseignés sur la ligne, dans l'ordre de la disposition puis
@@ -182,10 +178,10 @@ export default function ActionDetailDialog({
                 hotlineEnAttente
                   ? 'Chargement de la fiche…'
                   : !critereDisponible
-                    ? 'Ni numéro ni nom exploitable pour la hotline.'
-                    : 'telephone' in critereDisponible
-                      ? `Rechercher ${telephoneAffiche} dans la hotline`
-                      : `Rechercher « ${critereDisponible.nom} » dans la hotline`
+                    ? action.tiersId
+                      ? 'Aucun numéro sur la fiche : la hotline se cherche par téléphone.'
+                      : 'Aucune fiche rattachée, donc aucun numéro à chercher.'
+                    : `Rechercher ${telephoneAffiche} dans la hotline`
               }
               onClick={() => critereDisponible && setCritereHotline(critereDisponible)}
             >
