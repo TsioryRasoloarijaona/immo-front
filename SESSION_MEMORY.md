@@ -23,10 +23,15 @@ fusionne → sync. Deux lots le 23/09, **tous deux fusionnés** :
 `main` = `c59a1c5`. Le snapshot spec a voyagé sur la branche (stash → start
 → pop) au lieu d'être commité sur `main`, sur décision de l'utilisateur.
 
-**Lot du 25/09 (2) : `feat/cles-api`** (front seul, suit
-`immo-crm/instructions/FEATURE-cle-api-n8n.md`) — build ✓, eslint = 10 ✓,
-commité et poussé, **PR ouverte, en attente de la fusion**, puis `sync
-front`. Snapshot spec sur la branche, même mécanique.
+**Lot du 25/09 (2) : `feat/cles-api`** — fusionné (PR #67), `main` =
+`ba4353e`. Snapshot spec sur la branche, même mécanique. Le « clic création
+→ login » venait de la base d'**écriture** (`yesRems`) sans la table
+`AppApiClient` : 500 non géré → forward `/error` → 401 → déconnexion.
+Migration 011 appliquée par l'utilisateur, résolu.
+
+**Lot du 25/09 (3) : `feat/suivi-action-detail-hotline`** (front seul, sans
+changement de spec) — build ✓, eslint = 10 ✓, commité et poussé, **PR
+ouverte, en attente de la fusion**, puis `sync front`.
 
 **Reliquat** : la branche locale + distante `feat/desarchiver-prospection`
 porte un commit de mémo (`1b97322`) jamais fusionné ; `git branch -d`
@@ -248,6 +253,30 @@ refuse. L'utilisateur décide (drop ou petite PR).
   → plus d'actions sur la ligne, elle reste listée pour l'audit.
 - `libellePortee` traduit le code en libellé métier ; `valeur` sur la
   colonne pour que le filtre du grid cherche le libellé, pas le code.
+
+### Lot du 25/09 (3) — `feat/suivi-action-detail-hotline` (PR ouverte)
+- Demande : le détail d'une action du suivi était illisible (valeurs
+  `truncate`), sans téléphone ni email, et il fallait un bouton « Voir
+  hotline » ouvrant le même résultat que la page Hotline.
+- **`SuiviActionDto` ne porte pas les coordonnées** et le back est hors
+  périmètre : `tiersId` ajouté à `CLES_OUVERTURE_SUIVI_ACTION`
+  (`lib/dispositions.ts`), et `ActionDetailDialog` charge
+  `getProspect(tiersId)` à l'ouverture (mobile d'abord, sinon téléphone,
+  `formatTelephone` + lien `tel:` ; email en `mailto:`).
+- Rendu du résultat hotline **extrait** de `pages/hotline/Hotline.tsx` vers
+  `components/HotlineResultat.tsx` (`FicheCard`, lignes dépliables, carte
+  d'en-tête, avis `tronque`, appels sans fiche). `onCreerFiche` optionnel :
+  seul la page le passe. La page ne garde que le formulaire.
+- `components/HotlineResultDialog.tsx` : `Modal` 960, `rechercherHotline`
+  par `CritereHotline`, pied « Ouvrir la hotline ». Ouvert **par-dessus**
+  le détail (Dialog imbriqué, Base UI le supporte).
+- Critère du bouton : numéro dès qu'il est chargé, sinon `tiersNom` (≥ 2),
+  sinon désactivé ; **bouton désactivé tant que la fiche charge** pour ne
+  pas chercher par nom une seconde avant d'avoir le numéro.
+- Détail réorganisé : bloc Personne en tête (avatar, nom, code, type, badges,
+  coordonnées, boutons « Fiche » et « Voir hotline »), message étiqueté,
+  sections en `dl` libellé/valeur avec `break-words`, deux sections côte à
+  côte en `md`. Largeur 640 → 720.
 
 ### La boucle git (rappel opérationnel)
 - `node .claude/scripts/git-flow.mjs` depuis `prototype/` ; toujours
