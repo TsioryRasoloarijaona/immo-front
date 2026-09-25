@@ -48,7 +48,9 @@ export function moduleForPath(pathname: string): string | null {
   }
   // `/mes-performances` ne relève d'aucun module : elle est destinée au
   // commercial, dont les groupes de sidebar ne dépendent pas de la route.
-  if (pathname.startsWith('/utilisateurs')) {
+  // `/cles-api` : les clés des clients machine (n8n), quatrième écran
+  // d'Administration à côté des comptes.
+  if (pathname.startsWith('/utilisateurs') || pathname.startsWith('/cles-api')) {
     return 'administration';
   }
   if (pathname.startsWith('/bientot/')) {

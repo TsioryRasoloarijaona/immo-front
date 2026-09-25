@@ -35,6 +35,9 @@ import type {
   CreerInteractionRequest,
   CreerPreProspectionRequest,
   CreerProspectRequest,
+  CleApiCreeeDto,
+  CleApiDto,
+  CreerCleApiRequest,
   CreerProspectionRequest,
   CreerReglementRequest,
   DashboardDto,
@@ -2113,6 +2116,41 @@ export function reinitialiserMotDePasse(admUserId: UUID): Promise<ReinitialiserM
  * temporaire renvoyé n'est jamais réémis, à communiquer hors-bande. */
 export function creerEmploye(body: CreerEmployeRequest): Promise<CreerEmployeResponse> {
   return request('POST', '/api/utilisateurs', { body });
+}
+
+// ---------------------------------------------------------------------------
+// Clés d'API — `/api/cles-api`, rôle Administrateur (`FEATURE-cle-api-n8n.md`).
+// Le front reste sur le cookie ; ces appels administrent les clés que les
+// clients machine (n8n, agent) enverront dans `X-Api-Key`.
+
+/** Toutes les clés, actives et révoquées, les plus récentes d'abord. Le
+ * secret n'est jamais renvoyé ; `clePrefixe` suffit à reconnaître la clé
+ * configurée côté client. 403 pour un non-administrateur — ou pour une clé
+ * d'API, qui n'a jamais cette portée. */
+export function listClesApi(): Promise<CleApiDto[]> {
+  return request('GET', '/api/cles-api');
+}
+
+/** Génère un secret, n'en stocke que le hash, et le renvoie **une seule
+ * fois** dans `cle`. Crée aussi le compte de service sauf `compteCode`.
+ * 400 nom vide/trop long, portées vides ou inconnues, `compteCode` inconnu ;
+ * 409 nom déjà pris (ou compte de ce code existant sans `compteCode`). */
+export function creerCleApi(body: CreerCleApiRequest): Promise<CleApiCreeeDto> {
+  return request('POST', '/api/cles-api', { body });
+}
+
+/** Nouveau secret, même compte, mêmes portées ; l'ancien cesse d'être
+ * accepté immédiatement. Pour une fuite ou une rotation. 404 inconnue,
+ * **409 révoquée** — on en crée une nouvelle à la place. */
+export function regenererCleApi(id: UUID): Promise<CleApiCreeeDto> {
+  return request('POST', `/api/cles-api/${id}/regenerer`);
+}
+
+/** Révoque : refusée en 401 dès le commit, la ligne reste listée avec
+ * `actif = false`, `revoqueLe` et `revoquePar`. Idempotent. Le compte de
+ * service n'est pas touché. 204 sans corps. */
+export function revoquerCleApi(id: UUID): Promise<void> {
+  return request('DELETE', `/api/cles-api/${id}`);
 }
 
 /** Réservé au rôle Administrateur — projets actuellement affectés à ce

@@ -3320,3 +3320,63 @@ export interface SynchronisationResultatDto {
   /** Durée du cycle en millisecondes. */
   dureeMs?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Clés d'API pour les clients machine — `/api/cles-api`, rôle Administrateur
+// (`FEATURE-cle-api-n8n.md`). Le front, lui, reste sur le cookie JWT : ces
+// écrans ne font qu'administrer les clés que n8n ou un agent enverront dans
+// l'en-tête `X-Api-Key`.
+
+/** Portée accordée à une clé. Une route hors de toutes les portées de la clé
+ * est refusée en 403 `HORS_PORTEE`. Pour n8n : écrire les pré-prospections et
+ * lire les référentiels (les ids de tranche, origine, étape…). */
+export type PorteeCleApi = 'PRE_PROSPECTIONS_ECRIRE' | 'PRE_PROSPECTIONS_LIRE' | 'REFERENTIELS_LIRE';
+
+/** Clé d'API telle que listée. **Le secret n'est jamais renvoyé ici** :
+ * seulement `clePrefixe`, pour reconnaître la clé configurée côté client. */
+export interface CleApiDto {
+  /** AppApiClient.PKey. */
+  id: UUID;
+  /** Nom du client, unique — p.ex. `n8n`. */
+  nom?: string;
+  /** Début de la clé, `ak_` + 8 caractères. */
+  clePrefixe?: string;
+  /** Code du compte de service (`AdmUser.Code`). */
+  compteCode?: string;
+  /** Nom affiché du compte de service — l'auteur (`UserCreate`) de tout ce
+   * que la clé écrit. */
+  compteNom?: string;
+  portees?: PorteeCleApi[];
+  /** `false` = révoquée : la clé est refusée en 401. */
+  actif?: boolean;
+  /** Dernière requête acceptée, à la minute près ; null si jamais utilisée. */
+  dernierUsage?: string | null;
+  dateCreation?: string | null;
+  /** Administrateur créateur. */
+  creePar?: string | null;
+  /** Null tant que la clé est active. */
+  revoqueLe?: string | null;
+  revoquePar?: string | null;
+}
+
+/** Réponse de la création et de la régénération. `cle` est le secret **en
+ * clair, montré une seule fois** : il n'est pas stocké (seul son hash l'est)
+ * et aucune autre route ne le renvoie. */
+export interface CleApiCreeeDto {
+  cleApi: CleApiDto;
+  /** `ak_` + 43 caractères. À envoyer dans `X-Api-Key`. */
+  cle: string;
+}
+
+export interface CreerCleApiRequest {
+  /** Unique, 100 caractères max. Sert aussi de `Code` et de `Description`
+   * au compte de service créé. 409 si déjà pris. */
+  nom: string;
+  /** Au moins une (400 sinon). */
+  portees: PorteeCleApi[];
+  /** Code d'un compte `AdmUser` **existant** à utiliser comme compte de
+   * service. Absent : un compte est créé au nom de la clé, sans employé ni
+   * rôle — donc sans restriction de périmètre, la portée étant alors sa
+   * seule limite. 400 si inconnu. */
+  compteCode?: string;
+}

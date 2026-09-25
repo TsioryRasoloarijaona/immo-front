@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Building2, Calendar, Contact, FileText, Folder, Gauge, Home, KeyRound, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
+import { Bot, Building2, Calendar, Contact, FileText, Folder, Gauge, Home, KeyRound, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -310,6 +310,16 @@ export default function Layout({ children }: { children: ReactNode }) {
                   >
                     <KeyRound />
                     Réinitialiser un mot de passe
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/cles-api" />}
+                    isActive={location.pathname.startsWith('/cles-api')}
+                    tooltip="Clés d'API — clients machine (n8n, agents)"
+                  >
+                    <Bot />
+                    Clés d'API
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
