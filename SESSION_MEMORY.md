@@ -1,5 +1,5 @@
 # Session Memory
-_Last updated: 2026-09-24T11:00 (session « Désarchiver une prospection »)_
+_Last updated: 2026-09-25 (session « Doublons prospect × projet »)_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
@@ -16,9 +16,14 @@ fusionne → sync. Deux lots le 23/09, **tous deux fusionnés** :
 **Lot du 24/09 (1) : `fix/dashboard-pipeline`** — fusionné (PR #64),
 `main` = `d54490f`, branche locale supprimée.
 
-**Lot du 24/09 (2) : `feat/desarchiver-prospection`** (front seul, suit la
-branche back du même nom, pas encore fusionnée côté `immo-back`) — commité
-et poussé, **PR ouverte, en attente de la fusion**, puis `sync front`.
+**Lot du 24/09 (2) : `feat/desarchiver-prospection`** — fusionné (PR #65),
+`main` = `55f806b`.
+
+**Lot du 25/09 : `feat/doublons-prospect-projet`** (front seul, suit
+`immo-crm/instructions/FEATURE-doublons-prospect-projet.md`) — build ✓,
+eslint = 10 ✓, commité et poussé, **PR ouverte, en attente de la fusion**,
+puis `sync front`. Le snapshot spec a voyagé sur la branche (stash → start
+→ pop) au lieu d'être commité sur `main`, sur décision de l'utilisateur.
 
 ---
 
@@ -173,6 +178,42 @@ et poussé, **PR ouverte, en attente de la fusion**, puis `sync front`.
 - `sync front` n'a pas supprimé `fix/dashboard-pipeline` (lancé depuis
   `main`) → `git branch -d` à la main.
 
+### Lot du 25/09 — `feat/doublons-prospect-projet` (PR ouverte)
+- Spec (+2 routes, 158 → 160) : `GET /api/prospects/doublons` (nom, prenom,
+  raisonSociale, telephone, mobile, email → `ProspectDoublonDto[]` avec
+  `criteres` ∈ NOM/TELEPHONE/EMAIL ; vide = rien ; 400 si aucun critère
+  exploitable) et `POST /api/pre-prospections/{id}/lier-prospect`
+  (`{ prospectId }`, 400 si déjà un prospect, 409 `prospectionExistante`).
+  `CreerProspectRequest.ignorerDoublons?: boolean`.
+- **Cassant** : `POST /api/prospects` et `creer-prospect` → **409
+  `doublons`** sur tout homonyme (237 groupes sur 244 en prod) sauf
+  `ignorerDoublons: true`. `POST /api/prospections`, `transformer`,
+  `tranche-principale` (seulement si le projet change) → **409
+  `prospectionExistante`** = le prospect a déjà une prospection **ouverte**
+  sur ce projet (une fermée ne bloque pas).
+- Deux lecteurs dans `api.ts` : `doublonsDepuisErreur(err)` et
+  `prospectionExistanteDepuisErreur(err)` — `null` pour toute autre erreur
+  (un 409 sans le champ reste une phrase). Ils reposent sur
+  `ApiError.problem`, déjà là depuis les transitions de statut.
+- Deux composants partagés : `DoublonsProspectPanel` (amber — une question,
+  pas une erreur ; badge par critère, NOM en `amber`, TELEPHONE/EMAIL en
+  `warning` ; lien fiche en nouvel onglet ; bouton de ligne dont le verbe
+  dépend de l'écran ; « Nouveau contact » = renvoi avec `ignorerDoublons`)
+  et `ProspectionExistanteNotice` (info — une redirection ; lien « Ouvrir la
+  prospection », `detail` du ProblemDetail comme message).
+- Écrans : `CreateProspectForm` (« Rattacher » → `lier-prospect`, qui peut
+  lui-même 409 `prospectionExistante`), `NewProspect` (« Ouvrir la fiche » →
+  navigate), `NewProspection` (« Choisir » → bascule en mode « existant »
+  avec la fiche ; **après un `createProspect` réussi on bascule aussi** pour
+  qu'un second clic ne recrée pas la fiche si la prospection 409),
+  `TransformerProspectionDialog` (sert la fiche et le menu de ligne),
+  picker tranche de `ProspectionDetail`.
+- Piège évité : `onClick={handleCreate}` passerait l'événement comme
+  `ignorerDoublons` (truthy) — toujours `() => handleCreate(false)`.
+- Non fait (optionnel dans la FEATURE §5) : appel de `/doublons` à la volée
+  pendant la saisie. Le 409 couvre le besoin ; à ajouter si l'utilisateur
+  veut être prévenu avant de cliquer.
+
 ### La boucle git (rappel opérationnel)
 - `node .claude/scripts/git-flow.mjs` depuis `prototype/` ; toujours
   AskUserQuestion avant `start` ; commits sans `"` ni accents ;
@@ -191,7 +232,7 @@ et poussé, **PR ouverte, en attente de la fusion**, puis `sync front`.
   (règle §3bis non active tant qu'il n'est pas redémarré).
 
 ### Vérification
-- Portes : `npm run build` (tsc+vite) ✓ · eslint = **10** ✓ (23/09 soir).
+- Portes : `npm run build` (tsc+vite) ✓ · eslint = **10** ✓ (25/09).
   Pas de navigateur depuis la session — validation visuelle par
   l'utilisateur (faite : les deux PR sont fusionnées).
 
