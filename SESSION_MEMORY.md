@@ -1,5 +1,5 @@
 # Session Memory
-_Last updated: 2026-09-25 (session « Doublons prospect × projet » puis « Clés d'API »)_
+_Last updated: 2026-09-25T17:30 (session du 25/09 : doublons prospect × projet, clés d'API, détail du suivi + hotline)_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
@@ -30,8 +30,12 @@ fusionne → sync. Deux lots le 23/09, **tous deux fusionnés** :
 Migration 011 appliquée par l'utilisateur, résolu.
 
 **Lot du 25/09 (3) : `feat/suivi-action-detail-hotline`** (front seul, sans
-changement de spec) — build ✓, eslint = 10 ✓, commité et poussé, **PR
-ouverte, en attente de la fusion**, puis `sync front`.
+changement de spec) — **PR #68 fusionnée, `main` = `db9af14`, MAIS fusionnée
+avant le dernier push** : le correctif `5af5712` (« hotline par numéro
+seulement, jamais par nom ») est sur la branche, poussé, pas dans `main`.
+`sync` l'a détecté (« kept … not merged ») et a gardé la branche. **Une
+seconde PR depuis la même branche est à fusionner**, puis `sync`. Ce mémo
+est commité sur cette branche et partira dans cette seconde PR.
 
 **Reliquat** : la branche locale + distante `feat/desarchiver-prospection`
 porte un commit de mémo (`1b97322`) jamais fusionné ; `git branch -d`
@@ -73,6 +77,22 @@ refuse. L'utilisateur décide (drop ou petite PR).
 10. **`git-flow start` avec `SESSION_MEMORY.md` sale** : `git stash push --
     SESSION_MEMORY.md` → `start` → `stash pop`, puis le fichier part dans le
     commit de la branche (plus besoin d'`allow-main-edits`).
+11. **(25/09) Trouver la vraie base d'un backend qui tourne, sans ses env
+    vars** : `sqlcmd` (ODBC 17, creds de `src/test/resources/application.
+    properties`) + `sys.dm_exec_sessions` filtré sur `program_name LIKE
+    '%JDBC%'` → base par pool (5 sessions = pool d'écriture `yesRems`, 10 =
+    lecture `yesRemsProd`). Puis `OBJECT_ID('dbo.X','U')` par base. Lecture
+    seule, décisif en 3 requêtes.
+12. **Un 401 sur un seul POST alors que le GET passe = 500 déguisé** :
+    `GlobalExceptionHandler` sans catch-all → `sendError(500)` → forward
+    `/error` → chaîne de sécurité sans contexte → 401 → le front déconnecte.
+    Mécanisme décrit dans le commentaire de `SecurityConfig` (bug 403→401
+    de `4642aa2`).
+13. **Mémo sur la branche en attente plutôt que `main`** : `git checkout
+    <branche>` → éditer → `git-flow commit` → `push`, le mémo suit la PR.
+14. **`sqlcmd` ne s'authentifie que via `-S localhost,49687 -U tsix -C`** ;
+    le mot de passe se lit du fichier de test au moment de l'appel, jamais
+    tapé ni imprimé.
 
 ---
 
@@ -91,6 +111,20 @@ refuse. L'utilisateur décide (drop ou petite PR).
   message (`git commit --amend -m` avec `printf`) **avant** le `push`.
 - **`sort=dateDocument,desc` sur `/api/prospections`** → 400 « Propriété de
   tri invalide » : le tri se résout sur l'entité, pas sur le DTO.
+- **(25/09) PR fusionnée avant le dernier push** → le commit reste orphelin
+  sur la branche ; `sync` refuse de la supprimer. Toujours vérifier
+  `git log main..<branche>` après un « merged » avant d'annoncer la fin.
+  Solution : seconde PR depuis la même branche (le compare ne montre que
+  le commit manquant).
+- **`git branch -d feat/desarchiver-prospection`** refuse : un commit de
+  mémo poussé après la fusion de la PR #65. Pas supprimé (décision
+  utilisateur en attente).
+- **`docker ps` / `/actuator/info`** : Docker Desktop arrêté, actuator
+  muet — le backend tourne hors conteneur ; ce sont les sessions SQL qui
+  ont dit sur quelle base (What Worked #11).
+- **Hypothèse « AdmUser NOT NULL sans défaut »** pour le 401 de création :
+  fausse (seuls `PKey`, `Code`). La bonne piste était la table absente sur
+  la base d'écriture.
 
 ---
 
@@ -110,6 +144,10 @@ refuse. L'utilisateur décide (drop ou petite PR).
 | 183 | Suivi des actions : pas de référentiel `ComActionMessageCategory` → pas de filtre Catégorie | Open (backend) | Filtre de colonne client-side de la grille |
 | 184 | `ActionDetailDialog` ne montre que les colonnes demandées à la liste (pas d'endpoint de détail par action) | Open (limite documentée) | — |
 | 185 | Dashboard : couloirs Pré-prospection / À traiter / Prospections vides depuis le 20/09 — `sort=dateDocument,desc` (champ DTO) → 400 « Propriété de tri invalide », avalé car seul `data` était lu | Fixed (24/09) | `sort: ['docDate,desc','id,asc']` (propriété d'entité) ; `KanbanColumn` reçoit `error` et l'affiche en rouge avec compte `—` |
+| 186 | `/cles-api` : clic « Créer la clé » → redirection login. La base d'**écriture** `yesRems` n'avait pas `AppApiClient` (migration 011 appliquée sur `yesRemsProd`/`Test` seulement) ; GET lisait `yesRemsProd`, POST écrivait `yesRems` | Fixed (25/09, hors front) | L'utilisateur a appliqué `011_AppApiClient.sql` sur `yesRems` |
+| 187 | Backend : aucun `@ExceptionHandler(Exception.class)` → tout 500 sur route authentifiée devient 401 (forward `/error`) et le front **déconnecte** au lieu d'afficher l'erreur | Open (backend) | À remonter : catch-all ProblemDetail 500 dans `GlobalExceptionHandler` |
+| 188 | PR #68 fusionnée avant le push de `5af5712` (hotline par numéro seulement) : `main` cherche encore par nom en repli | Open (seconde PR) | Seconde PR depuis `feat/suivi-action-detail-hotline`, puis `sync` |
+| 189 | `ActionDetailDialog` : `tiersId` n'était pas demandé à la liste → impossible de charger la fiche de la personne | Fixed (25/09) | `tiersId` ajouté à `CLES_OUVERTURE_SUIVI_ACTION` |
 
 ---
 
@@ -190,7 +228,7 @@ refuse. L'utilisateur décide (drop ou petite PR).
 - `sync front` n'a pas supprimé `fix/dashboard-pipeline` (lancé depuis
   `main`) → `git branch -d` à la main.
 
-### Lot du 25/09 — `feat/doublons-prospect-projet` (PR ouverte)
+### Lot du 25/09 (1) — `feat/doublons-prospect-projet` (fusionné, PR #66)
 - Spec (+2 routes, 158 → 160) : `GET /api/prospects/doublons` (nom, prenom,
   raisonSociale, telephone, mobile, email → `ProspectDoublonDto[]` avec
   `criteres` ∈ NOM/TELEPHONE/EMAIL ; vide = rien ; 400 si aucun critère
@@ -226,7 +264,12 @@ refuse. L'utilisateur décide (drop ou petite PR).
   pendant la saisie. Le 409 couvre le besoin ; à ajouter si l'utilisateur
   veut être prévenu avant de cliquer.
 
-### Lot du 25/09 (2) — `feat/cles-api` (PR ouverte)
+### Lot du 25/09 (2) — `feat/cles-api` (fusionné, PR #67)
+- **Diagnostic #186** : lecture + écriture sur deux bases
+  (`DataSourceConfig`, routage sur `readOnly`) ; la table manquait sur la
+  base d'écriture seulement. La FEATURE §8 dit « appliquer 011 sur chaque
+  base servie » — la locale d'écriture avait été oubliée. Le front n'avait
+  rien à changer.
 - Spec (+3 routes, 160 → 163, **rien de modifié**) : `GET/POST
   /api/cles-api`, `POST /api/cles-api/{id}/regenerer`, `DELETE
   /api/cles-api/{id}` — rôle Administrateur (403 sinon). Schémas `CleApiDto`
@@ -254,7 +297,7 @@ refuse. L'utilisateur décide (drop ou petite PR).
 - `libellePortee` traduit le code en libellé métier ; `valeur` sur la
   colonne pour que le filtre du grid cherche le libellé, pas le code.
 
-### Lot du 25/09 (3) — `feat/suivi-action-detail-hotline` (PR ouverte)
+### Lot du 25/09 (3) — `feat/suivi-action-detail-hotline` (PR #68 fusionnée sans `5af5712` ; seconde PR à fusionner)
 - Demande : le détail d'une action du suivi était illisible (valeurs
   `truncate`), sans téléphone ni email, et il fallait un bouton « Voir
   hotline » ouvrant le même résultat que la page Hotline.
@@ -296,9 +339,10 @@ refuse. L'utilisateur décide (drop ou petite PR).
   (règle §3bis non active tant qu'il n'est pas redémarré).
 
 ### Vérification
-- Portes : `npm run build` (tsc+vite) ✓ · eslint = **10** ✓ (25/09).
-  Pas de navigateur depuis la session — validation visuelle par
-  l'utilisateur (faite : les deux PR sont fusionnées).
+- Portes : `npm run build` (tsc+vite) ✓ · eslint = **10** ✓ (25/09, sur
+  les trois lots). Pas de navigateur depuis la session — validation visuelle
+  par l'utilisateur (faite pour les PR #66, #67, #68 ; le correctif
+  `5af5712` reste à voir : bouton « Voir hotline » désactivé sans numéro).
 
 ---
 
@@ -309,7 +353,30 @@ refuse. L'utilisateur décide (drop ou petite PR).
 - `src/pages/actions/SuiviActionsList.tsx` — **nouveau** : page du suivi
   (filtres, groupement, boîte de détail, règle admin).
 - `src/components/SuiviActionTable.tsx` — **nouveau** : adaptateur DataGrid.
-- `src/components/ActionDetailDialog.tsx` — **nouveau** : détail d'une action.
+- `src/components/ActionDetailDialog.tsx` — détail d'une action ; **25/09** :
+  bloc Personne (fiche via `tiersId`), message étiqueté, `dl` sans troncature,
+  bouton « Voir hotline » (numéro seulement).
+- `src/components/HotlineResultat.tsx` — **25/09, nouveau** : rendu du résultat
+  hotline, partagé par la page et la boîte (`FicheCard`, lignes dépliables).
+- `src/components/HotlineResultDialog.tsx` — **25/09, nouveau** : hotline en
+  boîte (`Modal` 960), par `CritereHotline`.
+- `src/pages/hotline/Hotline.tsx` — **25/09** : ne garde que le formulaire.
+- `src/pages/utilisateurs/ClesApiList.tsx`, `CreerCleApiDialog.tsx`,
+  `SecretCleApiDialog.tsx`, `src/lib/clesApi.ts` — **25/09, nouveaux** :
+  écran `/cles-api` (admin), création, secret une seule fois, portées.
+- `src/components/DoublonsProspectPanel.tsx`, `ProspectionExistanteNotice.tsx`
+  — **25/09, nouveaux** : les deux 409 du lot doublons, rendus comme une
+  question / une redirection.
+- `src/lib/api.ts` — **25/09** : `rechercherDoublonsProspect`,
+  `lierProspectAPreProspection`, `doublonsDepuisErreur`,
+  `prospectionExistanteDepuisErreur`, `listClesApi`, `creerCleApi`,
+  `regenererCleApi`, `revoquerCleApi`.
+- `src/types.ts` — **25/09** : `ProspectDoublonDto`, `CritereDoublon`,
+  `LierProspectRequest`, `ProspectionExistanteDto`, `CleApiDto`,
+  `CleApiCreeeDto`, `CreerCleApiRequest`, `PorteeCleApi`,
+  `CreerProspectRequest.ignorerDoublons`.
+- `docs/api-docsV4.json` — snapshot du 25/09 (163 routes : doublons + clés
+  d'API).
 - `src/pages/prospections/NewPreProspection.tsx` — **nouveau** : boîte de
   création avec panneau doublons.
 - `src/pages/prospections/ImportPreProspections.tsx` — **nouveau** : import CSV.
@@ -334,26 +401,48 @@ refuse. L'utilisateur décide (drop ou petite PR).
 
 - Windows 11, PowerShell 5.1 + Git Bash ; Vite `:5173`, Spring `:8080` lancés
   par l'utilisateur ; backend joignable (`/api-docs` vérifié).
-- Front : `main` = `c37a7ff` ; branche `fix/dashboard-pipeline` poussée,
-  PR ouverte. Back : `immo-crm` non touché (lecture seule pour vérifier
-  `ComProspection.docDate` et `GlobalExceptionHandler`).
-- Ce fichier est commité **sur la branche** avec le fix (plus de
-  `allow-main-edits` nécessaire). Après `sync`, il suit `main`.
+- Front : `main` = `db9af14` (PR #68). Branches locales :
+  `feat/suivi-action-detail-hotline` (1 commit + ce mémo, seconde PR à
+  fusionner) et `feat/desarchiver-prospection` (reliquat). Back : `immo-crm`
+  non touché (lecture seule : `SecurityConfig`, `GlobalExceptionHandler`,
+  `DataSourceConfig`, `CleApiAdminService`, migration 011).
+- Backend `:8080` lancé par l'utilisateur **hors Docker** (Docker Desktop
+  arrêté) ; lecture sur `yesRemsProd`, écriture sur `yesRems`
+  (`SOURCE_DB_*`). SQL Server `localhost,49687`, `sqlcmd` ODBC 17 dispo ;
+  creds de test dans `immo-crm/src/test/resources/application.properties`
+  (jamais recopiés ici).
+- Ce fichier est commité **sur la branche** en attente. Après `sync`, il
+  suit `main`.
 
 ---
 
 ## ⏭️ Next Step
 
-> **PR `feat/desarchiver-prospection` en attente de fusion.** Quand
-> l'utilisateur confirme : `node .claude/scripts/git-flow.mjs sync front`
-> depuis `prototype/`, vérifier que la branche locale est supprimée, puis
-> demander le prochain lot. Le backend lancé doit être celui de la branche
-> back `feat/desarchiver-prospection` (sinon 404 sur `/desarchiver`).
+> **Seconde PR `feat/suivi-action-detail-hotline` à fusionner** (commit
+> `5af5712` + ce mémo) :
+> `https://github.com/TsioryRasoloarijaona/immo-front/compare/main...feat%2Fsuivi-action-detail-hotline?expand=1`.
+> Quand l'utilisateur confirme : `node .claude/scripts/git-flow.mjs sync
+> front` depuis `prototype/`, vérifier `git log main..HEAD` vide et la
+> branche supprimée, puis demander le prochain lot (AskUserQuestion avant
+> `start`).
 
 ### Backlog (par priorité)
 
-- [ ] Retours visuels sur le suivi des actions (poids des colonnes, boîte de
-      détail) et sur l'import CSV.
+- [ ] Décider du sort de `feat/desarchiver-prospection` (commit de mémo
+      `1b97322` non fusionné) : `git branch -D` + suppression distante, ou
+      petite PR.
+- [ ] #187 — remonter au backend le catch-all `@ExceptionHandler(Exception.
+      class)` : sans lui, toute erreur serveur déconnecte l'utilisateur.
+- [ ] Retour visuel sur le détail du suivi (bloc Personne, hotline en boîte)
+      et sur `/cles-api` (secret une seule fois, régénérer, révoquer).
+- [ ] Doublons : appel `GET /api/prospects/doublons` à la volée pendant la
+      saisie (FEATURE §5, optionnel) si l'utilisateur veut être prévenu
+      avant de cliquer.
+- [ ] Hotline : la page ne prend pas de paramètre d'URL ; « Ouvrir la
+      hotline » depuis la boîte arrive sur un formulaire vide. Ajouter
+      `?telephone=` si demandé.
+- [ ] Retours visuels sur le suivi des actions (poids des colonnes) et sur
+      l'import CSV.
 - [ ] #183 — filtre Catégorie dès qu'un référentiel existe.
 - [ ] #184 — détail d'action complet si un endpoint par id arrive.
 - [ ] #182 — virtualiser `TableauLignes` si un fichier de 5 000 lignes rame.
