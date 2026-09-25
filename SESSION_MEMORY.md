@@ -1,5 +1,5 @@
 # Session Memory
-_Last updated: 2026-09-25 (session « Doublons prospect × projet »)_
+_Last updated: 2026-09-25 (session « Doublons prospect × projet » puis « Clés d'API »)_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
@@ -19,11 +19,18 @@ fusionne → sync. Deux lots le 23/09, **tous deux fusionnés** :
 **Lot du 24/09 (2) : `feat/desarchiver-prospection`** — fusionné (PR #65),
 `main` = `55f806b`.
 
-**Lot du 25/09 : `feat/doublons-prospect-projet`** (front seul, suit
-`immo-crm/instructions/FEATURE-doublons-prospect-projet.md`) — build ✓,
-eslint = 10 ✓, commité et poussé, **PR ouverte, en attente de la fusion**,
-puis `sync front`. Le snapshot spec a voyagé sur la branche (stash → start
+**Lot du 25/09 (1) : `feat/doublons-prospect-projet`** — fusionné (PR #66),
+`main` = `c59a1c5`. Le snapshot spec a voyagé sur la branche (stash → start
 → pop) au lieu d'être commité sur `main`, sur décision de l'utilisateur.
+
+**Lot du 25/09 (2) : `feat/cles-api`** (front seul, suit
+`immo-crm/instructions/FEATURE-cle-api-n8n.md`) — build ✓, eslint = 10 ✓,
+commité et poussé, **PR ouverte, en attente de la fusion**, puis `sync
+front`. Snapshot spec sur la branche, même mécanique.
+
+**Reliquat** : la branche locale + distante `feat/desarchiver-prospection`
+porte un commit de mémo (`1b97322`) jamais fusionné ; `git branch -d`
+refuse. L'utilisateur décide (drop ou petite PR).
 
 ---
 
@@ -213,6 +220,34 @@ puis `sync front`. Le snapshot spec a voyagé sur la branche (stash → start
 - Non fait (optionnel dans la FEATURE §5) : appel de `/doublons` à la volée
   pendant la saisie. Le 409 couvre le besoin ; à ajouter si l'utilisateur
   veut être prévenu avant de cliquer.
+
+### Lot du 25/09 (2) — `feat/cles-api` (PR ouverte)
+- Spec (+3 routes, 160 → 163, **rien de modifié**) : `GET/POST
+  /api/cles-api`, `POST /api/cles-api/{id}/regenerer`, `DELETE
+  /api/cles-api/{id}` — rôle Administrateur (403 sinon). Schémas `CleApiDto`
+  (jamais le secret, `clePrefixe` = `ak_` + 8), `CleApiCreeeDto` (`cleApi` +
+  `cle` en clair **une seule fois**, création et régénération seulement),
+  `CreerCleApiRequest` (`nom`, `portees` ⊂ PRE_PROSPECTIONS_ECRIRE /
+  PRE_PROSPECTIONS_LIRE / REFERENTIELS_LIRE, `compteCode?`). Nouveau
+  `securitySchemes.cleApi` (`X-Api-Key`) — sans effet sur le front, qui
+  reste sur le cookie.
+- Écran `/cles-api` (`pages/utilisateurs/ClesApiList`) sur le patron
+  `UtilisateursList` : `AdminGuard` + `DataGrid` (nom + préfixe, portées en
+  badges, compte de service, statut Active/Révoquée avec qui/quand, dernier
+  usage, création). **Pas de pagination ni recherche serveur** : l'endpoint
+  renvoie tout, la ligne de filtres du grid suffit ; seul filtre d'écran :
+  statut. Entrée sidebar « Clés d'API » (icône `Bot`) + `moduleForPath`.
+- `CreerCleApiDialog` : nom, cases à cocher des portées (préréglage n8n
+  coché : écrire pré-prospections + lire référentiels, `lib/clesApi.ts`),
+  `compteCode` en champ libre (pas un sélecteur : rattacher un compte
+  humain lui transmettrait son périmètre, la FEATURE le déconseille).
+- `SecretCleApiDialog` : le secret avec bouton copier, une seule fois,
+  après création **et** après régénération (même boîte, `mode`). La boîte
+  de secret remplace celle de création sans repasser par la liste.
+- Régénérer et révoquer passent par `useConfirm` (irréversibles) ; révoquée
+  → plus d'actions sur la ligne, elle reste listée pour l'audit.
+- `libellePortee` traduit le code en libellé métier ; `valeur` sur la
+  colonne pour que le filtre du grid cherche le libellé, pas le code.
 
 ### La boucle git (rappel opérationnel)
 - `node .claude/scripts/git-flow.mjs` depuis `prototype/` ; toujours
