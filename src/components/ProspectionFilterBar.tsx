@@ -22,8 +22,13 @@ export default function ProspectionFilterBar({
   commercialItems,
   trancheItems,
   extra,
+  defauts,
 }: {
   state: ProspectionFilterBarState;
+  /** Ce que rend « Réinitialiser ». À passer quand les défauts de l'écran
+   * dépendent de la session — la liste des prospections y met le commercial
+   * connecté. Sans lui : `emptyProspectionFilters()`. */
+  defauts?: ProspectionFilterBarState;
   /** Called with the field to patch already reset to page 0 by the caller (via `set`). */
   onChange: <K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) => void;
   etapeItems: { label: string; value: string }[];
@@ -47,7 +52,7 @@ export default function ProspectionFilterBar({
   ];
 
   function reset() {
-    const empty = emptyProspectionFilters();
+    const empty = defauts ?? emptyProspectionFilters();
     (Object.keys(empty) as (keyof ProspectionFilterBarState)[]).forEach((key) => onChange(key, empty[key]));
   }
 

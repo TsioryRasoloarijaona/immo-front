@@ -37,7 +37,10 @@ numéro seulement » + mémo). `main` = `12d3953`.
 **Lot du 28/09 : `feat/filtre-archive-periode-mois`** (front seul, sans
 changement de spec) — filtre « Archivé : Non / Oui / Tous » (défaut Non) sur
 Prospections et Pré-prospections, et période par défaut = mois courant sur
-les cinq listes à période. Poussé, **PR à fusionner**.
+les cinq listes à période. **PR #70 fusionnée, `main` = `0002914`.** Puis,
+**sur la même branche à la demande de l'utilisateur** : filtre Commercial
+pré-rempli avec le compte connecté sur Prospections. Poussé après la fusion
+→ **seconde PR depuis la même branche à fusionner**.
 
 **Reliquats** : la branche locale + distante `feat/desarchiver-prospection`
 porte un commit de mémo (`1b97322`) jamais fusionné ; `git branch -d`
@@ -133,6 +136,10 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
 - **Hypothèse « AdmUser NOT NULL sans défaut »** pour le 401 de création :
   fausse (seuls `PKey`, `Code`). La bonne piste était la table absente sur
   la base d'écriture.
+- **(28/09) `useCallback(() => setPage(0), [])` après passage aux filtres
+  dérivés** → `react-hooks/preserve-manual-memoization` (le compilateur
+  React infère `setPage`). Cause exacte non trouvée (7 variantes testées en
+  mémoire via `ESLint.lintText`) ; correctif : `[setPage]`.
 - **(28/09) `new Date(y, m, 1).toISOString().slice(0, 10)`** → recule d'un
   jour à l'est de Greenwich (date locale convertie en UTC). Toujours
   `jourISO` / `debutMoisISO` / `finMoisISO` de `lib/format.ts`.
@@ -160,6 +167,7 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
 | 188 | PR #68 fusionnée avant le push de `5af5712` (hotline par numéro seulement) : `main` cherchait encore par nom en repli | Fixed (28/09) | Seconde PR #69 fusionnée, `main` = `12d3953` |
 | 189 | `ActionDetailDialog` : `tiersId` n'était pas demandé à la liste → impossible de charger la fiche de la personne | Fixed (25/09) | `tiersId` ajouté à `CLES_OUVERTURE_SUIVI_ACTION` |
 | 190 | Offres : préréglage « Le mois en cours » décalé d'un jour (31/08 → 29/09) à l'est de UTC — `isoDate` passait par `toISOString()` | Fixed (28/09) | `isoDate` = `jourISO` (heure locale) |
+| 192 | « Archivé : Oui » renvoie **toutes** les prospections : le front envoie bien `ouvertes=false`, le serveur ne filtre que sur `true` (cause probable, code backend non lu ; le spec ne documente que `true`). Antérieur au lot : « Clôturées » envoyait déjà `false` | Corrigé côté backend **d'après l'utilisateur** (28/09) — **non vérifié depuis la session** (`:8080` injoignable, snapshot du spec pas encore rafraîchi) | Demande rédigée : `instructions/FIX-filtre-ouvertes-false.md` (dossier ignoré par git). Aucun changement front : `ouvertes=false` partait déjà |
 | 191 | La recherche par nom est bornée à la période affichée : un prospect d'un mois passé ne sort pas tant que les dates ne sont pas vidées | Open (conséquence assumée) | Bouton « Toutes les périodes » dans l'état vide |
 
 ---
@@ -361,6 +369,29 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
   ne lisent pas ce paramètre.
 - Dashboard non touché par ailleurs (couloirs et KPI sans borne de période).
 
+### Lot du 28/09 (suite) — commercial connecté par défaut (seconde PR)
+- Demande : « dans les prospections met par défaut aussi le commercial
+  connecté, garde la même branche ». **Prospections seulement** ;
+  Pré-prospections, Dossiers, Offres, Encaissements inchangés.
+- Qui : **tout compte lié à une fiche commercial**, quel que soit le rôle
+  (AskUserQuestion) — `commerciaux.find((c) => c.id === user?.employeeId)`,
+  la règle déjà utilisée par la fiche et le menu de ligne. Un compte sans
+  fiche (admin pur) garde le filtre vide.
+- **L'état ne stocke que les modifications** (`modifs: Partial<…>`), les
+  défauts sont dérivés à chaque rendu : `filters = { ...defauts, ...modifs }`.
+  Raison : `commerciaux` arrive après le montage sur un F5, et le rattraper
+  par `useEffect` + `setState` est refusé par eslint. Vider le filtre
+  Commercial compte comme une modification.
+- **Pas de requête tant que `commerciauxLoading`** si le compte a un
+  `employeeId` (`attenteDefaut`) — sinon toute l'équipe s'affiche un instant.
+- `emptyProspectionFilters(commercialParDefaut?)`,
+  `hasActiveProspectionFilters(state, defauts?)` — et les listes s'y
+  comparent désormais **par contenu**, plus par longueur (un commercial
+  remplacé par un autre était vu comme « inchangé »).
+- `ProspectionFilterBar` : prop `defauts` = ce que rend « Réinitialiser ».
+- Conséquence : à l'ouverture un commercial ne voit plus les prospections
+  **sans commercial affecté** ; il faut vider le filtre.
+
 ### La boucle git (rappel opérationnel)
 - `node .claude/scripts/git-flow.mjs` depuis `prototype/` ; toujours
   AskUserQuestion avant `start` ; commits sans `"` ni accents ;
@@ -452,8 +483,8 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
 
 - Windows 11, PowerShell 5.1 + Git Bash ; Vite `:5173`, Spring `:8080` lancés
   par l'utilisateur ; backend joignable (`/api-docs` vérifié).
-- Front : `main` = `12d3953` (PR #69). Branches locales :
-  `feat/filtre-archive-periode-mois` (lot du 28/09, PR à fusionner),
+- Front : `main` = `0002914` (PR #70). Branches locales :
+  `feat/filtre-archive-periode-mois` (lot du 28/09, seconde PR à fusionner),
   `feat/suivi-action-detail-hotline` (fusionnée, à supprimer) et
   `feat/desarchiver-prospection` (reliquat). Back : `immo-crm`
   non touché (lecture seule : `SecurityConfig`, `GlobalExceptionHandler`,
@@ -470,7 +501,8 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
 
 ## ⏭️ Next Step
 
-> **PR `feat/filtre-archive-periode-mois` à fusionner** :
+> **Seconde PR `feat/filtre-archive-periode-mois` à fusionner** (commercial
+> connecté par défaut ; la première, #70, est fusionnée) :
 > `https://github.com/TsioryRasoloarijaona/immo-front/compare/main...feat%2Ffiltre-archive-periode-mois?expand=1`.
 > Quand l'utilisateur confirme : `node .claude/scripts/git-flow.mjs sync
 > front` depuis `prototype/`, vérifier `git log main..HEAD` vide et la
@@ -479,6 +511,10 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
 
 ### Backlog (par priorité)
 
+- [ ] **#192 — « Archivé : Oui »** : backend annoncé corrigé le 28/09.
+      Reste à faire : `npm run docs:update` (backend lancé), diff structurel
+      du spec contre HEAD, commit du snapshot, et contrôle à l'écran que
+      « Oui » ne rend que des badges « Archivée » — liste **et** groupes.
 - [ ] Retour visuel sur le lot du 28/09 : chaque liste s'ouvre sur le mois
       courant, « Archivé : Non » par défaut, « Toutes les périodes » dans
       l'état vide, Offres « Le mois en cours » = 1er → dernier jour.
