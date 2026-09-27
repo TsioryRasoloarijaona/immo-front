@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { IconMessage, IconNote, IconPhoneIn, IconPhoneOut } from '../components/icons';
-import { isPastOrToday } from './format';
+import { debutMoisISO, finMoisISO, isPastOrToday } from './format';
 import type {
   BadgeTone,
   EvenementCalendrierDto,
@@ -216,11 +216,30 @@ export interface ProspectionFilterBarState {
   trancheId: string[];
   dateDebut: string;
   dateFin: string;
-  ouvertes: 'all' | 'open' | 'closed';
+  /** « Archivé » à l'écran, `ouvertes` sur le fil — voir `ouvertesDepuisArchive`. */
+  archive: 'non' | 'oui' | 'tous';
 }
 
+/** L'état **par défaut** de la barre, pas un état vide : archivées exclues et
+ * période posée sur le mois courant (décision utilisateur du 28/09). C'est
+ * aussi ce que rend « Réinitialiser ». */
 export function emptyProspectionFilters(): ProspectionFilterBarState {
-  return { search: '', etape: [], origine: [], commercial: [], trancheId: [], dateDebut: '', dateFin: '', ouvertes: 'open' };
+  return {
+    search: '',
+    etape: [],
+    origine: [],
+    commercial: [],
+    trancheId: [],
+    dateDebut: debutMoisISO(),
+    dateFin: finMoisISO(),
+    archive: 'non',
+  };
+}
+
+/** Le filtre « Archivé » traduit vers le paramètre `?ouvertes=` : le serveur
+ * pose la question à l'envers. « Tous » omet le paramètre. */
+export function ouvertesDepuisArchive(archive: ProspectionFilterBarState['archive']): boolean | undefined {
+  return archive === 'non' ? true : archive === 'oui' ? false : undefined;
 }
 
 /** True when the user has narrowed the list away from its default state.
@@ -228,9 +247,10 @@ export function emptyProspectionFilters(): ProspectionFilterBarState {
  * Compared field-by-field against `emptyProspectionFilters()` rather than a
  * hand-written list of conditions, so a filter added to
  * `ProspectionFilterBarState` later is covered automatically instead of
- * silently falling out of the check. Note the default for `ouvertes` is
- * `'open'`, not `'all'` — switching to "toutes"/"fermées" counts as an active
- * filter, which is what makes an empty result explainable.
+ * silently falling out of the check. Note the defaults are not blank:
+ * `archive` is `'non'` and the period is the current month — switching to
+ * "Tous"/"Oui", or clearing the dates, counts as an active filter, which is
+ * what makes an empty result explainable.
  *
  * Used by Prospections/Pré-prospections to decide whether an empty result
  * means "your filters excluded everything" (offer a reset) or "there's

@@ -475,7 +475,9 @@ export default function Dashboard() {
                 et le lien donne la sortie vers l'arriéré complet. */}
             <p className="shrink-0 border-t border-border px-3 py-1.5 text-micro text-muted-foreground">
               File bornée aux 30 derniers jours. Les relances désarmées n'y figurent pas.{' '}
-              <Link to="/prospections" className="text-(--info) hover:underline">
+              {/* `?periode=toutes` : la liste s'ouvre par défaut sur le mois
+                  courant, ce qui cacherait l'arriéré que ce lien annonce. */}
+              <Link to="/prospections?periode=toutes" className="text-(--info) hover:underline">
                 Toutes les prospections
               </Link>
             </p>

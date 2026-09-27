@@ -22,7 +22,7 @@ export default function ProspectionPreviewDialog({ id, onClose }: { id: string; 
       {p && (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge>
+            <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Archivée' : p.etape || '—'}</Badge>
           </div>
           <FieldGrid>
             <Field label="Contact" value={prospectionDisplayName(p)} />

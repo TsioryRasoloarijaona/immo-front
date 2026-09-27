@@ -54,7 +54,7 @@ function HotlineProspectionRow({ prospection: p, expanded, onToggle }: { prospec
           {expanded ? <ChevronDown className="size-4 text-(--brand)" /> : <ChevronRight className="size-4 text-muted-foreground" />}
         </TableCell>
         <TableCell className="font-medium text-foreground">{p.code || prospectionDisplayName(p)}</TableCell>
-        <TableCell><Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge></TableCell>
+        <TableCell><Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Archivée' : p.etape || '—'}</Badge></TableCell>
         <TableCell className="text-muted-foreground">{p.origine || '—'}</TableCell>
         <TableCell className="text-right tabular-nums">{p.prix ? formatCurrency(p.prix) : '—'}</TableCell>
         <TableCell className="text-muted-foreground">{formatDate(p.dateDocument)}</TableCell>

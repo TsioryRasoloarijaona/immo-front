@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, Eye, Folder, RotateCcw, Search, X } from 'lucide-react';
+import { CalendarRange, Download, Eye, Folder, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
@@ -28,6 +28,7 @@ import { useGroupement, useLignesGroupes } from '../../lib/groupement';
 import { DISPOSITION_DOSSIERS } from '../../lib/dispositions';
 import { useColonnesDossiers } from '../../lib/referentiels';
 import { useAppData, commercialLabel } from '../../lib/appData';
+import { debutMoisISO, finMoisISO } from '../../lib/format';
 // Formatage monétaire et de date : porté par DataGrid via le `type` de
 // colonne, plus par cet écran. Les rendus riches et le libellé canonique du
 // statut vivent désormais dans DossierTable.
@@ -136,8 +137,10 @@ export default function DossiersList() {
   const [status, setStatus] = useState<string[]>([]);
   const [trancheIds, setTrancheIds] = useState<string[]>([]);
   const [champDate, setChampDate] = useState<DossierChampDate>('RESERVATION');
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
+  /* Par défaut le mois courant, comme toutes les listes à période (décision
+     utilisateur du 28/09). Vider les deux champs rend tout l'historique. */
+  const [dateDebut, setDateDebut] = useState(debutMoisISO);
+  const [dateFin, setDateFin] = useState(finMoisISO);
   const [commercial, setCommercial] = useState('all');
   const [page, setPage] = useState(0);
 
@@ -289,14 +292,21 @@ export default function DossiersList() {
     setStatus([]);
     setTrancheIds([]);
     setChampDate('RESERVATION');
-    setDateDebut('');
-    setDateFin('');
+    setDateDebut(debutMoisISO());
+    setDateFin(finMoisISO());
     setCommercial('all');
   }
 
+  function toutesLesPeriodes() {
+    setPage(0);
+    setDateDebut('');
+    setDateFin('');
+  }
+
   // Drives the empty state's wording and its escape hatch — see ArticlesList.
+  // Les dates se comparent au défaut (le mois courant), pas au vide.
   const hasActiveFilters =
-    !!search || status.length > 0 || trancheIds.length > 0 || champDate !== 'RESERVATION' || !!dateDebut || !!dateFin || commercial !== 'all';
+    !!search || status.length > 0 || trancheIds.length > 0 || champDate !== 'RESERVATION' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || commercial !== 'all';
 
   const commercialItems = [
     { label: 'Tous les commerciaux', value: 'all' },
@@ -532,19 +542,26 @@ export default function DossiersList() {
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} bloque={groupementBloque} />
               {vide ? (
+                /* Sans filtre actif la liste est bornée au mois courant : un
+                   résultat vide veut dire « rien ce mois-ci », pas « rien
+                   d'enregistré » — d'où la sortie vers toutes les périodes. */
                 <EmptyState
-                  title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
+                  title={hasActiveFilters ? 'Aucun résultat' : 'Rien ce mois-ci'}
                   message={
                     hasActiveFilters
                       ? 'Aucun dossier de vente ne correspond aux filtres actifs.'
-                      : "Aucun dossier de vente n'est encore enregistré."
+                      : 'Aucun dossier de vente réservé sur le mois en cours.'
                   }
                   action={
                     hasActiveFilters ? (
                       <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
                         <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
                       </Button>
-                    ) : undefined
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" onClick={toutesLesPeriodes}>
+                        <CalendarRange data-icon="inline-start" /> Toutes les périodes
+                      </Button>
+                    )
                   }
                 />
               ) : (

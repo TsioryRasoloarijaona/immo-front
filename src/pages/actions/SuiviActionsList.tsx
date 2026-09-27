@@ -24,7 +24,7 @@ import { useGroupement, useLignesGroupes } from '../../lib/groupement';
 import { useApi } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { referentielItems, useColonnesSuiviActions, useTypesContactProspection } from '../../lib/referentiels';
-import { todayISO } from '../../lib/format';
+import { debutMoisISO as premierDuMois, todayISO } from '../../lib/format';
 import type { SuiviActionDto } from '../../types';
 
 type SystemeFilter = 'all' | 'saisies' | 'systeme';
@@ -34,11 +34,6 @@ const SYSTEME_ITEMS: { label: string; value: SystemeFilter }[] = [
   { label: 'Saisies seules', value: 'saisies' },
   { label: 'Système seules', value: 'systeme' },
 ];
-
-/** Le premier jour du mois courant, `YYYY-MM-DD`. */
-function premierDuMois(): string {
-  return `${todayISO().slice(0, 8)}01`;
-}
 
 /** Le lendemain d'une date `YYYY-MM-DD`, en `YYYY-MM-DD`. Calculé en UTC pour
  * ne pas dépendre du fuseau : on ne manipule que des jours. */
