@@ -167,7 +167,7 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
 | 188 | PR #68 fusionnée avant le push de `5af5712` (hotline par numéro seulement) : `main` cherchait encore par nom en repli | Fixed (28/09) | Seconde PR #69 fusionnée, `main` = `12d3953` |
 | 189 | `ActionDetailDialog` : `tiersId` n'était pas demandé à la liste → impossible de charger la fiche de la personne | Fixed (25/09) | `tiersId` ajouté à `CLES_OUVERTURE_SUIVI_ACTION` |
 | 190 | Offres : préréglage « Le mois en cours » décalé d'un jour (31/08 → 29/09) à l'est de UTC — `isoDate` passait par `toISOString()` | Fixed (28/09) | `isoDate` = `jourISO` (heure locale) |
-| 192 | « Archivé : Oui » renvoie **toutes** les prospections : le front envoie bien `ouvertes=false`, le serveur ne filtre que sur `true` (cause probable, code backend non lu ; le spec ne documente que `true`). Antérieur au lot : « Clôturées » envoyait déjà `false` | Open (backend) | Demande rédigée : `instructions/FIX-filtre-ouvertes-false.md` (dossier ignoré par git) — `ouvertes` ternaire sur listes et groupes |
+| 192 | « Archivé : Oui » renvoie **toutes** les prospections : le front envoie bien `ouvertes=false`, le serveur ne filtre que sur `true` (cause probable, code backend non lu ; le spec ne documente que `true`). Antérieur au lot : « Clôturées » envoyait déjà `false` | Corrigé côté backend **d'après l'utilisateur** (28/09) — **non vérifié depuis la session** (`:8080` injoignable, snapshot du spec pas encore rafraîchi) | Demande rédigée : `instructions/FIX-filtre-ouvertes-false.md` (dossier ignoré par git). Aucun changement front : `ouvertes=false` partait déjà |
 | 191 | La recherche par nom est bornée à la période affichée : un prospect d'un mois passé ne sort pas tant que les dates ne sont pas vidées | Open (conséquence assumée) | Bouton « Toutes les périodes » dans l'état vide |
 
 ---
@@ -511,9 +511,10 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
 
 ### Backlog (par priorité)
 
-- [ ] **#192 — « Archivé : Oui » ne filtre pas** : attendre le correctif
-      backend (`ouvertes=false` → `IsClosed = 1`), puis `npm run docs:update`
-      et vérifier. Aucun changement front attendu.
+- [ ] **#192 — « Archivé : Oui »** : backend annoncé corrigé le 28/09.
+      Reste à faire : `npm run docs:update` (backend lancé), diff structurel
+      du spec contre HEAD, commit du snapshot, et contrôle à l'écran que
+      « Oui » ne rend que des badges « Archivée » — liste **et** groupes.
 - [ ] Retour visuel sur le lot du 28/09 : chaque liste s'ouvre sur le mois
       courant, « Archivé : Non » par défaut, « Toutes les périodes » dans
       l'état vide, Offres « Le mois en cours » = 1er → dernier jour.
