@@ -12,7 +12,7 @@ const TIRET = <span className="text-muted-foreground">—</span>;
 
 const RENDUS: Record<string, (p: ProspectionListItemDto) => ReactNode> = {
   prospectNom: (p) => prospectionDisplayName(p),
-  etape: (p) => <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge>,
+  etape: (p) => <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Archivée' : p.etape || '—'}</Badge>,
   origine: (p) => (p.origine ? <Badge tone="info">{p.origine}</Badge> : TIRET),
   trancheDescription: (p) => (p.trancheDescription ? <Badge tone="neutral">{p.trancheDescription}</Badge> : TIRET),
   trancheCode: (p) => (p.trancheCode ? <Badge tone="neutral">{p.trancheCode}</Badge> : TIRET),

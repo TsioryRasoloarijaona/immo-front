@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, RotateCcw, Users } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { CalendarRange, Plus, RotateCcw, Users } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import { Button } from '../../components/ui/button';
@@ -26,6 +26,7 @@ import {
   emptyFiltresAvances,
   emptyProspectionFilters,
   hasActiveProspectionFilters,
+  ouvertesDepuisArchive,
   toFiltresAvances,
   type FiltresAvancesState,
   type ProspectionFilterBarState,
@@ -53,7 +54,16 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
   const { commerciaux } = useAppData();
   const origines = useOriginesProspection();
 
-  const [filters, setFilters] = useState<ProspectionFilterBarState>(emptyProspectionFilters());
+  /* `?periode=toutes` ouvre la liste sans borne de date. Le tableau de bord en
+     a besoin : son lien « Toutes les prospections » annonce l'arriéré complet
+     des relances, que le mois courant par défaut masquerait presque en
+     entier. Lu une seule fois, à l'ouverture — ensuite la barre décide. */
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState<ProspectionFilterBarState>(() =>
+    searchParams.get('periode') === 'toutes'
+      ? { ...emptyProspectionFilters(), dateDebut: '', dateFin: '' }
+      : emptyProspectionFilters(),
+  );
   const debouncedSearch = useDebouncedValue(filters.search);
   const [page, setPage] = useState(0);
   // Clé de stockage distincte de celle des pré-prospections : les deux écrans
@@ -103,7 +113,7 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
     trancheId: filters.trancheId.length > 0 ? filters.trancheId : undefined,
     dateDebut: filters.dateDebut ? `${filters.dateDebut}T00:00:00` : undefined,
     dateFin: filters.dateFin ? `${filters.dateFin}T23:59:59` : undefined,
-    ouvertes: filters.ouvertes === 'open' ? true : filters.ouvertes === 'closed' ? false : undefined,
+    ouvertes: ouvertesDepuisArchive(filters.archive),
   };
 
   /* Une liste repliée reste **une seule** grille : les en-têtes de groupe s'y
@@ -119,7 +129,7 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
     filters.trancheId.join(','),
     filters.dateDebut,
     filters.dateFin,
-    filters.ouvertes,
+    filters.archive,
     page,
     cleAvances,
   ];
@@ -285,13 +295,17 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
                    un résultat vide dû au seul volet, replié, s'annoncerait sinon
                    « aucune prospection enregistrée » — et le bouton de remise à
                    zéro ne rendrait pas la main puisqu'il ne toucherait pas au
-                   volet. Les deux sont donc réinitialisés ensemble. */
+                   volet. Les deux sont donc réinitialisés ensemble.
+
+                   Sans filtre actif la liste est bornée au mois courant : un
+                   résultat vide veut dire « rien ce mois-ci », pas « rien
+                   d'enregistré » — d'où la sortie vers toutes les périodes. */
                 <EmptyState
-                  title={filtresActifs ? 'Aucun résultat' : 'Rien à afficher'}
+                  title={filtresActifs ? 'Aucun résultat' : 'Rien ce mois-ci'}
                   message={
                     filtresActifs
                       ? 'Aucune prospection ne correspond aux filtres actifs.'
-                      : "Aucune prospection n'est encore enregistrée."
+                      : 'Aucune prospection sur le mois en cours.'
                   }
                   action={
                     filtresActifs ? (
@@ -308,7 +322,19 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
                       >
                         <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
                       </Button>
-                    ) : undefined
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setPage(0);
+                          setFilters((f) => ({ ...f, dateDebut: '', dateFin: '' }));
+                        }}
+                      >
+                        <CalendarRange data-icon="inline-start" /> Toutes les périodes
+                      </Button>
+                    )
                   }
                 />
               ) : /* Le catalogue porte les libellés d'en-tête : sans lui il n'y

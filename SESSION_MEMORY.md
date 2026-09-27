@@ -1,5 +1,5 @@
 # Session Memory
-_Last updated: 2026-09-25T17:30 (session du 25/09 : doublons prospect × projet, clés d'API, détail du suivi + hotline)_
+_Last updated: 2026-09-28 (session du 28/09 : filtre Archivé + période par défaut « mois courant » sur les listes)_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
@@ -30,16 +30,20 @@ fusionne → sync. Deux lots le 23/09, **tous deux fusionnés** :
 Migration 011 appliquée par l'utilisateur, résolu.
 
 **Lot du 25/09 (3) : `feat/suivi-action-detail-hotline`** (front seul, sans
-changement de spec) — **PR #68 fusionnée, `main` = `db9af14`, MAIS fusionnée
-avant le dernier push** : le correctif `5af5712` (« hotline par numéro
-seulement, jamais par nom ») est sur la branche, poussé, pas dans `main`.
-`sync` l'a détecté (« kept … not merged ») et a gardé la branche. **Une
-seconde PR depuis la même branche est à fusionner**, puis `sync`. Ce mémo
-est commité sur cette branche et partira dans cette seconde PR.
+changement de spec) — fusionné en **deux PR** : #68 (`db9af14`, partie avant
+le dernier push) puis #69 (`12d3953`, correctif `5af5712` « hotline par
+numéro seulement » + mémo). `main` = `12d3953`.
 
-**Reliquat** : la branche locale + distante `feat/desarchiver-prospection`
+**Lot du 28/09 : `feat/filtre-archive-periode-mois`** (front seul, sans
+changement de spec) — filtre « Archivé : Non / Oui / Tous » (défaut Non) sur
+Prospections et Pré-prospections, et période par défaut = mois courant sur
+les cinq listes à période. Poussé, **PR à fusionner**.
+
+**Reliquats** : la branche locale + distante `feat/desarchiver-prospection`
 porte un commit de mémo (`1b97322`) jamais fusionné ; `git branch -d`
-refuse. L'utilisateur décide (drop ou petite PR).
+refuse. L'utilisateur décide (drop ou petite PR). La branche locale
+`feat/suivi-action-detail-hotline` est entièrement fusionnée mais `sync`
+(lancé depuis `main`) ne l'a pas supprimée : `git branch -d` à la main.
 
 ---
 
@@ -93,6 +97,10 @@ refuse. L'utilisateur décide (drop ou petite PR).
 14. **`sqlcmd` ne s'authentifie que via `-S localhost,49687 -U tsix -C`** ;
     le mot de passe se lit du fichier de test au moment de l'appel, jamais
     tapé ni imprimé.
+15. **(28/09) Un défaut de filtre se pose dans la fonction « état vide »,
+    pas dans l'écran** : `emptyProspectionFilters()` rend le mois courant et
+    `archive: 'non'` → l'état initial, « Réinitialiser » et
+    `hasActiveProspectionFilters` suivent sans une ligne de plus.
 
 ---
 
@@ -125,6 +133,9 @@ refuse. L'utilisateur décide (drop ou petite PR).
 - **Hypothèse « AdmUser NOT NULL sans défaut »** pour le 401 de création :
   fausse (seuls `PKey`, `Code`). La bonne piste était la table absente sur
   la base d'écriture.
+- **(28/09) `new Date(y, m, 1).toISOString().slice(0, 10)`** → recule d'un
+  jour à l'est de Greenwich (date locale convertie en UTC). Toujours
+  `jourISO` / `debutMoisISO` / `finMoisISO` de `lib/format.ts`.
 
 ---
 
@@ -146,8 +157,10 @@ refuse. L'utilisateur décide (drop ou petite PR).
 | 185 | Dashboard : couloirs Pré-prospection / À traiter / Prospections vides depuis le 20/09 — `sort=dateDocument,desc` (champ DTO) → 400 « Propriété de tri invalide », avalé car seul `data` était lu | Fixed (24/09) | `sort: ['docDate,desc','id,asc']` (propriété d'entité) ; `KanbanColumn` reçoit `error` et l'affiche en rouge avec compte `—` |
 | 186 | `/cles-api` : clic « Créer la clé » → redirection login. La base d'**écriture** `yesRems` n'avait pas `AppApiClient` (migration 011 appliquée sur `yesRemsProd`/`Test` seulement) ; GET lisait `yesRemsProd`, POST écrivait `yesRems` | Fixed (25/09, hors front) | L'utilisateur a appliqué `011_AppApiClient.sql` sur `yesRems` |
 | 187 | Backend : aucun `@ExceptionHandler(Exception.class)` → tout 500 sur route authentifiée devient 401 (forward `/error`) et le front **déconnecte** au lieu d'afficher l'erreur | Open (backend) | À remonter : catch-all ProblemDetail 500 dans `GlobalExceptionHandler` |
-| 188 | PR #68 fusionnée avant le push de `5af5712` (hotline par numéro seulement) : `main` cherche encore par nom en repli | Open (seconde PR) | Seconde PR depuis `feat/suivi-action-detail-hotline`, puis `sync` |
+| 188 | PR #68 fusionnée avant le push de `5af5712` (hotline par numéro seulement) : `main` cherchait encore par nom en repli | Fixed (28/09) | Seconde PR #69 fusionnée, `main` = `12d3953` |
 | 189 | `ActionDetailDialog` : `tiersId` n'était pas demandé à la liste → impossible de charger la fiche de la personne | Fixed (25/09) | `tiersId` ajouté à `CLES_OUVERTURE_SUIVI_ACTION` |
+| 190 | Offres : préréglage « Le mois en cours » décalé d'un jour (31/08 → 29/09) à l'est de UTC — `isoDate` passait par `toISOString()` | Fixed (28/09) | `isoDate` = `jourISO` (heure locale) |
+| 191 | La recherche par nom est bornée à la période affichée : un prospect d'un mois passé ne sort pas tant que les dates ne sont pas vidées | Open (conséquence assumée) | Bouton « Toutes les périodes » dans l'état vide |
 
 ---
 
@@ -321,6 +334,33 @@ refuse. L'utilisateur décide (drop ou petite PR).
   sections en `dl` libellé/valeur avec `break-words`, deux sections côte à
   côte en `md`. Largeur 640 → 720.
 
+### Lot du 28/09 — `feat/filtre-archive-periode-mois` (PR à fusionner)
+- Demande : « rajoute le filtre archive oui / non par défaut non, puis pour
+  l'affichage dans toutes les sections met la date par défaut ce mois ».
+  Tranché par AskUserQuestion : **toutes les listes à période**, forme
+  **Non / Oui / Tous**.
+- **Filtre Archivé** : remplace « Ouvertes / Clôturées / Toutes ». État
+  `archive: 'non'|'oui'|'tous'` (ex-`ouvertes`), traduit par
+  `ouvertesDepuisArchive` (`lib/domain.tsx`) : non → `ouvertes=true`, oui →
+  `false`, tous → absent. **Rien ne change sur le fil.** Libellés
+  « Archivé : Non » etc. — le déclencheur n'affiche que la valeur.
+- **Période par défaut = mois entier** (1er → dernier jour, heure locale) sur
+  Prospections, Pré-prospections, Dossiers (date de réservation),
+  Encaissements (date pièce), Offres (préréglage `mois-courant`). Le Suivi
+  des actions garde 1er → aujourd'hui. « Réinitialiser » revient au mois.
+- **`hasActiveFilters` compare les dates au défaut, pas au vide** : vider les
+  dates est un filtre actif.
+- **État vide** : sans filtre actif → « Rien ce mois-ci » + bouton « Toutes
+  les périodes » (vide les deux dates) ; l'ancien « n'est encore
+  enregistré(e) » aurait menti.
+- **Vocabulaire** : badge « Clôturée » → « Archivée » aux cinq endroits
+  (table, aperçu, hotline, fiche prospection, fiche prospect).
+- **`/prospections?periode=toutes`** : lu une fois à l'ouverture par
+  `ProspectionsList`, ouvre sans borne de date. Utilisé par le lien « Toutes
+  les prospections » du Dashboard (arriéré des relances). Les autres listes
+  ne lisent pas ce paramètre.
+- Dashboard non touché par ailleurs (couloirs et KPI sans borne de période).
+
 ### La boucle git (rappel opérationnel)
 - `node .claude/scripts/git-flow.mjs` depuis `prototype/` ; toujours
   AskUserQuestion avant `start` ; commits sans `"` ni accents ;
@@ -339,15 +379,26 @@ refuse. L'utilisateur décide (drop ou petite PR).
   (règle §3bis non active tant qu'il n'est pas redémarré).
 
 ### Vérification
-- Portes : `npm run build` (tsc+vite) ✓ · eslint = **10** ✓ (25/09, sur
-  les trois lots). Pas de navigateur depuis la session — validation visuelle
-  par l'utilisateur (faite pour les PR #66, #67, #68 ; le correctif
-  `5af5712` reste à voir : bouton « Voir hotline » désactivé sans numéro).
+- Portes : `npm run build` (tsc+vite) ✓ · eslint = **10** ✓ (28/09, lot
+  filtre Archivé + période). Pas de navigateur depuis la session —
+  validation visuelle par l'utilisateur (faite pour les PR #66, #67, #68 ;
+  **à faire** pour le lot du 28/09 et pour le correctif `5af5712` : bouton
+  « Voir hotline » désactivé sans numéro).
 
 ---
 
 ## 📁 Important Files & Paths
 
+- `src/lib/format.ts` — **28/09** : `jourISO`, `debutMoisISO`, `finMoisISO`
+  (heure locale) — la période par défaut des listes.
+- `src/lib/domain.tsx` — **28/09** : `ProspectionFilterBarState.archive`,
+  `emptyProspectionFilters()` = défauts (mois courant, archive non),
+  `ouvertesDepuisArchive`.
+- `src/components/ProspectionFilterBar.tsx` — **28/09** : sélecteur Archivé.
+- `src/pages/prospections/ProspectionsList.tsx`, `PreProspectionsList.tsx`,
+  `OffresList.tsx`, `src/pages/dossiers/DossiersList.tsx`,
+  `src/pages/encaissements/EncaissementsList.tsx` — **28/09** : mois par
+  défaut, état vide « Toutes les périodes ».
 - `src/pages/Dashboard.tsx` — **24/09** : `TRI_PROSPECTIONS`, `LIGNES_COULOIR`,
   `KanbanColumn` (`error`, `className`), grille Pipeline 2 par ligne.
 - `src/pages/actions/SuiviActionsList.tsx` — **nouveau** : page du suivi
@@ -401,9 +452,10 @@ refuse. L'utilisateur décide (drop ou petite PR).
 
 - Windows 11, PowerShell 5.1 + Git Bash ; Vite `:5173`, Spring `:8080` lancés
   par l'utilisateur ; backend joignable (`/api-docs` vérifié).
-- Front : `main` = `db9af14` (PR #68). Branches locales :
-  `feat/suivi-action-detail-hotline` (1 commit + ce mémo, seconde PR à
-  fusionner) et `feat/desarchiver-prospection` (reliquat). Back : `immo-crm`
+- Front : `main` = `12d3953` (PR #69). Branches locales :
+  `feat/filtre-archive-periode-mois` (lot du 28/09, PR à fusionner),
+  `feat/suivi-action-detail-hotline` (fusionnée, à supprimer) et
+  `feat/desarchiver-prospection` (reliquat). Back : `immo-crm`
   non touché (lecture seule : `SecurityConfig`, `GlobalExceptionHandler`,
   `DataSourceConfig`, `CleApiAdminService`, migration 011).
 - Backend `:8080` lancé par l'utilisateur **hors Docker** (Docker Desktop
@@ -418,9 +470,8 @@ refuse. L'utilisateur décide (drop ou petite PR).
 
 ## ⏭️ Next Step
 
-> **Seconde PR `feat/suivi-action-detail-hotline` à fusionner** (commit
-> `5af5712` + ce mémo) :
-> `https://github.com/TsioryRasoloarijaona/immo-front/compare/main...feat%2Fsuivi-action-detail-hotline?expand=1`.
+> **PR `feat/filtre-archive-periode-mois` à fusionner** :
+> `https://github.com/TsioryRasoloarijaona/immo-front/compare/main...feat%2Ffiltre-archive-periode-mois?expand=1`.
 > Quand l'utilisateur confirme : `node .claude/scripts/git-flow.mjs sync
 > front` depuis `prototype/`, vérifier `git log main..HEAD` vide et la
 > branche supprimée, puis demander le prochain lot (AskUserQuestion avant
@@ -428,6 +479,14 @@ refuse. L'utilisateur décide (drop ou petite PR).
 
 ### Backlog (par priorité)
 
+- [ ] Retour visuel sur le lot du 28/09 : chaque liste s'ouvre sur le mois
+      courant, « Archivé : Non » par défaut, « Toutes les périodes » dans
+      l'état vide, Offres « Le mois en cours » = 1er → dernier jour.
+- [ ] #191 — si la recherche bornée au mois gêne : ignorer la période dès
+      qu'une recherche est saisie, ou étendre `?periode=toutes` aux autres
+      listes.
+- [ ] Supprimer la branche locale fusionnée
+      `feat/suivi-action-detail-hotline` (`git branch -d`).
 - [ ] Décider du sort de `feat/desarchiver-prospection` (commit de mémo
       `1b97322` non fusionné) : `git branch -D` + suppression distante, ou
       petite PR.

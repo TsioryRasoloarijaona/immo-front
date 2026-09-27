@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Info, RotateCcw, Search, Wallet } from 'lucide-react';
+import { CalendarRange, Info, RotateCcw, Search, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
@@ -36,6 +36,7 @@ import {
 // lui-même selon le `type` de colonne (MONTANT, DATE), ce qui garantit que les
 // neuf écrans de liste formatent identiquement.
 import { ENCAISSEMENT_ETAT_LABELS } from '../../lib/domain';
+import { debutMoisISO, finMoisISO } from '../../lib/format';
 import type { EncaissementDto } from '../../types';
 
 type ComptabiliseFilter = 'all' | 'yes' | 'no';
@@ -75,8 +76,10 @@ export default function EncaissementsList() {
   const [trancheId, setTrancheId] = useState<string[]>([]);
   const [comptabilise, setComptabilise] = useState<ComptabiliseFilter>('all');
   const [champDate, setChampDate] = useState<ChampDate>('DATE_PIECE');
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
+  /* Par défaut le mois courant, comme toutes les listes à période (décision
+     utilisateur du 28/09). Vider les deux champs rend tout l'historique. */
+  const [dateDebut, setDateDebut] = useState(debutMoisISO);
+  const [dateFin, setDateFin] = useState(finMoisISO);
   const [montantDe, setMontantDe] = useState('');
   const [montantA, setMontantA] = useState('');
   const [page, setPage] = useState(0);
@@ -119,15 +122,22 @@ export default function EncaissementsList() {
     groupement.reinitialiser();
     setComptabilise('all');
     setChampDate('DATE_PIECE');
-    setDateDebut('');
-    setDateFin('');
+    setDateDebut(debutMoisISO());
+    setDateFin(finMoisISO());
     setMontantDe('');
     setMontantA('');
   }
 
+  function toutesLesPeriodes() {
+    setPage(0);
+    setDateDebut('');
+    setDateFin('');
+  }
+
   // Drives the empty state's wording and its escape hatch — see ArticlesList.
+  // Les dates se comparent au défaut (le mois courant), pas au vide.
   const hasActiveFilters =
-    !!search || !!reference || entiteId.length > 0 || typeId.length > 0 || etat.length > 0 || !!compteId || !!depotId || trancheId.length > 0 || comptabilise !== 'all' || champDate !== 'DATE_PIECE' || !!dateDebut || !!dateFin || !!montantDe || !!montantA;
+    !!search || !!reference || entiteId.length > 0 || typeId.length > 0 || etat.length > 0 || !!compteId || !!depotId || trancheId.length > 0 || comptabilise !== 'all' || champDate !== 'DATE_PIECE' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || !!montantDe || !!montantA;
 
   /* Les filtres serveur, **mot pour mot les mêmes** pour la liste et pour les
      groupes. C'est la condition de l'invariant qui rend l'écran lisible : la
@@ -383,19 +393,26 @@ export default function EncaissementsList() {
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} />
               {vide ? (
+                /* Sans filtre actif la liste est bornée au mois courant : un
+                   résultat vide veut dire « rien ce mois-ci », pas « rien
+                   d'enregistré » — d'où la sortie vers toutes les périodes. */
                 <EmptyState
-                  title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
+                  title={hasActiveFilters ? 'Aucun résultat' : 'Rien ce mois-ci'}
                   message={
                     hasActiveFilters
                       ? 'Aucun encaissement ne correspond aux filtres actifs.'
-                      : "Aucun encaissement n'est encore enregistré."
+                      : 'Aucun encaissement daté du mois en cours.'
                   }
                   action={
                     hasActiveFilters ? (
                       <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
                         <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
                       </Button>
-                    ) : undefined
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" onClick={toutesLesPeriodes}>
+                        <CalendarRange data-icon="inline-start" /> Toutes les périodes
+                      </Button>
+                    )
                   }
                 />
               ) : /* Le catalogue porte les libellés d'en-tête : sans lui il n'y

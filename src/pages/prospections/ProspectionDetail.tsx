@@ -837,7 +837,7 @@ export default function ProspectionDetail() {
               <Badge tone="neutral" className="font-mono">{p.code || '—'}</Badge>
               <h2 className="min-w-0 truncate text-label font-semibold text-foreground">{name}</h2>
               {isPre && <Badge tone="amber">Non qualifiée</Badge>}
-              <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Clôturée' : p.etape || '—'}</Badge>
+              <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Archivée' : p.etape || '—'}</Badge>
               {joursInactivite !== null && <InactiviteBadge jours={joursInactivite} />}
 
               <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-muted-foreground">

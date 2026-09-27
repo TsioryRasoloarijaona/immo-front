@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RotateCcw, Upload, UserPlus } from 'lucide-react';
+import { CalendarRange, Plus, RotateCcw, Upload, UserPlus } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
@@ -22,6 +22,7 @@ import {
   PIPELINE_STAGES,
   emptyProspectionFilters,
   hasActiveProspectionFilters,
+  ouvertesDepuisArchive,
   type ProspectionFilterBarState,
 } from '../../lib/domain';
 
@@ -94,7 +95,7 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
     trancheId: filters.trancheId.length > 0 ? filters.trancheId : undefined,
     dateDebut: filters.dateDebut ? `${filters.dateDebut}T00:00:00` : undefined,
     dateFin: filters.dateFin ? `${filters.dateFin}T23:59:59` : undefined,
-    ouvertes: filters.ouvertes === 'open' ? true : filters.ouvertes === 'closed' ? false : undefined,
+    ouvertes: ouvertesDepuisArchive(filters.archive),
   };
 
   /* Une liste repliée reste **une seule** grille : les en-têtes de groupe s'y
@@ -110,7 +111,7 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
     filters.trancheId.join(','),
     filters.dateDebut,
     filters.dateFin,
-    filters.ouvertes,
+    filters.archive,
     page,
   ];
 
@@ -245,19 +246,42 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} />
               {vide ? (
+                /* Sans filtre actif la liste est bornée au mois courant : un
+                   résultat vide veut dire « rien ce mois-ci », pas « rien
+                   d'enregistré » — d'où la sortie vers toutes les périodes. */
                 <EmptyState
-                  title={hasActiveProspectionFilters(filters) ? 'Aucun résultat' : 'Rien à afficher'}
+                  title={hasActiveProspectionFilters(filters) ? 'Aucun résultat' : 'Rien ce mois-ci'}
                   message={
                     hasActiveProspectionFilters(filters)
                       ? 'Aucune pré-prospection ne correspond aux filtres actifs.'
-                      : "Aucune pré-prospection n'est encore enregistrée."
+                      : 'Aucune pré-prospection sur le mois en cours.'
                   }
                   action={
                     hasActiveProspectionFilters(filters) ? (
-                      <Button type="button" variant="outline" size="sm" onClick={() => setFilters(emptyProspectionFilters())}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setPage(0);
+                          setFilters(emptyProspectionFilters());
+                        }}
+                      >
                         <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
                       </Button>
-                    ) : undefined
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setPage(0);
+                          setFilters((f) => ({ ...f, dateDebut: '', dateFin: '' }));
+                        }}
+                      >
+                        <CalendarRange data-icon="inline-start" /> Toutes les périodes
+                      </Button>
+                    )
                   }
                 />
               ) : colonnes.colonnes.length > 0 ? (

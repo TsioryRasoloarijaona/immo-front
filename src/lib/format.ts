@@ -110,6 +110,30 @@ export function todayISO(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** Un jour local en `YYYY-MM-DD`. Jamais `toISOString()` : il convertit en UTC,
+ * et à l'est de Greenwich le 1er du mois à minuit devient le dernier jour du
+ * mois précédent. */
+export function jourISO(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Le premier jour du mois courant, `YYYY-MM-DD`. */
+export function debutMoisISO(): string {
+  const d = new Date();
+  return jourISO(new Date(d.getFullYear(), d.getMonth(), 1));
+}
+
+/** Le dernier jour du mois courant, `YYYY-MM-DD`.
+ *
+ * Avec `debutMoisISO`, la période par défaut des listes (décision utilisateur
+ * du 28/09). Le mois **entier** et non « du 1er à aujourd'hui » : une date de
+ * réservation ou de pièce peut tomber plus tard dans le mois, et s'arrêter à
+ * aujourd'hui la masquerait. */
+export function finMoisISO(): string {
+  const d = new Date();
+  return jourISO(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+}
+
 export function isPastOrToday(dateStr: string | null | undefined): boolean {
   if (!dateStr) return false;
   return dateStr <= todayISO();

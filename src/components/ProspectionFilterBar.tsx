@@ -38,10 +38,12 @@ export default function ProspectionFilterBar({
    * bouton sans effet. */
   extra?: ReactNode;
 }) {
-  const ouvertesItems: { label: string; value: ProspectionFilterBarState['ouvertes'] }[] = [
-    { label: 'Ouvertes', value: 'open' },
-    { label: 'Clôturées', value: 'closed' },
-    { label: 'Toutes', value: 'all' },
+  /* Le nom du filtre est dans chaque libellé : le déclencheur n'affiche que la
+     valeur choisie, et « Non » seul ne dirait pas de quoi. */
+  const archiveItems: { label: string; value: ProspectionFilterBarState['archive'] }[] = [
+    { label: 'Archivé : Non', value: 'non' },
+    { label: 'Archivé : Oui', value: 'oui' },
+    { label: 'Archivé : Tous', value: 'tous' },
   ];
 
   function reset() {
@@ -64,13 +66,13 @@ export default function ProspectionFilterBar({
             onChange={(e) => onChange('search', e.target.value)}
           />
         </InputGroup>
-        <Select items={ouvertesItems} value={state.ouvertes} onValueChange={(v) => onChange('ouvertes', v as ProspectionFilterBarState['ouvertes'])}>
-          <SelectTrigger>
+        <Select items={archiveItems} value={state.archive} onValueChange={(v) => onChange('archive', v as ProspectionFilterBarState['archive'])}>
+          <SelectTrigger aria-label="Archivé">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              {ouvertesItems.map((item) => (
+              {archiveItems.map((item) => (
                 <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
               ))}
             </SelectGroup>

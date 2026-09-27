@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, FileText, Plus, RotateCcw, Search } from 'lucide-react';
+import { CalendarRange, Download, FileText, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, EmptyState, ErrorState, Field, FieldGrid, LoadingState, ResultsRegion } from '../../components/ui';
 import DevisFormSection from '../../components/DevisFormSection';
@@ -15,7 +15,7 @@ import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import { creerDevis, DEFAULT_PAGE_SIZE, downloadDevisDocument, getProspection, listOffres, listProspections, listTranches, viewDevisDocument } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { formatCurrency } from '../../lib/format';
+import { formatCurrency, jourISO } from '../../lib/format';
 import { prospectionDisplayName } from '../../lib/domain';
 import type { CreerDevisRequest, DevisDto } from '../../types';
 
@@ -32,9 +32,14 @@ const PERIODE_ITEMS: { label: string; value: PeriodePreset }[] = [
   { label: "L'année en cours", value: 'annee-courante' },
 ];
 
-function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
+/** Le préréglage posé à l'ouverture et par « Réinitialiser » — le mois courant,
+ * comme toutes les listes à période (décision utilisateur du 28/09). */
+const PERIODE_DEFAUT: PeriodePreset = 'mois-courant';
+
+/* `jourISO` et non `toISOString()` : les bornes sont construites en heure
+   locale, et les convertir en UTC les faisait reculer d'un jour à l'est de
+   Greenwich — « Le mois en cours » rendait du 31/08 au 29/09. */
+const isoDate = jourISO;
 
 function rangeForPreset(preset: PeriodePreset): { dateDebut: string; dateFin: string } {
   const now = new Date();
@@ -66,9 +71,9 @@ export default function OffresList() {
   const debouncedSearch = useDebouncedValue(search);
   const [trancheIds, setTrancheIds] = useState<string[]>([]);
   const [commercial, setCommercial] = useState('all');
-  const [periode, setPeriode] = useState<PeriodePreset>('custom');
-  const [dateDebut, setDateDebut] = useState('');
-  const [dateFin, setDateFin] = useState('');
+  const [periode, setPeriode] = useState<PeriodePreset>(PERIODE_DEFAUT);
+  const [dateDebut, setDateDebut] = useState(() => rangeForPreset(PERIODE_DEFAUT).dateDebut);
+  const [dateFin, setDateFin] = useState(() => rangeForPreset(PERIODE_DEFAUT).dateFin);
   const [page, setPage] = useState(0);
   // Le dépli des montants HT/TTC appartient maintenant à DataGrid (`rendreDetail`),
   // qui porte l'état d'expansion. Toujours pas de redirection vers la fiche
@@ -130,14 +135,14 @@ export default function OffresList() {
     setSearch('');
     setTrancheIds([]);
     setCommercial('all');
-    setPeriode('custom');
-    setDateDebut('');
-    setDateFin('');
+    handlePeriodeChange(PERIODE_DEFAUT);
   }
 
   // Drives the empty state's wording and its escape hatch — see ArticlesList.
+  // Saisir une date à la main repasse le préréglage à `custom` : comparer le
+  // préréglage au défaut suffit donc à couvrir les deux champs.
   const hasActiveFilters =
-    !!search || trancheIds.length > 0 || commercial !== 'all' || periode !== 'custom' || !!dateDebut || !!dateFin;
+    !!search || trancheIds.length > 0 || commercial !== 'all' || periode !== PERIODE_DEFAUT;
 
   return (
     <PageShell
@@ -232,19 +237,26 @@ export default function OffresList() {
               )}
             </div>
             {offres.length === 0 ? (
+              /* Sans filtre actif la liste est bornée au mois courant : un
+                 résultat vide veut dire « rien ce mois-ci », pas « rien
+                 d'enregistré » — d'où la sortie vers toutes les périodes. */
               <EmptyState
-                title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
+                title={hasActiveFilters ? 'Aucun résultat' : 'Rien ce mois-ci'}
                 message={
                   hasActiveFilters
                     ? 'Aucune offre ne correspond aux filtres actifs.'
-                    : "Aucune offre n'est encore enregistrée."
+                    : 'Aucune offre sur le mois en cours.'
                 }
                 action={
                   hasActiveFilters ? (
                     <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
                       <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
                     </Button>
-                  ) : undefined
+                  ) : (
+                    <Button type="button" variant="outline" size="sm" onClick={() => handlePeriodeChange('custom')}>
+                      <CalendarRange data-icon="inline-start" /> Toutes les périodes
+                    </Button>
+                  )
                 }
               />
             ) : (
