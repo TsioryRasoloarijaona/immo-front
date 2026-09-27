@@ -51,21 +51,38 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
   const navigate = useNavigate();
   const { user } = useAuth();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
-  const { commerciaux } = useAppData();
+  const { commerciaux, commerciauxLoading } = useAppData();
   const origines = useOriginesProspection();
 
-  /* `?periode=toutes` ouvre la liste sans borne de date. Le tableau de bord en
+  /* Un commercial ouvre la liste sur **ses** prospections (décision
+     utilisateur du 28/09). Même résolution que la fiche et le menu de ligne :
+     le compte connecté est un commercial s'il figure dans la liste. Un compte
+     sans fiche commercial garde le filtre vide et voit tout. */
+  const ownCommercial = commerciaux.find((c) => c.id === user?.employeeId) ?? null;
+  const defauts = emptyProspectionFilters(ownCommercial?.id);
+  /* Tant que la liste des commerciaux n'est pas arrivée, le défaut n'est pas
+     connu. Interroger quand même afficherait un instant les prospections de
+     toute l'équipe avant de se restreindre. */
+  const attenteDefaut = commerciauxLoading && !!user?.employeeId;
+
+  /* L'état ne garde que **ce que l'utilisateur a modifié** ; les défauts sont
+     dérivés à chaque rendu. La liste des commerciaux arrive après le montage
+     sur un rechargement direct : un état initial figé raterait le défaut, et
+     le rattraper par un effet poserait un état depuis un effet. Dérivé, le
+     filtre Commercial suit le défaut jusqu'à ce qu'on y touche — le vider
+     compte comme y toucher.
+
+     `?periode=toutes` ouvre la liste sans borne de date. Le tableau de bord en
      a besoin : son lien « Toutes les prospections » annonce l'arriéré complet
      des relances, que le mois courant par défaut masquerait presque en
      entier. Lu une seule fois, à l'ouverture — ensuite la barre décide. */
   const [searchParams] = useSearchParams();
-  const [filters, setFilters] = useState<ProspectionFilterBarState>(() =>
-    searchParams.get('periode') === 'toutes'
-      ? { ...emptyProspectionFilters(), dateDebut: '', dateFin: '' }
-      : emptyProspectionFilters(),
+  const [modifs, setModifs] = useState<Partial<ProspectionFilterBarState>>(() =>
+    searchParams.get('periode') === 'toutes' ? { dateDebut: '', dateFin: '' } : {},
   );
-  const debouncedSearch = useDebouncedValue(filters.search);
   const [page, setPage] = useState(0);
+  const filters: ProspectionFilterBarState = { ...defauts, ...modifs };
+  const debouncedSearch = useDebouncedValue(filters.search);
   // Clé de stockage distincte de celle des pré-prospections : les deux écrans
   // partagent le DTO mais pas les colonnes qu'on veut y voir.
   const catalogue = useColonnesProspections();
@@ -80,7 +97,11 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
   const groupement = useGroupement(
     'prospections',
     catalogue.data,
-    useCallback(() => setPage(0), []),
+    /* `setPage` en dépendance, bien qu'il soit stable : depuis que les filtres
+       sont dérivés, le compilateur React l'infère comme dépendance et refuse
+       de compiler le composant si la liste déclarée ne la nomme pas
+       (`react-hooks/preserve-manual-memoization`). Sans effet à l'exécution. */
+    useCallback(() => setPage(0), [setPage]),
   );
 
   const [avances, setAvances] = useState<FiltresAvancesState>(emptyFiltresAvances());
@@ -90,11 +111,11 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
   // l'autre. `undefined` quand rien n'est actif, ce qui produit exactement la
   // même clé qu'avant l'ouverture du volet.
   const cleAvances = filtresAvances ? JSON.stringify(filtresAvances) : '';
-  const filtresActifs = hasActiveProspectionFilters(filters) || countActiveFiltresAvances(avances) > 0;
+  const filtresActifs = hasActiveProspectionFilters(filters, defauts) || countActiveFiltresAvances(avances) > 0;
 
   function setFilter<K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) {
     setPage(0);
-    setFilters((f) => ({ ...f, [key]: value }));
+    setModifs((m) => ({ ...m, [key]: value }));
   }
 
   function setAvance<K extends keyof FiltresAvancesState>(key: K, value: FiltresAvancesState[K]) {
@@ -136,14 +157,14 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
 
   const liste = useApi(
     () =>
-      enGroupes
+      enGroupes || attenteDefaut
         ? Promise.resolve(null)
         : listProspections(
             filtresServeur,
             { page, size: DEFAULT_PAGE_SIZE },
             { colonnes: colonnesDemandees, filtres: filtresAvances },
           ),
-    [...clesFiltres, colonnesDemandees?.join(',') ?? '', enGroupes, groupement.cleDeps],
+    [...clesFiltres, colonnesDemandees?.join(',') ?? '', enGroupes, groupement.cleDeps, attenteDefaut],
     'prospections',
   );
 
@@ -152,10 +173,10 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
      aucune de ses colonnes n'est groupable de toute façon. */
   const groupes = useApi(
     () =>
-      enGroupes && groupement.paramsGroupes
+      enGroupes && groupement.paramsGroupes && !attenteDefaut
         ? listProspectionsGroupes(filtresServeur, groupement.paramsGroupes, { page, size: DEFAULT_PAGE_SIZE }, { filtres: filtresAvances })
         : Promise.resolve(null),
-    [...clesFiltres, enGroupes, groupement.cleDeps],
+    [...clesFiltres, enGroupes, groupement.cleDeps, attenteDefaut],
     'prospections-groupes',
   );
 
@@ -241,6 +262,7 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
           origineItems={origineItems}
           commercialItems={commercialItems}
           trancheItems={trancheItems}
+          defauts={defauts}
           extra={
             <ProspectionFiltresAvances
               state={avances}
@@ -257,7 +279,7 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
             construction, si bien qu'un test sur lui rallumerait l'etat de
             chargement plein ecran a chaque changement de granularite — par
             dessus des groupes deja affiches. */}
-        {loading && !pageAffichee && <LoadingState />}
+        {(loading || attenteDefaut) && !pageAffichee && <LoadingState />}
         {error && <ErrorState message={error} />}
         {!error && pageAffichee && (
           <ResultsRegion loading={loading}>
@@ -299,13 +321,18 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
 
                    Sans filtre actif la liste est bornée au mois courant : un
                    résultat vide veut dire « rien ce mois-ci », pas « rien
-                   d'enregistré » — d'où la sortie vers toutes les périodes. */
+                   d'enregistré » — d'où la sortie vers toutes les périodes. Et
+                   pour un commercial elle est bornée à son compte : le message
+                   le dit, sinon « aucune prospection » passerait pour un
+                   constat sur toute l'équipe. */
                 <EmptyState
                   title={filtresActifs ? 'Aucun résultat' : 'Rien ce mois-ci'}
                   message={
                     filtresActifs
                       ? 'Aucune prospection ne correspond aux filtres actifs.'
-                      : 'Aucune prospection sur le mois en cours.'
+                      : ownCommercial
+                        ? "Vous n'avez aucune prospection sur le mois en cours."
+                        : 'Aucune prospection sur le mois en cours.'
                   }
                   action={
                     filtresActifs ? (
@@ -316,7 +343,7 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
                         onClick={() => {
                           setPage(0);
                           groupement.reinitialiser();
-                          setFilters(emptyProspectionFilters());
+                          setModifs({});
                           setAvances(emptyFiltresAvances());
                         }}
                       >
@@ -329,7 +356,7 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
                         size="sm"
                         onClick={() => {
                           setPage(0);
-                          setFilters((f) => ({ ...f, dateDebut: '', dateFin: '' }));
+                          setModifs((m) => ({ ...m, dateDebut: '', dateFin: '' }));
                         }}
                       >
                         <CalendarRange data-icon="inline-start" /> Toutes les périodes

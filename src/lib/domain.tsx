@@ -222,13 +222,17 @@ export interface ProspectionFilterBarState {
 
 /** L'état **par défaut** de la barre, pas un état vide : archivées exclues et
  * période posée sur le mois courant (décision utilisateur du 28/09). C'est
- * aussi ce que rend « Réinitialiser ». */
-export function emptyProspectionFilters(): ProspectionFilterBarState {
+ * aussi ce que rend « Réinitialiser ».
+ *
+ * `commercialParDefaut` pré-remplit le filtre Commercial — la liste des
+ * prospections y passe le commercial du compte connecté. Sans lui, aucun
+ * commercial n'est choisi (pré-prospections). */
+export function emptyProspectionFilters(commercialParDefaut?: string): ProspectionFilterBarState {
   return {
     search: '',
     etape: [],
     origine: [],
-    commercial: [],
+    commercial: commercialParDefaut ? [commercialParDefaut] : [],
     trancheId: [],
     dateDebut: debutMoisISO(),
     dateFin: finMoisISO(),
@@ -254,14 +258,21 @@ export function ouvertesDepuisArchive(archive: ProspectionFilterBarState['archiv
  *
  * Used by Prospections/Pré-prospections to decide whether an empty result
  * means "your filters excluded everything" (offer a reset) or "there's
- * genuinely nothing here". */
-export function hasActiveProspectionFilters(state: ProspectionFilterBarState): boolean {
-  const empty = emptyProspectionFilters();
-  return (Object.keys(empty) as (keyof ProspectionFilterBarState)[]).some((key) => {
+ * genuinely nothing here".
+ *
+ * `defauts` lets a screen whose defaults depend on the session (the connected
+ * commercial) say what "untouched" means for it. Lists are compared by
+ * content, not length: a default of one commercial swapped for another is an
+ * active filter even though both lists hold one id. */
+export function hasActiveProspectionFilters(
+  state: ProspectionFilterBarState,
+  defauts: ProspectionFilterBarState = emptyProspectionFilters(),
+): boolean {
+  return (Object.keys(defauts) as (keyof ProspectionFilterBarState)[]).some((key) => {
     const current = state[key];
-    const base = empty[key];
+    const base = defauts[key];
     return Array.isArray(current) && Array.isArray(base)
-      ? current.length !== base.length
+      ? [...current].sort().join('|') !== [...base].sort().join('|')
       : current !== base;
   });
 }
