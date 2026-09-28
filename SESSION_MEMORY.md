@@ -1,5 +1,5 @@
 # Session Memory
-_Last updated: 2026-09-28 (session du 28/09 : filtre Archivé + période par défaut « mois courant » sur les listes)_
+_Last updated: 2026-09-28 (session du 28/09 : filtres par défaut des listes, puis Dashboard en dialogues)_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
@@ -39,14 +39,18 @@ changement de spec) — filtre « Archivé : Non / Oui / Tous » (défaut Non) s
 Prospections et Pré-prospections, et période par défaut = mois courant sur
 les cinq listes à période. **PR #70 fusionnée, `main` = `0002914`.** Puis,
 **sur la même branche à la demande de l'utilisateur** : filtre Commercial
-pré-rempli avec le compte connecté sur Prospections. Poussé après la fusion
-→ **seconde PR depuis la même branche à fusionner**.
+pré-rempli avec le compte connecté sur Prospections — **seconde PR #71
+fusionnée, `main` = `3c6ca35`**. Branche locale supprimée.
 
-**Reliquats** : la branche locale + distante `feat/desarchiver-prospection`
+**Lot du 28/09 (2) : `feat/dashboard-dialogues`** (front seul, sans
+changement de spec) — sur le Dashboard, « Voir tout » et le clic sur une
+ligne n'emmènent plus ailleurs : liste complète en dialogue, puis fiche
+prospection **identique à la page** dans un second dialogue par-dessus.
+Poussé, **PR à fusionner**.
+
+**Reliquat** : la branche locale + distante `feat/desarchiver-prospection`
 porte un commit de mémo (`1b97322`) jamais fusionné ; `git branch -d`
-refuse. L'utilisateur décide (drop ou petite PR). La branche locale
-`feat/suivi-action-detail-hotline` est entièrement fusionnée mais `sync`
-(lancé depuis `main`) ne l'a pas supprimée : `git branch -d` à la main.
+refuse. L'utilisateur décide (drop ou petite PR).
 
 ---
 
@@ -392,6 +396,44 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
 - Conséquence : à l'ouverture un commercial ne voit plus les prospections
   **sans commercial affecté** ; il faut vider le filtre.
 
+### Lot du 28/09 (2) — `feat/dashboard-dialogues` (PR à fusionner)
+- Demande : sur le Dashboard, « voir tout » ouvre un dialogue avec la liste
+  complète ; cliquer un élément ouvre **un autre dialogue par-dessus** (le
+  premier reste) avec le détail « exactement comme la page », toutes actions.
+- Tranché (AskUserQuestion) : **cinq blocs** — À rappeler (Aujourd'hui, En
+  retard), Pré-prospection, À traiter, Prospections. **Clients, Dossier de
+  vente, Dossiers récents inchangés.** Une ligne cliquée sur le Dashboard
+  lui-même ouvre aussi la fiche en dialogue.
+- **Une seule fiche, deux cadres** : `ProspectionDetail.tsx` exporte
+  `FicheProspection({ id, pre, variante })` ; l'export par défaut n'est plus
+  qu'une enveloppe qui lit `useParams` / `useLocation`. `CadreFiche` rend
+  `PageShell` en `page`, et en `dialogue` seulement la barre d'actions + le
+  corps. Aucune logique métier déplacée.
+- `Modal` : props `pleineHauteur` (hauteur fixe `88vh`, le contenu gère son
+  défilement — requis par `FicheShell` en `h-full`) et `width` accepte une
+  chaîne CSS (`min(1400px, calc(100vw - 2rem))`).
+- **Empilement** : le dialogue de fiche est rendu **dans les enfants** du
+  dialogue de liste (patron `ActionDetailDialog` → `HotlineResultDialog`).
+  Les boîtes de la fiche (Transformer, Créer prospect, Ajouter une action)
+  font un 3e niveau.
+- **Rafraîchissement** : `FicheProspectionDialog` appelle `refetchAllApis()`
+  à son démontage, différé d'un `setTimeout(…, 0)` pour ne pas relancer les
+  requêtes de la fiche qui se démonte. Sans mutation le cache (30 s) répond.
+- **Filtres des couloirs déclarés une fois** (`FILTRES_OUVERTES`,
+  `FILTRES_A_TRAITER`) et lus par le couloir **et** par son dialogue : le
+  total du dialogue = le compte du couloir. Corrige au passage « Voir tout »
+  d'« À traiter », qui perdait son filtre d'étape.
+- `ListeRelancesDialog` ne fait **aucune requête** : il reçoit la file déjà
+  chargée par le Dashboard (`TAILLE_FILE = 200`). `DataGrid` veut un `id` →
+  lignes adaptées avec `id = interactionId`.
+- `ListeProspectionsDialog` : `ProspectionTable` + catalogue, clés de
+  colonnes `dashboard-prospections` / `dashboard-pre-prospections`.
+- **Restent des navigations** (ferment les dialogues) : « Créer un dossier »,
+  « Dossier X », « Ouvrir la fiche prospect », lien vers une tranche, et le
+  lien de pied « Toutes les prospections » (arriéré > 30 jours).
+- `FicheProspectionDialog` est chargé par `lazy()` : lot séparé de 0,55 kB,
+  la page de détail (51 kB) n'entre pas dans le lot du Dashboard.
+
 ### La boucle git (rappel opérationnel)
 - `node .claude/scripts/git-flow.mjs` depuis `prototype/` ; toujours
   AskUserQuestion avant `start` ; commits sans `"` ni accents ;
@@ -410,16 +452,30 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
   (règle §3bis non active tant qu'il n'est pas redémarré).
 
 ### Vérification
-- Portes : `npm run build` (tsc+vite) ✓ · eslint = **10** ✓ (28/09, lot
-  filtre Archivé + période). Pas de navigateur depuis la session —
-  validation visuelle par l'utilisateur (faite pour les PR #66, #67, #68 ;
-  **à faire** pour le lot du 28/09 et pour le correctif `5af5712` : bouton
-  « Voir hotline » désactivé sans numéro).
+- Portes : `npm run build` (tsc+vite) ✓ · eslint = **10** ✓ (28/09, les
+  deux lots). Pas de navigateur depuis la session — validation visuelle par
+  l'utilisateur (faite pour les PR #66, #67, #68 ; **à faire** pour les deux
+  lots du 28/09 et pour le correctif `5af5712`). **Le lot Dashboard n'a été
+  vérifié que par le compilateur** : empilement des dialogues, hauteur de la
+  fiche et rendu des grilles à points de rupture sont à regarder à l'écran.
 
 ---
 
 ## 📁 Important Files & Paths
 
+- `src/pages/prospections/ProspectionDetail.tsx` — **28/09** : exporte
+  `FicheProspection` (fiche indépendante de l'URL) + enveloppe routée.
+- `src/components/CadreFiche.tsx` — **28/09, nouveau** : `PageShell` ou cadre
+  de dialogue selon `variante`.
+- `src/components/FicheProspectionDialog.tsx` — **28/09, nouveau** : la fiche
+  en dialogue, `refetchAllApis()` à la fermeture.
+- `src/components/dashboard/` — **28/09, nouveau dossier** :
+  `FicheProspectionLazy` (lazy + type `FicheOuverte`),
+  `ListeProspectionsDialog`, `ListeRelancesDialog`.
+- `src/components/Modal.tsx` — **28/09** : `pleineHauteur`, `width` en chaîne.
+- `src/pages/Dashboard.tsx` — **28/09** : états `liste` / `fiche`,
+  `FILTRES_OUVERTES` / `FILTRES_A_TRAITER`, `onVoirTout` sur `KanbanColumn`
+  et `ColonneRelances`.
 - `src/lib/format.ts` — **28/09** : `jourISO`, `debutMoisISO`, `finMoisISO`
   (heure locale) — la période par défaut des listes.
 - `src/lib/domain.tsx` — **28/09** : `ProspectionFilterBarState.archive`,
@@ -483,9 +539,8 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
 
 - Windows 11, PowerShell 5.1 + Git Bash ; Vite `:5173`, Spring `:8080` lancés
   par l'utilisateur ; backend joignable (`/api-docs` vérifié).
-- Front : `main` = `0002914` (PR #70). Branches locales :
-  `feat/filtre-archive-periode-mois` (lot du 28/09, seconde PR à fusionner),
-  `feat/suivi-action-detail-hotline` (fusionnée, à supprimer) et
+- Front : `main` = `3c6ca35` (PR #71). Branches locales :
+  `feat/dashboard-dialogues` (lot du 28/09 (2), PR à fusionner) et
   `feat/desarchiver-prospection` (reliquat). Back : `immo-crm`
   non touché (lecture seule : `SecurityConfig`, `GlobalExceptionHandler`,
   `DataSourceConfig`, `CleApiAdminService`, migration 011).
@@ -501,9 +556,8 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
 
 ## ⏭️ Next Step
 
-> **Seconde PR `feat/filtre-archive-periode-mois` à fusionner** (commercial
-> connecté par défaut ; la première, #70, est fusionnée) :
-> `https://github.com/TsioryRasoloarijaona/immo-front/compare/main...feat%2Ffiltre-archive-periode-mois?expand=1`.
+> **PR `feat/dashboard-dialogues` à fusionner**, après contrôle à l'écran :
+> `https://github.com/TsioryRasoloarijaona/immo-front/compare/main...feat%2Fdashboard-dialogues?expand=1`.
 > Quand l'utilisateur confirme : `node .claude/scripts/git-flow.mjs sync
 > front` depuis `prototype/`, vérifier `git log main..HEAD` vide et la
 > branche supprimée, puis demander le prochain lot (AskUserQuestion avant
@@ -511,6 +565,13 @@ refuse. L'utilisateur décide (drop ou petite PR). La branche locale
 
 ### Backlog (par priorité)
 
+- [ ] **Retour visuel sur le Dashboard en dialogues** : les cinq « Voir
+      tout », fiche par-dessus la liste, Échap ferme un niveau à la fois,
+      actions de la fiche puis rafraîchissement du couloir à la fermeture,
+      pages `/prospections/:id` et `/pre-prospections/:id` inchangées.
+- [ ] Si demandé : même traitement pour Clients et Dossiers (demande deux
+      fiches de plus à rendre indépendantes de l'URL — `ProspectDetail`,
+      `DossierDetail`).
 - [ ] **#192 — « Archivé : Oui »** : backend annoncé corrigé le 28/09.
       Reste à faire : `npm run docs:update` (backend lancé), diff structurel
       du spec contre HEAD, commit du snapshot, et contrôle à l'écran que

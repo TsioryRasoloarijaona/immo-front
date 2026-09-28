@@ -5,6 +5,9 @@ import PageShell from '../components/PageShell';
 import SyntheseAnnuelle from '../components/SyntheseAnnuelle';
 import { Badge, Card, ErrorState, LoadingState } from '../components/ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
+import FicheProspectionLazy, { type FicheOuverte } from '../components/dashboard/FicheProspectionLazy';
+import ListeProspectionsDialog from '../components/dashboard/ListeProspectionsDialog';
+import ListeRelancesDialog from '../components/dashboard/ListeRelancesDialog';
 import { usePreview } from '../lib/previewContext';
 import {
   getDashboard,
@@ -13,6 +16,7 @@ import {
   listPreProspections,
   listProspections,
   listRelancesDashboard,
+  type ProspectionFilterParams,
 } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatCurrency, formatDate, formatTelephone } from '../lib/format';
@@ -67,6 +71,17 @@ import { etapeBadgeTone, prospectionDisplayName, PIPELINE_STAGES } from '../lib/
 // specifically the ones nobody has picked up yet.
 const A_TRAITER_ETAPES = [PIPELINE_STAGES[0], 'A RAPPELER PAR LE COMMERCIAL', 'AFFAIRES A SUIVRE'];
 
+/* Les filtres de chaque couloir prospection, déclarés **une fois** et lus à
+   deux endroits : la requête du couloir et le dialogue « Voir tout ». C'est ce
+   qui garantit que la liste complète compte ce que le couloir annonce —
+   l'ancien « Voir tout » d'« À traiter » ouvrait toutes les prospections,
+   filtre d'étape perdu en route. */
+const FILTRES_OUVERTES: ProspectionFilterParams = { ouvertes: true };
+const FILTRES_A_TRAITER: ProspectionFilterParams = { ouvertes: true, etape: A_TRAITER_ETAPES };
+
+/** La liste complète ouverte en dialogue, s'il y en a une. */
+type ListeOuverte = 'relances-jour' | 'relances-retard' | 'pre-prospections' | 'a-traiter' | 'prospections';
+
 /** Lignes visibles par couloir du Pipeline — cinq depuis que les couloirs
  * font une demi-largeur (24/09) ; trois quand ils en faisaient un cinquième. */
 const LIGNES_COULOIR = 5;
@@ -109,7 +124,7 @@ const TAILLE_FILE = 200;
  * mesuré **50/50 renseigné** là où le nom manque une fois sur cinquante. Sur
  * une pré-prospection il est même la seule prise — aucune fiche tiers
  * n'existe encore. */
-function LigneRelance({ r }: { r: RelanceProspectionDto }) {
+function LigneRelance({ r, onOuvrir }: { r: RelanceProspectionDto; onOuvrir: (fiche: FicheOuverte) => void }) {
   const tel = (r.telephone ?? '').replace(/\s/g, '');
   return (
     <div className="flex min-w-0 items-baseline gap-2.5 border-b border-border py-1.5 last:border-b-0">
@@ -120,12 +135,15 @@ function LigneRelance({ r }: { r: RelanceProspectionDto }) {
         {r.joursDeRetard ? `${r.joursDeRetard} j` : "auj."}
       </span>
 
-      <Link
-        to={`/${r.preProspection ? 'pre-prospections' : 'prospections'}/${r.prospectionId}`}
-        className="min-w-0 flex-1 truncate text-body font-semibold text-foreground no-underline hover:underline"
+      {/* Un bouton et non plus un lien : la fiche s'ouvre en dialogue, on ne
+          quitte pas le tableau de bord (décision utilisateur du 28/09). */}
+      <button
+        type="button"
+        onClick={() => onOuvrir({ id: r.prospectionId, pre: !!r.preProspection })}
+        className="min-w-0 flex-1 truncate text-left text-body font-semibold text-foreground hover:underline"
       >
         {r.prospectNom || <span className="font-normal text-muted-foreground italic">Lead sans nom</span>}
-      </Link>
+      </button>
 
       {tel ? (
         <a
@@ -156,7 +174,13 @@ function ColonneRelances({
   etat,
   messageVide,
   plusRecentesDAbord,
+  onOuvrir,
+  onVoirTout,
 }: {
+  /** Ouvre la fiche d'une relance en dialogue. */
+  onOuvrir: (fiche: FicheOuverte) => void;
+  /** Ouvre la file complète en dialogue. */
+  onVoirTout: () => void;
   titre: string;
   precision?: string;
   icone: ReactNode;
@@ -202,9 +226,19 @@ function ColonneRelances({
         {page && page.content.length === 0 && (
           <p className="py-2 text-body text-muted-foreground">{messageVide}</p>
         )}
-        {lignes.map((r) => <LigneRelance key={r.interactionId} r={r} />)}
-        {reste > 0 && (
-          <p className="pt-1.5 text-micro text-muted-foreground">et {reste} de plus</p>
+        {lignes.map((r) => <LigneRelance key={r.interactionId} r={r} onOuvrir={onOuvrir} />)}
+        {/* Proposé dès qu'il y a une relance, pas seulement quand il en reste
+            de cachées : la liste complète montre aussi le motif et la
+            dernière action, que la carte n'a pas la place d'afficher. */}
+        {page && page.totalElements > 0 && (
+          <button
+            type="button"
+            onClick={onVoirTout}
+            className="mt-1.5 flex items-center gap-0.5 text-micro font-medium text-muted-foreground transition-colors hover:text-primary"
+          >
+            Voir tout{reste > 0 ? ` — ${reste} de plus` : ''}
+            <ChevronRight className="size-3" />
+          </button>
         )}
         {!fileComplete && plusRecentesDAbord && (
           <p className="pt-1.5 text-micro text-(--amber)">
@@ -227,6 +261,7 @@ function KanbanColumn({
   emptyMessage,
   error,
   viewAllTo,
+  onVoirTout,
   accent = 'var(--sec-accent)',
   accentBg = 'var(--sec-accent-bg)',
   countTone = 'neutral',
@@ -246,7 +281,11 @@ function KanbanColumn({
   error?: string | null;
   /** Shown as a "Voir tout" footer link when the real total exceeds what's
    * previewed here — every column only ever renders a handful of records. */
-  viewAllTo: string;
+  viewAllTo?: string;
+  /** « Voir tout » en **dialogue** plutôt qu'en redirection — les couloirs
+   * prospection (décision utilisateur du 28/09). L'emporte sur `viewAllTo`,
+   * que gardent Clients et Dossier de vente. */
+  onVoirTout?: () => void;
   accent?: string;
   accentBg?: string;
   /** 'neutral' (the count is just a tally) or 'accent' (the count *is* the
@@ -284,11 +323,14 @@ function KanbanColumn({
           items
         )}
       </div>
-      {items.length > 0 && (
-        <Link
-          to={viewAllTo}
-          className="flex shrink-0 items-center justify-center gap-0.5 border-t border-border/70 py-1.5 text-micro font-medium text-muted-foreground no-underline transition-colors hover:bg-background hover:text-primary"
-        >
+      {items.length > 0 && onVoirTout && (
+        <button type="button" onClick={onVoirTout} className={CLASSE_VOIR_TOUT}>
+          Voir tout
+          <ChevronRight className="size-3" />
+        </button>
+      )}
+      {items.length > 0 && !onVoirTout && viewAllTo && (
+        <Link to={viewAllTo} className={`${CLASSE_VOIR_TOUT} no-underline`}>
           Voir tout
           <ChevronRight className="size-3" />
         </Link>
@@ -296,6 +338,9 @@ function KanbanColumn({
     </div>
   );
 }
+
+const CLASSE_VOIR_TOUT =
+  'flex w-full shrink-0 items-center justify-center gap-0.5 border-t border-border/70 py-1.5 text-micro font-medium text-muted-foreground transition-colors hover:bg-background hover:text-primary';
 
 /** Une section de la bande KPI segmentée — label micro, gros chiffre
  * tabulaire, précision en dessous. */
@@ -340,7 +385,7 @@ export default function Dashboard() {
      dates égales dépend du plan SQL du moment. */
   const TRI_PROSPECTIONS = ['docDate,desc', 'id,asc'];
   const { data: prospectionsPage, error: prospectionsErreur } = useApi(
-    () => listProspections({ ouvertes: true }, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
+    () => listProspections(FILTRES_OUVERTES, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
     [],
   );
   /* 7 et non `LIGNES_COULOIR` : la même page alimente aussi « Dossiers
@@ -350,11 +395,11 @@ export default function Dashboard() {
     [],
   );
   const { data: aTraiterPage, error: aTraiterErreur } = useApi(
-    () => listProspections({ ouvertes: true, etape: A_TRAITER_ETAPES }, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
+    () => listProspections(FILTRES_A_TRAITER, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
     [],
   );
   const { data: preProspectionsPage, error: preProspectionsErreur } = useApi(
-    () => listPreProspections({ ouvertes: true }, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
+    () => listPreProspections(FILTRES_OUVERTES, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
     [],
   );
   const { data: clientsPage, error: clientsErreur } = useApi(
@@ -377,6 +422,14 @@ export default function Dashboard() {
   );
 
   const { previewDossier } = usePreview();
+
+  /* Deux niveaux de dialogue, sans jamais quitter l'écran (décision
+     utilisateur du 28/09) : « Voir tout » ouvre la liste complète, une ligne
+     ouvre la fiche. `fiche` ne sert qu'aux lignes cliquées **sur le tableau de
+     bord** ; une ligne cliquée dans une liste ouvre sa fiche depuis la liste,
+     qui reste montée dessous. */
+  const [liste, setListe] = useState<ListeOuverte | null>(null);
+  const [fiche, setFiche] = useState<FicheOuverte | null>(null);
 
   if (loading) return <PageShell title="Dashboard"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Dashboard"><ErrorState message={error} /></PageShell>;
@@ -455,6 +508,8 @@ export default function Dashboard() {
                 accentBg="var(--info-bg)"
                 etat={relancesJour}
                 messageVide="Rien d'échu aujourd'hui."
+                onOuvrir={setFiche}
+                onVoirTout={() => setListe('relances-jour')}
               />
               <ColonneRelances
                 titre="En retard"
@@ -465,6 +520,8 @@ export default function Dashboard() {
                 etat={relancesRetard}
                 messageVide="Aucun retard sur les 30 derniers jours."
                 plusRecentesDAbord
+                onOuvrir={setFiche}
+                onVoirTout={() => setListe('relances-retard')}
               />
             </div>
 
@@ -507,10 +564,10 @@ export default function Dashboard() {
                   count={preProspectionsPage?.totalElements}
                   emptyMessage="Aucune pré-prospection."
                   error={preProspectionsErreur}
-                  viewAllTo="/pre-prospections"
+                  onVoirTout={() => setListe('pre-prospections')}
                 >
                   {preProspectionsPage?.content.slice(0, LIGNES_COULOIR).map((p) => (
-                    <KanbanItemRow to={`/pre-prospections/${p.id}`} key={p.id}>
+                    <KanbanItemRow onClick={() => setFiche({ id: p.id, pre: true })} key={p.id}>
                       <span className="min-w-0 flex-1 truncate">{prospectionDisplayName(p)}</span>
                       <span className="shrink-0 text-micro text-muted-foreground">{formatDate(p.dateDocument)}</span>
                     </KanbanItemRow>
@@ -524,13 +581,13 @@ export default function Dashboard() {
                   count={aTraiterPage?.totalElements}
                   emptyMessage="Rien à traiter — pipeline à jour."
                   error={aTraiterErreur}
-                  viewAllTo="/prospections"
+                  onVoirTout={() => setListe('a-traiter')}
                   accent="var(--amber)"
                   accentBg="var(--amber-bg)"
                   countTone="accent"
                 >
                   {aTraiterPage?.content.slice(0, LIGNES_COULOIR).map((p) => (
-                    <KanbanItemRow to={`/prospections/${p.id}`} key={p.id}>
+                    <KanbanItemRow onClick={() => setFiche({ id: p.id, pre: false })} key={p.id}>
                       <span className="min-w-0 flex-1 truncate">{prospectionDisplayName(p)}</span>
                       <Badge tone={etapeBadgeTone(p.etape, p.fermee)} className="shrink-0 text-micro">
                         {p.etape || '—'}
@@ -545,10 +602,10 @@ export default function Dashboard() {
                   count={dashboard.prospectionsOuvertes}
                   emptyMessage="Aucune prospection ouverte."
                   error={prospectionsErreur}
-                  viewAllTo="/prospections"
+                  onVoirTout={() => setListe('prospections')}
                 >
                   {prospectionsPage?.content.slice(0, LIGNES_COULOIR).map((p) => (
-                    <KanbanItemRow to={`/prospections/${p.id}`} key={p.id}>
+                    <KanbanItemRow onClick={() => setFiche({ id: p.id, pre: false })} key={p.id}>
                       <span className="min-w-0 flex-1 truncate">{prospectionDisplayName(p)}</span>
                       <Badge tone={etapeBadgeTone(p.etape, p.fermee)} className="shrink-0 text-micro">
                         {p.etape || '—'}
@@ -653,6 +710,49 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {liste === 'relances-jour' && (
+        <ListeRelancesDialog
+          titre={`À rappeler aujourd'hui — ${portee === 'MOI' ? 'moi' : 'équipe'}`}
+          etat={relancesJour}
+          onClose={() => setListe(null)}
+        />
+      )}
+      {liste === 'relances-retard' && (
+        <ListeRelancesDialog
+          titre={`Relances en retard — ${portee === 'MOI' ? 'moi' : 'équipe'}`}
+          etat={relancesRetard}
+          plusRecentesDAbord
+          note="File bornée aux 30 derniers jours. Les relances désarmées n'y figurent pas."
+          onClose={() => setListe(null)}
+        />
+      )}
+      {liste === 'pre-prospections' && (
+        <ListeProspectionsDialog
+          titre="Pré-prospections ouvertes"
+          pre
+          filtres={FILTRES_OUVERTES}
+          onClose={() => setListe(null)}
+        />
+      )}
+      {liste === 'a-traiter' && (
+        <ListeProspectionsDialog
+          titre="Prospections à traiter"
+          pre={false}
+          filtres={FILTRES_A_TRAITER}
+          onClose={() => setListe(null)}
+        />
+      )}
+      {liste === 'prospections' && (
+        <ListeProspectionsDialog
+          titre="Prospections ouvertes"
+          pre={false}
+          filtres={FILTRES_OUVERTES}
+          onClose={() => setListe(null)}
+        />
+      )}
+
+      <FicheProspectionLazy fiche={fiche} onClose={() => setFiche(null)} />
     </PageShell>
   );
 }
