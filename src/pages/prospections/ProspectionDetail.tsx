@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArchiveRestore, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, Send, UserPlus, Users, X } from 'lucide-react';
-import PageShell from '../../components/PageShell';
+import CadreFiche, { type VarianteFiche } from '../../components/CadreFiche';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { ActiviteCard, DossierIssuBanner, InactiviteBadge } from '../../components/ActiviteProspection';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
@@ -522,19 +522,40 @@ function OffrePrixSection({
   );
 }
 
+/** La page routée : elle ne fait que lire l'URL et la passer à la fiche.
+ *
+ * Reused for both `/prospections/:id` and `/pre-prospections/:id` — Omran
+ * stores both in the same table (see CLAUDE.md), so this is genuinely the
+ * same GET /api/prospections/{id} record either way. Only the entry
+ * point (which list you came from) differs, and that's what previously
+ * made every pré-prospection row feel like it "redirected to a
+ * prospection": the URL, breadcrumb and back-link always said
+ * "Prospections" even when opened from Pré-prospections. Detect the
+ * prefix from the URL and swap those labels only — `isPre` in the fiche
+ * (data-driven, not route-driven) still governs the actual page content. */
 export default function ProspectionDetail() {
   const { id } = useParams();
-  // Reused for both `/prospections/:id` and `/pre-prospections/:id` — Omran
-  // stores both in the same table (see CLAUDE.md), so this is genuinely the
-  // same GET /api/prospections/{id} record either way. Only the entry
-  // point (which list you came from) differs, and that's what previously
-  // made every pré-prospection row feel like it "redirected to a
-  // prospection": the URL, breadcrumb and back-link always said
-  // "Prospections" even when opened from Pré-prospections. Detect the
-  // prefix from the URL and swap those labels only — `isPre` below (data-
-  // driven, not route-driven) still governs the actual page content.
   const location = useLocation();
-  const isPreRoute = location.pathname.startsWith('/pre-prospections');
+  return <FicheProspection id={id!} pre={location.pathname.startsWith('/pre-prospections')} />;
+}
+
+/** La fiche elle-même, indépendante de l'URL : `id` et `pre` lui sont donnés.
+ * C'est ce qui permet au tableau de bord de l'ouvrir dans un dialogue
+ * (`FicheProspectionDialog`) **à l'identique de la page**, actions comprises —
+ * une seule fiche, deux cadres (`CadreFiche`), plutôt qu'un aperçu allégé qui
+ * divergerait.
+ *
+ * `pre` ne règle que l'habillage (libellés, accent, fil d'Ariane) ; le contenu
+ * suit la donnée, voir `isPre` plus bas. */
+export function FicheProspection({
+  id,
+  pre: isPreRoute,
+  variante = 'page',
+}: {
+  id: string;
+  pre: boolean;
+  variante?: VarianteFiche;
+}) {
   const listPath = isPreRoute ? '/pre-prospections' : '/prospections';
   const listLabel = isPreRoute ? 'Pré-prospections' : 'Prospections';
   // Section-identity accent (index.css) reused for the pipeline stepper and
@@ -543,14 +564,14 @@ export default function ProspectionDetail() {
   // of the plain black-on-white the monochrome --brand would otherwise
   // give every page.
   const sectionAccent = isPreRoute ? 'var(--sec-preprospection)' : 'var(--sec-prospection)';
-  const { data: p, loading, error, refetch } = useApi(() => getProspection(id!), [id], 'prospection');
+  const { data: p, loading, error, refetch } = useApi(() => getProspection(id), [id], 'prospection');
   // Cascade reference down to the linked Prospect — same pipeline-chain
   // convention as Dossier's own "Prospection" reference: each stage links
   // to the one before it. Only fetched once the prospection actually
   // resolved to a prospect (unset while still a pré-prospection).
   const linkedProspect = useApi(() => (p?.prospectId ? getProspect(p.prospectId) : Promise.resolve(null)), [p?.prospectId], 'prospection-prospect');
   const [interactionsPage, setInteractionsPage] = useState(0);
-  const interactions = useApi(() => listInteractions(id!, { page: interactionsPage, size: 20 }), [id, interactionsPage], 'prospection-interactions');
+  const interactions = useApi(() => listInteractions(id, { page: interactionsPage, size: 20 }), [id, interactionsPage], 'prospection-interactions');
 
   // L'endpoint email-visite n'accepte que les interactions qui planifient un
   // rendez-vous, et répond 409 sinon. `necessiteDateRdv` du référentiel porte
@@ -569,7 +590,7 @@ export default function ProspectionDetail() {
   // writes automatically ("Prospect créé et lié", "Transformée en
   // prospection"), not manually-logged calls/visits/notes.
   const [parcoursPage, setParcoursPage] = useState(0);
-  const parcours = useApi(() => listProspectionHistorique(id!, { page: parcoursPage, size: 20 }), [id, parcoursPage], 'prospection-parcours');
+  const parcours = useApi(() => listProspectionHistorique(id, { page: parcoursPage, size: 20 }), [id, parcoursPage], 'prospection-parcours');
   const { commerciaux } = useAppData();
   const { user } = useAuth();
   // A commercial assigning themselves doesn't need the "pick a commercial"
@@ -632,7 +653,7 @@ export default function ProspectionDetail() {
   // une liste vide, jamais une erreur.
   const contactsLies = useApi(() => (id ? listProspectionContacts(id) : Promise.resolve([])), [id], 'prospection-contacts');
   const [devisPage, setDevisPage] = useState(0);
-  const devis = useApi(() => listDevis(id!, { page: devisPage, size: 20 }), [id, devisPage], 'prospection-devis');
+  const devis = useApi(() => listDevis(id, { page: devisPage, size: 20 }), [id, devisPage], 'prospection-devis');
 
   function showToast(msg: string) {
     setToast(msg);
@@ -641,13 +662,13 @@ export default function ProspectionDetail() {
 
   // `!p` : cf. DossierDetail — une prospection déjà vue se repeint depuis le
   // cache, la revalidation restant invisible.
-  if (loading && !p) return <PageShell title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><LoadingState /></PageShell>;
-  if (error) return <PageShell title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><ErrorState message={error} /></PageShell>;
+  if (loading && !p) return <CadreFiche variante={variante} title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><LoadingState /></CadreFiche>;
+  if (error) return <CadreFiche variante={variante} title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><ErrorState message={error} /></CadreFiche>;
   if (!p) {
     return (
-      <PageShell title={`${isPreRoute ? 'Pré-prospection' : 'Prospection'} introuvable`} crumbs={[{ label: listLabel, to: listPath }]}>
+      <CadreFiche variante={variante} title={`${isPreRoute ? 'Pré-prospection' : 'Prospection'} introuvable`} crumbs={[{ label: listLabel, to: listPath }]}>
         <p>Cette {isPreRoute ? 'pré-prospection' : 'prospection'} n'existe pas.</p>
-      </PageShell>
+      </CadreFiche>
     );
   }
 
@@ -761,7 +782,8 @@ export default function ProspectionDetail() {
   }
 
   return (
-    <PageShell
+    <CadreFiche
+      variante={variante}
       title={name}
       crumbs={[{ label: listLabel, to: listPath }, { label: p.code || name }]}
       fullHeight
@@ -1513,7 +1535,7 @@ export default function ProspectionDetail() {
           {toast}
         </div>
       )}
-    </PageShell>
+    </CadreFiche>
   );
 }
 
