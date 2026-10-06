@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { formatDate, formatNumber } from '../../../lib/format';
+import { LIEN_LOGO_DEFAUT, lienLogoSociete } from '../../../lib/virements';
 import { cn } from '../../../lib/utils';
-import type { Societe, TypeVirement } from './donnees';
+import type { Societe, TypeVirement } from './types';
 
 export interface LigneCourrier {
   beneficiaire: string;
@@ -9,18 +10,18 @@ export interface LigneCourrier {
   montant: number | null;
 }
 
-type Variables = Record<'societe' | 'compte' | 'montant' | 'beneficiaire', string>;
+type Jeton = 'societe' | 'compte' | 'montant' | 'beneficiaire';
 
-/** Remplace les `{variables}` d'un modèle, en gras celles que la société a
- * demandées. Les accolades inconnues restent telles quelles : c'est ce que
- * l'utilisateur a tapé, le corriger serait mentir sur le courrier. */
-function remplir(modele: string, vars: Variables, gras: Set<keyof Variables>): ReactNode[] {
+/** Remplace les `{jetons}` d'une phrase, en gras ceux que la société a
+ * demandés. Un jeton inconnu reste tel quel : c'est ce que l'utilisateur a
+ * tapé, et le service l'imprimera ainsi. */
+function remplir(modele: string, valeurs: Partial<Record<Jeton, string>>, gras: Set<Jeton>): ReactNode[] {
   return modele.split(/(\{\w+\})/g).map((morceau, i) => {
     const m = /^\{(\w+)\}$/.exec(morceau);
-    if (!m || !(m[1] in vars)) return morceau;
-    const cle = m[1] as keyof Variables;
-    const valeur = vars[cle] || '…';
-    return gras.has(cle) ? <strong key={i}>{valeur}</strong> : <span key={i}>{valeur}</span>;
+    if (!m || !(m[1] in valeurs)) return morceau;
+    const cle = m[1] as Jeton;
+    const v = valeurs[cle] ?? '';
+    return gras.has(cle) ? <strong key={i}>{v}</strong> : <span key={i}>{v}</span>;
   });
 }
 
@@ -29,144 +30,144 @@ const POLICE: Record<Societe['police'], string> = {
   times: '"Times New Roman", Times, serif',
 };
 
-/** Aperçu du courrier envoyé à la banque, construit depuis le modèle de la
- * société — un aperçu figé serait faux dès qu'on en change.
+const montantTexte = (m: number | null) => (m != null && m > 0 ? formatNumber(m, 2) : '…');
+
+/** Aperçu HTML du courrier envoyé à la banque — le PDF, lui, est construit
+ * par le service (`src/pdf/courrier.js`) et suit le même modèle (§5) :
+ * en-tête, banque et lieu-date à droite, objet, salutation, corps, une ligne
+ * par bénéficiaire, clôture, signatures, pied de page.
  *
  * **Le papier reste blanc en thème sombre**, volontairement : c'est l'image
- * d'une feuille imprimée, pas une surface d'interface. Les couleurs sont donc
- * fixes ici, hors des jetons. Proportions A4 (210 × 297). */
+ * d'une feuille imprimée, pas une surface d'interface. Format Letter
+ * (215,9 × 279,4 mm), marges 25 mm. */
 export default function ApercuCourrier({
   societe,
   type,
   lignes,
   date,
   reference,
+  logoSrc,
   className,
 }: {
   societe: Societe | undefined;
+  /** Source de l'image d'en-tête imposée par l'appelant (un logo choisi mais
+   * pas encore déposé, dans la modale Société). Sinon : logo de la société
+   * servi par le service, ou le logo GHRIZA par défaut. */
+  logoSrc?: string;
   type: TypeVirement;
   lignes: LigneCourrier[];
   date: string;
   reference?: string;
   className?: string;
 }) {
+  const papier = 'flex aspect-[2159/2794] w-full flex-col rounded-sm bg-white text-[10.5px] leading-[1.5] text-neutral-900 shadow-md';
   if (!societe) {
-    return (
-      <div className={cn('flex aspect-[210/297] w-full items-center justify-center rounded-sm bg-white text-[11px] text-neutral-500 shadow-md', className)}>
-        Aucune société émettrice.
-      </div>
-    );
+    return <div className={cn(papier, 'items-center justify-center text-neutral-500', className)}>Aucune société émettrice.</div>;
   }
 
-  const gras = new Set<keyof Variables>([
-    ...(societe.societeGrasse ? (['societe'] as const) : []),
-    ...(societe.montantsGras ? (['montant', 'compte'] as const) : []),
-    ...(societe.beneficiaireGras ? (['beneficiaire'] as const) : []),
+  const gras = new Set<Jeton>([
+    ...(societe.societe_grasse ? (['societe'] as const) : []),
+    ...(societe.montants_gras ? (['montant', 'compte'] as const) : []),
+    ...(societe.beneficiaire_gras ? (['beneficiaire'] as const) : []),
   ]);
   const salaire = type === 'salaire';
-  const corps = salaire ? societe.corpsSalaire : societe.corpsFournisseur;
-  const modeleLigne = salaire ? societe.ligneSalaire : societe.ligneFournisseur;
-  const lignesAffichees = lignes.length > 0 ? lignes : [{ beneficiaire: '', rib: '', montant: null }];
-  const base: Variables = {
-    societe: societe.nom,
-    compte: societe.compte,
-    montant: '',
-    beneficiaire: lignesAffichees.length === 1 ? lignesAffichees[0].beneficiaire : '',
-  };
-  const signataireGauche = salaire && societe.signataireGauche.trim() ? societe.signataireGauche : '';
+  const affichees = lignes.length > 0 ? lignes : [{ beneficiaire: '', rib: '', montant: null }];
+  const nom = (l: LigneCourrier) => l.beneficiaire.trim() || '—';
+  const total = affichees.reduce((s, l) => s + (l.montant ?? 0), 0);
+  const corps = remplir(
+    salaire ? societe.phrase_corps_salaire : societe.phrase_corps,
+    {
+      societe: societe.nom,
+      compte: societe.compte,
+      montant: total > 0 ? formatNumber(total, 2) : '…',
+      beneficiaire: affichees.map(nom).join(', '),
+    },
+    gras,
+  );
+  const gauche =
+    salaire && affichees.length === 1 && societe.signataire_gauche?.trim()
+      ? remplir(societe.signataire_gauche, { societe: societe.nom, compte: societe.compte, beneficiaire: nom(affichees[0]), montant: montantTexte(affichees[0].montant) }, gras)
+      : null;
 
   return (
-    <div
-      className={cn('flex aspect-[210/297] w-full flex-col rounded-sm bg-white px-[8%] py-[7%] text-[10.5px] leading-[1.55] text-neutral-900 shadow-md', className)}
-      style={{ fontFamily: POLICE[societe.police] }}
-    >
-      {societe.enteteMode === 'logo' && (
-        <div className="mb-6 flex h-12 items-center justify-between rounded-sm border border-dashed border-neutral-300 bg-neutral-50 px-3">
-          <span className="text-[15px] font-black tracking-tight">{societe.nom}</span>
-          <span className="text-[9px] text-neutral-500">Logo de la société</span>
-        </div>
+    <div className={cn(papier, 'px-[11.6%] py-[9%]', className)} style={{ fontFamily: POLICE[societe.police] }}>
+      {societe.entete_mode === 'logo' && (
+        <img
+          src={logoSrc ?? (societe.logo ? lienLogoSociete(societe.id, societe.updated_at) : LIEN_LOGO_DEFAUT)}
+          alt={`En-tête ${societe.nom}`}
+          className={cn('max-h-[14%] w-full object-contain object-left', societe.entete_filet ? 'border-b border-neutral-800 pb-1' : '')}
+        />
       )}
-      {societe.enteteMode === 'texte' && (
-        <div className={cn('mb-6 flex items-start justify-between gap-4 pb-2', societe.enteteFilet && 'border-b border-neutral-800')}>
+      {societe.entete_mode === 'texte' && (
+        <div className={cn('flex items-start justify-between gap-4 pb-1', societe.entete_filet ? 'border-b border-neutral-800' : '')}>
           <div className="min-w-0">
-            <div className="font-bold leading-tight whitespace-pre-line" style={{ fontSize: `${Math.max(8, Math.min(48, societe.enteteTaille)) * 0.62}px` }}>
-              {societe.enteteTitre || societe.nom}
-            </div>
-            {societe.enteteSousTitre && <div className="text-[9px] whitespace-pre-line text-neutral-600">{societe.enteteSousTitre}</div>}
+            {societe.entete_titre && (
+              <div className="leading-tight font-bold whitespace-pre-line" style={{ fontSize: `${societe.entete_taille * 0.875}px` }}>
+                {societe.entete_titre}
+              </div>
+            )}
+            {societe.entete_sous_titre && <div className="text-[7.9px] whitespace-pre-line">{societe.entete_sous_titre}</div>}
           </div>
-          {societe.enteteDroite && <div className="shrink-0 text-right text-[9px] whitespace-pre-line text-neutral-600">{societe.enteteDroite}</div>}
+          {societe.entete_droite && <div className="shrink-0 text-right text-[7px] whitespace-pre-line">{societe.entete_droite}</div>}
         </div>
       )}
 
-      <div className="text-right">
-        {societe.ville ? `${capitaliser(societe.ville)}, le ` : 'Le '}
-        {date ? formatDate(date) : '…'}
+      {/* Le filet est tracé quel que soit le mode, même sans en-tête (courrier.js). */}
+      {societe.entete_mode === 'aucun' && societe.entete_filet ? <div className="border-b border-neutral-800" /> : null}
+
+      <div className="mt-5 text-right">
+        <div>{societe.banque}</div>
+        <div>
+          {societe.ville}, Le {date ? formatDate(date) : '…'}
+        </div>
       </div>
 
-      <div className="mt-4 ml-auto w-1/2">
-        <div>À Monsieur le Directeur</div>
-        <div className="font-bold">{societe.banque || '…'}</div>
-        <div>{societe.ville}</div>
-      </div>
+      <p className="mt-5 underline">
+        Objet : {societe.objet}
+        {reference && (
+          <>
+            {' '}
+            <strong>({reference})</strong>
+          </>
+        )}
+      </p>
 
-      <div className="mt-5">
-        <span className="font-bold underline">Objet :</span> {societe.objet}
-        {reference && <div className="text-neutral-700">Réf. : {reference}</div>}
-      </div>
+      <p className={cn('mt-4', societe.salutation_grasse ? 'font-bold' : '')}>Madame, Monsieur,</p>
+      <p className="mt-2 text-justify">{corps}</p>
 
-      <p className={cn('mt-4', societe.salutationGrasse && 'font-bold')}>Madame, Monsieur,</p>
-      <p className="mt-2 text-justify">{remplir(corps, base, gras)}</p>
-
-      <ul className="mt-3 flex flex-col gap-1.5 pl-4">
-        {lignesAffichees.map((l, i) => {
-          const vars: Variables = {
-            ...base,
-            beneficiaire: l.beneficiaire,
-            montant: l.montant != null && l.montant > 0 ? formatNumber(l.montant, 2) : '',
-          };
-          return (
-            <li key={i} className="list-disc">
-              {remplir(modeleLigne, vars, gras)}
-              <div className="text-neutral-700">
-                RIB : {societe.montantsGras ? <strong>{l.rib || '…'}</strong> : l.rib || '…'}
-              </div>
-            </li>
-          );
-        })}
+      <ul className="mt-2 flex flex-col gap-1">
+        {affichees.map((l, i) => (
+          <li key={i}>
+            •{' '}
+            {remplir(
+              salaire ? societe.phrase_ligne_salaire : societe.phrase_ligne,
+              { societe: societe.nom, compte: societe.compte, montant: montantTexte(l.montant), beneficiaire: nom(l) },
+              gras,
+            )}
+            <div className="pl-[6%]">RIB : {societe.montants_gras ? <strong>{l.rib || '…'}</strong> : l.rib || '…'}</div>
+          </li>
+        ))}
       </ul>
 
-      {lignesAffichees.length > 1 && (
-        <p className="mt-2">
-          Soit un total de{' '}
-          <strong>{formatNumber(lignesAffichees.reduce((s, l) => s + (l.montant ?? 0), 0), 2)} DH</strong>.
-        </p>
-      )}
-
-      {societe.cloture && (
+      {societe.avec_cloture ? (
         <p className="mt-4 text-justify">
-          Nous vous en remercions par avance et vous prions d'agréer, Madame, Monsieur, l'expression de nos salutations
-          distinguées.
+          En vous remerciant de l'attention que vous voudrez bien porter à ma demande. Je vous prie d'agréer,{' '}
+          <strong>Madame, Monsieur</strong>, l'expression de mes salutations distinguées.
         </p>
-      )}
+      ) : null}
 
-      <div className={cn('mt-8 flex', signataireGauche ? 'justify-between' : 'justify-end')}>
-        {signataireGauche && (
-          <div className="text-center">
-            <div>{remplir(signataireGauche, base, gras)}</div>
-            <div className="mt-8 text-[9px] text-neutral-500">Signature</div>
+      <div className={cn('mt-10 flex', gauche ? 'justify-between' : 'justify-end')}>
+        {gauche && (
+          <div className="w-[27%] text-center">
+            <div className="border-t border-neutral-800 pt-1">{gauche}</div>
           </div>
         )}
-        <div className="text-center">
-          <div className="font-bold">{societe.signataire}</div>
-          <div className="mt-8 text-[9px] text-neutral-500">Signature et cachet</div>
+        <div className="w-[27%] text-center">
+          <div className="border-t border-neutral-800 pt-1">{societe.signataire}</div>
         </div>
       </div>
 
-      {societe.pied && <div className="mt-auto border-t border-neutral-300 pt-2 text-center text-[8.5px] whitespace-pre-line text-neutral-600">{societe.pied}</div>}
+      {societe.pied_page && <div className="mt-auto pt-3 text-center text-[8.75px] whitespace-pre-line">{societe.pied_page}</div>}
     </div>
   );
-}
-
-function capitaliser(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }

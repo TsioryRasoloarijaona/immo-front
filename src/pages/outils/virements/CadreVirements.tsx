@@ -1,22 +1,64 @@
 import type { ReactNode } from 'react';
-import { Banknote, Info } from 'lucide-react';
+import { Banknote, RotateCcw } from 'lucide-react';
 import AdminGuard from '../../utilisateurs/AdminGuard';
+import { EmptyState, ErrorState, LoadingState } from '../../../components/ui';
+import { Button } from '../../../components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../../components/ui/select';
 import { cn } from '../../../lib/utils';
+import { rechargerContexte, useContexteVirement } from './contexte';
+import type { Meta, Moi } from './types';
 
-/** Cadre commun des écrans « Ordres de virement » : réservé à
- * l'administrateur (le module Outils l'est en entier), fil d'Ariane
- * Outils › Ordres de virement › écran, et le bandeau qui dit que tout est
- * fictif — sans lui, un essai en réunion passerait pour un vrai virement. */
+export interface ContexteCharge {
+  moi: Moi;
+  meta: Meta;
+  /** Avance après chaque écriture : à mettre dans les dépendances des `useApi`. */
+  revision: number;
+}
+
+/** Cadre commun des écrans « Ordres de virement » : visibilité du module
+ * (`AdminGuard`, rôle CRM — inchangée), fil d'Ariane, puis le contexte du
+ * service (`/moi`, `/meta`) chargé avant de rendre l'écran.
+ *
+ * `adminSeulement` : réservé à `moi.admin` — le niveau qui vient du service,
+ * pas des rôles CRM (§12). */
 export default function CadreVirements({
   ecran,
   fullHeight,
+  adminSeulement,
   children,
 }: {
   ecran: string;
   fullHeight?: boolean;
-  children: ReactNode;
+  adminSeulement?: boolean;
+  children: (ctx: ContexteCharge) => ReactNode;
 }) {
+  const { moi, meta, erreur, accesRefuse, revision } = useContexteVirement();
+
+  let contenu: ReactNode;
+  if (accesRefuse) {
+    contenu = <EmptyState title="Accès réservé" message={accesRefuse} />;
+  } else if (erreur && !(moi && meta)) {
+    contenu = (
+      <div className="flex flex-col items-center">
+        <ErrorState message={erreur} />
+        <Button type="button" variant="outline" size="sm" onClick={rechargerContexte}>
+          <RotateCcw data-icon="inline-start" /> Réessayer
+        </Button>
+      </div>
+    );
+  } else if (!moi || !meta) {
+    contenu = <LoadingState />;
+  } else if (adminSeulement && !moi.admin) {
+    contenu = (
+      <EmptyState
+        title="Réservé aux administrateurs"
+        message="Cet écran est réservé aux administrateurs du service des virements."
+      />
+    );
+  } else {
+    contenu = children({ moi, meta, revision });
+  }
+
   return (
     <AdminGuard
       title={ecran}
@@ -26,14 +68,7 @@ export default function CadreVirements({
       accentBg="var(--sec-accent-bg)"
       fullHeight={fullHeight}
     >
-      <div className={cn('flex flex-col gap-3', fullHeight && 'h-full min-h-0')}>
-        <p className="flex shrink-0 items-center gap-1.5 text-micro text-muted-foreground">
-          <Info aria-hidden className="size-3.5 shrink-0" />
-          Maquette : données fictives, rien n'est enregistré ni envoyé à la banque. Les modifications sont perdues au
-          rechargement.
-        </p>
-        {children}
-      </div>
+      <div className={cn('flex flex-col gap-3', fullHeight && 'h-full min-h-0')}>{contenu}</div>
     </AdminGuard>
   );
 }

@@ -1,134 +1,167 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import DataGrid, { type ColonneGrille } from '../../../components/DataGrid';
-import { Badge, EmptyState } from '../../../components/ui';
+import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../../components/ui';
 import { Button } from '../../../components/ui/button';
-import { useConfirm } from '../../../lib/confirmContext';
-import CadreVirements from './CadreVirements';
-import { useNotification } from './useNotification';
+import { useApi } from '../../../lib/useApi';
+import { ErreurVirement, lienLogoSociete, listerSocietes, supprimerSociete } from '../../../lib/virements';
+import CadreVirements, { type ContexteCharge } from './CadreVirements';
+import { rafraichir } from './contexte';
 import SocieteDialog from './SocieteDialog';
-import { majVirements, useVirements, type Societe } from './donnees';
+import type { Societe } from './types';
+import { useConfirmation } from './useConfirmation';
+import { useNotification } from './useNotification';
 
-type LigneSociete = Societe & { nbOrdres: number };
+type Ligne = { id: string; s: Societe };
 
-/** Sociétés émettrices : identité bancaire et modèle de courrier de chacune. */
 export default function Societes() {
-  const { societes, ordres } = useVirements();
-  const confirm = useConfirm();
-  const [notification, notifier] = useNotification();
+  return (
+    <CadreVirements ecran="Sociétés" fullHeight adminSeulement>
+      {(ctx) => <ListeSocietes ctx={ctx} />}
+    </CadreVirements>
+  );
+}
+
+function Vignette({ s }: { s: Societe }) {
+  if (s.entete_mode === 'logo' && s.logo) {
+    return <img src={lienLogoSociete(s.id, s.updated_at)} alt={`Logo ${s.nom}`} className="h-4.5 max-w-24 object-contain" />;
+  }
+  const texte = s.entete_mode === 'logo' ? 'logo GHRIZA' : s.entete_mode === 'texte' ? 'en-tête texte' : 'sans en-tête';
+  return <span className="text-micro text-muted-foreground">{texte}</span>;
+}
+
+/** Sociétés émettrices (§10), admin seulement. L'ordre est celui du
+ * serveur : la société par défaut d'abord, puis par nom. */
+function ListeSocietes({ ctx }: { ctx: ContexteCharge }) {
+  const toasts = useNotification();
+  const [confirmation, demander] = useConfirmation();
+  const { data, loading, error } = useApi(listerSocietes, [ctx.revision]);
   const [edition, setEdition] = useState<Societe | 'nouvelle' | null>(null);
 
-  const lignes = useMemo<LigneSociete[]>(
-    () => societes.map((s) => ({ ...s, nbOrdres: ordres.filter((o) => o.societeId === s.id).length })),
-    [societes, ordres],
-  );
-
-  async function supprimer(s: LigneSociete) {
-    if (s.nbOrdres > 0) {
-      notifier(`« ${s.nom} » a émis ${s.nbOrdres} ordre${s.nbOrdres > 1 ? 's' : ''} : elle ne peut pas être supprimée.`);
-      return;
-    }
-    const ok = await confirm({
-      title: 'Supprimer la société ?',
+  async function supprimer(s: Societe) {
+    const ok = await demander({
+      titre: 'Supprimer la société ?',
       message: `« ${s.nom} » ne sera plus proposée comme société émettrice.`,
-      confirmLabel: 'Supprimer',
+      confirmer: 'Supprimer',
+      danger: true,
     });
     if (!ok) return;
-    majVirements((e) => ({ ...e, societes: e.societes.filter((x) => x.id !== s.id) }));
-    notifier(`« ${s.nom} » supprimée.`);
+    try {
+      await supprimerSociete(s.id);
+    } catch (e) {
+      // Deux 409 (§10.2) : la dernière société (refus définitif), ou une
+      // société qui a émis des ordres (second temps de confirmation).
+      if (!(e instanceof ErreurVirement && e.status === 409 && e.erreur.includes('ordre(s)'))) {
+        toasts.notifierErreur(e, 'Impossible de supprimer la société');
+        return;
+      }
+      const encore = await demander({
+        titre: 'Cette société a émis des ordres',
+        message: `${e.erreur.charAt(0).toUpperCase()}${e.erreur.slice(1)}. Ces ordres resteront dans l'historique au nom de « ${s.nom} », mais la société ne sera plus proposée.`,
+        confirmer: 'Supprimer quand même',
+        danger: true,
+      });
+      if (!encore) return;
+      try {
+        await supprimerSociete(s.id, true);
+      } catch (e2) {
+        toasts.notifierErreur(e2, 'Impossible de supprimer la société');
+        return;
+      }
+    }
+    rafraichir();
+    toasts.notifier(`Société « ${s.nom} » supprimée avec succès.`);
   }
 
-  const colonnes = useMemo<ColonneGrille<LigneSociete>[]>(
-    () => [
-      {
-        nom: 'logo',
-        libelle: 'En-tête',
-        largeur: 6,
-        valeur: (r) => r.enteteMode,
-        rendu: (r) =>
-          r.enteteMode === 'aucun' ? (
-            <span className="text-muted-foreground">Aucun</span>
-          ) : (
-            <span className="inline-flex h-4.5 items-center rounded-sm border border-border bg-muted px-1.5 text-micro font-bold tracking-tight text-foreground">
-              {r.enteteMode === 'logo' ? r.nom.slice(0, 10) : 'Texte'}
-            </span>
-          ),
-      },
-      {
-        nom: 'nom',
-        libelle: 'Nom',
-        largeur: 14,
-        classe: 'font-medium text-foreground',
-        rendu: (r) => (
-          <span className="inline-flex items-center gap-1.5">
-            {r.nom}
-            {r.parDefaut && <Badge tone="info">Par défaut</Badge>}
-          </span>
-        ),
-      },
-      { nom: 'banque', libelle: 'Banque', largeur: 12 },
-      { nom: 'ville', libelle: 'Ville', largeur: 9 },
-      { nom: 'compte', libelle: 'Compte', largeur: 13, classe: 'font-mono text-muted-foreground' },
-      { nom: 'signataire', libelle: 'Signataire', largeur: 13 },
-      { nom: 'nbOrdres', libelle: 'Ordres', type: 'NOMBRE', largeur: 6 },
-      {
-        nom: 'actions',
-        libelle: '',
-        largeur: 6,
-        rendu: (r) => (
-          // La ligne s'ouvre au clic : les boutons ne doivent pas l'ouvrir en plus.
-          <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-            <Button type="button" variant="ghost" size="icon-xs" title="Modifier" aria-label={`Modifier ${r.nom}`} onClick={() => setEdition(r)}>
-              <Pencil />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              title="Supprimer"
-              aria-label={`Supprimer ${r.nom}`}
-              className="text-destructive hover:text-destructive"
-              onClick={() => void supprimer(r)}
-            >
-              <Trash2 />
-            </Button>
-          </div>
-        ),
-      },
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- supprimer ne lit que des valeurs stables
-    [],
-  );
+  const lignes: Ligne[] = (data ?? []).map((s) => ({ id: String(s.id), s }));
+  const colonnes: ColonneGrille<Ligne>[] = [
+    { nom: 'logo', libelle: 'Logo', largeur: 8, valeur: (r) => r.s.entete_mode, rendu: (r) => <Vignette s={r.s} /> },
+    {
+      nom: 'nom',
+      libelle: 'Nom',
+      largeur: 14,
+      classe: 'font-medium text-foreground',
+      valeur: (r) => r.s.nom,
+      rendu: (r) => (
+        <span className="inline-flex items-center gap-1.5">
+          {r.s.nom}
+          {r.s.par_defaut ? <Badge tone="info">Par défaut</Badge> : null}
+        </span>
+      ),
+    },
+    { nom: 'banque', libelle: 'Banque', largeur: 11, valeur: (r) => r.s.banque },
+    { nom: 'ville', libelle: 'Ville', largeur: 9, valeur: (r) => r.s.ville },
+    { nom: 'compte', libelle: 'Compte', largeur: 13, classe: 'font-mono text-muted-foreground', valeur: (r) => r.s.compte },
+    { nom: 'signataire', libelle: 'Signataire', largeur: 13, valeur: (r) => r.s.signataire },
+    { nom: 'nb_ordres', libelle: 'Ordres', type: 'NOMBRE', largeur: 6, valeur: (r) => r.s.nb_ordres ?? 0 },
+    {
+      nom: 'actions',
+      libelle: '',
+      largeur: 6,
+      rendu: (r) => (
+        // La ligne s'ouvre au clic : les boutons ne doivent pas l'ouvrir en plus.
+        <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+          <Button type="button" variant="ghost" size="icon-xs" title="Modifier" aria-label={`Modifier ${r.s.nom}`} onClick={() => setEdition(r.s)}>
+            <Pencil />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            title="Supprimer"
+            aria-label={`Supprimer ${r.s.nom}`}
+            className="text-destructive hover:text-destructive"
+            onClick={() => void supprimer(r.s)}
+          >
+            <Trash2 />
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <CadreVirements ecran="Sociétés" fullHeight>
+    <>
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <p className="text-body text-muted-foreground">
-          Nom, banque, ville, compte, signataire et logo sont imprimés tels quels sur le courrier envoyé à la banque.
+          Nom, banque, ville, numéro de compte, signataire et logo de chaque société sont imprimés tels quels sur le courrier envoyé à la
+          banque.
         </p>
         <Button type="button" onClick={() => setEdition('nouvelle')}>
           <Plus data-icon="inline-start" /> Ajouter une société
         </Button>
       </div>
 
-      {lignes.length === 0 ? (
+      {error && !data ? (
+        <ErrorState message={error} />
+      ) : !data ? (
+        <LoadingState />
+      ) : lignes.length === 0 ? (
         <EmptyState title="Aucune société" message="Ajoutez la société émettrice des ordres de virement." />
       ) : (
-        <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-          <DataGrid
-            rows={lignes}
-            colonnes={colonnes}
-            cleOrdre="outils-virements-societes"
-            onOuvrir={(id) => setEdition(societes.find((s) => s.id === id) ?? null)}
-            libelleLigne={(r) => `Modifier ${r.nom}`}
-          />
-        </div>
+        <ResultsRegion loading={loading}>
+          <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+            <DataGrid
+              rows={lignes}
+              colonnes={colonnes}
+              cleOrdre="outils-virements-societes"
+              onOuvrir={(id) => setEdition(data.find((s) => String(s.id) === id) ?? null)}
+              libelleLigne={(r) => `Modifier ${r.s.nom}`}
+            />
+          </div>
+        </ResultsRegion>
       )}
 
       {edition && (
-        <SocieteDialog societe={edition === 'nouvelle' ? undefined : edition} onClose={() => setEdition(null)} notifier={notifier} />
+        <SocieteDialog
+          societe={edition === 'nouvelle' ? undefined : edition}
+          premiere={(data ?? []).length === 0}
+          onClose={() => setEdition(null)}
+          toasts={toasts}
+        />
       )}
-      {notification}
-    </CadreVirements>
+      {confirmation}
+      {toasts.noeud}
+    </>
   );
 }

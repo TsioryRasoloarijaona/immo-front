@@ -1,169 +1,395 @@
-import { useState } from 'react';
-import { AlertTriangle, Check, Circle, FileText, Paperclip, Plus, Trash2 } from 'lucide-react';
-import Modal from '../../../components/Modal';
-import { Badge, Field, FieldGrid } from '../../../components/ui';
+import { useRef, useState } from 'react';
+import { AlertTriangle, Check, Circle, Paperclip, Plus, RefreshCw, Replace, Trash2 } from 'lucide-react';
+import { Badge, ErrorState, Field, FieldGrid, LoadingState } from '../../../components/ui';
 import { Button } from '../../../components/ui/button';
 import { DialogFooter } from '../../../components/ui/dialog';
-import { formatCurrency, formatDate, todayISO } from '../../../lib/format';
+import { Input } from '../../../components/ui/input';
+import { formatCurrency, formatDate } from '../../../lib/format';
+import { useApi } from '../../../lib/useApi';
+import { ajouterPiece, lienPiece, lireOrdre, modifierMontantPiece, modifierOrdre, regenererPdf, supprimerPiece } from '../../../lib/virements';
 import { cn } from '../../../lib/utils';
 import { ChoixSimple } from './CadreVirements';
-import {
-  LIBELLE_TYPE,
-  STATUT_ITEMS,
-  STATUT_ORDRE,
-  etatDossier,
-  majVirements,
-  useVirements,
-  type Ordre,
-  type StatutOrdre,
-} from './donnees';
+import { rafraichir } from './contexte';
+import { STATUT_ORDRE, formatTaille, pluriel, statutItems } from './donnees';
+import ModaleSaisie from './ModaleSaisie';
+import type { Meta, Moi, Ordre, Piece, StatutOrdre } from './types';
+import { useConfirmation } from './useConfirmation';
+import type { Notifications } from './useNotification';
 
-/** Détail d'un ordre : ses données, l'état de son dossier et la liste des
- * pièces à joindre. Le dépôt d'un fichier est simulé — un nom de fichier
- * fictif est rattaché, pour que la case se coche et que le compteur bouge. */
+const FORMATS_PIECE = '.pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.docx,.doc';
+
+/** Fiche d'un ordre (§7) : données, état du dossier, checklist des pièces,
+ * autres pièces, statut. Chaque action rend l'ordre décoré, qui remplace
+ * l'affichage ; les listes ouvertes derrière sont relues (`rafraichir`). */
 export default function OrdreDetailDialog({
   ordreId,
+  meta,
+  moi,
   onClose,
-  notifier,
+  toasts,
 }: {
-  ordreId: string;
+  ordreId: number;
+  meta: Meta;
+  moi: Moi;
   onClose: () => void;
-  notifier: (msg: string) => void;
+  toasts: Notifications;
 }) {
-  const { ordres, societes } = useVirements();
-  const ordre = ordres.find((o) => o.id === ordreId);
-  const [statut, setStatut] = useState<StatutOrdre>(ordre?.statut ?? 'emis');
+  const api = useApi(() => lireOrdre(ordreId), [ordreId]);
+  const [maj, setMaj] = useState<Ordre | null>(null);
+  const ordre = maj ?? api.data;
+  const [statut, setStatut] = useState<StatutOrdre | null>(null);
+  const statutChoisi = statut ?? ordre?.statut ?? 'emis';
+  const modifie = ordre !== null && statutChoisi !== ordre.statut;
 
-  if (!ordre) return null;
-  const societe = societes.find((s) => s.id === ordre.societeId);
-  const dossier = etatDossier(ordre);
+  const titre = ordre ? `${ordre.numero} — ${ordre.fournisseur_nom}` : 'Ordre de virement';
 
-  function maj(f: (o: Ordre) => Ordre) {
-    majVirements((e) => ({ ...e, ordres: e.ordres.map((o) => (o.id === ordreId ? f(o) : o)) }));
+  return (
+    <ModaleSaisie titre={titre} modifie={modifie} onClose={onClose} width={780}>
+      {(fermer) =>
+        api.error && !ordre ? (
+          <ErrorState message={api.error} />
+        ) : !ordre ? (
+          <LoadingState />
+        ) : (
+          <Contenu
+            ordre={ordre}
+            meta={meta}
+            moi={moi}
+            statut={statutChoisi}
+            setStatut={setStatut}
+            onOrdre={(o) => {
+              setMaj(o);
+              rafraichir();
+            }}
+            fermer={fermer}
+            toasts={toasts}
+          />
+        )
+      }
+    </ModaleSaisie>
+  );
+}
+
+function Contenu({
+  ordre,
+  meta,
+  moi,
+  statut,
+  setStatut,
+  onOrdre,
+  fermer,
+  toasts,
+}: {
+  ordre: Ordre;
+  meta: Meta;
+  moi: Moi;
+  statut: StatutOrdre;
+  setStatut: (s: StatutOrdre | null) => void;
+  onOrdre: (o: Ordre) => void;
+  fermer: () => void;
+  toasts: Notifications;
+}) {
+  const [confirmation, demander] = useConfirmation();
+  const fichier = useRef<HTMLInputElement>(null);
+  const [typeDepot, setTypeDepot] = useState<string>('autre');
+  const [occupe, setOccupe] = useState<string | null>(null);
+
+  const libelle = (t: string) => meta.types_pieces[t]?.libelle ?? t;
+  const piecesDuType = (t: string) => ordre.pieces.filter((p) => p.type === t);
+  const autres = ordre.pieces.filter((p) => !ordre.types_dossier.includes(p.type));
+  const nbRequis = ordre.types_dossier.length;
+
+  async function action(cle: string, f: () => Promise<Ordre>, succes?: (o: Ordre) => string, prefixe?: string) {
+    setOccupe(cle);
+    try {
+      const o = await f();
+      onOrdre(o);
+      if (succes) toasts.notifier(succes(o));
+    } catch (e) {
+      toasts.notifierErreur(e, prefixe);
+    } finally {
+      setOccupe(null);
+    }
   }
 
-  function joindre(code: string) {
-    maj((o) => ({
-      ...o,
-      pieces: o.pieces.map((p) =>
-        p.code === code ? { ...p, fichier: `${p.code}-${o.numero.slice(-4)}.pdf`, dateDepot: todayISO() } : p,
-      ),
-    }));
+  function choisirFichier(type: string) {
+    setTypeDepot(type);
+    fichier.current?.click();
   }
 
-  function retirer(code: string) {
-    maj((o) => ({ ...o, pieces: o.pieces.map((p) => (p.code === code ? { code: p.code, libelle: p.libelle } : p)) }));
+  function deposer(f: File) {
+    const type = typeDepot;
+    void action(
+      `depot-${type}`,
+      async () => (await ajouterPiece(ordre.id, f, type)).ordre,
+      (o) => `${libelle(type)} ajouté avec succès${o.dossier_complet ? ' — le dossier est complet' : ''}.`,
+      "Impossible d'ajouter la pièce",
+    );
   }
 
-  function ajouterAutre() {
-    maj((o) => ({
-      ...o,
-      autresPieces: [...o.autresPieces, { nom: `piece-complementaire-${o.autresPieces.length + 1}.pdf`, dateDepot: todayISO() }],
-    }));
+  async function retirer(p: Piece) {
+    const ok = await demander({
+      titre: 'Supprimer la pièce ?',
+      message: `« ${p.nom_fichier} » (${libelle(p.type)}) sera effacé définitivement.`,
+      confirmer: 'Supprimer',
+      danger: true,
+    });
+    if (ok) void action(`suppr-${p.id}`, () => supprimerPiece(p.id), () => 'Pièce supprimée avec succès.', 'Impossible de supprimer la pièce');
   }
 
-  function enregistrer() {
-    maj((o) => ({ ...o, statut }));
-    notifier(`Ordre ${ordre!.numero} : statut « ${STATUT_ORDRE[statut].libelle} » enregistré.`);
-    onClose();
+  function regenerer() {
+    void action(
+      'pdf',
+      () => regenererPdf(ordre.id),
+      () => (ordre.groupe ? 'PDF regénéré avec succès pour tout le virement groupé.' : 'PDF regénéré avec succès.'),
+      'Impossible de regénérer le PDF',
+    );
+  }
+
+  function enregistrerStatut() {
+    if (statut === ordre.statut) {
+      toasts.notifier('Le statut est déjà celui enregistré.', 'avertissement');
+      return;
+    }
+    void action(
+      'statut',
+      async () => {
+        const o = await modifierOrdre(ordre.id, { statut });
+        setStatut(null);
+        return o;
+      },
+      (o) => `Statut « ${STATUT_ORDRE[o.statut].libelle} » enregistré avec succès.`,
+      "Impossible d'enregistrer le statut",
+    );
   }
 
   return (
-    <Modal title={`Ordre de virement ${ordre.numero}`} onClose={onClose} width={760}>
+    <>
       <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center gap-2 text-body text-muted-foreground">
+        <div className="-mt-2 flex flex-wrap items-center gap-2 text-body text-muted-foreground">
+          <span>{meta.types_virement[ordre.type_virement]?.libelle ?? ordre.type_virement}</span>
           <Badge tone={STATUT_ORDRE[ordre.statut].ton}>{STATUT_ORDRE[ordre.statut].libelle}</Badge>
-          <span>{LIBELLE_TYPE[ordre.type]}</span>
-          {ordre.groupe && <span>· virement groupé {ordre.groupe}</span>}
         </div>
 
         <FieldGrid>
-          <Field label="Bénéficiaire" value={ordre.beneficiaire} />
           <Field label="Montant" value={formatCurrency(ordre.montant)} />
-          <Field label="Date" value={formatDate(ordre.date)} />
-          <Field label="Société émettrice" value={societe?.nom} />
-          <Field label="RIB" value={<span className="font-mono text-body">{ordre.rib}</span>} />
-          <Field label="Référence" value={ordre.reference} />
+          <Field label="Date du virement" value={formatDate(ordre.date_virement)} />
+          <Field label="Société émettrice" value={ordre.societe_nom ?? '—'} />
+          <Field label="Bénéficiaire" value={ordre.fournisseur_nom} />
+          <Field label="RIB du bénéficiaire" value={<span className="font-mono text-body">{ordre.rib}</span>} />
+          <Field label="Référence" value={ordre.reference || '—'} />
+          {ordre.groupe && <Field label="Virement groupé" value={<span className="font-mono">{ordre.groupe}</span>} />}
         </FieldGrid>
 
         <div
           className={cn(
             'flex items-start gap-2 rounded-lg px-3 py-2 text-body',
-            dossier.complet ? 'bg-(--success-bg) text-(--success)' : 'bg-(--amber-bg) text-(--amber)',
+            ordre.dossier_complet ? 'bg-(--success-bg) text-(--success)' : 'bg-(--amber-bg) text-(--amber)',
           )}
         >
-          {dossier.complet ? <Check className="mt-0.5 size-4 shrink-0" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0" />}
+          {ordre.dossier_complet ? <Check className="mt-0.5 size-4 shrink-0" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0" />}
           <span>
-            {dossier.complet
-              ? 'Dossier complet : toutes les pièces sont jointes.'
-              : `Dossier à compléter — ${dossier.fournies} pièce${dossier.fournies > 1 ? 's' : ''} sur ${dossier.requises}. Il manque : ${dossier.manquantes.join(', ')}.`}
+            {ordre.dossier_complet
+              ? `Dossier complet — les ${nbRequis} documents sont là.`
+              : `Il manque ${pluriel(ordre.manquants.length, 'document')} : ${ordre.manquants.join(', ')}.`}
           </span>
         </div>
 
         <section className="flex flex-col gap-2">
           <h2 className="text-label font-semibold text-foreground">Documents du dossier</h2>
           <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
-            {ordre.pieces.map((p) => (
-              <li key={p.code} className="flex items-center gap-3 px-3 py-2">
-                {p.fichier ? (
-                  <Check aria-label="Fournie" className="size-4 shrink-0 text-(--success)" />
-                ) : (
-                  <Circle aria-label="Manquante" className="size-4 shrink-0 text-muted-foreground" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <div className="text-body font-medium text-foreground">{p.libelle}</div>
-                  {p.fichier && (
-                    <div className="truncate text-micro text-muted-foreground">
-                      {p.fichier} · déposé le {formatDate(p.dateDepot)}
-                    </div>
+            {ordre.types_dossier.map((t) => {
+              const tp = meta.types_pieces[t] ?? { libelle: t };
+              const presente = piecesDuType(t).at(-1);
+              return (
+                <li key={t} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
+                  {presente ? (
+                    <Check aria-label="Présent" className="size-4 shrink-0 text-(--success)" />
+                  ) : (
+                    <Circle aria-label="Absent" className="size-4 shrink-0 text-muted-foreground" />
                   )}
-                </div>
-                {p.fichier ? (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => retirer(p.code)}>
-                    <Trash2 data-icon="inline-start" /> Retirer
-                  </Button>
-                ) : (
-                  <Button type="button" variant="outline" size="sm" onClick={() => joindre(p.code)}>
-                    <Paperclip data-icon="inline-start" /> Joindre
-                  </Button>
-                )}
-              </li>
-            ))}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-body font-medium text-foreground">{tp.libelle}</div>
+                    {presente ? (
+                      <div className="truncate text-micro text-muted-foreground">
+                        <a href={lienPiece(presente.id)} target="_blank" rel="noreferrer" className="text-primary underline-offset-2 hover:underline">
+                          {presente.nom_fichier}
+                        </a>{' '}
+                        · {formatTaille(presente.taille)}
+                      </div>
+                    ) : (
+                      <div className="text-micro text-muted-foreground">
+                        {tp.auto ? "généré automatiquement à la création de l'ordre" : 'à joindre'}
+                      </div>
+                    )}
+                  </div>
+                  {presente && tp.montant && (
+                    <MontantPiece key={presente.id} piece={presente} ordre={ordre} libelle={tp.libelle_montant ?? 'Montant'} onOrdre={onOrdre} toasts={toasts} />
+                  )}
+                  <div className="flex items-center gap-1">
+                    {tp.auto ? (
+                      <Button type="button" variant="outline" size="sm" disabled={occupe !== null} onClick={regenerer}>
+                        <RefreshCw data-icon="inline-start" className={occupe === 'pdf' ? 'animate-spin' : undefined} />
+                        {occupe === 'pdf' ? 'Regénération…' : 'Regénérer le PDF'}
+                      </Button>
+                    ) : presente ? (
+                      <>
+                        <Button type="button" variant="ghost" size="sm" disabled={occupe !== null} onClick={() => choisirFichier(t)}>
+                          <Replace data-icon="inline-start" /> {occupe === `depot-${t}` ? 'Envoi…' : 'Remplacer'}
+                        </Button>
+                        {moi.admin && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            disabled={occupe !== null}
+                            onClick={() => void retirer(presente)}
+                          >
+                            <Trash2 data-icon="inline-start" /> Supprimer
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <Button type="button" variant="outline" size="sm" disabled={occupe !== null} onClick={() => choisirFichier(t)}>
+                        <Paperclip data-icon="inline-start" /> {occupe === `depot-${t}` ? 'Envoi…' : 'Ajouter'}
+                      </Button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </section>
 
-        <section className="flex flex-col gap-2">
-          <h2 className="text-label font-semibold text-foreground">Autres pièces</h2>
-          {ordre.autresPieces.length === 0 ? (
-            <p className="text-body text-muted-foreground">Aucune pièce complémentaire.</p>
-          ) : (
-            <ul className="flex flex-col gap-1">
-              {ordre.autresPieces.map((p, i) => (
-                <li key={i} className="flex items-center gap-2 text-body">
-                  <FileText className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate text-foreground">{p.nom}</span>
-                  <span className="text-micro text-muted-foreground">{formatDate(p.dateDepot)}</span>
+        {autres.length > 0 && (
+          <section className="flex flex-col gap-2">
+            <h2 className="text-label font-semibold text-foreground">Autres pièces</h2>
+            <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
+              {autres.map((p) => (
+                <li key={p.id} className="flex items-center gap-3 px-3 py-2">
+                  <div className="min-w-0 flex-1 text-body">
+                    <a href={lienPiece(p.id)} target="_blank" rel="noreferrer" className="text-primary underline-offset-2 hover:underline">
+                      {p.nom_fichier}
+                    </a>
+                    <span className="text-micro text-muted-foreground">
+                      {' '}
+                      · {libelle(p.type)} · {formatTaille(p.taille)}
+                    </span>
+                  </div>
+                  {moi.admin && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      title="Supprimer"
+                      aria-label={`Supprimer ${p.nom_fichier}`}
+                      className="text-destructive hover:text-destructive"
+                      disabled={occupe !== null}
+                      onClick={() => void retirer(p)}
+                    >
+                      <Trash2 />
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
-          )}
-        </section>
+          </section>
+        )}
+
+        <input
+          ref={fichier}
+          type="file"
+          accept={FORMATS_PIECE}
+          hidden
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = '';
+            if (f) deposer(f);
+          }}
+        />
       </div>
 
       <DialogFooter className="mt-5 sm:justify-between">
-        <Button type="button" variant="ghost" onClick={ajouterAutre}>
+        <Button type="button" variant="ghost" disabled={occupe !== null} onClick={() => choisirFichier('autre')}>
           <Plus data-icon="inline-start" /> Ajouter une autre pièce
         </Button>
         <div className="flex flex-wrap items-center gap-2">
           <label htmlFor="ordre-statut" className="text-body text-muted-foreground">
             Statut
           </label>
-          <ChoixSimple id="ordre-statut" items={STATUT_ITEMS} value={statut} onChange={setStatut} className="w-32" />
-          <Button type="button" onClick={enregistrer}>
-            Enregistrer
+          <ChoixSimple id="ordre-statut" items={statutItems(meta)} value={statut} onChange={setStatut} className="w-32" />
+          <Button type="button" disabled={occupe !== null} onClick={enregistrerStatut}>
+            {occupe === 'statut' ? 'Enregistrement…' : 'Enregistrer'}
+          </Button>
+          <Button type="button" variant="outline" onClick={fermer}>
+            Fermer
           </Button>
         </div>
       </DialogFooter>
-    </Modal>
+      {confirmation}
+    </>
+  );
+}
+
+/** Montant porté par une pièce (facture, bulletin), enregistré au `change`
+ * (§7.1). La puce compare au montant viré, au centime. */
+function MontantPiece({
+  piece,
+  ordre,
+  libelle,
+  onOrdre,
+  toasts,
+}: {
+  piece: Piece;
+  ordre: Ordre;
+  libelle: string;
+  onOrdre: (o: Ordre) => void;
+  toasts: Notifications;
+}) {
+  const [saisie, setSaisie] = useState(piece.montant != null ? String(piece.montant) : '');
+  const [enCours, setEnCours] = useState(false);
+
+  async function enregistrer() {
+    const brut = saisie.trim().replace(',', '.');
+    const valeur = brut === '' ? null : Number(brut);
+    if (valeur !== null && !Number.isFinite(valeur)) return;
+    if (valeur === piece.montant) return;
+    setEnCours(true);
+    try {
+      onOrdre(await modifierMontantPiece(piece.id, valeur));
+    } catch (e) {
+      toasts.notifierErreur(e, "Impossible d'enregistrer le montant");
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  const ecart = piece.montant != null && Math.abs(piece.montant - ordre.montant) >= 0.01;
+  return (
+    <div className="flex basis-full items-center gap-2 pl-7 sm:basis-auto sm:pl-0">
+      <label htmlFor={`piece-montant-${piece.id}`} className="text-micro whitespace-nowrap text-muted-foreground">
+        {libelle}
+      </label>
+      <Input
+        id={`piece-montant-${piece.id}`}
+        type="number"
+        min="0"
+        step="0.01"
+        inputMode="decimal"
+        className="h-7 w-32"
+        value={saisie}
+        disabled={enCours}
+        onChange={(e) => setSaisie(e.target.value)}
+        onBlur={() => void enregistrer()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            void enregistrer();
+          }
+        }}
+      />
+      {ecart && <Badge tone="amber">≠ {formatCurrency(ordre.montant)} viré</Badge>}
+    </div>
   );
 }

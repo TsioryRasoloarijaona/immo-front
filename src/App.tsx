@@ -52,6 +52,7 @@ const NouvelOrdre = lazy(() => import('./pages/outils/virements/NouvelOrdre'));
 const HistoriqueVirements = lazy(() => import('./pages/outils/virements/HistoriqueVirements'));
 const BeneficiairesVirement = lazy(() => import('./pages/outils/virements/Beneficiaires'));
 const SocietesVirement = lazy(() => import('./pages/outils/virements/Societes'));
+const JournalVirement = lazy(() => import('./pages/outils/virements/Journal'));
 const ComingSoon = lazy(() => import('./pages/ComingSoon'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -122,6 +123,7 @@ function AuthenticatedApp() {
                   <Route path="/outils/virements/historique" element={<HistoriqueVirements />} />
                   <Route path="/outils/virements/beneficiaires" element={<BeneficiairesVirement />} />
                   <Route path="/outils/virements/societes" element={<SocietesVirement />} />
+                  <Route path="/outils/virements/journal" element={<JournalVirement />} />
                   <Route path="/bientot/:module" element={<ComingSoon />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

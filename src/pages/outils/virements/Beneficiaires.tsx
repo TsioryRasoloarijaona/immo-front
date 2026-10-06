@@ -1,159 +1,200 @@
 import { useMemo, useRef, useState } from 'react';
 import { FolderOpen, Pencil, Plus, RotateCcw, Search, Trash2, Upload } from 'lucide-react';
 import DataGrid, { type ColonneGrille } from '../../../components/DataGrid';
-import { Badge, EmptyState } from '../../../components/ui';
+import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../../components/ui';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { useConfirm } from '../../../lib/confirmContext';
+import { useApi } from '../../../lib/useApi';
+import { ErreurVirement, importerBeneficiaires, listerDossiers, supprimerBeneficiaire } from '../../../lib/virements';
 import BeneficiaireDialog from './BeneficiaireDialog';
-import CadreVirements, { ChoixSimple } from './CadreVirements';
-import { useNotification } from './useNotification';
+import CadreVirements, { ChoixSimple, type ContexteCharge } from './CadreVirements';
+import { rafraichir } from './contexte';
+import { normaliser, pluriel } from './donnees';
 import DossierBeneficiaireDialog from './DossierBeneficiaireDialog';
-import { LIBELLE_NATURE, etatDossier, majVirements, useVirements, type Beneficiaire, type NatureBeneficiaire } from './donnees';
+import OrdreDetailDialog from './OrdreDetailDialog';
+import type { LigneDossier, TypeBeneficiaire } from './types';
+import { useConfirmation } from './useConfirmation';
+import { useNotification } from './useNotification';
 
-type FiltreNature = 'tous' | NatureBeneficiaire;
+type FiltreNature = 'tous' | TypeBeneficiaire;
+type Ligne = { id: string; b: LigneDossier };
 
-const NATURE_FILTRE: { value: FiltreNature; label: string }[] = [
-  { value: 'tous', label: 'Tous les bénéficiaires' },
-  { value: 'fournisseur', label: 'Fournisseurs seulement' },
-  { value: 'salarie', label: 'Salariés seulement' },
-];
-
-const IMPORT_ITEMS: { value: NatureBeneficiaire; label: string }[] = [
-  { value: 'fournisseur', label: 'Importer des fournisseurs' },
-  { value: 'salarie', label: 'Importer des salariés' },
-];
-
-type LigneBeneficiaire = Beneficiaire & { nbOrdres: number; total: number; aCompleter: number };
-
-/** Bénéficiaires enregistrés — fournisseurs et salariés, un nom et un RIB.
- * Totaux et état du dossier calculés sur les ordres non annulés. */
 export default function Beneficiaires() {
-  const { beneficiaires, ordres } = useVirements();
-  const confirm = useConfirm();
-  const [notification, notifier] = useNotification();
+  return (
+    <CadreVirements ecran="Bénéficiaires" fullHeight>
+      {(ctx) => <Carnet ctx={ctx} />}
+    </CadreVirements>
+  );
+}
+
+/** Bénéficiaires (§9) : `GET /dossiers` chargé en entier, recherche et filtre
+ * faits à l'écran. Les chiffres (ordres, total viré, dossiers) sont ceux du
+ * serveur. */
+function Carnet({ ctx }: { ctx: ContexteCharge }) {
+  const { meta, moi, revision } = ctx;
+  const toasts = useNotification();
+  const [confirmation, demander] = useConfirmation();
+  const { data, loading, error } = useApi(listerDossiers, [revision]);
   const [q, setQ] = useState('');
   const [nature, setNature] = useState<FiltreNature>('tous');
-  const [natureImport, setNatureImport] = useState<NatureBeneficiaire>('fournisseur');
-  const [edition, setEdition] = useState<Beneficiaire | 'nouveau' | null>(null);
-  const [dossier, setDossier] = useState<Beneficiaire | null>(null);
+  const [natureImport, setNatureImport] = useState<TypeBeneficiaire>('fournisseur');
+  const [importEnCours, setImportEnCours] = useState(false);
+  const [edition, setEdition] = useState<LigneDossier | 'nouveau' | null>(null);
+  const [dossier, setDossier] = useState<LigneDossier | null>(null);
+  const [ordreOuvert, setOrdreOuvert] = useState<number | null>(null);
   const fichier = useRef<HTMLInputElement>(null);
 
-  const lignes = useMemo<LigneBeneficiaire[]>(() => {
-    const terme = q.trim().toLowerCase();
-    const compact = terme.replace(/\s/g, '');
-    return beneficiaires
-      .filter((b) => nature === 'tous' || b.nature === nature)
-      .filter((b) => !terme || b.nom.toLowerCase().includes(terme) || (compact && b.rib.replace(/\s/g, '').includes(compact)))
-      .map((b) => {
-        const siens = ordres.filter((o) => o.beneficiaireId === b.id && o.statut !== 'annule');
-        return {
-          ...b,
-          nbOrdres: siens.length,
-          total: siens.reduce((s, o) => s + o.montant, 0),
-          aCompleter: siens.filter((o) => !etatDossier(o).complet).length,
-        };
-      })
-      .sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
-  }, [beneficiaires, ordres, q, nature]);
+  const natures = Object.entries(meta.types_beneficiaire) as [TypeBeneficiaire, string][];
+  const filtreItems: { value: FiltreNature; label: string }[] = [
+    { value: 'tous', label: 'Tous' },
+    ...natures.map(([v, l]) => ({ value: v, label: `${l}s seulement` })),
+  ];
+  const importItems = natures.map(([v, l]) => ({ value: v, label: `Importer des ${l.toLowerCase()}s` }));
 
-  async function supprimer(b: LigneBeneficiaire) {
-    const ok = await confirm({
-      title: 'Supprimer le bénéficiaire ?',
-      message:
-        b.nbOrdres > 0
-          ? `« ${b.nom} » a ${b.nbOrdres} ordre${b.nbOrdres > 1 ? 's' : ''} dans l'historique : ils restent, mais il ne sera plus proposé dans le formulaire.`
-          : `« ${b.nom} » ne sera plus proposé dans le formulaire.`,
-      confirmLabel: 'Supprimer',
+  // « hamid enne » trouve « M Hamid ENNEASSI » : chaque mot tapé doit figurer
+  // dans le nom ou le RIB (RIB comparé sans espaces).
+  const lignes = useMemo<Ligne[]>(() => {
+    const mots = normaliser(q).split(/\s+/).filter(Boolean);
+    return (data ?? [])
+      .filter((b) => nature === 'tous' || b.type === nature)
+      .filter((b) => {
+        const nom = normaliser(b.nom);
+        const rib = b.rib.replace(/\s/g, '').toLowerCase();
+        return mots.every((m) => nom.includes(m) || rib.includes(m));
+      })
+      .map((b) => ({ id: String(b.id), b }));
+  }, [data, q, nature]);
+
+  async function supprimer(b: LigneDossier) {
+    const ok = await demander({
+      titre: 'Supprimer le bénéficiaire ?',
+      message: `« ${b.nom} » ne sera plus proposé dans le formulaire.`,
+      confirmer: 'Supprimer',
+      danger: true,
     });
     if (!ok) return;
-    majVirements((s) => ({ ...s, beneficiaires: s.beneficiaires.filter((x) => x.id !== b.id) }));
-    notifier(`« ${b.nom} » supprimé.`);
+    try {
+      await supprimerBeneficiaire(b.id);
+    } catch (e) {
+      if (!(e instanceof ErreurVirement && e.status === 409)) {
+        toasts.notifierErreur(e, 'Impossible de supprimer le bénéficiaire');
+        return;
+      }
+      // Second temps : il a des ordres (§9.3).
+      const encore = await demander({
+        titre: 'Ce bénéficiaire a des ordres',
+        message: `${e.erreur.charAt(0).toUpperCase()}${e.erreur.slice(1)}. Ces ordres resteront dans l'historique avec le nom et le RIB d'origine, mais le bénéficiaire ne sera plus proposé dans le formulaire.`,
+        confirmer: 'Supprimer quand même',
+        danger: true,
+      });
+      if (!encore) return;
+      try {
+        await supprimerBeneficiaire(b.id, true);
+      } catch (e2) {
+        toasts.notifierErreur(e2, 'Impossible de supprimer le bénéficiaire');
+        return;
+      }
+    }
+    rafraichir();
+    toasts.notifier(`Bénéficiaire « ${b.nom} » supprimé avec succès.`);
   }
 
-  const colonnes = useMemo<ColonneGrille<LigneBeneficiaire>[]>(
-    () => [
-      { nom: 'nom', libelle: 'Nom', largeur: 20, classe: 'font-medium text-foreground' },
-      {
-        nom: 'nature',
-        libelle: 'Nature',
-        largeur: 8,
-        valeur: (r) => LIBELLE_NATURE[r.nature],
-        rendu: (r) => <Badge tone={r.nature === 'salarie' ? 'info' : 'neutral'}>{LIBELLE_NATURE[r.nature]}</Badge>,
-      },
-      { nom: 'rib', libelle: 'RIB', largeur: 20, classe: 'font-mono text-muted-foreground' },
-      { nom: 'nbOrdres', libelle: 'Ordres', type: 'NOMBRE', largeur: 6 },
-      { nom: 'total', libelle: 'Total viré', type: 'MONTANT', largeur: 11 },
-      {
-        nom: 'dossier',
-        libelle: 'Dossier',
-        largeur: 10,
-        valeur: (r) => (r.nbOrdres === 0 ? '' : r.aCompleter === 0 ? 'Complet' : `${r.aCompleter} à compléter`),
-        rendu: (r) =>
-          r.nbOrdres === 0 ? (
-            <span className="text-muted-foreground">—</span>
-          ) : r.aCompleter === 0 ? (
-            <Badge tone="success">Complet</Badge>
-          ) : (
-            <Badge tone="amber">{r.aCompleter} à compléter</Badge>
-          ),
-      },
-      {
-        nom: 'actions',
-        libelle: '',
-        largeur: 9,
-        rendu: (r) => (
-          <div className="flex items-center justify-end gap-0.5">
-            <Button type="button" variant="ghost" size="icon-xs" title="Dossier" aria-label={`Dossier de ${r.nom}`} onClick={() => setDossier(r)}>
-              <FolderOpen />
-            </Button>
-            <Button type="button" variant="ghost" size="icon-xs" title="Modifier" aria-label={`Modifier ${r.nom}`} onClick={() => setEdition(r)}>
-              <Pencil />
-            </Button>
+  async function importer(f: File) {
+    setImportEnCours(true);
+    try {
+      const r = await importerBeneficiaires(f, natureImport);
+      rafraichir();
+      const libelle = `${meta.types_beneficiaire[natureImport] ?? natureImport}s`;
+      toasts.notifier(
+        `${libelle} : ${r['importés']} importé(s), ${r.mis_a_jour} mis à jour, ${r['ignorés']} ignoré(s).`,
+        r.erreurs.length > 0 ? 'avertissement' : 'succes',
+      );
+    } catch (e) {
+      toasts.notifierErreur(e, "Impossible d'importer le fichier");
+    } finally {
+      setImportEnCours(false);
+    }
+  }
+
+  const colonnes: ColonneGrille<Ligne>[] = [
+    { nom: 'nom', libelle: 'Nom', largeur: 20, classe: 'font-medium text-foreground', valeur: (r) => r.b.nom },
+    {
+      nom: 'nature',
+      libelle: 'Nature',
+      largeur: 8,
+      valeur: (r) => meta.types_beneficiaire[r.b.type] ?? r.b.type,
+      rendu: (r) => <Badge tone={r.b.type === 'salarie' ? 'info' : 'neutral'}>{meta.types_beneficiaire[r.b.type] ?? r.b.type}</Badge>,
+    },
+    { nom: 'rib', libelle: 'RIB', largeur: 20, classe: 'font-mono text-muted-foreground', valeur: (r) => r.b.rib },
+    { nom: 'nb_ordres', libelle: 'Ordres', type: 'NOMBRE', largeur: 6, valeur: (r) => r.b.nb_ordres },
+    { nom: 'total_montant', libelle: 'Total viré', type: 'MONTANT', largeur: 11, sansSomme: true, valeur: (r) => r.b.total_montant },
+    {
+      nom: 'dossier',
+      libelle: 'Dossier',
+      largeur: 10,
+      valeur: (r) => (r.b.nb_ordres === 0 ? 'Aucun virement' : r.b.nb_incomplets === 0 ? 'Complet' : `${r.b.nb_incomplets} à compléter`),
+      rendu: (r) =>
+        r.b.nb_ordres === 0 ? (
+          <span className="text-muted-foreground">Aucun virement</span>
+        ) : r.b.nb_incomplets === 0 ? (
+          <Badge tone="success">Complet</Badge>
+        ) : (
+          <Badge tone="amber">{r.b.nb_incomplets} à compléter</Badge>
+        ),
+    },
+    {
+      nom: 'actions',
+      libelle: '',
+      largeur: 9,
+      rendu: (r) => (
+        <div className="flex items-center justify-end gap-0.5">
+          <Button type="button" variant="ghost" size="icon-xs" title="Dossier" aria-label={`Dossier de ${r.b.nom}`} onClick={() => setDossier(r.b)}>
+            <FolderOpen />
+          </Button>
+          <Button type="button" variant="ghost" size="icon-xs" title="Modifier" aria-label={`Modifier ${r.b.nom}`} onClick={() => setEdition(r.b)}>
+            <Pencil />
+          </Button>
+          {moi.admin && (
             <Button
               type="button"
               variant="ghost"
               size="icon-xs"
               title="Supprimer"
-              aria-label={`Supprimer ${r.nom}`}
+              aria-label={`Supprimer ${r.b.nom}`}
               className="text-destructive hover:text-destructive"
-              onClick={() => void supprimer(r)}
+              onClick={() => void supprimer(r.b)}
             >
               <Trash2 />
             </Button>
-          </div>
-        ),
-      },
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- supprimer ne lit que des valeurs stables
-    [],
-  );
+          )}
+        </div>
+      ),
+    },
+  ];
 
-  const filtre = q.trim() !== '' || nature !== 'tous';
+  const vide =
+    q.trim() !== ''
+      ? `Aucun bénéficiaire ne correspond à « ${q.trim()} »`
+      : nature !== 'tous'
+        ? 'Aucun bénéficiaire de cette nature'
+        : 'Aucun bénéficiaire enregistré';
 
   return (
-    <CadreVirements ecran="Bénéficiaires" fullHeight>
+    <>
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-full sm:w-64">
             <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="search"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Rechercher un nom, un RIB…"
-              aria-label="Rechercher un bénéficiaire"
-              className="pl-8"
-            />
+            <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nom ou RIB" aria-label="Rechercher un bénéficiaire" className="pl-8" />
           </div>
-          <ChoixSimple items={NATURE_FILTRE} value={nature} onChange={setNature} className="w-48" />
+          <ChoixSimple items={filtreItems} value={nature} onChange={setNature} className="w-48" />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* La nature choisie s'applique à toutes les lignes du classeur,
-              sauf celles qui portent leur propre colonne « type ». */}
-          <ChoixSimple items={IMPORT_ITEMS} value={natureImport} onChange={setNatureImport} className="w-48" />
-          <Button type="button" variant="outline" onClick={() => fichier.current?.click()}>
-            <Upload data-icon="inline-start" /> Fichier Excel
+          {/* La nature choisie s'applique aux lignes du classeur qui ne
+              portent pas leur propre colonne « type ». */}
+          <ChoixSimple items={importItems} value={natureImport} onChange={setNatureImport} className="w-52" />
+          <Button type="button" variant="outline" disabled={importEnCours} onClick={() => fichier.current?.click()}>
+            <Upload data-icon="inline-start" /> {importEnCours ? 'Import…' : 'Fichier Excel'}
           </Button>
           <input
             ref={fichier}
@@ -162,8 +203,8 @@ export default function Beneficiaires() {
             hidden
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) notifier(`Maquette : « ${f.name} » n'est pas importé (${LIBELLE_NATURE[natureImport].toLowerCase()}s).`);
               e.target.value = '';
+              if (f) void importer(f);
             }}
           />
           <Button type="button" onClick={() => setEdition('nouveau')}>
@@ -172,37 +213,62 @@ export default function Beneficiaires() {
         </div>
       </div>
 
-      <div className="shrink-0 text-body text-muted-foreground">
-        {lignes.length} bénéficiaire{lignes.length > 1 ? 's' : ''}
-      </div>
-
-      {lignes.length === 0 ? (
-        <EmptyState
-          title={filtre ? 'Aucun résultat' : 'Aucun bénéficiaire'}
-          message={filtre ? 'Aucun bénéficiaire ne correspond à la recherche.' : 'Ajoutez un fournisseur ou un salarié, ou importez un classeur.'}
-          action={
-            filtre ? (
-              <Button type="button" variant="outline" size="sm" onClick={() => { setQ(''); setNature('tous'); }}>
-                <RotateCcw data-icon="inline-start" /> Tout afficher
-              </Button>
-            ) : undefined
-          }
-        />
+      {error && !data ? (
+        <ErrorState message={error} />
+      ) : !data ? (
+        <LoadingState />
       ) : (
-        <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-          <DataGrid rows={lignes} colonnes={colonnes} cleOrdre="outils-virements-beneficiaires" />
-        </div>
+        <ResultsRegion loading={loading}>
+          <div className="shrink-0 text-body text-muted-foreground">{pluriel(lignes.length, 'bénéficiaire')}</div>
+          {lignes.length === 0 ? (
+            <EmptyState
+              title={vide}
+              action={
+                q.trim() !== '' || nature !== 'tous' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setQ('');
+                      setNature('tous');
+                    }}
+                  >
+                    <RotateCcw data-icon="inline-start" /> Tout afficher
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+              <DataGrid rows={lignes} colonnes={colonnes} cleOrdre="outils-virements-beneficiaires" />
+            </div>
+          )}
+        </ResultsRegion>
       )}
 
       {edition && (
         <BeneficiaireDialog
           beneficiaire={edition === 'nouveau' ? undefined : edition}
+          natureParDefaut={nature === 'tous' ? 'fournisseur' : nature}
+          meta={meta}
           onClose={() => setEdition(null)}
-          notifier={notifier}
+          toasts={toasts}
         />
       )}
-      {dossier && <DossierBeneficiaireDialog beneficiaire={dossier} onClose={() => setDossier(null)} notifier={notifier} />}
-      {notification}
-    </CadreVirements>
+      {dossier && (
+        <DossierBeneficiaireDialog
+          beneficiaire={dossier}
+          onClose={() => setDossier(null)}
+          onOuvrirOrdre={(id) => {
+            setDossier(null);
+            setOrdreOuvert(id);
+          }}
+        />
+      )}
+      {ordreOuvert !== null && <OrdreDetailDialog ordreId={ordreOuvert} meta={meta} moi={moi} onClose={() => setOrdreOuvert(null)} toasts={toasts} />}
+      {confirmation}
+      {toasts.noeud}
+    </>
   );
 }

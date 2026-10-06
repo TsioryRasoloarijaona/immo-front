@@ -341,6 +341,13 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
   unauthorizedHandler = handler;
 }
 
+/** Même retour à la connexion, pour un 401 venu d'un autre client que celui-ci
+ * — le service des virements (`lib/virements.ts`), dont la session est le même
+ * cookie, vérifié par la passerelle. */
+export function signalerSessionExpiree(): void {
+  unauthorizedHandler?.();
+}
+
 /** Un 401 sur le formulaire de connexion n'est pas une expiration : c'est un
  * mauvais identifiant, et il doit rester au formulaire — le transformer en
  * « session expirée » afficherait un message absurde à quelqu'un qui n'a
