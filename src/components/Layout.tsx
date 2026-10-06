@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, Calendar, Contact, FilePlus2, FileText, Folder, Gauge, History, Home, KeyRound, Landmark, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
+import { BookUser, Bot, Building2, Calendar, Contact, FilePlus2, FileText, Folder, Gauge, History, Home, KeyRound, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +17,7 @@ import {
 } from './ui/sidebar';
 import { Button } from './ui/button';
 import SyncButton from './SyncButton';
+import EntreesAdminVirements from '../pages/outils/virements/EntreesAdminVirements';
 import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
 
@@ -372,16 +373,9 @@ export default function Layout({ children }: { children: ReactNode }) {
                     Bénéficiaires
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<NavLink to="/outils/virements/societes" />}
-                    isActive={location.pathname.startsWith('/outils/virements/societes')}
-                    tooltip="Sociétés émettrices"
-                  >
-                    <Landmark />
-                    Sociétés
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {/* Sociétés et Journal : selon `admin` de `GET /moi` du service,
+                    pas selon les rôles CRM (FEATURE-virements-api R1). */}
+                <EntreesAdminVirements pathname={location.pathname} />
               </SidebarMenu>
             </SidebarGroup>
           )}

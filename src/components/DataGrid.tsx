@@ -72,6 +72,9 @@ export type ColonneGrille<T> = {
   /** Infobulle : le texte complet, pour les valeurs assez longues pour
    * atteindre le plafond de la colonne et se faire couper. */
   titre?: (row: T) => string | undefined;
+  /** Pas de bascule Σ sur cette colonne : un total qui doit venir du
+   * serveur (montants des ordres de virement) ne se recalcule pas à l'écran. */
+  sansSomme?: boolean;
 };
 
 const TIRET = <span className="text-muted-foreground">—</span>;
@@ -756,7 +759,7 @@ export default function DataGrid<T extends { id: string }>({
                       ) : (
                         <ChevronDown className="size-3 shrink-0 text-(--brand)" aria-hidden />
                       ))}
-                    <button
+                    {!c.sansSomme && (<button
                       type="button"
                       className={cn(
                         'shrink-0 rounded px-0.5 hover:bg-muted',
@@ -771,7 +774,7 @@ export default function DataGrid<T extends { id: string }>({
                       aria-pressed={sommes.has(c.nom)}
                     >
                       <Sigma className="size-2.75" aria-hidden />
-                    </button>
+                    </button>)}
                   </span>
                 </TableHead>
               );

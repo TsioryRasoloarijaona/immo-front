@@ -1,321 +1,404 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Download, FileDown, Plus, X } from 'lucide-react';
-import { Card } from '../../../components/ui';
-import { Button } from '../../../components/ui/button';
+import { Card, EmptyState, ErrorState, LoadingState } from '../../../components/ui';
+import { Button, buttonVariants } from '../../../components/ui/button';
 import { Field as FormField, FieldGroup, FieldLabel } from '../../../components/ui/field';
 import { Input } from '../../../components/ui/input';
-import SearchableSelect from '../../../components/SearchableSelect';
 import { formatCurrency, todayISO } from '../../../lib/format';
+import { useApi } from '../../../lib/useApi';
+import { creerOrdre, creerOrdreGroupe, lienPdfOrdre, listerBeneficiaires, listerSocietes } from '../../../lib/virements';
+import { cn } from '../../../lib/utils';
 import ApercuCourrier from './ApercuCourrier';
-import CadreVirements, { ChoixSimple } from './CadreVirements';
-import { useNotification } from './useNotification';
+import CadreVirements, { ChoixSimple, type ContexteCharge } from './CadreVirements';
+import { rafraichir } from './contexte';
+import { libelleChoixType, natureDuType, normaliser, pluriel } from './donnees';
 import OrdreDetailDialog from './OrdreDetailDialog';
-import {
-  LIBELLE_TYPE,
-  majVirements,
-  natureDuType,
-  nouvelId,
-  piecesVides,
-  prochainNumero,
-  useVirements,
-  type Ordre,
-  type TypeVirement,
-} from './donnees';
+import type { Beneficiaire, Ordre, TypeVirement } from './types';
+import { useNotification } from './useNotification';
 
 type Mode = 'seul' | 'groupe';
-type Ligne = { cle: string; beneficiaireId: string | null; montant: string };
+type Ligne = { cle: number; nom: string; montant: string };
 
-const TYPE_ITEMS = (Object.keys(LIBELLE_TYPE) as TypeVirement[]).map((t) => ({ value: t, label: LIBELLE_TYPE[t] }));
 const MODE_ITEMS: { value: Mode; label: string }[] = [
   { value: 'seul', label: 'Un seul bénéficiaire' },
   { value: 'groupe', label: 'Plusieurs bénéficiaires — virement groupé' },
 ];
 
-function ligneVide(): Ligne {
-  return { cle: nouvelId('l'), beneficiaireId: null, montant: '' };
+let compteurLignes = 0;
+const ligne = (nom = '', montant = ''): Ligne => ({ cle: ++compteurLignes, nom, montant });
+
+/** Montant saisi → nombre > 0, ou `null`. */
+function montantSaisi(v: string): number | null {
+  const n = Number(v.replace(',', '.'));
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-/** « Nouvel ordre » : le formulaire à gauche, le courrier à droite, mis à jour
- * à chaque frappe. La génération est simulée : l'ordre (ou un ordre par ligne
- * pour un virement groupé) entre dans l'historique, aucun PDF n'est produit. */
 export default function NouvelOrdre() {
-  const { societes, beneficiaires, ordres } = useVirements();
-  const [notification, notifier] = useNotification();
+  return <CadreVirements ecran="Nouvel ordre">{(ctx) => <Formulaire ctx={ctx} />}</CadreVirements>;
+}
 
-  const [societeId, setSocieteId] = useState(() => (societes.find((s) => s.parDefaut) ?? societes[0])?.id ?? '');
+/** « Nouvel ordre » (§4) : le formulaire à gauche, l'aperçu du courrier à
+ * droite, recalculé à chaque frappe. Générer = **un seul appel** ; le service
+ * construit et archive le PDF dans la même transaction que l'ordre. */
+function Formulaire({ ctx }: { ctx: ContexteCharge }) {
+  const { meta, revision } = ctx;
+  const navigate = useNavigate();
+  const toasts = useNotification();
+  const societesApi = useApi(listerSocietes, [revision]);
+  const beneficiairesApi = useApi(listerBeneficiaires, [revision]);
+
+  const [choixSociete, setChoixSociete] = useState<number | null>(null);
   const [type, setType] = useState<TypeVirement>('fournisseur');
   const [mode, setMode] = useState<Mode>('seul');
-  const [beneficiaireId, setBeneficiaireId] = useState<string | null>(null);
+  const [nom, setNom] = useState('');
   const [montant, setMontant] = useState('');
-  const [lignes, setLignes] = useState<Ligne[]>(() => [ligneVide(), ligneVide()]);
+  const [lignes, setLignes] = useState<Ligne[]>(() => [ligne(), ligne()]);
   const [date, setDate] = useState(todayISO());
   const [reference, setReference] = useState('');
   const [erreur, setErreur] = useState<string | null>(null);
-  const [generes, setGeneres] = useState<Ordre[] | null>(null);
-  const [ordreOuvert, setOrdreOuvert] = useState<string | null>(null);
+  const [lignesFautives, setLignesFautives] = useState<Set<number>>(new Set());
+  const [enCours, setEnCours] = useState(false);
+  const [genere, setGenere] = useState<{ ordres: Ordre[]; groupe: string | null } | null>(null);
+  const [ordreOuvert, setOrdreOuvert] = useState<number | null>(null);
 
-  const societe = societes.find((s) => s.id === societeId);
+  const societes = societesApi.data ?? [];
+  const beneficiaires = beneficiairesApi.data ?? [];
+  const societe =
+    societes.find((s) => s.id === choixSociete) ?? societes.find((s) => s.par_defaut) ?? societes[0];
+
+  // RIB : rempli quand le nom correspond exactement (casse ignorée) à un
+  // bénéficiaire connu, vidé sinon.
+  const parNom = useMemo(() => {
+    const m = new Map<string, Beneficiaire>();
+    for (const b of beneficiairesApi.data ?? []) m.set(b.nom.trim().toLowerCase(), b);
+    return m;
+  }, [beneficiairesApi.data]);
+  const ribDe = (n: string) => parNom.get(n.trim().toLowerCase())?.rib ?? '';
   const nature = natureDuType(type);
-  const options = useMemo(
-    () => beneficiaires.filter((b) => b.nature === nature).map((b) => ({ value: b.id, label: b.nom })),
-    [beneficiaires, nature],
-  );
-  const parId = (id: string | null) => beneficiaires.find((b) => b.id === id);
-  const choisi = parId(beneficiaireId);
+  const suggestions = beneficiaires.filter((b) => b.type === nature);
 
+  const typeItems = Object.keys(meta.types_virement).map((t) => ({ value: t as TypeVirement, label: libelleChoixType(meta, t) }));
+  const aReunir = (meta.dossiers[type] ?? [])
+    .filter((t) => t !== 'ordre_pdf')
+    .map((t) => (meta.types_pieces[t]?.libelle ?? t).toLowerCase())
+    .join(', ');
+
+  // Les lignes entièrement vides sont ignorées (§4.2), à l'envoi comme dans
+  // l'aperçu ; leur total n'est qu'un aperçu de saisie (exception R2).
+  const lignesRemplies = lignes.filter((l) => l.nom.trim() || l.montant.trim());
   const lignesCourrier =
     mode === 'seul'
-      ? [{ beneficiaire: choisi?.nom ?? '', rib: choisi?.rib ?? '', montant: Number(montant) || null }]
-      : lignes.map((l) => {
-          const b = parId(l.beneficiaireId);
-          return { beneficiaire: b?.nom ?? '', rib: b?.rib ?? '', montant: Number(l.montant) || null };
-        });
-  const total = lignesCourrier.reduce((s, l) => s + (l.montant ?? 0), 0);
+      ? [{ beneficiaire: nom, rib: ribDe(nom), montant: montantSaisi(montant) }]
+      : lignesRemplies.map((l) => ({ beneficiaire: l.nom, rib: ribDe(l.nom), montant: montantSaisi(l.montant) }));
+  const totalSaisi = lignesRemplies.reduce((s, l) => s + (montantSaisi(l.montant) ?? 0), 0);
 
-  function changerType(t: TypeVirement) {
-    // Un salarié n'a rien à faire dans un règlement fournisseur, et
-    // inversement : la sélection en cours est vidée plutôt que conservée
-    // hors de sa liste.
-    setType(t);
-    setBeneficiaireId(null);
-    setLignes((ls) => ls.map((l) => ({ ...l, beneficiaireId: null })));
+  function changerMode(m: Mode) {
+    if (m === mode) return;
+    // Passage en groupé : la 1re ligne reprend la saisie du mode seul.
+    if (m === 'groupe') setLignes([ligne(nom, montant), ligne()]);
+    else {
+      const premiere = lignes.find((l) => l.nom.trim() || l.montant.trim());
+      setNom(premiere?.nom ?? '');
+      setMontant(premiere?.montant ?? '');
+    }
+    setMode(m);
+    setErreur(null);
+    setLignesFautives(new Set());
   }
 
-  function majLigne(cle: string, patch: Partial<Ligne>) {
+  function majLigne(cle: number, patch: Partial<Ligne>) {
     setLignes((ls) => ls.map((l) => (l.cle === cle ? { ...l, ...patch } : l)));
   }
 
-  function generer(e: React.FormEvent) {
-    e.preventDefault();
-    setErreur(null);
-    const valides = lignesCourrier.filter((l) => l.beneficiaire && l.montant && l.montant > 0);
-    if (!societe) return setErreur('Choisissez une société émettrice.');
-    if (valides.length !== lignesCourrier.length || valides.length === 0) {
-      return setErreur('Chaque ligne doit avoir un bénéficiaire enregistré et un montant supérieur à zéro.');
+  /** Contrôles avant envoi (§4.2) — le serveur les refait. */
+  function controler(): string | null {
+    setLignesFautives(new Set());
+    if (!societe) return 'Aucune société émettrice : ajoutez-en une dans l\'écran « Sociétés ».';
+    if (mode === 'seul') {
+      if (!nom.trim() || !ribDe(nom) || !montantSaisi(montant) || !date) return 'Merci de remplir tous les champs obligatoires.';
+      return null;
     }
-    if (!date) return setErreur('La date est obligatoire.');
-
-    const groupe = valides.length > 1 ? `G-${nouvelId('').slice(-4).toUpperCase()}` : undefined;
-    const ids = mode === 'seul' ? [beneficiaireId] : lignes.map((l) => l.beneficiaireId);
-    const nouveaux: Ordre[] = valides.map((l, i) => ({
-      id: nouvelId('o'),
-      numero: prochainNumero(ordres, i),
-      date,
-      societeId: societe.id,
-      type,
-      beneficiaireId: ids[i] ?? '',
-      beneficiaire: l.beneficiaire,
-      rib: l.rib,
-      montant: l.montant ?? 0,
-      reference: reference.trim(),
-      statut: 'emis',
-      groupe,
-      pieces: piecesVides(type),
-      autresPieces: [],
-    }));
-    majVirements((s) => ({ ...s, ordres: [...nouveaux, ...s.ordres] }));
-    setGeneres(nouveaux);
-    notifier('Maquette : l\'ordre est ajouté à l\'historique, aucun PDF n\'est produit.');
+    if (!date) return 'Merci de remplir tous les champs obligatoires.';
+    if (lignesRemplies.length < 2) return 'Un virement groupé compte au moins deux bénéficiaires.';
+    const vus = new Set<string>();
+    for (const l of lignesRemplies) {
+      const n = lignes.indexOf(l) + 1;
+      if (!ribDe(l.nom)) {
+        setLignesFautives(new Set([l.cle]));
+        return `Ligne ${n} : « ${l.nom.trim() || '—'} » n'est pas un bénéficiaire enregistré. Ajoutez-le dans l'onglet « Bénéficiaires ».`;
+      }
+      if (!montantSaisi(l.montant)) {
+        setLignesFautives(new Set([l.cle]));
+        return `Ligne ${n} : le montant doit être supérieur à zéro.`;
+      }
+      const cle = normaliser(l.nom);
+      if (vus.has(cle)) {
+        setLignesFautives(new Set([l.cle]));
+        return `Ligne ${n} : « ${l.nom.trim()} » figure deux fois.`;
+      }
+      vus.add(cle);
+    }
+    return null;
   }
 
-  function recommencer() {
-    setGeneres(null);
-    setBeneficiaireId(null);
-    setMontant('');
-    setLignes([ligneVide(), ligneVide()]);
-    setReference('');
+  async function generer(e: React.FormEvent) {
+    e.preventDefault();
+    if (enCours) return;
+    const refus = controler();
+    setErreur(refus);
+    if (refus || !societe) return;
+    setEnCours(true);
+    try {
+      const entete = { date_virement: date, reference: reference.trim(), societe_id: societe.id, type_virement: type };
+      if (mode === 'seul') {
+        const o = await creerOrdre({ ...entete, fournisseur_nom: nom.trim(), rib: ribDe(nom), montant: montantSaisi(montant)! });
+        setGenere({ ordres: [o], groupe: null });
+      } else {
+        const r = await creerOrdreGroupe({
+          ...entete,
+          lignes: lignesRemplies.map((l) => ({ fournisseur_nom: l.nom.trim(), rib: ribDe(l.nom), montant: montantSaisi(l.montant)! })),
+        });
+        setGenere({ ordres: r.ordres, groupe: r.groupe });
+      }
+      // Le formulaire repart à vide ; société, type, date restent.
+      setNom('');
+      setMontant('');
+      setLignes([ligne(), ligne()]);
+      setReference('');
+      // Le serveur a pu créer un bénéficiaire ou mettre à jour un RIB.
+      rafraichir();
+    } catch (err) {
+      setErreur(err instanceof Error ? err.message : 'Erreur inconnue.');
+    } finally {
+      setEnCours(false);
+    }
   }
+
+  if (societesApi.error && !societesApi.data) return <ErrorState message={societesApi.error} />;
+  if (!societesApi.data) return <LoadingState />;
+  if (societes.length === 0) {
+    return <EmptyState title="Aucune société émettrice" message="Ajoutez la société émettrice des ordres dans l'écran « Sociétés »." />;
+  }
+
+  const premier = genere?.ordres[0];
+  const dernier = genere?.ordres[genere.ordres.length - 1];
 
   return (
-    <CadreVirements ecran="Nouvel ordre">
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(340px,440px)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-4">
-          <Card title="Détails du virement">
-            <form onSubmit={generer} autoComplete="off">
-              <FieldGroup>
-                {/* Masqué tant qu'il n'y a qu'une société : il n'apprendrait rien. */}
-                {societes.length > 1 && (
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(340px,460px)_minmax(0,1fr)]">
+      <div className="flex flex-col gap-4">
+        <Card title="Détails du virement">
+          <form onSubmit={generer} autoComplete="off" noValidate>
+            <datalist id="vo-suggestions">
+              {suggestions.map((b) => (
+                <option key={b.id} value={b.nom} />
+              ))}
+            </datalist>
+            <FieldGroup>
+              {/* Masqué tant qu'il n'y a qu'une société : il n'apprendrait rien. */}
+              {societes.length > 1 && societe && (
+                <FormField>
+                  <FieldLabel htmlFor="vo-societe">Société émettrice</FieldLabel>
+                  <ChoixSimple
+                    id="vo-societe"
+                    items={societes.map((s) => ({ value: String(s.id), label: s.nom }))}
+                    value={String(societe.id)}
+                    onChange={(v) => setChoixSociete(Number(v))}
+                  />
+                </FormField>
+              )}
+
+              <FormField>
+                <FieldLabel htmlFor="vo-type">Type de virement</FieldLabel>
+                <ChoixSimple id="vo-type" items={typeItems} value={type} onChange={setType} />
+                <p className="text-micro text-muted-foreground">
+                  Le courrier dira « {type === 'salaire' ? 'un virement de salaire' : 'un virement'} ». Dossier à réunir : {aReunir}.
+                </p>
+              </FormField>
+
+              <FormField>
+                <FieldLabel htmlFor="vo-mode">Bénéficiaires</FieldLabel>
+                <ChoixSimple id="vo-mode" items={MODE_ITEMS} value={mode} onChange={changerMode} />
+              </FormField>
+
+              {mode === 'seul' ? (
+                <>
                   <FormField>
-                    <FieldLabel htmlFor="vo-societe">Société émettrice</FieldLabel>
-                    <ChoixSimple
-                      id="vo-societe"
-                      items={societes.map((s) => ({ value: s.id, label: s.nom }))}
-                      value={societeId}
-                      onChange={setSocieteId}
+                    <FieldLabel htmlFor="vo-beneficiaire">{type === 'salaire' ? 'Bénéficiaire' : 'Fournisseur'}</FieldLabel>
+                    <Input
+                      id="vo-beneficiaire"
+                      list="vo-suggestions"
+                      value={nom}
+                      onChange={(e) => setNom(e.target.value)}
+                      placeholder={type === 'salaire' ? 'Nom du salarié' : 'Nom du fournisseur'}
+                      maxLength={200}
                     />
                   </FormField>
-                )}
-
-                <FormField>
-                  <FieldLabel htmlFor="vo-type">Type de virement</FieldLabel>
-                  <ChoixSimple id="vo-type" items={TYPE_ITEMS} value={type} onChange={changerType} />
-                  <p className="text-micro text-muted-foreground">Décide de la formulation du courrier et des pièces à réunir.</p>
-                </FormField>
-
-                <FormField>
-                  <FieldLabel htmlFor="vo-mode">Bénéficiaires</FieldLabel>
-                  <ChoixSimple id="vo-mode" items={MODE_ITEMS} value={mode} onChange={setMode} />
-                  {mode === 'groupe' && (
+                  <FormField>
+                    <FieldLabel htmlFor="vo-rib">RIB</FieldLabel>
+                    <Input id="vo-rib" value={ribDe(nom)} readOnly tabIndex={-1} placeholder="Rempli d'après le bénéficiaire" className="font-mono" />
                     <p className="text-micro text-muted-foreground">
-                      Un seul courrier à la banque, une ligne par bénéficiaire. Chacun garde son propre numéro d'ordre et son
-                      dossier de pièces.
+                      Nouveau bénéficiaire ? Ajoutez-le dans l'onglet «{' '}
+                      <Link to="/outils/virements/beneficiaires" className="text-primary underline-offset-2 hover:underline">
+                        Bénéficiaires
+                      </Link>{' '}
+                      ».
                     </p>
-                  )}
-                </FormField>
-
-                {mode === 'seul' ? (
-                  <>
-                    <FormField>
-                      <FieldLabel htmlFor="vo-beneficiaire">{type === 'salaire' ? 'Salarié' : 'Fournisseur'}</FieldLabel>
-                      <SearchableSelect
-                        id="vo-beneficiaire"
-                        items={options}
-                        value={beneficiaireId}
-                        onValueChange={setBeneficiaireId}
-                        placeholder={type === 'salaire' ? 'Rechercher un salarié…' : 'Rechercher un fournisseur…'}
-                        emptyMessage="Aucun bénéficiaire de ce nom."
-                      />
-                    </FormField>
-                    <FormField>
-                      <FieldLabel htmlFor="vo-rib">RIB</FieldLabel>
-                      <Input id="vo-rib" value={choisi?.rib ?? ''} readOnly placeholder="Sélectionnez un bénéficiaire" className="font-mono" />
-                      <p className="text-micro text-muted-foreground">
-                        Rempli d'après le bénéficiaire. Nouveau bénéficiaire ? Ajoutez-le dans{' '}
-                        <Link to="/outils/virements/beneficiaires" className="text-primary underline-offset-2 hover:underline">
-                          Bénéficiaires
-                        </Link>
-                        .
-                      </p>
-                    </FormField>
-                    <FormField>
-                      <FieldLabel htmlFor="vo-montant">Montant (DH)</FieldLabel>
+                  </FormField>
+                  <FormField>
+                    <FieldLabel htmlFor="vo-montant">Montant (DH)</FieldLabel>
+                    <Input
+                      id="vo-montant"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      value={montant}
+                      onChange={(e) => setMontant(e.target.value)}
+                    />
+                  </FormField>
+                </>
+              ) : (
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="mb-1 text-label font-medium text-foreground">Lignes du virement</legend>
+                  {lignes.map((l, i) => (
+                    <div
+                      key={l.cle}
+                      className={cn(
+                        'grid grid-cols-[minmax(0,1fr)_7rem_auto] items-start gap-1.5 rounded-md',
+                        lignesFautives.has(l.cle) && 'bg-destructive/10 ring-1 ring-destructive/40',
+                      )}
+                    >
+                      <div className="flex min-w-0 flex-col gap-0.5">
+                        <Input
+                          list="vo-suggestions"
+                          aria-label={`Bénéficiaire de la ligne ${i + 1}`}
+                          placeholder={`Bénéficiaire ${i + 1}`}
+                          value={l.nom}
+                          onChange={(e) => majLigne(l.cle, { nom: e.target.value })}
+                          maxLength={200}
+                        />
+                        <span className="truncate px-1 font-mono text-micro text-muted-foreground" title={ribDe(l.nom)}>
+                          {ribDe(l.nom) ? `RIB ${ribDe(l.nom)}` : l.nom.trim() ? 'Bénéficiaire non enregistré' : ' '}
+                        </span>
+                      </div>
                       <Input
-                        id="vo-montant"
                         type="number"
                         min="0"
                         step="0.01"
                         inputMode="decimal"
-                        placeholder="0,00"
-                        value={montant}
-                        onChange={(e) => setMontant(e.target.value)}
+                        placeholder="Montant"
+                        aria-label={`Montant de la ligne ${i + 1}`}
+                        value={l.montant}
+                        onChange={(e) => majLigne(l.cle, { montant: e.target.value })}
                       />
-                    </FormField>
-                  </>
-                ) : (
-                  <fieldset className="flex flex-col gap-2">
-                    <legend className="mb-1 text-label font-medium text-foreground">Lignes du virement</legend>
-                    {lignes.map((l, i) => (
-                      <div key={l.cle} className="grid grid-cols-[minmax(0,1fr)_7.5rem_auto] items-center gap-1.5">
-                        <SearchableSelect
-                          items={options}
-                          value={l.beneficiaireId}
-                          onValueChange={(v) => majLigne(l.cle, { beneficiaireId: v })}
-                          placeholder={`Bénéficiaire ${i + 1}`}
-                          emptyMessage="Aucun bénéficiaire de ce nom."
-                        />
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          inputMode="decimal"
-                          placeholder="Montant"
-                          aria-label={`Montant de la ligne ${i + 1}`}
-                          value={l.montant}
-                          onChange={(e) => majLigne(l.cle, { montant: e.target.value })}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={`Retirer la ligne ${i + 1}`}
-                          title="Retirer la ligne"
-                          disabled={lignes.length <= 2}
-                          onClick={() => setLignes((ls) => ls.filter((x) => x.cle !== l.cle))}
-                        >
-                          <X />
-                        </Button>
-                      </div>
-                    ))}
-                    <div className="flex items-center justify-between gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setLignes((ls) => [...ls, ligneVide()])}>
-                        <Plus data-icon="inline-start" /> Ajouter un bénéficiaire
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Retirer la ligne ${i + 1}`}
+                        title={lignes.length <= 2 ? 'Un virement groupé garde au moins deux lignes' : 'Retirer la ligne'}
+                        disabled={lignes.length <= 2}
+                        onClick={() => setLignes((ls) => ls.filter((x) => x.cle !== l.cle))}
+                      >
+                        <X />
                       </Button>
-                      <span className="text-body text-muted-foreground">
-                        Total <span className="font-semibold text-foreground">{formatCurrency(total)}</span>
-                      </span>
                     </div>
-                  </fieldset>
-                )}
-
-                <div className="grid grid-cols-2 gap-3">
-                  <FormField>
-                    <FieldLabel htmlFor="vo-date">Date</FieldLabel>
-                    <Input id="vo-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-                  </FormField>
-                  <FormField>
-                    <FieldLabel htmlFor="vo-reference">Référence (facultatif)</FieldLabel>
-                    <Input id="vo-reference" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Ex : Décompte n°7" />
-                  </FormField>
-                </div>
-              </FieldGroup>
-
-              {erreur && <p className="mt-3 text-body text-destructive">{erreur}</p>}
-
-              <Button type="submit" className="mt-4 w-full" disabled={generes !== null}>
-                <FileDown data-icon="inline-start" /> Générer le PDF
-              </Button>
-            </form>
-          </Card>
-
-          {generes && (
-            <Card accent="var(--success)">
-              <div className="flex flex-col gap-3">
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-(--success)" />
-                  <div className="text-body">
-                    <p className="font-medium text-foreground">
-                      {generes.length > 1
-                        ? `${generes.length} ordres enregistrés (${generes[0].numero} à ${generes[generes.length - 1].numero}).`
-                        : `Ordre ${generes[0].numero} enregistré dans l'historique.`}
-                    </p>
-                    <p className="text-muted-foreground">Il reste à y joindre les justificatifs.</p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {generes.map((o) => (
-                    <Button key={o.id} type="button" variant="outline" size="sm" onClick={() => setOrdreOuvert(o.id)}>
-                      Compléter le dossier{generes.length > 1 ? ` — ${o.beneficiaire}` : ''}
-                    </Button>
                   ))}
-                  <Button type="button" variant="ghost" size="sm" onClick={() => notifier('Maquette : aucun PDF archivé à retélécharger.')}>
-                    <Download data-icon="inline-start" /> Retélécharger le PDF
+                  <p className="text-body text-muted-foreground">
+                    {pluriel(lignesRemplies.length, 'bénéficiaire')} · total{' '}
+                    <span className="font-semibold text-foreground">{formatCurrency(totalSaisi)}</span>
+                  </p>
+                  <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => setLignes((ls) => [...ls, ligne()])}>
+                    <Plus data-icon="inline-start" /> Ajouter un bénéficiaire
                   </Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={recommencer}>
-                    Plus tard — nouvel ordre
-                  </Button>
+                </fieldset>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <FormField>
+                  <FieldLabel htmlFor="vo-date">Date</FieldLabel>
+                  <Input id="vo-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                </FormField>
+                <FormField>
+                  <FieldLabel htmlFor="vo-reference">Référence (facultatif)</FieldLabel>
+                  <Input id="vo-reference" value={reference} maxLength={200} onChange={(e) => setReference(e.target.value)} placeholder="Ex : Décompte n°7" />
+                </FormField>
+              </div>
+            </FieldGroup>
+
+            {erreur && (
+              <p role="alert" className="mt-3 text-body text-destructive">
+                {erreur}
+              </p>
+            )}
+
+            <Button type="submit" className="mt-4 w-full" disabled={enCours}>
+              <FileDown data-icon="inline-start" />
+              {enCours ? 'Enregistrement…' : mode === 'groupe' ? 'Générer le PDF groupé' : 'Générer le PDF'}
+            </Button>
+          </form>
+        </Card>
+
+        {genere && premier && dernier && (
+          <Card accent="var(--success)">
+            <div className="flex flex-col gap-3">
+              <div className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-(--success)" />
+                <div className="text-body">
+                  <p className="text-foreground">
+                    {genere.ordres.length > 1 ? (
+                      <>
+                        Ordres <strong className="font-mono">{premier.numero}</strong> à <strong className="font-mono">{dernier.numero}</strong> enregistrés
+                        dans l'historique.
+                      </>
+                    ) : (
+                      <>
+                        Ordre <strong className="font-mono">{premier.numero}</strong> enregistré dans l'historique.
+                      </>
+                    )}
+                  </p>
+                  <p className="text-muted-foreground">
+                    {premier.manquants.length === 0
+                      ? 'Le dossier est complet.'
+                      : `Il reste à y joindre ${premier.manquants.join(', ').toLowerCase()}${genere.ordres.length > 1 ? ' (à joindre à chacun)' : ''}.`}
+                  </p>
                 </div>
               </div>
-            </Card>
-          )}
-        </div>
-
-        <Card title="Aperçu du document">
-          <div className="flex justify-center rounded-lg bg-muted/60 p-4 sm:p-6">
-            <ApercuCourrier
-              societe={societe}
-              type={type}
-              lignes={lignesCourrier}
-              date={date}
-              reference={reference.trim()}
-              className="max-w-[620px]"
-            />
-          </div>
-        </Card>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    genere.groupe
+                      ? navigate(`/outils/virements/historique?groupe=${encodeURIComponent(genere.groupe)}`)
+                      : setOrdreOuvert(premier.id)
+                  }
+                >
+                  Compléter le dossier
+                </Button>
+                <a href={lienPdfOrdre(premier.id, true)} className={buttonVariants({ variant: 'ghost', size: 'sm' })}>
+                  <Download data-icon="inline-start" /> Télécharger le PDF
+                </a>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setGenere(null)}>
+                  Plus tard
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
       </div>
 
-      {ordreOuvert && <OrdreDetailDialog ordreId={ordreOuvert} onClose={() => setOrdreOuvert(null)} notifier={notifier} />}
-      {notification}
-    </CadreVirements>
+      <Card title="Aperçu du courrier">
+        <div className="flex justify-center rounded-lg bg-muted/60 p-4 sm:p-6">
+          <ApercuCourrier societe={societe} type={type} lignes={lignesCourrier} date={date} reference={reference.trim()} className="max-w-[620px]" />
+        </div>
+      </Card>
+
+      {ordreOuvert !== null && <OrdreDetailDialog ordreId={ordreOuvert} meta={meta} moi={ctx.moi} onClose={() => setOrdreOuvert(null)} toasts={toasts} />}
+      {toasts.noeud}
+    </div>
   );
 }

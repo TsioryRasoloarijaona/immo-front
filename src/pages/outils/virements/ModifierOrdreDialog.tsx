@@ -1,128 +1,221 @@
 import { useState } from 'react';
-import Modal from '../../../components/Modal';
 import { Button } from '../../../components/ui/button';
 import { DialogFooter } from '../../../components/ui/dialog';
 import { Field as FormField, FieldGroup, FieldLabel } from '../../../components/ui/field';
 import { Input } from '../../../components/ui/input';
-import SearchableSelect from '../../../components/SearchableSelect';
+import { Textarea } from '../../../components/ui/textarea';
+import { useApi } from '../../../lib/useApi';
+import { ErreurVirement, listerBeneficiaires, listerSocietes, modifierOrdre } from '../../../lib/virements';
 import { ChoixSimple } from './CadreVirements';
-import {
-  LIBELLE_TYPE,
-  STATUT_ITEMS,
-  majVirements,
-  natureDuType,
-  useVirements,
-  type Ordre,
-  type TypeVirement,
-} from './donnees';
+import { rafraichir } from './contexte';
+import { libelleChoixType, statutItems } from './donnees';
+import ModaleSaisie from './ModaleSaisie';
+import type { Meta, ModifierOrdre, Moi, Ordre, StatutOrdre, TypeVirement } from './types';
+import type { Notifications } from './useNotification';
 
-const TYPE_ITEMS = (Object.keys(LIBELLE_TYPE) as TypeVirement[]).map((t) => ({ value: t, label: LIBELLE_TYPE[t] }));
+type Brouillon = {
+  societe_id: string;
+  type_virement: TypeVirement;
+  fournisseur_nom: string;
+  rib: string;
+  montant: string;
+  date_virement: string;
+  reference: string;
+  statut: StatutOrdre;
+  note: string;
+};
 
-/** Modification d'un ordre déjà émis. Dans l'outil d'origine, le PDF archivé
- * est regénéré à l'enregistrement ; ici seul l'historique change. */
+/** Ce qu'un non-admin peut modifier sur un ordre émis (§8.1, §12). */
+const CHAMPS_UTILISATEUR: (keyof Brouillon)[] = ['statut', 'reference', 'note'];
+
+function depuis(o: Ordre): Brouillon {
+  return {
+    societe_id: o.societe_id != null ? String(o.societe_id) : '',
+    type_virement: o.type_virement,
+    fournisseur_nom: o.fournisseur_nom,
+    rib: o.rib,
+    montant: String(o.montant),
+    date_virement: o.date_virement,
+    reference: o.reference ?? '',
+    statut: o.statut,
+    note: o.note ?? '',
+  };
+}
+
+/** « Modifier OV-… » (§8.1). Un non-admin ne voit que statut, référence et
+ * note ; dans tous les cas, **seuls les champs changés** partent dans le
+ * `PATCH` — le service refait le PDF dès qu'un champ imprimé change. */
 export default function ModifierOrdreDialog({
   ordre,
+  meta,
+  moi,
   onClose,
-  notifier,
+  toasts,
 }: {
   ordre: Ordre;
+  meta: Meta;
+  moi: Moi;
   onClose: () => void;
-  notifier: (msg: string) => void;
+  toasts: Notifications;
 }) {
-  const { societes, beneficiaires } = useVirements();
-  const [brouillon, setBrouillon] = useState({ ...ordre, montant: String(ordre.montant) });
-  const options = beneficiaires
-    .filter((b) => b.nature === natureDuType(brouillon.type))
-    .map((b) => ({ value: b.id, label: b.nom }));
+  const admin = moi.admin;
+  const societesApi = useApi(() => (admin ? listerSocietes() : Promise.resolve([])), [admin]);
+  const beneficiairesApi = useApi(() => (admin ? listerBeneficiaires() : Promise.resolve([])), [admin]);
+  const initial = depuis(ordre);
+  const [b, setB] = useState<Brouillon>(initial);
+  const [erreur, setErreur] = useState<string | null>(null);
+  const [enCours, setEnCours] = useState(false);
+  const maj = (patch: Partial<Brouillon>) => setB((x) => ({ ...x, ...patch }));
 
-  function maj(patch: Partial<typeof brouillon>) {
-    setBrouillon((b) => ({ ...b, ...patch }));
+  // Un utilisateur rétrogradé en cours d'édition (403 → `/moi` relu) garde
+  // sa saisie, mais seuls les champs qu'il peut encore changer partent.
+  const changes = (Object.keys(initial) as (keyof Brouillon)[]).filter(
+    (k) => b[k] !== initial[k] && (admin || CHAMPS_UTILISATEUR.includes(k)),
+  );
+  const modifie = changes.length > 0;
+
+  const societes = societesApi.data ?? [];
+  const beneficiaires = beneficiairesApi.data ?? [];
+  // Une société supprimée depuis n'est plus dans la liste : on la garde en
+  // option pour ne pas afficher un choix vide.
+  const societeItems = [
+    ...societes.map((s) => ({ value: String(s.id), label: s.nom })),
+    ...(initial.societe_id && !societes.some((s) => String(s.id) === initial.societe_id)
+      ? [{ value: initial.societe_id, label: ordre.societe_nom ?? '—' }]
+      : []),
+  ];
+
+  function changerNom(nom: string) {
+    const connu = beneficiaires.find((x) => x.nom.trim().toLowerCase() === nom.trim().toLowerCase());
+    maj(connu ? { fournisseur_nom: nom, rib: connu.rib } : { fournisseur_nom: nom });
   }
 
-  function enregistrer(e: React.FormEvent) {
+  async function enregistrer(e: React.FormEvent) {
     e.preventDefault();
-    const montant = Number(brouillon.montant);
-    if (!brouillon.beneficiaire || !(montant > 0)) return;
-    majVirements((s) => ({
-      ...s,
-      ordres: s.ordres.map((o) => (o.id === ordre.id ? { ...brouillon, montant, reference: brouillon.reference.trim() } : o)),
-    }));
-    notifier(`Ordre ${ordre.numero} modifié. Maquette : aucun PDF n'est regénéré.`);
-    onClose();
+    if (enCours) return;
+    if (!modifie) {
+      toasts.notifier('Aucune modification à enregistrer.', 'avertissement');
+      return;
+    }
+    const corps: ModifierOrdre = {};
+    for (const k of changes) {
+      if (k === 'montant') {
+        const n = Number(b.montant.replace(',', '.'));
+        if (!Number.isFinite(n) || n <= 0) return setErreur('Le montant doit être supérieur à zéro.');
+        corps.montant = n;
+      } else if (k === 'societe_id') corps.societe_id = Number(b.societe_id);
+      else if (k === 'statut') corps.statut = b.statut;
+      else if (k === 'type_virement') corps.type_virement = b.type_virement;
+      else corps[k] = b[k].trim();
+    }
+    setErreur(null);
+    setEnCours(true);
+    try {
+      const o = await modifierOrdre(ordre.id, corps);
+      rafraichir();
+      toasts.notifier(`Ordre ${o.numero} modifié avec succès.`);
+      onClose();
+    } catch (err) {
+      // 400 près du formulaire (§1) ; un 403 se signale aussi en toast.
+      setErreur(err instanceof Error ? err.message : 'Erreur inconnue.');
+      if (err instanceof ErreurVirement && err.status === 403) toasts.notifierErreur(err);
+    } finally {
+      setEnCours(false);
+    }
   }
+
+  const sousTitre = ordre.groupe
+    ? `Ordre du virement groupé ${ordre.groupe} : société, type, date et référence s'appliquent à tout le groupe, et le PDF commun sera regénéré.`
+    : 'Le PDF archivé sera regénéré avec les nouvelles valeurs.';
 
   return (
-    <Modal title={`Modifier l'ordre ${ordre.numero}`} onClose={onClose} width={600}>
-      <p className="-mt-2 mb-3 text-body text-muted-foreground">Le PDF archivé sera regénéré avec les nouvelles valeurs.</p>
-      <form onSubmit={enregistrer}>
-        <FieldGroup>
-          <div className="grid gap-3 sm:grid-cols-2">
+    <ModaleSaisie titre={`Modifier ${ordre.numero}`} modifie={modifie} onClose={onClose} width={620}>
+      {(fermer) => (
+        <form onSubmit={enregistrer} autoComplete="off" noValidate>
+          <p className="-mt-2 mb-3 text-body text-muted-foreground">
+            {admin ? sousTitre : 'Seuls le statut, la référence et la note se modifient ici ; le reste est réservé aux administrateurs.'}
+          </p>
+          <FieldGroup>
+            {admin && (
+              <>
+                <datalist id="mo-suggestions">
+                  {beneficiaires.map((x) => (
+                    <option key={x.id} value={x.nom} />
+                  ))}
+                </datalist>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <FormField>
+                    <FieldLabel htmlFor="mo-societe">Société émettrice</FieldLabel>
+                    <ChoixSimple id="mo-societe" items={societeItems} value={b.societe_id} onChange={(v) => maj({ societe_id: v })} />
+                  </FormField>
+                  <FormField>
+                    <FieldLabel htmlFor="mo-type">Type de virement</FieldLabel>
+                    <ChoixSimple
+                      id="mo-type"
+                      items={Object.keys(meta.types_virement).map((t) => ({ value: t as TypeVirement, label: libelleChoixType(meta, t) }))}
+                      value={b.type_virement}
+                      onChange={(v) => maj({ type_virement: v })}
+                    />
+                  </FormField>
+                </div>
+                <FormField>
+                  <FieldLabel htmlFor="mo-beneficiaire">Bénéficiaire</FieldLabel>
+                  <Input id="mo-beneficiaire" list="mo-suggestions" value={b.fournisseur_nom} maxLength={200} onChange={(e) => changerNom(e.target.value)} />
+                </FormField>
+                <FormField>
+                  <FieldLabel htmlFor="mo-rib">RIB</FieldLabel>
+                  <Input id="mo-rib" className="font-mono" value={b.rib} maxLength={60} onChange={(e) => maj({ rib: e.target.value })} />
+                </FormField>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <FormField>
+                    <FieldLabel htmlFor="mo-montant">Montant (DH)</FieldLabel>
+                    <Input
+                      id="mo-montant"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={b.montant}
+                      onChange={(e) => maj({ montant: e.target.value })}
+                    />
+                  </FormField>
+                  <FormField>
+                    <FieldLabel htmlFor="mo-date">Date</FieldLabel>
+                    <Input id="mo-date" type="date" value={b.date_virement} onChange={(e) => maj({ date_virement: e.target.value })} />
+                  </FormField>
+                </div>
+              </>
+            )}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <FormField>
+                <FieldLabel htmlFor="mo-reference">Référence (facultatif)</FieldLabel>
+                <Input id="mo-reference" value={b.reference} maxLength={200} onChange={(e) => maj({ reference: e.target.value })} />
+              </FormField>
+              <FormField>
+                <FieldLabel htmlFor="mo-statut">Statut</FieldLabel>
+                <ChoixSimple id="mo-statut" items={statutItems(meta)} value={b.statut} onChange={(v) => maj({ statut: v })} />
+              </FormField>
+            </div>
             <FormField>
-              <FieldLabel htmlFor="mo-societe">Société émettrice</FieldLabel>
-              <ChoixSimple
-                id="mo-societe"
-                items={societes.map((s) => ({ value: s.id, label: s.nom }))}
-                value={brouillon.societeId}
-                onChange={(v) => maj({ societeId: v })}
-              />
+              <FieldLabel htmlFor="mo-note">Note (facultatif)</FieldLabel>
+              <Textarea id="mo-note" rows={2} maxLength={2000} value={b.note} onChange={(e) => maj({ note: e.target.value })} />
             </FormField>
-            <FormField>
-              <FieldLabel htmlFor="mo-type">Type de virement</FieldLabel>
-              <ChoixSimple id="mo-type" items={TYPE_ITEMS} value={brouillon.type} onChange={(v) => maj({ type: v })} />
-            </FormField>
-          </div>
-          <FormField>
-            <FieldLabel htmlFor="mo-beneficiaire">Bénéficiaire</FieldLabel>
-            <SearchableSelect
-              id="mo-beneficiaire"
-              items={options}
-              value={brouillon.beneficiaireId || null}
-              onValueChange={(v) => {
-                const b = beneficiaires.find((x) => x.id === v);
-                maj({ beneficiaireId: v ?? '', beneficiaire: b?.nom ?? '', rib: b?.rib ?? '' });
-              }}
-              placeholder={brouillon.beneficiaire || 'Rechercher un bénéficiaire…'}
-            />
-          </FormField>
-          <FormField>
-            <FieldLabel htmlFor="mo-rib">RIB</FieldLabel>
-            <Input id="mo-rib" className="font-mono" value={brouillon.rib} onChange={(e) => maj({ rib: e.target.value })} required />
-          </FormField>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FormField>
-              <FieldLabel htmlFor="mo-montant">Montant (DH)</FieldLabel>
-              <Input
-                id="mo-montant"
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-                value={brouillon.montant}
-                onChange={(e) => maj({ montant: e.target.value })}
-                required
-              />
-            </FormField>
-            <FormField>
-              <FieldLabel htmlFor="mo-date">Date</FieldLabel>
-              <Input id="mo-date" type="date" value={brouillon.date} onChange={(e) => maj({ date: e.target.value })} required />
-            </FormField>
-            <FormField>
-              <FieldLabel htmlFor="mo-reference">Référence (facultatif)</FieldLabel>
-              <Input id="mo-reference" value={brouillon.reference} onChange={(e) => maj({ reference: e.target.value })} />
-            </FormField>
-            <FormField>
-              <FieldLabel htmlFor="mo-statut">Statut</FieldLabel>
-              <ChoixSimple id="mo-statut" items={STATUT_ITEMS} value={brouillon.statut} onChange={(v) => maj({ statut: v })} />
-            </FormField>
-          </div>
-        </FieldGroup>
-        <DialogFooter className="mt-5">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button type="submit">Enregistrer et regénérer</Button>
-        </DialogFooter>
-      </form>
-    </Modal>
+          </FieldGroup>
+          {erreur && (
+            <p role="alert" className="mt-3 text-body text-destructive">
+              {erreur}
+            </p>
+          )}
+          <DialogFooter className="mt-5">
+            <Button type="button" variant="outline" onClick={fermer}>
+              Annuler
+            </Button>
+            <Button type="submit" disabled={enCours}>
+              {enCours ? 'Enregistrement…' : 'Enregistrer'}
+            </Button>
+          </DialogFooter>
+        </form>
+      )}
+    </ModaleSaisie>
   );
 }

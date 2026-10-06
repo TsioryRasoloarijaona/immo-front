@@ -6,6 +6,8 @@ _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\a
 
 ## 🎯 Current Objective
 
+**06/10 — `feat/virements-api`** : module Outils › Virements branché sur le service `generateur-virement` (client `src/lib/virements.ts`, base `/svc/virement` en dev via proxy Vite + en-têtes simulés `VIREMENT_DEV_ROLES`/`VIREMENT_DEV_USER`, `${API_BASE_URL}/svc/virement` en prod). Droits = `GET /moi`.admin. Nouvel écran Journal (admin). `donnees.ts` n'est plus une maquette. Spec : `docs/FEATURE-virements-api.md`.
+
 **06/10 — `feat/dashboard-filtre-tranche`** (PR à fusionner) : liste « Tranche » sur le Dashboard, admin seulement (`?tranche=` dans l'URL, ignoré pour un commercial), propagée à tous les appels du tableau de bord et aux dialogues « Voir tout ». `feat/module-outils` fusionnée (#74).
 
 **Petites features front à la demande, une PR par lot**, dans la boucle
