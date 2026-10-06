@@ -1,10 +1,12 @@
 # Session Memory
-_Last updated: 2026-10-06 (session du 06/10 : module Outils — générateur d'ordres de virement en maquette statique)_
+_Last updated: 2026-10-06_
 _Project: crm-prototype (Arpent — CRM immobilier), C:\Users\tsiory\Documents\ayad-internship\prototype\crm-prototype_
 
 ---
 
 ## 🎯 Current Objective
+
+**06/10 — `feat/dashboard-filtre-tranche`** (PR à fusionner) : liste « Tranche » sur le Dashboard, admin seulement (`?tranche=` dans l'URL, ignoré pour un commercial), propagée à tous les appels du tableau de bord et aux dialogues « Voir tout ». `feat/module-outils` fusionnée (#74).
 
 **Petites features front à la demande, une PR par lot**, dans la boucle
 habituelle : demande → (diff spec contre HEAD si le back a bougé) →
