@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { Bot, Building2, Calendar, Contact, FileText, Folder, Gauge, Home, KeyRound, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
+import { BookUser, Bot, Building2, Calendar, Contact, FilePlus2, FileText, Folder, Gauge, History, Home, KeyRound, Landmark, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -32,7 +32,7 @@ export default function Layout({ children }: { children: ReactNode }) {
   // module-scoped sidebar (one section shown at a time, driven by the
   // current route) plus the module switcher in the header.
   const isCommercial = user?.roles?.includes('Commercial') ?? false;
-  const activeSoonModule = activeModule && activeModule !== 'vente' && activeModule !== 'patrimoine' && activeModule !== 'administration'
+  const activeSoonModule = activeModule && activeModule !== 'vente' && activeModule !== 'patrimoine' && activeModule !== 'administration' && activeModule !== 'outils'
     ? APP_MODULES.find((m) => m.slug === activeModule)
     : undefined;
 
@@ -320,6 +320,66 @@ export default function Layout({ children }: { children: ReactNode }) {
                   >
                     <Bot />
                     Clés d'API
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+          )}
+
+          {/* Outils — réservé à l'administrateur, comme Administration. Pour
+              l'instant le seul outil est le générateur d'ordres de virement,
+              repris de l'application autonome en maquette statique. */}
+          {activeModule === 'outils' && !isAdmin && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Outils</SidebarGroupLabel>
+              <p className="px-2 text-xs leading-relaxed text-muted-foreground group-data-[collapsible=icon]:hidden">
+                Ce module est réservé aux comptes ayant le rôle Administrateur.
+              </p>
+            </SidebarGroup>
+          )}
+
+          {activeModule === 'outils' && isAdmin && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Ordres de virement</SidebarGroupLabel>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/outils/virements/nouveau" />}
+                    isActive={location.pathname.startsWith('/outils/virements/nouveau')}
+                    tooltip="Nouvel ordre"
+                  >
+                    <FilePlus2 />
+                    Nouvel ordre
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/outils/virements/historique" />}
+                    isActive={location.pathname.startsWith('/outils/virements/historique')}
+                    tooltip="Historique"
+                  >
+                    <History />
+                    Historique
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/outils/virements/beneficiaires" />}
+                    isActive={location.pathname.startsWith('/outils/virements/beneficiaires')}
+                    tooltip="Bénéficiaires"
+                  >
+                    <BookUser />
+                    Bénéficiaires
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/outils/virements/societes" />}
+                    isActive={location.pathname.startsWith('/outils/virements/societes')}
+                    tooltip="Sociétés émettrices"
+                  >
+                    <Landmark />
+                    Sociétés
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

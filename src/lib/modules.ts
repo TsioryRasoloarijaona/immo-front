@@ -3,6 +3,7 @@ import {
   Building2,
   Calculator,
   Folder,
+  Hammer,
   Key,
   Landmark,
   Settings,
@@ -20,6 +21,8 @@ export interface AppModule {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   active: boolean;
   path?: string;
+  /** Masqué du sélecteur de modules pour tout autre rôle qu'Administrateur. */
+  adminOnly?: boolean;
 }
 
 /** Which module a given route belongs to, purely from the URL — the single
@@ -53,6 +56,11 @@ export function moduleForPath(pathname: string): string | null {
   if (pathname.startsWith('/utilisateurs') || pathname.startsWith('/cles-api')) {
     return 'administration';
   }
+  // Outils : utilitaires internes réservés à l'administrateur, à commencer
+  // par le générateur d'ordres de virement (ex-outil autonome).
+  if (pathname.startsWith('/outils')) {
+    return 'outils';
+  }
   if (pathname.startsWith('/bientot/')) {
     return pathname.split('/')[2] ?? null;
   }
@@ -69,4 +77,5 @@ export const APP_MODULES: AppModule[] = [
   { slug: 'tresorerie', label: 'Trésorerie', icon: Landmark, active: false },
   { slug: 'comptabilite', label: 'Comptabilité', icon: Calculator, active: false },
   { slug: 'administration', label: 'Administration', icon: Settings, active: true, path: '/utilisateurs/nouveau' },
+  { slug: 'outils', label: 'Outils', icon: Hammer, active: true, path: '/outils/virements/nouveau', adminOnly: true },
 ];

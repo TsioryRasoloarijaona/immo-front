@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import RouteErrorBoundary from './components/RouteErrorBoundary';
 import { ConfirmProvider } from './components/ConfirmModal';
@@ -48,6 +48,10 @@ const TranchesList = lazy(() => import('./pages/tranches/TranchesList'));
 const TrancheDetail = lazy(() => import('./pages/tranches/TrancheDetail'));
 const ArticlesList = lazy(() => import('./pages/articles/ArticlesList'));
 const ArticleDetail = lazy(() => import('./pages/articles/ArticleDetail'));
+const NouvelOrdre = lazy(() => import('./pages/outils/virements/NouvelOrdre'));
+const HistoriqueVirements = lazy(() => import('./pages/outils/virements/HistoriqueVirements'));
+const BeneficiairesVirement = lazy(() => import('./pages/outils/virements/Beneficiaires'));
+const SocietesVirement = lazy(() => import('./pages/outils/virements/Societes'));
 const ComingSoon = lazy(() => import('./pages/ComingSoon'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -111,6 +115,13 @@ function AuthenticatedApp() {
                   <Route path="/tranches/:id" element={<TrancheDetail />} />
                   <Route path="/articles" element={<ArticlesList />} />
                   <Route path="/articles/:id" element={<ArticleDetail />} />
+                  {/* Module Outils (admin) — générateur d'ordres de virement, maquette statique. */}
+                  <Route path="/outils" element={<Navigate to="/outils/virements/nouveau" replace />} />
+                  <Route path="/outils/virements" element={<Navigate to="/outils/virements/nouveau" replace />} />
+                  <Route path="/outils/virements/nouveau" element={<NouvelOrdre />} />
+                  <Route path="/outils/virements/historique" element={<HistoriqueVirements />} />
+                  <Route path="/outils/virements/beneficiaires" element={<BeneficiairesVirement />} />
+                  <Route path="/outils/virements/societes" element={<SocietesVirement />} />
                   <Route path="/bientot/:module" element={<ComingSoon />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>

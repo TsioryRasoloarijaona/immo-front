@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { APP_MODULES, type AppModule } from '../lib/modules';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { cn } from '../lib/utils';
+import { useAuth } from '../lib/auth';
 
 // ERPNext/Odoo-style app launcher: full-screen overlay, grid of module cards.
 // Vente/Patrimoine are real; the rest are visibly "Bientôt" and route to a
@@ -9,6 +10,11 @@ import { cn } from '../lib/utils';
 // instructions/FIX-clients-and-module-switcher.md.
 export default function ModuleSwitcher({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('Administrateur') ?? false;
+  // Un module réservé n'apparaît pas du tout pour les autres rôles : une
+  // tuile qui mène à « Accès réservé » ne leur apprendrait rien.
+  const modules = APP_MODULES.filter((m) => !m.adminOnly || isAdmin);
 
   function handleSelect(mod: AppModule) {
     onClose();
@@ -22,7 +28,7 @@ export default function ModuleSwitcher({ onClose }: { onClose: () => void }) {
           <DialogTitle className="text-xl">Modules</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3.5">
-          {APP_MODULES.map((mod) => {
+          {modules.map((mod) => {
             const Icon = mod.icon;
             return (
               <button
