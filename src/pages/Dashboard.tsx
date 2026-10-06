@@ -1,7 +1,9 @@
-import { Children, useState, type ReactNode } from 'react';
-import { AlertCircle, AlertTriangle, ChevronRight, Folder, PhoneCall, UserCheck, UserPlus, Users } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Children, useMemo, useState, type ReactNode } from 'react';
+import { AlertCircle, AlertTriangle, ChevronRight, Folder, PhoneCall, UserCheck, UserPlus, Users, X } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
 import PageShell from '../components/PageShell';
+import RefSelect from '../components/RefSelect';
+import { useAuth } from '../lib/auth';
 import SyntheseAnnuelle from '../components/SyntheseAnnuelle';
 import { Badge, Card, ErrorState, LoadingState } from '../components/ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
@@ -11,6 +13,7 @@ import ListeRelancesDialog from '../components/dashboard/ListeRelancesDialog';
 import { usePreview } from '../lib/previewContext';
 import {
   getDashboard,
+  getTranchesReferentiel,
   listClients,
   listDossiers,
   listPreProspections,
@@ -21,7 +24,7 @@ import {
 import { useApi } from '../lib/useApi';
 import { formatCurrency, formatDate, formatTelephone } from '../lib/format';
 import { canonicalStatusLabel, estStatutSortie, toneForStatus } from '../lib/dossierStatus';
-import type { PorteeRelance, RelanceProspectionDto } from '../types';
+import type { PorteeRelance, ReferentielItemDto, RelanceProspectionDto, UUID } from '../types';
 import { etapeBadgeTone, prospectionDisplayName, PIPELINE_STAGES } from '../lib/domain';
 
 /* ---------------------------------------------------------------------------
@@ -78,6 +81,17 @@ const A_TRAITER_ETAPES = [PIPELINE_STAGES[0], 'A RAPPELER PAR LE COMMERCIAL', 'A
    filtre d'étape perdu en route. */
 const FILTRES_OUVERTES: ProspectionFilterParams = { ouvertes: true };
 const FILTRES_A_TRAITER: ProspectionFilterParams = { ouvertes: true, etape: A_TRAITER_ETAPES };
+
+/** Ajoute la tranche choisie (administrateur) à des filtres de couloir —
+ * absente, les filtres restent ceux d'avant, mot pour mot. */
+function avecTranche(filtres: ProspectionFilterParams, trancheId: UUID | undefined): ProspectionFilterParams {
+  return trancheId ? { ...filtres, trancheId: [trancheId] } : filtres;
+}
+
+/** Libellé d'une tranche dans le filtre : code + libellé. */
+function libelleTranche(t: ReferentielItemDto): string {
+  return [t.code, t.description].filter(Boolean).join(' — ') || t.id;
+}
 
 /** La liste complète ouverte en dialogue, s'il y en a une. */
 type ListeOuverte = 'relances-jour' | 'relances-retard' | 'pre-prospections' | 'a-traiter' | 'prospections';
@@ -373,7 +387,38 @@ function KanbanItemRow({ onClick, to, children }: { onClick?: () => void; to?: s
 }
 
 export default function Dashboard() {
-  const { data: dashboard, loading, error } = useApi(() => getDashboard(), []);
+  /* Filtre par tranche — FEATURE-dashboard-filtre-tranche. Réservé à
+     l'administrateur (même règle que Layout.tsx) ; le backend répond 403 à
+     tout autre rôle qui enverrait `trancheId`, donc pour un non-admin **aucun**
+     `trancheId` ne part, et un `?tranche=` présent dans l'URL est ignoré. Le
+     choix vit dans l'URL pour survivre au rechargement. */
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('Administrateur') ?? false;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const trancheId: UUID | undefined = isAdmin ? searchParams.get('tranche') || undefined : undefined;
+  const choisirTranche = (id: UUID | null) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (id) next.set('tranche', id);
+        else next.delete('tranche');
+        return next;
+      },
+      { replace: true },
+    );
+  };
+  const tranches = useApi(
+    () => (isAdmin ? getTranchesReferentiel() : Promise.resolve([] as ReferentielItemDto[])),
+    [isAdmin],
+  );
+  const trancheActive = trancheId ? tranches.data?.find((t) => t.id === trancheId) : undefined;
+
+  /* Les filtres des couloirs, tranche comprise — partagés avec les dialogues
+     « Voir tout » pour que la liste complète compte ce que le couloir annonce. */
+  const filtresOuvertes = useMemo(() => avecTranche(FILTRES_OUVERTES, trancheId), [trancheId]);
+  const filtresATraiter = useMemo(() => avecTranche(FILTRES_A_TRAITER, trancheId), [trancheId]);
+
+  const { data: dashboard, loading, error } = useApi(() => getDashboard({ trancheId }), [trancheId]);
   /* `sort` explicite : sans lui le serveur rend un ordre non déterministe —
      le défaut déjà payé sur la pagination des listes. Les premières lignes de
      chaque couloir sont ce que « récent » veut dire sur cet écran.
@@ -385,26 +430,26 @@ export default function Dashboard() {
      dates égales dépend du plan SQL du moment. */
   const TRI_PROSPECTIONS = ['docDate,desc', 'id,asc'];
   const { data: prospectionsPage, error: prospectionsErreur } = useApi(
-    () => listProspections(FILTRES_OUVERTES, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
-    [],
+    () => listProspections(filtresOuvertes, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
+    [trancheId],
   );
   /* 7 et non `LIGNES_COULOIR` : la même page alimente aussi « Dossiers
      récents », qui rend tout ce qu'elle reçoit. */
   const { data: dossiersPage, error: dossiersErreur } = useApi(
-    () => listDossiers(undefined, { size: 7, sort: ['docDate,desc'] }),
-    [],
+    () => listDossiers(trancheId ? { trancheId: [trancheId] } : undefined, { size: 7, sort: ['docDate,desc'] }),
+    [trancheId],
   );
   const { data: aTraiterPage, error: aTraiterErreur } = useApi(
-    () => listProspections(FILTRES_A_TRAITER, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
-    [],
+    () => listProspections(filtresATraiter, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
+    [trancheId],
   );
   const { data: preProspectionsPage, error: preProspectionsErreur } = useApi(
-    () => listPreProspections(FILTRES_OUVERTES, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
-    [],
+    () => listPreProspections(filtresOuvertes, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
+    [trancheId],
   );
   const { data: clientsPage, error: clientsErreur } = useApi(
-    () => listClients(undefined, { size: LIGNES_COULOIR, sort: ['code,desc'] }),
-    [],
+    () => listClients(trancheId ? { trancheId } : undefined, { size: LIGNES_COULOIR, sort: ['code,desc'] }),
+    [trancheId],
   );
 
   /* `MOI` est le défaut du serveur et le bon défaut métier — un commercial
@@ -413,12 +458,12 @@ export default function Dashboard() {
      2 relances en propre pour 75 côté équipe. */
   const [portee, setPortee] = useState<PorteeRelance>('MOI');
   const relancesJour = useApi(
-    () => listRelancesDashboard({ echeance: 'AUJOURDHUI', portee }, { size: TAILLE_FILE }),
-    [portee],
+    () => listRelancesDashboard({ echeance: 'AUJOURDHUI', portee, trancheId }, { size: TAILLE_FILE }),
+    [portee, trancheId],
   );
   const relancesRetard = useApi(
-    () => listRelancesDashboard({ echeance: 'RETARD', portee }, { size: TAILLE_FILE }),
-    [portee],
+    () => listRelancesDashboard({ echeance: 'RETARD', portee, trancheId }, { size: TAILLE_FILE }),
+    [portee, trancheId],
   );
 
   const { previewDossier } = usePreview();
@@ -431,8 +476,45 @@ export default function Dashboard() {
   const [liste, setListe] = useState<ListeOuverte | null>(null);
   const [fiche, setFiche] = useState<FicheOuverte | null>(null);
 
-  if (loading) return <PageShell title="Dashboard"><LoadingState /></PageShell>;
-  if (error) return <PageShell title="Dashboard"><ErrorState message={error} /></PageShell>;
+  /* Contrôle de tranche dans l'en-tête — rendu pour l'administrateur seul.
+     Le rappel « Tranche : <code> » et son bouton de retour n'apparaissent que
+     quand une tranche est active. Rendu aussi sur les états chargement /
+     erreur : une tranche qui échoue doit rester réversible. */
+  const filtreTranche = isAdmin ? (
+    <div className="flex flex-wrap items-center gap-2">
+      {trancheId && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-(--sec-accent-bg) py-0.5 pr-1 pl-2.5 text-micro font-medium text-(--sec-accent)">
+          Tranche : {trancheActive?.code || trancheActive?.description || '…'}
+          <button
+            type="button"
+            onClick={() => choisirTranche(null)}
+            className="rounded-full p-0.5 hover:bg-background/60"
+            aria-label="Revenir à toutes les tranches"
+            title="Toutes les tranches"
+          >
+            <X className="size-3" />
+          </button>
+        </span>
+      )}
+      <div className="w-64 max-w-full">
+        <RefSelect
+          id="dashboard-tranche"
+          label="Tranche"
+          size="sm"
+          placeholder="Toutes les tranches"
+          value={trancheId ?? null}
+          onChange={choisirTranche}
+          items={(tranches.data ?? []).map((t) => ({ label: libelleTranche(t), value: t.id }))}
+        />
+      </div>
+    </div>
+  ) : undefined;
+
+  /* Premier chargement seulement : au changement de tranche, `useApi` garde
+     les données précédentes pendant le rechargement — la mise en page reste,
+     atténuée, au lieu de repasser par un écran blanc. */
+  if (loading && !dashboard) return <PageShell title="Dashboard" actions={filtreTranche}><LoadingState /></PageShell>;
+  if (error) return <PageShell title="Dashboard" actions={filtreTranche}><ErrorState message={error} /></PageShell>;
   if (!dashboard) return null;
 
   const statusCounts = dashboard.dossiersParEtape ?? [];
@@ -448,14 +530,17 @@ export default function Dashboard() {
   const dossiersTotal = statusCounts.reduce((s, c) => s + (c.nombre ?? 0), 0);
 
   return (
-    <PageShell title="Dashboard" crumbs={[{ label: 'Portefeuille' }]} fullHeight>
+    <PageShell title="Dashboard" crumbs={[{ label: 'Portefeuille' }]} actions={filtreTranche} fullHeight>
       {/* Un seul viewport : la colonne racine est bornée par `fullHeight` et
           ne défile qu'en dégradé (petit écran) — au format nominal tout tient.
           L'ordre de lecture porte la priorité : la file de travail est en
           haut-gauche, seule zone où vit le rouge ; les chiffres d'argent en
           bande KPI ; l'état du pipeline au centre ; le contexte annuel et les
           derniers dossiers en pied. */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-1">
+      <div
+        className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-1 transition-opacity ${loading ? 'opacity-60' : ''}`}
+        aria-busy={loading}
+      >
         {/* Bande KPI segmentée (référence Uxerflow) : UNE carte, quatre
             sections séparées par un filet — pas quatre cartes. Le chiffre
             porte la hiérarchie, pas une icône colorée. */}
@@ -658,7 +743,7 @@ export default function Dashboard() {
                 ----------------------------------------------------------- */}
             <div className="flex shrink-0 flex-col gap-3 min-[1500px]:flex-row">
               <div className="min-w-0 min-[1500px]:flex-[13]">
-                <SyntheseAnnuelle />
+                <SyntheseAnnuelle trancheId={trancheId} />
               </div>
 
               <Card
@@ -731,7 +816,7 @@ export default function Dashboard() {
         <ListeProspectionsDialog
           titre="Pré-prospections ouvertes"
           pre
-          filtres={FILTRES_OUVERTES}
+          filtres={filtresOuvertes}
           onClose={() => setListe(null)}
         />
       )}
@@ -739,7 +824,7 @@ export default function Dashboard() {
         <ListeProspectionsDialog
           titre="Prospections à traiter"
           pre={false}
-          filtres={FILTRES_A_TRAITER}
+          filtres={filtresATraiter}
           onClose={() => setListe(null)}
         />
       )}
@@ -747,7 +832,7 @@ export default function Dashboard() {
         <ListeProspectionsDialog
           titre="Prospections ouvertes"
           pre={false}
-          filtres={FILTRES_OUVERTES}
+          filtres={filtresOuvertes}
           onClose={() => setListe(null)}
         />
       )}

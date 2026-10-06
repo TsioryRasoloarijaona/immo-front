@@ -456,7 +456,9 @@ export function getProspect(id: UUID): Promise<ProspectDetailDto> {
 // "Clients" (V4) — anyone who's the clientId of at least one dossier, with
 // server-aggregated totals. Distinct controller from /api/prospects, but
 // /api/clients/{id} returns the same ProspectDetailDto shape.
-export function listClients(params?: { search?: string }, pageable?: Pageable): Promise<PageDto<ClientListItemDto>> {
+/** `trancheId` : clients ayant au moins un dossier dans cette tranche — **réservé
+ * aux administrateurs, 403 sinon** (FEATURE-dashboard-filtre-tranche). */
+export function listClients(params?: { search?: string; trancheId?: UUID }, pageable?: Pageable): Promise<PageDto<ClientListItemDto>> {
   return request('GET', '/api/clients', { query: withPageable(params, pageable) });
 }
 
@@ -1903,8 +1905,11 @@ export function getSousArticlesReferentiel(articleId: UUID, filters?: ArticleRef
 // Dashboard / Commerciaux
 // ---------------------------------------------------------------------------
 
-export function getDashboard(): Promise<DashboardDto> {
-  return request('GET', '/api/dashboard');
+/** `trancheId` restreint tous les agrégats à une tranche — **réservé aux
+ * administrateurs, 403 sinon** ; une tranche inconnue rend des zéros. Absent =
+ * toutes les tranches (FEATURE-dashboard-filtre-tranche). */
+export function getDashboard(params?: { trancheId?: UUID }): Promise<DashboardDto> {
+  return request('GET', '/api/dashboard', { query: { trancheId: params?.trancheId } });
 }
 
 /** `GET /api/dashboard/annuel` — l'écran d'accueil du logiciel de bureau :
@@ -1921,8 +1926,9 @@ export function getDashboard(): Promise<DashboardDto> {
  *
  * `annee` absente = année courante. Une année hors données répond `200` avec
  * des compteurs à zéro, pas une erreur. */
-export function getSyntheseAnnuelle(annee?: number): Promise<SyntheseAnnuelleDto> {
-  return request('GET', '/api/dashboard/annuel', { query: { annee } });
+export function getSyntheseAnnuelle(annee?: number, trancheId?: UUID): Promise<SyntheseAnnuelleDto> {
+  // `trancheId` : réservé aux administrateurs (403 sinon) — voir getDashboard.
+  return request('GET', '/api/dashboard/annuel', { query: { annee, trancheId } });
 }
 
 /** `GET /api/dashboard/relances` — les échéances de relance encore armées,
@@ -1940,11 +1946,16 @@ export function getSyntheseAnnuelle(annee?: number): Promise<SyntheseAnnuelleDto
  * `MOI` compris — elles n'appartiennent à personne et un périmètre les rendrait
  * invisibles à tout le monde. Elles portent `nonAffectee: true`. */
 export function listRelancesDashboard(
-  params?: { echeance?: EcheanceRelance; portee?: PorteeRelance },
+  /** `trancheId` : relances dont la prospection vise cette tranche — réservé
+   * aux administrateurs (403 sinon). */
+  params?: { echeance?: EcheanceRelance; portee?: PorteeRelance; trancheId?: UUID },
   pageable?: Pageable,
 ): Promise<PageDto<RelanceProspectionDto>> {
   return request('GET', '/api/dashboard/relances', {
-    query: withPageable({ echeance: params?.echeance, portee: params?.portee }, pageable),
+    query: withPageable(
+      { echeance: params?.echeance, portee: params?.portee, trancheId: params?.trancheId },
+      pageable,
+    ),
   });
 }
 

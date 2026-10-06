@@ -5,7 +5,7 @@ import { getSyntheseAnnuelle } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { formatCurrency, formatMontantCompact, formatNumber } from '../lib/format';
 import { cn } from '../lib/utils';
-import type { PointMensuelDto } from '../types';
+import type { PointMensuelDto, UUID } from '../types';
 
 /* ---------------------------------------------------------------------------
    La synthèse annuelle — l'écran d'accueil du logiciel de bureau.
@@ -38,10 +38,12 @@ const MOIS_LONG = [
  * étiquettes de mois et fabrique une barre de défilement dans la carte. */
 const H_TRACE = 104;
 
-export default function SyntheseAnnuelle() {
+/** `trancheId` : filtre par tranche du tableau de bord (administrateur seul —
+ * le parent ne le passe jamais pour un autre rôle). Absent = toutes. */
+export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {}) {
   const anneeCourante = new Date().getFullYear();
   const [annee, setAnnee] = useState(anneeCourante);
-  const { data, loading, error } = useApi(() => getSyntheseAnnuelle(annee), [annee]);
+  const { data, loading, error } = useApi(() => getSyntheseAnnuelle(annee, trancheId), [annee, trancheId]);
   const [survole, setSurvole] = useState<number | null>(null);
 
   const echeancier = data?.echeancier ?? [];
