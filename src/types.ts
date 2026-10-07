@@ -3006,8 +3006,9 @@ export interface EvenementCalendrierDto {
 // Authentification / Mon compte (V4). Le cookie JWT httpOnly `access_token`
 // n'est jamais visible côté front — seul UtilisateurCourantDto (profil +
 // rôles + mustChangePassword/profileCompleted) circule dans les réponses.
-// Tant que mustChangePassword ou !profileCompleted, le backend renvoie 403
-// sur toute route hors /api/auth/** et /api/mon-compte/**.
+// Ces deux drapeaux sont hérités : ils ne bloquent plus rien côté backend et
+// le front les ignore (plus de portail de première connexion — les comptes
+// viennent d'Omran, voir FEATURE-acces-arpent-depuis-omran.md).
 // ---------------------------------------------------------------------------
 
 export interface ConnexionRequest {
@@ -3102,9 +3103,10 @@ export interface UtilisateurListItemDto {
   /** true si des identifiants web existent — false si le compte legacy ne
    * s'est jamais connecté et n'a jamais été initialisé par un administrateur. */
   compteWebInitialise?: boolean;
-  /** true si un mot de passe temporaire est en attente de changement. */
+  /** Drapeau hérité — ne bloque plus rien (plus de portail de première
+   * connexion depuis FEATURE-acces-arpent-depuis-omran). */
   mustChangePassword?: boolean;
-  /** true si le profil de première connexion a déjà été complété. */
+  /** Drapeau hérité — ne bloque plus rien. */
   profileCompleted?: boolean;
   dateCreation?: string;
   /** Nombre de projets affectés à ce compte (périmètre commercial) — pour
@@ -3116,49 +3118,32 @@ export interface UtilisateurListItemDto {
   nombreProjets?: number;
 }
 
+/** Corps facultatif de POST /api/utilisateurs/{admUserId}/reinitialiser-mot-de-passe.
+ * Absent ou `{}` : envoi à l'adresse connue du compte, ou aucun envoi s'il
+ * n'en a pas. */
+export interface ReinitialiserMotDePasseRequest {
+  /** Adresse d'envoi **pour cette fois seulement** — jamais enregistrée
+   * (Omran reste la source des comptes). Vide/blanche = ignorée ; fournie
+   * mais invalide → 400 sans rien modifier. */
+  email?: string | null;
+}
+
+/** Identifiants Arpent du compte Omran, à afficher et copier côté admin. */
 export interface ReinitialiserMotDePasseResponse {
+  /** Id de l'AdmUser réinitialisé. */
   admUserId: UUID;
+  /** Identifiant de connexion — le login Omran (AdmUser.Code). */
   username?: string;
-  /** Renvoyé une seule fois — jamais stocké en clair côté serveur. */
+  /** Mot de passe Arpent du compte, **toujours présent**, renvoyé une seule
+   * fois. Pas provisoire (aucun changement imposé) : le nom du champ est
+   * historique. Seule copie si aucun email n'est parti. */
   motDePasseTemporaire?: string;
-  /** L'envoi du mail a été **déclenché**. L'expédition étant asynchrone,
-   * `true` ne prouve pas la remise. `false` signifie que le service d'envoi
-   * est inactif (SMTP absent ou incomplet) : le mot de passe doit alors être
-   * communiqué de la main à la main. */
+  /** `true` seulement si un destinataire existe **et** que le service d'envoi
+   * est actif (envoi déclenché, remise non garantie). `false` : aucun email
+   * n'est parti, les identifiants sont à transmettre à la main. */
   emailEnvoye?: boolean;
-  /** Adresse de destination, masquée — permet de vérifier d'un coup d'œil que
-   * le message part au bon endroit. */
-  destinataire?: string;
-}
-
-/** Tous les champs sont obligatoires sauf `mobile`. Réservé au rôle
- * Administrateur — crée en une fois la fiche personne (CfgTier), le compte
- * de connexion (AdmUser) et ses rôles. */
-export interface CreerEmployeRequest {
-  prenom: string;
-  nom: string;
-  /** Nom d'utilisateur du compte (AdmUser.Code) — doit être unique. */
-  identifiant: string;
-  email: string;
-  mobile?: string;
-  /** Code CfgTierKind qualifiant le type d'employé (ex: "COM" pour commercial). */
-  typeEmployeCode: string;
-  /** Codes AdmRole à assigner (ex: ["Commercial"]) — au moins un requis. */
-  roles: string[];
-}
-
-export interface CreerEmployeResponse {
-  cfgTierId?: UUID;
-  admUserId?: UUID;
-  identifiant?: string;
-  roles?: string[];
-  /** Renvoyé une seule fois — jamais stocké en clair côté serveur. */
-  motDePasseTemporaire?: string;
-  /** L'envoi du mail a été **déclenché** — voir
-   * {@link ReinitialiserMotDePasseResponse.emailEnvoye}. */
-  emailEnvoye?: boolean;
-  /** Adresse de destination, masquée. */
-  destinataire?: string;
+  /** Adresse de destination, masquée — `null` si aucun destinataire. */
+  destinataire?: string | null;
 }
 
 /** Fiche complète d'une personne déjà connue (CfgTier) trouvée par numéro de

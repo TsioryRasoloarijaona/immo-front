@@ -76,6 +76,6 @@ export const APP_MODULES: AppModule[] = [
   { slug: 'rh', label: 'Ressources Humaines', icon: Users, active: false },
   { slug: 'tresorerie', label: 'Trésorerie', icon: Landmark, active: false },
   { slug: 'comptabilite', label: 'Comptabilité', icon: Calculator, active: false },
-  { slug: 'administration', label: 'Administration', icon: Settings, active: true, path: '/utilisateurs/nouveau' },
+  { slug: 'administration', label: 'Administration', icon: Settings, active: true, path: '/utilisateurs' },
   { slug: 'outils', label: 'Outils', icon: Hammer, active: true, path: '/outils/virements/nouveau', adminOnly: true },
 ];

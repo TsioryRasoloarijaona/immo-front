@@ -295,16 +295,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    render={<NavLink to="/utilisateurs/nouveau" />}
-                    isActive={location.pathname.startsWith('/utilisateurs/nouveau')}
-                    tooltip="Nouvel utilisateur"
-                  >
-                    <UserPlus />
-                    Nouvel utilisateur
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
                     render={<NavLink to="/utilisateurs/reinitialiser-mot-de-passe" />}
                     isActive={location.pathname.startsWith('/utilisateurs/reinitialiser-mot-de-passe')}
                     tooltip="Réinitialiser un mot de passe"

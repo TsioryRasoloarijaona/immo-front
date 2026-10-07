@@ -8,8 +8,6 @@ import { LoadingState } from './components/ui';
 import { AppDataProvider } from './lib/appData';
 import { AuthProvider, useAuth } from './lib/auth';
 import Login from './pages/auth/Login';
-import ChangePasswordGate from './pages/auth/ChangePasswordGate';
-import CompleteProfileGate from './pages/auth/CompleteProfileGate';
 
 // Every routed page is code-split behind React.lazy — none of them are
 // needed for the first paint (auth gates above render before any route
@@ -20,7 +18,6 @@ import CompleteProfileGate from './pages/auth/CompleteProfileGate';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Profil = lazy(() => import('./pages/profil/Profil'));
 const UtilisateursList = lazy(() => import('./pages/utilisateurs/UtilisateursList'));
-const NouvelUtilisateur = lazy(() => import('./pages/utilisateurs/NouvelUtilisateur'));
 const ReinitialiserMotDePasse = lazy(() => import('./pages/utilisateurs/ReinitialiserMotDePasse'));
 const ClesApiList = lazy(() => import('./pages/utilisateurs/ClesApiList'));
 const PerformancesCommerciaux = lazy(() => import('./pages/kpi/PerformancesCommerciaux'));
@@ -56,8 +53,9 @@ const JournalVirement = lazy(() => import('./pages/outils/virements/Journal'));
 const ComingSoon = lazy(() => import('./pages/ComingSoon'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
-// The routed app shell — only ever mounted once a session exists and both
-// onboarding gates (mustChangePassword / profileCompleted) have cleared, so
+// The routed app shell — only ever mounted once a session exists (there is no
+// first-login gate any more: accounts come from Omran already filled in, and
+// mustChangePassword / profileCompleted are ignored), so
 // nothing under here needs to think about auth at all (AppDataProvider's
 // unconditional listCommerciaux() call, for instance, would otherwise 401
 // during the brief window before login).
@@ -80,7 +78,6 @@ function AuthenticatedApp() {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/profil" element={<Profil />} />
                   <Route path="/utilisateurs" element={<UtilisateursList />} />
-                  <Route path="/utilisateurs/nouveau" element={<NouvelUtilisateur />} />
                   <Route path="/utilisateurs/reinitialiser-mot-de-passe" element={<ReinitialiserMotDePasse />} />
                   <Route path="/cles-api" element={<ClesApiList />} />
                   <Route path="/performances" element={<PerformancesCommerciaux />} />
@@ -137,7 +134,7 @@ function AuthenticatedApp() {
 }
 
 function AuthGate() {
-  const { status, user } = useAuth();
+  const { status } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
@@ -148,7 +145,7 @@ function AuthGate() {
   // utilisateur n'a peut-être même pas accès.
   //
   // Placé ici plutôt que dans les gestionnaires de déconnexion : il y en a
-  // trois (Layout, ChangePasswordGate, CompleteProfileGate), et surtout la
+  // plusieurs (le menu de Layout, l'expiration de session), et surtout la
   // session peut aussi tomber d'elle-même (401). Le statut est le seul point
   // par lequel tous ces chemins passent.
   //
@@ -169,13 +166,9 @@ function AuthGate() {
   if (status === 'unauthenticated') {
     return <Login />;
   }
-  // status === 'authenticated' past this point — user is guaranteed set.
-  if (user!.mustChangePassword) {
-    return <ChangePasswordGate />;
-  }
-  if (!user!.profileCompleted) {
-    return <CompleteProfileGate />;
-  }
+  // status === 'authenticated' past this point. Plus de portail de première
+  // connexion : mustChangePassword / profileCompleted sont ignorés, l'utilisateur
+  // arrive directement dans l'application (FEATURE-acces-arpent-depuis-omran.md F3).
   return <AuthenticatedApp />;
 }
 

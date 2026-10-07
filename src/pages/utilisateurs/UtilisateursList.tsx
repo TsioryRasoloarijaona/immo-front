@@ -13,6 +13,7 @@ import { formatDate } from '../../lib/format';
 import type { UtilisateurListItemDto } from '../../types';
 import AdminGuard from './AdminGuard';
 import AffecterProjetsDialog from './AffecterProjetsDialog';
+import type { CompteAReinitialiser } from './ReinitialiserMotDePasse';
 
 const EXEMPT_ROLES = new Set(['Administrateur', 'Direction Générale']);
 
@@ -142,8 +143,10 @@ export default function UtilisateursList() {
         rendu: (r) => (
           <div className="flex flex-col items-start gap-1">
             <Badge tone={r.disabled ? 'neutral' : 'success'}>{r.disabled ? 'Désactivé' : 'Actif'}</Badge>
+            {/* mustChangePassword/profileCompleted sont des drapeaux hérités, ignorés
+                depuis FEATURE-acces-arpent-depuis-omran : seul compte l'absence
+                d'accès web, qu'ouvre « Réinitialiser ». */}
             {!r.compteWebInitialise && <Badge tone="warning">Non initialisé</Badge>}
-            {r.compteWebInitialise && r.mustChangePassword && <Badge tone="info">Mdp à changer</Badge>}
           </div>
         ),
       },
@@ -171,7 +174,10 @@ export default function UtilisateursList() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => navigate(`/utilisateurs/reinitialiser-mot-de-passe?admUserId=${r.id}`)}
+              onClick={() => {
+                const compte: CompteAReinitialiser = { username: r.username, description: r.description, email: r.email };
+                navigate(`/utilisateurs/reinitialiser-mot-de-passe?admUserId=${r.id}`, { state: compte });
+              }}
             >
               <KeyRound data-icon="inline-start" /> Réinitialiser
             </Button>
@@ -192,6 +198,9 @@ export default function UtilisateursList() {
       fullHeight
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
+        <p className="shrink-0 text-body text-muted-foreground">
+          Les comptes se créent dans Omran. Ici : ouvrir l'accès Arpent d'un compte (« Réinitialiser ») et affecter son périmètre.
+        </p>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
             <InputGroup className="min-w-55 flex-1">
               <InputGroupAddon>

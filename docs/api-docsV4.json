@@ -44,6 +44,10 @@
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
     },
     {
+      "name": "Mon compte",
+      "description": "Profil de l'utilisateur authentifié et changement volontaire de son mot de passe. Aucun portail de première connexion : mustChangePassword/profileCompleted ne bloquent plus aucune route."
+    },
+    {
       "name": "Passerelle",
       "description": "Vérification d'identité appelée par la passerelle (Caddy forward_auth) avant de relayer une requête vers un service annexe /svc/<nom>/*. Pas destinée au frontend."
     },
@@ -56,16 +60,16 @@
       "description": "Clés d'API des clients machine (n8n, agents), réservées au rôle Administrateur. Une clé s'envoie dans l'en-tête `X-Api-Key` ; elle authentifie un compte de service et n'autorise que les routes de ses portées. Le secret n'est montré qu'à la création et à la régénération. Voir `FEATURE-cle-api-n8n.md`."
     },
     {
+      "name": "Utilisateurs (admin)",
+      "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur : liste des comptes, réinitialisation du mot de passe Arpent, et affectation des projets qui composent le périmètre commercial d'un utilisateur. Les comptes eux-mêmes se créent dans Omran, jamais ici."
+    },
+    {
       "name": "KPI commerciaux",
       "description": "Indicateurs de performance des commerciaux sur une période — activité réalisée (appels, visites, interactions), portefeuille confié (prospections, réactivité) et résultat (dossiers, montants, taux de transformation).\n\nDeux attributions cohabitent et il faut le savoir pour lire les chiffres : l'**activité** est comptée pour celui qui l'a saisie, le **portefeuille** pour le commercial assigné. Un chef qui appelle sur la prospection d'un commercial voit l'appel chez lui, pas chez l'autre.\n\nTous les compteurs respectent la visibilité par entité juridique et le périmètre commercial de l'appelant. Un commercial restreint verra donc des chiffres inférieurs à son activité réelle — c'est volontaire."
     },
     {
       "name": "Encaissements",
       "description": "Règlements (StlSettlement) rattachés à un Dossier de vente — reproduit l'écran legacy \"Encaissements Vente\" (module Vente d'OMRAN Estate). Pour l'historique des règlements d'une seule échéance, voir plutôt `GET /api/dossiers/{id}/echeancier/{echeanceId}/reglements`, endpoint plus léger et déjà scopé à un dossier — celui-ci est la vue transverse \"tous les encaissements\" avec les mêmes filtres que le tableau legacy (entité, type, état, période, compte, dépôt...).\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, un encaissement hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les règlements portés par une entité juridique active (`StlSettlement.CfgCompanyId` → `CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Un règlement masqué renvoie 404 sur toutes les routes portant son identifiant."
-    },
-    {
-      "name": "Mon compte",
-      "description": "Profil de l'utilisateur authentifié — les seules routes accessibles (avec /api/auth/**) tant que mustChangePassword/profileCompleted bloquent le reste de l'API."
     },
     {
       "name": "Tranches",
@@ -78,10 +82,6 @@
     {
       "name": "Prospections",
       "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
-    },
-    {
-      "name": "Utilisateurs (admin)",
-      "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur : liste des comptes, création d'employé, réinitialisation de mot de passe, et affectation des projets qui composent le périmètre commercial d'un utilisateur."
     },
     {
       "name": "Pré-prospections",
@@ -240,133 +240,13 @@
         }
       }
     },
-    "/api/utilisateurs": {
-      "get": {
-        "tags": [
-          "Utilisateurs (admin)"
-        ],
-        "summary": "Liste les comptes utilisateurs",
-        "description": "Tous les comptes (AdmUser) avec leurs informations (identifiant, coordonnées, statut activé/désactivé), la fiche employé (CfgTier) liée et les rôles (AdmRole) assignés — écran d'administration des comptes. `search` filtre (insensible à la casse, sous-chaîne) sur identifiant/description/email. `disabled` filtre sur le statut activé/désactivé ; absent = tous les comptes. Réservé au rôle Administrateur.",
-        "operationId": "findAll",
-        "parameters": [
-          {
-            "name": "search",
-            "in": "query",
-            "description": "Recherche sous-chaîne sur identifiant/description/email.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "disabled",
-            "in": "query",
-            "description": "Filtre sur le statut désactivé. Absent = tous les comptes.",
-            "required": false,
-            "schema": {
-              "type": "boolean"
-            }
-          },
-          {
-            "name": "pageable",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Pageable"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Liste (éventuellement vide) des comptes.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoUtilisateurListItemDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "L'appelant n'a pas le rôle Administrateur.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoUtilisateurListItemDto"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "Utilisateurs (admin)"
-        ],
-        "summary": "Crée un nouvel employé",
-        "description": "Crée en une seule opération la fiche personne (CfgTier), le compte de connexion (AdmUser) qui lui est lié, les rôles demandés (AdmUserRole), et génère un mot de passe temporaire **envoyé par email à l'employé** et renvoyé une seule fois dans la réponse. Le compte devra changer ce mot de passe et compléter son profil à sa première connexion (mustChangePassword=true, profileCompleted=false — voir GET /api/mon-compte).\n\n**`email` est désormais réellement obligatoire et doit être une adresse valide**, alors qu'il était jusqu'ici accepté vide malgré sa mention REQUIRED : c'est à cette adresse qu'est expédié le mot de passe, et elle est écrite à la fois sur la fiche personne et sur le compte. Le formulaire doit donc la valider avant envoi.\n\nL'envoi est **asynchrone** et postérieur au commit : `emailEnvoye=true` signifie qu'il a été déclenché sans obstacle, pas qu'il a été remis. C'est pourquoi `motDePasseTemporaire` reste dans la réponse et doit continuer d'être affiché à l'administrateur. Réservé au rôle Administrateur.",
-        "operationId": "creerEmploye",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreerEmployeRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Employé créé et envoi déclenché.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreerEmployeResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Champ requis manquant, `email` absent ou malformé, ou typeEmployeCode/rôle référençant un code inconnu en base.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreerEmployeResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "L'appelant n'a pas le rôle Administrateur.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreerEmployeResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "L'identifiant demandé est déjà utilisé par un autre compte.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreerEmployeResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/utilisateurs/{admUserId}/reinitialiser-mot-de-passe": {
       "post": {
         "tags": [
           "Utilisateurs (admin)"
         ],
-        "summary": "Réinitialise le mot de passe d'un utilisateur",
-        "description": "Génère un mot de passe temporaire, **l'envoie par email à l'utilisateur**, le renvoie une seule fois dans la réponse, et force son changement à la prochaine connexion (mustChangePassword=true). Invalide immédiatement tous les tokens déjà émis pour ce compte, sur tous les appareils. Crée l'enregistrement d'identifiants web si ce compte legacy (AdmUser) ne s'était encore jamais connecté à l'application web.\n\n**Le compte doit avoir une adresse email, sinon 400.** L'adresse est cherchée sur `AdmUser.Email` puis, à défaut, sur la fiche employé liée (`CfgTier`). Le refus intervient **avant toute écriture** : aucun mot de passe n'est généré et les sessions en cours ne sont pas invalidées, le compte reste donc strictement intact. Cas fréquent sur les comptes hérités — au 08/09/2026, 5 des 15 comptes actifs sont dans ce cas.\n\nL'envoi est **asynchrone** et postérieur au commit : `emailEnvoye=true` signifie qu'il a été déclenché sans obstacle, pas qu'il a été remis. C'est pourquoi `motDePasseTemporaire` reste dans la réponse et doit continuer d'être affiché à l'administrateur. Réservé au rôle Administrateur.",
+        "summary": "Réinitialise le mot de passe Arpent d'un compte Omran",
+        "description": "Les comptes se créent dans Omran (AdmUser, fiche employé, rôles) ; ce geste est le seul qui ouvre ou rouvre l'accès web. Génère **toujours** un nouveau mot de passe Arpent pour le login Omran (`AdmUser.Code`), le renvoie une seule fois dans la réponse, et rend le compte **utilisable immédiatement** : aucun changement de mot de passe ni formulaire de profil n'est demandé à la connexion (mustChangePassword=false, profileCompleted=true). Invalide tous les tokens déjà émis pour ce compte, sur tous les appareils (TokenVersion incrémenté). Crée l'enregistrement d'identifiants web si le compte ne s'était jamais connecté.\n\n**Destinataire** : `email` du corps s'il est fourni (pour cet envoi seulement, jamais enregistré), sinon `AdmUser.Email`, à défaut l'email de la fiche employé (`CfgTier`). **Un compte sans aucune adresse n'est plus refusé** : la réinitialisation a lieu, aucun email n'est envoyé (`emailEnvoye=false`, `destinataire=null`) et l'administrateur transmet lui-même les identifiants affichés. Le corps est facultatif (absent = `{}`).\n\nL'email contient l'identifiant, le mot de passe et le lien vers Arpent (sans identifiant ni mot de passe dans le lien). L'envoi est **asynchrone** et postérieur au commit : `emailEnvoye=true` signifie qu'il a été déclenché, pas qu'il a été remis — `motDePasseTemporaire` doit donc toujours être affiché. Réservé au rôle Administrateur.",
         "operationId": "reinitialiserMotDePasse",
         "parameters": [
           {
@@ -380,9 +260,19 @@
             }
           }
         ],
+        "requestBody": {
+          "description": "Facultatif. `email` : adresse d'envoi pour cette fois seulement.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReinitialiserMotDePasseRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Mot de passe temporaire généré et envoi déclenché.",
+            "description": "Mot de passe généré ; email déclenché si un destinataire existe et que le service d'envoi est actif.",
             "content": {
               "*/*": {
                 "schema": {
@@ -392,7 +282,7 @@
             }
           },
           "400": {
-            "description": "Le compte n'a aucune adresse email (ni sur AdmUser, ni sur sa fiche employé) : le mot de passe ne peut être envoyé. Le message serveur nomme le remède — renseigner l'email de l'utilisateur — et peut être affiché tel quel.",
+            "description": "`email` fourni dans le corps mais invalide (pas de forme local@domaine.tld). Rien n'est modifié : pas de nouveau mot de passe, sessions conservées. Le message serveur peut être affiché tel quel sous le champ.",
             "content": {
               "*/*": {
                 "schema": {
@@ -471,7 +361,7 @@
         "tags": [
           "prospect-controller"
         ],
-        "operationId": "findAll_1",
+        "operationId": "findAll",
         "parameters": [
           {
             "name": "search",
@@ -682,7 +572,7 @@
         ],
         "summary": "Liste paginée des prospections",
         "description": "Filtre optionnellement par étape/origine/commercial (multi-sélection, une valeur pour un seul choix se comporte comme avant), tranche(s) visée(s), plage de dates sur la date du document, et recherche libre. Exclut les pré-prospections (voir GET /api/pre-prospections). Voir instructions/filtres-avances.md pour le détail des filtres avancés.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), cette liste ne contient que les prospections de ses projets affectés — filtrage côté serveur, en plus des filtres ci-dessus. Le projet d'une prospection est celui de sa tranche visée ; celles sans tranche restent visibles de tous.",
-        "operationId": "findAll_2",
+        "operationId": "findAll_1",
         "parameters": [
           {
             "name": "etape",
@@ -1855,7 +1745,7 @@
         ],
         "summary": "Liste paginée des pré-prospections",
         "description": "Mêmes filtres que GET /api/prospections (étape, origine, commercial, tranche(s), plage de dates, recherche libre, ouvertes) appliqués aux leads non encore qualifiés. Voir instructions/filtres-avances.md point 5.\n\n**Périmètre commercial** : si l'appelant est restreint, cette liste ne contient que les pré-prospections de ses projets affectés, scopées par le projet de leur tranche visée. Les pré-prospections sans tranche restent visibles de tous. Le filtre `commercial` s'applique : une pré-prospection saisie dans OMRAN peut déjà porter un commercial (~780 en base réelle).",
-        "operationId": "findAll_3",
+        "operationId": "findAll_2",
         "parameters": [
           {
             "name": "etape",
@@ -2387,7 +2277,7 @@
         ],
         "summary": "Liste paginée des dossiers de vente",
         "description": "Filtre optionnellement par statut (multi-sélection, une valeur pour un seul statut se comporte comme avant), commercial, entité (projet), tranche(s), plage de dates sur un jalon au choix, et recherche libre sur le code du dossier OU le nom/prénom/raison sociale du client lié. Voir instructions/filtres-avances.md pour le détail des filtres avancés.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), cette liste ne contient que les dossiers de ses projets affectés — filtrage côté serveur, appliqué en plus des filtres ci-dessus. Le front ne doit pas refiltrer par projet lui-même. Les dossiers dont le projet ne se résout pas restent visibles de tous.",
-        "operationId": "findAll_4",
+        "operationId": "findAll_3",
         "parameters": [
           {
             "name": "statut",
@@ -3664,7 +3554,7 @@
           "Authentification"
         ],
         "summary": "Connexion",
-        "description": "Vérifie username/password contre AppUserCredential (bcrypt) et pose un cookie JWT httpOnly `access_token` (Secure, SameSite=Strict) valable app.jwt.expiration-minutes. Chaque appel doit partir avec `credentials: 'include'`, et l'origine appelante doit figurer dans `CorsConfig` : `allowCredentials(true)` interdit le joker `*`. Le cookie étant SameSite=Strict, le frontend doit être servi depuis le domaine `tsiory.tech` — depuis un autre domaine, le navigateur ne l'attacherait pas et tout appel suivant la connexion repartirait anonyme. Le corps de réponse contient le profil et les rôles, jamais le token lui-même. Si `mustChangePassword`/`profileCompleted` sont défavorables, seules les routes /api/auth/** et /api/mon-compte/** restent accessibles tant que l'utilisateur n'a pas régularisé sa situation.",
+        "description": "Vérifie username/password contre AppUserCredential (bcrypt) et pose un cookie JWT httpOnly `access_token` (Secure, SameSite=Strict) valable app.jwt.expiration-minutes. Chaque appel doit partir avec `credentials: 'include'`, et l'origine appelante doit figurer dans `CorsConfig` : `allowCredentials(true)` interdit le joker `*`. Le cookie étant SameSite=Strict, le frontend doit être servi depuis le domaine `tsiory.tech` — depuis un autre domaine, le navigateur ne l'attacherait pas et tout appel suivant la connexion repartirait anonyme. Le corps de réponse contient le profil et les rôles, jamais le token lui-même. `mustChangePassword`/`profileCompleted` restent renvoyés pour le contrat mais ne bloquent plus rien : l'utilisateur accède directement à toute l'application.",
         "operationId": "connexion",
         "requestBody": {
           "content": {
@@ -4328,6 +4218,66 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/utilisateurs": {
+      "get": {
+        "tags": [
+          "Utilisateurs (admin)"
+        ],
+        "summary": "Liste les comptes utilisateurs",
+        "description": "Tous les comptes (AdmUser) avec leurs informations (identifiant, coordonnées, statut activé/désactivé), la fiche employé (CfgTier) liée et les rôles (AdmRole) assignés — écran d'administration des comptes. `search` filtre (insensible à la casse, sous-chaîne) sur identifiant/description/email. `disabled` filtre sur le statut activé/désactivé ; absent = tous les comptes. Réservé au rôle Administrateur.",
+        "operationId": "findAll_4",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sous-chaîne sur identifiant/description/email.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "disabled",
+            "in": "query",
+            "description": "Filtre sur le statut désactivé. Absent = tous les comptes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste (éventuellement vide) des comptes.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoUtilisateurListItemDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoUtilisateurListItemDto"
                 }
               }
             }
@@ -5092,8 +5042,8 @@
         "tags": [
           "Référentiels"
         ],
-        "summary": "Types d'employé (CfgTierKind) assignables à un compte",
-        "description": "Codes CfgTierKind valides pour `typeEmployeCode` de `POST /api/utilisateurs` lors de la création d'un employé (ex. \"COM\" pour commercial) — équivalent de `GET /api/referentiels/tier-types/{typeId}/kinds` déjà filtré sur le CfgTierType \"EMP\", pour ne pas obliger le front à connaître son id.",
+        "summary": "Types d'employé (CfgTierKind)",
+        "description": "Types d'employé existants (ex. \"COM\" pour commercial), tels qu'ils qualifient les fiches employé saisies dans Omran — c'est le `typeEmployeCode` / `typeEmployeLibelle` de GET /api/utilisateurs. Équivalent de `GET /api/referentiels/tier-types/{typeId}/kinds` déjà filtré sur le CfgTierType \"EMP\", pour ne pas obliger le front à connaître son id.",
         "operationId": "getTypesEmploye",
         "responses": {
           "200": {
@@ -5426,7 +5376,7 @@
           "Référentiels"
         ],
         "summary": "Liste des rôles applicatifs (AdmRole)",
-        "description": "Rôles pouvant être assignés à un compte utilisateur — alimente le choix (cases à cocher) \"roles\" de POST /api/utilisateurs lors de la création d'un employé. Chaque code (ex. \"Commercial\", \"Administrateur\") pilote aussi les autorisations d'accès (hasRole(...)) sur les endpoints réservés.",
+        "description": "Rôles applicatifs existants (AdmRole), tels qu'ils sont assignés aux comptes dans Omran — Arpent ne crée ni n'assigne de rôle. Chaque code (ex. \"Commercial\", \"Administrateur\") pilote les autorisations d'accès (hasRole(...)) sur les endpoints réservés et apparaît dans `roles` de GET /api/utilisateurs et GET /api/mon-compte.",
         "operationId": "getRoles",
         "responses": {
           "200": {
@@ -7157,7 +7107,7 @@
           "Passerelle"
         ],
         "summary": "Vérifie l'appelant pour la passerelle",
-        "description": "Appelée par Caddy (forward_auth) avec les en-têtes de la requête d'origine, dont le cookie access_token. Ne renvoie aucun corps : en cas de succès, l'identité est portée par les en-têtes X-User-Id, X-Username, X-User-Roles et X-Employee-Id, que la passerelle recopie sur la requête relayée au service. X-User-Roles liste les codes de rôle (AdmRole.Code) séparés par des virgules, chacun encodé en pourcentage UTF-8 (« Direction Générale » → « Direction%20G%C3%A9n%C3%A9rale ») : les codes réels portent accents et espaces, qu'un en-tête HTTP ne peut pas transporter tels quels. X-Employee-Id est absent si le compte n'est lié à aucune fiche employé. Les mêmes contrôles que sur le reste de l'API s'appliquent : révocation par changement de mot de passe, onboarding, portée des clés d'API.",
+        "description": "Appelée par Caddy (forward_auth) avec les en-têtes de la requête d'origine, dont le cookie access_token. Ne renvoie aucun corps : en cas de succès, l'identité est portée par les en-têtes X-User-Id, X-Username, X-User-Roles et X-Employee-Id, que la passerelle recopie sur la requête relayée au service. X-User-Roles liste les codes de rôle (AdmRole.Code) séparés par des virgules, chacun encodé en pourcentage UTF-8 (« Direction Générale » → « Direction%20G%C3%A9n%C3%A9rale ») : les codes réels portent accents et espaces, qu'un en-tête HTTP ne peut pas transporter tels quels. X-Employee-Id est absent si le compte n'est lié à aucune fiche employé. Les mêmes contrôles que sur le reste de l'API s'appliquent : révocation par changement de mot de passe, portée des clés d'API. Plus aucun blocage de première connexion : mustChangePassword/profileCompleted ne sont pas consultés.",
         "operationId": "verifier",
         "responses": {
           "204": {
@@ -7185,7 +7135,7 @@
             "description": "Cookie absent, expiré, mal signé ou révoqué (TokenVersion), ou clé d'API invalide. La passerelle renvoie ce 401 tel quel au client."
           },
           "403": {
-            "description": "Onboarding non terminé (code MOT_DE_PASSE_TEMPORAIRE ou PROFIL_INCOMPLET), ou clé d'API dont la portée ne couvre pas cette route (HORS_PORTEE)."
+            "description": "Clé d'API dont la portée ne couvre pas cette route (HORS_PORTEE)."
           }
         }
       }
@@ -7196,7 +7146,7 @@
           "Mon compte"
         ],
         "summary": "Profil courant",
-        "description": "Le compte authentifié : identité, rôles, et l'état mustChangePassword/profileCompleted qui pilote l'onboarding.",
+        "description": "Le compte authentifié : identité, rôles, et l'état mustChangePassword/profileCompleted. Ces deux drapeaux restent renvoyés pour le contrat mais ne bloquent plus rien : il n'y a plus de portail de première connexion (les comptes viennent d'Omran, déjà renseignés), le front les ignore.",
         "operationId": "moi",
         "responses": {
           "200": {
@@ -10148,118 +10098,49 @@
           }
         }
       },
-      "CreerEmployeRequest": {
+      "ReinitialiserMotDePasseRequest": {
         "type": "object",
-        "description": "Corps de la création d'un nouvel employé par un administrateur — crée en une fois la fiche personne (CfgTier), le compte de connexion (AdmUser) et ses identifiants web.",
+        "description": "Corps facultatif de la réinitialisation de mot de passe. Absent ou `{}` : le mot de passe est envoyé à l'adresse connue du compte (AdmUser.Email, à défaut la fiche employé), ou seulement renvoyé dans la réponse si le compte n'en a aucune.",
         "properties": {
-          "prenom": {
-            "type": "string"
-          },
-          "nom": {
-            "type": "string"
-          },
-          "identifiant": {
-            "type": "string",
-            "description": "Nom d'utilisateur du compte (AdmUser.Code) — doit être unique.",
-            "example": "j.dupont"
-          },
           "email": {
-            "type": "string",
-            "format": "email",
-            "description": "Adresse email de l'employé, obligatoire et vérifiée : elle sert à lui expédier son mot de passe temporaire.",
-            "example": "j.dupont@exemple.ma",
-            "minLength": 1
-          },
-          "mobile": {
-            "type": "string"
-          },
-          "typeEmployeCode": {
-            "type": "string",
-            "description": "Code CfgTierKind qualifiant le type d'employé (ex: COM pour commercial). Doit exister en base.",
-            "example": "COM"
-          },
-          "roles": {
-            "type": "array",
-            "description": "Codes AdmRole à assigner au compte (ex: [\"Commercial\"]) — au moins un requis, chaque code doit exister en base.",
-            "items": {
-              "type": "string"
-            }
-          }
-        },
-        "required": [
-          "email",
-          "identifiant",
-          "nom",
-          "prenom",
-          "roles",
-          "typeEmployeCode"
-        ]
-      },
-      "CreerEmployeResponse": {
-        "type": "object",
-        "description": "Résultat de la création d'un employé par un administrateur.",
-        "properties": {
-          "cfgTierId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id de la fiche personne créée (CfgTier)."
-          },
-          "admUserId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id du compte de connexion créé (AdmUser)."
-          },
-          "identifiant": {
-            "type": "string",
-            "description": "Nom d'utilisateur (AdmUser.Code) du compte créé."
-          },
-          "roles": {
-            "type": "array",
-            "description": "Codes AdmRole assignés au compte.",
-            "items": {
-              "type": "string"
-            }
-          },
-          "motDePasseTemporaire": {
-            "type": "string",
-            "description": "Mot de passe temporaire généré, envoyé par email à l'employé et renvoyé ici une seule fois (jamais une seconde, ni stocké en clair côté serveur). Le compte devra le changer dès sa première connexion (mustChangePassword=true). **À continuer d'afficher à l'administrateur** : l'envoi du mail est asynchrone et peut échouer, ce champ est le filet."
-          },
-          "emailEnvoye": {
-            "type": "boolean",
-            "description": "L'envoi du mail a été **déclenché**. L'expédition étant asynchrone, `true` ne prouve pas la remise — seulement qu'aucun obstacle n'a été rencontré côté serveur. `false` signifie que le service d'envoi est inactif (configuration SMTP absente ou incomplète) : le mot de passe doit alors être communiqué à la main.",
-            "example": true
-          },
-          "destinataire": {
-            "type": "string",
-            "description": "Adresse de destination, masquée — permet de vérifier d'un coup d'œil que le message part au bon endroit.",
-            "example": "j***@exemple.ma"
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Adresse à laquelle envoyer les identifiants **pour cet envoi seulement** — remplace l'adresse connue du compte, ou en tient lieu s'il n'en a pas. **N'est jamais enregistrée** (ni sur AdmUser, ni sur la fiche employé) : Omran reste la source des comptes. Facultative ; vide ou blanche = ignorée. Si elle est fournie et manifestement invalide (pas de forme local@domaine.tld), la requête est refusée en 400 sans rien modifier.",
+            "example": "j.dupont@exemple.ma"
           }
         }
       },
       "ReinitialiserMotDePasseResponse": {
         "type": "object",
-        "description": "Résultat d'une réinitialisation de mot de passe par un administrateur.",
+        "description": "Résultat d'une réinitialisation de mot de passe par un administrateur : les identifiants Arpent du compte Omran, à afficher (et copier) côté administrateur.",
         "properties": {
           "admUserId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Id de l'AdmUser réinitialisé."
           },
           "username": {
             "type": "string",
-            "description": "Nom d'utilisateur (AdmUser.Code) du compte réinitialisé."
+            "description": "Identifiant de connexion du compte — le login Omran (AdmUser.Code)."
           },
           "motDePasseTemporaire": {
             "type": "string",
-            "description": "Mot de passe temporaire généré, envoyé par email à l'utilisateur et renvoyé ici une seule fois (jamais une seconde, ni stocké en clair côté serveur). Le compte devra le changer dès sa prochaine connexion (mustChangePassword=true). **À continuer d'afficher à l'administrateur** : l'envoi du mail est asynchrone et peut échouer, ce champ est le filet."
+            "description": "Mot de passe Arpent du compte, généré par cette réinitialisation. **Toujours présent.** Renvoyé ici une seule fois (jamais stocké en clair côté serveur). Il n'est **pas** provisoire : le compte est utilisable tel quel, aucun changement n'est exigé à la connexion. Le nom du champ est historique et conservé pour le contrat. À afficher à l'administrateur dans tous les cas : c'est la seule copie si aucun email n'a été envoyé, et le filet si l'envoi asynchrone échoue.",
+            "example": "Ab3xK9mQp2Rt"
           },
           "emailEnvoye": {
             "type": "boolean",
-            "description": "L'envoi du mail a été **déclenché**. L'expédition étant asynchrone, `true` ne prouve pas la remise — seulement qu'aucun obstacle n'a été rencontré côté serveur. `false` signifie que le service d'envoi est inactif (configuration SMTP absente ou incomplète) : le mot de passe doit alors être communiqué à la main.",
+            "description": "Un email a été **déclenché** : `true` seulement si un destinataire existe (adresse du corps, sinon adresse connue du compte) **et** que le service d'envoi est actif. L'expédition étant asynchrone, `true` ne prouve pas la remise. `false` : aucun email n'est parti (compte sans adresse, ou service d'envoi inactif) — les identifiants doivent être transmis à la main.",
             "example": true
           },
           "destinataire": {
-            "type": "string",
-            "description": "Adresse de destination, masquée — permet de vérifier d'un coup d'œil que le message part au bon endroit. Résolue depuis `AdmUser.Email`, à défaut depuis l'email de la fiche employé (`CfgTier`).",
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Adresse de destination, masquée. Adresse du corps si fournie, sinon `AdmUser.Email`, à défaut l'email de la fiche employé (`CfgTier`). `null` si aucun destinataire n'existe (aucun email publié).",
             "example": "j***@exemple.ma"
           }
         }
@@ -12326,11 +12207,11 @@
           },
           "mustChangePassword": {
             "type": "boolean",
-            "description": "true si un mot de passe temporaire est actif — le front doit rediriger vers l'écran de changement de mot de passe ; toutes les autres routes de l'API renvoient 403 tant que c'est le cas."
+            "description": "Drapeau hérité (AppUserCredential.MustChangePassword), conservé pour le contrat. **Ne bloque plus rien** et le front l'ignore : il n'y a plus de changement de mot de passe imposé à la connexion. Une réinitialisation par un administrateur le remet à false."
           },
           "profileCompleted": {
             "type": "boolean",
-            "description": "false tant que le formulaire de première connexion (infos personnelles) n'a pas été soumis — mêmes conséquences que mustChangePassword."
+            "description": "Drapeau hérité (AppUserCredential.ProfileCompleted), conservé pour le contrat. **Ne bloque plus rien** et le front l'ignore : les informations du compte viennent d'Omran. Une réinitialisation par un administrateur le met à true."
           },
           "perimetreRestreint": {
             "type": "boolean",
@@ -13566,11 +13447,11 @@
           },
           "mustChangePassword": {
             "type": "boolean",
-            "description": "true si un mot de passe temporaire est actif pour ce compte (en attente de changement à la prochaine connexion). false, y compris si compteWebInitialise est false."
+            "description": "Drapeau hérité AppUserCredential.MustChangePassword — ne bloque plus rien (aucun changement imposé à la connexion). false, y compris si compteWebInitialise est false."
           },
           "profileCompleted": {
             "type": "boolean",
-            "description": "true si le profil (informations personnelles de première connexion) a déjà été complété. false, y compris si compteWebInitialise est false."
+            "description": "Drapeau hérité AppUserCredential.ProfileCompleted — ne bloque plus rien (aucun formulaire de première connexion). false si compteWebInitialise est false."
           },
           "dateCreation": {
             "type": "string",
@@ -14057,7 +13938,7 @@
           },
           "tiersNom": {
             "type": "string",
-            "description": "Tiers (prospect/client) de l'action (`CfgTier.Description`)."
+            "description": "Tiers (prospect/client) de l'action : `CfgTier.Description` du tiers posé sur l'action, à défaut la fiche prospect de la prospection rattachée, à défaut le nom saisi au premier contact (`TempDescription`, cas des pré-prospections). Premier texte non blanc, nettoyé ; `null` si aucun. Le groupement (`groupBy=tiersNom`) et son dépliage suivent la même cascade. `tiersId` reste l'id du seul tiers de l'action."
           },
           "prospectionCode": {
             "type": "string",
@@ -16714,7 +16595,7 @@
           },
           "prospectNom": {
             "type": "string",
-            "description": "Nom du prospect. `null` sur une pré-prospection dont le prospect n'a pas encore été créé — le `telephone` reste alors le seul moyen de rappel."
+            "description": "Nom du prospect : celui de la fiche tiers, à défaut le nom saisi au premier contact (`TempDescription`) — c'est le cas des pré-prospections dont le prospect n'a pas encore été créé. `null` seulement si aucun des deux n'est renseigné."
           },
           "telephone": {
             "type": "string",
@@ -17085,7 +16966,7 @@
           },
           "prospectNom": {
             "type": "string",
-            "description": "Nom affichable du prospect/client (raison sociale ou prénom nom)."
+            "description": "Nom affichable du prospect/client (raison sociale ou prénom nom) ; à défaut de fiche tiers, le nom saisi au premier contact sur la prospection (`TempDescription`). `null` si aucun des deux n'est renseigné."
           },
           "commercialId": {
             "type": "string",
