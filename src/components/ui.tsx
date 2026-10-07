@@ -333,20 +333,22 @@ export function PerimetreBanner({ projets }: { projets: { code: string }[] }) {
  *
  * `true` ne promet pas la remise, seulement le déclenchement — l'expédition
  * est asynchrone. Le libellé le dit ainsi plutôt que d'affirmer « envoyé ». */
-export function EnvoiMailNotice({ envoye, destinataire }: { envoye?: boolean; destinataire?: string }) {
+/** Résultat d'envoi des identifiants (`emailEnvoye` / `destinataire` des
+ * réponses de réinitialisation). `false` couvre les deux cas où rien n'est
+ * parti : compte sans adresse, ou service d'envoi inactif. */
+export function EnvoiMailNotice({ envoye, destinataire }: { envoye?: boolean; destinataire?: string | null }) {
   if (envoye === undefined) return null;
   if (!envoye) {
     return (
       <p role="alert" className="rounded-md border border-(--warning-border) bg-(--warning-bg) px-3 py-2 text-body text-(--warning)">
-        Aucun mail n'a pu être envoyé (service d'envoi inactif). Communiquez vous-même le mot de passe
-        ci-dessus : il ne sera plus jamais affiché.
+        Aucun email envoyé — transmettez ces identifiants. Le mot de passe ne sera plus jamais affiché.
       </p>
     );
   }
   return (
     <p role="status" className="rounded-md border border-(--info-border) bg-(--info-bg) px-3 py-2 text-body text-(--info)">
-      Envoi déclenché{destinataire ? ` vers ${destinataire}` : ''}. La remise n'est pas garantie : gardez le
-      mot de passe ci-dessus sous la main jusqu'à confirmation.
+      Identifiants envoyés{destinataire ? ` à ${destinataire}` : ''}. La remise n'est pas garantie : gardez-les
+      sous la main jusqu'à confirmation.
     </p>
   );
 }

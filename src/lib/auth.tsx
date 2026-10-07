@@ -17,7 +17,8 @@ import type { ChangerMotDePasseRequest, CompleterProfilRequest, ConnexionRequest
 // body that comes back alongside it. `status` drives what App.tsx renders:
 // 'loading' (checking for an existing session on first mount) →
 // 'unauthenticated' (show Login) → 'authenticated' (user is set; App.tsx
-// still gates on mustChangePassword/profileCompleted before showing the app).
+// shows the app directly — mustChangePassword/profileCompleted are legacy
+// flags and are ignored, see FEATURE-acces-arpent-depuis-omran.md F3).
 export type AuthStatus = 'loading' | 'authenticated' | 'unauthenticated';
 
 export interface AuthContextValue {

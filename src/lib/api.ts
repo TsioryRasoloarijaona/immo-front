@@ -30,8 +30,6 @@ import type {
   CreerDevisRequest,
   CreerDossierRequest,
   CreerEcheanceRequest,
-  CreerEmployeRequest,
-  CreerEmployeResponse,
   CreerInteractionRequest,
   CreerPreProspectionRequest,
   CreerProspectRequest,
@@ -94,6 +92,7 @@ import type {
   ReferentielItemDto,
   ReglementDto,
   ReglementProspectDto,
+  ReinitialiserMotDePasseRequest,
   ReinitialiserMotDePasseResponse,
   ResultatEnvoiVisiteDto,
   EnvoyerOffrePrixRequest,
@@ -2047,12 +2046,12 @@ export const getSalaires = (): Promise<ReferentielItemDto[]> => request('GET', '
 export const getRegimesMatrimoniaux = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/regimes-matrimoniaux');
 export const getRaisonsCloture = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/raisons-cloture');
 // Rôles applicatifs (AdmRole) assignables à un compte — alimente les cases à
-// cocher "Rôles" de POST /api/utilisateurs (voir NouvelUtilisateur.tsx). Le
-// `code` (pas l'id) est ce que CreerEmployeRequest.roles attend.
+// cocher "Rôles" de l'ancien formulaire de création de compte, retiré (les
+// comptes se créent dans Omran). Plus appelé par aucun écran.
 export const getRoles = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/roles');
 // Types d'employé (CfgTierKind, pré-filtrés sur CfgTierType "EMP") — alimente
-// le champ "Type d'employé" de POST /api/utilisateurs. Le `code` est ce que
-// CreerEmployeRequest.typeEmployeCode attend.
+// le champ "Type d'employé" de l'ancien formulaire de création de compte,
+// retiré. Plus appelé par aucun écran.
 export const getTypesEmploye = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-employe');
 export const getProfilsProspection = (): Promise<ProfilCategorieDto[]> => request('GET', '/api/referentiels/profils-prospection');
 export const getProfessions = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/professions');
@@ -2086,9 +2085,9 @@ export function getVillesReferentiel(
 // ---------------------------------------------------------------------------
 // Authentification / Mon compte (V4) — connexion pose un cookie JWT httpOnly
 // `access_token` (jamais lu ni manipulé côté front, juste transporté par
-// `credentials: 'include'` sur chaque requête, voir plus haut). Tant que
-// mustChangePassword/!profileCompleted, tout le reste de l'API répond 403 —
-// c'est AuthProvider (lib/auth.tsx) qui applique ce garde-fou côté UI.
+// `credentials: 'include'` sur chaque requête, voir plus haut). Plus de
+// portail de première connexion : mustChangePassword/profileCompleted sont
+// renvoyés mais ignorés (FEATURE-acces-arpent-depuis-omran.md).
 // ---------------------------------------------------------------------------
 
 export function connexion(body: ConnexionRequest): Promise<UtilisateurCourantDto> {
@@ -2123,17 +2122,15 @@ export function listUtilisateurs(
   return request('GET', '/api/utilisateurs', { query: withPageable(params, pageable) });
 }
 
-/** Réservé au rôle Administrateur — génère un mot de passe temporaire à
- * communiquer hors-bande, jamais renvoyé une seconde fois. */
-export function reinitialiserMotDePasse(admUserId: UUID): Promise<ReinitialiserMotDePasseResponse> {
-  return request('POST', `/api/utilisateurs/${admUserId}/reinitialiser-mot-de-passe`);
-}
-
-/** Réservé au rôle Administrateur — crée en une fois la fiche employé
- * (CfgTier), le compte de connexion (AdmUser) et ses rôles ; le mot de passe
- * temporaire renvoyé n'est jamais réémis, à communiquer hors-bande. */
-export function creerEmploye(body: CreerEmployeRequest): Promise<CreerEmployeResponse> {
-  return request('POST', '/api/utilisateurs', { body });
+/** Réservé au rôle Administrateur — génère le mot de passe Arpent d'un compte
+ * Omran (toujours renvoyé, une seule fois) et rend le compte utilisable tout
+ * de suite. `email` facultatif : adresse d'envoi pour cette fois seulement,
+ * jamais enregistrée ; sans lui, envoi à l'adresse connue du compte, ou aucun
+ * envoi s'il n'en a pas (`emailEnvoye=false`, `destinataire=null`). 400 si
+ * `email` est fourni mais invalide (compte intact), 404 compte inconnu. */
+export function reinitialiserMotDePasse(admUserId: UUID, email?: string): Promise<ReinitialiserMotDePasseResponse> {
+  const body: ReinitialiserMotDePasseRequest = email?.trim() ? { email: email.trim() } : {};
+  return request('POST', `/api/utilisateurs/${admUserId}/reinitialiser-mot-de-passe`, { body });
 }
 
 // ---------------------------------------------------------------------------
