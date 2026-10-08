@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, Ban, ChevronDown, ChevronRight, ClipboardCheck, Download, Eye, FileDown, FileSignature, FileStack, FileText, Folder, Landmark, Loader2, Paperclip, Phone, Plus, Receipt, Trash2, Upload } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import PageShell from '../../components/PageShell';
+import CadreFiche, { type VarianteFiche } from '../../components/CadreFiche';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
 import FicheShell from '../../components/FicheShell';
@@ -1136,9 +1136,17 @@ function formatJours(jours: number | null | undefined) {
   return typeof jours === 'number' ? `${formatNumber(jours)} j` : undefined;
 }
 
+/** La page routée : elle lit l'URL et la passe à la fiche. */
 export default function DossierDetail() {
   const { id } = useParams();
-  const { data: d, loading, error, refetch } = useApi(() => getDossier(id!), [id], 'dossier');
+  return <FicheDossier id={id!} />;
+}
+
+/** La fiche elle-même, indépendante de l'URL — ce qui permet de l'ouvrir en
+ * dialogue (`FicheDossierDialog`) à l'identique de la page, comme
+ * `FicheProspection`. */
+export function FicheDossier({ id, variante = 'page' }: { id: string; variante?: VarianteFiche }) {
+  const { data: d, loading, error, refetch } = useApi(() => getDossier(id), [id], 'dossier');
   // Cascade reference up to the originating Prospection — same
   // reference-the-previous-pipeline-stage convention as Prospection's own
   // La prospection d'origine n'est plus resumee dans un onglet : l'en-tete
@@ -1166,14 +1174,14 @@ export default function DossierDetail() {
     [articleIds],
     'dossier-articles',
   );
-  const nextSteps = useApi(() => getEtapesSuivantes(id!), [id], 'dossier-etapes');
-  const montants = useApi(() => getMontantsDossier(id!), [id], 'dossier-montants');
+  const nextSteps = useApi(() => getEtapesSuivantes(id), [id], 'dossier-etapes');
+  const montants = useApi(() => getMontantsDossier(id), [id], 'dossier-montants');
   const [echeancesPage, setEcheancesPage] = useState(0);
-  const echeances = useApi(() => listEcheances(id!, { page: echeancesPage, size: 20 }), [id, echeancesPage], 'dossier-echeances');
-  const pieces = useApi(() => listPiecesJointes(id!), [id], 'dossier-pieces');
+  const echeances = useApi(() => listEcheances(id, { page: echeancesPage, size: 20 }), [id, echeancesPage], 'dossier-echeances');
+  const pieces = useApi(() => listPiecesJointes(id), [id], 'dossier-pieces');
   const [addPieceOpen, setAddPieceOpen] = useState(false);
   const [historiquePage, setHistoriquePage] = useState(0);
-  const historique = useApi(() => listHistoriqueDossier(id!, { page: historiquePage, size: 20 }), [id, historiquePage], 'dossier-historique');
+  const historique = useApi(() => listHistoriqueDossier(id, { page: historiquePage, size: 20 }), [id, historiquePage], 'dossier-historique');
   const navigate = useNavigate();
   const [toast, setToast] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
@@ -1181,7 +1189,8 @@ export default function DossierDetail() {
   // straight to Financier with the "Ajouter une échéance" row pre-opened and
   // pre-filled, since the schéma de financement always starts empty (the
   // API's CreerDossierRequest has no way to seed it at creation time).
-  const fromCreation = searchParams.get('nouveau') === '1';
+  // En dialogue, l'URL est celle de la page derrière : `?nouveau` ne la concerne pas.
+  const fromCreation = variante === 'page' && searchParams.get('nouveau') === '1';
   // « Statut » par défaut : ouvrir un dossier, c'est d'abord demander où il
   // en est. Le parcours occupait jusqu'ici une ligne permanente de la bande
   // d'identité, utile les premiers jours d'un dossier puis jamais relue.
@@ -1197,13 +1206,13 @@ export default function DossierDetail() {
 
   // `!d` : avec une valeur en cache (cf. `useApi(..., 'dossier')`), on repeint
   // le dossier connu et la revalidation se fait en fond, sans écran de chargement.
-  if (loading && !d) return <PageShell title="Dossier de vente"><LoadingState /></PageShell>;
-  if (error) return <PageShell title="Dossier de vente"><ErrorState message={error} /></PageShell>;
+  if (loading && !d) return <CadreFiche variante={variante} title="Dossier de vente"><LoadingState /></CadreFiche>;
+  if (error) return <CadreFiche variante={variante} title="Dossier de vente"><ErrorState message={error} /></CadreFiche>;
   if (!d) {
     return (
-      <PageShell title="Dossier introuvable" crumbs={[{ label: 'Dossiers', to: '/dossiers' }]}>
+      <CadreFiche variante={variante} title="Dossier introuvable" crumbs={[{ label: 'Dossiers', to: '/dossiers' }]}>
         <p>Ce dossier n'existe pas.</p>
-      </PageShell>
+      </CadreFiche>
     );
   }
 
@@ -1420,7 +1429,8 @@ export default function DossierDetail() {
   const premierArticle = d.articles?.[0];
 
   return (
-    <PageShell
+    <CadreFiche
+      variante={variante}
       title={title}
       crumbs={[{ label: 'Dossiers', to: '/dossiers' }, { label: d.code || '' }]}
       fullHeight
@@ -1820,6 +1830,6 @@ export default function DossierDetail() {
           {toast}
         </div>
       )}
-    </PageShell>
+    </CadreFiche>
   );
 }

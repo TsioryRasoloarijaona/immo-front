@@ -11,10 +11,21 @@ export type PreviewTarget =
   | { type: 'dossier'; id: string }
   | { type: 'prospect'; id: string };
 
+/** Une fiche complète ouverte en dialogue (FEATURE-parcours-apercu.md §3). */
+export type FicheCible =
+  | { type: 'prospection'; id: string; pre: boolean }
+  | { type: 'dossier'; id: string }
+  | { type: 'prospect'; id: string };
+
 export interface PreviewContextValue {
   previewProspection: (id: string) => void;
   previewDossier: (id: string) => void;
   previewProspect: (id: string) => void;
+  /** La fiche entière, actions comprises, dans un dialogue empilé au-dessus
+   * de ceux déjà ouverts. Toute navigation ferme la pile. */
+  ouvrirFicheProspection: (id: string, pre: boolean) => void;
+  ouvrirFicheDossier: (id: string) => void;
+  ouvrirFicheProspect: (id: string) => void;
 }
 
 export const PreviewContext = createContext<PreviewContextValue | null>(null);

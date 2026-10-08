@@ -7,6 +7,7 @@ import { formatDate } from '../lib/format';
 import { etapeBadgeTone, prospectionDisplayName } from '../lib/domain';
 import { getProspection } from '../lib/api';
 import { useApi } from '../lib/useApi';
+import { routeFicheProspection } from '../lib/parcours';
 
 // Reciprocal-access preview: lets any list row or linked-record button in
 // the app show a Prospection's key facts without leaving the current page.
@@ -32,7 +33,8 @@ export default function ProspectionPreviewDialog({ id, onClose }: { id: string; 
           </FieldGrid>
           <div className="flex justify-end gap-2 border-t border-border pt-3.5">
             <Button variant="outline" onClick={onClose}>Fermer</Button>
-            <Button render={<Link to={`/prospections/${p.id}`} />}>
+            {/* L'hôte des aperçus est au-dessus des routes : sans `onClose`, le dialogue resterait ouvert sur la page d'arrivée. */}
+            <Button render={<Link to={routeFicheProspection(p.id, p.typeProspectionCode)} onClick={onClose} />}>
               Ouvrir la fiche complète <ArrowUpRight data-icon="inline-end" />
             </Button>
           </div>

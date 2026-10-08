@@ -32,7 +32,7 @@ export default function ProspectPreviewDialog({ id, onClose }: { id: string; onC
           </FieldGrid>
           <div className="flex justify-end gap-2 border-t border-border pt-3.5">
             <Button variant="outline" onClick={onClose}>Fermer</Button>
-            <Button render={<Link to={`/prospects/${person.id}`} />}>
+            <Button render={<Link to={`/prospects/${person.id}`} onClick={onClose} />}>
               Ouvrir la fiche complète <ArrowUpRight data-icon="inline-end" />
             </Button>
           </div>
