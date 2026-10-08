@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useDeferredValue, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, Sigma, SquareMinus, SquarePlus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './ui/table';
-import { useOrdreColonnes } from '../lib/colonnes';
+import { sansAccents, useOrdreColonnes } from '../lib/colonnes';
 import { formatCurrency, formatDate, formatNumber } from '../lib/format';
 import { cn } from '../lib/utils';
 import {
@@ -172,6 +172,44 @@ function texteComparable<T>(row: T, c: ColonneGrille<T>): string {
   if (type === 'DATE') return formatDate(String(v));
   if (type === 'BOOLEEN') return v ? 'oui' : 'non';
   return String(v);
+}
+
+/** Forme numérique saisie ou affichée, ramenée à `50000.00` : sans espaces
+ * (`\s` couvre les insécables), sans « DH », virgule décimale en point. */
+function normaliserNombre(texte: string): string {
+  return texte.replace(/\s/g, '').replace(/dh$/i, '').replace(',', '.');
+}
+
+/** Forme affichée d'une valeur numérique, celle que l'utilisateur recopie. */
+function texteNumeriqueAffiche<T>(v: unknown, c: ColonneGrille<T>): string {
+  if (c.formatValeur) return c.formatValeur(v);
+  if (typeof v !== 'number') return String(v);
+  return typeDe(c) === 'MONTANT' ? formatCurrency(v) : formatNumber(v);
+}
+
+/** Prédicat de la ligne de filtres pour une colonne : sous-chaîne sans accents
+ * sur le texte, égalité sur les nombres (`=`), voir FIX-grille-filtres-fiches.md §1-2. */
+function predicatFiltre<T>(c: ColonneGrille<T>, saisie: string): (row: T) => boolean {
+  if (!NUMERIQUES.includes(typeDe(c))) {
+    const aiguille = sansAccents(saisie);
+    return (r) => sansAccents(texteComparable(r, c)).includes(aiguille);
+  }
+  const aiguille = normaliserNombre(saisie).toLowerCase();
+  const n = Number(aiguille);
+  // Un ratio affiché en % (`formatValeur`) ne se compare qu'à sa forme affichée.
+  if (!c.formatValeur && /^-?[\d.]+$/.test(aiguille) && Number.isFinite(n)) {
+    const tolerance = typeDe(c) === 'MONTANT' ? 0.005 : 0;
+    return (r) => {
+      const v = valeurDe(r, c);
+      if (v === null || v === undefined || v === '') return false;
+      return Math.abs(Number(v) - n) <= tolerance;
+    };
+  }
+  return (r) => {
+    const v = valeurDe(r, c);
+    if (v === null || v === undefined || v === '') return false;
+    return normaliserNombre(texteNumeriqueAffiche(v, c)).toLowerCase().includes(aiguille);
+  };
 }
 
 /* `A` sur le texte, `=` sur tout ce qui se compare — les deux glyphes que la
@@ -355,20 +393,14 @@ export default function DataGrid<T extends { id: string }>({
      sortirait. */
   const appliquer = useCallback(
     (source: T[]) => {
-      /* L'aiguille est invariante sur toute la passe : la normaliser ici plutot
-         que dans le predicat evite un `trim().toLowerCase()` par ligne et par
-         colonne filtree. Le meme parcours reconnait les colonnes actives, la
-         ou il en fallait deux. */
-      const actifs: { c: ColonneGrille<T>; aiguille: string }[] = [];
+      /* Prédicats construits une fois par passe : l'aiguille est normalisée
+         ici, pas par ligne et par colonne filtrée. */
+      const actifs: ((r: T) => boolean)[] = [];
       for (const c of colonnes) {
-        const aiguille = (filtresDiff[c.nom] ?? '').trim().toLowerCase();
-        if (aiguille !== '') actifs.push({ c, aiguille });
+        const saisie = (filtresDiff[c.nom] ?? '').trim();
+        if (saisie !== '') actifs.push(predicatFiltre(c, saisie));
       }
-      const filtrees = actifs.length
-        ? source.filter((r) =>
-            actifs.every(({ c, aiguille }) => texteComparable(r, c).toLowerCase().includes(aiguille)),
-          )
-        : source;
+      const filtrees = actifs.length ? source.filter((r) => actifs.every((p) => p(r))) : source;
       if (!tri) return filtrees;
       const col = parNom.get(tri.nom);
       if (!col) return filtrees;
@@ -391,6 +423,7 @@ export default function DataGrid<T extends { id: string }>({
   );
 
   const visibles = useMemo(() => appliquer(rows), [appliquer, rows]);
+  const filtreActif = colonnes.some((c) => (filtresDiff[c.nom] ?? '').trim() !== '');
 
   /* Ce que le Σ somme, et ce que la barre de résumé compte : les lignes
      réellement à l'écran. En mode groupé ce sont celles des groupes ouverts,
@@ -602,7 +635,7 @@ export default function DataGrid<T extends { id: string }>({
           <span className="shrink-0 rounded-full bg-(--amber-bg) px-1.25 font-bold text-(--amber)">Bientôt</span>
         </div>
       )}
-      {(tri || sommes.size > 0 || cochees.size > 0) && (
+      {(tri || sommes.size > 0 || cochees.size > 0 || filtreActif || ordrePersonnalise) && (
         <div className="flex h-5 shrink-0 items-center gap-3 border-b border-border/70 bg-card px-2 text-micro text-muted-foreground">
           {cochees.size > 0 && <span className="shrink-0">{cochees.size} sélectionnée(s)</span>}
           {tri && (
@@ -625,10 +658,12 @@ export default function DataGrid<T extends { id: string }>({
           )}
           <span className="ml-auto shrink-0 tabular-nums">
             {groupes
-              ? `${formatNumber(groupes.liste.length)} groupe(s), ${formatNumber(sommables.length)} ligne(s) dépliée(s)`
-              : visibles.length === rows.length
-                ? `${formatNumber(rows.length)} ligne(s)`
-                : `${formatNumber(visibles.length)} / ${formatNumber(rows.length)} ligne(s)`}
+              ? `${formatNumber(groupes.liste.length)} groupe(s), ${formatNumber(sommables.length)} ligne(s) dépliée(s)${
+                  filtreActif ? ' — filtre sur les lignes dépliées seulement' : ''
+                }`
+              : filtreActif
+                ? `${formatNumber(visibles.length)} / ${formatNumber(rows.length)} ligne(s) chargée(s) — filtre sur la page affichée seulement`
+                : `${formatNumber(rows.length)} ligne(s)`}
           </span>
         </div>
       )}

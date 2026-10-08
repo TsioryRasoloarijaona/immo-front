@@ -38,7 +38,7 @@ export function libelleGroupe(groupe: string): string {
 
 /** Minuscules sans accents. Distinct de `normalizeStatus` de `dossierStatus.ts`,
  * qui supprime aussi les espaces : ici ils séparent les mots de la recherche. */
-function sansAccents(texte: string): string {
+export function sansAccents(texte: string): string {
   return texte
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
