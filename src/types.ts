@@ -1253,10 +1253,10 @@ export interface LigneImportDto {
   /** Colonne « Formulaire », recopiée dans les notes. */
   formulaire?: string | null;
   statut: StatutLigneImport;
-  /** Explication du statut, en clair — null pour `NOUVELLE`. */
+  /** Explication du statut, en clair — null pour une `NOUVELLE` importée (ou en aperçu). */
   message?: string | null;
-  /** Pré-prospection créée. **Toujours null dans l'aperçu**, et pour
-   * `DEJA_IMPORTEE` / `ERREUR`. */
+  /** Pré-prospection créée. Null dans l'aperçu, hors sélection (`statuts`),
+   * et pour `DEJA_IMPORTEE` / `ERREUR`. */
   preProspectionId?: UUID | null;
   /** Code de la pré-prospection créée (`AA/NNNNN`). Null comme `preProspectionId`. */
   code?: string | null;
@@ -1345,7 +1345,7 @@ export interface RapportImportPreProspectionsDto {
   /** Lignes de données (en-tête et lignes vides exclues). */
   totalLignes: number;
   nouvelles: number;
-  /** Créées elles aussi. */
+  /** Créées si sélectionnées (`statuts`). Compteur de classification. */
   doublons: number;
   /** Ignorées. */
   dejaImportees: number;
@@ -1353,6 +1353,11 @@ export interface RapportImportPreProspectionsDto {
   erreurs: number;
   /** Le détail, ligne par ligne, dans l'ordre du fichier. */
   lignes: LigneImportDto[];
+  /** Statuts effectivement importés, dans l'ordre `NOUVELLE`, `DOUBLON`
+   * (défaut : les deux). Null dans l'aperçu. */
+  statutsImportes?: StatutLigneImport[] | null;
+  /** Lignes réellement écrites (`preProspectionId` non null). 0 dans l'aperçu. */
+  creees: number;
 }
 
 // --- Prospection sub-collections (each a simple {id, xxxId, xxx} link row,

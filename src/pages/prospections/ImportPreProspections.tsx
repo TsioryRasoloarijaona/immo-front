@@ -13,6 +13,7 @@ import {
   importerPreProspections,
   listTranches,
   type ImportPreProspectionsParams,
+  type StatutImportable,
 } from '../../lib/api';
 import { formatDateTime } from '../../lib/format';
 import {
@@ -30,18 +31,22 @@ import type { BadgeTone, LigneImportDto, RapportImportPreProspectionsDto, Statut
  * mais à vérifier, ✗ rejetée, et rien pour « déjà là » — ignorée sans
  * qu'il y ait quoi que ce soit à faire. */
 const STATUTS: Record<StatutLigneImport, { libelle: string; tone: BadgeTone; aide: string }> = {
-  NOUVELLE: { libelle: 'Nouvelle', tone: 'success', aide: 'Aucun contact identique connu : créée.' },
-  DOUBLON: { libelle: 'Doublon', tone: 'amber', aide: 'Même contact qu\'une prospection existante, autre date : créée quand même et signalée.' },
+  NOUVELLE: { libelle: 'Nouvelle', tone: 'success', aide: 'Aucun contact identique connu : créée si cochée.' },
+  DOUBLON: { libelle: 'Doublon', tone: 'amber', aide: 'Même contact qu\'une prospection existante, autre date : créée si cochée, et signalée.' },
   DEJA_IMPORTEE: { libelle: 'Déjà importée', tone: 'neutral', aide: 'Même contact et même date : le même lead réimporté, ignoré.' },
   ERREUR: { libelle: 'Erreur', tone: 'warning', aide: 'Ligne inexploitable, ignorée.' },
 };
 const ORDRE_STATUTS: StatutLigneImport[] = ['NOUVELLE', 'DOUBLON', 'DEJA_IMPORTEE', 'ERREUR'];
 
+/** Les deux statuts importables, cochés par défaut (= tout ce qui peut être créé). */
+const STATUTS_IMPORTABLES: StatutImportable[] = ['NOUVELLE', 'DOUBLON'];
+const TOUS_COCHES: Record<StatutImportable, boolean> = { NOUVELLE: true, DOUBLON: true };
+
 type Etape = 'fichier' | 'apercu' | 'resultat';
 type Filtre = StatutLigneImport | 'TOUTES';
 
 /** Référentiels optionnels de l'import — vides, le serveur pose ses défauts. */
-type Reglages = Omit<ImportPreProspectionsParams, 'trancheId'>;
+type Reglages = Omit<ImportPreProspectionsParams, 'trancheId' | 'statuts'>;
 
 /* Import CSV des leads (FEATURE-creation-pre-prospection.md §5) — l'export du
  * Leads Center de Meta, en deux temps :
@@ -71,6 +76,9 @@ export default function ImportPreProspections() {
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [filtre, setFiltre] = useState<Filtre>('TOUTES');
+  // Sélection par statut (FEATURE-import-selectif.md §2) : le serveur filtre,
+  // la classification ne bouge pas.
+  const [coches, setCoches] = useState<Record<StatutImportable, boolean>>(TOUS_COCHES);
 
   // Même source que le filtre Tranche de la liste : à plat, toutes tranches
   // visibles de l'appelant. Chargée dès l'arrivée pour que la liste soit
@@ -102,6 +110,7 @@ export default function ImportPreProspections() {
     setTrancheId(null);
     setErreur(null);
     setFiltre('TOUTES');
+    setCoches(TOUS_COCHES);
   }
 
   async function analyser() {
@@ -113,6 +122,7 @@ export default function ImportPreProspections() {
       setRapport(r);
       setTrancheId(r.trancheSuggereeId ?? null);
       setFiltre('TOUTES');
+      setCoches(TOUS_COCHES);
       setEtape('apercu');
     } catch (err) {
       setErreur(err instanceof Error ? err.message : "Échec de l'analyse du fichier.");
@@ -126,7 +136,9 @@ export default function ImportPreProspections() {
     setBusy(true);
     setErreur(null);
     try {
-      const r = await importerPreProspections(fichier, { trancheId, ...reglages });
+      // Jamais vide : le bouton est désactivé tant que N = 0.
+      const statuts = STATUTS_IMPORTABLES.filter((s) => coches[s]);
+      const r = await importerPreProspections(fichier, { trancheId, ...reglages, statuts });
       setRapport(r);
       setFiltre('TOUTES');
       setEtape('resultat');
@@ -137,7 +149,12 @@ export default function ImportPreProspections() {
     }
   }
 
-  const aCreer = rapport ? rapport.nouvelles + rapport.doublons : 0;
+  function compte(s: StatutImportable): number {
+    if (!rapport) return 0;
+    return s === 'NOUVELLE' ? rapport.nouvelles : rapport.doublons;
+  }
+  const aCreer = STATUTS_IMPORTABLES.reduce((n, s) => n + (coches[s] ? compte(s) : 0), 0);
+  const creees = rapport?.creees ?? 0;
   const trancheSuggeree = rapport?.trancheSuggereeId
     ? trancheItems.find((t) => t.value === rapport.trancheSuggereeId)
     : undefined;
@@ -190,7 +207,7 @@ export default function ImportPreProspections() {
               <div className="flex items-start gap-2 rounded-lg border border-(--success-border) bg-(--success-bg) px-3.5 py-3 text-body text-(--success)">
                 <Check aria-hidden className="mt-0.5 size-3.5 shrink-0" />
                 <span>
-                  <span className="font-medium">{aCreer} pré-prospection{aCreer > 1 ? 's' : ''} créée{aCreer > 1 ? 's' : ''}</span>
+                  <span className="font-medium">{creees} pré-prospection{creees > 1 ? 's' : ''} créée{creees > 1 ? 's' : ''}</span>
                   {rapport.trancheCode ? ` sur la tranche ${rapport.trancheCode}` : ''}
                   {rapport.dejaImportees > 0 ? ` — ${rapport.dejaImportees} déjà importée${rapport.dejaImportees > 1 ? 's' : ''} ignorée${rapport.dejaImportees > 1 ? 's' : ''}` : ''}
                   {rapport.erreurs > 0 ? ` — ${rapport.erreurs} en erreur` : ''}.
@@ -201,7 +218,7 @@ export default function ImportPreProspections() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               <StatCard label="Lignes lues" value={String(rapport.totalLignes)} />
               <StatCard label="Nouvelles" value={String(rapport.nouvelles)} tone="success" icon={<Check />} />
-              <StatCard label="Doublons" value={String(rapport.doublons)} sub="créés et signalés" tone="amber" icon={<AlertTriangle />} />
+              <StatCard label="Doublons" value={String(rapport.doublons)} sub="signalés" tone="amber" icon={<AlertTriangle />} />
               <StatCard label="Déjà importées" value={String(rapport.dejaImportees)} sub="ignorées" />
               <StatCard label="Erreurs" value={String(rapport.erreurs)} sub="ignorées" tone={rapport.erreurs > 0 ? 'warning' : 'neutral'} />
             </div>
@@ -282,6 +299,34 @@ export default function ImportPreProspections() {
                     </div>
                   )}
 
+                  <fieldset className="flex flex-col gap-1.5">
+                    <legend className="mb-1.5 text-label font-medium text-foreground">Lignes à importer</legend>
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                      {STATUTS_IMPORTABLES.map((s) => {
+                        const n = compte(s);
+                        return (
+                          <label
+                            key={s}
+                            title={STATUTS[s].aide}
+                            className={`flex items-center gap-1.5 text-label ${n === 0 ? 'cursor-not-allowed text-muted-foreground' : 'cursor-pointer text-foreground'}`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="size-3.5"
+                              checked={coches[s]}
+                              disabled={n === 0 || busy}
+                              onChange={(e) => setCoches((c) => ({ ...c, [s]: e.target.checked }))}
+                            />
+                            {STATUTS[s].libelle}s ({n})
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <p className="text-micro text-muted-foreground">
+                      Les lignes déjà importées et les erreurs ne sont jamais importées.
+                    </p>
+                  </fieldset>
+
                   {erreur && <p className="text-body text-destructive">{erreur}</p>}
                   <div className="flex flex-wrap items-center gap-2">
                     <Button type="button" variant="outline" onClick={reset} disabled={busy}>
@@ -292,7 +337,9 @@ export default function ImportPreProspections() {
                       {busy ? 'Import…' : `Importer ${aCreer} ligne${aCreer > 1 ? 's' : ''}`}
                     </Button>
                     {aCreer === 0 && (
-                      <span className="text-body text-muted-foreground">Aucune ligne à créer dans ce fichier.</span>
+                      <span className="text-body text-muted-foreground">
+                        {rapport.nouvelles + rapport.doublons === 0 ? 'Aucune ligne à créer dans ce fichier.' : 'Cocher au moins un type de ligne.'}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -374,6 +421,8 @@ function TableauLignes({ lignes, importe }: { lignes: LigneImportDto[]; importe:
                       <Link to={`/pre-prospections/${l.preProspectionId}`} className="font-medium underline-offset-2 hover:underline">
                         {l.code || l.preProspectionId}
                       </Link>
+                    ) : l.statut === 'NOUVELLE' || l.statut === 'DOUBLON' ? (
+                      <span className="whitespace-nowrap text-muted-foreground">Non importée</span>
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
