@@ -67,6 +67,7 @@ import type {
   PieceJointeDto,
   PreProspectionCreeeDto,
   RapportImportPreProspectionsDto,
+  StatutLigneImport,
   RelanceProspectionDto,
   SyntheseAnnuelleDto,
   EcheanceRelance,
@@ -794,7 +795,13 @@ export interface ImportPreProspectionsParams {
   origineSupportId?: UUID;
   typeContactId?: UUID;
   actionCommercialeId?: UUID;
+  /** Statuts à importer. Absent : les deux. Vide, `DEJA_IMPORTEE` ou
+   * `ERREUR` → 400. Ne change pas la classification des lignes. */
+  statuts?: StatutImportable[];
 }
+
+/** Statuts qu'un import peut créer — les deux autres sont toujours ignorés. */
+export type StatutImportable = Extract<StatutLigneImport, 'NOUVELLE' | 'DOUBLON'>;
 
 /** `POST /api/pre-prospections/import/apercu` — étape 1 de l'import : le
  * fichier est lu, rien n'est écrit. Le rapport donne le sort de chaque ligne
@@ -808,7 +815,8 @@ export function apercuImportPreProspections(fichier: File): Promise<RapportImpor
 /** `POST /api/pre-prospections/import` — étape 2 : **le même fichier**, avec
  * la tranche choisie après l'aperçu. Tout ou rien pour les erreurs de requête
  * (400 tranche inconnue, 403 hors périmètre : aucune ligne écrite) ; les
- * lignes `ERREUR` n'empêchent pas les autres. */
+ * lignes `ERREUR` n'empêchent pas les autres. `statuts` part répété
+ * (`statuts=NOUVELLE&statuts=DOUBLON`) via `buildQuery`. */
 export function importerPreProspections(fichier: File, params: ImportPreProspectionsParams): Promise<RapportImportPreProspectionsDto> {
   return postMultipart<RapportImportPreProspectionsDto>('/api/pre-prospections/import', fichier, { ...params });
 }
