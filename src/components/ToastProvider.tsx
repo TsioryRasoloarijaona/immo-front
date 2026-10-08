@@ -5,6 +5,8 @@ import { ToastContext, type ToastOptions } from '../lib/toastContext';
 import { cn } from '../lib/utils';
 
 const DUREE_SANS_ACTION_MS = 3600;
+const CLASSE_ACTION =
+  'shrink-0 rounded font-semibold whitespace-nowrap underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-current';
 
 /** Le toast partagé, monté une fois autour du layout : il survit donc à une
  * navigation (R3). Un seul message à la fois — le suivant remplace le
@@ -69,16 +71,32 @@ export function ToastProvider({
             <span className="min-w-0 flex-1">{toast.texte}</span>
             {toast.action && (
               <>
-                <Link
-                  to={toast.action.vers}
-                  onClick={() => {
-                    fermer();
-                    onAction?.();
-                  }}
-                  className="shrink-0 rounded font-semibold whitespace-nowrap underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-current"
-                >
-                  {toast.action.libelle}
-                </Link>
+                {toast.action.surClic ? (
+                  /* Pas d'`onAction` : il ferme le dialogue hôte, alors que
+                     l'action s'ouvre par-dessus et doit y revenir. */
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const surClic = toast.action!.surClic!;
+                      fermer();
+                      surClic();
+                    }}
+                    className={CLASSE_ACTION}
+                  >
+                    {toast.action.libelle}
+                  </button>
+                ) : (
+                  <Link
+                    to={toast.action.vers}
+                    onClick={() => {
+                      fermer();
+                      onAction?.();
+                    }}
+                    className={CLASSE_ACTION}
+                  >
+                    {toast.action.libelle}
+                  </Link>
+                )}
                 <button
                   type="button"
                   onClick={fermer}

@@ -1,10 +1,18 @@
 import { createContext, useContext } from 'react';
 
-export interface ToastAction {
-  libelle: string;
-  /** Route SPA (`/prospects/…`), jamais une URL absolue. */
-  vers: string;
-}
+export type ToastAction =
+  | {
+      libelle: string;
+      /** Route SPA (`/prospects/…`), jamais une URL absolue. */
+      vers: string;
+      surClic?: never;
+    }
+  | {
+      libelle: string;
+      /** Action sans navigation (ex. ouvrir une fiche en dialogue). */
+      surClic: () => void;
+      vers?: never;
+    };
 
 export interface ToastOptions {
   texte: string;
