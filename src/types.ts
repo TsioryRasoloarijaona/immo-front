@@ -458,6 +458,10 @@ export interface HistoriqueDto {
   utilisateur?: string;
   workflowDescription?: string;
   statutDescription?: string;
+  /** Historique d'un tiers seulement ; null pour une prospection. */
+  dossierId?: UUID | null;
+  dossierCode?: string | null;
+  articleCode?: string | null;
 }
 
 // One traceability event on a dossier's timeline, from GET

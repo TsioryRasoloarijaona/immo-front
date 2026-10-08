@@ -5,7 +5,7 @@ import CadreFiche, { EnteteFiche, type VarianteFiche } from '../../components/Ca
 import { LigneActivite, OngletsLigne } from '../../components/FicheShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
-import { TimelineList, TimelineRow } from '../../components/Timeline';
+import HistoriqueTiersTable from '../../components/HistoriqueTiersTable';
 import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
@@ -31,7 +31,7 @@ import { useToast } from '../../lib/toastContext';
 import { routeFicheProspection } from '../../lib/parcours';
 import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../../lib/format';
+import { formatCurrency, formatDate, formatTelephone } from '../../lib/format';
 import TelephoneField from '../../components/TelephoneField';
 import ContactsProspect from '../../components/ContactsProspect';
 import type { DossierListItemDto, ModifierProspectRequest, ProspectionDetailDto, ProspectionListItemDto } from '../../types';
@@ -466,17 +466,7 @@ export function FicheProspect({
             {historique.error && <ErrorState message={historique.error} />}
             {historique.data && historique.data.content.length === 0 && <EmptyState title="Aucun historique" />}
             {historique.data && historique.data.content.length > 0 && (
-              <TimelineList>
-                {historique.data.content.map((h, i) => (
-                  <TimelineRow
-                    key={h.id}
-                    dernier={i === historique.data!.content.length - 1}
-                    titre={h.workflowDescription || h.statutDescription || 'Événement'}
-                    meta={`${formatDateTime(h.date)} · ${h.utilisateur || 'Système'}`}
-                    note={h.description}
-                  />
-                ))}
-              </TimelineList>
+              <HistoriqueTiersTable lignes={historique.data.content} />
             )}
             {historique.data && (
               <Pagination page={historique.data.page} totalPages={historique.data.totalPages} totalElements={historique.data.totalElements} onPageChange={setHistoriquePage} />

@@ -62,7 +62,15 @@ export const useRaisonsCloture = makeCachedListHook(api.getRaisonsCloture);
 export const useProfilsProspection = makeCachedListHook(api.getProfilsProspection);
 export const useProfessions = makeCachedListHook(api.getProfessions);
 export const usePays = makeCachedListHook(api.getPays);
-export const useOriginesProspection = makeCachedListHook(api.getOriginesProspection);
+/** Triées une fois ici, sur le libellé affiché, pour que tous les combos et
+ * filtres « Source de contact » / « Origine » aient le même ordre (OMRAN 0001166). */
+export const useOriginesProspection = makeCachedListHook(() =>
+  api.getOriginesProspection().then((list) =>
+    [...list].sort((a, b) =>
+      (a.description || a.code || a.id).localeCompare(b.description || b.code || b.id, 'fr', { numeric: true, sensitivity: 'base' }),
+    ),
+  ),
+);
 export const useNationalites = makeCachedListHook(api.getNationalites);
 export const useEtapesProspection = makeCachedListHook(api.getEtapesProspection);
 export const useCategoriesBien = makeCachedListHook(api.getCategoriesBien);

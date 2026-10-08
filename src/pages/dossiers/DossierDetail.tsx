@@ -1185,10 +1185,7 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
   const navigate = useNavigate();
   const [toast, setToast] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
-  // Landing here right after "Créer le dossier" (see NewDossier.tsx) — jump
-  // straight to Financier with the "Ajouter une échéance" row pre-opened and
-  // pre-filled, since the schéma de financement always starts empty (the
-  // API's CreerDossierRequest has no way to seed it at creation time).
+  // Landing here right after "Créer le dossier" (see NewDossier.tsx).
   // En dialogue, l'URL est celle de la page derrière : `?nouveau` ne la concerne pas.
   const fromCreation = variante === 'page' && searchParams.get('nouveau') === '1';
   // « Statut » par défaut : ouvrir un dossier, c'est d'abord demander où il
@@ -1245,7 +1242,9 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
                     await echeances.refetch();
                     await montants.refetch();
                   }}
-                  initialOpen={fromCreation}
+                  // Lu au montage seulement : sans données chargées, rester fermé plutôt
+                  // que proposer une échéance du montant total sur un schéma déjà rempli.
+                  initialOpen={fromCreation && echeances.data?.totalElements === 0}
                   initialMontant={d.totalAPayer ?? d.prix ?? undefined}
                   initialDate={todayISO()}
                 />
@@ -1497,11 +1496,16 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
            est-il ».
            --------------------------------------------------------------- */
         identite={
-          fromCreation && (
-            <div className="rounded-lg border border-(--info-border) bg-(--info-bg) px-3 py-1.5 text-micro text-(--info)">
-              Dossier créé. Le schéma de financement est vide — l'API ne permet pas de le pré-remplir à la création ;
-              complétez-le dans l'onglet ci-dessous.
-            </div>
+          fromCreation && !echeances.error && echeances.data && (
+            echeances.data.totalElements === 0 ? (
+              <div className="rounded-lg border border-(--info-border) bg-(--info-bg) px-3 py-1.5 text-micro text-(--info)">
+                Dossier créé. Le schéma de financement est vide ; complétez-le dans l'onglet ci-dessous.
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-micro text-muted-foreground">
+                Dossier créé.
+              </div>
+            )
           )
         }
         /* ---------------------------------------------------------------

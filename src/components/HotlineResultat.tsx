@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { TimelineList, TimelineRow } from './Timeline';
+import HistoriqueTiersTable from './HistoriqueTiersTable';
 import { getDossier, getProspection } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { etapeBadgeTone, interactionIcon, personDisplayName, prospectionDisplayName } from '../lib/domain';
@@ -396,19 +397,7 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
             {historique.length === 0 ? (
               <EmptyState title="Aucun historique" />
             ) : (
-              <div className="rounded-lg bg-muted/30 p-3">
-                <TimelineList>
-                  {historique.map((h, i) => (
-                    <TimelineRow
-                      key={h.id}
-                      dernier={i === historique.length - 1}
-                      titre={h.workflowDescription || h.statutDescription || 'Événement'}
-                      meta={`${formatDateTime(h.date)} · ${h.utilisateur || 'Système'}`}
-                      note={h.description}
-                    />
-                  ))}
-                </TimelineList>
-              </div>
+              <HistoriqueTiersTable lignes={historique} />
             )}
           </TabsContent>
         </div>
