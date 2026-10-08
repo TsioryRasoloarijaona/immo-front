@@ -24,6 +24,7 @@ import {
   prospectionExistanteDepuisErreur,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { usePreview } from '../../lib/previewContext';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { personDisplayName } from '../../lib/domain';
 import {
@@ -41,6 +42,7 @@ import type {
   CreerProspectionRequest,
   ProspectDoublonDto,
   ProspectListItemDto,
+  ProspectionDetailDto,
   ProspectionExistanteDto,
 } from '../../types';
 
@@ -62,12 +64,15 @@ function ProspectPicker({
   mode,
   onModeChange,
   selectedProspect,
+  verrouille = false,
 }: {
   onSelectExisting: (p: ProspectListItemDto | null) => void;
   onNewFormChange: (form: CreerProspectRequest) => void;
   mode: 'existing' | 'new';
   onModeChange: (mode: 'existing' | 'new') => void;
   selectedProspect: ProspectListItemDto | null;
+  /** Prospect imposé par l'appelant : ni bascule, ni recherche, ni retrait. */
+  verrouille?: boolean;
 }) {
   const [search, setSearch] = useState('');
   const results = useApi(
@@ -88,14 +93,16 @@ function ProspectPicker({
 
   return (
     <Card title="Prospect" accent="var(--sec-prospect)">
-      <div className="mb-3 flex gap-2">
-        <Button type="button" size="sm" variant={mode === 'existing' ? 'default' : 'outline'} onClick={() => onModeChange('existing')}>
-          Prospect existant
-        </Button>
-        <Button type="button" size="sm" variant={mode === 'new' ? 'default' : 'outline'} onClick={() => onModeChange('new')}>
-          Nouveau prospect
-        </Button>
-      </div>
+      {!verrouille && (
+        <div className="mb-3 flex gap-2">
+          <Button type="button" size="sm" variant={mode === 'existing' ? 'default' : 'outline'} onClick={() => onModeChange('existing')}>
+            Prospect existant
+          </Button>
+          <Button type="button" size="sm" variant={mode === 'new' ? 'default' : 'outline'} onClick={() => onModeChange('new')}>
+            Nouveau prospect
+          </Button>
+        </div>
+      )}
 
       {mode === 'existing' && (
         selectedProspect ? (
@@ -103,9 +110,11 @@ function ProspectPicker({
             <span className="font-medium text-foreground">{personDisplayName(selectedProspect)}</span>
             <span className="text-muted-foreground">{selectedProspect.mobile || selectedProspect.telephone || '—'}</span>
             <span className="text-muted-foreground">{selectedProspect.email || '—'}</span>
-            <Button type="button" variant="ghost" size="icon-sm" aria-label="Changer de prospect" onClick={() => onSelectExisting(null)}>
-              <X className="text-destructive" />
-            </Button>
+            {!verrouille && (
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="Changer de prospect" onClick={() => onSelectExisting(null)}>
+                <X className="text-destructive" />
+              </Button>
+            )}
           </div>
         ) : (
           <>
@@ -218,12 +227,24 @@ function ProspectPicker({
  * et la liste reste visible derrière le voile — ce qui est justement le sens du
  * geste. Le bouton de la liste n'a pas changé, il navigue toujours.
  *
- * La création réussie navigue vers la fiche créée, comme avant : c'est le seul
- * moment où quitter la liste a du sens. */
-export default function NouvelleProspectionDialog({ onClose }: { onClose: () => void }) {
+ * Depuis la liste, la création réussie navigue vers la fiche créée. Depuis une
+ * fiche prospect (`prospectInitial`), rien ne navigue : `onCree` reçoit la
+ * prospection et l'appelant décide (voir FEATURE-prospection-depuis-prospect.md). */
+export default function NouvelleProspectionDialog({
+  onClose,
+  prospectInitial,
+  onCree,
+}: {
+  onClose: () => void;
+  /** Prospect pré-sélectionné et verrouillé (mode « existant » forcé). */
+  prospectInitial?: ProspectListItemDto;
+  /** Remplace la navigation après succès ; l'appelant ferme la boîte. */
+  onCree?: (prospection: ProspectionDetailDto) => void;
+}) {
   const navigate = useNavigate();
+  const { ouvrirFicheProspection } = usePreview();
   const [prospectMode, setProspectMode] = useState<'existing' | 'new'>('existing');
-  const [selectedProspect, setSelectedProspect] = useState<ProspectListItemDto | null>(null);
+  const [selectedProspect, setSelectedProspect] = useState<ProspectListItemDto | null>(prospectInitial ?? null);
   const [newProspectForm, setNewProspectForm] = useState<CreerProspectRequest>(EMPTY_NEW_PROSPECT);
 
   const { commerciaux } = useAppData();
@@ -370,7 +391,8 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
         notes: notes.trim(),
       };
       const prospection = await createProspection(body);
-      navigate(`/prospections/${prospection.id}`);
+      if (onCree) onCree(prospection);
+      else navigate(`/prospections/${prospection.id}`);
     } catch (err) {
       setExistante(prospectionExistanteDepuisErreur(err));
       setSubmitError(err instanceof Error ? err.message : 'Échec de la création.');
@@ -392,6 +414,7 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
           selectedProspect={selectedProspect}
           onSelectExisting={setSelectedProspect}
           onNewFormChange={setNewProspectForm}
+          verrouille={!!prospectInitial}
         />
 
         <Card title="Prospection">
@@ -490,7 +513,12 @@ export default function NouvelleProspectionDialog({ onClose }: { onClose: () => 
         )}
 
         {existante ? (
-          <ProspectionExistanteNotice existante={existante} message={submitError} onOuvrir={onClose} />
+          <ProspectionExistanteNotice
+            existante={existante}
+            message={submitError}
+            onOuvrir={onClose}
+            ouvrirEnDialogue={prospectInitial ? (id) => { onClose(); ouvrirFicheProspection(id, false); } : undefined}
+          />
         ) : (
           submitError && <p className="text-body text-destructive">{submitError}</p>
         )}

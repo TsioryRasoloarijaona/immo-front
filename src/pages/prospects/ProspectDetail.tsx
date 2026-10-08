@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ChevronDown, ChevronRight, Contact, UserCheck } from 'lucide-react';
+import { ChevronDown, ChevronRight, Contact, Plus, UserCheck } from 'lucide-react';
 import CadreFiche, { type VarianteFiche } from '../../components/CadreFiche';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -25,13 +25,17 @@ import {
   updateProspect,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { usePreview } from '../../lib/previewContext';
+import { useToast } from '../../lib/toastContext';
 import { routeFicheProspection } from '../../lib/parcours';
 import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
 import { toneForStatus } from '../../lib/dossierStatus';
 import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../../lib/format';
 import TelephoneField from '../../components/TelephoneField';
 import ContactsProspect from '../../components/ContactsProspect';
-import type { DossierListItemDto, ModifierProspectRequest, ProspectionListItemDto } from '../../types';
+import type { DossierListItemDto, ModifierProspectRequest, ProspectionDetailDto, ProspectionListItemDto } from '../../types';
+
+const NouvelleProspectionDialog = lazy(() => import('../prospections/NewProspection'));
 
 type ProspectTab = 'general' | 'contacts' | 'prospections' | 'dossiers' | 'reglements' | 'historique';
 
@@ -88,6 +92,20 @@ export function FicheProspect({
   // an unwanted "redirect" out of the client's fiche.
   const [expandedProspectionId, setExpandedProspectionId] = useState<string | null>(null);
   const [expandedDossierId, setExpandedDossierId] = useState<string | null>(null);
+  const [nouvelleProspection, setNouvelleProspection] = useState(false);
+  const showToast = useToast();
+  const { ouvrirFicheProspection } = usePreview();
+
+  function prospectionCreee(p: ProspectionDetailDto) {
+    setNouvelleProspection(false);
+    setTab('prospections');
+    if (prospectionsPage !== 0) setProspectionsPage(0);
+    else void prospections.refetch();
+    showToast({
+      texte: p.code ? `Prospection ${p.code} créée.` : 'Prospection créée.',
+      action: { libelle: 'Ouvrir', surClic: () => ouvrirFicheProspection(p.id, false) },
+    });
+  }
 
   if (loading) return <CadreFiche variante={variante} title={isClientContext ? 'Client' : 'Prospect'}><LoadingState /></CadreFiche>;
   if (error) return <CadreFiche variante={variante} title={isClientContext ? 'Client' : 'Prospect'}><ErrorState message={error} /></CadreFiche>;
@@ -156,7 +174,31 @@ export function FicheProspect({
           {person.commercialNom && <> · Commercial : {person.commercialNom}</>}
         </span>
         {person.estAncienClient && <Badge tone="info">Ancien client</Badge>}
+        <Button size="sm" className="ml-auto self-center" onClick={() => setNouvelleProspection(true)}>
+          <Plus data-icon="inline-start" /> Nouvelle prospection
+        </Button>
       </div>
+
+      {nouvelleProspection && (
+        <Suspense fallback={null}>
+          <NouvelleProspectionDialog
+            onClose={() => setNouvelleProspection(false)}
+            prospectInitial={{
+              id: person.id,
+              code: person.code,
+              prenom: person.prenom,
+              nom: person.nom,
+              raisonSociale: person.raisonSociale,
+              telephone: person.telephone,
+              mobile: person.mobile,
+              email: person.email,
+              ville: person.ville,
+              type: person.type,
+            }}
+            onCree={prospectionCreee}
+          />
+        </Suspense>
+      )}
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as ProspectTab)} className="flex min-h-0 flex-1 flex-col gap-3">
         <TabsList>
