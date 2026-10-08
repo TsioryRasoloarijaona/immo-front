@@ -35,7 +35,7 @@ import {
 // `formatCurrency`/`formatDate` ne sont plus importés ici : DataGrid formate
 // lui-même selon le `type` de colonne (MONTANT, DATE), ce qui garantit que les
 // neuf écrans de liste formatent identiquement.
-import { ENCAISSEMENT_ETAT_LABELS } from '../../lib/domain';
+import { ENCAISSEMENT_ETAT_LABELS, encaissementEtatLabel } from '../../lib/domain';
 import { debutMoisISO, finMoisISO } from '../../lib/format';
 import type { EncaissementDto } from '../../types';
 
@@ -432,6 +432,8 @@ export default function EncaissementsList() {
                       ? {
                           liste: groupes.data?.content ?? [],
                           colonneLibelle: groupement.colonneGroupee.libelle,
+                          libelleGroupe:
+                            groupement.colonneGroupee.nom === 'etat' ? encaissementEtatLabel : undefined,
                           agregats: groupement.agregatsActifs,
                           /* Les totaux plein périmètre, servis par l'enveloppe.
                              Sans eux, un total de bas de grille ne pourrait

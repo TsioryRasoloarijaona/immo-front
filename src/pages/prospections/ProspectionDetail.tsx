@@ -1211,7 +1211,7 @@ export function FicheProspection({
                     </div>
                     {form.aChange('etapeId') && (
                       <span className="text-micro text-(--warning)">
-                        modification non enregistrée — le bouton Enregistrer est sous le formulaire
+                        modification non enregistrée — le bouton Enregistrer est au-dessus des onglets
                       </span>
                     )}
                   </div>

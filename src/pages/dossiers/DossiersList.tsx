@@ -32,7 +32,7 @@ import { debutMoisISO, finMoisISO } from '../../lib/format';
 // Formatage monétaire et de date : porté par DataGrid via le `type` de
 // colonne, plus par cet écran. Les rendus riches et le libellé canonique du
 // statut vivent désormais dans DossierTable.
-import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, normalizeStatus } from '../../lib/dossierStatus';
+import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, canonicalStatusLabel, normalizeStatus } from '../../lib/dossierStatus';
 import type { DossierListItemDto, PageDto } from '../../types';
 
 const BATCH_DOC_ITEMS = (Object.entries(DOSSIER_BATCH_DOC_LABELS) as [DossierBatchDocKind, string][]).map(([value, label]) => ({ label, value }));
@@ -582,6 +582,8 @@ export default function DossiersList() {
                         ? {
                             liste: groupes.data?.content ?? [],
                             colonneLibelle: groupement.colonneGroupee.libelle,
+                            libelleGroupe:
+                              groupement.colonneGroupee.nom === 'statut' ? canonicalStatusLabel : undefined,
                             agregats: groupement.agregatsActifs,
                             /* Les totaux plein périmètre, servis par
                                l'enveloppe. Sans eux, un total de bas de grille

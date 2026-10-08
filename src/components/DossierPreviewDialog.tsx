@@ -4,7 +4,7 @@ import Modal from './Modal';
 import { Badge, Field, FieldGrid, LoadingState, ErrorState } from './ui';
 import { Button } from './ui/button';
 import { formatCurrency, formatDate } from '../lib/format';
-import { toneForStatus } from '../lib/dossierStatus';
+import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
 import { getDossier } from '../lib/api';
 import { useApi } from '../lib/useApi';
 
@@ -21,7 +21,7 @@ export default function DossierPreviewDialog({ id, onClose }: { id: string; onCl
       {d && (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge tone={toneForStatus(d.statut)}>{d.statut || '—'}</Badge>
+            <Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge>
           </div>
           <FieldGrid>
             <Field label="Client" value={d.clientNom} />

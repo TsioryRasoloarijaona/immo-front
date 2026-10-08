@@ -90,8 +90,11 @@ export const GROUPEMENTS_SANS_INTERET: Record<string, Set<string>> = {
 /** Le groupe des lignes **sans valeur** n'a pas de libellé serveur. */
 export const LIBELLE_GROUPE_VIDE = '(non renseigné)';
 
-export function libelleGroupeAffiche(g: GroupeDto): string {
-  return g.libelle ?? LIBELLE_GROUPE_VIDE;
+/** `libelleGroupe` traduit un code brut (`CANCELED`) en libellé d'affichage ;
+ * la clé envoyée au serveur, elle, reste le code. */
+export function libelleGroupeAffiche(g: GroupeDto, libelleGroupe?: (brut: string) => string): string {
+  if (g.libelle === null || g.libelle === undefined) return LIBELLE_GROUPE_VIDE;
+  return libelleGroupe ? libelleGroupe(g.libelle) : g.libelle;
 }
 
 /** Clé React stable. `null` est une valeur de groupe légitime et doit se
@@ -116,6 +119,12 @@ export const TRIS: { valeur: TriGroupes; libelle: string }[] = [
   { valeur: 'LIBELLE', libelle: 'Alphabétique' },
   { valeur: 'NOMBRE', libelle: 'Les plus nombreux en tête' },
 ];
+
+/** Sur une colonne date, `LIBELLE` trie des clés ISO : l'ordre est chronologique. */
+export function libelleTri(t: TriGroupes, estDate: boolean): string {
+  if (t === 'LIBELLE' && estDate) return 'Chronologique';
+  return TRIS.find((x) => x.valeur === t)?.libelle ?? t;
+}
 
 export type EtatGroupement = ReturnType<typeof useGroupement>;
 

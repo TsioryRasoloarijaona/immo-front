@@ -88,6 +88,9 @@ export type GroupementGrille<T> = {
   liste: GroupeDto[];
   /** Libellé de la colonne groupée, préfixe de chaque en-tête. */
   colonneLibelle: string;
+  /** Traduit le libellé brut d'un groupe (`CANCELED`) pour l'affichage seul ;
+   * absent, le libellé serveur s'affiche tel quel. */
+  libelleGroupe?: (brut: string) => string;
   /** Agrégats actifs, résolus par `useGroupement` : le jeton envoyé, la
    * colonne qu'il vise et la fonction appliquée. Les trois sont nécessaires au
    * formatage — un `MIN` sur une colonne date rend une chaîne ISO. */
@@ -818,7 +821,7 @@ export default function DataGrid<T extends { id: string }>({
                 const reste = etat ? etat.total - etat.lignes.length : 0;
                 return (
                   <Fragment key={identiteGroupe(g)}>
-                    {/* L'en-tête de groupe : `⊟ Statut : CONCRETISATION
+                    {/* L'en-tête de groupe : `⊟ Statut : Concrétisation
                         (68 items)`, puis les bandes « Total : ». Il couvre
                         toute la largeur — aligner les totaux sous leurs
                         colonnes supposerait que celles-ci soient affichées, ce
@@ -827,7 +830,7 @@ export default function DataGrid<T extends { id: string }>({
                       className="cursor-pointer bg-muted/60 hover:bg-muted"
                       tabIndex={0}
                       aria-expanded={ouvert}
-                      aria-label={`${ouvert ? 'Replier' : 'Déplier'} le groupe ${libelleGroupeAffiche(g)} — ${g.nombre} ligne(s)`}
+                      aria-label={`${ouvert ? 'Replier' : 'Déplier'} le groupe ${libelleGroupeAffiche(g, groupes.libelleGroupe)} — ${g.nombre} ligne(s)`}
                       onClick={() => groupes.basculer(g)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') groupes.basculer(g);
@@ -851,7 +854,7 @@ export default function DataGrid<T extends { id: string }>({
                               g.libelle === null ? 'font-normal text-muted-foreground italic' : 'text-foreground',
                             )}
                           >
-                            {libelleGroupeAffiche(g)}
+                            {libelleGroupeAffiche(g, groupes.libelleGroupe)}
                           </span>
                           <span className="shrink-0 tabular-nums text-muted-foreground">
                             ({formatNumber(g.nombre)} item{g.nombre > 1 ? 's' : ''})

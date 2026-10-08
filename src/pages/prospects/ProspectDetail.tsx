@@ -30,7 +30,7 @@ import { usePreview } from '../../lib/previewContext';
 import { useToast } from '../../lib/toastContext';
 import { routeFicheProspection } from '../../lib/parcours';
 import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
-import { toneForStatus } from '../../lib/dossierStatus';
+import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../../lib/format';
 import TelephoneField from '../../components/TelephoneField';
 import ContactsProspect from '../../components/ContactsProspect';
@@ -595,7 +595,7 @@ function DossierRow({
           {expanded ? <ChevronDown className="size-4 text-(--brand)" /> : <ChevronRight className="size-4 text-muted-foreground" />}
         </TableCell>
         <TableCell className="font-medium text-foreground">{d.code}</TableCell>
-        <TableCell><Badge tone={toneForStatus(d.statut)}>{d.statut || '—'}</Badge></TableCell>
+        <TableCell><Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge></TableCell>
         <TableCell className="text-right tabular-nums">{formatCurrency(d.prix)}</TableCell>
         <TableCell className="text-right tabular-nums">{formatCurrency(d.totalAPayer)}</TableCell>
         <TableCell className="text-muted-foreground">{formatDate(d.dateDocument)}</TableCell>
