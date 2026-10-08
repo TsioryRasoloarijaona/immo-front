@@ -25,7 +25,16 @@ export interface EtapeParcours {
   libelleCourt: string;
   statut: StatutEtapeParcours;
   date: string | null;
-  lien: { vers: string; libelle: string } | null;
+  /** Fiche ouverte en aperçu (dialogue) au clic — jamais une navigation. */
+  cible: CibleEtapeParcours | null;
+}
+
+export interface CibleEtapeParcours {
+  type: 'prospect' | 'dossier';
+  id: string;
+  libelle: string;
+  /** Code du dossier, pour l'`aria-label` ; `null` pour un prospect. */
+  code: string | null;
 }
 
 // Débuts des descriptions écrites par ProspectionService.enregistrerHistorique.
@@ -73,7 +82,7 @@ export function calculerParcours(
       libelleCourt: 'Pré-prosp.',
       faite: preFaite,
       date: datePre,
-      lien: null,
+      cible: null,
     },
     {
       cle: 'prospect',
@@ -81,7 +90,7 @@ export function calculerParcours(
       libelleCourt: 'Prospect',
       faite: !!fiche.prospectId,
       date: fiche.prospectId ? dateEvenement(h, PREFIXES.prospect) : null,
-      lien: fiche.prospectId ? { vers: `/prospects/${fiche.prospectId}`, libelle: 'Voir' } : null,
+      cible: fiche.prospectId ? { type: 'prospect', id: fiche.prospectId, libelle: 'Voir', code: null } : null,
     },
     {
       cle: 'prospection',
@@ -89,7 +98,7 @@ export function calculerParcours(
       libelleCourt: 'Prosp.',
       faite: code === CODE_PROSPECTION,
       date: code === CODE_PROSPECTION ? dateEvenement(h, PREFIXES.prospection) : null,
-      lien: null,
+      cible: null,
     },
     {
       cle: 'dossier',
@@ -97,7 +106,9 @@ export function calculerParcours(
       libelleCourt: 'Dossier',
       faite: !!fiche.dossierId,
       date: null,
-      lien: fiche.dossierId ? { vers: `/dossiers/${fiche.dossierId}`, libelle: fiche.dossierCode || 'Voir' } : null,
+      cible: fiche.dossierId
+        ? { type: 'dossier', id: fiche.dossierId, libelle: fiche.dossierCode || 'Voir', code: fiche.dossierCode || null }
+        : null,
     },
   ];
 

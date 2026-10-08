@@ -1,5 +1,4 @@
 import { useState, type ComponentType } from 'react';
-import { Link } from 'react-router-dom';
 import {
   Archive,
   ArchiveRestore,
@@ -21,6 +20,7 @@ import { Button } from './ui/button';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from './ui/sidebar';
 import { listActionsRecentes } from '../lib/api';
 import { useApi } from '../lib/useApi';
+import { usePreview } from '../lib/previewContext';
 import { formatHeure, formatJourRelatif } from '../lib/format';
 import { cn } from '../lib/utils';
 import type { ActionRecente, CibleActionRecente, PorteeActionsRecentes, TypeActionRecente } from '../types';
@@ -42,11 +42,13 @@ const ICONES: Record<TypeActionRecente, ComponentType<{ className?: string }>> =
   AUTRE: History,
 };
 
-const CIBLES: Record<CibleActionRecente, { libelle: string; chemin: string; couleur: string }> = {
-  PRE_PROSPECTION: { libelle: 'Pré-prospection', chemin: '/pre-prospections', couleur: 'var(--sec-preprospection)' },
-  PROSPECTION: { libelle: 'Prospection', chemin: '/prospections', couleur: 'var(--sec-prospection)' },
-  DOSSIER: { libelle: 'Dossier', chemin: '/dossiers', couleur: 'var(--sec-dossier)' },
+const CIBLES: Record<CibleActionRecente, { libelle: string; apercu: 'prospection' | 'dossier'; couleur: string }> = {
+  PRE_PROSPECTION: { libelle: 'Pré-prospection', apercu: 'prospection', couleur: 'var(--sec-preprospection)' },
+  PROSPECTION: { libelle: 'Prospection', apercu: 'prospection', couleur: 'var(--sec-prospection)' },
+  DOSSIER: { libelle: 'Dossier', apercu: 'dossier', couleur: 'var(--sec-dossier)' },
 };
+
+type CibleApercu = { type: 'prospection' | 'dossier' | 'prospect'; id: string };
 
 function lireOnglet(): PorteeActionsRecentes {
   try {
@@ -73,15 +75,23 @@ export default function ActionsRecentes() {
   const [ouvert, setOuvert] = useState(false);
   const [portee, setPortee] = useState<PorteeActionsRecentes>(lireOnglet);
   const { isMobile, setOpenMobile } = useSidebar();
+  const { previewProspection, previewDossier, previewProspect } = usePreview();
 
   const changerPortee = (valeur: PorteeActionsRecentes) => {
     setPortee(valeur);
     ecrireOnglet(valeur);
   };
 
-  const naviguer = () => {
+  const apercu = (cible: CibleApercu) => {
     setOuvert(false);
     setOpenMobile(false);
+    // Popover fermé d'abord (R4) : deux pièges à focus ouverts en même temps se
+    // disputent le focus. Le timer survit au démontage de la barre mobile.
+    window.setTimeout(() => {
+      if (cible.type === 'prospection') previewProspection(cible.id);
+      else if (cible.type === 'dossier') previewDossier(cible.id);
+      else previewProspect(cible.id);
+    }, 0);
   };
 
   return (
@@ -121,7 +131,7 @@ export default function ActionsRecentes() {
           </div>
           {/* Une clé par onglet : changer d'onglet repart d'une liste neuve (pas de « Voir plus » hérité). */}
           <TabsContent value={portee} className="flex min-h-0 flex-col">
-            <ListeActions key={portee} portee={portee} onNaviguer={naviguer} />
+            <ListeActions key={portee} portee={portee} onApercu={apercu} />
           </TabsContent>
         </Tabs>
       </PopoverContent>
@@ -129,7 +139,13 @@ export default function ActionsRecentes() {
   );
 }
 
-function ListeActions({ portee, onNaviguer }: { portee: PorteeActionsRecentes; onNaviguer: () => void }) {
+function ListeActions({
+  portee,
+  onApercu,
+}: {
+  portee: PorteeActionsRecentes;
+  onApercu: (cible: CibleApercu) => void;
+}) {
   const { data, loading, error, refetch } = useApi(() => listActionsRecentes(portee, PAGE), [portee]);
   const [suite, setSuite] = useState<ActionRecente[]>([]);
   const [suiteEnCours, setSuiteEnCours] = useState(false);
@@ -201,7 +217,7 @@ function ListeActions({ portee, onNaviguer }: { portee: PorteeActionsRecentes; o
           </h3>
           <ul className="flex flex-col">
             {g.actions.map((a) => (
-              <LigneAction key={a.id} action={a} equipe={portee === 'EQUIPE'} onNaviguer={onNaviguer} />
+              <LigneAction key={a.id} action={a} equipe={portee === 'EQUIPE'} onApercu={onApercu} />
             ))}
           </ul>
         </section>
@@ -225,16 +241,16 @@ function ListeActions({ portee, onNaviguer }: { portee: PorteeActionsRecentes; o
 function LigneAction({
   action,
   equipe,
-  onNaviguer,
+  onApercu,
 }: {
   action: ActionRecente;
   equipe: boolean;
-  onNaviguer: () => void;
+  onApercu: (cible: CibleApercu) => void;
 }) {
   const Icone = ICONES[action.type] ?? History;
   const cible = CIBLES[action.cibleType];
-  const lienProspect =
-    action.prospectId && (action.type === 'PROSPECT_CREE' || action.type === 'PROSPECT_RATTACHE');
+  const prospectId =
+    action.type === 'PROSPECT_CREE' || action.type === 'PROSPECT_RATTACHE' ? action.prospectId : null;
 
   return (
     <li className="flex gap-2.5 rounded-md px-2 py-2 hover:bg-muted/60">
@@ -260,21 +276,23 @@ function LigneAction({
               {action.auteurNom ? `par ${action.auteurNom}` : 'auteur inconnu'}
             </span>
           )}
-          <Link
-            to={`${cible.chemin}/${action.cibleId}`}
-            onClick={onNaviguer}
-            className="font-medium text-primary no-underline hover:underline"
+          <button
+            type="button"
+            onClick={() => onApercu({ type: cible.apercu, id: action.cibleId })}
+            aria-label={`Aperçu : ${cible.libelle.toLowerCase()} ${action.cibleLibelle}`}
+            className="rounded-sm font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
-            Ouvrir →
-          </Link>
-          {lienProspect && (
-            <Link
-              to={`/prospects/${action.prospectId}`}
-              onClick={onNaviguer}
-              className="font-medium text-primary no-underline hover:underline"
+            Aperçu
+          </button>
+          {prospectId && (
+            <button
+              type="button"
+              onClick={() => onApercu({ type: 'prospect', id: prospectId })}
+              aria-label={`Aperçu du prospect ${action.cibleLibelle}`}
+              className="rounded-sm font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
-              Prospect →
-            </Link>
+              Prospect
+            </button>
           )}
         </div>
       </div>
