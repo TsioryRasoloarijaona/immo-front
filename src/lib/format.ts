@@ -117,6 +117,17 @@ export function jourISO(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/** En-tête de groupe d'un fil d'activité : « Aujourd'hui », « Hier », sinon
+ * `DD/MM/YYYY`. Comparé en jour **local**, comme `todayISO`. */
+export function formatJourRelatif(value: string | null | undefined): string {
+  if (!value) return '—';
+  const jour = value.slice(0, 10);
+  if (jour === todayISO()) return "Aujourd'hui";
+  const d = new Date();
+  if (jour === jourISO(new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1))) return 'Hier';
+  return formatDate(jour);
+}
+
 /** Le premier jour du mois courant, `YYYY-MM-DD`. */
 export function debutMoisISO(): string {
   const d = new Date();

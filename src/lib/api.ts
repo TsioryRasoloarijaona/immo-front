@@ -4,6 +4,8 @@
 
 import { clearCachedValues } from './apiCache';
 import type {
+  ActionRecente,
+  PorteeActionsRecentes,
   AffecterProjetsRequest,
   AjouterAutreTrancheRequest,
   AjouterCategorieRequest,
@@ -2029,6 +2031,22 @@ export function rechercherHotline(critere: CritereHotline): Promise<HotlineResul
 
 export function getEvenementsCalendrier(debut: string, fin: string): Promise<EvenementCalendrierDto[]> {
   return request('GET', '/api/calendrier/evenements', { query: { debut, fin } });
+}
+
+// ---------------------------------------------------------------------------
+// Actions récentes — plus récentes d'abord. « Voir plus » : curseur composite
+// `avant` = `date` et `avantId` = `id` de la dernière ligne reçue (la date
+// seule perdrait des actions de même date). `limite` 1–100, sinon 400.
+// ---------------------------------------------------------------------------
+
+export function listActionsRecentes(
+  portee: PorteeActionsRecentes,
+  limite?: number,
+  apres?: Pick<ActionRecente, 'date' | 'id'>,
+): Promise<ActionRecente[]> {
+  return request('GET', '/api/actions-recentes', {
+    query: { portee, limite, avant: apres?.date, avantId: apres?.id },
+  });
 }
 
 // ---------------------------------------------------------------------------

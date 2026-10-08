@@ -3004,6 +3004,42 @@ export interface EvenementCalendrierDto {
 }
 
 // ---------------------------------------------------------------------------
+// Actions récentes — GET /api/actions-recentes (FEATURE-actions-recentes.md)
+// ---------------------------------------------------------------------------
+
+export type PorteeActionsRecentes = 'MOI' | 'EQUIPE';
+
+export type TypeActionRecente =
+  | 'PRE_PROSPECTION_CREEE'
+  | 'PROSPECT_CREE'
+  | 'PROSPECT_RATTACHE'
+  | 'TRANSFORMEE_EN_PROSPECTION'
+  | 'PROSPECTION_CREEE'
+  | 'ETAPE_CHANGEE'
+  | 'ARCHIVEE'
+  | 'DESARCHIVEE'
+  | 'DOSSIER_STATUT'
+  | 'INTERACTION'
+  | 'AUTRE';
+
+export type CibleActionRecente = 'PRE_PROSPECTION' | 'PROSPECTION' | 'DOSSIER';
+
+export interface ActionRecente {
+  id: UUID;
+  type: TypeActionRecente;
+  /** Date-heure locale ISO ; sert de curseur `avant` pour « Voir plus ». */
+  date: string;
+  libelle: string;
+  auteurId: UUID | null;
+  auteurNom: string | null;
+  /** Type **actuel** de la fiche, pas celui qu'elle avait au moment de l'action. */
+  cibleType: CibleActionRecente;
+  cibleId: UUID;
+  cibleLibelle: string;
+  prospectId: UUID | null;
+}
+
+// ---------------------------------------------------------------------------
 // Hotline — recherche par numéro de téléphone (V4)
 // ---------------------------------------------------------------------------
 
