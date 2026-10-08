@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Contact, UserCheck } from 'lucide-react';
-import PageShell from '../../components/PageShell';
+import CadreFiche, { type VarianteFiche } from '../../components/CadreFiche';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { TimelineList, TimelineRow } from '../../components/Timeline';
@@ -35,21 +35,35 @@ import type { DossierListItemDto, ModifierProspectRequest, ProspectionListItemDt
 
 type ProspectTab = 'general' | 'contacts' | 'prospections' | 'dossiers' | 'reglements' | 'historique';
 
+/** La page routée : elle lit l'URL et la passe à la fiche.
+ *
+ * Reused verbatim for both `/prospects/:id` and `/clients/:id` — GET
+ * /api/clients/{id} returns the same ProspectDetailDto shape as
+ * /api/prospects/{id} (see ClientsList.tsx's comment), so rather than
+ * duplicating this whole page for "Clients", detect the entry point from
+ * the URL and swap only the fetch call + breadcrumb/back-link labels. */
 export default function ProspectDetail() {
   const { id } = useParams();
-  // Reused verbatim for both `/prospects/:id` and `/clients/:id` — GET
-  // /api/clients/{id} returns the same ProspectDetailDto shape as
-  // /api/prospects/{id} (see ClientsList.tsx's comment), so rather than
-  // duplicating this whole page for "Clients", detect the entry point from
-  // the URL and swap only the fetch call + breadcrumb/back-link labels.
-  // This is the fix for the earlier behavior where opening a client always
-  // redirected into /prospects/:id, losing the "Clients" context.
   const location = useLocation();
-  const isClientContext = location.pathname.startsWith('/clients');
+  return <FicheProspect id={id!} client={location.pathname.startsWith('/clients')} />;
+}
+
+/** La fiche elle-même, indépendante de l'URL — ce qui permet de l'ouvrir en
+ * dialogue (`FicheProspectDialog`) à l'identique de la page, comme
+ * `FicheProspection`. `client` choisit l'endpoint et les libellés. */
+export function FicheProspect({
+  id,
+  client: isClientContext,
+  variante = 'page',
+}: {
+  id: string;
+  client: boolean;
+  variante?: VarianteFiche;
+}) {
   const listPath = isClientContext ? '/clients' : '/prospects';
   const listLabel = isClientContext ? 'Clients' : 'Prospects';
   const { data: person, loading, error, refetch } = useApi(
-    () => (isClientContext ? getClient(id!) : getProspect(id!)),
+    () => (isClientContext ? getClient(id) : getProspect(id)),
     [id, isClientContext],
   );
   const navigate = useNavigate();
@@ -61,13 +75,13 @@ export default function ProspectDetail() {
 
   const contacts = useApi(() => (id ? listProspectContacts(id) : Promise.resolve([])), [id]);
   const [prospectionsPage, setProspectionsPage] = useState(0);
-  const prospections = useApi(() => listProspectProspections(id!, { page: prospectionsPage, size: 20 }), [id, prospectionsPage]);
+  const prospections = useApi(() => listProspectProspections(id, { page: prospectionsPage, size: 20 }), [id, prospectionsPage]);
   const [dossiersPage, setDossiersPage] = useState(0);
-  const dossiers = useApi(() => listProspectDossiers(id!, { page: dossiersPage, size: 20 }), [id, dossiersPage]);
+  const dossiers = useApi(() => listProspectDossiers(id, { page: dossiersPage, size: 20 }), [id, dossiersPage]);
   const [reglementsPage, setReglementsPage] = useState(0);
-  const reglements = useApi(() => listProspectReglements(id!, { page: reglementsPage, size: 20 }), [id, reglementsPage]);
+  const reglements = useApi(() => listProspectReglements(id, { page: reglementsPage, size: 20 }), [id, reglementsPage]);
   const [historiquePage, setHistoriquePage] = useState(0);
-  const historique = useApi(() => listProspectHistorique(id!, { page: historiquePage, size: 20 }), [id, historiquePage]);
+  const historique = useApi(() => listProspectHistorique(id, { page: historiquePage, size: 20 }), [id, historiquePage]);
   // Prospections/Dossiers rows expand in place instead of navigating away —
   // this page is reached from Clients as much as from Prospects, and
   // leaving it to open /prospections/:id or /dossiers/:id was reported as
@@ -75,13 +89,13 @@ export default function ProspectDetail() {
   const [expandedProspectionId, setExpandedProspectionId] = useState<string | null>(null);
   const [expandedDossierId, setExpandedDossierId] = useState<string | null>(null);
 
-  if (loading) return <PageShell title={isClientContext ? 'Client' : 'Prospect'}><LoadingState /></PageShell>;
-  if (error) return <PageShell title={isClientContext ? 'Client' : 'Prospect'}><ErrorState message={error} /></PageShell>;
+  if (loading) return <CadreFiche variante={variante} title={isClientContext ? 'Client' : 'Prospect'}><LoadingState /></CadreFiche>;
+  if (error) return <CadreFiche variante={variante} title={isClientContext ? 'Client' : 'Prospect'}><ErrorState message={error} /></CadreFiche>;
   if (!person) {
     return (
-      <PageShell title={`${isClientContext ? 'Client' : 'Prospect'} introuvable`} crumbs={[{ label: listLabel, to: listPath }]}>
+      <CadreFiche variante={variante} title={`${isClientContext ? 'Client' : 'Prospect'} introuvable`} crumbs={[{ label: listLabel, to: listPath }]}>
         <p>Ce {isClientContext ? 'client' : 'prospect'} n'existe pas.</p>
-      </PageShell>
+      </CadreFiche>
     );
   }
 
@@ -120,7 +134,8 @@ export default function ProspectDetail() {
   }
 
   return (
-    <PageShell
+    <CadreFiche
+      variante={variante}
       title={personDisplayName(person)}
       crumbs={[{ label: listLabel, to: listPath }, { label: person.code || personDisplayName(person) }]}
       icon={isClientContext ? <UserCheck /> : <Contact />}
@@ -426,7 +441,7 @@ export default function ProspectDetail() {
           </Card>
         </TabsContent>
       </Tabs>
-    </PageShell>
+    </CadreFiche>
   );
 }
 

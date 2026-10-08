@@ -20,20 +20,21 @@ const LIBELLE_STATUT = {
 } as const;
 
 function libelleAccessible(c: CibleEtapeParcours): string {
-  if (c.type === 'prospect') return 'Aperçu du prospect';
-  return c.code ? `Aperçu du dossier ${c.code}` : 'Aperçu du dossier';
+  if (c.type === 'prospect') return 'Ouvrir la fiche du prospect';
+  return c.code ? `Ouvrir le dossier ${c.code}` : 'Ouvrir le dossier';
 }
 
 /** La bande « parcours de vente » au-dessus de l'en-tête d'une fiche
  * prospection. Distincte du stepper des étapes commerciales : celle-ci dit
  * quel *document* la fiche est devenue, pas où en est la négociation.
- * « Voir » ouvre un aperçu en dialogue : l'utilisateur reste sur la fiche. */
+ * « Voir » ouvre la fiche complète en dialogue, empilé au-dessus d'un
+ * éventuel dialogue courant : l'utilisateur reste sur la fiche. */
 export default function ParcoursVente({ etapes, accent }: { etapes: EtapeParcours[]; accent: string }) {
-  const { previewProspect, previewDossier } = usePreview();
+  const { ouvrirFicheProspect, ouvrirFicheDossier } = usePreview();
 
   const ouvrir = (c: CibleEtapeParcours) => {
-    if (c.type === 'prospect') previewProspect(c.id);
-    else previewDossier(c.id);
+    if (c.type === 'prospect') ouvrirFicheProspect(c.id);
+    else ouvrirFicheDossier(c.id);
   };
 
   return (

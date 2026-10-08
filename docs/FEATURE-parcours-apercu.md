@@ -57,3 +57,47 @@ fiche et portent déjà « Ouvrir la fiche complète ↗ ». Déjà utilisé par
   l'aperçu du prospect, l'URL ne change pas, Échap rend la main sur la fiche ; idem pour un
   dossier ; depuis le menu Actions récentes, chaque type ouvre le bon aperçu et l'URL ne change
   pas. Capture de la barre si un navigateur est disponible (optionnelle).
+
+## 3. Révision après essai utilisateur : la fiche complète, pas l'aperçu
+
+Retour : « tu mets juste aperçu… je veux que tu ouvres le dialogue où il y a vraiment le détail
+des choses — une action sur une prospection, tu ouvres exactement la prospection ou la
+pré-prospection ». Les petits dialogues d'aperçu (`*PreviewDialog`) ne suffisent pas : chaque
+clic ouvre **la fiche complète, identique à la page, actions comprises**, dans un dialogue.
+
+### 3.1 Modèle existant à suivre
+
+`components/FicheProspectionDialog.tsx` (chargé par `lazy()` via
+`components/dashboard/FicheProspectionLazy.tsx`) : `FicheProspection` en variante `dialogue`,
+`ToastProvider` imbriqué, `refetchAllApis` différé à la fermeture, actions « ailleurs » (créer un
+dossier, ouvrir une tranche…) restent des navigations qui ferment le dialogue.
+
+### 3.2 À construire sur le même modèle
+
+- **Fiche dossier en dialogue** : extraire de `pages/dossiers/DossierDetail.tsx` un composant
+  `FicheDossier({ id, variante: 'page' | 'dialogue' })` (la page devient un mince adaptateur
+  `useParams` → `FicheDossier`), puis `FicheDossierDialog` (+ chargement `lazy`). Contenu et
+  actions **identiques** à la page ; aucune régression de la page `/dossiers/:id`.
+- **Fiche prospect en dialogue** : idem depuis `pages/prospects/ProspectDetail.tsx` →
+  `FicheProspect` + `FicheProspectDialog`.
+- Un hôte unique (étendre `PreviewProvider`/`usePreview` avec `ouvrirFicheProspection(id, pre)`,
+  `ouvrirFicheDossier(id)`, `ouvrirFicheProspect(id)`, ou un hôte voisin) pour que n'importe quel
+  composant ouvre ces fiches sans gérer l'état du dialogue.
+
+### 3.3 Branchements (remplacent R1 et R3)
+
+- Menu Actions récentes : `PRE_PROSPECTION` → fiche prospection `pre=true` ; `PROSPECTION` →
+  `pre=false` ; `DOSSIER` → fiche dossier ; « Prospect » → fiche prospect. Libellé du bouton
+  principal : « Ouvrir » (plus « Aperçu »). R4 (fermer le popover d'abord) inchangé.
+- Barre de parcours : bouton prospect → fiche prospect ; bouton dossier → fiche dossier. Si la
+  barre est elle-même affichée dans un `FicheProspectionDialog`, le second dialogue s'empile
+  au-dessus ; à sa fermeture on retrouve le premier.
+- Les `*PreviewDialog` restent en place pour leurs autres usages (Calendrier, Dashboard) avec le
+  correctif `onClose` déjà fait.
+
+### 3.4 Vérification
+
+`npm run build` vert ; contre le backend local : chaque type ouvre la fiche complète en
+dialogue, l'URL ne change pas, une action dans la fiche (ex. ajouter une note) fonctionne et la
+page derrière se rafraîchit à la fermeture ; `/dossiers/:id` et `/prospects/:id` en page
+inchangés.

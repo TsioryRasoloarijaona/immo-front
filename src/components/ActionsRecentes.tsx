@@ -20,7 +20,7 @@ import { Button } from './ui/button';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from './ui/sidebar';
 import { listActionsRecentes } from '../lib/api';
 import { useApi } from '../lib/useApi';
-import { usePreview } from '../lib/previewContext';
+import { usePreview, type FicheCible } from '../lib/previewContext';
 import { formatHeure, formatJourRelatif } from '../lib/format';
 import { cn } from '../lib/utils';
 import type { ActionRecente, CibleActionRecente, PorteeActionsRecentes, TypeActionRecente } from '../types';
@@ -42,13 +42,16 @@ const ICONES: Record<TypeActionRecente, ComponentType<{ className?: string }>> =
   AUTRE: History,
 };
 
-const CIBLES: Record<CibleActionRecente, { libelle: string; apercu: 'prospection' | 'dossier'; couleur: string }> = {
-  PRE_PROSPECTION: { libelle: 'Pré-prospection', apercu: 'prospection', couleur: 'var(--sec-preprospection)' },
-  PROSPECTION: { libelle: 'Prospection', apercu: 'prospection', couleur: 'var(--sec-prospection)' },
-  DOSSIER: { libelle: 'Dossier', apercu: 'dossier', couleur: 'var(--sec-dossier)' },
+const CIBLES: Record<CibleActionRecente, { libelle: string; article: string; couleur: string }> = {
+  PRE_PROSPECTION: { libelle: 'Pré-prospection', article: 'la pré-prospection', couleur: 'var(--sec-preprospection)' },
+  PROSPECTION: { libelle: 'Prospection', article: 'la prospection', couleur: 'var(--sec-prospection)' },
+  DOSSIER: { libelle: 'Dossier', article: 'le dossier', couleur: 'var(--sec-dossier)' },
 };
 
-type CibleApercu = { type: 'prospection' | 'dossier' | 'prospect'; id: string };
+function ficheDeLaCible(type: CibleActionRecente, id: string): FicheCible {
+  if (type === 'DOSSIER') return { type: 'dossier', id };
+  return { type: 'prospection', id, pre: type === 'PRE_PROSPECTION' };
+}
 
 function lireOnglet(): PorteeActionsRecentes {
   try {
@@ -75,22 +78,22 @@ export default function ActionsRecentes() {
   const [ouvert, setOuvert] = useState(false);
   const [portee, setPortee] = useState<PorteeActionsRecentes>(lireOnglet);
   const { isMobile, setOpenMobile } = useSidebar();
-  const { previewProspection, previewDossier, previewProspect } = usePreview();
+  const { ouvrirFicheProspection, ouvrirFicheDossier, ouvrirFicheProspect } = usePreview();
 
   const changerPortee = (valeur: PorteeActionsRecentes) => {
     setPortee(valeur);
     ecrireOnglet(valeur);
   };
 
-  const apercu = (cible: CibleApercu) => {
+  const ouvrir = (cible: FicheCible) => {
     setOuvert(false);
     setOpenMobile(false);
     // Popover fermé d'abord (R4) : deux pièges à focus ouverts en même temps se
     // disputent le focus. Le timer survit au démontage de la barre mobile.
     window.setTimeout(() => {
-      if (cible.type === 'prospection') previewProspection(cible.id);
-      else if (cible.type === 'dossier') previewDossier(cible.id);
-      else previewProspect(cible.id);
+      if (cible.type === 'prospection') ouvrirFicheProspection(cible.id, cible.pre);
+      else if (cible.type === 'dossier') ouvrirFicheDossier(cible.id);
+      else ouvrirFicheProspect(cible.id);
     }, 0);
   };
 
@@ -131,7 +134,7 @@ export default function ActionsRecentes() {
           </div>
           {/* Une clé par onglet : changer d'onglet repart d'une liste neuve (pas de « Voir plus » hérité). */}
           <TabsContent value={portee} className="flex min-h-0 flex-col">
-            <ListeActions key={portee} portee={portee} onApercu={apercu} />
+            <ListeActions key={portee} portee={portee} onOuvrir={ouvrir} />
           </TabsContent>
         </Tabs>
       </PopoverContent>
@@ -141,10 +144,10 @@ export default function ActionsRecentes() {
 
 function ListeActions({
   portee,
-  onApercu,
+  onOuvrir,
 }: {
   portee: PorteeActionsRecentes;
-  onApercu: (cible: CibleApercu) => void;
+  onOuvrir: (cible: FicheCible) => void;
 }) {
   const { data, loading, error, refetch } = useApi(() => listActionsRecentes(portee, PAGE), [portee]);
   const [suite, setSuite] = useState<ActionRecente[]>([]);
@@ -217,7 +220,7 @@ function ListeActions({
           </h3>
           <ul className="flex flex-col">
             {g.actions.map((a) => (
-              <LigneAction key={a.id} action={a} equipe={portee === 'EQUIPE'} onApercu={onApercu} />
+              <LigneAction key={a.id} action={a} equipe={portee === 'EQUIPE'} onOuvrir={onOuvrir} />
             ))}
           </ul>
         </section>
@@ -241,11 +244,11 @@ function ListeActions({
 function LigneAction({
   action,
   equipe,
-  onApercu,
+  onOuvrir,
 }: {
   action: ActionRecente;
   equipe: boolean;
-  onApercu: (cible: CibleApercu) => void;
+  onOuvrir: (cible: FicheCible) => void;
 }) {
   const Icone = ICONES[action.type] ?? History;
   const cible = CIBLES[action.cibleType];
@@ -278,17 +281,17 @@ function LigneAction({
           )}
           <button
             type="button"
-            onClick={() => onApercu({ type: cible.apercu, id: action.cibleId })}
-            aria-label={`Aperçu : ${cible.libelle.toLowerCase()} ${action.cibleLibelle}`}
+            onClick={() => onOuvrir(ficheDeLaCible(action.cibleType, action.cibleId))}
+            aria-label={`Ouvrir ${cible.article} ${action.cibleLibelle}`}
             className="rounded-sm font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
-            Aperçu
+            Ouvrir
           </button>
           {prospectId && (
             <button
               type="button"
-              onClick={() => onApercu({ type: 'prospect', id: prospectId })}
-              aria-label={`Aperçu du prospect ${action.cibleLibelle}`}
+              onClick={() => onOuvrir({ type: 'prospect', id: prospectId })}
+              aria-label={`Ouvrir la fiche du prospect ${action.cibleLibelle}`}
               className="rounded-sm font-medium text-primary hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none"
             >
               Prospect
