@@ -80,6 +80,10 @@
       "description": "Dossiers de vente (ComFolder) — cycle de vie, échéancier, pièces jointes et génération de documents.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de dossier — y compris les routes imbriquées (échéancier, règlements, pièces jointes, historique, générateurs de documents) — un dossier hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Cette collection ne renvoie que les dossiers rattachés à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, y compris aux rôles qui en sont exemptés (dont Administrateur). Un dossier masqué renvoie 404 sur toutes les routes portant son identifiant, exactement comme un dossier inexistant."
     },
     {
+      "name": "Actions récentes",
+      "description": "Le panneau « Actions récentes » : ce qui vient d'être fait sur les prospections, pré-prospections et dossiers, avec de quoi rouvrir la fiche. Détail : `instructions/FEATURE-actions-recentes.md`."
+    },
+    {
       "name": "Prospections",
       "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
@@ -2147,7 +2151,7 @@
           {
             "name": "statuts",
             "in": "query",
-            "description": "Statuts à importer : `NOUVELLE`, `DOUBLON`, ou les deux. Répété (`statuts=NOUVELLE&statuts=DOUBLON`)\nou séparé par des virgules (`statuts=NOUVELLE,DOUBLON`). **Absent : les deux**, comme avant ce\nparamètre. `DEJA_IMPORTEE` et `ERREUR` ne sont jamais importables : les demander, ou envoyer une\nvaleur inconnue ou vide (`statuts=`), renvoie 400 sans rien écrire.",
+            "description": "Statuts à importer : `NOUVELLE`, `DOUBLON`, ou les deux. Répété (`statuts=NOUVELLE&statuts=DOUBLON`)\nou séparé par des virgules (`statuts=NOUVELLE,DOUBLON`). **Absent : les deux.**\n`DEJA_IMPORTEE` et `ERREUR` ne sont jamais importables : les demander, ou envoyer une\nvaleur inconnue ou vide (`statuts=`), renvoie 400 sans rien écrire.",
             "required": false,
             "schema": {
               "type": "array",
@@ -9751,6 +9755,97 @@
         }
       }
     },
+    "/api/actions-recentes": {
+      "get": {
+        "tags": [
+          "Actions récentes"
+        ],
+        "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
+        "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**« Voir plus ».** Rappeler avec `avant` = `date` de la dernière action reçue : seules les actions\nstrictement antérieures sont servies, sans doublon. Deux actions de la même date exacte à cheval\nsur deux pages : la seconde n'est pas servie.",
+        "operationId": "lister_1",
+        "parameters": [
+          {
+            "name": "portee",
+            "in": "query",
+            "description": "`MOI` (mes actions) ou `EQUIPE` (mon périmètre).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "MOI",
+              "enum": [
+                "MOI",
+                "EQUIPE"
+              ]
+            },
+            "example": "MOI"
+          },
+          {
+            "name": "limite",
+            "in": "query",
+            "description": "Nombre maximal d'actions, de 1 à 100.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            },
+            "example": 20
+          },
+          {
+            "name": "avant",
+            "in": "query",
+            "description": "Date-heure ISO-8601, **exclusive** : seules les actions de `date` strictement antérieure. Absente =\nles plus récentes.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-10-08T10:42:00"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actions (liste vide possible).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActionRecenteDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`portee` inconnue, `limite` hors 1–100 ou `avant` mal formée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActionRecenteDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Non authentifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActionRecenteDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prospects/{id}/contacts/{contactId}": {
       "delete": {
         "tags": [
@@ -17164,6 +17259,75 @@
           },
           "superficieSousArticles": {
             "type": "number"
+          }
+        }
+      },
+      "ActionRecenteDto": {
+        "type": "object",
+        "description": "Une action récente : un événement de l'historique d'une prospection ou d'un dossier, ou une\ninteraction, avec la fiche qu'elle concerne.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne source (StrHistory ou ComActionMessage)."
+          },
+          "type": {
+            "type": "string",
+            "description": "Code stable de l'action. Historique de prospection : lu au début de la description\n(`PRE_PROSPECTION_CREEE`, `PROSPECT_CREE`, `PROSPECT_RATTACHE`, `TRANSFORMEE_EN_PROSPECTION`,\n`PROSPECTION_CREEE`, `ETAPE_CHANGEE`, `ARCHIVEE`, `DESARCHIVEE`, et `AUTRE` pour un début inconnu —\nservie, jamais rejetée). `DOSSIER_STATUT` : changement de statut d'un dossier. `INTERACTION` : note ou\ninteraction saisie.",
+            "enum": [
+              "PRE_PROSPECTION_CREEE",
+              "PROSPECT_CREE",
+              "PROSPECT_RATTACHE",
+              "TRANSFORMEE_EN_PROSPECTION",
+              "PROSPECTION_CREEE",
+              "ETAPE_CHANGEE",
+              "ARCHIVEE",
+              "DESARCHIVEE",
+              "DOSSIER_STATUT",
+              "INTERACTION",
+              "AUTRE"
+            ]
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date-heure de l'action : `StrHistory.DocDate` ; pour une interaction, sa date de saisie\n(`UserCreateDateTime`, sinon `DocDate`). Sert de curseur `avant` pour « Voir plus »."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Texte de l'action : la description de l'historique (ex. « Étape changée : 2 RDV → 4 APRES VISITES »),\nou, pour une interaction, son type puis le début de la note (120 caractères au plus)."
+          },
+          "auteurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "AdmUser auteur de l'action ; null si inconnu (écriture sans utilisateur authentifié)."
+          },
+          "auteurNom": {
+            "type": "string",
+            "description": "Nom affiché de l'auteur ; null si inconnu."
+          },
+          "cibleType": {
+            "type": "string",
+            "description": "Fiche à ouvrir : `PRE_PROSPECTION` (`/pre-prospections/{cibleId}`), `PROSPECTION`\n(`/prospections/{cibleId}`) ou `DOSSIER` (`/dossiers/{cibleId}`). Pour une prospection, c'est son type\n**actuel** : une pré-prospection transformée depuis apparaît en `PROSPECTION`. Une interaction\nrattachée à un dossier vise le dossier.",
+            "enum": [
+              "PRE_PROSPECTION",
+              "PROSPECTION",
+              "DOSSIER"
+            ]
+          },
+          "cibleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la prospection / pré-prospection (ComProspection) ou du dossier (ComFolder)."
+          },
+          "cibleLibelle": {
+            "type": "string",
+            "description": "Nom affiché de la fiche : pour une prospection, le nom du prospect tel que dans les listes (fiche\ntiers, sinon nom du premier contact, sinon code) ; pour un dossier, son code."
+          },
+          "prospectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Prospect (CfgTier) de la prospection, pour le lien secondaire ; null pour un dossier."
           }
         }
       }

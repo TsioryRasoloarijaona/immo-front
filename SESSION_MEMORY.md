@@ -3,11 +3,12 @@ _Last updated: 2026-10-08_ · state and decisions only (≤ 3 KB); history = git
 
 ## Current state
 
-- `feat/parcours-vente` (docs/FEATURE-parcours-vente.md): shared `ToastProvider` (action link =
-  persistent toast; nested provider inside `FicheProspectionDialog`, modal hides #root), toasts with
-  « Ouvrir → » after conversions, R5 redirect by `typeProspectionCode`, `ParcoursVente` bar on the
-  fiche (origin unknown → no Pré-prospection step). Only list/fiche prospection toasts migrated.
-  Part 3 « Actions récentes » (needs backend: who in StrHistory + feed endpoint) not started.
+- `feat/actions-recentes` (immo-crm/instructions/FEATURE-actions-recentes.md): `ActionsRecentes.tsx`,
+  trigger in the sidebar (a fixed bottom-right button covered the pinned pagination), popover with
+  « Mes actions » / « Équipe », « Voir plus » = cursor `avant` + `avantId`. Équipe up to 30 s stale
+  (request cache). Not yet seen against a live backend.
+- Parcours vente parts 1–2 merged (#79): shared `ToastProvider`, « Ouvrir → » toasts, R5 redirect,
+  `ParcoursVente` bar.
 - Import sélectif merged (#78 era): « Nouvelles » / « Doublons » checkboxes on the CSV import.
 - Merged on `main`: Outils › Virements module wired to `generateur-virement` (`src/lib/virements.ts`,
   `/svc/virement` behind the Vite proxy in dev), Dashboard filtered by tranche (admin only),

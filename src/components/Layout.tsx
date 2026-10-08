@@ -17,6 +17,7 @@ import {
 } from './ui/sidebar';
 import { Button } from './ui/button';
 import SyncButton from './SyncButton';
+import ActionsRecentes from './ActionsRecentes';
 import EntreesAdminVirements from '../pages/outils/virements/EntreesAdminVirements';
 import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
@@ -377,6 +378,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               pilule flottante essayée d'abord cachait la pagination). Le
               composant se cache lui-même pour les rôles auxquels le backend
               refuse l'appel. */}
+          <ActionsRecentes />
           <SyncButton />
           <div className="flex items-center gap-2 px-2 pt-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
             <Link
