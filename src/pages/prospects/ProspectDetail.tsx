@@ -1,14 +1,15 @@
 import { Suspense, lazy, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Contact, Plus, UserCheck } from 'lucide-react';
-import CadreFiche, { type VarianteFiche } from '../../components/CadreFiche';
+import CadreFiche, { EnteteFiche, type VarianteFiche } from '../../components/CadreFiche';
+import { LigneActivite, OngletsLigne } from '../../components/FicheShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { TimelineList, TimelineRow } from '../../components/Timeline';
 import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import {
   addProspectContact,
@@ -155,29 +156,24 @@ export function FicheProspect({
     <CadreFiche
       variante={variante}
       title={personDisplayName(person)}
-      crumbs={[{ label: listLabel, to: listPath }, { label: person.code || personDisplayName(person) }]}
+      crumbs={[{ label: listLabel, to: listPath }]}
+      typeFiche={isClientContext ? 'Client' : 'Prospect'}
       icon={isClientContext ? <UserCheck /> : <Contact />}
       accent={isClientContext ? 'var(--sec-client)' : 'var(--sec-prospect)'}
       accentBg={isClientContext ? 'var(--sec-client-bg)' : 'var(--sec-prospect-bg)'}
       fullHeight
+      /* Ligne 1 — l'identité, dans la ligne de titre. « Nouvelle prospection »
+         est descendue dans l'onglet Prospections, au-dessus du tableau. */
+      entete={
+        <EnteteFiche code={person.code} nom={personDisplayName(person)}>
+          <span className="text-body text-muted-foreground">
+            {person.type || 'Prospect'}
+            {person.commercialNom && <> · commercial {person.commercialNom}</>}
+          </span>
+          {person.estAncienClient && <Badge tone="info">Ancien client</Badge>}
+        </EnteteFiche>
+      }
     >
-      {/* Redesign 20/09 : cette fiche était la seule fiche à onglets qui
-          défilait en pleine page (ni FicheShell ni fullHeight), avec un
-          bouton « Retour » et un bloc titre hero qui redisaient le fil
-          d'Ariane (~90px). Même géométrie que Dossier/Prospection désormais :
-          identité sur une ligne, seuls les onglets défilent. */}
-      <div className="flex shrink-0 flex-wrap items-baseline gap-x-2 gap-y-1 pt-1 pb-3">
-        <h2 className="text-title font-semibold tracking-tight text-foreground">{personDisplayName(person)}</h2>
-        <span className="text-body text-muted-foreground">
-          {person.code && <>Code {person.code} · </>}
-          {person.type || 'Prospect'}
-          {person.commercialNom && <> · Commercial : {person.commercialNom}</>}
-        </span>
-        {person.estAncienClient && <Badge tone="info">Ancien client</Badge>}
-        <Button size="sm" className="ml-auto self-center" onClick={() => setNouvelleProspection(true)}>
-          <Plus data-icon="inline-start" /> Nouvelle prospection
-        </Button>
-      </div>
 
       {nouvelleProspection && (
         <Suspense fallback={null}>
@@ -200,21 +196,17 @@ export function FicheProspect({
         </Suspense>
       )}
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as ProspectTab)} className="flex min-h-0 flex-1 flex-col gap-3">
-        <TabsList>
-          <TabsTrigger value="general">Général</TabsTrigger>
-          <TabsTrigger value="contacts">
-            Contacts {contacts.data && contacts.data.length > 0 && <Badge tone="neutral" className="ml-1.5">{contacts.data.length}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="prospections">
-            Prospections {prospections.data && prospections.data.totalElements > 0 && <Badge tone="neutral" className="ml-1.5">{prospections.data.totalElements}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="dossiers">
-            Dossiers {dossiers.data && dossiers.data.totalElements > 0 && <Badge tone="neutral" className="ml-1.5">{dossiers.data.totalElements}</Badge>}
-          </TabsTrigger>
-          <TabsTrigger value="reglements">Règlements</TabsTrigger>
-          <TabsTrigger value="historique">Historique</TabsTrigger>
-        </TabsList>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as ProspectTab)} className="flex min-h-0 flex-1 flex-col gap-2.5">
+        <OngletsLigne
+          onglets={[
+            { id: 'general', libelle: 'Général' },
+            { id: 'contacts', libelle: 'Contacts', compteur: contacts.data?.length },
+            { id: 'prospections', libelle: 'Prospections', compteur: prospections.data?.totalElements },
+            { id: 'dossiers', libelle: 'Dossiers', compteur: dossiers.data?.totalElements },
+            { id: 'reglements', libelle: 'Règlements', compteur: reglements.data?.totalElements },
+            { id: 'historique', libelle: 'Historique', compteur: historique.data?.totalElements },
+          ]}
+        />
 
         <TabsContent value="general" className="min-h-0 flex-1 overflow-y-auto">
           <div className="flex flex-col gap-3">
@@ -346,15 +338,24 @@ export function FicheProspect({
           </Card>
         </TabsContent>
 
-        <TabsContent value="prospections" className="min-h-0 flex-1 overflow-y-auto">
-          <Card title={`Prospections (${prospections.data?.totalElements ?? 0})`}>
+        <TabsContent value="prospections" className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+          {/* L'onglet d'activité du prospect : l'action la plus fréquente en
+              tête, au-dessus du tableau ; le total est sur l'onglet. */}
+          <div className="flex flex-col gap-2.5 p-3">
+            <LigneActivite
+              action={
+                <Button size="sm" onClick={() => setNouvelleProspection(true)}>
+                  <Plus data-icon="inline-start" /> Nouvelle prospection
+                </Button>
+              }
+            />
             {prospections.loading && <LoadingState />}
             {prospections.error && <ErrorState message={prospections.error} />}
             {prospections.data && prospections.data.content.length === 0 && <EmptyState title="Aucune prospection" />}
             {prospections.data && prospections.data.content.length > 0 && (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
+              <div>
+                <Table containerClassName="overflow-visible">
+                  <TableHeader className="sticky top-0 z-1">
                     <TableRow className="hover:bg-transparent">
                       <TableHead className="w-8" />
                       <TableHead>Code</TableHead>
@@ -381,7 +382,7 @@ export function FicheProspect({
             {prospections.data && (
               <Pagination page={prospections.data.page} totalPages={prospections.data.totalPages} totalElements={prospections.data.totalElements} onPageChange={setProspectionsPage} />
             )}
-          </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="dossiers" className="min-h-0 flex-1 overflow-y-auto">

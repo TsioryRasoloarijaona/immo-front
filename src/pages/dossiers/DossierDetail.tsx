@@ -2,12 +2,12 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, Ban, ChevronDown, ChevronRight, ClipboardCheck, Download, Eye, FileDown, FileSignature, FileStack, FileText, Folder, Landmark, Loader2, Paperclip, Phone, Plus, Receipt, Trash2, Upload } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import CadreFiche, { type VarianteFiche } from '../../components/CadreFiche';
+import CadreFiche, { EnteteFiche, type VarianteFiche } from '../../components/CadreFiche';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
-import FicheShell from '../../components/FicheShell';
+import FicheShell, { LigneActivite, OngletsLigne } from '../../components/FicheShell';
 import SyntheseMontants from '../../components/SyntheseMontants';
-import { ChampLecture, GrilleFiche } from '../../components/ChampsFiche';
+import { ChampLecture, GrilleFiche, PiedFiche } from '../../components/ChampsFiche';
 import DossierStatusStepper from '../../components/DossierStatusStepper';
 import Modal from '../../components/Modal';
 import {
@@ -23,7 +23,7 @@ import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/
 import { Input } from '../../components/ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../components/ui/tabs';
 import { referentielItems, useBanques, useCategoriesEcheance, useTypesPieceJointe, useTypesReglement } from '../../lib/referentiels';
 import {
   formatCurrency,
@@ -1234,30 +1234,33 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
               Factures proforma, Factures, Avoirs, Décomptes, Réclamations)
               that have no corresponding endpoint in api-docsV2 yet — out
               of scope until the backend exposes them. */}
-          <Card
-            title="Schéma de financement"
-            action={
-              <AddEcheanceRow
-                onAdd={async (body) => {
-                  await addEcheance(d.id, body);
-                  await echeances.refetch();
-                  await montants.refetch();
-                }}
-                initialOpen={fromCreation}
-                initialMontant={d.totalAPayer ?? d.prix ?? undefined}
-                initialDate={todayISO()}
-              />
-            }
-          >
+          {/* Sans carte propre (le panneau d'onglet en est une) : l'action la
+              plus fréquente de l'onglet, juste au-dessus du tableau. */}
+          <div className="flex flex-col gap-2.5">
+            <LigneActivite
+              action={
+                <AddEcheanceRow
+                  onAdd={async (body) => {
+                    await addEcheance(d.id, body);
+                    await echeances.refetch();
+                    await montants.refetch();
+                  }}
+                  initialOpen={fromCreation}
+                  initialMontant={d.totalAPayer ?? d.prix ?? undefined}
+                  initialDate={todayISO()}
+                />
+              }
+            >
+              {echeances.data && echeances.data.content.length === 0 && (
+                <span>Aucune ligne dans le schéma de financement pour ce dossier.</span>
+              )}
+            </LigneActivite>
             {echeances.loading && !echeances.data && <LoadingState />}
             {echeances.error && <ErrorState message={echeances.error} />}
-            {echeances.data && echeances.data.content.length === 0 && (
-              <p className="text-label text-muted-foreground">Aucune ligne dans le schéma de financement pour ce dossier.</p>
-            )}
             {echeances.data && echeances.data.content.length > 0 && (
-              <div className="-mx-3">
-                <Table>
-                  <TableHeader>
+              <div>
+                <Table containerClassName="overflow-visible">
+                  <TableHeader className="sticky top-0 z-1">
                     <TableRow className="hover:bg-transparent">
                       <TableHead />
                       <TableHead>Catégorie</TableHead>
@@ -1296,7 +1299,7 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
                 onPageChange={setEcheancesPage}
               />
             )}
-          </Card>
+          </div>
     </>
   );
 
@@ -1432,11 +1435,39 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
     <CadreFiche
       variante={variante}
       title={title}
-      crumbs={[{ label: 'Dossiers', to: '/dossiers' }, { label: d.code || '' }]}
+      crumbs={[{ label: 'Dossiers', to: '/dossiers' }]}
+      typeFiche="Dossier de vente"
       fullHeight
       icon={<Folder />}
       accent="var(--sec-dossier)"
       accentBg="var(--sec-dossier-bg)"
+      /* Ligne 1 — l'identité. Date de réservation, commercial et société
+         passent au pied de la carte des champs. */
+      entete={
+        <EnteteFiche
+          code={d.code}
+          nom={
+            d.clientId ? (
+              <Link to={`/clients/${d.clientId}`} className="hover:underline" title="Ouvrir la fiche client">
+                {d.clientNom || 'Voir le client'}
+              </Link>
+            ) : (
+              title
+            )
+          }
+        >
+          <Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge>
+          {/* 11,5 % seulement : n'a de sens que sur les statuts qui expirent. */}
+          {d.dateValiditeStatut && (
+            <span className="text-micro text-muted-foreground">valide jusqu'au {formatDate(d.dateValiditeStatut)}</span>
+          )}
+          {montants.data?.dossierSorti && <Badge tone="warning">Dossier sorti</Badge>}
+          {/* 95 % des dossiers valent 1,00 : la quote-part ne s'affiche qu'en indivision. */}
+          {typeof d.quotePart === 'number' && d.quotePart !== 1 && (
+            <span className="text-micro font-medium text-foreground">Quote-part {(d.quotePart * 100).toFixed(2)} %</span>
+          )}
+        </EnteteFiche>
+      }
       actions={
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           <Button variant="outline" size="sm" onClick={() => showToast('Intégration VOIP à venir.')}>
@@ -1466,40 +1497,12 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
            est-il ».
            --------------------------------------------------------------- */
         identite={
-          <Card padded={false} accent="var(--sec-dossier)">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
-              <Badge tone="neutral" className="font-mono">{d.code || '—'}</Badge>
-              <h2 className="min-w-0 truncate text-label font-semibold text-foreground">{title}</h2>
-              <Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge>
-              {/* La date de validité du statut : 11,5 % seulement, parce
-                  qu'elle n'a de sens que sur les statuts qui expirent — la
-                  réservation au premier chef. Affichée au contact du statut,
-                  comme sur l'écran légataire. */}
-              {d.dateValiditeStatut && (
-                <span className="text-micro text-muted-foreground">valide jusqu'au {formatDate(d.dateValiditeStatut)}</span>
-              )}
-              {montants.data?.dossierSorti && <Badge tone="warning">Dossier sorti</Badge>}
-
-              <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-muted-foreground">
-                <span>Réservé le {formatDate(d.dateDocument)}</span>
-                <span>{d.commercialNom || '— non assigné —'}</span>
-                {d.societeCode && <span>Société {d.societeCode}</span>}
-                {/* 95 % des dossiers valent 1,00 : n'afficher la quote-part
-                    que sur les 5 % en indivision, où elle porte une vraie
-                    information. Fraction, pas pourcentage. */}
-                {typeof d.quotePart === 'number' && d.quotePart !== 1 && (
-                  <span className="font-medium text-foreground">Quote-part {(d.quotePart * 100).toFixed(2)} %</span>
-                )}
-              </span>
+          fromCreation && (
+            <div className="rounded-lg border border-(--info-border) bg-(--info-bg) px-3 py-1.5 text-micro text-(--info)">
+              Dossier créé. Le schéma de financement est vide — l'API ne permet pas de le pré-remplir à la création ;
+              complétez-le dans l'onglet ci-dessous.
             </div>
-
-            {fromCreation && (
-              <div className="border-t border-border bg-(--info-bg) px-3 py-1.5 text-micro text-(--info)">
-                Dossier créé. Le schéma de financement est vide — l'API ne permet pas de le pré-remplir à la création ;
-                complétez-le dans l'onglet ci-dessous.
-              </div>
-            )}
-          </Card>
+          )
         }
         /* ---------------------------------------------------------------
            Bande 2a — le formulaire, colonne de gauche du logiciel de bureau.
@@ -1517,23 +1520,10 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
         formulaire={
           <Card padded={false} className="h-full">
             <div className="p-3">
+              {/* Une seule grille : N° dossier, client, date et commercial sont
+                  dans la ligne d'identité ou le pied ; le pavé de prix suit
+                  directement, quatre par ligne (HT/TTC se répondent en colonnes). */}
               <GrilleFiche>
-                <ChampLecture label="N° dossier" valeur={d.code} />
-                <ChampLecture label="Date" valeur={formatDate(d.dateDocument)} />
-                <ChampLecture
-                  label="Client"
-                  valeur={
-                    d.clientId ? (
-                      <Link to={`/clients/${d.clientId}`} className="text-(--info) hover:underline">
-                        {d.clientNom || 'Voir la fiche'}
-                      </Link>
-                    ) : (
-                      d.clientNom
-                    )
-                  }
-                />
-                <ChampLecture label="Commercial" valeur={d.commercialNom} />
-
                 <ChampLecture
                   label="Tranche"
                   valeur={
@@ -1572,43 +1562,40 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
                 <ChampLecture label="Type" valeur={premierArticle?.typeLibelle || premierArticle?.typeCode} />
                 <ChampLecture label="Surface" valeur={premierArticle?.area ? `${premierArticle.area} m²` : null} />
                 <ChampLecture label="Prix du m²" valeur={d.prixM2 ? formatCurrency(d.prixM2) : null} />
+
+                <ChampLecture label="Total HT" valeur={formatCurrency(d.prixAvantRemiseHT)} />
+                <ChampLecture label="Total TTC" valeur={formatCurrency(d.prixAvantRemise)} />
+                <ChampLecture
+                  label="Remise"
+                  valeur={
+                    d.remise
+                      ? `${formatCurrency(d.remiseMontant)} · ${formatPercent(d.remise, 2)}`
+                      : null
+                  }
+                />
+                <ChampLecture
+                  label="TVA"
+                  valeur={d.tauxTVA ? `${(d.tauxTVA * 100).toFixed(2)} %` : null}
+                  aide="Nul ou absent sur la majorité des dossiers — c'est une absence de saisie, pas un taux nul."
+                />
+                <ChampLecture label="Prix de vente HT" valeur={formatCurrency(d.prixHT)} />
+                <ChampLecture label="Prix de vente TTC" valeur={formatCurrency(d.prix)} />
+                <ChampLecture label="Prix contractuel" valeur={formatCurrency(d.totalAPayer)} />
+                <ChampLecture label="Mode de paiement" valeur={d.modePaie} />
+
+                {d.notes && <ChampLecture label="Notes" valeur={d.notes} multiligne apres={16} />}
+                <PiedFiche>
+                  <span>Réservé le {formatDate(d.dateDocument)}</span>
+                  <span aria-hidden>·</span>
+                  <span>commercial {d.commercialNom || '— non assigné —'}</span>
+                  {d.societeCode && (
+                    <>
+                      <span aria-hidden>·</span>
+                      <span>société {d.societeCode}</span>
+                    </>
+                  )}
+                </PiedFiche>
               </GrilleFiche>
-
-              {/* Le pavé de prix, séparé du reste : c'est la partie que le
-                  commercial relit, et la seule où deux colonnes HT/TTC se
-                  répondent ligne à ligne. */}
-              <div className="mt-3 border-t border-border pt-2.5">
-                <GrilleFiche>
-                  <ChampLecture label="Total HT" valeur={formatCurrency(d.prixAvantRemiseHT)} />
-                  <ChampLecture label="Total TTC" valeur={formatCurrency(d.prixAvantRemise)} />
-                  <ChampLecture
-                    label="Remise"
-                    valeur={
-                      d.remise
-                        ? `${formatCurrency(d.remiseMontant)} · ${formatPercent(d.remise, 2)}`
-                        : null
-                    }
-                  />
-                  <ChampLecture
-                    label="TVA"
-                    valeur={d.tauxTVA ? `${(d.tauxTVA * 100).toFixed(2)} %` : null}
-                    aide="Nul ou absent sur la majorité des dossiers — c'est une absence de saisie, pas un taux nul."
-                  />
-                  <ChampLecture label="Prix de vente HT" valeur={formatCurrency(d.prixHT)} />
-                  <ChampLecture label="Prix de vente TTC" valeur={formatCurrency(d.prix)} />
-                  <ChampLecture label="Prix contractuel" valeur={formatCurrency(d.totalAPayer)} />
-                  <ChampLecture label="Mode de paiement" valeur={d.modePaie} />
-                </GrilleFiche>
-              </div>
-
-              {d.notes && (
-                <div className="mt-3 border-t border-border pt-2.5">
-                  <div className="mb-1 text-micro font-medium text-muted-foreground">Notes</div>
-                  <div className="max-h-20 overflow-auto whitespace-pre-wrap text-body leading-relaxed text-foreground">
-                    {d.notes}
-                  </div>
-                </div>
-              )}
             </div>
           </Card>
         }
@@ -1627,11 +1614,13 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
         panneau={
           <Card padded={false} className="flex h-full flex-col">
             <Tabs value={panneauTab} onValueChange={(v) => setPanneauTab(v as PanneauDossierTab)} className="flex min-h-0 flex-1 flex-col gap-2 p-3">
-              <TabsList className="shrink-0">
-                <TabsTrigger value="montants">Montants</TabsTrigger>
-                <TabsTrigger value="dates">Dates</TabsTrigger>
-                <TabsTrigger value="tracabilite">Traçabilité</TabsTrigger>
-              </TabsList>
+              <OngletsLigne
+                onglets={[
+                  { id: 'montants', libelle: 'Montants' },
+                  { id: 'dates', libelle: 'Dates' },
+                  { id: 'tracabilite', libelle: 'Traçabilité' },
+                ]}
+              />
 
               <TabsContent value="montants" className="min-h-0 flex-1">
                 {montants.loading && !montants.data && <LoadingState />}
