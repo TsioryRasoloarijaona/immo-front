@@ -175,16 +175,17 @@ function texteComparable<T>(row: T, c: ColonneGrille<T>): string {
 }
 
 /** Forme numérique saisie ou affichée, ramenée à `50000.00` : sans espaces
- * (`\s` couvre les insécables), sans « DH », virgule décimale en point. */
+ * (`\s` couvre les insécables), sans unité finale (DH, m², %), virgule décimale en point. */
 function normaliserNombre(texte: string): string {
-  return texte.replace(/\s/g, '').replace(/dh$/i, '').replace(',', '.');
+  return texte.replace(/\s/g, '').replace(/(dh|m²|m2|%)$/i, '').replace(',', '.');
 }
 
-/** Forme affichée d'une valeur numérique, celle que l'utilisateur recopie. */
-function texteNumeriqueAffiche<T>(v: unknown, c: ColonneGrille<T>): string {
-  if (c.formatValeur) return c.formatValeur(v);
-  if (typeof v !== 'number') return String(v);
-  return typeDe(c) === 'MONTANT' ? formatCurrency(v) : formatNumber(v);
+/** Formes d'une valeur numérique que l'utilisateur peut recopier : la forme
+ * formatée et la valeur brute, qui garde ses décimales réelles (`85.47`). */
+function textesNumeriques<T>(v: unknown, c: ColonneGrille<T>): string[] {
+  if (c.formatValeur) return [c.formatValeur(v), String(v)];
+  if (typeof v !== 'number') return [String(v)];
+  return [typeDe(c) === 'MONTANT' ? formatCurrency(v) : formatNumber(v), String(v)];
 }
 
 /** Prédicat de la ligne de filtres pour une colonne : sous-chaîne sans accents
@@ -208,7 +209,7 @@ function predicatFiltre<T>(c: ColonneGrille<T>, saisie: string): (row: T) => boo
   return (r) => {
     const v = valeurDe(r, c);
     if (v === null || v === undefined || v === '') return false;
-    return normaliserNombre(texteNumeriqueAffiche(v, c)).toLowerCase().includes(aiguille);
+    return textesNumeriques(v, c).some((t) => normaliserNombre(t).toLowerCase().includes(aiguille));
   };
 }
 
@@ -391,7 +392,7 @@ export default function DataGrid<T extends { id: string }>({
      d'un groupe est le seul tri qui ait un sens une fois la liste repliée :
      un tri global réordonnerait les lignes à travers les groupes et les en
      sortirait. */
-  const appliquer = useCallback(
+  const filtrer = useCallback(
     (source: T[]) => {
       /* Prédicats construits une fois par passe : l'aiguille est normalisée
          ici, pas par ligne et par colonne filtrée. */
@@ -400,7 +401,14 @@ export default function DataGrid<T extends { id: string }>({
         const saisie = (filtresDiff[c.nom] ?? '').trim();
         if (saisie !== '') actifs.push(predicatFiltre(c, saisie));
       }
-      const filtrees = actifs.length ? source.filter((r) => actifs.every((p) => p(r))) : source;
+      return actifs.length ? source.filter((r) => actifs.every((p) => p(r))) : source;
+    },
+    [colonnes, filtresDiff],
+  );
+
+  const appliquer = useCallback(
+    (source: T[]) => {
+      const filtrees = filtrer(source);
       if (!tri) return filtrees;
       const col = parNom.get(tri.nom);
       if (!col) return filtrees;
@@ -419,16 +427,20 @@ export default function DataGrid<T extends { id: string }>({
         return String(va).localeCompare(String(vb), 'fr') * signe;
       });
     },
-    [colonnes, parNom, filtresDiff, tri],
+    [filtrer, parNom, tri],
   );
 
   const visibles = useMemo(() => appliquer(rows), [appliquer, rows]);
   const filtreActif = colonnes.some((c) => (filtresDiff[c.nom] ?? '').trim() !== '');
 
   /* Ce que le Σ somme, et ce que la barre de résumé compte : les lignes
-     réellement à l'écran. En mode groupé ce sont celles des groupes ouverts,
-     `rows` étant alors vide. */
-  const sommables = groupes ? groupes.lignesChargees : visibles;
+     réellement à l'écran. En mode groupé ce sont celles des groupes ouverts
+     qui passent le filtre, `rows` étant alors vide. */
+  const lignesDepliees = groupes?.lignesChargees;
+  const sommables = useMemo(
+    () => (lignesDepliees ? filtrer(lignesDepliees) : visibles),
+    [lignesDepliees, filtrer, visibles],
+  );
 
   const basculerTri = (nom: string) =>
     setTri((t) => (t?.nom !== nom ? { nom, sens: 'asc' } : t.sens === 'asc' ? { nom, sens: 'desc' } : null));
@@ -658,9 +670,11 @@ export default function DataGrid<T extends { id: string }>({
           )}
           <span className="ml-auto shrink-0 tabular-nums">
             {groupes
-              ? `${formatNumber(groupes.liste.length)} groupe(s), ${formatNumber(sommables.length)} ligne(s) dépliée(s)${
-                  filtreActif ? ' — filtre sur les lignes dépliées seulement' : ''
-                }`
+              ? filtreActif
+                ? `${formatNumber(groupes.liste.length)} groupe(s), ${formatNumber(sommables.length)} / ${formatNumber(
+                    groupes.lignesChargees.length,
+                  )} ligne(s) dépliée(s) — filtre sur les lignes dépliées seulement`
+                : `${formatNumber(groupes.liste.length)} groupe(s), ${formatNumber(sommables.length)} ligne(s) dépliée(s)`
               : filtreActif
                 ? `${formatNumber(visibles.length)} / ${formatNumber(rows.length)} ligne(s) chargée(s) — filtre sur la page affichée seulement`
                 : `${formatNumber(rows.length)} ligne(s)`}
