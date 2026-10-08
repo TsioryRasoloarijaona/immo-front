@@ -1,18 +1,18 @@
 # Session Memory — crm-prototype
-_Last updated: 2026-10-08_ · state and decisions only (≤ 3 KB); history = git log + FEATURES.md
+_Last updated: 2026-10-08 (end of day)_ · state and decisions only (≤ 3 KB); history = git log + FEATURES.md
 
 ## Current state
 
-- `feat/actions-recentes` (immo-crm/instructions/FEATURE-actions-recentes.md): `ActionsRecentes.tsx`,
-  trigger in the sidebar (a fixed bottom-right button covered the pinned pagination), popover with
-  « Mes actions » / « Équipe », « Voir plus » = cursor `avant` + `avantId`. Équipe up to 30 s stale
-  (request cache). Not yet seen against a live backend.
-- Parcours vente parts 1–2 merged (#79): shared `ToastProvider`, « Ouvrir → » toasts, R5 redirect,
-  `ParcoursVente` bar.
-- Import sélectif merged (#78 era): « Nouvelles » / « Doublons » checkboxes on the CSV import.
-- Merged on `main`: Outils › Virements module wired to `generateur-virement` (`src/lib/virements.ts`,
-  `/svc/virement` behind the Vite proxy in dev), Dashboard filtered by tranche (admin only),
-  Arpent access from the Omran accounts.
+- Fiches de détail rebalanced (#83, docs/FEATURE-fiche-equilibre.md): identity in the title line,
+  parcours on one line, one 4-col grid + grey footer, activity tab = one-line summary + main action
+  above the table, line tabs with counters. Shared shell: CadreFiche (entete/parcours/typeFiche),
+  ChampsFiche (GrilleFiche, PiedFiche), FicheShell (OngletsLigne, LigneActivite).
+- Full fiches in dialogs (#81): `usePreview().ouvrirFiche{Prospection,Dossier,Prospect}`, stacked in
+  PreviewProvider, closed on any navigation (location.key). FicheDossier/FicheProspect extracted.
+- Actions récentes menu in the sidebar (#80), opens full fiches; « Nouvelle prospection » on the
+  prospect fiche (#82).
+- None of #80–#83 seen in a browser by Claude (no Chrome extension) — user checks.
+- Front PRs: the manager merges them itself once build + review are green.
 
 ## Open
 
