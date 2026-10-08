@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Contact, UserCheck } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
@@ -25,6 +25,7 @@ import {
   updateProspect,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { routeFicheProspection } from '../../lib/parcours';
 import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
 import { toneForStatus } from '../../lib/dossierStatus';
 import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../../lib/format';
@@ -304,6 +305,7 @@ export default function ProspectDetail() {
                       <TableHead>Origine</TableHead>
                       <TableHead className="text-right">Prix</TableHead>
                       <TableHead>Date</TableHead>
+                      <TableHead className="w-20"><span className="sr-only">Ouvrir</span></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -341,6 +343,7 @@ export default function ProspectDetail() {
                       <TableHead className="text-right">Prix</TableHead>
                       <TableHead className="text-right">Total à payer</TableHead>
                       <TableHead>Date</TableHead>
+                      <TableHead className="w-20"><span className="sr-only">Ouvrir</span></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -465,10 +468,13 @@ function ProspectionRow({
         <TableCell className="text-muted-foreground">{p.origine || '—'}</TableCell>
         <TableCell className="text-right tabular-nums">{p.prix ? formatCurrency(p.prix) : '—'}</TableCell>
         <TableCell className="text-muted-foreground">{formatDate(p.dateDocument)}</TableCell>
+        <TableCell className="text-right">
+          <LienOuvrir vers={routeFicheProspection(p.id, p.typeProspectionCode)} cible={`la prospection ${p.code || ''}`} />
+        </TableCell>
       </TableRow>
       {expanded && (
         <TableRow className="hover:bg-transparent">
-          <TableCell colSpan={6} className="bg-muted/30 py-3">
+          <TableCell colSpan={7} className="bg-muted/30 py-3">
             {detail.loading && <LoadingState />}
             {detail.error && <ErrorState message={detail.error} />}
             {detail.data && (
@@ -535,10 +541,13 @@ function DossierRow({
         <TableCell className="text-right tabular-nums">{formatCurrency(d.prix)}</TableCell>
         <TableCell className="text-right tabular-nums">{formatCurrency(d.totalAPayer)}</TableCell>
         <TableCell className="text-muted-foreground">{formatDate(d.dateDocument)}</TableCell>
+        <TableCell className="text-right">
+          <LienOuvrir vers={`/dossiers/${d.id}`} cible={`le dossier ${d.code || ''}`} />
+        </TableCell>
       </TableRow>
       {expanded && (
         <TableRow className="hover:bg-transparent">
-          <TableCell colSpan={6} className="bg-muted/30 py-3">
+          <TableCell colSpan={7} className="bg-muted/30 py-3">
             {detail.loading && <LoadingState />}
             {detail.error && <ErrorState message={detail.error} />}
             {detail.data && (
@@ -572,5 +581,21 @@ function DossierRow({
         </TableRow>
       )}
     </>
+  );
+}
+
+/** Lien « Ouvrir → » dans une ligne qui se déplie au clic : il ne doit pas
+ * déclencher le dépliage (clic ni Entrée/Espace). */
+function LienOuvrir({ vers, cible }: { vers: string; cible: string }) {
+  return (
+    <Link
+      to={vers}
+      aria-label={`Ouvrir ${cible.trim()}`}
+      className="rounded font-medium whitespace-nowrap text-(--brand) underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => e.stopPropagation()}
+    >
+      Ouvrir →
+    </Link>
   );
 }

@@ -95,7 +95,8 @@ export default function CreateProspectForm({
   preProspectionId: string;
   initial?: CreateProspectInitial;
   onClose: () => void;
-  onSubmit: (updated: ProspectionDetailDto) => void;
+  /** `mode` : prospect créé (`cree`) ou fiche existante rattachée (`rattache`). */
+  onSubmit: (updated: ProspectionDetailDto, mode: 'cree' | 'rattache') => void;
 }) {
   const [prenom, setPrenom] = useState(initial?.firstName ?? '');
   const [nom, setNom] = useState(initial?.lastName ?? '');
@@ -215,7 +216,7 @@ export default function CreateProspectForm({
     setExistante(null);
     try {
       const updated = await creerProspectFromPreProspection(preProspectionId, construireCorps(ignorerDoublons));
-      onSubmit(updated);
+      onSubmit(updated, 'cree');
       onClose();
     } catch (err) {
       const trouves = doublonsDepuisErreur(err);
@@ -239,7 +240,7 @@ export default function CreateProspectForm({
     setExistante(null);
     try {
       const updated = await lierProspectAPreProspection(preProspectionId, { prospectId: doublon.id });
-      onSubmit(updated);
+      onSubmit(updated, 'rattache');
       onClose();
     } catch (err) {
       const deja = prospectionExistanteDepuisErreur(err);

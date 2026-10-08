@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArchiveRestore, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, Send, UserPlus, Users, X } from 'lucide-react';
 import CadreFiche, { type VarianteFiche } from '../../components/CadreFiche';
@@ -15,6 +15,7 @@ import Pagination from '../../components/Pagination';
 import { TimelineList, TimelineRow } from '../../components/Timeline';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import FicheShell from '../../components/FicheShell';
+import ParcoursVente from '../../components/ParcoursVente';
 import { ChampLecture, ChampNotes, ChampRef, GrilleFiche } from '../../components/ChampsFiche';
 import MarqueurTri from '../../components/MarqueurTri';
 import { OngletAutres, OngletProfils } from '../../components/SousCollectionsProspection';
@@ -76,6 +77,8 @@ import {
   type ArticleReferentielFilters,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { CODE_PRE_PROSPECTION, CODE_PROSPECTION, calculerParcours, texteProspectionTransformee, toastProspectLie } from '../../lib/parcours';
+import { useToast } from '../../lib/toastContext';
 import ContactsProspect from '../../components/ContactsProspect';
 import TransformerProspectionDialog from '../../components/TransformerProspectionDialog';
 import { useFormulaireFiche } from '../../lib/formulaireFiche';
@@ -600,7 +603,20 @@ export function FicheProspection({
   // logged-in employee actually is one of the assignable commerciaux.
   const ownCommercial = commerciaux.find((c) => c.id === user?.employeeId) ?? null;
   const navigate = useNavigate();
-  const [toast, setToast] = useState<string | null>(null);
+  const showToast = useToast();
+  const toastErreur = (err: unknown, defaut: string) =>
+    showToast({ texte: err instanceof Error ? err.message : defaut, variante: 'erreur' });
+
+  /* R5 : la route suit le code de type. Attendre la fin du chargement — une
+     fiche servie du cache peut porter l'ancien code. */
+  useEffect(() => {
+    if (variante !== 'page' || loading || !p || p.id !== id) return;
+    if (isPreRoute && p.typeProspectionCode === CODE_PROSPECTION) {
+      navigate(`/prospections/${id}`, { replace: true });
+    } else if (!isPreRoute && p.typeProspectionCode === CODE_PRE_PROSPECTION) {
+      navigate(`/pre-prospections/${id}`, { replace: true });
+    }
+  }, [variante, loading, p, id, isPreRoute, navigate]);
   const [showCreateProspect, setShowCreateProspect] = useState(false);
   const [showInteractionForm, setShowInteractionForm] = useState(false);
   const [showTransform, setShowTransform] = useState(false);
@@ -655,11 +671,6 @@ export function FicheProspection({
   const [devisPage, setDevisPage] = useState(0);
   const devis = useApi(() => listDevis(id, { page: devisPage, size: 20 }), [id, devisPage], 'prospection-devis');
 
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3600);
-  }
-
   // `!p` : cf. DossierDetail — une prospection déjà vue se repeint depuis le
   // cache, la revalidation restant invisible.
   if (loading && !p) return <CadreFiche variante={variante} title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><LoadingState /></CadreFiche>;
@@ -693,6 +704,11 @@ export function FicheProspection({
   const dossierIssu = p.activite?.dossierId
     ? { id: p.activite.dossierId, code: p.activite.dossierCode }
     : null;
+  // R10 : l'historique du « Parcours » plus bas, pas de requête en plus.
+  const etapesParcours = calculerParcours(
+    { typeProspectionCode: p.typeProspectionCode, prospectId: p.prospectId, dossierId: dossierIssu?.id, dossierCode: dossierIssu?.code },
+    parcours.data?.content,
+  );
   // Rang 1 du guide : les deux seuls indicateurs de l'en-tête, donc toujours
   // visibles quand ils existent. Hoistés pour la même raison que `dossierIssu`
   // — et parce que `null` doit rester distinct de `0` : « aucune interaction »
@@ -708,9 +724,19 @@ export function FicheProspection({
   async function handleTransform(body: TransformerProspectionRequest) {
     setBusy(true);
     try {
-      await transformerProspection(p!.id, body);
+      const maj = await transformerProspection(p!.id, body);
       await refetch();
-      showToast('Prospection transformée — commercial et tranche posés.');
+      void parcours.refetch();
+      if (variante === 'page') {
+        // R4 : la fiche reprend l'habillage prospection ; le toast n'a pas de lien, on y est.
+        if (isPreRoute) navigate(`/prospections/${maj.id}`, { replace: true });
+        showToast(texteProspectionTransformee(name, maj));
+      } else {
+        showToast({
+          texte: texteProspectionTransformee(name, maj),
+          action: { libelle: 'Ouvrir la prospection →', vers: `/prospections/${maj.id}` },
+        });
+      }
     } finally {
       setBusy(false);
     }
@@ -748,7 +774,7 @@ export function FicheProspection({
       await refetch();
       showToast('Fiche enregistrée.');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Échec de l'enregistrement.");
+      toastErreur(err, "Échec de l'enregistrement.");
     } finally {
       setSaving(false);
     }
@@ -762,7 +788,7 @@ export function FicheProspection({
       await refetch();
       showToast('Prospection archivée.');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Échec de l'opération.");
+      toastErreur(err, "Échec de l'opération.");
     } finally {
       setBusy(false);
     }
@@ -775,7 +801,7 @@ export function FicheProspection({
       await refetch();
       showToast('Prospection désarchivée.');
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Échec de l'opération.");
+      toastErreur(err, "Échec de l'opération.");
     } finally {
       setBusy(false);
     }
@@ -854,6 +880,8 @@ export function FicheProspection({
            backend désigne comme le champ le plus utile du lot.
            --------------------------------------------------------------- */
         identite={
+          <div className="flex flex-col gap-1.5">
+          {etapesParcours && <ParcoursVente etapes={etapesParcours} accent={sectionAccent} />}
           <Card padded={false} accent={sectionAccent}>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
               <Badge tone="neutral" className="font-mono">{p.code || '—'}</Badge>
@@ -892,6 +920,7 @@ export function FicheProspection({
               </div>
             )}
           </Card>
+          </div>
         }
         /* ---------------------------------------------------------------
            Bande 2 — le formulaire. Même contenu et même ordre de lecture
@@ -1512,9 +1541,12 @@ export function FicheProspection({
           preProspectionId={p.id}
           initial={createProspectInitial}
           onClose={() => setShowCreateProspect(false)}
-          onSubmit={() => {
+          onSubmit={(maj, mode) => {
             refetch();
-            showToast('Prospection convertie — fiche prospect créée et liée.');
+            void parcours.refetch();
+            toastProspectLie(name, maj, mode)
+              .then(showToast)
+              .catch(() => showToast(mode === 'cree' ? `${name} est maintenant un prospect.` : `${name} est rattaché au prospect existant.`));
           }}
         />
       )}
@@ -1530,11 +1562,6 @@ export function FicheProspection({
         />
       )}
 
-      {toast && (
-        <div role="status" aria-live="polite" className="fixed inset-x-4 bottom-4 z-50 rounded-lg bg-foreground px-4.5 py-3 text-center text-label font-medium text-background shadow-lg sm:inset-x-auto sm:right-6 sm:bottom-6 sm:text-left">
-          {toast}
-        </div>
-      )}
     </CadreFiche>
   );
 }

@@ -3,10 +3,12 @@ _Last updated: 2026-10-08_ · state and decisions only (≤ 3 KB); history = git
 
 ## Current state
 
-- `feat/import-selectif` (immo-crm/instructions/FEATURE-import-selectif.md): the CSV import
-  screen (`pages/prospections/ImportPreProspections.tsx`) has « Nouvelles » / « Doublons »
-  checkboxes, both checked by default. It sends `statuts`, shows `creees`, and shows « Non importée »
-  in the Code column. Snapshot `docs/api-docsV4.json` refreshed.
+- `feat/parcours-vente` (docs/FEATURE-parcours-vente.md): shared `ToastProvider` (action link =
+  persistent toast; nested provider inside `FicheProspectionDialog`, modal hides #root), toasts with
+  « Ouvrir → » after conversions, R5 redirect by `typeProspectionCode`, `ParcoursVente` bar on the
+  fiche (origin unknown → no Pré-prospection step). Only list/fiche prospection toasts migrated.
+  Part 3 « Actions récentes » (needs backend: who in StrHistory + feed endpoint) not started.
+- Import sélectif merged (#78 era): « Nouvelles » / « Doublons » checkboxes on the CSV import.
 - Merged on `main`: Outils › Virements module wired to `generateur-virement` (`src/lib/virements.ts`,
   `/svc/virement` behind the Vite proxy in dev), Dashboard filtered by tranche (admin only),
   Arpent access from the Omran accounts.
@@ -20,6 +22,8 @@ _Last updated: 2026-10-08_ · state and decisions only (≤ 3 KB); history = git
 - #156, #167, #168, #183: backend gaps (dateReglement, sort/filter on derniereAlerteDate,
   client-side column filters, Catégorie filter).
 - 10 pre-existing eslint errors (#101); `harness-densite.tsx` to delete.
+- `GET /api/prospects/{id}/prospections` sends `typeProspectionCode: null` → links go via the R5 hop.
+- `yesRemsTest` has 0 ComProspection: no live end-to-end test of the vente flow possible there.
 - `CLAUDE.md` still describes the static-JSON phase.
 
 ## Rules worth remembering
