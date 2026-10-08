@@ -22,7 +22,7 @@ export default function FicheDossierDialog({ id, onClose }: { id: string; onClos
   );
 
   return (
-    <Modal title="Dossier de vente" onClose={onClose} width="min(1400px, calc(100vw - 2rem))" pleineHauteur>
+    <Modal title="Dossier de vente" onClose={onClose} width="min(1400px, calc(100vw - 2rem))" pleineHauteur titreMasque>
       <ToastProvider onAction={onClose}>
         <FicheDossier id={id} variante="dialogue" />
       </ToastProvider>

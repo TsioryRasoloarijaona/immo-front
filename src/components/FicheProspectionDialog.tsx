@@ -47,6 +47,7 @@ export default function FicheProspectionDialog({
       onClose={onClose}
       width="min(1400px, calc(100vw - 2rem))"
       pleineHauteur
+      titreMasque
     >
       {/* Toasts dans l'arbre du dialogue : hors de lui, ils seraient masqués
           aux lecteurs d'écran, hors focus, et un clic fermerait le dialogue. */}

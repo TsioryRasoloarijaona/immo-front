@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
-import { Badge, Card, Field, FieldGrid } from './ui';
+import { Badge } from './ui';
+import { ElementResume, LigneActivite } from './FicheShell';
 import { formatDate, formatDateTime } from '../lib/format';
 import type { ActiviteProspectionDto, BadgeTone } from '../types';
 
@@ -28,7 +30,7 @@ function toneInactivite(jours: number): BadgeTone {
  * `joursInactivite` est renseigné sur **100 %** des prospections de vente et
  * c'est le critère de tri des relances du logiciel de bureau : il ne mérite
  * aucun affichage conditionnel. Le seul cas d'absence est celui du bloc
- * `activite` entier, traité par `ActiviteCard`. */
+ * `activite` entier, traité par `ResumeActivite`. */
 export function InactiviteBadge({ jours }: { jours: number }) {
   return (
     <Badge tone={toneInactivite(jours)}>
@@ -72,98 +74,83 @@ export function DossierIssuBanner({
   );
 }
 
-/** Rangs 2 à 4 du guide : relance, parcours, contexte. Le rang 1
- * (`joursInactivite`, `nbInteractions`) vit dans l'en-tête de la fiche, où il
- * est toujours visible, et le lien de conversion dans `DossierIssuBanner`.
+/** Le résumé d'activité en **une ligne** au-dessus du journal des actions
+ * (rangs 2 à 4 du guide : relance, visites, contexte), suivi de l'action la
+ * plus fréquente de l'onglet. Le rang 1 (`joursInactivite`) est dans la ligne
+ * d'identité, le nombre d'interactions sur l'onglet.
  *
- * Les chaînes vides des cinq colonnes légataires concernées sont déjà
- * normalisées en `null` par le backend, verrouillé par un test (guide §2.3) :
- * un simple test de nullité suffit ici, inutile de re-tester `=== ''`. */
-export function ActiviteCard({
+ * Doublons stricts écartés, et seulement quand ils le sont : « Dernier
+ * échange » s'il redit la note de la 1re ligne du journal, « Projet » s'il
+ * redit la tranche. Les chaînes vides sont déjà normalisées en `null` par le
+ * backend. */
+export function ResumeActivite({
   activite,
-  accent,
+  tranche,
+  premiereNote,
+  action,
 }: {
   activite?: ActiviteProspectionDto | null;
-  accent?: string;
+  /** Libellé de la tranche de la fiche, pour écarter un « Projet » identique. */
+  tranche?: string | null;
+  /** Note de la ligne la plus récente du journal affiché, s'il est chargé. */
+  premiereNote?: string | null;
+  action?: ReactNode;
 }) {
   if (!activite) {
     return (
-      <Card title="Activité" accent={accent}>
-        <p className="text-label leading-relaxed text-muted-foreground">
-          <span className="font-medium text-foreground">Indicateurs non disponibles</span> pour cette
-          fiche. Ils proviennent d'une vue de la base légataire qui ne couvre ni les
-          pré-prospections, ni les prospections créées depuis cette application. Ce n'est pas une
-          absence d'activité — le journal des actions reste la source.
-        </p>
-      </Card>
+      <LigneActivite action={action}>
+        <span>
+          <span className="font-medium text-foreground">Indicateurs d'activité non disponibles</span> — la vue
+          légataire ne couvre ni les pré-prospections ni les prospections créées ici. Ce n'est pas une absence
+          d'activité : le journal ci-dessous reste la source.
+        </span>
+      </LigneActivite>
     );
   }
 
   const a = activite;
   const nbVisites = a.nbVisites ?? 0;
+  const projet = a.projetLibelle || a.projetCode;
+  const echangeRedit =
+    !!a.derniereCommunicationMessage && premiereNote?.trim() === a.derniereCommunicationMessage.trim();
 
   return (
-    <Card title="Activité" accent={accent}>
-      <FieldGrid>
-        <Field label="Dernière action" value={a.derniereActionDate ? formatDateTime(a.derniereActionDate) : undefined} />
-        <Field
-          label="Dernière communication"
-          value={a.derniereCommunicationDate ? formatDateTime(a.derniereCommunicationDate) : undefined}
-        />
-        <Field
-          label="Résultat"
-          value={a.derniereCommunicationResultat ? <Badge tone="neutral">{a.derniereCommunicationResultat}</Badge> : undefined}
-        />
-      </FieldGrid>
-
-      {a.derniereCommunicationMessage && (
-        <div className="mt-3">
-          <div className="mb-1.5 text-micro font-medium text-muted-foreground">Dernier échange</div>
-          <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-3 text-label leading-relaxed text-foreground">
-            {a.derniereCommunicationMessage}
-          </div>
-        </div>
-      )}
-
-      {/* Bloc masqué en entier plutôt qu'une ligne « Aucune relance » : il ne
-          concerne qu'un quart des fiches (guide §1 rang 2), et une grille de
-          tirets sur les trois autres quarts noie ce qui compte. */}
-      {a.alerteActiveDate && (
-        <div className="mt-3 rounded-md border border-(--amber-border) bg-(--amber-bg) px-3 py-2">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-body text-(--amber)">
-            <span className="font-semibold">Relance en cours</span>
-            <span>· échéance {formatDate(a.alerteActiveDate)}</span>
-          </div>
-          {a.alerteActiveRaison && <div className="mt-1 text-label text-foreground">{a.alerteActiveRaison}</div>}
-        </div>
-      )}
-
-      <div className="mt-3 border-t border-border pt-3">
-        {nbVisites > 0 ? (
-          <FieldGrid>
-            <Field label="Visites" value={`${nbVisites}`} />
-            <Field label="Première visite" value={a.premiereVisiteDate ? formatDate(a.premiereVisiteDate) : undefined} />
-            <Field label="Dernière visite" value={a.derniereVisiteDate ? formatDate(a.derniereVisiteDate) : undefined} />
-          </FieldGrid>
-        ) : (
-          /* Ici le bloc `activite` existe : un compteur à zéro veut bien dire
-             « aucune visite », contrairement à son absence (guide §2.2). */
-          <p className="text-label text-muted-foreground">Aucune visite enregistrée.</p>
+    <div className="flex flex-col gap-1.5">
+      <LigneActivite action={action}>
+        <ElementResume libelle="Dernière action">
+          {a.derniereActionDate ? formatDateTime(a.derniereActionDate) : '—'}
+        </ElementResume>
+        <ElementResume libelle="Dernière comm.">
+          {a.derniereCommunicationDate ? formatDateTime(a.derniereCommunicationDate) : '—'}
+        </ElementResume>
+        {a.derniereCommunicationResultat && (
+          <ElementResume libelle="Résultat">{a.derniereCommunicationResultat}</ElementResume>
         )}
-      </div>
-
-      <div className="mt-3 border-t border-border pt-3">
-        <FieldGrid>
-          {/* 99 % — la fiche n'exposait jusqu'ici que la tranche. */}
-          <Field label="Projet" value={a.projetLibelle || a.projetCode} />
-          {/* Affiché seulement s'il existe : **2,7 %** (387 lignes sur 14 118).
-              Une première mesure annonçait 99 % en comptant les non-`NULL`
-              d'une colonne qui porte des chaînes vides. Une ligne « CIN — »
-              sur 97 % des fiches ferait croire à une donnée d'identité
-              manquante alors qu'elle n'est simplement jamais saisie. */}
-          {a.cin && <Field label="CIN" value={a.cin} />}
-        </FieldGrid>
-      </div>
-    </Card>
+        {/* Un compteur à zéro dit bien « aucune visite » ici : le bloc existe (guide §2.2). */}
+        <ElementResume libelle="Visites">
+          {nbVisites}
+          {nbVisites > 0 && (
+            <span className="font-normal text-muted-foreground tabular-nums">
+              {' '}
+              · 1re {formatDate(a.premiereVisiteDate)} · dernière {formatDate(a.derniereVisiteDate)}
+            </span>
+          )}
+        </ElementResume>
+        {projet && projet !== tranche && <ElementResume libelle="Projet">{projet}</ElementResume>}
+        {/* 2,7 % seulement : jamais de « CIN — » sur les autres fiches. */}
+        {a.cin && <ElementResume libelle="CIN">{a.cin}</ElementResume>}
+        {a.alerteActiveDate && (
+          <span className="inline-flex flex-wrap items-center gap-x-1.5">
+            <Badge tone="amber">Relance jusqu'au {formatDate(a.alerteActiveDate)}</Badge>
+            {a.alerteActiveRaison && <span className="text-foreground">{a.alerteActiveRaison}</span>}
+          </span>
+        )}
+      </LigneActivite>
+      {a.derniereCommunicationMessage && !echangeRedit && (
+        <p className="text-body text-muted-foreground">
+          Dernier échange <span className="whitespace-pre-wrap text-foreground">{a.derniereCommunicationMessage}</span>
+        </p>
+      )}
+    </div>
   );
 }

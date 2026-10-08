@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Grid2x2 } from 'lucide-react';
+import { ChevronRight, Grid2x2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
   Breadcrumb,
@@ -29,6 +29,7 @@ export default function PageShell({
   accent,
   accentBg,
   fullHeight = false,
+  entete,
   children,
 }: {
   /** Rendered as the page's `<h1>` — the only one on any page. Several detail
@@ -54,6 +55,10 @@ export default function PageShell({
    * their own internal scroll region (filters/pagination stay on screen, only
    * the table body scrolls). */
   fullHeight?: boolean;
+  /** Identité d'une fiche (code, nom, statut) posée dans l'en-tête après le
+   * fil d'Ariane — voir `CadreFiche`. Passe à la ligne sous le fil en écran
+   * étroit plutôt que de tronquer. */
+  entete?: ReactNode;
   children: ReactNode;
 }) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
@@ -78,7 +83,12 @@ export default function PageShell({
       {/* border-border/70 + plus de séparateurs verticaux : équilibrage des
           bordures du 20/09 — l'en-tête structure par l'espace, pas par les
           traits. */}
-      <header className="sticky top-0 z-5 flex shrink-0 items-center justify-between gap-4 border-b border-border/70 bg-background/88 px-4 py-2 backdrop-blur-sm md:rounded-t-xl md:px-7">
+      <header
+        className={cn(
+          'sticky top-0 z-5 flex shrink-0 items-center justify-between gap-x-4 gap-y-2 border-b border-border/70 bg-background/88 px-4 py-2 backdrop-blur-sm md:rounded-t-xl md:px-7',
+          entete && 'flex-wrap',
+        )}
+      >
         <div className="flex min-w-0 items-center gap-2.5">
           <SidebarTrigger title="Afficher/masquer la barre latérale" />
           {icon && (
@@ -103,7 +113,7 @@ export default function PageShell({
               de détail). Sans ce repli, leur en-tête serait entièrement vide
               pendant le chargement — un bandeau avec une puce d'icône et rien
               d'autre. */}
-          <div className="flex min-w-0 items-center">
+          <div className={cn('flex min-w-0 items-center', entete && 'flex-wrap gap-x-2 gap-y-1')}>
             {crumbs && crumbs.length > 0 ? (
               <h1 className="sr-only">{title}</h1>
             ) : (
@@ -139,10 +149,16 @@ export default function PageShell({
                 </BreadcrumbList>
               </Breadcrumb>
             )}
+            {entete && (
+              <>
+                {crumbs && crumbs.length > 0 && <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />}
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">{entete}</div>
+              </>
+            )}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+        <div className={cn('flex items-center gap-2', entete ? 'ml-auto max-w-full' : 'shrink-0')}>
+          {actions && <div className="flex min-w-0 flex-wrap justify-end gap-2">{actions}</div>}
           <ThemeToggle />
           {!isCommercial && (
             <Button

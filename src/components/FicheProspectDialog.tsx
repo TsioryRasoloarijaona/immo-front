@@ -21,7 +21,7 @@ export default function FicheProspectDialog({ id, onClose }: { id: string; onClo
   );
 
   return (
-    <Modal title="Prospect" onClose={onClose} width="min(1400px, calc(100vw - 2rem))" pleineHauteur>
+    <Modal title="Prospect" onClose={onClose} width="min(1400px, calc(100vw - 2rem))" pleineHauteur titreMasque>
       <ToastProvider onAction={onClose}>
         <FicheProspect id={id} client={false} variante="dialogue" />
       </ToastProvider>

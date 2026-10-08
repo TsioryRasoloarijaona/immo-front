@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Ban, ClipboardCheck, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import FicheShell from '../../components/FicheShell';
+import CadreFiche, { EnteteFiche } from '../../components/CadreFiche';
+import FicheShell, { OngletsLigne } from '../../components/FicheShell';
 import { ChampLecture, GrilleFiche } from '../../components/ChampsFiche';
 import { PointerReglementModal, ReglementDocumentsJoints } from '../../components/ReglementPreuves';
 import { messageErreurStatut } from '../../lib/reglementRegles';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../components/ui/tabs';
 import { getEncaissement, modifierStatutReglement } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { useConfirm } from '../../lib/confirmContext';
@@ -102,17 +103,34 @@ export default function EncaissementDetail() {
   }
 
   return (
-    <PageShell
+    <CadreFiche
       title={intitule || e.reference || 'Règlement'}
-      crumbs={[
-        { label: 'Ventes' },
-        { label: 'Encaissements', to: '/encaissements' },
-        { label: e.reference || 'Règlement' },
-      ]}
+      crumbs={[{ label: 'Ventes' }, { label: 'Encaissements', to: '/encaissements' }]}
       fullHeight
       icon={<Wallet />}
       accent="var(--sec-dossier)"
       accentBg="var(--sec-dossier-bg)"
+      /* Ligne 1 — la barre de titre de la pièce du logiciel de bureau
+         (« CHÈQUE CIH N° 2007416 du 31/12/2025 ») plus son état. Référence,
+         type, banque, date de pièce et date de pointage n'y sont donc plus
+         répétés dans la grille ; tiers et entité restent dans la grille. */
+      entete={
+        <EnteteFiche code={e.reference} nom={intitule || 'Règlement'}>
+          <Badge tone={encaissementEtatTone(e.etat)}>{encaissementEtatLabel(e.etat)}</Badge>
+          {/* Deux encodages du même fait, écrits ensemble par le serveur — pointer sans date est un 400. */}
+          <span
+            className="text-micro text-muted-foreground"
+            title="Date d'encaissement effectif, écrite par le pointage. Vide tant que le règlement est en cours."
+          >
+            {e.dateReglement ? `pointé le ${formatDate(e.dateReglement)}` : 'non pointé'}
+          </span>
+          <Badge tone={e.comptabilise ? 'success' : 'neutral'}>
+            {e.comptabilise ? 'Comptabilisé' : 'Non comptabilisé'}
+          </Badge>
+          {e.remisAuCentre && <Badge tone="info">Remis au centre</Badge>}
+          <span className="text-label font-semibold tabular-nums text-foreground">{formatCurrency(e.montantBrut)}</span>
+        </EnteteFiche>
+      }
       actions={
         <Button variant="outline" size="sm" onClick={() => navigate('/encaissements')}>
           Retour à la liste
@@ -122,38 +140,6 @@ export default function EncaissementDetail() {
       <FicheShell
         ongletActif={tab}
         onOngletChange={(v) => setTab(v as EncaissementTab)}
-        /* ---------------------------------------------------------------
-           Bande 1 — identité. Le logiciel de bureau met tout ça dans la barre
-           de titre de sa pièce de règlement (« Pièce de règlement : CHÉQUE CIH
-           N° 2007416 du 31/12/2025 ») plus la case « État » de son formulaire.
-           C'est une seule information — quelle pièce, où en est-elle — donc un
-           seul endroit.
-           --------------------------------------------------------------- */
-        identite={
-          <Card padded={false} accent="var(--sec-dossier)">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
-              <Badge tone="neutral" className="font-mono">{e.reference || '—'}</Badge>
-              <h2 className="min-w-0 truncate text-label font-semibold text-foreground">{intitule || 'Règlement'}</h2>
-              <Badge tone={encaissementEtatTone(e.etat)}>{encaissementEtatLabel(e.etat)}</Badge>
-              {/* La date d'encaissement au contact de l'état : ce sont deux
-                  encodages du même fait, et le serveur les écrit ensemble —
-                  pointer sans date est un 400. */}
-              {e.dateReglement && (
-                <span className="text-micro text-muted-foreground">pointé le {formatDate(e.dateReglement)}</span>
-              )}
-              <Badge tone={e.comptabilise ? 'success' : 'neutral'}>
-                {e.comptabilise ? 'Comptabilisé' : 'Non comptabilisé'}
-              </Badge>
-              {e.remisAuCentre && <Badge tone="info">Remis au centre</Badge>}
-
-              <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-muted-foreground">
-                {e.tierNom && <span>{e.tierNom}</span>}
-                {e.entiteLibelle && <span>{e.entiteLibelle}</span>}
-                <span className="font-semibold tabular-nums text-foreground">{formatCurrency(e.montantBrut)}</span>
-              </span>
-            </div>
-          </Card>
-        }
         /* ---------------------------------------------------------------
            Bande 2a — le formulaire, les deux colonnes de champs du logiciel de
            bureau réunies. **En lecture seule, et ce n'est pas un choix** :
@@ -166,12 +152,7 @@ export default function EncaissementDetail() {
             <div className="p-3">
               <GrilleFiche>
                 <ChampLecture label="Entité" valeur={e.entiteLibelle} />
-                <ChampLecture label="Date pièce" valeur={formatDate(e.dateDocument)} />
                 <ChampLecture label="Échéance" valeur={formatDate(e.dateEcheance)} />
-                <ChampLecture label="Type" valeur={e.typeLibelle} />
-
-                <ChampLecture label="Référence" valeur={e.reference} />
-                <ChampLecture label="Banque" valeur={e.banqueNom} />
                 <ChampLecture label="Compte" valeur={e.compteCode} />
                 <ChampLecture label="Dépôt" valeur={e.depotCode} />
 
@@ -181,14 +162,8 @@ export default function EncaissementDetail() {
                     pas un doublon du tiers. */}
                 <ChampLecture label="Versement effectué par" valeur={e.tierPayeurNom} />
                 <ChampLecture label="N° de reçu" valeur={e.recuCode} />
-                <ChampLecture
-                  label="Date de pointage"
-                  valeur={formatDate(e.dateReglement)}
-                  aide="Date d'encaissement effectif, écrite par le pointage. Vide tant que le règlement est en cours."
-                />
-
-                <ChampLecture label="Libellé" valeur={e.description} className="xl:col-span-2" />
-                {e.notes && <ChampLecture label="Notes" valeur={e.notes} className="xl:col-span-2" />}
+                <ChampLecture label="Libellé" valeur={e.description} multiligne />
+                {e.notes && <ChampLecture label="Notes" valeur={e.notes} multiligne apres={8} />}
               </GrilleFiche>
             </div>
           </Card>
@@ -207,10 +182,12 @@ export default function EncaissementDetail() {
               onValueChange={(v) => setPanneauTab(v as PanneauTab)}
               className="flex min-h-0 flex-1 flex-col gap-2 p-3"
             >
-              <TabsList className="shrink-0">
-                <TabsTrigger value="montants">Montants</TabsTrigger>
-                <TabsTrigger value="tracabilite">Traçabilité</TabsTrigger>
-              </TabsList>
+              <OngletsLigne
+                onglets={[
+                  { id: 'montants', libelle: 'Montants' },
+                  { id: 'tracabilite', libelle: 'Traçabilité' },
+                ]}
+              />
 
               <TabsContent value="montants" className="min-h-0 flex-1 overflow-auto">
                 <table className="w-full text-body">
@@ -302,8 +279,9 @@ export default function EncaissementDetail() {
                       <strong className="text-foreground">{dossiers.size} dossiers</strong>.
                     </p>
                   )}
-                  <Table>
-                    <TableHeader>
+                  {/* `overflow-visible` : le panneau d'onglet défile, l'en-tête y colle. */}
+                  <Table containerClassName="overflow-visible">
+                    <TableHeader className="sticky top-0 z-1">
                       <TableRow className="hover:bg-card">
                         <TableHead>Dossier</TableHead>
                         <TableHead>Échéance</TableHead>
@@ -398,7 +376,7 @@ export default function EncaissementDetail() {
           }}
         />
       )}
-    </PageShell>
+    </CadreFiche>
   );
 }
 

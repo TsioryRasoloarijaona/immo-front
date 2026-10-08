@@ -7,6 +7,7 @@ export default function Modal({
   children,
   width = 480,
   pleineHauteur = false,
+  titreMasque = false,
 }: {
   title: string;
   onClose: () => void;
@@ -19,6 +20,10 @@ export default function Modal({
    * défile. Pour une fiche (`FicheShell`) ou une liste paginée, dont l'en-tête
    * et le pied doivent rester en place. */
   pleineHauteur?: boolean;
+  /** Le titre reste le nom accessible du dialogue mais n'est plus affiché :
+   * pour une fiche, dont la première ligne (`CadreFiche`) tient lieu de barre
+   * de titre — code, nom, statut — et laisserait sinon une ligne presque vide. */
+  titreMasque?: boolean;
 }) {
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -30,7 +35,7 @@ export default function Modal({
             : 'max-h-[88vh] overflow-y-auto sm:max-w-none'
         }
       >
-        <DialogHeader>
+        <DialogHeader className={titreMasque ? 'sr-only' : undefined}>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
         {children}

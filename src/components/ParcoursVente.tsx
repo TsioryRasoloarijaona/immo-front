@@ -24,11 +24,9 @@ function libelleAccessible(c: CibleEtapeParcours): string {
   return c.code ? `Ouvrir le dossier ${c.code}` : 'Ouvrir le dossier';
 }
 
-/** La bande « parcours de vente » au-dessus de l'en-tête d'une fiche
- * prospection. Distincte du stepper des étapes commerciales : celle-ci dit
- * quel *document* la fiche est devenue, pas où en est la négociation.
- * « Voir » ouvre la fiche complète en dialogue, empilé au-dessus d'un
- * éventuel dialogue courant : l'utilisateur reste sur la fiche. */
+/** La barre « parcours de vente » d'une fiche prospection, sur une seule
+ * ligne : quel *document* la fiche est devenue, pas où en est la négociation.
+ * L'œil ouvre la fiche liée en dialogue, empilé au-dessus du courant. */
 export default function ParcoursVente({ etapes, accent }: { etapes: EtapeParcours[]; accent: string }) {
   const { ouvrirFicheProspect, ouvrirFicheDossier } = usePreview();
 
@@ -40,70 +38,60 @@ export default function ParcoursVente({ etapes, accent }: { etapes: EtapeParcour
   return (
     <nav
       aria-label="Parcours de vente"
-      className="overflow-x-auto rounded-xl bg-muted/50 ring-1 ring-foreground/10"
+      className="max-w-full min-w-0 overflow-x-auto rounded-lg bg-muted/50 ring-1 ring-foreground/10"
     >
-      <ol className="flex min-w-max items-start gap-2 px-3 py-2">
+      <ol className="flex h-8 min-w-max items-center gap-1.5 px-2.5">
         {etapes.map((e, i) => {
           const Icone = ICONE[e.statut];
           const active = e.statut === 'faite' || e.statut === 'courante';
-          const nonAtteinte = e.statut === 'sautee' || e.statut === 'a-venir';
+          const atteinte = !(e.statut === 'sautee' || e.statut === 'a-venir');
           return (
             <li
               key={e.cle}
               aria-current={e.statut === 'courante' ? 'step' : undefined}
-              className="flex items-start gap-2"
+              className="flex items-center gap-1.5"
             >
-              {i > 0 && (
-                <span aria-hidden className="flex h-6 items-center text-muted-foreground/60">
-                  <ChevronRight className="size-4" />
-                </span>
-              )}
-              <div className="flex min-w-0 flex-col gap-1 pr-1">
+              {i > 0 && <ChevronRight aria-hidden className="size-3.5 text-muted-foreground/60" />}
+              <span
+                className={cn(
+                  'flex items-center gap-1.5 text-body whitespace-nowrap',
+                  e.statut === 'courante' && 'font-semibold text-foreground',
+                  e.statut === 'faite' && 'font-medium text-foreground',
+                  e.statut === 'a-venir' && 'text-muted-foreground',
+                  e.statut === 'sautee' && 'text-muted-foreground/60',
+                )}
+              >
                 <span
                   className={cn(
-                    'flex h-6 items-center gap-2 text-sm whitespace-nowrap',
-                    e.statut === 'courante' && 'font-semibold text-foreground',
-                    e.statut === 'faite' && 'font-medium text-foreground',
-                    e.statut === 'a-venir' && 'text-muted-foreground',
-                    e.statut === 'sautee' && 'text-muted-foreground/60',
+                    'inline-flex size-4 shrink-0 items-center justify-center rounded-full',
+                    active ? 'text-white' : 'border border-border bg-background text-muted-foreground',
                   )}
+                  style={active ? { backgroundColor: accent } : undefined}
                 >
-                  <span
-                    className={cn(
-                      'inline-flex size-5 shrink-0 items-center justify-center rounded-full',
-                      active ? 'text-white' : 'border border-border bg-background text-muted-foreground',
-                    )}
-                    style={active ? { backgroundColor: accent } : undefined}
-                  >
-                    <Icone className="size-3" strokeWidth={3} aria-hidden />
-                  </span>
-                  <span className="hidden sm:inline">{e.libelle}</span>
-                  <span className="sm:hidden">{e.libelleCourt}</span>
-                  <span className="sr-only"> — {LIBELLE_STATUT[e.statut]}</span>
+                  <Icone className="size-2.5" strokeWidth={3} aria-hidden />
                 </span>
-                <span className="flex min-h-6 items-center gap-2 pl-7 text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                  {nonAtteinte ? (
-                    '—'
-                  ) : (
-                    <>
-                      {e.date && <span>{formatDate(e.date)}</span>}
-                      {e.cible && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="xs"
-                          aria-label={libelleAccessible(e.cible)}
-                          onClick={() => e.cible && ouvrir(e.cible)}
-                        >
-                          <Eye data-icon="inline-start" aria-hidden />
-                          {e.cible.libelle}
-                        </Button>
-                      )}
-                      {!e.date && !e.cible && <span aria-hidden>&nbsp;</span>}
-                    </>
-                  )}
-                </span>
-              </div>
+                <span className="hidden sm:inline">{e.libelle}</span>
+                <span className="sm:hidden">{e.libelleCourt}</span>
+                <span className="sr-only"> — {LIBELLE_STATUT[e.statut]}</span>
+              </span>
+              {atteinte && e.date && (
+                <span className="text-micro whitespace-nowrap text-muted-foreground tabular-nums">{formatDate(e.date)}</span>
+              )}
+              {atteinte && e.cible && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  aria-label={libelleAccessible(e.cible)}
+                  title={libelleAccessible(e.cible)}
+                  className={e.cible.code ? undefined : 'px-1.5'}
+                  onClick={() => e.cible && ouvrir(e.cible)}
+                >
+                  <Eye data-icon={e.cible.code ? 'inline-start' : undefined} aria-hidden />
+                  {/* Le code du dossier reste lisible ; le prospect n'a qu'un « Voir », l'œil suffit. */}
+                  {e.cible.code}
+                </Button>
+              )}
             </li>
           );
         })}

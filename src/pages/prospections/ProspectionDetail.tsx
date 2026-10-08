@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArchiveRestore, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, Send, UserPlus, Users, X } from 'lucide-react';
-import CadreFiche, { type VarianteFiche } from '../../components/CadreFiche';
+import CadreFiche, { EnteteFiche, type VarianteFiche } from '../../components/CadreFiche';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
-import { ActiviteCard, DossierIssuBanner, InactiviteBadge } from '../../components/ActiviteProspection';
+import { DossierIssuBanner, InactiviteBadge, ResumeActivite } from '../../components/ActiviteProspection';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
 import ArticleResultsList from '../../components/ArticleResultsList';
 import CreateProspectForm, { type CreateProspectInitial } from '../../components/CreateProspectForm';
@@ -16,7 +16,7 @@ import { TimelineList, TimelineRow } from '../../components/Timeline';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import FicheShell from '../../components/FicheShell';
 import ParcoursVente from '../../components/ParcoursVente';
-import { ChampLecture, ChampNotes, ChampRef, GrilleFiche } from '../../components/ChampsFiche';
+import { ChampLecture, ChampNotes, ChampRef, GrilleFiche, PiedFiche } from '../../components/ChampsFiche';
 import MarqueurTri from '../../components/MarqueurTri';
 import { OngletAutres, OngletProfils } from '../../components/SousCollectionsProspection';
 import RefSelect from '../../components/RefSelect';
@@ -234,7 +234,7 @@ function ProspectionDocumentButtons({ prospectionId, hasProspect }: { prospectio
   const [error, setError] = useState<string | null>(null);
   return (
     <div className="flex flex-col items-end gap-1">
-      <div className="inline-flex h-8 items-stretch overflow-hidden rounded-md border border-input">
+      <div className="inline-flex h-7 items-stretch overflow-hidden rounded-md border border-input">
         <ProspectionDocCell
           prospectionId={prospectionId}
           kind="nda"
@@ -714,7 +714,6 @@ export function FicheProspection({
   // — et parce que `null` doit rester distinct de `0` : « aucune interaction »
   // et « bloc d'activité absent » ne se disent pas de la même façon.
   const joursInactivite = typeof p.activite?.joursInactivite === 'number' ? p.activite.joursInactivite : null;
-  const nbInteractions = typeof p.activite?.nbInteractions === 'number' ? p.activite.nbInteractions : null;
 
   /** Depuis la spec du 21/09 la transformation porte aussi la tranche
    * (obligatoire côté serveur si la prospection n'en a pas déjà une — 400
@@ -807,23 +806,172 @@ export function FicheProspection({
     }
   }
 
+  /* Les cellules de la grille avant « Notes », comptées pour que Notes prenne
+     les colonnes restantes de la dernière ligne. Code, date, nom et commercial
+     n'y sont plus : la ligne d'identité et le pied de carte les portent. */
+  const tranche = p.trancheDescription || p.trancheCode;
+  const descriptionDistincte = !!p.tempDescription?.trim() && p.tempDescription.trim() !== name;
+  const mobile = p.mobileProspect ? `+${p.indicatifMobile ?? ''} ${p.mobileProspect}`.replace('+ ', '') : (p.tempTel ?? null);
+  const cellules = [
+    <ChampLecture
+      key="tranche"
+      label="Tranche"
+      valeur={tranche}
+      aide="Se modifie dans l'onglet « Choix article » — le serveur l'expose sur un endpoint distinct."
+    />,
+    /* Article : mesuré à 0,2 % sur les pré-prospections — pas de place réservée. */
+    !isPre && (
+      <ChampLecture
+        key="article"
+        label="Article"
+        valeur={p.articleCode ? `${p.articleCode}${p.articleDescription ? ` · ${p.articleDescription}` : ''}` : null}
+        aide="Se modifie dans l'onglet « Choix article »."
+      />
+    ),
+    <ChampRef
+      key="etape"
+      id="f-etape"
+      label="Nature"
+      aide="L'« étape » du pipeline — appelée Nature dans le logiciel de bureau."
+      valeur={form.valeurs.etapeId}
+      onChange={(v) => form.set('etapeId', v)}
+      items={referentielItems(etapes.data)}
+      modifie={form.aChange('etapeId')}
+    />,
+    <ChampRef
+      key="action"
+      id="f-action"
+      label="Action commerciale"
+      valeur={form.valeurs.actionCommercialeId}
+      onChange={(v) => form.set('actionCommercialeId', v)}
+      items={referentielItems(actionsCommerciales.data)}
+      modifie={form.aChange('actionCommercialeId')}
+    />,
+    <ChampRef
+      key="origine"
+      id="f-origine"
+      label="Source de contact"
+      valeur={form.valeurs.origineId}
+      /* Changer l'origine invalide le support : les supports sont servis *par*
+         origine, et garder l'ancien enverrait un couple incohérent. */
+      onChange={(v) => {
+        form.set('origineId', v);
+        form.set('origineSupportId', null);
+      }}
+      items={referentielItems(origines.data)}
+      modifie={form.aChange('origineId')}
+    />,
+    <ChampRef
+      key="support"
+      id="f-support"
+      label="Support"
+      aide="Campagne précise, servie selon la source de contact choisie."
+      valeur={form.valeurs.origineSupportId}
+      onChange={(v) => form.set('origineSupportId', v)}
+      items={referentielItems(supports.data ?? [])}
+      modifie={form.aChange('origineSupportId')}
+    />,
+    <ChampRef
+      key="typeContact"
+      id="f-typeContact"
+      label="Type"
+      aide="Type de contact : téléphone entrant, visite, web…"
+      valeur={form.valeurs.typeContactId}
+      onChange={(v) => form.set('typeContactId', v)}
+      items={referentielItems(typesContact.data)}
+      modifie={form.aChange('typeContactId')}
+    />,
+    <ChampRef
+      key="vocation"
+      id="f-vocation"
+      label="Vocation"
+      valeur={form.valeurs.vocationId}
+      onChange={(v) => form.set('vocationId', v)}
+      items={referentielItems(vocations.data)}
+      modifie={form.aChange('vocationId')}
+    />,
+    /* La tranche est renseignée sur 95,5 % des pré-prospections, et la société
+       en dérive : elle reste utile ici. */
+    <ChampLecture key="societe" label="Société" valeur={p.societeLibelle || p.societeCode} aide="Dérivée de la tranche, jamais saisie." />,
+    !isPre && (
+      <ChampLecture
+        key="ancienClient"
+        label="Ancien client"
+        valeur={p.ancienClient === null || p.ancienClient === undefined ? null : p.ancienClient ? 'Oui' : 'Non'}
+        aide="Servi par la fiche mais absent de ModifierProspectionRequest : lecture seule tant que le backend ne l'expose pas."
+      />
+    ),
+    <ChampLecture key="typeTiers" label="Type de tiers" valeur={p.typeProspectLibelle || p.typeProspect} />,
+    /* Une pré-prospection n'a pas de fiche tiers : le lead vit dans les champs
+       `temp*`, absents de `ModifierProspectionRequest` — d'où le cadenas. La
+       description n'est reprise que si elle diffère du nom de la ligne de titre. */
+    isPre && descriptionDistincte && (
+      <ChampLecture
+        key="description"
+        label="Description"
+        valeur={p.tempDescription}
+        aide="Le nom saisi à la capture du lead. Absent de ModifierProspectionRequest — demande backend en cours."
+      />
+    ),
+    isPre && (
+      <ChampLecture key="telephone" label="Téléphone" valeur={p.tempTel} aide="Idem : servi, mais non modifiable par l'API." />
+    ),
+    /* Sur une pré-prospection le mobile retombe sur `tempTel` — doublon strict du téléphone. */
+    (!isPre || !!p.mobileProspect) && (
+      <ChampLecture key="mobile" label="Mobile" valeur={mobile} aide="L'indicatif est servi sans le « + » — il est composé ici." />
+    ),
+    <ChampLecture
+      key="email"
+      label="Email"
+      valeur={isPre ? p.tempEmail : p.emailFiche || p.tempEmail}
+      aide={isPre ? "Idem : servi, mais non modifiable par l'API." : undefined}
+    />,
+    /* Clôture : pas de place réservée. Le désarchivage conserve date et motif
+       (fidèle à OMRAN) — l'état se lit sur `fermee`, jamais sur la date. */
+    (p.fermee || !!p.dateFermeture) && (
+      <ChampLecture key="dateFermeture" label={p.fermee ? "Date d'archivage" : 'Dernier archivage'} valeur={formatDate(p.dateFermeture)} />
+    ),
+    (p.fermee || !!p.dateFermeture) && <ChampLecture key="raison" label="Raison" valeur={p.raisonFermeture} />,
+  ].filter(Boolean);
+
   return (
     <CadreFiche
       variante={variante}
       title={name}
-      crumbs={[{ label: listLabel, to: listPath }, { label: p.code || name }]}
+      crumbs={[{ label: listLabel, to: listPath }]}
+      typeFiche={isPreRoute ? 'Pré-prospection' : 'Prospection'}
       fullHeight
       icon={isPreRoute ? <UserPlus /> : <Users />}
       accent={sectionAccent}
       accentBg={isPreRoute ? 'var(--sec-preprospection-bg)' : 'var(--sec-prospection-bg)'}
+      /* Ligne 1 — l'identité. Date, commercial et société n'y sont plus : le
+         pied de carte et la grille les portent ; le nombre d'interactions est
+         sur l'onglet Actions. */
+      entete={
+        <EnteteFiche
+          code={p.code}
+          aideCode="Attribué par le système, non modifiable."
+          nom={
+            p.prospectId ? (
+              <Link to={`/prospects/${p.prospectId}`} className="hover:underline" title="Ouvrir la fiche prospect — elle se modifie depuis l'onglet Contacts.">
+                {p.prospectNom || p.prospectCode || 'Voir la fiche'}
+              </Link>
+            ) : (
+              name
+            )
+          }
+        >
+          {isPre && <Badge tone="amber">Non qualifiée</Badge>}
+          <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Archivée' : p.etape || '—'}</Badge>
+          {joursInactivite !== null && <InactiviteBadge jours={joursInactivite} />}
+        </EnteteFiche>
+      }
+      parcours={etapesParcours && <ParcoursVente etapes={etapesParcours} accent={sectionAccent} />}
       actions={
-        <div className="flex flex-wrap items-center justify-end gap-1.5">
+        <>
           <ProspectionDocumentButtons prospectionId={p.id} hasProspect={!!p.prospectId} />
           <Button variant="outline" size="sm" onClick={() => showToast('Intégration VOIP à venir.')}>
             <Phone data-icon="inline-start" /> Appeler
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowInteractionForm(true)}>
-            Ajouter une action
           </Button>
           {!p.fermee && !showArchiver && (
             <Button
@@ -866,61 +1014,28 @@ export function FicheProspection({
               Créer un dossier
             </Button>
           )}
-        </div>
+        </>
       }
     >
       <FicheShell
         ongletActif={tab}
         onOngletChange={(v) => setTab(v as ProspectionTab)}
-        /* ---------------------------------------------------------------
-           Bande 1 — l'identité. Le logiciel de bureau met le code dans le
-           titre de la fenêtre et l'étape dans un champ du formulaire ; ici
-           les deux montent dans une bande unique avec les indicateurs
-           d'activité, qui n'existent pas là-bas et sont ce que le guide
-           backend désigne comme le champ le plus utile du lot.
-           --------------------------------------------------------------- */
+        /* Bandeaux d'exception seulement. Le marqueur de tri passe avant tout :
+           une fiche sur cinq du vivier est un doublon ou du spam encore rangé à
+           « 1 A TRAITER », et rien d'autre à l'écran ne le dit. */
         identite={
-          <div className="flex flex-col gap-1.5">
-          {etapesParcours && <ParcoursVente etapes={etapesParcours} accent={sectionAccent} />}
-          <Card padded={false} accent={sectionAccent}>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2">
-              <Badge tone="neutral" className="font-mono">{p.code || '—'}</Badge>
-              <h2 className="min-w-0 truncate text-label font-semibold text-foreground">{name}</h2>
-              {isPre && <Badge tone="amber">Non qualifiée</Badge>}
-              <Badge tone={etapeBadgeTone(p.etape, p.fermee)}>{p.fermee ? 'Archivée' : p.etape || '—'}</Badge>
-              {joursInactivite !== null && <InactiviteBadge jours={joursInactivite} />}
-
-              <span className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-muted-foreground">
-                <span>Créée le {formatDate(p.dateDocument)}</span>
-                <span>{p.commercialNom || '— non assigné —'}</span>
-                {p.societeCode && <span>Société {p.societeCode}</span>}
-                {nbInteractions !== null && <span>{nbInteractions} interaction{nbInteractions > 1 ? 's' : ''}</span>}
-                {/* `null` ≠ `0` : une pré-prospection n'a pas de bloc
-                    d'activité, elle n'a pas « zéro interaction ». */}
-                {!p.activite && <span className="italic">Activité non disponible</span>}
-              </span>
-            </div>
-
-            {/* Le marqueur de tri passe avant tout le reste : une fiche sur
-                cinq du vivier est un doublon ou du spam encore rangé à
-                « 1 A TRAITER », et rien d'autre à l'écran ne le dit. */}
-            {(p.marqueurTri || p.noteQualification) && (
-              <div className="border-t border-border px-3 py-1.5">
-                <MarqueurTri p={p} />
-              </div>
-            )}
-
-            {dossierIssu && (
-              <div className="border-t border-border px-3 py-1.5">
+          (p.marqueurTri || p.noteQualification || dossierIssu) && (
+            <div className="flex flex-col gap-1.5">
+              {(p.marqueurTri || p.noteQualification) && <MarqueurTri p={p} />}
+              {dossierIssu && (
                 <DossierIssuBanner
                   dossierId={p.activite?.dossierId}
                   dossierCode={p.activite?.dossierCode}
                   statutDossier={p.activite?.statutDossier}
                 />
-              </div>
-            )}
-          </Card>
-          </div>
+              )}
+            </div>
+          )
         }
         /* ---------------------------------------------------------------
            Bande 2 — le formulaire. Même contenu et même ordre de lecture
@@ -938,175 +1053,35 @@ export function FicheProspection({
           <Card padded={false}>
             <div className="p-3">
               <GrilleFiche>
-                <ChampLecture label="Code" valeur={p.code} aide="Attribué par le système, non modifiable." />
-                <ChampLecture label="Date" valeur={formatDate(p.dateDocument)} aide="Date de création, non modifiable." />
-                {/* Une pré-prospection n'a pas de fiche tiers : le lead vit
-                    dans les trois champs `temp*`, qui sont ses seules
-                    coordonnées. Le logiciel de bureau les rend modifiables ;
-                    `ModifierProspectionRequest` ne les porte pas, d'où le
-                    cadenas plutôt qu'un champ qui perdrait la saisie. */}
-                {isPre ? (
-                  <>
-                    <ChampLecture
-                      label="Description"
-                      valeur={p.tempDescription}
-                      aide="Le nom saisi à la capture du lead. Absent de ModifierProspectionRequest — demande backend en cours."
-                    />
-                    <ChampLecture
-                      label="Téléphone"
-                      valeur={p.tempTel}
-                      aide="Idem : servi, mais non modifiable par l'API."
-                    />
-                    <ChampLecture label="Email" valeur={p.tempEmail} aide="Idem : servi, mais non modifiable par l'API." />
-                  </>
-                ) : (
-                  <>
-                    <ChampLecture
-                      label="Prospect"
-                      aide="La fiche tiers se modifie depuis l'onglet Contacts."
-                      valeur={
-                        p.prospectId ? (
-                          <Link to={`/prospects/${p.prospectId}`} className="text-(--info) hover:underline">
-                            {p.prospectNom || p.prospectCode || 'Voir la fiche'}
-                          </Link>
-                        ) : (
-                          p.tempDescription || p.prospectNom
-                        )
-                      }
-                    />
-                    <ChampLecture
-                      label="Commercial"
-                      valeur={p.commercialNom}
-                      aide="Assigné à la transformation ; aucun endpoint ne le change ensuite."
-                    />
-                  </>
-                )}
-
-                <ChampLecture
-                  label="Tranche"
-                  valeur={p.trancheDescription || p.trancheCode}
-                  aide="Se modifie dans l'onglet « Choix article » — le serveur l'expose sur un endpoint distinct."
-                />
-                {/* Article : mesuré à 0,2 % sur les pré-prospections. Le guide
-                    est explicite — ne pas lui réserver de place. L'onglet
-                    « Choix article » reste là pour en poser un. */}
-                {!isPre && (
-                  <ChampLecture
-                    label="Article"
-                    valeur={p.articleCode ? `${p.articleCode}${p.articleDescription ? ` · ${p.articleDescription}` : ''}` : null}
-                    aide="Se modifie dans l'onglet « Choix article »."
-                  />
-                )}
-                <ChampRef
-                  id="f-etape"
-                  label="Nature"
-                  aide="L'« étape » du pipeline — appelée Nature dans le logiciel de bureau."
-                  valeur={form.valeurs.etapeId}
-                  onChange={(v) => form.set('etapeId', v)}
-                  items={referentielItems(etapes.data)}
-                  modifie={form.aChange('etapeId')}
-                />
-                <ChampRef
-                  id="f-action"
-                  label="Action commerciale"
-                  valeur={form.valeurs.actionCommercialeId}
-                  onChange={(v) => form.set('actionCommercialeId', v)}
-                  items={referentielItems(actionsCommerciales.data)}
-                  modifie={form.aChange('actionCommercialeId')}
-                />
-
-                <ChampRef
-                  id="f-origine"
-                  label="Source de contact"
-                  valeur={form.valeurs.origineId}
-                  /* Changer l'origine invalide le support : les supports sont
-                     servis *par* origine, et garder l'ancien enverrait un
-                     couple incohérent. */
-                  onChange={(v) => {
-                    form.set('origineId', v);
-                    form.set('origineSupportId', null);
-                  }}
-                  items={referentielItems(origines.data)}
-                  modifie={form.aChange('origineId')}
-                />
-                <ChampRef
-                  id="f-support"
-                  label="Support"
-                  aide="Campagne précise, servie selon la source de contact choisie."
-                  valeur={form.valeurs.origineSupportId}
-                  onChange={(v) => form.set('origineSupportId', v)}
-                  items={referentielItems(supports.data ?? [])}
-                  modifie={form.aChange('origineSupportId')}
-                />
-                <ChampRef
-                  id="f-typeContact"
-                  label="Type"
-                  aide="Type de contact : téléphone entrant, visite, web…"
-                  valeur={form.valeurs.typeContactId}
-                  onChange={(v) => form.set('typeContactId', v)}
-                  items={referentielItems(typesContact.data)}
-                  modifie={form.aChange('typeContactId')}
-                />
-                <ChampRef
-                  id="f-vocation"
-                  label="Vocation"
-                  valeur={form.valeurs.vocationId}
-                  onChange={(v) => form.set('vocationId', v)}
-                  items={referentielItems(vocations.data)}
-                  modifie={form.aChange('vocationId')}
-                />
-              </GrilleFiche>
-
-              <div className="mt-2 grid gap-3 md:grid-cols-3 xl:grid-cols-4">
+                {cellules}
                 <ChampNotes
                   id="f-notes"
                   label="Notes"
-                  lignes={3}
                   valeur={form.valeurs.notes}
                   onChange={(v) => form.set('notes', v)}
                   modifie={form.aChange('notes')}
-                  className="md:col-span-2"
+                  apres={cellules.length}
                 />
-
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2 self-start md:col-span-1 xl:col-span-2">
-                  {/* La tranche est renseignée sur 95,5 % des pré-prospections,
-                      et la société en dérive : elle reste utile ici. */}
-                  <ChampLecture label="Société" valeur={p.societeLibelle || p.societeCode} aide="Dérivée de la tranche, jamais saisie." />
-                  {isPre ? (
-                    <ChampLecture
-                      label="Commercial"
-                      valeur={p.commercialNom}
-                      aide="Vide tant que la pré-prospection n'est pas transformée — mesuré sur 14 fiches, aucune n'en porte."
-                    />
-                  ) : (
-                    <ChampLecture
-                      label="Ancien client"
-                      valeur={p.ancienClient === null || p.ancienClient === undefined ? null : p.ancienClient ? 'Oui' : 'Non'}
-                      aide="Servi par la fiche mais absent de ModifierProspectionRequest : lecture seule tant que le backend ne l'expose pas."
-                    />
-                  )}
-                  <ChampLecture label="Type de tiers" valeur={p.typeProspectLibelle || p.typeProspect} />
-                  <ChampLecture
-                    label="Mobile"
-                    valeur={p.mobileProspect ? `+${p.indicatifMobile ?? ''} ${p.mobileProspect}`.replace('+ ', '') : (p.tempTel ?? null)}
-                    aide="L'indicatif est servi sans le « + » — il est composé ici."
-                  />
-                  {!isPre && <ChampLecture label="Email" valeur={p.emailFiche || p.tempEmail} className="col-span-2" />}
-                  {/* Clôture : pas de place réservée. Le désarchivage conserve
-                      date et motif (fidèle à OMRAN) — une fiche rouverte les
-                      montre donc comme « dernier archivage ». L'état se lit
-                      sur `fermee`, jamais sur la présence de la date. */}
-                  {(p.fermee || !!p.dateFermeture) && (
+                <PiedFiche>
+                  <span title="Date de création, non modifiable.">Créée le {formatDate(p.dateDocument)}</span>
+                  <span aria-hidden>·</span>
+                  <span
+                    title={
+                      isPre
+                        ? "Vide tant que la pré-prospection n'est pas transformée."
+                        : 'Assigné à la transformation ; aucun endpoint ne le change ensuite.'
+                    }
+                  >
+                    commercial {p.commercialNom || '— non assigné —'}
+                  </span>
+                  {p.societeCode && (
                     <>
-                      <ChampLecture
-                        label={p.fermee ? "Date d'archivage" : 'Dernier archivage'}
-                        valeur={formatDate(p.dateFermeture)}
-                      />
-                      <ChampLecture label="Raison" valeur={p.raisonFermeture} />
+                      <span aria-hidden>·</span>
+                      <span>société {p.societeCode}</span>
                     </>
                   )}
-                </div>
-              </div>
+                </PiedFiche>
+              </GrilleFiche>
 
               {showArchiver && (
                 <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/5 p-2.5">
@@ -1328,8 +1303,17 @@ export function FicheProspection({
             libelle: 'Actions',
             compteur: interactions.data?.totalElements ?? 0,
             contenu: (
-              <div className="flex flex-col gap-3 p-3">
-                <ActiviteCard activite={p.activite} accent={sectionAccent} />
+              <div className="flex flex-col gap-2.5 p-3">
+                <ResumeActivite
+                  activite={p.activite}
+                  tranche={tranche}
+                  premiereNote={interactions.data?.content[0]?.note}
+                  action={
+                    <Button size="sm" onClick={() => setShowInteractionForm(true)}>
+                      <Plus data-icon="inline-start" /> Ajouter une action
+                    </Button>
+                  }
+                />
 
                 {interactions.loading && !interactions.data && <LoadingState />}
                 {interactions.error && <ErrorState message={interactions.error} />}
@@ -1346,10 +1330,11 @@ export function FicheProspection({
                      tranche seulement quand elle diverge de celle de la
                      prospection. */
                   /* Sans cadre propre : le panneau d'onglet fournit déjà le
-                     sien — bordure sur bordure était un cadre dans le cadre. */
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
+                     sien. `overflow-visible` : le panneau est la zone qui
+                     défile, l'en-tête y colle. */
+                  <div>
+                    <Table containerClassName="overflow-visible">
+                      <TableHeader className="sticky top-0 z-1">
                         <TableRow className="hover:bg-transparent">
                           <TableHead>Date</TableHead>
                           <TableHead>Action</TableHead>
@@ -1425,19 +1410,20 @@ export function FicheProspection({
                   />
                 )}
 
-                {/* Le parcours — les deux transitions que l'API écrit
-                    elle-même — reste sous le journal manuel plutôt que dans
-                    un onglet à lui : c'est la même chronologie, vue par
-                    l'autre bout. */}
+                {/* Les transitions que l'API écrit elle-même, sous le journal
+                    manuel : la même chronologie, vue par l'autre bout. Nommé
+                    « Historique de statut » pour ne pas le confondre avec la
+                    barre de parcours du haut. */}
+                {parcours.data && parcours.data.content.length === 0 ? (
+                  <p className="text-body text-muted-foreground">
+                    Historique de statut (0) — aucune transition tracée ; apparaîtra dès que cette fiche sera liée à un
+                    prospect ou transformée.
+                  </p>
+                ) : (
                 <div className="border-t border-border pt-3">
                   <div className="mb-2 text-micro font-medium text-muted-foreground">
-                    Parcours ({parcours.data?.totalElements ?? 0})
+                    Historique de statut ({parcours.data?.totalElements ?? 0})
                   </div>
-                  {parcours.data && parcours.data.content.length === 0 && (
-                    <p className="text-body text-muted-foreground">
-                      Aucune transition tracée — apparaîtra dès que cette fiche sera liée à un prospect ou transformée.
-                    </p>
-                  )}
                   {parcours.data && parcours.data.content.length > 0 && (
                     <TimelineList>
                       {parcours.data.content.map((h, i) => (
@@ -1460,6 +1446,7 @@ export function FicheProspection({
                     />
                   )}
                 </div>
+                )}
               </div>
             ),
           },

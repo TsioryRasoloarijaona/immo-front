@@ -11,13 +11,12 @@ export type OngletFiche = {
   contenu: ReactNode;
 };
 
-/** Disposition commune aux fiches prospection, pré-prospection et dossier.
- *
- * Reprend la géométrie du logiciel de bureau, qui range chaque fiche en trois
- * bandes : une ligne d'identité, une zone à onglets, et un formulaire dense.
+/** Disposition commune aux fiches prospection, pré-prospection, dossier et
+ * encaissement : un formulaire dense, puis une zone à onglets. L'identité et
+ * les actions sont au-dessus, dans les deux lignes de `CadreFiche` ; le haut
+ * vise ~35 % de la hauteur, le bas ~65 % (voir docs/FEATURE-fiche-equilibre.md).
  * Le tout **tient dans une page** — le commercial lit et corrige sans jamais
- * faire défiler la fiche, et c'est le point que la version précédente de ces
- * écrans avait perdu en empilant des cartes sur trois hauteurs.
+ * faire défiler la fiche.
  *
  * Le premier onglet porte l'**état** du document — parcours de statut sur un
  * dossier, étape du pipeline sur une prospection — et s'ouvre par défaut. Le
@@ -48,8 +47,10 @@ export default function FicheShell({
   onOngletChange,
   barreAction,
 }: {
-  /** Bande du haut : code, date, pastilles d'état. Toujours visible. */
-  identite: ReactNode;
+  /** Bandeaux d'exception au-dessus du formulaire (marqueur de tri, dossier
+   * issu, dossier tout juste créé). L'identité elle-même vit dans la ligne de
+   * titre (`CadreFiche`). */
+  identite?: ReactNode;
   /** Le formulaire dense. Hauteur naturelle — il ne défile pas, c'est ce qui
    * oblige à le garder court. */
   formulaire: ReactNode;
@@ -71,7 +72,7 @@ export default function FicheShell({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col gap-2.5">
-      <div className="shrink-0">{identite}</div>
+      {identite && <div className="shrink-0">{identite}</div>}
 
       {panneau ? (
         /* `items-stretch` : le panneau prend la hauteur du formulaire plutôt
@@ -93,23 +94,7 @@ export default function FicheShell({
         onValueChange={onOngletChange}
         className="flex min-h-0 min-w-0 flex-1 flex-col gap-2"
       >
-        <TabsList className="shrink-0">
-          {onglets.map((o) => (
-            <TabsTrigger key={o.id} value={o.id}>
-              {o.libelle}
-              {o.compteur !== undefined && (
-                <span
-                  className={cn(
-                    'ml-1.5 rounded px-1 text-micro tabular-nums',
-                    o.compteur > 0 ? 'bg-secondary text-foreground' : 'text-muted-foreground',
-                  )}
-                >
-                  {o.compteur}
-                </span>
-              )}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <OngletsLigne onglets={onglets} />
 
         {onglets.map((o) => (
           <TabsContent
@@ -125,5 +110,66 @@ export default function FicheShell({
         ))}
       </Tabs>
     </div>
+  );
+}
+
+/** La barre d'onglets des fiches : soulignement à l'accent sous l'onglet
+ * actif, compteur sur chaque onglet de collection. Un compteur à zéro n'a pas
+ * de pastille et atténue l'onglet — une pastille « 0 » se lisait comme du
+ * contenu. À poser dans un `Tabs`. */
+export function OngletsLigne({ onglets }: { onglets: Pick<OngletFiche, 'id' | 'libelle' | 'compteur'>[] }) {
+  return (
+    <TabsList
+      variant="line"
+      className="w-full max-w-full shrink-0 justify-start gap-4 overflow-x-auto rounded-none border-b border-border p-0 group-data-horizontal/tabs:h-9"
+    >
+      {onglets.map((o) => {
+        const vide = o.compteur === 0;
+        return (
+          <TabsTrigger
+            key={o.id}
+            value={o.id}
+            className={cn(
+              /* `ring-inset` : la liste défile en largeur et rognerait un anneau extérieur. */
+              'h-full flex-none rounded-none px-0.5 text-body after:bg-(--brand) group-data-horizontal/tabs:after:bottom-0 focus-visible:ring-inset data-active:font-semibold',
+              vide && 'text-muted-foreground/70',
+            )}
+          >
+            {o.libelle}
+            {o.compteur !== undefined && (
+              <span
+                className={cn(
+                  'text-micro tabular-nums',
+                  vide ? 'font-normal text-muted-foreground/70' : 'rounded-full bg-secondary px-1.5 font-medium text-foreground',
+                )}
+              >
+                {o.compteur}
+              </span>
+            )}
+          </TabsTrigger>
+        );
+      })}
+    </TabsList>
+  );
+}
+
+/** La ligne de résumé en tête de l'onglet d'activité : quelques faits
+ * (`ElementResume`) puis l'action la plus fréquente de l'onglet, à droite,
+ * juste au-dessus du tableau. */
+export function LigneActivite({ children, action }: { children?: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-body text-muted-foreground">
+      {children}
+      {action && <div className="ml-auto flex shrink-0 items-center gap-1.5">{action}</div>}
+    </div>
+  );
+}
+
+export function ElementResume({ libelle, children }: { libelle: string; children: ReactNode }) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-1.5">
+      {libelle}
+      <span className="font-medium text-foreground">{children}</span>
+    </span>
   );
 }
