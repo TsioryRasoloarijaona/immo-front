@@ -105,9 +105,17 @@ export default function NouvellePreProspectionDialog({ onClose }: { onClose: () 
     () => (trancheId ? listTrancheArticles(trancheId, {}, { page: 0, size: 200 }) : Promise.resolve(null)),
     [trancheId],
   );
-  const projetItems = (projets.data?.content ?? []).map((p) => ({ label: p.description || p.code || p.id, value: p.id }));
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
-  const articleItems = (articles.data?.content ?? []).map((a) => ({ label: a.code || a.description || a.id, value: a.id }));
+  const parLibelle = (a: { label: string }, b: { label: string }) =>
+    a.label.localeCompare(b.label, 'fr', { numeric: true });
+  const projetItems = (projets.data?.content ?? [])
+    .map((p) => ({ label: p.description || p.code || p.id, value: p.id }))
+    .sort(parLibelle);
+  const trancheItems = (tranches.data?.content ?? [])
+    .map((t) => ({ label: t.description || t.code || t.id, value: t.id }))
+    .sort(parLibelle);
+  const articleItems = (articles.data?.content ?? [])
+    .map((a) => ({ label: a.code || a.description || a.id, value: a.id }))
+    .sort(parLibelle);
 
   const [etapeId, setEtapeId] = useState<string | null>(null);
   const [typeContactId, setTypeContactId] = useState<string | null>(null);

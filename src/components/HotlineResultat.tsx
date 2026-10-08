@@ -9,7 +9,7 @@ import { TimelineList, TimelineRow } from './Timeline';
 import { getDossier, getProspection } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { etapeBadgeTone, interactionIcon, personDisplayName, prospectionDisplayName } from '../lib/domain';
-import { toneForStatus } from '../lib/dossierStatus';
+import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
 import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../lib/format';
 import type { DossierListItemDto, HotlineFicheDto, HotlineResultDto, ProspectionListItemDto } from '../types';
 
@@ -117,7 +117,7 @@ function HotlineDossierRow({ dossier: d, expanded, onToggle }: { dossier: Dossie
           {expanded ? <ChevronDown className="size-4 text-(--brand)" /> : <ChevronRight className="size-4 text-muted-foreground" />}
         </TableCell>
         <TableCell className="font-medium text-foreground">{d.code}</TableCell>
-        <TableCell><Badge tone={toneForStatus(d.statut)}>{d.statut || '—'}</Badge></TableCell>
+        <TableCell><Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge></TableCell>
         <TableCell className="text-right tabular-nums">{formatCurrency(d.prix)}</TableCell>
         <TableCell className="text-right tabular-nums">{formatCurrency(d.totalAPayer)}</TableCell>
         <TableCell className="text-muted-foreground">{formatDate(d.dateDocument)}</TableCell>

@@ -16,7 +16,7 @@ import {
 } from './ui/dropdown-menu';
 import RechercheMenu from './RechercheMenu';
 import { filtrerColonnes, libelleGroupe } from '../lib/colonnes';
-import { GRANULARITES, LIBELLES_FONCTION, TRIS, jetonAgregat } from '../lib/groupement';
+import { GRANULARITES, LIBELLES_FONCTION, TRIS, jetonAgregat, libelleTri } from '../lib/groupement';
 import type { EtatGroupement } from '../lib/groupement';
 import type { GranulariteGroupe, TriGroupes } from '../types';
 
@@ -181,13 +181,13 @@ export default function BandeGroupement({
 
           <DropdownMenu>
             <DropdownMenuTrigger className={CLASSE_DECLENCHEUR}>
-              <span className="text-foreground">{TRIS.find((t) => t.valeur === tri)?.libelle}</span>
+              <span className="text-foreground">{libelleTri(tri, estDate)}</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuRadioGroup value={tri} onValueChange={(v) => etat.changerTri(v as TriGroupes)}>
                 {TRIS.map((t) => (
                   <DropdownMenuRadioItem key={t.valeur} value={t.valeur}>
-                    {t.libelle}
+                    {libelleTri(t.valeur, estDate)}
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>

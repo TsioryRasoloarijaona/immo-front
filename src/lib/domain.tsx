@@ -114,7 +114,8 @@ export function encaissementEtatTone(etat: string | undefined): BadgeTone {
   switch (etat?.toUpperCase()) {
     case 'POINTED': return 'success';
     case 'IN_WORK': return 'info';
-    case 'CANCELED': return 'neutral';
+    // `warning` et non `neutral` : seul un ton non neutre porte un glyphe (TONE_GLYPH).
+    case 'CANCELED': return 'warning';
     default: return 'neutral';
   }
 }
