@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import RouteErrorBoundary from './components/RouteErrorBoundary';
 import { ConfirmProvider } from './components/ConfirmModal';
 import { PreviewProvider } from './components/PreviewProvider';
+import { ToastProvider } from './components/ToastProvider';
 import { LoadingState } from './components/ui';
 import { AppDataProvider } from './lib/appData';
 import { AuthProvider, useAuth } from './lib/auth';
@@ -64,6 +65,7 @@ function AuthenticatedApp() {
 
   return (
     <AppDataProvider>
+      <ToastProvider>
       <ConfirmProvider>
         <PreviewProvider>
           <Layout>
@@ -129,6 +131,7 @@ function AuthenticatedApp() {
           </Layout>
         </PreviewProvider>
       </ConfirmProvider>
+      </ToastProvider>
     </AppDataProvider>
   );
 }

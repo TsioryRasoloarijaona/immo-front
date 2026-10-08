@@ -15,6 +15,8 @@ import { addInteraction, archiverProspection, desarchiverProspection, transforme
 import { useAppData, commercialLabel } from '../lib/appData';
 import { useAuth } from '../lib/auth';
 import { prospectionDisplayName } from '../lib/domain';
+import { routeFicheProspection, texteProspectionTransformee, toastProspectLie } from '../lib/parcours';
+import { useToast } from '../lib/toastContext';
 import type { ProspectionListItemDto } from '../types';
 
 /** Le menu « Actions » d'une ligne de liste (prospections et
@@ -59,24 +61,23 @@ export function useActionsLigneProspection({
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
 
   const [boite, setBoite] = useState<Boite | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3600);
-  }
+  const showToast = useToast();
 
   const nomEntite = entite === 'pré-prospection' ? 'Pré-prospection' : 'Prospection';
+  const ouvrirFiche = (p: ProspectionListItemDto) => ({
+    libelle: 'Ouvrir la fiche →',
+    vers: routeFicheProspection(p.id, p.typeProspectionCode, entite === 'pré-prospection' ? 'pre-prospection' : 'prospection'),
+  });
+  const erreur = (err: unknown, defaut: string) =>
+    showToast({ texte: err instanceof Error ? err.message : defaut, variante: 'erreur' });
 
   function desarchiver(p: ProspectionListItemDto) {
     desarchiverProspection(p.id)
       .then(() => {
         onMutation();
-        showToast(`${nomEntite} désarchivée.`);
+        showToast({ texte: `${nomEntite} désarchivée.`, action: ouvrirFiche(p) });
       })
-      .catch((err: unknown) =>
-        showToast(err instanceof Error ? err.message : 'Échec du désarchivage.'),
-      );
+      .catch((err: unknown) => erreur(err, 'Échec du désarchivage.'));
   }
 
   const rendu = (p: ProspectionListItemDto) => (
@@ -129,9 +130,7 @@ export function useActionsLigneProspection({
                 onMutation();
                 showToast('Action enregistrée.');
               })
-              .catch((err: unknown) =>
-                showToast(err instanceof Error ? err.message : "Échec de l'enregistrement de l'action."),
-              );
+              .catch((err: unknown) => erreur(err, "Échec de l'enregistrement de l'action."));
           }}
         />
       )}
@@ -145,9 +144,12 @@ export function useActionsLigneProspection({
             email: boite.ligne.email ?? '',
           }}
           onClose={() => setBoite(null)}
-          onSubmit={() => {
+          onSubmit={(maj, mode) => {
             onMutation();
-            showToast('Pré-prospection convertie — fiche prospect créée et liée.');
+            const nom = prospectionDisplayName(boite.ligne);
+            toastProspectLie(nom, maj, mode)
+              .then(showToast)
+              .catch(() => showToast(mode === 'cree' ? `${nom} est maintenant un prospect.` : `${nom} est rattaché au prospect existant.`));
           }}
         />
       )}
@@ -159,9 +161,12 @@ export function useActionsLigneProspection({
           commercialItems={commercialItems}
           onClose={() => setBoite(null)}
           onSubmit={async (body) => {
-            await transformerProspection(boite.ligne.id, body);
+            const maj = await transformerProspection(boite.ligne.id, body);
             onMutation();
-            showToast('Prospection transformée — commercial et tranche posés.');
+            showToast({
+              texte: texteProspectionTransformee(prospectionDisplayName(boite.ligne), maj),
+              action: { libelle: 'Ouvrir la prospection →', vers: `/prospections/${maj.id}` },
+            });
           }}
         />
       )}
@@ -172,18 +177,9 @@ export function useActionsLigneProspection({
           onSubmit={async (body) => {
             await archiverProspection(boite.ligne.id, body);
             onMutation();
-            showToast(`${nomEntite} archivée.`);
+            showToast({ texte: `${nomEntite} archivée.`, action: ouvrirFiche(boite.ligne) });
           }}
         />
-      )}
-      {toast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed inset-x-4 bottom-4 z-50 rounded-lg bg-foreground px-4.5 py-3 text-center text-label font-medium text-background shadow-lg sm:inset-x-auto sm:right-6 sm:bottom-6 sm:text-left"
-        >
-          {toast}
-        </div>
       )}
     </>
   );
