@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useDeferredValue, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, Sigma, SquareMinus, SquarePlus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './ui/table';
-import { useOrdreColonnes } from '../lib/colonnes';
+import { sansAccents, useOrdreColonnes } from '../lib/colonnes';
 import { formatCurrency, formatDate, formatNumber } from '../lib/format';
 import { cn } from '../lib/utils';
 import {
@@ -175,6 +175,45 @@ function texteComparable<T>(row: T, c: ColonneGrille<T>): string {
   if (type === 'DATE') return formatDate(String(v));
   if (type === 'BOOLEEN') return v ? 'oui' : 'non';
   return String(v);
+}
+
+/** Forme numérique saisie ou affichée, ramenée à `50000.00` : sans espaces
+ * (`\s` couvre les insécables), sans unité finale (DH, m², %), virgule décimale en point. */
+function normaliserNombre(texte: string): string {
+  return texte.replace(/\s/g, '').replace(/(dh|m²|m2|%)$/i, '').replace(',', '.');
+}
+
+/** Formes d'une valeur numérique que l'utilisateur peut recopier : la forme
+ * formatée et la valeur brute, qui garde ses décimales réelles (`85.47`). */
+function textesNumeriques<T>(v: unknown, c: ColonneGrille<T>): string[] {
+  if (c.formatValeur) return [c.formatValeur(v), String(v)];
+  if (typeof v !== 'number') return [String(v)];
+  return [typeDe(c) === 'MONTANT' ? formatCurrency(v) : formatNumber(v), String(v)];
+}
+
+/** Prédicat de la ligne de filtres pour une colonne : sous-chaîne sans accents
+ * sur le texte, égalité sur les nombres (`=`), voir FIX-grille-filtres-fiches.md §1-2. */
+function predicatFiltre<T>(c: ColonneGrille<T>, saisie: string): (row: T) => boolean {
+  if (!NUMERIQUES.includes(typeDe(c))) {
+    const aiguille = sansAccents(saisie);
+    return (r) => sansAccents(texteComparable(r, c)).includes(aiguille);
+  }
+  const aiguille = normaliserNombre(saisie).toLowerCase();
+  const n = Number(aiguille);
+  // Un ratio affiché en % (`formatValeur`) ne se compare qu'à sa forme affichée.
+  if (!c.formatValeur && /^-?[\d.]+$/.test(aiguille) && Number.isFinite(n)) {
+    const tolerance = typeDe(c) === 'MONTANT' ? 0.005 : 0;
+    return (r) => {
+      const v = valeurDe(r, c);
+      if (v === null || v === undefined || v === '') return false;
+      return Math.abs(Number(v) - n) <= tolerance;
+    };
+  }
+  return (r) => {
+    const v = valeurDe(r, c);
+    if (v === null || v === undefined || v === '') return false;
+    return textesNumeriques(v, c).some((t) => normaliserNombre(t).toLowerCase().includes(aiguille));
+  };
 }
 
 /* `A` sur le texte, `=` sur tout ce qui se compare — les deux glyphes que la
@@ -356,22 +395,23 @@ export default function DataGrid<T extends { id: string }>({
      d'un groupe est le seul tri qui ait un sens une fois la liste repliée :
      un tri global réordonnerait les lignes à travers les groupes et les en
      sortirait. */
+  const filtrer = useCallback(
+    (source: T[]) => {
+      /* Prédicats construits une fois par passe : l'aiguille est normalisée
+         ici, pas par ligne et par colonne filtrée. */
+      const actifs: ((r: T) => boolean)[] = [];
+      for (const c of colonnes) {
+        const saisie = (filtresDiff[c.nom] ?? '').trim();
+        if (saisie !== '') actifs.push(predicatFiltre(c, saisie));
+      }
+      return actifs.length ? source.filter((r) => actifs.every((p) => p(r))) : source;
+    },
+    [colonnes, filtresDiff],
+  );
+
   const appliquer = useCallback(
     (source: T[]) => {
-      /* L'aiguille est invariante sur toute la passe : la normaliser ici plutot
-         que dans le predicat evite un `trim().toLowerCase()` par ligne et par
-         colonne filtree. Le meme parcours reconnait les colonnes actives, la
-         ou il en fallait deux. */
-      const actifs: { c: ColonneGrille<T>; aiguille: string }[] = [];
-      for (const c of colonnes) {
-        const aiguille = (filtresDiff[c.nom] ?? '').trim().toLowerCase();
-        if (aiguille !== '') actifs.push({ c, aiguille });
-      }
-      const filtrees = actifs.length
-        ? source.filter((r) =>
-            actifs.every(({ c, aiguille }) => texteComparable(r, c).toLowerCase().includes(aiguille)),
-          )
-        : source;
+      const filtrees = filtrer(source);
       if (!tri) return filtrees;
       const col = parNom.get(tri.nom);
       if (!col) return filtrees;
@@ -390,15 +430,20 @@ export default function DataGrid<T extends { id: string }>({
         return String(va).localeCompare(String(vb), 'fr') * signe;
       });
     },
-    [colonnes, parNom, filtresDiff, tri],
+    [filtrer, parNom, tri],
   );
 
   const visibles = useMemo(() => appliquer(rows), [appliquer, rows]);
+  const filtreActif = colonnes.some((c) => (filtresDiff[c.nom] ?? '').trim() !== '');
 
   /* Ce que le Σ somme, et ce que la barre de résumé compte : les lignes
-     réellement à l'écran. En mode groupé ce sont celles des groupes ouverts,
-     `rows` étant alors vide. */
-  const sommables = groupes ? groupes.lignesChargees : visibles;
+     réellement à l'écran. En mode groupé ce sont celles des groupes ouverts
+     qui passent le filtre, `rows` étant alors vide. */
+  const lignesDepliees = groupes?.lignesChargees;
+  const sommables = useMemo(
+    () => (lignesDepliees ? filtrer(lignesDepliees) : visibles),
+    [lignesDepliees, filtrer, visibles],
+  );
 
   const basculerTri = (nom: string) =>
     setTri((t) => (t?.nom !== nom ? { nom, sens: 'asc' } : t.sens === 'asc' ? { nom, sens: 'desc' } : null));
@@ -605,7 +650,7 @@ export default function DataGrid<T extends { id: string }>({
           <span className="shrink-0 rounded-full bg-(--amber-bg) px-1.25 font-bold text-(--amber)">Bientôt</span>
         </div>
       )}
-      {(tri || sommes.size > 0 || cochees.size > 0) && (
+      {(tri || sommes.size > 0 || cochees.size > 0 || filtreActif || ordrePersonnalise) && (
         <div className="flex h-5 shrink-0 items-center gap-3 border-b border-border/70 bg-card px-2 text-micro text-muted-foreground">
           {cochees.size > 0 && <span className="shrink-0">{cochees.size} sélectionnée(s)</span>}
           {tri && (
@@ -628,10 +673,14 @@ export default function DataGrid<T extends { id: string }>({
           )}
           <span className="ml-auto shrink-0 tabular-nums">
             {groupes
-              ? `${formatNumber(groupes.liste.length)} groupe(s), ${formatNumber(sommables.length)} ligne(s) dépliée(s)`
-              : visibles.length === rows.length
-                ? `${formatNumber(rows.length)} ligne(s)`
-                : `${formatNumber(visibles.length)} / ${formatNumber(rows.length)} ligne(s)`}
+              ? filtreActif
+                ? `${formatNumber(groupes.liste.length)} groupe(s), ${formatNumber(sommables.length)} / ${formatNumber(
+                    groupes.lignesChargees.length,
+                  )} ligne(s) dépliée(s) — filtre sur les lignes dépliées seulement`
+                : `${formatNumber(groupes.liste.length)} groupe(s), ${formatNumber(sommables.length)} ligne(s) dépliée(s)`
+              : filtreActif
+                ? `${formatNumber(visibles.length)} / ${formatNumber(rows.length)} ligne(s) chargée(s) — filtre sur la page affichée seulement`
+                : `${formatNumber(rows.length)} ligne(s)`}
           </span>
         </div>
       )}

@@ -229,6 +229,7 @@ export default function ArticlesList() {
         largeur: 5,
         classe: 'text-muted-foreground',
         rendu: (a) => (a.tauxTVA != null ? formatPercent(a.tauxTVA) : <span className="text-muted-foreground">—</span>),
+        formatValeur: (v) => formatPercent(typeof v === 'number' ? v : null),
       },
       {
         nom: 'salePrice',

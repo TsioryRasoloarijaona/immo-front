@@ -572,7 +572,12 @@ export function FicheProspection({
   // convention as Dossier's own "Prospection" reference: each stage links
   // to the one before it. Only fetched once the prospection actually
   // resolved to a prospect (unset while still a pré-prospection).
-  const linkedProspect = useApi(() => (p?.prospectId ? getProspect(p.prospectId) : Promise.resolve(null)), [p?.prospectId], 'prospection-prospect');
+  /* Le prospect lié rendu par « Créer prospect » / rattachement : la relecture
+     peut revenir avec l'ancien état (base de lecture en retard), et le bouton
+     redeviendrait cliquable — risque de double création. */
+  const [prospectLie, setProspectLie] = useState<{ id: string; prospectId: string } | null>(null);
+  const prospectId = p?.prospectId ?? (prospectLie && prospectLie.id === p?.id ? prospectLie.prospectId : undefined);
+  const linkedProspect = useApi(() => (prospectId ? getProspect(prospectId) : Promise.resolve(null)), [prospectId], 'prospection-prospect');
   const [interactionsPage, setInteractionsPage] = useState(0);
   const interactions = useApi(() => listInteractions(id, { page: interactionsPage, size: 20 }), [id, interactionsPage], 'prospection-interactions');
 
@@ -691,7 +696,7 @@ export function FicheProspection({
     email: p.tempEmail ?? '',
   };
   const stageIdx = pipelineStageIndex(p.etape);
-  const isPre = !p.prospectId;
+  const isPre = !prospectId;
   /* Le parcours n'a de sens que sur une prospection ouverte et dans le
      pipeline : une clôturée ou une garée sur une voie de côté
      (« À rappeler », « Affaires à suivre ») n'a pas de rang à montrer. */
@@ -706,7 +711,7 @@ export function FicheProspection({
     : null;
   // R10 : l'historique du « Parcours » plus bas, pas de requête en plus.
   const etapesParcours = calculerParcours(
-    { typeProspectionCode: p.typeProspectionCode, prospectId: p.prospectId, dossierId: dossierIssu?.id, dossierCode: dossierIssu?.code },
+    { typeProspectionCode: p.typeProspectionCode, prospectId,dossierId: dossierIssu?.id, dossierCode: dossierIssu?.code },
     parcours.data?.content,
   );
   // Rang 1 du guide : les deux seuls indicateurs de l'en-tête, donc toujours
@@ -811,7 +816,10 @@ export function FicheProspection({
      n'y sont plus : la ligne d'identité et le pied de carte les portent. */
   const tranche = p.trancheDescription || p.trancheCode;
   const descriptionDistincte = !!p.tempDescription?.trim() && p.tempDescription.trim() !== name;
-  const mobile = p.mobileProspect ? `+${p.indicatifMobile ?? ''} ${p.mobileProspect}`.replace('+ ', '') : (p.tempTel ?? null);
+  const mobile = p.mobileProspect ? `+${p.indicatifMobile ?? ''} ${p.mobileProspect}`.replace('+ ', '') : null;
+  // `tempTel` devient le `telephone` du prospect créé : il s'affiche sous Téléphone, jamais sous Mobile.
+  const telProspect = linkedProspect.data?.telephone;
+  const telephone = !isPre && telProspect ? formatTelephone(telProspect, linkedProspect.data?.indicatifTelephone) : (p.tempTel ?? null);
   const cellules = [
     <ChampLecture
       key="tranche"
@@ -913,11 +921,15 @@ export function FicheProspection({
         aide="Le nom saisi à la capture du lead. Absent de ModifierProspectionRequest — demande backend en cours."
       />
     ),
-    isPre && (
-      <ChampLecture key="telephone" label="Téléphone" valeur={p.tempTel} aide="Idem : servi, mais non modifiable par l'API." />
+    (isPre || !p.mobileProspect) && (
+      <ChampLecture
+        key="telephone"
+        label="Téléphone"
+        valeur={telephone}
+        aide={isPre ? "Idem : servi, mais non modifiable par l'API." : undefined}
+      />
     ),
-    /* Sur une pré-prospection le mobile retombe sur `tempTel` — doublon strict du téléphone. */
-    (!isPre || !!p.mobileProspect) && (
+    !!p.mobileProspect && (
       <ChampLecture key="mobile" label="Mobile" valeur={mobile} aide="L'indicatif est servi sans le « + » — il est composé ici." />
     ),
     <ChampLecture
@@ -931,7 +943,13 @@ export function FicheProspection({
     (p.fermee || !!p.dateFermeture) && (
       <ChampLecture key="dateFermeture" label={p.fermee ? "Date d'archivage" : 'Dernier archivage'} valeur={formatDate(p.dateFermeture)} />
     ),
-    (p.fermee || !!p.dateFermeture) && <ChampLecture key="raison" label="Raison" valeur={p.raisonFermeture} />,
+    /* Archivage par création de dossier : note seule, sans motif codé (voulu, FEATURE-conformite-legataire.md §2). */
+    (p.fermee || !!p.dateFermeture) && (
+      <ChampLecture key="raison" label="Raison" valeur={p.raisonFermeture || p.raisonFermetureTexte} />
+    ),
+    (p.fermee || !!p.dateFermeture) && !!p.raisonFermeture && !!p.raisonFermetureTexte?.trim() && (
+      <ChampLecture key="raisonTexte" label="Note raison d'archivage" valeur={p.raisonFermetureTexte} />
+    ),
   ].filter(Boolean);
 
   return (
@@ -969,7 +987,7 @@ export function FicheProspection({
       parcours={etapesParcours && <ParcoursVente etapes={etapesParcours} accent={sectionAccent} />}
       actions={
         <>
-          <ProspectionDocumentButtons prospectionId={p.id} hasProspect={!!p.prospectId} />
+          <ProspectionDocumentButtons prospectionId={p.id} hasProspect={!isPre} />
           <Button variant="outline" size="sm" onClick={() => showToast('Intégration VOIP à venir.')}>
             <Phone data-icon="inline-start" /> Appeler
           </Button>
@@ -1529,6 +1547,7 @@ export function FicheProspection({
           initial={createProspectInitial}
           onClose={() => setShowCreateProspect(false)}
           onSubmit={(maj, mode) => {
+            if (maj.prospectId) setProspectLie({ id: maj.id, prospectId: maj.prospectId });
             refetch();
             void parcours.refetch();
             toastProspectLie(name, maj, mode)
