@@ -36,7 +36,7 @@ function libelleArticlesCharges(affiches: number, charges: number): string {
 }
 import { prospectionDisplayName } from '../../lib/domain';
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../../lib/referentiels';
-import type { ArticleDetailDto, ArticleListItemDto } from '../../types';
+import type { ArticleDetailDto, ArticleListItemDto, MontantsOffreDto, SchemaFinancementDto } from '../../types';
 
 type FiltreStatut = 'DISPONIBLE' | 'OCCUPE' | 'all';
 
@@ -53,6 +53,54 @@ function AideRemise({ horsBornes, inhabituelle }: Readonly<{ horsBornes: boolean
     <p className="mt-1 text-micro text-muted-foreground">
       Facultatif. Laissée vide, le prix ci-contre est le prix négocié.
     </p>
+  );
+}
+
+/** Avec une remise, le prix saisi est le total avant remise, annexes comprises (règle serveur). */
+function libellePrix(remiseRenseignee: boolean, avecAnnexes: boolean): string {
+  if (!remiseRenseignee) return 'Prix retenu (DH) *';
+  return avecAnnexes ? 'Prix total avant remise (bien + annexes) (DH) *' : 'Prix avant remise (DH) *';
+}
+
+/**
+ * Taux tiré des montants de l'offre, jamais de `remisePercent` (ratio 0–1 pour les offres OMRAN,
+ * % pour celles de l'API). Non arrondi : le serveur retombe ainsi sur `prixVenteTTC` au centime.
+ */
+function remiseDeduiteDeLOffre(montants: MontantsOffreDto | undefined): { totalTTC: number; taux: number } | null {
+  const totalTTC = montants?.totalTTC;
+  const prixVenteTTC = montants?.prixVenteTTC;
+  if (totalTTC == null || prixVenteTTC == null || totalTTC <= 0 || prixVenteTTC >= totalTTC) return null;
+  return { totalTTC, taux: ((totalTTC - prixVenteTTC) / totalTTC) * 100 };
+}
+
+/** Montants de la simulation serveur, ceux que la création enregistrera. Rien si aucune remise. */
+function BlocRemise({ schema, avecAnnexes }: Readonly<{ schema: SchemaFinancementDto; avecAnnexes: boolean }>) {
+  const { prixAvantRemise, montantRemise, remisePercent, prixApresRemise } = schema;
+  if (montantRemise == null || prixApresRemise == null || montantRemise === 0) return null;
+  // Prix négocié au-dessus du prix de référence : le serveur déduit une remise négative.
+  const signe = montantRemise > 0 ? '−' : '+';
+  return (
+    <div className="mt-4 flex flex-col gap-1.5 border-t border-border pt-3">
+      <div className="flex items-center justify-between text-body">
+        <span className="text-muted-foreground">Montant de la remise ({formatPercentValue(remisePercent)})</span>
+        <span className="tabular-nums text-foreground">
+          {signe} {formatCurrency(Math.abs(montantRemise))}
+        </span>
+      </div>
+      {avecAnnexes && (
+        <p className="text-micro text-muted-foreground">
+          Calculée sur le prix principal + annexes : {formatCurrency(prixAvantRemise)}.
+        </p>
+      )}
+      <div className="flex items-center justify-between">
+        <span className="text-label font-semibold text-foreground">Prix après remise</span>
+        <span className="text-title font-semibold tabular-nums text-foreground">{formatCurrency(prixApresRemise)}</span>
+      </div>
+      <p className="text-micro text-muted-foreground">
+        C'est ce montant qui sera dû. Les frais de syndic, issus du barème de la tranche, ne sont
+        jamais remisés et s'ajoutent au schéma de financement ci-dessous.
+      </p>
+    </div>
   );
 }
 
@@ -166,6 +214,7 @@ export default function NewDossier() {
 
   const [prix, setPrix] = useState('');
   const [remise, setRemise] = useState('');
+  const [remiseTouched, setRemiseTouched] = useState(false);
   const [priceTouched, setPriceTouched] = useState(false);
   const [notes, setNotes] = useState('');
   const [notesTouched, setNotesTouched] = useState(false);
@@ -191,12 +240,20 @@ export default function NewDossier() {
   // `prixSuggere` = prix commercial, ou plancher quand il vaut 0 — même calcul que le serveur.
   const autoPrixFromArticles = selectedArticles.reduce((sum, a) => sum + (a.prixSuggere ?? 0), 0);
   const prixPlancherPropose = selectedArticles.some((a) => a.prixSuggereEstPlancher);
-  const autoPrix = latestDevis?.montants?.prixVenteTTC || autoPrixFromArticles;
+  const remiseOffre = remiseDeduiteDeLOffre(latestDevis?.montants);
+  // Taux auto seulement si le prix l'est aussi : sinon il s'appliquerait à un prix tapé à la main.
+  const remiseAuto = !remiseTouched && !priceTouched ? remiseOffre : null;
+  const remiseSaisie = remise.trim() === '' ? null : Number(remise.replace(',', '.'));
+  const remiseNumber = remiseAuto?.taux ?? remiseSaisie;
+  const remiseValue = remiseAuto ? String(Math.round(remiseAuto.taux * 100) / 100) : remise;
+
+  // Avec une remise, `prix` est le total avant remise : depuis une offre remisée, c'est son `totalTTC`.
+  const prixOffre = remiseOffre && remiseNumber !== null ? remiseOffre.totalTTC : latestDevis?.montants?.prixVenteTTC;
+  const autoPrix = prixOffre || autoPrixFromArticles;
   const prixValue = !priceTouched && autoPrix > 0 ? String(autoPrix) : prix;
 
   // `remisePercent` est un pourcentage 0–100, pas un ratio (contrairement à `DossierDetailDto.remise`,
-  // en 0–1). Avec une remise, `prix` devient la base avant remise.
-  const remiseNumber = remise.trim() === '' ? null : Number(remise.replace(',', '.'));
+  // en 0–1). Avec une remise, `prix` devient le total avant remise, annexes comprises.
   const remiseRenseignee = remiseNumber !== null && !Number.isNaN(remiseNumber);
   const remiseHorsBornes = remiseRenseignee && (remiseNumber < 0 || remiseNumber > 100);
   // Seuil générique : l'API n'expose aucun plafond de remise par article.
@@ -205,6 +262,8 @@ export default function NewDossier() {
   const prixNumber = prixValue ? Number(prixValue) : undefined;
   const debouncedPrixNumber = useDebouncedValue(prixNumber, 400);
   const debouncedRemise = useDebouncedValue(remiseRenseignee && !remiseHorsBornes ? remiseNumber : null, 400);
+  // `avecAnnexes` vient de la requête qui a produit la réponse, pas de la sélection courante :
+  // pendant le rechargement débouncé, l'ancienne réponse garde sa propre mention.
   const schemaFinancement = useApi(
     () =>
       selectedIds.length > 0 && debouncedPrixNumber && debouncedPrixNumber > 0
@@ -212,17 +271,15 @@ export default function NewDossier() {
             articleIds: selectedIds,
             prix: debouncedPrixNumber,
             ...(debouncedRemise !== null ? { remisePercent: debouncedRemise } : {}),
-          })
+          }).then((schema) => ({ schema, avecAnnexes: selectedIds.length > 1 }))
         : Promise.resolve(null),
     [selectedIds, debouncedPrixNumber, debouncedRemise],
   );
+  const schema = schemaFinancement.data?.schema;
 
-  // `SchemaFinancementDto` ne renvoie pas la remise. Le total du schéma n'est pas `prix × (1 − r)` :
-  // les FRAIS SYNDIC (barème de la tranche) ne sont jamais remisés.
-  const prixAvantRemise = prixNumber && prixNumber > 0 ? prixNumber : null;
-  const montantRemise =
-    prixAvantRemise !== null && remiseRenseignee && !remiseHorsBornes ? (prixAvantRemise * remiseNumber) / 100 : null;
-  const prixApresRemise = prixAvantRemise !== null && montantRemise !== null ? prixAvantRemise - montantRemise : null;
+  // Remise jamais recalculée ici : le serveur l'applique à principal + annexes, et la déduit
+  // du prix de référence quand aucun taux n'est saisi. En erreur, rien plutôt qu'un chiffre périmé.
+  const remiseServeur = schemaFinancement.error ? null : schemaFinancement.data;
 
   if (loading) return <PageShell title="Nouveau dossier"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Nouveau dossier"><ErrorState message={error} /></PageShell>;
@@ -518,7 +575,7 @@ export default function NewDossier() {
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <FormField>
                 <FieldLabel htmlFor="prix">
-                  {remiseRenseignee ? 'Prix avant remise (DH) *' : 'Prix retenu (DH) *'}
+                  {libellePrix(remiseRenseignee, selectedIds.length > 1)}
                 </FieldLabel>
                 <Input
                   id="prix"
@@ -561,14 +618,22 @@ export default function NewDossier() {
                     max={100}
                     step="0.01"
                     placeholder="0"
-                    value={remise}
-                    onChange={(e) => setRemise(e.target.value)}
+                    value={remiseValue}
+                    onChange={(e) => {
+                      setRemiseTouched(true);
+                      setRemise(e.target.value);
+                    }}
                   />
                   <InputGroupAddon align="inline-end">
                     <InputGroupText>%</InputGroupText>
                   </InputGroupAddon>
                 </InputGroup>
                 <AideRemise horsBornes={remiseHorsBornes} inhabituelle={remiseInhabituelle} />
+                {remiseAuto && (
+                  <p className="mt-1 text-micro text-muted-foreground">
+                    Déduite de l'offre ({latestDevis?.code}) : son prix de vente {formatCurrency(latestDevis?.montants?.prixVenteTTC)} est retrouvé.
+                  </p>
+                )}
               </FormField>
               <FormField>
                 <FieldLabel htmlFor="cin">CIN du client *</FieldLabel>
@@ -618,21 +683,8 @@ export default function NewDossier() {
               )}
             </FormField>
           </FieldGroup>
-          {montantRemise !== null && prixApresRemise !== null && (
-            <div className="mt-4 flex flex-col gap-1.5 border-t border-border pt-3">
-              <div className="flex items-center justify-between text-body">
-                <span className="text-muted-foreground">Montant de la remise ({formatPercentValue(remiseNumber)})</span>
-                <span className="tabular-nums text-foreground">− {formatCurrency(montantRemise)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-label font-semibold text-foreground">Prix après remise</span>
-                <span className="text-title font-semibold tabular-nums text-foreground">{formatCurrency(prixApresRemise)}</span>
-              </div>
-              <p className="text-micro text-muted-foreground">
-                C'est ce montant qui sera dû. Les frais de syndic, issus du barème de la tranche, ne sont
-                jamais remisés et s'ajoutent au schéma de financement ci-dessous.
-              </p>
-            </div>
+          {remiseServeur && !remiseHorsBornes && (
+            <BlocRemise schema={remiseServeur.schema} avecAnnexes={remiseServeur.avecAnnexes} />
           )}
         </Card>
 
@@ -645,7 +697,7 @@ export default function NewDossier() {
             <>
               {schemaFinancement.loading && <LoadingState />}
               {schemaFinancement.error && <ErrorState message={schemaFinancement.error} />}
-              {schemaFinancement.data && (
+              {schema && (
                 <>
                   {latestDevis?.montants?.prixVenteTTC != null && (
                     <div className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2 text-label">
@@ -653,13 +705,13 @@ export default function NewDossier() {
                       <span className="font-semibold tabular-nums text-foreground">{formatCurrency(latestDevis.montants.prixVenteTTC)}</span>
                     </div>
                   )}
-                  {(schemaFinancement.data.lignes ?? []).length === 0 ? (
+                  {(schema.lignes ?? []).length === 0 ? (
                     <p className="text-body text-muted-foreground">
                       Aucune ligne AUTO-FINANCEMENT/AVANCE/FRAIS SYNDIC pour la vocation de cet article.
                     </p>
                   ) : (
                     <div className="flex flex-col gap-1.5">
-                      {avecCles(schemaFinancement.data.lignes ?? [], (l) => `${l.categorie}-${l.exclureDuPrix}-${l.montant}`).map(({ item: ligne, cle }) => (
+                      {avecCles(schema.lignes ?? [], (l) => `${l.categorie}-${l.exclureDuPrix}-${l.montant}`).map(({ item: ligne, cle }) => (
                         <div key={cle} className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2 text-label">
                           <span className="flex items-center gap-2 font-medium text-foreground">
                             {ligne.categorie}
@@ -673,7 +725,7 @@ export default function NewDossier() {
                   <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
                     <span className="text-label font-semibold text-foreground">Total général</span>
                     <span className="text-title font-semibold tabular-nums text-foreground">
-                      {formatCurrency(schemaFinancement.data.totalGeneral ?? 0)}
+                      {formatCurrency(schema.totalGeneral ?? 0)}
                     </span>
                   </div>
                   <p className="mt-2 text-micro text-muted-foreground">
