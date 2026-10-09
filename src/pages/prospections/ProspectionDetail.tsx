@@ -20,6 +20,7 @@ import { ChampLecture, ChampNotes, ChampRef, GrilleFiche, PiedFiche } from '../.
 import MarqueurTri from '../../components/MarqueurTri';
 import { OngletAutres, OngletProfils } from '../../components/SousCollectionsProspection';
 import RefSelect from '../../components/RefSelect';
+import MentionPrixPlancher from '../../components/MentionPrixPlancher';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
@@ -379,6 +380,8 @@ function OffrePrixSection({
   const [busy, setBusy] = useState(false);
   const [resultat, setResultat] = useState<ResultatEnvoiOffreDto | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Chargé seulement à l'ouverture : la mention « prix plancher » ne sert que là.
+  const article = useApi(() => (ouvert && articleId ? getArticle(articleId) : Promise.resolve(null)), [ouvert, articleId]);
 
   const sansLot = !articleId;
   const remiseVal = nombreSaisi(remise);
@@ -461,6 +464,7 @@ function OffrePrixSection({
             <div className="w-full sm:w-44">
               <div className="mb-1 text-micro font-medium text-muted-foreground">Prix imposé TTC</div>
               <Input inputMode="decimal" placeholder="Prix du lot" value={prix} onChange={(e) => setPrix(e.target.value)} />
+              {article.data?.prixSuggereEstPlancher && <MentionPrixPlancher />}
             </div>
             <div className="w-full sm:w-55">
               <div className="mb-1 text-micro font-medium text-muted-foreground">Mode de paiement</div>

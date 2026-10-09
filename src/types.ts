@@ -1546,17 +1546,21 @@ export interface CreerInteractionRequest {
   /** Texte libre saisi par le commercial. Attention à l'asymétrie : ce champ
    * s'appelle `description` en écriture mais **ressort dans `note` en
    * lecture** — le `description` de `InteractionDto` est un libellé généré que
-   * l'appelant ne peut pas imposer. */
-  description: string;
+   * l'appelant ne peut pas imposer. Obligatoire pour une action Note,
+   * facultatif sinon (règle OMRAN GEN0005). */
+  description?: string;
   entrante?: boolean;
   /** Nature de l'interaction (Instruction, Mail entrant/Sortant, Message
    * entrant/sortant, Note, Téléphone entrant/Sortant, Visite, WEB).
-   * Référentiel : GET /api/referentiels/types-contact-prospection. */
-  actionTypeId?: UUID;
-  /** Référentiel : GET /api/referentiels/resultats-interaction. Si le
-   * résultat choisi a necessiteDateRdv=true, dateRdv devient obligatoire. */
+   * Référentiel : GET /api/referentiels/types-contact-prospection.
+   * Toujours obligatoire ; le code `Note` dispense du résultat. */
+  actionTypeId: UUID;
+  /** Référentiel : GET /api/referentiels/resultats-interaction. Obligatoire
+   * sauf pour une Note. Si le résultat choisi a necessiteDateRdv=true,
+   * dateRdv devient obligatoire. */
   resultatId?: UUID;
-  /** format: date-time — fin de validité de la relance/alerte. */
+  /** format: date-time — fin de validité de la relance/alerte. Obligatoire
+   * quand le résultat a alerteRecommandee=true. */
   dateAlerte?: string;
   /** format: date-time — obligatoire si resultatId.necessiteDateRdv. */
   dateRdv?: string;
@@ -2605,6 +2609,11 @@ export interface ArticleListItemDto {
   natureId?: UUID;
   natureCode?: string;
   natureLibelle?: string;
+  /** Prix de référence TTC calculé serveur : `comSalePrice` s'il est > 0,
+   * sinon `comSalePriceFloor` s'il est > 0, sinon null. Base du pré-remplissage. */
+  prixSuggere?: number | null;
+  /** Vrai quand `prixSuggere` est le prix plancher (prix commercial à 0). */
+  prixSuggereEstPlancher?: boolean;
 }
 
 export interface ArticleDetailDto {
@@ -2668,6 +2677,9 @@ export interface ArticleDetailDto {
   /** Somme des superficies des sous-articles rattachés (0 si aucun),
    * distincte de `area`. */
   superficieSousArticles?: number;
+  /** Voir `ArticleListItemDto.prixSuggere` : même calcul serveur. */
+  prixSuggere?: number | null;
+  prixSuggereEstPlancher?: boolean;
 }
 
 export interface ProjetListItemDto {

@@ -122,15 +122,12 @@ export function useActionsLigneProspection({
       {boite?.type === 'interaction' && (
         <InteractionForm
           onClose={() => setBoite(null)}
-          onSubmit={(input) => {
-            // Le formulaire se ferme sans attendre (même mécanique que la
-            // fiche) : le résultat arrive donc par toast, succès ou échec.
-            addInteraction(boite.ligne.id, input)
-              .then(() => {
-                onMutation();
-                showToast('Action enregistrée.');
-              })
-              .catch((err: unknown) => erreur(err, "Échec de l'enregistrement de l'action."));
+          onSubmit={async (input) => {
+            // Un échec (400 de validation) remonte au formulaire, qui l'affiche
+            // sans perdre la saisie ; le succès le ferme.
+            await addInteraction(boite.ligne.id, input);
+            onMutation();
+            showToast('Action enregistrée.');
           }}
         />
       )}
