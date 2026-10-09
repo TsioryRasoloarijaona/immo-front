@@ -56,6 +56,12 @@ function AideRemise({ horsBornes, inhabituelle }: Readonly<{ horsBornes: boolean
   );
 }
 
+/** Avec une remise, le prix saisi est le total avant remise, annexes comprises (règle serveur). */
+function libellePrix(remiseRenseignee: boolean, avecAnnexes: boolean): string {
+  if (!remiseRenseignee) return 'Prix retenu (DH) *';
+  return avecAnnexes ? 'Prix total avant remise (bien + annexes) (DH) *' : 'Prix avant remise (DH) *';
+}
+
 /** Montants de la simulation serveur, ceux que la création enregistrera. Rien si aucune remise. */
 function BlocRemise({ schema, avecAnnexes }: Readonly<{ schema: SchemaFinancementDto; avecAnnexes: boolean }>) {
   const { prixAvantRemise, montantRemise, remisePercent, prixApresRemise } = schema;
@@ -226,7 +232,7 @@ export default function NewDossier() {
   const prixValue = !priceTouched && autoPrix > 0 ? String(autoPrix) : prix;
 
   // `remisePercent` est un pourcentage 0–100, pas un ratio (contrairement à `DossierDetailDto.remise`,
-  // en 0–1). Avec une remise, `prix` devient la base avant remise.
+  // en 0–1). Avec une remise, `prix` devient le total avant remise, annexes comprises.
   const remiseNumber = remise.trim() === '' ? null : Number(remise.replace(',', '.'));
   const remiseRenseignee = remiseNumber !== null && !Number.isNaN(remiseNumber);
   const remiseHorsBornes = remiseRenseignee && (remiseNumber < 0 || remiseNumber > 100);
@@ -236,6 +242,8 @@ export default function NewDossier() {
   const prixNumber = prixValue ? Number(prixValue) : undefined;
   const debouncedPrixNumber = useDebouncedValue(prixNumber, 400);
   const debouncedRemise = useDebouncedValue(remiseRenseignee && !remiseHorsBornes ? remiseNumber : null, 400);
+  // `avecAnnexes` vient de la requête qui a produit la réponse, pas de la sélection courante :
+  // pendant le rechargement débouncé, l'ancienne réponse garde sa propre mention.
   const schemaFinancement = useApi(
     () =>
       selectedIds.length > 0 && debouncedPrixNumber && debouncedPrixNumber > 0
@@ -243,10 +251,11 @@ export default function NewDossier() {
             articleIds: selectedIds,
             prix: debouncedPrixNumber,
             ...(debouncedRemise !== null ? { remisePercent: debouncedRemise } : {}),
-          })
+          }).then((schema) => ({ schema, avecAnnexes: selectedIds.length > 1 }))
         : Promise.resolve(null),
     [selectedIds, debouncedPrixNumber, debouncedRemise],
   );
+  const schema = schemaFinancement.data?.schema;
 
   // Remise jamais recalculée ici : le serveur l'applique à principal + annexes, et la déduit
   // du prix de référence quand aucun taux n'est saisi. En erreur, rien plutôt qu'un chiffre périmé.
@@ -546,7 +555,7 @@ export default function NewDossier() {
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <FormField>
                 <FieldLabel htmlFor="prix">
-                  {remiseRenseignee ? 'Prix avant remise (DH) *' : 'Prix retenu (DH) *'}
+                  {libellePrix(remiseRenseignee, selectedIds.length > 1)}
                 </FieldLabel>
                 <Input
                   id="prix"
@@ -646,7 +655,9 @@ export default function NewDossier() {
               )}
             </FormField>
           </FieldGroup>
-          {remiseServeur && !remiseHorsBornes && <BlocRemise schema={remiseServeur} avecAnnexes={selectedIds.length > 1} />}
+          {remiseServeur && !remiseHorsBornes && (
+            <BlocRemise schema={remiseServeur.schema} avecAnnexes={remiseServeur.avecAnnexes} />
+          )}
         </Card>
 
         <Card title="Schéma de financement">
@@ -658,7 +669,7 @@ export default function NewDossier() {
             <>
               {schemaFinancement.loading && <LoadingState />}
               {schemaFinancement.error && <ErrorState message={schemaFinancement.error} />}
-              {schemaFinancement.data && (
+              {schema && (
                 <>
                   {latestDevis?.montants?.prixVenteTTC != null && (
                     <div className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2 text-label">
@@ -666,13 +677,13 @@ export default function NewDossier() {
                       <span className="font-semibold tabular-nums text-foreground">{formatCurrency(latestDevis.montants.prixVenteTTC)}</span>
                     </div>
                   )}
-                  {(schemaFinancement.data.lignes ?? []).length === 0 ? (
+                  {(schema.lignes ?? []).length === 0 ? (
                     <p className="text-body text-muted-foreground">
                       Aucune ligne AUTO-FINANCEMENT/AVANCE/FRAIS SYNDIC pour la vocation de cet article.
                     </p>
                   ) : (
                     <div className="flex flex-col gap-1.5">
-                      {avecCles(schemaFinancement.data.lignes ?? [], (l) => `${l.categorie}-${l.exclureDuPrix}-${l.montant}`).map(({ item: ligne, cle }) => (
+                      {avecCles(schema.lignes ?? [], (l) => `${l.categorie}-${l.exclureDuPrix}-${l.montant}`).map(({ item: ligne, cle }) => (
                         <div key={cle} className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2 text-label">
                           <span className="flex items-center gap-2 font-medium text-foreground">
                             {ligne.categorie}
@@ -686,7 +697,7 @@ export default function NewDossier() {
                   <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
                     <span className="text-label font-semibold text-foreground">Total général</span>
                     <span className="text-title font-semibold tabular-nums text-foreground">
-                      {formatCurrency(schemaFinancement.data.totalGeneral ?? 0)}
+                      {formatCurrency(schema.totalGeneral ?? 0)}
                     </span>
                   </div>
                   <p className="mt-2 text-micro text-muted-foreground">
