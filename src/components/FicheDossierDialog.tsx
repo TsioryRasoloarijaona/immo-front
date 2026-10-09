@@ -5,7 +5,7 @@ import { FicheDossier } from '../pages/dossiers/DossierDetail';
 import { refetchAllApis } from '../lib/useApi';
 
 // À charger par `lazy()` : ce module tire toute la page de détail.
-export default function FicheDossierDialog({ id, onClose }: { id: string; onClose: () => void }) {
+export default function FicheDossierDialog({ id, onClose }: Readonly<{ id: string; onClose: () => void }>) {
   // Différé d'un tour : voir FicheProspectionDialog.
   useEffect(
     () => () => {

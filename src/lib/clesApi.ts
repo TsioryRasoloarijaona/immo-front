@@ -20,6 +20,7 @@ export const PORTEES_CLE_API: { code: PorteeCleApi; libelle: string; description
 
 export const PORTEES_N8N: PorteeCleApi[] = ['PRE_PROSPECTIONS_ECRIRE', 'REFERENTIELS_LIRE'];
 
-export function libellePortee(code: PorteeCleApi | string): string {
+/** Un code inconnu du front (portée ajoutée côté serveur) s'affiche brut. */
+export function libellePortee(code: string): string {
   return PORTEES_CLE_API.find((p) => p.code === code)?.libelle ?? code;
 }

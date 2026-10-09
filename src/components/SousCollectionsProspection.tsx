@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
-import { EmptyState } from './ui';
 import { Button } from './ui/button';
 import RefSelect from './RefSelect';
 import {
@@ -33,7 +32,7 @@ function ListeEditable({
   onRafraichir,
   chargement,
   idChamp,
-}: {
+}: Readonly<{
   titre: string;
   aide: string;
   lignes: Ligne[];
@@ -43,7 +42,7 @@ function ListeEditable({
   onRafraichir: () => void;
   chargement: boolean;
   idChamp: string;
-}) {
+}>) {
   const [selection, setSelection] = useState<string | null>(null);
   const [occupe, setOccupe] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -127,7 +126,7 @@ function ListeEditable({
   );
 }
 
-export function OngletProfils({ prospectionId }: { prospectionId: string }) {
+export function OngletProfils({ prospectionId }: Readonly<{ prospectionId: string }>) {
   const profils = useApi(() => listProspectionProfils(prospectionId), [prospectionId], 'prospection-profils');
   const referentiel = useProfilsProspection();
 
@@ -139,7 +138,7 @@ export function OngletProfils({ prospectionId }: { prospectionId: string }) {
 
   /* Référentiel imbriqué (catégorie → profils) aplati : la catégorie reste dans le
      libellé, sinon deux profils homonymes deviennent indiscernables. */
-  const optionsProfils = (referentiel.data ?? []).flatMap((cat) =>
+  const optionsProfils = referentiel.data.flatMap((cat) =>
     (cat.profils ?? []).map((pr) => ({
       label: `${pr.description || pr.code || pr.id} — ${cat.description || cat.code || ''}`.replace(/ — $/, ''),
       value: pr.id,
@@ -163,7 +162,7 @@ export function OngletProfils({ prospectionId }: { prospectionId: string }) {
   );
 }
 
-export function OngletAutres({ prospectionId }: { prospectionId: string }) {
+export function OngletAutres({ prospectionId }: Readonly<{ prospectionId: string }>) {
   const villes = useApi(() => listProspectionVilles(prospectionId), [prospectionId], 'prospection-villes');
   const typesBien = useApi(() => listProspectionTypesBien(prospectionId), [prospectionId], 'prospection-types-bien');
   const categories = useApi(() => listProspectionCategories(prospectionId), [prospectionId], 'prospection-categories');
@@ -195,7 +194,7 @@ export function OngletAutres({ prospectionId }: { prospectionId: string }) {
         titre="Types de bien"
         aide={`${lignesTypes.length}`}
         lignes={lignesTypes}
-        items={(refTypesBien.data ?? []).map((r) => ({ label: r.description || r.code || r.id, value: r.id }))}
+        items={refTypesBien.data.map((r) => ({ label: r.description || r.code || r.id, value: r.id }))}
         onAjouter={(typeBienId) => addProspectionTypeBien(prospectionId, { typeBienId })}
         onRetirer={(itemId) => removeProspectionTypeBien(prospectionId, itemId)}
         onRafraichir={typesBien.refetch}
@@ -206,20 +205,12 @@ export function OngletAutres({ prospectionId }: { prospectionId: string }) {
         titre="Catégories"
         aide={`${lignesCats.length}`}
         lignes={lignesCats}
-        items={(refCategories.data ?? []).map((r) => ({ label: r.description || r.code || r.id, value: r.id }))}
+        items={refCategories.data.map((r) => ({ label: r.description || r.code || r.id, value: r.id }))}
         onAjouter={(categorieId) => addProspectionCategorie(prospectionId, { categorieId })}
         onRetirer={(itemId) => removeProspectionCategorie(prospectionId, itemId)}
         onRafraichir={categories.refetch}
         chargement={categories.loading}
       />
-    </div>
-  );
-}
-
-export function OngletVide({ message }: { message: string }) {
-  return (
-    <div className="p-3">
-      <EmptyState title="Rien à afficher" message={message} />
     </div>
   );
 }

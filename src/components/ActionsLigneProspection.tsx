@@ -113,8 +113,9 @@ export function useActionsLigneProspection({
         <CreateProspectForm
           preProspectionId={boite.ligne.id}
           initial={{
-            firstName: prospectionDisplayName(boite.ligne)?.trim().split(' ')[0] ?? '',
-            lastName: prospectionDisplayName(boite.ligne)?.trim().split(' ').slice(1).join(' ') ?? '',
+            // `split` rend toujours au moins un élément.
+            firstName: prospectionDisplayName(boite.ligne).trim().split(' ')[0],
+            lastName: prospectionDisplayName(boite.ligne).trim().split(' ').slice(1).join(' '),
             phone: boite.ligne.telephone ?? '',
             email: boite.ligne.email ?? '',
           }}

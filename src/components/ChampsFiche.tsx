@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { Lock } from 'lucide-react';
 import RefSelect from './RefSelect';
-import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { cn } from '../lib/utils';
 
@@ -22,7 +21,7 @@ function Enveloppe({
   aide,
   className,
   children,
-}: {
+}: Readonly<{
   label: string;
   htmlFor?: string;
   modifie?: boolean;
@@ -30,7 +29,7 @@ function Enveloppe({
   aide?: string;
   className?: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <div
       className={cn(
@@ -56,7 +55,7 @@ export function ChampLecture({
   className,
   apres,
   multiligne,
-}: {
+}: Readonly<{
   label: string;
   valeur: ReactNode;
   aide?: string;
@@ -64,7 +63,7 @@ export function ChampLecture({
   /** Nombre de cellules posées avant celle-ci : elle prend alors le reste de la ligne. */
   apres?: number;
   multiligne?: boolean;
-}) {
+}>) {
   const vide = valeur === null || valeur === undefined || valeur === '' || valeur === '—';
   return (
     <Enveloppe label={label} verrouille aide={aide} className={cn(classeReste(apres), className)}>
@@ -91,7 +90,7 @@ export function ChampRef({
   modifie,
   aide,
   className,
-}: {
+}: Readonly<{
   id: string;
   label: string;
   valeur: string | null;
@@ -100,36 +99,10 @@ export function ChampRef({
   modifie?: boolean;
   aide?: string;
   className?: string;
-}) {
+}>) {
   return (
     <Enveloppe label={label} htmlFor={id} modifie={modifie} aide={aide} className={className}>
       <RefSelect id={id} value={valeur} onChange={onChange} items={items} size="sm" />
-    </Enveloppe>
-  );
-}
-
-export function ChampTexte({
-  id,
-  label,
-  valeur,
-  onChange,
-  modifie,
-  aide,
-  placeholder,
-  className,
-}: {
-  id: string;
-  label: string;
-  valeur: string;
-  onChange: (v: string) => void;
-  modifie?: boolean;
-  aide?: string;
-  placeholder?: string;
-  className?: string;
-}) {
-  return (
-    <Enveloppe label={label} htmlFor={id} modifie={modifie} aide={aide} className={className}>
-      <Input id={id} value={valeur} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="h-7" />
     </Enveloppe>
   );
 }
@@ -143,7 +116,7 @@ export function ChampNotes({
   lignes = 1,
   className,
   apres,
-}: {
+}: Readonly<{
   id: string;
   label: string;
   valeur: string;
@@ -152,7 +125,7 @@ export function ChampNotes({
   lignes?: number;
   className?: string;
   apres?: number;
-}) {
+}>) {
   return (
     <Enveloppe label={label} htmlFor={id} modifie={modifie} className={cn(classeReste(apres), className)}>
       <Textarea
@@ -166,7 +139,7 @@ export function ChampNotes({
   );
 }
 
-export function GrilleFiche({ children, className }: { children: ReactNode; className?: string }) {
+export function GrilleFiche({ children, className }: Readonly<{ children: ReactNode; className?: string }>) {
   return (
     <div
       className={cn(
@@ -179,7 +152,7 @@ export function GrilleFiche({ children, className }: { children: ReactNode; clas
   );
 }
 
-export function PiedFiche({ children }: { children: ReactNode }) {
+export function PiedFiche({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <p className="col-span-full flex flex-wrap items-center gap-x-1.5 gap-y-0.5 pt-0.5 text-micro text-muted-foreground">
       {children}

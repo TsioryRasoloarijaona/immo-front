@@ -62,13 +62,13 @@ export function EnteteFiche({
   aideCode,
   nom,
   children,
-}: {
+}: Readonly<{
   code?: string | null;
   /** Infobulle du code — portée par un `span`, le badge n'accepte pas de `title`. */
   aideCode?: string;
   nom: ReactNode;
   children?: ReactNode;
-}) {
+}>) {
   return (
     <>
       {code && (

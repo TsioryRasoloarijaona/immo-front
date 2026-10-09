@@ -11,13 +11,13 @@ import { getDossier, getProspection } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { etapeBadgeTone, interactionIcon, personDisplayName, prospectionDisplayName } from '../lib/domain';
 import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
-import { formatCurrency, formatDate, formatDateTime, formatFourchetteSurface, formatPercent, formatTelephone } from '../lib/format';
+import { formatCurrency, formatDate, formatDateTime, formatFourchetteMontant, formatFourchetteSurface, formatPercent, formatTelephone } from '../lib/format';
 import type { DossierListItemDto, HotlineFicheDto, HotlineResultDto, ProspectionListItemDto } from '../types';
 
 type HotlineTab = 'general' | 'prospections' | 'dossiers' | 'reglements' | 'interactions' | 'historique';
 
 // Dépliée sur place plutôt que navigation : l'agent est en ligne, il ne doit pas perdre la fiche.
-function HotlineProspectionRow({ prospection: p, expanded, onToggle }: { prospection: ProspectionListItemDto; expanded: boolean; onToggle: () => void }) {
+function HotlineProspectionRow({ prospection: p, expanded, onToggle }: Readonly<{ prospection: ProspectionListItemDto; expanded: boolean; onToggle: () => void }>) {
   const navigate = useNavigate();
   const detail = useApi(() => (expanded ? getProspection(p.id) : Promise.resolve(null)), [expanded, p.id]);
 
@@ -60,7 +60,7 @@ function HotlineProspectionRow({ prospection: p, expanded, onToggle }: { prospec
                   <Field label="Vocation" value={detail.data.vocation} />
                   <Field label="Type de contact" value={detail.data.typeContact} />
                   <Field label="Surface" value={formatFourchetteSurface(detail.data.surface, detail.data.surfaceJusqua)} />
-                  <Field label="Budget" value={detail.data.prix != null ? `${formatCurrency(detail.data.prix)}${detail.data.prixJusqua ? ` à ${formatCurrency(detail.data.prixJusqua)}` : ''}` : undefined} />
+                  <Field label="Budget" value={formatFourchetteMontant(detail.data.prix, detail.data.prixJusqua)} />
                   <Field label="Avance" value={detail.data.avance != null ? formatCurrency(detail.data.avance) : undefined} />
                   {detail.data.fermee && <Field label="Raison de fermeture" value={detail.data.raisonFermeture || detail.data.raisonFermetureTexte} />}
                 </FieldGrid>
@@ -78,7 +78,7 @@ function HotlineProspectionRow({ prospection: p, expanded, onToggle }: { prospec
   );
 }
 
-function HotlineDossierRow({ dossier: d, expanded, onToggle }: { dossier: DossierListItemDto; expanded: boolean; onToggle: () => void }) {
+function HotlineDossierRow({ dossier: d, expanded, onToggle }: Readonly<{ dossier: DossierListItemDto; expanded: boolean; onToggle: () => void }>) {
   const navigate = useNavigate();
   const detail = useApi(() => (expanded ? getDossier(d.id) : Promise.resolve(null)), [expanded, d.id]);
 
@@ -144,7 +144,7 @@ function HotlineDossierRow({ dossier: d, expanded, onToggle }: { dossier: Dossie
   );
 }
 
-function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
+function FicheCard({ fiche }: Readonly<{ fiche: HotlineFicheDto }>) {
   const navigate = useNavigate();
   const { tier } = fiche;
   const name = personDisplayName(tier);
@@ -384,15 +384,22 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
   );
 }
 
+function libelleResultat(parNom: boolean, connu: boolean | undefined, nbFiches: number): string {
+  if (!parNom) return connu ? 'Numéro connu' : 'Numéro inconnu';
+  if (!connu) return 'Nom inconnu';
+  const s = nbFiches > 1 ? 's' : '';
+  return `${nbFiches} fiche${s} trouvée${s}`;
+}
+
 export default function HotlineResultat({
   data,
   query,
   onCreerFiche,
-}: {
+}: Readonly<{
   data: HotlineResultDto;
   query: string;
   onCreerFiche?: (prospectionId: string) => void;
-}) {
+}>) {
   const fiches = data.fiches ?? [];
   const appelsSansFiche = data.appelsSansFiche ?? [];
 
@@ -419,13 +426,7 @@ export default function HotlineResultat({
             </div>
           </div>
           <Badge tone={data.connu ? 'success' : 'neutral'}>
-            {data.critere === 'NOM'
-              ? data.connu
-                ? `${fiches.length} fiche${fiches.length > 1 ? 's' : ''} trouvée${fiches.length > 1 ? 's' : ''}`
-                : 'Nom inconnu'
-              : data.connu
-                ? 'Numéro connu'
-                : 'Numéro inconnu'}
+            {libelleResultat(data.critere === 'NOM', data.connu, fiches.length)}
           </Badge>
         </div>
       </Card>

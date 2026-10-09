@@ -49,7 +49,7 @@ export default function NewProspect() {
     setSubmitError(null);
     try {
       const prospect = await createProspect({ ...form, ignorerDoublons: ignorerDoublons || undefined });
-      navigate(`/prospects/${prospect.id}`);
+      void navigate(`/prospects/${prospect.id}`);
     } catch (err) {
       const trouves = doublonsDepuisErreur(err);
       if (trouves && trouves.length > 0) {

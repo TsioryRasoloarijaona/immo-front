@@ -23,7 +23,7 @@ import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
 import { estAdministrateur } from '../lib/roles';
 
-export default function Layout({ children }: { children: ReactNode }) {
+export default function Layout({ children }: Readonly<{ children: ReactNode }>) {
   const location = useLocation();
   const activeModule = moduleForPath(location.pathname);
   const { user, logout } = useAuth();

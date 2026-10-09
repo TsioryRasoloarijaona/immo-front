@@ -14,13 +14,13 @@ export default function ProspectionExistanteNotice({
   message,
   onOuvrir,
   ouvrirEnDialogue,
-}: {
+}: Readonly<{
   existante: ProspectionExistanteDto;
   message?: string | null;
   onOuvrir?: () => void;
   /** Ouvre la fiche existante sans naviguer (remplace le lien et `onOuvrir`). */
   ouvrirEnDialogue?: (id: string) => void;
-}) {
+}>) {
   const details = [
     existante.projetCode && `Projet ${existante.projetCode}`,
     existante.trancheCode && existante.trancheCode !== existante.projetCode && `Tranche ${existante.trancheCode}`,

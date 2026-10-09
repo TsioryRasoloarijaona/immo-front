@@ -1,0 +1,22 @@
+name: Qualité front
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  qualite:
+    name: Qualité front
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Ni .nvmrc ni `engines` dans package.json : Node 22 (LTS), comme prévu par FEATURE-outils-qualite-front.md §4.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run qualite
+      - run: npm run build

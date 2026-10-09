@@ -12,14 +12,14 @@ export default function ArticleCompactPreview({
   bare,
   actions,
   defaultExpanded,
-}: {
+}: Readonly<{
   article: ArticleDetailDto | null;
   loading?: boolean;
   emptyLabel?: string;
   bare?: boolean;
   actions?: ReactNode;
   defaultExpanded?: boolean;
-}) {
+}>) {
   const [expanded, setExpanded] = useState(!!defaultExpanded);
   if (loading) return <p className="text-body text-muted-foreground">Chargement…</p>;
   if (!article) return <span className="text-body text-muted-foreground">{emptyLabel}</span>;

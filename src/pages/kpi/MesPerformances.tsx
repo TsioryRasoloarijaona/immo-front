@@ -8,7 +8,7 @@ import { KpiFamilySection, RankBarRow, RatioStat } from '../../components/kpi/Kp
 import { ApiError, getMesPerformances } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { formatCurrency, formatDate, formatHeures, formatNumber } from '../../lib/format';
-import type { PerformanceCommercialDto } from '../../types';
+import type { ActionParTypeDto, PerformanceCommercialDto } from '../../types';
 
 /* 404 = compte sans fiche employé, pas une panne. `useApi` aplatit les erreurs et perd
    le `status` : le 404 est donc replié dans la valeur de succès (union discriminée). */
@@ -23,6 +23,20 @@ function chargerMesPerformances(periode: Periode): Promise<MesPerformancesResult
       if (err instanceof ApiError && err.status === 404) return { sansEmploye: true };
       throw err;
     });
+}
+
+function ActionsParTypeCard({ actions }: Readonly<{ actions: ActionParTypeDto[] }>) {
+  if (actions.length === 0) return null;
+  const max = Math.max(0, ...actions.map((x) => x.nombre ?? 0));
+  return (
+    <Card title="Actions par type">
+      <div className="flex flex-col">
+        {actions.map((a) => (
+          <RankBarRow key={a.type || '(sans type)'} label={a.type || '(sans type)'} value={a.nombre ?? 0} max={max} />
+        ))}
+      </div>
+    </Card>
+  );
 }
 
 export default function MesPerformances() {
@@ -100,20 +114,7 @@ export default function MesPerformances() {
                   />
                   <StatCard icon={<ListChecks />} label="Actions" value={formatNumber(data.interactionsTotal)} sub="hors « Système »" tone="neutral" />
                 </div>
-                {(data.actionsParType?.length ?? 0) > 0 && (
-                  <Card title="Actions par type">
-                    <div className="flex flex-col">
-                      {data.actionsParType!.map((a) => (
-                        <RankBarRow
-                          key={a.type || '(sans type)'}
-                          label={a.type || '(sans type)'}
-                          value={a.nombre ?? 0}
-                          max={Math.max(0, ...data.actionsParType!.map((x) => x.nombre ?? 0))}
-                        />
-                      ))}
-                    </div>
-                  </Card>
-                )}
+                <ActionsParTypeCard actions={data.actionsParType ?? []} />
               </KpiFamilySection>
 
               <KpiFamilySection

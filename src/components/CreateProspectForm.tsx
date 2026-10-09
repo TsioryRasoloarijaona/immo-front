@@ -46,14 +46,14 @@ function RefSelect({
   onChange,
   items,
   disabled,
-}: {
+}: Readonly<{
   id: string;
   label: string;
   value: string | null;
   onChange: (v: string | null) => void;
   items: { label: string; value: string }[];
   disabled?: boolean;
-}) {
+}>) {
   const allItems = [{ label: '— Non renseigné —', value: '' }, ...items];
   return (
     <FormField>
@@ -61,7 +61,7 @@ function RefSelect({
       <Select
         items={allItems}
         value={value ?? ''}
-        onValueChange={(v) => onChange((v as string) || null)}
+        onValueChange={(v) => onChange((v) || null)}
         disabled={disabled}
       >
         <SelectTrigger id={id}>
@@ -84,12 +84,12 @@ export default function CreateProspectForm({
   initial,
   onClose,
   onSubmit,
-}: {
+}: Readonly<{
   preProspectionId: string;
   initial?: CreateProspectInitial;
   onClose: () => void;
   onSubmit: (updated: ProspectionDetailDto, mode: 'cree' | 'rattache') => void;
-}) {
+}>) {
   const [prenom, setPrenom] = useState(initial?.firstName ?? '');
   const [nom, setNom] = useState(initial?.lastName ?? '');
   const [telephone, setTelephone] = useState(initial?.phone ?? '');
@@ -235,7 +235,7 @@ export default function CreateProspectForm({
     }
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!prenom.trim() || !nom.trim() || !telephone.trim()) return;
     await envoyer(false);

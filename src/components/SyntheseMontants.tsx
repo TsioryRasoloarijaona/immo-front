@@ -12,12 +12,12 @@ function Ligne({
   valeurs,
   synthese,
   detail,
-}: {
+}: Readonly<{
   libelle: string;
   valeurs: SyntheseMontantDto | undefined;
   synthese?: boolean;
   detail?: string;
-}) {
+}>) {
   if (!valeurs) return null;
   const reste = valeurs.reste ?? 0;
   return (
@@ -54,11 +54,11 @@ function Ligne({
 export default function SyntheseMontants({
   montants,
   probabiliteFinalisation,
-}: {
+}: Readonly<{
   montants: MontantsDossierDto;
   /** Fraction, pas pourcentage : `1` vaut 100 %. */
   probabiliteFinalisation?: number;
-}) {
+}>) {
   const categories = montants.parCategorie ?? [];
 
   return (

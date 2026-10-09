@@ -72,19 +72,21 @@ const SECTIONS: RuleSection[] = [
   },
 ];
 
-function renderValue(fmt: FieldFmt, value: unknown) {
+function ValeurRegle({ fmt, value }: Readonly<{ fmt: FieldFmt; value: unknown }>) {
   const empty = <span className="font-normal text-muted-foreground">—</span>;
+  // 0 vaut « non défini » pour toutes ces règles, pas une valeur à afficher.
+  const positif = typeof value === 'number' && value > 0 ? value : null;
   switch (fmt) {
     case 'percent':
-      return typeof value === 'number' && value ? formatPercent(value, 2) : empty;
+      return typeof value === 'number' && value ? <>{formatPercent(value, 2)}</> : empty;
     case 'currency':
-      return typeof value === 'number' && value > 0 ? formatCurrency(value) : <span className="font-normal text-muted-foreground">Non défini</span>;
+      return positif === null ? <span className="font-normal text-muted-foreground">Non défini</span> : <>{formatCurrency(positif)}</>;
     case 'days':
-      return typeof value === 'number' && value > 0 ? `${value} jours` : empty;
+      return positif === null ? empty : <>{positif} jours</>;
     case 'hours':
-      return typeof value === 'number' && value > 0 ? `${value} h` : empty;
+      return positif === null ? empty : <>{positif} h</>;
     case 'number':
-      return typeof value === 'number' && value > 0 ? String(value) : empty;
+      return positif === null ? empty : <>{positif}</>;
     case 'toggle':
       return <TogglePill on={Boolean(value)} />;
     default:
@@ -176,7 +178,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
                   {section.fields.map((f) => (
                     <div className="bg-card px-3.5 py-2" key={String(f.key)}>
                       <div className="mb-0.5 text-micro text-muted-foreground">{f.label}</div>
-                      <div className="flex items-center gap-1.5 text-label font-semibold text-foreground">{renderValue(f.fmt, t[f.key])}</div>
+                      <div className="flex items-center gap-1.5 text-label font-semibold text-foreground"><ValeurRegle fmt={f.fmt} value={t[f.key]} /></div>
                     </div>
                   ))}
                 </div>
@@ -234,7 +236,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
                       className="cursor-pointer"
                       onClick={() => navigate(`/articles/${a.id}`)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') navigate(`/articles/${a.id}`);
+                        if (e.key === 'Enter') void navigate(`/articles/${a.id}`);
                       }}
                     >
                       <TableCell className="font-medium text-foreground">{a.code}</TableCell>

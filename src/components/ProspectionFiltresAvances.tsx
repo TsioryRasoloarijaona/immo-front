@@ -23,7 +23,7 @@ const TERNAIRE: { label: string; value: FiltresAvancesState['ancienClient'] }[] 
   { label: 'Non', value: 'non' },
 ];
 
-function Ligne({ label, aide, children }: { label: string; aide?: string; children: ReactNode }) {
+function Ligne({ label, aide, children }: Readonly<{ label: string; aide?: string; children: ReactNode }>) {
   return (
     <div className="flex flex-col gap-1">
       <span className="text-micro font-medium text-muted-foreground">{label}</span>
@@ -33,7 +33,7 @@ function Ligne({ label, aide, children }: { label: string; aide?: string; childr
   );
 }
 
-function Section({ titre, children }: { titre: string; children: ReactNode }) {
+function Section({ titre, children }: Readonly<{ titre: string; children: ReactNode }>) {
   return (
     <section className="flex flex-col gap-3 border-b border-border pb-4 last:border-b-0 last:pb-0">
       <h3 className="text-label font-semibold text-foreground">{titre}</h3>
@@ -49,11 +49,11 @@ export default function ProspectionFiltresAvances({
   state,
   onChange,
   onReset,
-}: {
+}: Readonly<{
   state: FiltresAvancesState;
   onChange: <K extends keyof FiltresAvancesState>(key: K, value: FiltresAvancesState[K]) => void;
   onReset: () => void;
-}) {
+}>) {
   const projets = useProjetsReferentiel();
   const societes = useEntitesReferentiel();
   const vocations = useVocations();

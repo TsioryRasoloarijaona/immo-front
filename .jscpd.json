@@ -1,0 +1,9 @@
+{
+  "path": ["src"],
+  "format": ["typescript", "tsx"],
+  "ignore": ["src/components/ui/**", "src/types.ts", "src/harness-densite.tsx"],
+  "minTokens": 70,
+  "threshold": 3,
+  "reporters": ["console"],
+  "gitignore": true
+}

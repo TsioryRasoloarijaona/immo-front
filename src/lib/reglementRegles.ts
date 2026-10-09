@@ -1,5 +1,5 @@
 import { ApiError } from './api';
-import { reglementStatutLabel } from './domain';
+import { encaissementEtatLabel } from './domain';
 
 /* Hors de `ReglementPreuves.tsx` exprès : un module qui exporte des composants ne
  * peut rien exporter d'autre (`react-refresh/only-export-components`). */
@@ -16,6 +16,6 @@ export function messageErreurStatut(err: unknown): string {
   if (!(err instanceof ApiError) || err.status !== 409) return base;
   const permises = err.problem?.transitionsAutorisees;
   if (!Array.isArray(permises) || permises.length === 0) return base;
-  const libelles = permises.map((t) => reglementStatutLabel(String(t))).join(', ');
+  const libelles = permises.map((t) => encaissementEtatLabel(String(t))).join(', ');
   return `${base} Transitions possibles : ${libelles}.`;
 }

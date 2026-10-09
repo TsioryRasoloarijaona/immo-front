@@ -9,6 +9,7 @@ import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import ProspectTable from '../../components/ProspectTable';
+import EtatColonnes from '../../components/EtatColonnes';
 import { DEFAULT_PAGE_SIZE, listProspects } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useColonnesVisibles } from '../../lib/colonnes';
@@ -57,6 +58,17 @@ export default function ProspectsList() {
   // `type` porte le *code* du type de tiers (« PRO »), pas sa `description` : filtrer sur `code`.
   const typeItems = tierTypes.data.map((t) => ({ label: t.description || t.code || t.id, value: t.code || t.id }));
 
+  const grille = (
+    <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
+      <ProspectTable
+        rows={rows}
+        colonnes={colonnes.colonnes}
+        cleOrdre="prospects"
+        onOuvrir={(id) => navigate(`/prospects/${id}`)}
+      />
+    </EtatColonnes>
+  );
+
   return (
     <PageShell
       title="Prospects"
@@ -95,7 +107,7 @@ export default function ProspectsList() {
           <ResultsRegion loading={loading}>
             <div className="flex shrink-0 items-center justify-between gap-3">
               <div className="text-body text-muted-foreground">
-                {(data?.totalElements ?? 0)} prospect{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+                {data.totalElements} prospect{data.totalElements > 1 ? 's' : ''}
               </div>
               {colonnes.catalogueServi.length > 0 && (
                 <ColumnSelector
@@ -127,24 +139,11 @@ export default function ProspectsList() {
               /* `min-w-0` : sans lui la largeur de la table remonte la chaîne flex
                  et élargit la page au lieu de défiler. */
               <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                {colonnes.colonnes.length > 0 ? (
-                  <ProspectTable
-                    rows={rows}
-                    colonnes={colonnes.colonnes}
-                    cleOrdre="prospects"
-                    onOuvrir={(id) => navigate(`/prospects/${id}`)}
-                  />
-                ) : catalogue.error ? (
-                  <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
-                ) : (
-                  <LoadingState />
-                )}
+                {grille}
               </div>
             )}
             <div className="shrink-0">
-              {data && (
-                <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
-              )}
+              <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
             </div>
           </ResultsRegion>
         )}

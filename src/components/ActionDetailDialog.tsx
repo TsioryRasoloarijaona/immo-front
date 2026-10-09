@@ -11,21 +11,23 @@ import { useApi } from '../lib/useApi';
 import { LIBELLES_GROUPE } from '../lib/colonnes';
 import { DISPOSITION_SUIVI_ACTIONS } from '../lib/dispositions';
 import { personDisplayName } from '../lib/domain';
-import { formatDateTime, formatNumber, formatTelephone } from '../lib/format';
+import { formatDateTime, formatNumber, formatTelephone, texteBrut } from '../lib/format';
 import type { ColonneDto, SuiviActionDto } from '../types';
 
 function formater(c: ColonneDto, v: unknown): string {
   if (v === null || v === undefined || v === '') return '';
   switch (c.type) {
     case 'DATE':
-      return formatDateTime(String(v));
-    case 'BOOLEEN':
-      return v ? 'Oui' : 'Non';
+      return formatDateTime(texteBrut(v));
+    case 'BOOLEEN': {
+      const vrai = Boolean(v);
+      return vrai ? 'Oui' : 'Non';
+    }
     case 'NOMBRE':
     case 'MONTANT':
       return formatNumber(Number(v));
     default:
-      return String(v);
+      return texteBrut(v);
   }
 }
 
@@ -34,15 +36,64 @@ function hrefTel(numero: string, indicatif?: string | null): string {
   return indicatif ? `tel:+${indicatif.replace(/\D/g, '')}${chiffres.replace(/^0/, '')}` : `tel:${chiffres}`;
 }
 
+function titreBoutonHotline(
+  enAttente: boolean,
+  critereDisponible: boolean,
+  avecFiche: boolean,
+  telephoneAffiche: string | null,
+): string {
+  if (enAttente) return 'Chargement de la fiche…';
+  if (critereDisponible) return `Rechercher ${telephoneAffiche} dans la hotline`;
+  if (avecFiche) return 'Aucun numéro sur la fiche : la hotline se cherche par téléphone.';
+  return 'Aucune fiche rattachée, donc aucun numéro à chercher.';
+}
+
+function CoordonneesFiche({
+  numero,
+  indicatif,
+  telephoneAffiche,
+  email,
+}: Readonly<{
+  numero: string | null;
+  indicatif?: string | null;
+  telephoneAffiche: string | null;
+  email?: string | null;
+}>) {
+  return (
+    <>
+      <span className="inline-flex items-center gap-1.5">
+        <Phone aria-hidden className="size-3 shrink-0 text-muted-foreground" />
+        {telephoneAffiche && numero ? (
+          <a href={hrefTel(numero, indicatif)} className="font-medium text-foreground underline-offset-2 hover:underline">
+            {telephoneAffiche}
+          </a>
+        ) : (
+          <span className="text-muted-foreground">Aucun numéro</span>
+        )}
+      </span>
+      <span className="inline-flex min-w-0 items-center gap-1.5">
+        <Mail aria-hidden className="size-3 shrink-0 text-muted-foreground" />
+        {email ? (
+          <a href={`mailto:${email}`} className="truncate font-medium text-foreground underline-offset-2 hover:underline">
+            {email}
+          </a>
+        ) : (
+          <span className="text-muted-foreground">Aucun email</span>
+        )}
+      </span>
+    </>
+  );
+}
+
 export default function ActionDetailDialog({
   action,
   catalogue,
   onClose,
-}: {
+}: Readonly<{
   action: SuiviActionDto;
   catalogue: ColonneDto[];
   onClose: () => void;
-}) {
+}>) {
   const navigate = useNavigate();
   const [critereHotline, setCritereHotline] = useState<CritereHotline | null>(null);
 
@@ -78,6 +129,19 @@ export default function ActionDetailDialog({
 
   const titre = [action.typeAction, action.tiersNom].filter(Boolean).join(' — ') || 'Action';
 
+  let etatFiche;
+  if (!action.tiersId) {
+    etatFiche = <span className="text-muted-foreground">Aucune fiche rattachée à cette action.</span>;
+  } else if (prospect.loading && !fiche) {
+    etatFiche = <span className="text-muted-foreground">Chargement de la fiche…</span>;
+  } else if (prospect.error && !fiche) {
+    etatFiche = <span className="text-destructive">{prospect.error}</span>;
+  } else {
+    etatFiche = (
+      <CoordonneesFiche numero={numero} indicatif={indicatif} telephoneAffiche={telephoneAffiche} email={fiche?.email} />
+    );
+  }
+
   return (
     <Modal title={titre} onClose={onClose} width={720}>
       <div className="flex flex-col gap-4">
@@ -100,36 +164,7 @@ export default function ActionDetailDialog({
                 {fiche?.estAncienClient && <Badge tone="success">Ancien client</Badge>}
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-label">
-                {!action.tiersId ? (
-                  <span className="text-muted-foreground">Aucune fiche rattachée à cette action.</span>
-                ) : prospect.loading && !fiche ? (
-                  <span className="text-muted-foreground">Chargement de la fiche…</span>
-                ) : prospect.error && !fiche ? (
-                  <span className="text-destructive">{prospect.error}</span>
-                ) : (
-                  <>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Phone aria-hidden className="size-3 shrink-0 text-muted-foreground" />
-                      {telephoneAffiche && numero ? (
-                        <a href={hrefTel(numero, indicatif)} className="font-medium text-foreground underline-offset-2 hover:underline">
-                          {telephoneAffiche}
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">Aucun numéro</span>
-                      )}
-                    </span>
-                    <span className="inline-flex min-w-0 items-center gap-1.5">
-                      <Mail aria-hidden className="size-3 shrink-0 text-muted-foreground" />
-                      {fiche?.email ? (
-                        <a href={`mailto:${fiche.email}`} className="truncate font-medium text-foreground underline-offset-2 hover:underline">
-                          {fiche.email}
-                        </a>
-                      ) : (
-                        <span className="text-muted-foreground">Aucun email</span>
-                      )}
-                    </span>
-                  </>
-                )}
+                {etatFiche}
               </div>
             </div>
           </div>
@@ -144,15 +179,7 @@ export default function ActionDetailDialog({
               variant="outline"
               size="sm"
               disabled={hotlineEnAttente || !critereDisponible}
-              title={
-                hotlineEnAttente
-                  ? 'Chargement de la fiche…'
-                  : !critereDisponible
-                    ? action.tiersId
-                      ? 'Aucun numéro sur la fiche : la hotline se cherche par téléphone.'
-                      : 'Aucune fiche rattachée, donc aucun numéro à chercher.'
-                    : `Rechercher ${telephoneAffiche} dans la hotline`
-              }
+              title={titreBoutonHotline(hotlineEnAttente, critereDisponible !== null, !!action.tiersId, telephoneAffiche)}
               onClick={() => critereDisponible && setCritereHotline(critereDisponible)}
             >
               <Phone data-icon="inline-start" /> Voir hotline

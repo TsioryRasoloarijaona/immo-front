@@ -43,6 +43,22 @@ function depuis(o: Ordre): Brouillon {
 }
 
 /** Seuls les champs changés partent dans le `PATCH` : le service refait le PDF dès qu'un champ imprimé change. */
+/** Seuls les champs modifiés partent. `null` : montant saisi invalide. */
+function corpsModification(b: Brouillon, changes: (keyof Brouillon)[]): ModifierOrdre | null {
+  const corps: ModifierOrdre = {};
+  for (const k of changes) {
+    if (k === 'montant') {
+      const n = Number(b.montant.replace(',', '.'));
+      if (!Number.isFinite(n) || n <= 0) return null;
+      corps.montant = n;
+    } else if (k === 'societe_id') corps.societe_id = Number(b.societe_id);
+    else if (k === 'statut') corps.statut = b.statut;
+    else if (k === 'type_virement') corps.type_virement = b.type_virement;
+    else corps[k] = b[k].trim();
+  }
+  return corps;
+}
+
 export default function ModifierOrdreDialog({
   ordre,
   meta,
@@ -86,23 +102,17 @@ export default function ModifierOrdreDialog({
     maj(connu ? { fournisseur_nom: nom, rib: connu.rib } : { fournisseur_nom: nom });
   }
 
-  async function enregistrer(e: React.FormEvent) {
+  async function enregistrer(e: React.SyntheticEvent) {
     e.preventDefault();
     if (enCours) return;
     if (!modifie) {
       toasts.notifier('Aucune modification à enregistrer.', 'avertissement');
       return;
     }
-    const corps: ModifierOrdre = {};
-    for (const k of changes) {
-      if (k === 'montant') {
-        const n = Number(b.montant.replace(',', '.'));
-        if (!Number.isFinite(n) || n <= 0) return setErreur('Le montant doit être supérieur à zéro.');
-        corps.montant = n;
-      } else if (k === 'societe_id') corps.societe_id = Number(b.societe_id);
-      else if (k === 'statut') corps.statut = b.statut;
-      else if (k === 'type_virement') corps.type_virement = b.type_virement;
-      else corps[k] = b[k].trim();
+    const corps = corpsModification(b, changes);
+    if (!corps) {
+      setErreur('Le montant doit être supérieur à zéro.');
+      return;
     }
     setErreur(null);
     setEnCours(true);

@@ -21,12 +21,12 @@ export default function Pagination({
   totalPages,
   totalElements,
   onPageChange,
-}: {
+}: Readonly<{
   page: number;
   totalPages: number;
   totalElements: number;
   onPageChange: (page: number) => void;
-}) {
+}>) {
   if (totalPages <= 1) return null;
 
   return (

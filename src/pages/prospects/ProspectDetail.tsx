@@ -31,7 +31,7 @@ import { useToast } from '../../lib/toastContext';
 import { routeFicheProspection } from '../../lib/parcours';
 import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-import { formatCurrency, formatDate, formatFourchetteSurface, formatPercent, formatTelephone } from '../../lib/format';
+import { formatCurrency, formatDate, formatFourchetteMontant, formatFourchetteSurface, formatPercent, formatTelephone } from '../../lib/format';
 import TelephoneField from '../../components/TelephoneField';
 import ContactsProspect from '../../components/ContactsProspect';
 import type { DossierListItemDto, ModifierProspectRequest, ProspectionDetailDto, ProspectionListItemDto } from '../../types';
@@ -42,9 +42,10 @@ type ProspectTab = 'general' | 'contacts' | 'prospections' | 'dossiers' | 'regle
 
 // Sert `/prospects/:id` et `/clients/:id` : `GET /api/clients/{id}` renvoie le même `ProspectDetailDto`.
 export default function ProspectDetail() {
-  const { id } = useParams();
+  // Les deux routes `:id` garantissent le paramètre.
+  const { id = '' } = useParams();
   const location = useLocation();
-  return <FicheProspect key={id} id={id!}client={location.pathname.startsWith('/clients')} />;
+  return <FicheProspect key={id} id={id} client={location.pathname.startsWith('/clients')} />;
 }
 
 export function FicheProspect({
@@ -319,7 +320,7 @@ export function FicheProspect({
               }}
               onRemove={async (linkId) => {
                 await removeProspectContact(person.id, linkId);
-                contacts.refetch();
+                void contacts.refetch();
               }}
             />
           </Card>
@@ -512,7 +513,7 @@ function ProspectionRow({
                   <Field label="Type de contact" value={detail.data.typeContact} />
                   <Field label="Action commerciale" value={detail.data.actionCommerciale} />
                   <Field label="Surface" value={formatFourchetteSurface(detail.data.surface, detail.data.surfaceJusqua)} />
-                  <Field label="Budget" value={detail.data.prix != null ? `${formatCurrency(detail.data.prix)}${detail.data.prixJusqua ? ` à ${formatCurrency(detail.data.prixJusqua)}` : ''}` : undefined} />
+                  <Field label="Budget" value={formatFourchetteMontant(detail.data.prix, detail.data.prixJusqua)} />
                   <Field label="Avance" value={detail.data.avance != null ? formatCurrency(detail.data.avance) : undefined} />
                   <Field label="Financement fonds propres" value={detail.data.financementFondsPropres != null ? formatCurrency(detail.data.financementFondsPropres) : undefined} />
                   <Field label="Financement crédit" value={detail.data.financementCredit != null ? formatCurrency(detail.data.financementCredit) : undefined} />

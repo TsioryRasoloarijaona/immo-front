@@ -85,7 +85,7 @@ export default function ProspectionTable({
   bandeauRegroupement,
   groupes,
   actions,
-}: {
+}: Readonly<{
   rows: ProspectionListItemDto[];
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
@@ -96,7 +96,7 @@ export default function ProspectionTable({
   /** Même DTO pour les deux écrans : c'est ce que le lecteur d'écran annonce par ligne. */
   entite?: 'prospection' | 'pré-prospection';
   actions?: (p: ProspectionListItemDto) => ReactNode;
-}) {
+}>) {
   /* Piloté par `c.nom`/`c.type`, pas par une liste en dur : une colonne ajoutée
      côté serveur s'affiche sans toucher à ce fichier. */
   const grille = useMemo<ColonneGrille<ProspectionListItemDto>[]>(

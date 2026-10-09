@@ -12,7 +12,7 @@ const FicheProspectDialog = lazy(() => import('./FicheProspectDialog'));
 
 type FicheEmpilee = FicheCible & { cle: number };
 
-export function PreviewProvider({ children }: { children: ReactNode }) {
+export function PreviewProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [target, setTarget] = useState<PreviewTarget | null>(null);
   const [pile, setPile] = useState<FicheEmpilee[]>([]);
   const prochaineCle = useRef(0);

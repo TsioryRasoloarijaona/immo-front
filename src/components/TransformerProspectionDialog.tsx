@@ -21,14 +21,14 @@ export default function TransformerProspectionDialog({
   commercialItems,
   onClose,
   onSubmit,
-}: {
+}: Readonly<{
   initialCommercialId?: string | null;
   initialTrancheId?: string | null;
   initialArticleId?: string | null;
   commercialItems: { label: string; value: string }[];
   onClose: () => void;
   onSubmit: (body: TransformerProspectionRequest) => Promise<void>;
-}) {
+}>) {
   const [commercialId, setCommercialId] = useState<string | null>(initialCommercialId ?? null);
   const [trancheId, setTrancheId] = useState<string | null>(initialTrancheId ?? null);
   const [articleId, setArticleId] = useState<string | null>(initialArticleId ?? null);
@@ -70,7 +70,7 @@ export default function TransformerProspectionDialog({
       <div className="flex flex-col gap-3.5">
         <FormField>
           <FieldLabel htmlFor="tf-commercial">Commercial *</FieldLabel>
-          <Select items={commercialItems} value={commercialId} onValueChange={(v) => setCommercialId((v as string) || null)}>
+          <Select items={commercialItems} value={commercialId} onValueChange={(v) => setCommercialId((v) || null)}>
             <SelectTrigger id="tf-commercial" className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
             <SelectContent><SelectGroup>{commercialItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
           </Select>
@@ -93,7 +93,7 @@ export default function TransformerProspectionDialog({
         </FormField>
         <FormField>
           <FieldLabel htmlFor="tf-article">Article (optionnel)</FieldLabel>
-          <Select items={articleItems} value={articleId} onValueChange={(v) => setArticleId((v as string) || null)} disabled={!trancheId}>
+          <Select items={articleItems} value={articleId} onValueChange={(v) => setArticleId((v) || null)} disabled={!trancheId}>
             <SelectTrigger id="tf-article" className="w-full">
               <SelectValue placeholder={trancheId ? 'Choisir…' : 'Choisir une tranche d\'abord'} />
             </SelectTrigger>

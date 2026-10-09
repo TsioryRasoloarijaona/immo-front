@@ -72,14 +72,14 @@ export default function EncaissementTable({
   cleOrdre,
   bandeauRegroupement,
   groupes,
-}: {
+}: Readonly<{
   rows: EncaissementDto[];
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
   cleOrdre?: string;
   bandeauRegroupement?: boolean;
   groupes?: GroupementGrille<EncaissementDto>;
-}) {
+}>) {
   const grille = useMemo<ColonneGrille<EncaissementDto>[]>(
     () =>
       colonnes.map((c) => ({

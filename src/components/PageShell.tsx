@@ -31,7 +31,7 @@ export default function PageShell({
   fullHeight = false,
   entete,
   children,
-}: {
+}: Readonly<{
   /** Le seul `<h1>` de la page : tout ce qu'elle rend en dessous est h2 ou plus. */
   title: string;
   crumbs?: Crumb[];
@@ -44,7 +44,7 @@ export default function PageShell({
   fullHeight?: boolean;
   entete?: ReactNode;
   children: ReactNode;
-}) {
+}>) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const { user } = useAuth();
   const isCommercial = user?.roles?.includes('Commercial') ?? false;

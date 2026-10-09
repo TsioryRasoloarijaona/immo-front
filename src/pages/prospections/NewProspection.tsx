@@ -302,43 +302,47 @@ export default function NouvelleProspectionDialog({
     });
   }
 
+  /** `null` : pas de fiche à rattacher (doublons proposés ou erreur affichée). */
+  async function obtenirProspectId(ignorerDoublons: boolean): Promise<string | null> {
+    if (prospectMode === 'existing') return selectedProspect?.id ?? null;
+    try {
+      const cree = await createProspect({ ...newProspectForm, ignorerDoublons: ignorerDoublons || undefined });
+      // Bascule en mode « existant » : si la prospection échoue, un second clic ne doit pas
+      // recréer la fiche (409 doublon contre elle-même).
+      setDoublons(null);
+      choisirDoublon({
+        id: cree.id,
+        code: cree.code,
+        prenom: cree.prenom,
+        nomFamille: cree.nom,
+        raisonSociale: cree.raisonSociale,
+        telephone: cree.telephone,
+        mobile: cree.mobile,
+        email: cree.email,
+        ville: cree.ville,
+        criteres: [],
+      });
+      return cree.id;
+    } catch (err) {
+      const trouves = doublonsDepuisErreur(err);
+      if (trouves && trouves.length > 0) setDoublons(trouves);
+      else {
+        setDoublons(null);
+        setSubmitError(err instanceof Error ? err.message : 'Échec de la création du prospect.');
+      }
+      return null;
+    }
+  }
+
   async function handleCreate(ignorerDoublons = false) {
     if (!canCreate || !trancheId || !etapeId || !typeContactId || !origineId) return;
     setSubmitting(true);
     setSubmitError(null);
     setExistante(null);
-    let prospectId: string;
-    if (prospectMode === 'existing') {
-      prospectId = selectedProspect!.id;
-    } else {
-      try {
-        const cree = await createProspect({ ...newProspectForm, ignorerDoublons: ignorerDoublons || undefined });
-        prospectId = cree.id;
-        // Bascule en mode « existant » : si la prospection échoue, un second clic ne doit pas
-        // recréer la fiche (409 doublon contre elle-même).
-        setDoublons(null);
-        choisirDoublon({
-          id: cree.id,
-          code: cree.code,
-          prenom: cree.prenom,
-          nomFamille: cree.nom,
-          raisonSociale: cree.raisonSociale,
-          telephone: cree.telephone,
-          mobile: cree.mobile,
-          email: cree.email,
-          ville: cree.ville,
-          criteres: [],
-        });
-      } catch (err) {
-        const trouves = doublonsDepuisErreur(err);
-        if (trouves && trouves.length > 0) setDoublons(trouves);
-        else {
-          setDoublons(null);
-          setSubmitError(err instanceof Error ? err.message : 'Échec de la création du prospect.');
-        }
-        setSubmitting(false);
-        return;
-      }
+    const prospectId = await obtenirProspectId(ignorerDoublons);
+    if (!prospectId) {
+      setSubmitting(false);
+      return;
     }
     try {
       const body: CreerProspectionRequest = {
@@ -357,7 +361,7 @@ export default function NouvelleProspectionDialog({
       };
       const prospection = await createProspection(body);
       if (onCree) onCree(prospection);
-      else navigate(`/prospections/${prospection.id}`);
+      else void navigate(`/prospections/${prospection.id}`);
     } catch (err) {
       setExistante(prospectionExistanteDepuisErreur(err));
       setSubmitError(err instanceof Error ? err.message : 'Échec de la création.');
@@ -382,70 +386,70 @@ export default function NouvelleProspectionDialog({
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             <FormField>
               <FieldLabel htmlFor="pr-projet">Projet</FieldLabel>
-              <Select items={projetItems} value={projetId} onValueChange={(v) => { setProjetId((v as string) || null); setTrancheId(null); setArticleId(null); }}>
+              <Select items={projetItems} value={projetId} onValueChange={(v) => { setProjetId((v) || null); setTrancheId(null); setArticleId(null); }}>
                 <SelectTrigger id="pr-projet" className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
                 <SelectContent><SelectGroup>{projetItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pr-tranche">Tranche *</FieldLabel>
-              <Select items={trancheItems} value={trancheId} onValueChange={(v) => { setTrancheId((v as string) || null); setArticleId(null); }} disabled={!projetId}>
+              <Select items={trancheItems} value={trancheId} onValueChange={(v) => { setTrancheId((v) || null); setArticleId(null); }} disabled={!projetId}>
                 <SelectTrigger id="pr-tranche" className="w-full"><SelectValue placeholder={projetId ? 'Choisir…' : 'Choisir un projet d\'abord'} /></SelectTrigger>
                 <SelectContent><SelectGroup>{trancheItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pr-article">Article (optionnel)</FieldLabel>
-              <Select items={articleItems} value={articleId} onValueChange={(v) => setArticleId((v as string) || null)} disabled={!trancheId}>
+              <Select items={articleItems} value={articleId} onValueChange={(v) => setArticleId((v) || null)} disabled={!trancheId}>
                 <SelectTrigger id="pr-article" className="w-full"><SelectValue placeholder={trancheId ? 'Choisir…' : 'Choisir une tranche d\'abord'} /></SelectTrigger>
                 <SelectContent><SelectGroup>{articleItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pr-commercial">Commercial</FieldLabel>
-              <Select items={commercialItems} value={prospectionCommercialId} onValueChange={(v) => setProspectionCommercialId((v as string) || null)}>
+              <Select items={commercialItems} value={prospectionCommercialId} onValueChange={(v) => setProspectionCommercialId((v) || null)}>
                 <SelectTrigger id="pr-commercial" className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
                 <SelectContent><SelectGroup>{commercialItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pr-nature">Nature *</FieldLabel>
-              <Select items={etapeItems} value={etapeId} onValueChange={(v) => setEtapeId((v as string) || null)}>
+              <Select items={etapeItems} value={etapeId} onValueChange={(v) => setEtapeId((v) || null)}>
                 <SelectTrigger id="pr-nature" className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
                 <SelectContent><SelectGroup>{etapeItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pr-typeContact">Type *</FieldLabel>
-              <Select items={typeContactItems} value={typeContactId} onValueChange={(v) => setTypeContactId((v as string) || null)}>
+              <Select items={typeContactItems} value={typeContactId} onValueChange={(v) => setTypeContactId((v) || null)}>
                 <SelectTrigger id="pr-typeContact" className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
                 <SelectContent><SelectGroup>{typeContactItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pr-actionCommerciale">Action commerciale</FieldLabel>
-              <Select items={actionCommercialeItems} value={actionCommercialeId} onValueChange={(v) => setActionCommercialeId((v as string) || null)}>
+              <Select items={actionCommercialeItems} value={actionCommercialeId} onValueChange={(v) => setActionCommercialeId((v) || null)}>
                 <SelectTrigger id="pr-actionCommerciale" className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
                 <SelectContent><SelectGroup>{actionCommercialeItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pr-origine">Source de contact *</FieldLabel>
-              <Select items={origineItems} value={origineId} onValueChange={(v) => { setOrigineId((v as string) || null); setOrigineSupportId(null); }}>
+              <Select items={origineItems} value={origineId} onValueChange={(v) => { setOrigineId((v) || null); setOrigineSupportId(null); }}>
                 <SelectTrigger id="pr-origine" className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
                 <SelectContent><SelectGroup>{origineItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pr-support">Support</FieldLabel>
-              <Select items={supportItems} value={origineSupportId} onValueChange={(v) => setOrigineSupportId((v as string) || null)} disabled={!origineId}>
+              <Select items={supportItems} value={origineSupportId} onValueChange={(v) => setOrigineSupportId((v) || null)} disabled={!origineId}>
                 <SelectTrigger id="pr-support" className="w-full"><SelectValue placeholder={origineId ? 'Choisir…' : 'Choisir une source d\'abord'} /></SelectTrigger>
                 <SelectContent><SelectGroup>{supportItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
             </FormField>
             <FormField>
               <FieldLabel htmlFor="pr-vocation">Vocation</FieldLabel>
-              <Select items={vocationItems} value={vocationId} onValueChange={(v) => setVocationId((v as string) || null)}>
+              <Select items={vocationItems} value={vocationId} onValueChange={(v) => setVocationId((v) || null)}>
                 <SelectTrigger id="pr-vocation" className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
                 <SelectContent><SelectGroup>{vocationItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>

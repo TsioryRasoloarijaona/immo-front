@@ -17,13 +17,13 @@ export function RatioStat({
   numerateur,
   denominateur,
   aide,
-}: {
+}: Readonly<{
   label: string;
   ratio: number | null | undefined;
   numerateur: number | null | undefined;
   denominateur: number | null | undefined;
   aide?: string;
-}) {
+}>) {
   const mesurable = ratio !== null && ratio !== undefined && !Number.isNaN(ratio);
   const largeur = mesurable ? pourcentage(ratio) : 0;
 
@@ -62,13 +62,13 @@ export function RankBarRow({
   max,
   sub,
   href,
-}: {
+}: Readonly<{
   label: string;
   value: number;
   max: number;
   sub?: ReactNode;
   href?: string;
-}) {
+}>) {
   const largeur = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0;
 
   return (
@@ -97,11 +97,11 @@ export function KpiFamilySection({
   titre,
   description,
   children,
-}: {
+}: Readonly<{
   titre: string;
   description: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <section className="flex flex-col gap-2.5">
       <div className="flex flex-col gap-0.5">

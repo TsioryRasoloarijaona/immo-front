@@ -17,7 +17,7 @@ export default function TelephoneField({
   onNumeroChange,
   onIndicatifChange,
   required,
-}: {
+}: Readonly<{
   id: string;
   label: string;
   numero: string;
@@ -25,7 +25,7 @@ export default function TelephoneField({
   onNumeroChange: (v: string) => void;
   onIndicatifChange: (v: string | null) => void;
   required?: boolean;
-}) {
+}>) {
   const pays = usePays();
 
   // Plusieurs pays partagent un indicatif (+1…) : la valeur d'option devant être
@@ -33,7 +33,7 @@ export default function TelephoneField({
   const indicatifs = useMemo(() => {
     const vus = new Map<string, string>();
     for (const p of pays.data) {
-      if (p.indicatifTelephone === undefined || p.indicatifTelephone === null) continue;
+      if (p.indicatifTelephone == null) continue;
       const code = String(p.indicatifTelephone);
       if (!vus.has(code)) vus.set(code, p.description || p.code || '');
     }

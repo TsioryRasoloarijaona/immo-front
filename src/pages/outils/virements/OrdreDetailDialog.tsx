@@ -44,12 +44,9 @@ export default function OrdreDetailDialog({
 
   return (
     <ModaleSaisie titre={titre} modifie={modifie} onClose={onClose} width={780}>
-      {(fermer) =>
-        api.error && !ordre ? (
-          <ErrorState message={api.error} />
-        ) : !ordre ? (
-          <LoadingState />
-        ) : (
+      {(fermer) => {
+        if (!ordre) return api.error ? <ErrorState message={api.error} /> : <LoadingState />;
+        return (
           <Contenu
             ordre={ordre}
             meta={meta}
@@ -63,9 +60,65 @@ export default function OrdreDetailDialog({
             fermer={fermer}
             toasts={toasts}
           />
-        )
-      }
+        );
+      }}
     </ModaleSaisie>
+  );
+}
+
+/** PDF généré : seulement regénérable ; pièce jointe : remplacer ou supprimer ; absente : ajouter. */
+function ActionsDocument({
+  auto,
+  presente,
+  occupe,
+  depotEnCours,
+  admin,
+  onRegenerer,
+  onChoisir,
+  onRetirer,
+}: Readonly<{
+  auto: boolean;
+  presente: Piece | undefined;
+  occupe: string | null;
+  depotEnCours: boolean;
+  admin: boolean;
+  onRegenerer: () => void;
+  onChoisir: () => void;
+  onRetirer: (p: Piece) => void;
+}>) {
+  if (auto) {
+    return (
+      <Button type="button" variant="outline" size="sm" disabled={occupe !== null} onClick={onRegenerer}>
+        <RefreshCw data-icon="inline-start" className={occupe === 'pdf' ? 'animate-spin' : undefined} />
+        {occupe === 'pdf' ? 'Regénération…' : 'Regénérer le PDF'}
+      </Button>
+    );
+  }
+  if (!presente) {
+    return (
+      <Button type="button" variant="outline" size="sm" disabled={occupe !== null} onClick={onChoisir}>
+        <Paperclip data-icon="inline-start" /> {depotEnCours ? 'Envoi…' : 'Ajouter'}
+      </Button>
+    );
+  }
+  return (
+    <>
+      <Button type="button" variant="ghost" size="sm" disabled={occupe !== null} onClick={onChoisir}>
+        <Replace data-icon="inline-start" /> {depotEnCours ? 'Envoi…' : 'Remplacer'}
+      </Button>
+      {admin && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="text-destructive hover:text-destructive"
+          disabled={occupe !== null}
+          onClick={() => onRetirer(presente)}
+        >
+          <Trash2 data-icon="inline-start" /> Supprimer
+        </Button>
+      )}
+    </>
   );
 }
 
@@ -226,34 +279,16 @@ function Contenu({
                     <MontantPiece key={presente.id} piece={presente} ordre={ordre} libelle={tp.libelle_montant ?? 'Montant'} onOrdre={onOrdre} toasts={toasts} />
                   )}
                   <div className="flex items-center gap-1">
-                    {tp.auto ? (
-                      <Button type="button" variant="outline" size="sm" disabled={occupe !== null} onClick={regenerer}>
-                        <RefreshCw data-icon="inline-start" className={occupe === 'pdf' ? 'animate-spin' : undefined} />
-                        {occupe === 'pdf' ? 'Regénération…' : 'Regénérer le PDF'}
-                      </Button>
-                    ) : presente ? (
-                      <>
-                        <Button type="button" variant="ghost" size="sm" disabled={occupe !== null} onClick={() => choisirFichier(t)}>
-                          <Replace data-icon="inline-start" /> {occupe === `depot-${t}` ? 'Envoi…' : 'Remplacer'}
-                        </Button>
-                        {moi.admin && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive"
-                            disabled={occupe !== null}
-                            onClick={() => void retirer(presente)}
-                          >
-                            <Trash2 data-icon="inline-start" /> Supprimer
-                          </Button>
-                        )}
-                      </>
-                    ) : (
-                      <Button type="button" variant="outline" size="sm" disabled={occupe !== null} onClick={() => choisirFichier(t)}>
-                        <Paperclip data-icon="inline-start" /> {occupe === `depot-${t}` ? 'Envoi…' : 'Ajouter'}
-                      </Button>
-                    )}
+                    <ActionsDocument
+                      auto={!!tp.auto}
+                      presente={presente}
+                      occupe={occupe}
+                      depotEnCours={occupe === `depot-${t}`}
+                      admin={moi.admin}
+                      onRegenerer={regenerer}
+                      onChoisir={() => choisirFichier(t)}
+                      onRetirer={(p) => void retirer(p)}
+                    />
                   </div>
                 </li>
               );

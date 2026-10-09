@@ -61,14 +61,14 @@ export default function SuiviActionTable({
   cleOrdre,
   bandeauRegroupement,
   groupes,
-}: {
+}: Readonly<{
   rows: SuiviActionDto[];
   colonnes: ColonneDto[];
   onOuvrir?: (id: string) => void;
   cleOrdre?: string;
   bandeauRegroupement?: boolean;
   groupes?: GroupementGrille<SuiviActionDto>;
-}) {
+}>) {
   const grille = useMemo<ColonneGrille<SuiviActionDto>[]>(
     () =>
       colonnes.map((c) => ({

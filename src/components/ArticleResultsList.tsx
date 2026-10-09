@@ -11,14 +11,14 @@ export default function ArticleResultsList({
   onSelect,
   allowNone,
   noneLabel,
-}: {
+}: Readonly<{
   items: ArticleListItemDto[];
   loading?: boolean;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   allowNone?: boolean;
   noneLabel?: string;
-}) {
+}>) {
   if (loading) return <p className="text-body text-muted-foreground">Chargement…</p>;
   if (items.length === 0) return <p className="text-body text-muted-foreground">Aucun résultat pour ces filtres.</p>;
   return (

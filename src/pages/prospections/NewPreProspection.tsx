@@ -52,7 +52,7 @@ function ChampSelect({
   return (
     <FormField>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Select items={items} value={value} onValueChange={(v) => onChange((v as string) || null)} disabled={disabled}>
+      <Select items={items} value={value} onValueChange={(v) => onChange((v) || null)} disabled={disabled}>
         <SelectTrigger id={id} className="w-full"><SelectValue placeholder={placeholder} /></SelectTrigger>
         <SelectContent>
           <SelectGroup>
@@ -143,7 +143,7 @@ export default function NouvellePreProspectionDialog({ onClose }: Readonly<{ onC
       };
       const cree = await creerPreProspection(body);
       if (cree.doublons.length === 0) {
-        navigate(`/pre-prospections/${cree.preProspection.id}`);
+        void navigate(`/pre-prospections/${cree.preProspection.id}`);
         return;
       }
       setResultat(cree);
@@ -203,6 +203,7 @@ export default function NouvellePreProspectionDialog({ onClose }: Readonly<{ onC
                 id="ppr-nom"
                 value={nom}
                 maxLength={MAX_TEXTE}
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- boîte de dialogue : le focus initial y est attendu
                 autoFocus
                 onChange={(e) => setNom(e.target.value)}
               />

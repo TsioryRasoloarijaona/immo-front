@@ -78,12 +78,12 @@ export default function ProspectTable({
   colonnes,
   onOuvrir,
   cleOrdre,
-}: {
+}: Readonly<{
   rows: ProspectListItemDto[];
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
   cleOrdre?: string;
-}) {
+}>) {
   const grille = useMemo<ColonneGrille<ProspectListItemDto>[]>(
     () =>
       colonnes.map((c) => ({

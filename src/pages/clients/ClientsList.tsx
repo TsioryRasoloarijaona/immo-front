@@ -70,7 +70,7 @@ export default function ClientsList() {
         {!error && data && (
           <ResultsRegion loading={loading}>
             <div className="shrink-0 text-body text-muted-foreground">
-              {(data?.totalElements ?? 0)} client{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+              {data.totalElements} client{data.totalElements > 1 ? 's' : ''}
             </div>
           {rows.length === 0 ? (
             <EmptyState
@@ -100,9 +100,7 @@ export default function ClientsList() {
             </div>
           )}
             <div className="shrink-0">
-              {data && (
-                <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
-              )}
+              <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
             </div>
           </ResultsRegion>
         )}

@@ -21,6 +21,19 @@ const MOIS_LONG = [
  * étiquettes de mois sont rognées et la carte défile. */
 const H_TRACE = 104;
 
+/** Mois au-delà duquel l'échéancier est « à venir » : 12 pour une année passée, 0 pour une future. */
+function moisPivotPour(annee: number, anneeCourante: number): number {
+  if (annee < anneeCourante) return 12;
+  if (annee > anneeCourante) return 0;
+  return new Date().getMonth() + 1;
+}
+
+/** Hauteur en % ; un mois non nul garde au moins 2 % pour rester visible. */
+function hauteurBarre(montant: number, max: number): number {
+  if (max <= 0) return 0;
+  return Math.max((montant / max) * 100, montant > 0 ? 2 : 0);
+}
+
 /** `trancheId` : administrateur seul, le parent ne le passe pas pour un autre rôle. */
 export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {}) {
   const anneeCourante = new Date().getFullYear();
@@ -29,9 +42,9 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
   const [survole, setSurvole] = useState<number | null>(null);
 
   const echeancier = data?.echeancier ?? [];
-  const max = echeancier.reduce((m, p) => Math.max(m, p.montant ?? 0), 0);
-  const total = echeancier.reduce((s, p) => s + (p.montant ?? 0), 0);
-  const moisPivot = annee < anneeCourante ? 12 : annee > anneeCourante ? 0 : new Date().getMonth() + 1;
+  const max = echeancier.reduce((m, p) => Math.max(m, p.montant), 0);
+  const total = echeancier.reduce((s, p) => s + p.montant, 0);
+  const moisPivot = moisPivotPour(annee, anneeCourante);
   const moisMax = max > 0 ? echeancier.find((p) => p.montant === max)?.mois : undefined;
 
   const v = data?.ventesConcretisees;
@@ -90,7 +103,7 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
               <div className="flex h-full items-end gap-[2px]">
                 {echeancier.map((p) => {
                   const aVenir = p.mois > moisPivot;
-                  const hauteur = max > 0 ? Math.max((p.montant / max) * 100, p.montant > 0 ? 2 : 0) : 0;
+                  const hauteur = hauteurBarre(p.montant, max);
                   return (
                     <div
                       key={p.mois}
@@ -214,7 +227,8 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
   );
 }
 
-function InfobulleMois({ point, aVenir }: { point: PointMensuelDto; aVenir: boolean }) {
+function InfobulleMois({ point, aVenir }: Readonly<{ point: PointMensuelDto; aVenir: boolean }>) {
+  const pluriel = point.lignes > 1 ? 's' : '';
   return (
     <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 shadow-md">
       <div className="text-micro font-medium text-foreground">
@@ -224,7 +238,7 @@ function InfobulleMois({ point, aVenir }: { point: PointMensuelDto; aVenir: bool
       <div className="text-body font-semibold tabular-nums text-foreground">{formatCurrency(point.montant)}</div>
       {/* Seul `lignes` distingue « mois vide » de « mois à zéro ». */}
       <div className="text-micro tabular-nums text-muted-foreground">
-        {point.lignes === 0 ? 'aucune échéance' : `${point.lignes} échéance${point.lignes > 1 ? 's' : ''}`}
+        {point.lignes === 0 ? 'aucune échéance' : `${point.lignes} échéance${pluriel}`}
       </div>
     </div>
   );

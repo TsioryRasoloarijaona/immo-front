@@ -25,7 +25,7 @@ function libelleAccessible(c: CibleEtapeParcours): string {
 }
 
 /** Montre quel document la fiche est devenue, pas où en est la négociation. */
-export default function ParcoursVente({ etapes, accent }: { etapes: EtapeParcours[]; accent: string }) {
+export default function ParcoursVente({ etapes, accent }: Readonly<{ etapes: EtapeParcours[]; accent: string }>) {
   const { ouvrirFicheProspect, ouvrirFicheDossier } = usePreview();
 
   const ouvrir = (c: CibleEtapeParcours) => {

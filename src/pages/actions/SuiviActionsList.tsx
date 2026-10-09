@@ -19,12 +19,13 @@ import {
 } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { CLES_OUVERTURE_SUIVI_ACTION, DISPOSITION_SUIVI_ACTIONS } from '../../lib/dispositions';
-import { useGroupement, useLignesGroupes } from '../../lib/groupement';
+import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
+import EtatColonnes from '../../components/EtatColonnes';
 import { useApi } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { estAdministrateur } from '../../lib/roles';
 import { referentielItems, useColonnesSuiviActions, useTranchesFiltre, useTypesContactProspection } from '../../lib/referentiels';
-import { debutMoisISO as premierDuMois, todayISO } from '../../lib/format';
+import { debutMoisISO as premierDuMois, pluriel, todayISO } from '../../lib/format';
 import type { SuiviActionDto } from '../../types';
 
 type SystemeFilter = 'all' | 'saisies' | 'systeme';
@@ -182,12 +183,16 @@ export default function SuiviActionsList() {
     'suivi-actions-utilisateurs',
   );
   const utilisateurItems = (utilisateurs.data?.content ?? [])
-    .filter((g) => g.cle !== null && g.cle !== undefined)
+    .filter((g) => g.cle != null)
     .map((g) => ({ label: `${g.libelle ?? String(g.cle)} (${g.nombre})`, value: String(g.cle) }));
 
   const tranches = useTranchesFiltre();
   const trancheItems = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   const typeItems = referentielItems(typesAction.data);
+
+  let messageVide = "Vous n'avez saisi aucune action ce mois-ci.";
+  if (hasActiveFilters) messageVide = 'Aucune action ne correspond aux filtres actifs.';
+  else if (isAdmin) messageVide = "Aucune action n'a été saisie ce mois-ci.";
 
   return (
     <PageShell
@@ -258,9 +263,7 @@ export default function SuiviActionsList() {
           <ResultsRegion loading={loading}>
             <div className="flex shrink-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
               <span className="text-body text-muted-foreground">
-                {enGroupes
-                  ? `${pageAffichee.totalElements} groupe${pageAffichee.totalElements > 1 ? 's' : ''}`
-                  : `${pageAffichee.totalElements} action${pageAffichee.totalElements > 1 ? 's' : ''}`}
+                {pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : 'action')}
               </span>
               {colonnes.catalogueServi.length > 0 && (
                 <ColumnSelector
@@ -277,47 +280,24 @@ export default function SuiviActionsList() {
               {vide ? (
                 <EmptyState
                   title={hasActiveFilters ? 'Aucun résultat' : 'Rien à afficher'}
-                  message={
-                    hasActiveFilters
-                      ? 'Aucune action ne correspond aux filtres actifs.'
-                      : isAdmin
-                        ? "Aucune action n'a été saisie ce mois-ci."
-                        : "Vous n'avez saisi aucune action ce mois-ci."
-                  }
+                  message={messageVide}
                   action={
                     <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
                       <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
                     </Button>
                   }
                 />
-              ) : colonnes.colonnes.length > 0 ? (
-                <SuiviActionTable
-                  cleOrdre="suivi-actions"
-                  rows={enGroupes ? [] : rows}
-                  colonnes={colonnes.colonnes}
-                  onOuvrir={ouvrir}
-                  bandeauRegroupement={false}
-                  groupes={
-                    enGroupes && groupement.colonneGroupee
-                      ? {
-                          liste: groupes.data?.content ?? [],
-                          colonneLibelle: groupement.colonneGroupee.libelle,
-                          agregats: groupement.agregatsActifs,
-                          totaux: groupes.data?.totaux ?? {},
-                          nombreTotal: groupes.data?.nombreTotal ?? 0,
-                          estOuvert: lignesGroupes.estOuvert,
-                          etat: lignesGroupes.etat,
-                          basculer: lignesGroupes.basculer,
-                          chargerPlus: lignesGroupes.chargerPlus,
-                          lignesChargees: lignesGroupes.lignesChargees,
-                        }
-                      : undefined
-                  }
-                />
-              ) : catalogue.error ? (
-                <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
               ) : (
-                <LoadingState />
+                <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
+                  <SuiviActionTable
+                    cleOrdre="suivi-actions"
+                    rows={enGroupes ? [] : rows}
+                    colonnes={colonnes.colonnes}
+                    onOuvrir={ouvrir}
+                    bandeauRegroupement={false}
+                    groupes={groupesGrille(groupement, groupes.data, lignesGroupes)}
+                  />
+                </EtatColonnes>
               )}
             </div>
             <div className="shrink-0">

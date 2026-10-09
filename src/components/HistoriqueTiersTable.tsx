@@ -5,7 +5,7 @@ import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
 import { formatDateTime } from '../lib/format';
 import type { HistoriqueDto } from '../types';
 
-export default function HistoriqueTiersTable({ lignes }: { lignes: readonly HistoriqueDto[] }) {
+export default function HistoriqueTiersTable({ lignes }: Readonly<{ lignes: readonly HistoriqueDto[] }>) {
   return (
     <div className="overflow-x-auto">
       <Table>

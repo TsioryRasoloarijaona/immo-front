@@ -12,7 +12,9 @@ import BandeGroupement from '../../components/BandeGroupement';
 import { useActionsLigneProspection } from '../../components/ActionsLigneProspection';
 import { DEFAULT_PAGE_SIZE, listPreProspections, listPreProspectionsGroupes } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
-import { useGroupement, useLignesGroupes } from '../../lib/groupement';
+import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
+import { pluriel } from '../../lib/format';
+import EtatColonnes from '../../components/EtatColonnes';
 import type { ProspectionListItemDto } from '../../types';
 import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
@@ -119,8 +121,8 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
   const actionsLigne = useActionsLigneProspection({
     entite: 'pré-prospection',
     onMutation: () => {
-      liste.refetch();
-      groupes.refetch();
+      void liste.refetch();
+      void groupes.refetch();
     },
   });
 
@@ -175,8 +177,8 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
             <div className="flex shrink-0 items-center justify-between gap-3">
               <div className="text-body text-muted-foreground">
                 {enGroupes
-                  ? `${pageAffichee.totalElements} groupe${pageAffichee.totalElements > 1 ? 's' : ''}`
-                  : `${pageAffichee.totalElements} pré-prospection${pageAffichee.totalElements > 1 ? 's' : ''} au total`}
+                  ? pluriel(pageAffichee.totalElements, 'groupe')
+                  : `${pluriel(pageAffichee.totalElements, 'pré-prospection')} au total`}
               </div>
               {colonnes.catalogueServi.length > 0 && (
                 <ColumnSelector
@@ -228,36 +230,19 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
                     )
                   }
                 />
-              ) : colonnes.colonnes.length > 0 ? (
-                <ProspectionTable
-                  cleOrdre="pre-prospections"
-                  rows={enGroupes ? [] : rows}
-                  colonnes={colonnes.colonnes}
-                  entite="pré-prospection"
-                  onOuvrir={(prospectionId) => navigate(`/pre-prospections/${prospectionId}`)}
-                  bandeauRegroupement={false}
-                  actions={actionsLigne.rendu}
-                  groupes={
-                    enGroupes && groupement.colonneGroupee
-                      ? {
-                          liste: groupes.data?.content ?? [],
-                          colonneLibelle: groupement.colonneGroupee.libelle,
-                          agregats: groupement.agregatsActifs,
-                          totaux: groupes.data?.totaux ?? {},
-                          nombreTotal: groupes.data?.nombreTotal ?? 0,
-                          estOuvert: lignesGroupes.estOuvert,
-                          etat: lignesGroupes.etat,
-                          basculer: lignesGroupes.basculer,
-                          chargerPlus: lignesGroupes.chargerPlus,
-                          lignesChargees: lignesGroupes.lignesChargees,
-                        }
-                      : undefined
-                  }
-                />
-              ) : catalogue.error ? (
-                <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
               ) : (
-                <LoadingState />
+                <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
+                  <ProspectionTable
+                    cleOrdre="pre-prospections"
+                    rows={enGroupes ? [] : rows}
+                    colonnes={colonnes.colonnes}
+                    entite="pré-prospection"
+                    onOuvrir={(prospectionId) => navigate(`/pre-prospections/${prospectionId}`)}
+                    bandeauRegroupement={false}
+                    actions={actionsLigne.rendu}
+                    groupes={groupesGrille(groupement, groupes.data, lignesGroupes)}
+                  />
+                </EtatColonnes>
               )}
             </div>
             <div className="shrink-0">
@@ -278,9 +263,9 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
         <Suspense fallback={null}>
           <NouvellePreProspectionDialog
             onClose={() => {
-              navigate('/pre-prospections');
-              liste.refetch();
-              groupes.refetch();
+              void navigate('/pre-prospections');
+              void liste.refetch();
+              void groupes.refetch();
             }}
           />
         </Suspense>

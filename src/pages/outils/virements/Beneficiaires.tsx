@@ -177,12 +177,9 @@ function Carnet({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
     },
   ];
 
-  const vide =
-    q.trim() !== ''
-      ? `Aucun bénéficiaire ne correspond à « ${q.trim()} »`
-      : nature !== 'tous'
-        ? 'Aucun bénéficiaire de cette nature'
-        : 'Aucun bénéficiaire enregistré';
+  let vide = 'Aucun bénéficiaire enregistré';
+  if (q.trim() !== '') vide = `Aucun bénéficiaire ne correspond à « ${q.trim()} »`;
+  else if (nature !== 'tous') vide = 'Aucun bénéficiaire de cette nature';
 
   return (
     <>
@@ -217,11 +214,9 @@ function Carnet({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
         </div>
       </div>
 
-      {error && !data ? (
-        <ErrorState message={error} />
-      ) : !data ? (
-        <LoadingState />
-      ) : (
+      {error && !data && <ErrorState message={error} />}
+      {!error && !data && <LoadingState />}
+      {data && (
         <ResultsRegion loading={loading}>
           <div className="shrink-0 text-body text-muted-foreground">{pluriel(lignes.length, 'bénéficiaire')}</div>
           {lignes.length === 0 ? (

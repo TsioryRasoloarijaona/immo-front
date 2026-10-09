@@ -9,10 +9,10 @@ export type FicheOuverte = { id: string; pre: boolean };
 export default function FicheProspectionLazy({
   fiche,
   onClose,
-}: {
+}: Readonly<{
   fiche: FicheOuverte | null;
   onClose: () => void;
-}) {
+}>) {
   if (!fiche) return null;
   return (
     <Suspense fallback={null}>

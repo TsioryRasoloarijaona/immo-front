@@ -5,7 +5,7 @@ import { FicheProspect } from '../pages/prospects/ProspectDetail';
 import { refetchAllApis } from '../lib/useApi';
 
 // À charger par `lazy()` : ce module tire toute la page de détail.
-export default function FicheProspectDialog({ id, onClose }: { id: string; onClose: () => void }) {
+export default function FicheProspectDialog({ id, onClose }: Readonly<{ id: string; onClose: () => void }>) {
   // Différé d'un tour : voir FicheProspectionDialog.
   useEffect(
     () => () => {

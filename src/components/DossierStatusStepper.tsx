@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { Check, X } from 'lucide-react';
 import { Card } from './ui';
 import { Button } from './ui/button';
@@ -16,11 +16,11 @@ export default function DossierStatusStepper({
   currentStatus,
   nextSteps,
   onConfirm,
-}: {
+}: Readonly<{
   currentStatus: string;
   nextSteps: EtapeSuivanteDto[];
   onConfirm: (newStatus: string, note: string, date?: string) => void;
-}) {
+}>) {
   const normalizedCurrent = normalizeStatus(currentStatus);
   const currentIndex = DOSSIER_STATUS_PIPELINE.findIndex((label) => normalizeStatus(label) === normalizedCurrent);
   const stepByStatus = new Map(nextSteps.map((s) => [normalizeStatus(s.statut), s]));
@@ -80,7 +80,7 @@ const CONFIANCE_TONE: Record<string, string> = {
   LOW: 'text-destructive',
 };
 
-function ConfianceBadge({ confiance }: { confiance?: string }) {
+function ConfianceBadge({ confiance }: Readonly<{ confiance?: string }>) {
   if (!confiance) return null;
   const tone = CONFIANCE_TONE[confiance.toUpperCase()] ?? 'text-muted-foreground';
   return <span className={cn('text-micro font-medium', tone)}>Confiance : {confiance}</span>;
@@ -91,12 +91,12 @@ function ConfirmPopoverBody({
   step,
   onConfirm,
   close,
-}: {
+}: Readonly<{
   label: string;
   step?: EtapeSuivanteDto;
   onConfirm: (s: string, note: string, date?: string) => void;
   close: () => void;
-}) {
+}>) {
   const [note, setNote] = useState('');
   const [date, setDate] = useState(todayISO());
   return (
@@ -141,19 +141,30 @@ function ConfirmPopoverBody({
   );
 }
 
+function styleCercle(isCurrent: boolean, isPast: boolean): CSSProperties | undefined {
+  if (isCurrent) return { borderColor: 'var(--sec-dossier)', background: 'var(--sec-dossier)' };
+  if (isPast) return { borderColor: 'var(--sec-dossier)', background: 'var(--sec-dossier-bg)', color: 'var(--sec-dossier)' };
+  return undefined;
+}
+
+function classeLibelle(isCurrent: boolean, isPast: boolean): string {
+  if (isCurrent) return 'font-semibold text-foreground';
+  return isPast ? 'text-foreground' : 'text-muted-foreground';
+}
+
 function StepNode({
   label,
   isCurrent,
   isPast,
   step,
   onConfirm,
-}: {
+}: Readonly<{
   label: string;
   isCurrent: boolean;
   isPast: boolean;
   step?: EtapeSuivanteDto;
   onConfirm: (s: string, note: string, date?: string) => void;
-}) {
+}>) {
   const [open, setOpen] = useState(false);
   const isClickable = !isCurrent;
   const circle = (
@@ -163,13 +174,7 @@ function StepNode({
         isCurrent ? 'text-white' : !isPast && 'border-border bg-(--neutral-bg) text-muted-foreground',
         isClickable && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md',
       )}
-      style={
-        isCurrent
-          ? { borderColor: 'var(--sec-dossier)', background: 'var(--sec-dossier)' }
-          : isPast
-            ? { borderColor: 'var(--sec-dossier)', background: 'var(--sec-dossier-bg)', color: 'var(--sec-dossier)' }
-            : undefined
-      }
+      style={styleCercle(isCurrent, isPast)}
     >
       {isPast ? <Check className="size-3.5" /> : ''}
     </div>
@@ -178,8 +183,7 @@ function StepNode({
     <div
       className={cn(
         'mt-1.5 whitespace-nowrap text-center text-micro',
-        isCurrent ? 'font-semibold text-foreground' : isPast ? 'text-foreground' : 'text-muted-foreground',
-        !isClickable && !isCurrent && 'opacity-60',
+        classeLibelle(isCurrent, isPast),
       )}
     >
       {label}
@@ -216,12 +220,12 @@ function ExitChip({
   isCurrent,
   step,
   onConfirm,
-}: {
+}: Readonly<{
   label: string;
   isCurrent: boolean;
   step?: EtapeSuivanteDto;
   onConfirm: (s: string, note: string, date?: string) => void;
-}) {
+}>) {
   const [open, setOpen] = useState(false);
   const isClickable = !isCurrent;
   const chip = (
@@ -232,7 +236,6 @@ function ExitChip({
           ? 'border-(--warning-border) bg-(--warning-bg) text-(--warning)'
           : 'border-border bg-(--neutral-bg) text-muted-foreground',
         isClickable && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-sm hover:border-(--warning-border) hover:text-(--warning)',
-        !isClickable && !isCurrent && 'opacity-60',
       )}
     >
       <X className="size-3" />

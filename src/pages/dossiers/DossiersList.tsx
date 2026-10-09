@@ -23,11 +23,12 @@ import {
 } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useColonnesVisibles } from '../../lib/colonnes';
-import { useGroupement, useLignesGroupes } from '../../lib/groupement';
+import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
+import EtatColonnes from '../../components/EtatColonnes';
 import { DISPOSITION_DOSSIERS } from '../../lib/dispositions';
 import { useColonnesDossiers, useTranchesFiltre } from '../../lib/referentiels';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { debutMoisISO, finMoisISO } from '../../lib/format';
+import { debutMoisISO, finMoisISO, pluriel } from '../../lib/format';
 import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, canonicalStatusLabel, normalizeStatus } from '../../lib/dossierStatus';
 import type { DossierListItemDto, PageDto } from '../../types';
 
@@ -369,7 +370,7 @@ export default function DossiersList() {
             <Select
               items={BATCH_DOC_ITEMS}
               value={batchDocKind}
-              onValueChange={(v) => setBatchDocKind((v as DossierBatchDocKind) || null)}
+              onValueChange={(v) => setBatchDocKind((v) || null)}
             >
               <SelectTrigger className="w-65">
                 <SelectValue placeholder="Générer un document…" />
@@ -430,9 +431,7 @@ export default function DossiersList() {
           <ResultsRegion loading={loading}>
             <div className="flex shrink-0 items-center justify-between gap-3">
               <div className="text-body text-muted-foreground">
-                {enGroupes
-                  ? `${pageAffichee.totalElements} groupe${pageAffichee.totalElements > 1 ? 's' : ''}`
-                  : `${pageAffichee.totalElements} dossier${pageAffichee.totalElements > 1 ? 's' : ''}`}
+                {pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : 'dossier')}
               </div>
               {colonnes.catalogueServi.length > 0 && (
                 <ColumnSelector
@@ -469,30 +468,13 @@ export default function DossiersList() {
                   }
                 />
               ) : (
-                <>
-                {colonnes.colonnes.length > 0 ? (
+                <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
                   <DossierTable
                     cleOrdre="dossiers"
                     rows={enGroupes ? [] : dossiers}
                     colonnes={colonnes.colonnes}
-                    groupes={
-                      enGroupes && groupement.colonneGroupee
-                        ? {
-                            liste: groupes.data?.content ?? [],
-                            colonneLibelle: groupement.colonneGroupee.libelle,
-                            libelleGroupe:
-                              groupement.colonneGroupee.nom === 'statut' ? canonicalStatusLabel : undefined,
-                            agregats: groupement.agregatsActifs,
-                            totaux: groupes.data?.totaux ?? {},
-                            nombreTotal: groupes.data?.nombreTotal ?? 0,
-                            estOuvert: lignesGroupes.estOuvert,
-                            etat: lignesGroupes.etat,
-                            basculer: lignesGroupes.basculer,
-                            chargerPlus: lignesGroupes.chargerPlus,
-                            lignesChargees: lignesGroupes.lignesChargees,
-                          }
-                        : undefined
-                    }
+                    // `enGroupes` et non `groupement.actif` : un filtre de statut bloque le groupement.
+                    groupes={groupesGrille(groupement, groupes.data, lignesGroupes, { statut: canonicalStatusLabel }, enGroupes)}
                     onOuvrir={(id) => navigate(`/dossiers/${id}`)}
                     onOuvrirProspection={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
                     bandeauRegroupement={false}
@@ -519,12 +501,7 @@ export default function DossiersList() {
                         : undefined
                     }
                   />
-                ) : catalogue.error ? (
-                  <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
-                ) : (
-                  <LoadingState />
-                )}
-                </>
+                </EtatColonnes>
               )}
             </div>
             <div className="shrink-0">

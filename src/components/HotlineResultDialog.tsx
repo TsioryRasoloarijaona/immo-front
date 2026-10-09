@@ -8,7 +8,7 @@ import { DialogFooter } from './ui/dialog';
 import { rechercherHotline, type CritereHotline } from '../lib/api';
 import { useApi } from '../lib/useApi';
 
-export default function HotlineResultDialog({ critere, onClose }: { critere: CritereHotline; onClose: () => void }) {
+export default function HotlineResultDialog({ critere, onClose }: Readonly<{ critere: CritereHotline; onClose: () => void }>) {
   const navigate = useNavigate();
   const saisie = 'telephone' in critere ? critere.telephone : critere.nom;
   const { data, loading, error } = useApi(() => rechercherHotline(critere), [saisie, 'telephone' in critere]);

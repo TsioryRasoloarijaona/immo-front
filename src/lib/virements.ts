@@ -123,7 +123,7 @@ export const lienPdfOrdre = (id: number, telecharger = false) =>
 export const lienPiece = (id: number) => `${BASE_VIREMENT}/pieces/${id}/fichier`;
 /** `version` contourne le cache du navigateur après un remplacement. */
 export const lienLogoSociete = (id: number, version?: string) =>
-  `${BASE_VIREMENT}/societes/${id}/logo${version ? `?t=${encodeURIComponent(version)}` : ''}`;
+  `${BASE_VIREMENT}/societes/${id}/logo${version ? '?t=' + encodeURIComponent(version) : ''}`;
 export const LIEN_LOGO_DEFAUT = `${BASE_VIREMENT}/societes/logo-defaut`;
 
 export const lireMoi = () => appel<Moi>('/moi');

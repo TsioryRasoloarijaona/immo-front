@@ -210,7 +210,7 @@ export default function SocieteDialog({
   const modifie =
     nouveauLogo !== null || CHAMPS_SAISIE.some((k) => s[k] !== initial[k]);
 
-  async function enregistrer(e: React.FormEvent) {
+  async function enregistrer(e: React.SyntheticEvent) {
     e.preventDefault();
     if (enCours) return;
     // Le service remplacerait en silence une taille hors bornes par 22.
@@ -275,7 +275,7 @@ export default function SocieteDialog({
         id={`so-${id}`}
         value={String(s[id] ?? "")}
         onChange={(e) =>
-          maj({ [id]: e.target.value } as Partial<SocieteSaisie>)
+          maj({ [id]: e.target.value })
         }
         placeholder={props.placeholder}
         className={props.mono ? "font-mono" : undefined}
@@ -294,7 +294,7 @@ export default function SocieteDialog({
         rows={props.rows ?? 2}
         value={String(s[id] ?? "")}
         onChange={(e) =>
-          maj({ [id]: e.target.value } as Partial<SocieteSaisie>)
+          maj({ [id]: e.target.value })
         }
         placeholder={props.placeholder}
       />

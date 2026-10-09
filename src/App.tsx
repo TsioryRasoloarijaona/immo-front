@@ -6,8 +6,9 @@ import { ConfirmProvider } from './components/ConfirmModal';
 import { PreviewProvider } from './components/PreviewProvider';
 import { ToastProvider } from './components/ToastProvider';
 import { LoadingState } from './components/ui';
-import { AppDataProvider } from './lib/appData';
-import { AuthProvider, useAuth } from './lib/auth';
+import { AppDataProvider } from './lib/AppDataProvider';
+import { useAuth } from './lib/auth';
+import { AuthProvider } from './lib/AuthProvider';
 import Login from './pages/auth/Login';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -129,7 +130,7 @@ function AuthGate() {
   // `replace` : la page quittée ne doit pas revenir par un retour arrière.
   useEffect(() => {
     if (status === 'unauthenticated' && pathname !== '/') {
-      navigate('/', { replace: true });
+      void navigate('/', { replace: true });
     }
   }, [status, pathname, navigate]);
 

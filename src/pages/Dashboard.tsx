@@ -120,11 +120,10 @@ function ColonneRelances({
 }>) {
   const page = etat.data;
   // La fin de la file, renversée : le serveur ne trie que dans l'autre sens.
-  const lignes = !page
-    ? []
-    : plusRecentesDAbord
-      ? page.content.slice(-LIGNES_AFFICHEES).reverse()
-      : page.content.slice(0, LIGNES_AFFICHEES);
+  let lignes: RelanceProspectionDto[] = [];
+  if (page) {
+    lignes = plusRecentesDAbord ? page.content.slice(-LIGNES_AFFICHEES).reverse() : page.content.slice(0, LIGNES_AFFICHEES);
+  }
   // Le reste non affiché, pas non chargé : toute la file est chargée.
   const reste = page ? page.totalElements - lignes.length : 0;
   // Si la file dépasse une page, `slice(-6)` rendrait la fin du premier lot, pas celle de la file.
@@ -218,13 +217,9 @@ function KanbanColumn({
         </span>
       </div>
       <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden p-1.5">
-        {error ? (
-          <p className="px-1.5 py-2 text-micro text-(--destructive)">{error}</p>
-        ) : items.length === 0 ? (
-          <p className="px-1.5 py-2 text-micro text-muted-foreground">{emptyMessage}</p>
-        ) : (
-          items
-        )}
+        {error && <p className="px-1.5 py-2 text-micro text-(--destructive)">{error}</p>}
+        {!error && items.length === 0 && <p className="px-1.5 py-2 text-micro text-muted-foreground">{emptyMessage}</p>}
+        {!error && items}
       </div>
       {items.length > 0 && onVoirTout && (
         <button type="button" onClick={onVoirTout} className={CLASSE_VOIR_TOUT}>

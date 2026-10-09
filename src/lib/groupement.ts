@@ -5,9 +5,11 @@ import type {
   GranulariteGroupe,
   GroupeDto,
   PageDto,
+  PageGroupesDto,
   TriGroupes,
 } from '../types';
 import type { ParamsDepliage, ParamsGroupes } from './api';
+import type { GroupementGrille } from '../components/DataGrid';
 
 /* Le serveur groupe (`/groupes`) car les listes sont paginées : grouper la page chargée fausserait effectifs et
    totaux. Le groupement n'est pas persisté : le retrouver en revenant ferait croire à une liste tronquée. */
@@ -37,7 +39,7 @@ export function decomposerJeton(jeton: string): { nom: string; fonction: Fonctio
 
 /** Déclarées `groupable` par le serveur mais nulles par définition sur les pré-prospections
  * (`CfgProspectId IS NULL AND CfgCommercialId IS NULL`) : un groupe unique sans valeur, sans information. */
-export const GROUPEMENTS_SANS_INTERET: Record<string, Set<string>> = {
+export const GROUPEMENTS_SANS_INTERET: Partial<Record<string, Set<string>>> = {
   'pre-prospections': new Set(['prospectNom', 'commercialNom']),
 };
 
@@ -46,18 +48,18 @@ export const LIBELLE_GROUPE_VIDE = '(non renseigné)';
 
 /** `libelleGroupe` ne traduit que l'affichage : la clé envoyée au serveur reste le code brut. */
 export function libelleGroupeAffiche(g: GroupeDto, libelleGroupe?: (brut: string) => string): string {
-  if (g.libelle === null || g.libelle === undefined) return LIBELLE_GROUPE_VIDE;
+  if (g.libelle == null) return LIBELLE_GROUPE_VIDE;
   return libelleGroupe ? libelleGroupe(g.libelle) : g.libelle;
 }
 
 /** `null` est une valeur de groupe légitime, à distinguer de la chaîne « null » qu'une colonne texte peut porter. */
 export function identiteGroupe(g: GroupeDto): string {
-  return g.cle === null || g.cle === undefined ? ' vide' : String(g.cle);
+  return g.cle == null ? ' vide' : String(g.cle);
 }
 
 /** Contrat serveur : `?groupeValeur=` omis désigne le groupe sans valeur. */
 export function valeurGroupe(cle: GroupeDto['cle']): string | undefined {
-  return cle === null || cle === undefined ? undefined : String(cle);
+  return cle == null ? undefined : String(cle);
 }
 
 export const GRANULARITES: { valeur: GranulariteGroupe; libelle: string }[] = [
@@ -222,6 +224,33 @@ export function useGroupement(
   };
 }
 
+/** Prop `groupes` de la grille, montée de la même façon par toutes les listes groupables.
+ * `libelles` : traduction d'affichage par colonne groupée (ex. `statut` → libellé canonique).
+ * `actif` : à passer quand l'écran peut bloquer un groupement choisi ; `undefined` rendu, la grille lit `rows`. */
+export function groupesGrille<T>(
+  groupement: EtatGroupement,
+  page: PageGroupesDto | null | undefined,
+  lignes: ReturnType<typeof useLignesGroupes<T>>,
+  libelles: Partial<Record<string, (brut: string) => string>> = {},
+  actif: boolean = groupement.actif,
+): GroupementGrille<T> | undefined {
+  const colonne = groupement.colonneGroupee;
+  if (!actif || !colonne) return undefined;
+  return {
+    liste: page?.content ?? [],
+    colonneLibelle: colonne.libelle,
+    libelleGroupe: libelles[colonne.nom],
+    agregats: groupement.agregatsActifs,
+    totaux: page?.totaux ?? {},
+    nombreTotal: page?.nombreTotal ?? 0,
+    estOuvert: lignes.estOuvert,
+    etat: lignes.etat,
+    basculer: lignes.basculer,
+    chargerPlus: lignes.chargerPlus,
+    lignesChargees: lignes.lignesChargees,
+  };
+}
+
 export interface LignesGroupe<T> {
   lignes: T[];
   /** Effectif serveur du groupe, qui peut dépasser les lignes chargées. */
@@ -239,7 +268,7 @@ export function useLignesGroupes<T>(
   charger: (cle: GroupeDto['cle'], taille: number) => Promise<PageDto<T>>,
   cleReset: string,
 ) {
-  const [etats, setEtats] = useState<Record<string, LignesGroupe<T>>>({});
+  const [etats, setEtats] = useState<Partial<Record<string, LignesGroupe<T>>>>({});
 
   /* Remise à zéro pendant le rendu, pas dans un effet : évite une frame avec les lignes de l'ancien groupement
      sous les en-têtes du nouveau, et `react-hooks/set-state-in-effect`. */
@@ -301,7 +330,7 @@ export function useLignesGroupes<T>(
   return {
     estOuvert: (g: GroupeDto) => etats[identiteGroupe(g)] !== undefined,
     etat: (g: GroupeDto): LignesGroupe<T> | undefined => etats[identiteGroupe(g)],
-    lignesChargees: useMemo(() => Object.values(etats).flatMap((e) => e.lignes), [etats]),
+    lignesChargees: useMemo(() => Object.values(etats).flatMap((e) => e?.lignes ?? []), [etats]),
     basculer,
     chargerPlus,
   };

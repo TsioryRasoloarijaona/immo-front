@@ -3,9 +3,12 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
-import { ThemeProvider } from './lib/theme.tsx'
+import { ThemeProvider } from './lib/ThemeProvider.tsx'
 
-createRoot(document.getElementById('root')!).render(
+const racine = document.getElementById('root')
+if (!racine) throw new Error('Élément #root absent de index.html')
+
+createRoot(racine).render(
   <StrictMode>
     <ThemeProvider>
       <BrowserRouter>

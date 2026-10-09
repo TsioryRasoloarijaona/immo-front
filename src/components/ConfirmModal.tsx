@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 
-export function ConfirmProvider({ children }: { children: ReactNode }) {
+export function ConfirmProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [pending, setPending] = useState<ConfirmOptions | null>(null);
   const resolver = useRef<((value: boolean) => void) | null>(null);
 

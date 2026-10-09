@@ -13,10 +13,10 @@ const CLASSE_ACTION =
 export function ToastProvider({
   children,
   onAction,
-}: {
+}: Readonly<{
   children: ReactNode;
   onAction?: () => void;
-}) {
+}>) {
   const [toast, setToast] = useState<(ToastOptions & { cle: number }) | null>(null);
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -72,9 +72,9 @@ export function ToastProvider({
                   <button
                     type="button"
                     onClick={() => {
-                      const surClic = toast.action!.surClic!;
+                      const surClic = toast.action?.surClic;
                       fermer();
-                      surClic();
+                      surClic?.();
                     }}
                     className={CLASSE_ACTION}
                   >
