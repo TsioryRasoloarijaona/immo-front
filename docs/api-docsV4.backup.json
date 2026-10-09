@@ -2245,7 +2245,7 @@
             }
           },
           "400": {
-            "description": "Fichier absent ou vide, colonne `Nom` introuvable, plus de 5 000 lignes."
+            "description": "Fichier absent ou vide, colonne `Nom` introuvable, plus de 5 000 lignes, fichier de plus de 5 Mo."
           }
         }
       }
@@ -6237,11 +6237,14 @@
         "tags": [
           "prospect-controller"
         ],
+        "summary": "Historique des dossiers de vente du tiers (changements de statut)",
+        "description": "Onglet « Historique » du tiers (OMRAN : « l'historique de dossier de vente d'un client en\naffichant : L'utilisateur, La date, L'état, Le N° Dossier, L'article, Les détails »). Une ligne par\nchangement de statut d'un dossier dont le tiers est le client (`StrFolderStatusHistory`), la plus\nrécente en premier ; le tri demandé par le client est ignoré. `utilisateur` est null sur les lignes\nlegacy sans auteur. Un tiers sans dossier rend une page vide.\n\n**Périmètre commercial** : les lignes d'un dossier hors des projets affectés de l'appelant (ou d'une\nentité hors exploitation) ne sont pas renvoyées ; le tiers lui-même n'est pas filtré.",
         "operationId": "getHistorique",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant du prospect (CfgTier.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -6259,7 +6262,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Lignes d'historique (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoHistoriqueDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun prospect avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -7331,7 +7344,7 @@
           "Hotline"
         ],
         "summary": "Recherche complète par numéro de téléphone ou par nom",
-        "description": "**Fournissez exactement un critère : `telephone` OU `nom`.** Les deux, ou aucun, renvoient 400. La\nréponse a la même forme dans les deux cas — un seul écran suffit, seul le champ de saisie change.\n\nLa recherche par `nom` porte sur le nom de la fiche (nom complet, prénom ou nom de famille) et sur\nle nom saisi lors d'un premier contact. Elle est en **sous-chaîne, insensible à la casse ET aux\naccents** — « hejer » trouve « Héjér » — et exige au moins 2 caractères.\n\n**Elle est plafonnée à 20 fiches**, contrairement à la recherche par téléphone : un nom courant\ncorrespond à des centaines de personnes (« MOHAMED » : 555 en base réelle) et chaque fiche coûte\ncinq requêtes. Quand le plafond est atteint, `tronque` vaut `true` — **à afficher**, sans quoi\nl'agent conclut à tort que la personne n'existe pas.\n\nRecherche, en une seule requête, tout ce que le système sait sur le critère donné :\n\n1. **Fiches existantes** — toute personne (CfgTier : prospect, client, contact...) dont un des\n  numéros enregistrés (Phone, Phone1, Phone2, Mobile) correspond. Pour chacune : informations\n  générales, prospections, dossiers de vente, règlements, interactions et historique de statut.\n\n2. **Appels sans fiche** — pré-prospections (premiers contacts jamais convertis en fiche) dont le\n  numéro renseigné à l'époque correspond, signalant un appelant déjà contacté par le passé mais\n  jamais créé formellement.\n\nLa comparaison ignore les espaces, tirets, parenthèses et l'indicatif pays : \"+212 6 12 34 56 78\",\n\"212612345678\" et \"0612345678\" sont considérés comme le même numéro. Ne renvoie jamais 404 : si\npersonne ne correspond, `connu` vaut `false` et les listes sont vides — c'est au front de proposer\nla création d'une nouvelle fiche dans ce cas.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), les listes imbriquées de chaque fiche (prospections, dossiers, règlements, interactions)\nainsi que `appelsSansFiche` ne contiennent que les lignes de ses projets affectés. La **fiche\nelle-même n'est pas masquée** : le tier reste identifiable — c'est le but de cet écran, un agent\ndoit pouvoir dire qui appelle — mais son activité sur les autres projets ne lui est pas montrée. Un\nappelant peut donc apparaître `connu` avec des listes vides.",
+        "description": "**Fournissez exactement un critère : `telephone` OU `nom`.** Les deux, ou aucun, renvoient 400. La\nréponse a la même forme dans les deux cas — un seul écran suffit, seul le champ de saisie change.\n\nLa recherche par `nom` porte sur le nom de la fiche (nom complet, prénom ou nom de famille) et sur\nle nom saisi lors d'un premier contact. Elle est en **sous-chaîne, insensible à la casse ET aux\naccents** — « hejer » trouve « Héjér » — et exige au moins 2 caractères.\n\n**Elle est plafonnée à 20 fiches**, contrairement à la recherche par téléphone : un nom courant\ncorrespond à des centaines de personnes (« MOHAMED » : 555 en base réelle) et chaque fiche coûte\ncinq requêtes. Quand le plafond est atteint, `tronque` vaut `true` — **à afficher**, sans quoi\nl'agent conclut à tort que la personne n'existe pas.\n\nRecherche, en une seule requête, tout ce que le système sait sur le critère donné :\n\n1. **Fiches existantes** — toute personne (CfgTier : prospect, client, contact...) dont un des\n  numéros enregistrés (Phone, Phone1, Phone2, Mobile) correspond. Pour chacune : informations\n  générales, prospections, dossiers de vente, règlements, interactions et historique de statut.\n\n2. **Appels sans fiche** — pré-prospections (premiers contacts jamais convertis en fiche) dont le\n  numéro renseigné à l'époque correspond, signalant un appelant déjà contacté par le passé mais\n  jamais créé formellement.\n\nLa comparaison ignore les espaces, tirets, parenthèses et l'indicatif pays : \"+212 6 12 34 56 78\",\n\"212612345678\" et \"0612345678\" sont considérés comme le même numéro. Ne renvoie jamais 404 : si\npersonne ne correspond, `connu` vaut `false` et les listes sont vides — c'est au front de proposer\nla création d'une nouvelle fiche dans ce cas.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), les listes imbriquées de chaque fiche (prospections, dossiers, règlements, interactions,\nhistorique) ainsi que `appelsSansFiche` ne contiennent que les lignes de ses projets affectés. La **fiche\nelle-même n'est pas masquée** : le tier reste identifiable — c'est le but de cet écran, un agent\ndoit pouvoir dire qui appelle — mais son activité sur les autres projets ne lui est pas montrée. Un\nappelant peut donc apparaître `connu` avec des listes vides.",
         "operationId": "rechercher",
         "parameters": [
           {
@@ -15089,26 +15102,46 @@
       },
       "HistoriqueDto": {
         "type": "object",
+        "description": "Une ligne de l'onglet « Historique » d'une fiche, la plus récente en premier. Deux sources selon\nl'endpoint :\n\n- **tiers** (`GET /api/prospects/{id}/historique`, bloc `historique` de la Hotline) : les changements\n  de statut des dossiers de vente dont le tiers est le client (`StrFolderStatusHistory` filtré par\n  `CfgTierId`), soit les colonnes OMRAN « Utilisateur, Date, État, N° Dossier, Article, Détails ».\n  `dossierId`, `dossierCode` et `articleCode` y sont renseignés ;\n- **prospection** (`GET /api/prospections/{id}/historique`) : le journal `StrHistory` de la\n  prospection. `dossierId`, `dossierCode` et `articleCode` y sont toujours null.",
         "properties": {
           "id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Identifiant de la ligne d'historique : `StrFolderStatusHistory.PKey` pour un tiers, `StrHistory.PKey`\npour une prospection."
           },
           "date": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Date de l'événement."
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "description": "Détails saisis avec l'événement : la note du changement de statut pour un tiers (souvent null),\nle texte de l'action pour une prospection (ex. « Étape changée : 2 RDV → 4 APRES VISITES »)."
           },
           "utilisateur": {
-            "type": "string"
+            "type": "string",
+            "description": "Auteur de l'événement (libellé du compte). Null sur les lignes legacy sans auteur."
           },
           "workflowDescription": {
-            "type": "string"
+            "type": "string",
+            "description": "Libellé du workflow (historique de prospection). Toujours null pour un tiers."
           },
           "statutDescription": {
-            "type": "string"
+            "type": "string",
+            "description": "État atteint : libellé du statut de dossier (ex. « RESERVATION ») pour un tiers ; statut éventuel\nde la ligne `StrHistory` pour une prospection."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Dossier de vente concerné (historique d'un tiers). Null pour une prospection."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "N° du dossier de vente, ex. « ARS 2026/00410 ». Null pour une prospection."
+          },
+          "articleCode": {
+            "type": "string",
+            "description": "Code de l'article principal du dossier. Null pour une prospection ou sans article."
           }
         }
       },
@@ -15961,14 +15994,14 @@
           },
           "interactions": {
             "type": "array",
-            "description": "Journal des interactions (appels, messages, notes) enregistrées directement sur sa fiche — hors\ninteractions déjà rattachées à une prospection ou un dossier précis, les plus récentes en premier.",
+            "description": "Journal des interactions (appels, messages, notes) de cette personne, les plus récentes en premier :\ncelles posées sur sa fiche (`CfgTierId`) **et** celles de ses prospections, y compris saisies au\nstade pré-prospection avant la création de la fiche. Une interaction n'apparaît qu'une fois, et\nseulement si elle est dans le périmètre de l'utilisateur.",
             "items": {
               "$ref": "#/components/schemas/InteractionDto"
             }
           },
           "historique": {
             "type": "array",
-            "description": "Historique des changements de statut/workflow de cette personne (alimente l'onglet \"Historique\" de\nla fiche prospect), le plus récent en premier.",
+            "description": "Changements de statut des dossiers de vente de cette personne (utilisateur, date, état, n° dossier,\narticle, détails — voir `HistoriqueDto`), le plus récent en premier ; mêmes lignes que\nGET /api/prospects/{id}/historique. Les dossiers hors périmètre n'y figurent pas.",
             "items": {
               "$ref": "#/components/schemas/HistoriqueDto"
             }
@@ -16534,7 +16567,8 @@
             "type": "string"
           },
           "utilisateur": {
-            "type": "string"
+            "type": "string",
+            "description": "Auteur de l'événement (libellé du compte). Null sur les lignes legacy sans auteur."
           },
           "description": {
             "type": "string"

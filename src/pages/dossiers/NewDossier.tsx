@@ -4,6 +4,7 @@ import { Check, Folder, Pencil, RotateCcw, Search, X } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
+import MentionPrixPlancher from '../../components/MentionPrixPlancher';
 import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldGroup, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
@@ -203,8 +204,10 @@ export default function NewDossier() {
   const showPicker = editingArticles || selectedArticles.length === 0;
   // Auto-fill Prix — prefer the latest devis' own prix (an actual quote
   // already drafted for this prospection) over the sum of selected
-  // articles' prix de vente, as long as the user hasn't overridden it by hand.
-  const autoPrixFromArticles = selectedArticles.reduce((sum, a) => sum + (a.salePrice ?? 0), 0);
+  // articles' prix suggéré (prix commercial, ou plancher quand il vaut 0 — le
+  // même calcul que le serveur), as long as the user hasn't overridden it by hand.
+  const autoPrixFromArticles = selectedArticles.reduce((sum, a) => sum + (a.prixSuggere ?? 0), 0);
+  const prixPlancherPropose = selectedArticles.some((a) => a.prixSuggereEstPlancher);
   const autoPrix = latestDevis?.montants?.prixVenteTTC || autoPrixFromArticles;
   const prixValue = priceTouched ? prix : autoPrix > 0 ? String(autoPrix) : prix;
 
@@ -584,6 +587,7 @@ export default function NewDossier() {
                       : 'Pré-rempli depuis le prix de vente des lots sélectionnés.'}
                   </p>
                 )}
+                {prixPlancherPropose && <MentionPrixPlancher />}
                 {!priceTouched && autoPrix === 0 && selectedIds.length > 0 && (
                   <p className="mt-1 text-micro text-destructive">
                     Aucun prix de vente sur les lots sélectionnés — saisissez le prix manuellement.

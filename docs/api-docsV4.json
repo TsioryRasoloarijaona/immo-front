@@ -1228,7 +1228,7 @@
           "Prospections"
         ],
         "summary": "Ajoute une interaction à une prospection",
-        "description": "Journalise un appel/message/visite/note sur cette prospection. `actionTypeId` (\"Action\") et\n`resultatId` (\"Résultat\") sont optionnels mais recommandés pour un suivi exploitable — voir GET\n/api/referentiels/types-contact-prospection et GET /api/referentiels/resultats-interaction. Si le\nrésultat choisi est \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du\nprojet\", `dateRdv` devient obligatoire et une entrée calendrier est créée, visible ensuite via GET\n/api/calendrier/evenements.\n\n**Une confirmation part alors automatiquement au prospect, par email ET par WhatsApp** (date, heure,\nadresse du projet, conseiller ; les plans seulement par email). Les deux canaux sont indépendants —\n57 % des prospects ont une adresse email, 99 % un numéro exploitable, donc l'essentiel est prévenu\npar au moins un des deux. L'envoi a lieu après validation de la transaction et hors du temps de\nréponse : il ne peut ni retarder ni faire échouer cet appel, et la réponse ne dit pas s'il a abouti.\nPour connaître l'issue, ou pour renvoyer après avoir corrigé une coordonnée, voir POST\n/api/prospections/{id}/interactions/{interactionId}/email-visite.\n\n**Le corps de requête ne change pas** : `description` reste le champ d'entrée et reste obligatoire.\nSeule sa destination en base a été corrigée — il alimente désormais le champ `note` de la réponse,\net non plus le libellé. Le libellé `description` de la réponse est **généré par le serveur**\n(`JJ/MM/AAAA HH:MM <auteur>`) et ne peut pas être imposé : c'est ce qui rend les interactions créées\nici indiscernables de celles de l'application de bureau.\n\nL'**auteur** est déduit du jeton d'authentification, jamais du corps : le laisser choisir fausserait\nles KPI de performance commerciale.\n\n**Relance (`dateAlerte`).** Une interaction datée d'une alerte devient la relance courante de la\nprospection, exactement comme dans le logiciel de bureau : les relances précédentes de la\nprospection sont désarmées (`WithoutRevival`, alerte éteinte dans `AdmAlertData`) et la nouvelle est\nposée là où l'écran du légataire la lit. Elle disparaît donc de `derniereAlerteDate` de la liste et\ndu tableau de bord des relances, et la nouvelle prend sa place. **Une interaction sans `dateAlerte`\nne touche à aucune relance existante** — c'est la règle du légataire, vérifiée sur sa trace d'audit\n: ni la date de l'alerte ni une simple note ne l'éteignent.",
+        "description": "Journalise un appel/message/visite/note sur cette prospection — voir GET\n/api/referentiels/types-contact-prospection et GET /api/referentiels/resultats-interaction.\n\n**Champs obligatoires (règle OMRAN GEN0005)** :\n- `actionTypeId` (\"Action\") : toujours obligatoire.\n- Action de type **Note** (code `Note`, insensible à la casse) : `description` (le message) est\n  obligatoire et non vide, `resultatId` est facultatif.\n- Toute autre action : `resultatId` (\"Résultat\") est obligatoire, `description` est facultative.\n- Résultat paramétré « avec alerte » (`alerteRecommandee = true` dans le référentiel) : `dateAlerte`\n  est obligatoire.\n- Résultat \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\" :\n  `dateRdv` est obligatoire et une entrée calendrier est créée, visible ensuite via GET\n  /api/calendrier/evenements.\n\n**Catégorie** : celle du résultat s'il y en a un, sinon la catégorie « Prospection » de l'écran\nparent, comme OMRAN. Une interaction sans résultat (note) reste donc visible dans « Dernière\naction », « Dernier échange » et « Résultat » de la liste des prospections.\n\n**Quand un rendez-vous est créé, une confirmation part automatiquement au prospect, par email ET par WhatsApp** (date, heure,\nadresse du projet, conseiller ; les plans seulement par email). Les deux canaux sont indépendants —\n57 % des prospects ont une adresse email, 99 % un numéro exploitable, donc l'essentiel est prévenu\npar au moins un des deux. L'envoi a lieu après validation de la transaction et hors du temps de\nréponse : il ne peut ni retarder ni faire échouer cet appel, et la réponse ne dit pas s'il a abouti.\nPour connaître l'issue, ou pour renvoyer après avoir corrigé une coordonnée, voir POST\n/api/prospections/{id}/interactions/{interactionId}/email-visite.\n\n`description` est le champ d'entrée du message : il alimente le champ `note` de la réponse, pas\nle libellé. Le libellé `description` de la réponse est **généré par le serveur**\n(`JJ/MM/AAAA HH:MM <auteur>`) et ne peut pas être imposé : c'est ce qui rend les interactions créées\nici indiscernables de celles de l'application de bureau.\n\nL'**auteur** est déduit du jeton d'authentification, jamais du corps : le laisser choisir fausserait\nles KPI de performance commerciale.\n\n**Relance (`dateAlerte`).** Une interaction datée d'une alerte devient la relance courante de la\nprospection, exactement comme dans le logiciel de bureau : les relances précédentes de la\nprospection sont désarmées (`WithoutRevival`, alerte éteinte dans `AdmAlertData`) et la nouvelle est\nposée là où l'écran du légataire la lit. Elle disparaît donc de `derniereAlerteDate` de la liste et\ndu tableau de bord des relances, et la nouvelle prend sa place. **Une interaction sans `dateAlerte`\nne touche à aucune relance existante** — c'est la règle du légataire, vérifiée sur sa trace d'audit\n: ni la date de l'alerte ni une simple note ne l'éteignent.",
         "operationId": "addInteraction",
         "parameters": [
           {
@@ -1264,7 +1264,7 @@
             }
           },
           "400": {
-            "description": "`description` manquante, `actionTypeId`/`resultatId` inconnu, ou `dateRdv` manquante alors que le\nrésultat choisi l'exige.",
+            "description": "`ProblemDetail` dont `detail` nomme le champ : `actionTypeId` manquant ; message manquant pour une\nnote ; `resultatId` manquant pour une action autre qu'une note ; `dateAlerte` manquante pour un\nrésultat « avec alerte » ; `dateRdv` manquante alors que le résultat l'exige ; `actionTypeId` ou\n`resultatId` inconnu.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2474,7 +2474,7 @@
           "Dossiers"
         ],
         "summary": "Crée un dossier de vente à partir d'une prospection",
-        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  prix **avant** remise et sert de base à la place du prix commercial de l'article ; les annexes\n  (articles suivants de `articleIds`) s'y ajoutent ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix commercial de\n  l'article.",
+        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  prix **avant** remise et sert de base à la place du prix commercial de l'article ; les annexes\n  (articles suivants de `articleIds`) s'y ajoutent ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Prospect → client** : si le statut initial porte l'indicateur OMRAN « Transforme le prospect en\nclient », le tiers passe au type client (voir `PATCH /api/dossiers/{id}/statut`).",
         "operationId": "create_1",
         "requestBody": {
           "content": {
@@ -4077,6 +4077,8 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Change le statut du dossier de vente",
+        "description": "Change le statut du dossier. La transition doit figurer dans la table des transitions validées\n(sinon **409**, avec `transitionsAutorisees`) ; un dossier sans statut courant accepte tout statut.\n\n**Prospect → client, comme OMRAN** : si le statut cible porte l'indicateur « Transforme le prospect\nen client » (`StrStatus.BoolField011` : CONCRETISATION, COMPROMIS, FORMALISE…), et que le client du\ndossier est de type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`), son type devient le type client\ncorrespondant (`CLI`, `CLIRNT`, `CLIPRM`, `CLIROM`), dans la même transaction. La ligne\nd'historique du changement de statut porte alors la mention « Prospect transformé en client ».\nDéjà client, type absent ou inconnu : rien ne change. Jamais de retour client → prospect.",
         "operationId": "changerStatut",
         "parameters": [
           {
@@ -4101,7 +4103,37 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Statut changé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`statut` absent ou inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Transition non autorisée depuis le statut courant ; le corps liste `transitionsAutorisees`.",
             "content": {
               "*/*": {
                 "schema": {
@@ -11553,7 +11585,7 @@
         "properties": {
           "description": {
             "type": "string",
-            "description": "Texte libre décrivant l'interaction — ce que le commercial a constaté ou fait. **Ressort dans le\nchamp `note` de la réponse**, pas dans `description` : ce dernier est un libellé `JJ/MM/AAAA HH:MM\n<auteur>` généré par le serveur, que l'appelant ne peut pas imposer.",
+            "description": "Message : texte libre décrivant l'interaction — ce que le commercial a constaté ou fait.\n**Obligatoire (non vide) pour une action Note**, facultatif pour toute autre action. **Ressort dans\nle champ `note` de la réponse**, pas dans `description` : ce dernier est un libellé `JJ/MM/AAAA\nHH:MM <auteur>` généré par le serveur, que l'appelant ne peut pas imposer.",
             "example": "la cliente cherche 2 chambres et salon, rdv mercredi 10h"
           },
           "entrante": {
@@ -11563,17 +11595,17 @@
           "actionTypeId": {
             "type": "string",
             "format": "uuid",
-            "description": "Id de l'\"Action\" (nature de l'interaction : Instruction, Mail entrant/Sortant, Message\nentrant/sortant, Note, Téléphone entrant/Sortant, Visite, WEB). Référentiel : GET\n/api/referentiels/types-contact-prospection. Optionnel."
+            "description": "Id de l'\"Action\" (nature de l'interaction : Instruction, Mail entrant/Sortant, Message\nentrant/sortant, Note, Téléphone entrant/Sortant, Visite, WEB). Référentiel : GET\n/api/referentiels/types-contact-prospection. **Toujours obligatoire** (400 sinon). Le type de code\n`Note` rend le message obligatoire et le résultat facultatif."
           },
           "resultatId": {
             "type": "string",
             "format": "uuid",
-            "description": "Id du \"Résultat\" de l'interaction (ex: \"Rendez vous pris\", \"Hors Budget\", \"Client injoignable ou\nBoite vocale\", \"Le prospect veut faire une visite du projet\"...). Référentiel : GET\n/api/referentiels/resultats-interaction. Optionnel — mais si le résultat choisi a\nnecessiteDateRdv=true (\"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du\nprojet\"), dateRdv devient obligatoire."
+            "description": "Id du \"Résultat\" de l'interaction (ex: \"Rendez vous pris\", \"Hors Budget\", \"Client injoignable ou\nBoite vocale\", \"Le prospect veut faire une visite du projet\"...). Référentiel : GET\n/api/referentiels/resultats-interaction. **Obligatoire pour toute action autre qu'une Note**\n(400 sinon), facultatif pour une Note. Si le résultat choisi a necessiteDateRdv=true (\"Rendez vous\npris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\"), dateRdv devient\nobligatoire ; s'il a alerteRecommandee=true, dateAlerte devient obligatoire."
           },
           "dateAlerte": {
             "type": "string",
             "format": "date-time",
-            "description": "Date jusqu'à laquelle une relance sur cette interaction reste pertinente (alimente le\nrappel/l'alerte de suivi). Recommandé quand le référentiel resultat indique alerteRecommandee=true,\nmais jamais imposé côté serveur. Optionnel."
+            "description": "Date jusqu'à laquelle une relance sur cette interaction reste pertinente (alimente le\nrappel/l'alerte de suivi). **Obligatoire quand le résultat choisi a alerteRecommandee=true**\n(résultat paramétré « avec alerte », `IsRevivalMandatory`), 400 sinon ; facultatif autrement."
           },
           "dateRdv": {
             "type": "string",
@@ -11582,7 +11614,7 @@
           }
         },
         "required": [
-          "description"
+          "actionTypeId"
         ]
       },
       "InteractionDto": {
@@ -13962,6 +13994,17 @@
           },
           "immeubleLibelle": {
             "type": "string"
+          },
+          "prixSuggere": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Prix de référence TTC : comSalePrice s'il est > 0, sinon comSalePriceFloor s'il est > 0, sinon null."
+          },
+          "prixSuggereEstPlancher": {
+            "type": "boolean",
+            "description": "Vrai quand prixSuggere est le prix plancher (prix commercial à 0)."
           }
         }
       },
@@ -17304,6 +17347,17 @@
           },
           "superficieSousArticles": {
             "type": "number"
+          },
+          "prixSuggere": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Prix de référence TTC : comSalePrice s'il est > 0, sinon comSalePriceFloor s'il est > 0, sinon null."
+          },
+          "prixSuggereEstPlancher": {
+            "type": "boolean",
+            "description": "Vrai quand prixSuggere est le prix plancher (prix commercial à 0)."
           }
         }
       },
