@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { ApiError, declencherSynchronisation } from '../lib/api';
+import { useToast } from '../lib/toastContext';
 import { refetchAllApis } from '../lib/useApi';
 import { useAuth } from '../lib/auth';
 import { cn } from '../lib/utils';
@@ -35,23 +36,13 @@ const ROLES_SYNCHRONISATION = ['Administrateur', 'Commercial', 'Commercial Chef'
 export default function SyncButton() {
   const { user } = useAuth();
   const [enCours, setEnCours] = useState(false);
-  const [toast, setToast] = useState<{ message: string; erreur: boolean } | null>(null);
-  const timerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) clearTimeout(timerRef.current);
-    };
-  }, []);
+  const toast = useToast();
 
   const autorise = user?.roles?.some((r) => ROLES_SYNCHRONISATION.includes(r)) ?? false;
   if (!autorise) return null;
 
   function montrerToast(message: string, erreur: boolean) {
-    if (timerRef.current !== null) clearTimeout(timerRef.current);
-    setToast({ message, erreur });
-    // Le bilan est plus long à lire qu'une confirmation simple : 8 s.
-    timerRef.current = window.setTimeout(() => setToast(null), 8000);
+    toast({ texte: message, variante: erreur ? 'erreur' : 'succes' });
   }
 
   function bilan(r: SynchronisationResultatDto): string {
@@ -108,18 +99,6 @@ export default function SyncButton() {
         <RefreshCw className={cn('size-4 shrink-0', enCours && 'animate-spin')} />
         <span className="group-data-[collapsible=icon]:hidden">{enCours ? 'Synchronisation…' : 'Synchroniser'}</span>
       </button>
-      {toast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={cn(
-            'fixed bottom-6 right-6 z-50 max-w-sm rounded-lg px-4.5 py-3 text-label font-medium shadow-lg',
-            toast.erreur ? 'border border-destructive/40 bg-background text-destructive' : 'bg-foreground text-background',
-          )}
-        >
-          {toast.message}
-        </div>
-      )}
     </>
   );
 }

@@ -31,6 +31,8 @@ import {
   formatDateTime,
   formatNumber,
   formatPercent,
+  formatPercentValue,
+  formatSurface,
   formatTelephone,
   toApiDateTime,
   todayISO,
@@ -78,6 +80,8 @@ import {
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { useConfirm } from '../../lib/confirmContext';
+import { useToast } from '../../lib/toastContext';
+import { avecCles } from '../../lib/cles';
 import type { CreerEcheanceRequest, CreerReglementRequest, EcheanceDto, PieceJointeDto, ReglementDto } from '../../types';
 
 /** La zone large, en bas. Cinq onglets sur les douze du logiciel de bureau :
@@ -93,12 +97,12 @@ function AddEcheanceRow({
   initialOpen,
   initialMontant,
   initialDate,
-}: {
+}: Readonly<{
   onAdd: (body: CreerEcheanceRequest) => Promise<void>;
   initialOpen?: boolean;
   initialMontant?: number;
   initialDate?: string;
-}) {
+}>) {
   const [open, setOpen] = useState(!!initialOpen);
   const [categorieId, setCategorieId] = useState<string | null>(null);
   const [montant, setMontant] = useState(initialMontant ? String(initialMontant) : '');
@@ -188,11 +192,11 @@ function PieceJointeRow({
   dossierId,
   piece,
   onDeleted,
-}: {
+}: Readonly<{
   dossierId: string;
   piece: PieceJointeDto;
   onDeleted: () => void;
-}) {
+}>) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const confirm = useConfirm();
@@ -375,11 +379,11 @@ function GeneratedDocumentCard({
   dossierId,
   code,
   kind,
-}: {
+}: Readonly<{
   dossierId: string;
   code?: string | null;
   kind: GeneratedDocKind;
-}) {
+}>) {
   const [busy, setBusy] = useState<'view' | 'pdf' | 'docx' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { title, description, Icon, hasDocx, view, download } = GENERATED_DOC_HANDLERS[kind];
@@ -495,12 +499,12 @@ function AddPieceJointeRow({
   open,
   onOpenChange,
   onAdded,
-}: {
+}: Readonly<{
   dossierId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAdded: () => void;
-}) {
+}>) {
   const [file, setFile] = useState<File | null>(null);
   const [description, setDescription] = useState('');
   const [typeId, setTypeId] = useState<string | null>(null);
@@ -596,12 +600,12 @@ function AddReglementRow({
   echeanceId,
   reste,
   onAdd,
-}: {
+}: Readonly<{
   dossierId: string;
   echeanceId: string;
   reste: number | undefined;
   onAdd: (echeanceId: string, body: CreerReglementRequest) => Promise<void>;
-}) {
+}>) {
   const [open, setOpen] = useState(false);
   const [montant, setMontant] = useState('');
   const [dateEcheance, setDateEcheance] = useState(todayISO());
@@ -703,7 +707,7 @@ function AddReglementRow({
             <FieldLabel htmlFor="reg-payeur">Réglé par</FieldLabel>
             <Select items={payeursItems} value={payeurId} onValueChange={(v) => setPayeurId(v as string | null)} disabled={aucunPayeur}>
               <SelectTrigger id="reg-payeur" className="w-full">
-                <SelectValue placeholder={payeurs.loading ? 'Chargement…' : aucunPayeur ? 'Aucun acquéreur rattaché' : 'Acquéreur ou co-acquéreur'} />
+                <SelectValue placeholder={placeholderPayeur(payeurs.loading, aucunPayeur)} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
@@ -789,11 +793,16 @@ function AddReglementRow({
   );
 }
 
+function placeholderPayeur(chargement: boolean, aucunPayeur: boolean): string {
+  if (chargement) return 'Chargement…';
+  return aucunPayeur ? 'Aucun acquéreur rattaché' : 'Acquéreur ou co-acquéreur';
+}
+
 /** `GET /api/dossiers/{id}/reglements/{reglementId}/documents/recu` — one
  * PDF-only "Reçu de règlement" per règlement row, icon-only like the
  * generated-document chips (same reasoning: this isn't saved data, it's
  * generated on demand from the règlement's own id). */
-function ReglementRecuButton({ dossierId, reglementId }: { dossierId: string; reglementId: string }) {
+function ReglementRecuButton({ dossierId, reglementId }: Readonly<{ dossierId: string; reglementId: string }>) {
   const [busy, setBusy] = useState<'view' | 'download' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -829,7 +838,7 @@ function ReglementRecuButton({ dossierId, reglementId }: { dossierId: string; re
  * compte destinataire / mode de versement / tiers payeur the document is
  * built from live on the règlement, not on the échéance. Same icon-only
  * view/download pattern. */
-function AutorisationVersementButton({ dossierId, reglementId }: { dossierId: string; reglementId: string }) {
+function AutorisationVersementButton({ dossierId, reglementId }: Readonly<{ dossierId: string; reglementId: string }>) {
   const [busy, setBusy] = useState<'view' | 'download' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -876,11 +885,11 @@ function ReglementRow({
   dossierId,
   reglement,
   onChanged,
-}: {
+}: Readonly<{
   dossierId: string;
   reglement: ReglementDto;
   onChanged: () => Promise<void>;
-}) {
+}>) {
   const [piecesOuvertes, setPiecesOuvertes] = useState(false);
   const [piecesVersion, setPiecesVersion] = useState(0);
   const [pointageOuvert, setPointageOuvert] = useState(false);
@@ -980,12 +989,12 @@ function EcheanceReglementsHistory({
   echeanceId,
   refreshKey,
   onChanged,
-}: {
+}: Readonly<{
   dossierId: string;
   echeanceId: string;
   refreshKey: number;
   onChanged: () => Promise<void>;
-}) {
+}>) {
   const { data, loading, error } = useApi(() => listEcheanceReglements(dossierId, echeanceId), [dossierId, echeanceId, refreshKey]);
 
   if (loading) return <span className="text-body text-muted-foreground">Chargement…</span>;
@@ -1012,12 +1021,12 @@ function EcheanceRow({
   echeance,
   onReglementAdded,
   onReglementChanged,
-}: {
+}: Readonly<{
   dossierId: string;
   echeance: EcheanceDto;
   onReglementAdded: (echeanceId: string, body: CreerReglementRequest) => Promise<void>;
   onReglementChanged: () => Promise<void>;
-}) {
+}>) {
   const [expanded, setExpanded] = useState(false);
   const [reglementsVersion, setReglementsVersion] = useState(0);
   const statut = echeanceStatut(echeance);
@@ -1097,7 +1106,7 @@ function EcheanceRow({
  * alors que `DossierDetailDto.quotePart` est une **fraction** où 1,00 vaut
  * 100 %. Deux champs du même nom, deux échelles — d'où le formatage distinct
  * ici et dans la bande d'identité. */
-function AcquereursDossier({ dossierId }: { dossierId: string }) {
+function AcquereursDossier({ dossierId }: Readonly<{ dossierId: string }>) {
   const payeurs = useApi(() => listPayeurs(dossierId), [dossierId], 'dossier-payeurs');
 
   if (payeurs.loading && !payeurs.data) return <LoadingState />;
@@ -1119,7 +1128,7 @@ function AcquereursDossier({ dossierId }: { dossierId: string }) {
           {/* Toujours nul sur l'acquéreur principal — ne rien afficher plutôt
               qu'un tiret qui se lirait comme une quote-part manquante. */}
           {typeof pa.quotePart === 'number' && (
-            <span className="ml-auto text-label font-semibold tabular-nums text-foreground">{pa.quotePart.toFixed(2)} %</span>
+            <span className="ml-auto text-label font-semibold tabular-nums text-foreground">{formatPercentValue(pa.quotePart)}</span>
           )}
         </div>
       ))}
@@ -1139,13 +1148,13 @@ function formatJours(jours: number | null | undefined) {
 /** La page routée : elle lit l'URL et la passe à la fiche. */
 export default function DossierDetail() {
   const { id } = useParams();
-  return <FicheDossier id={id!} />;
+  return <FicheDossier key={id} id={id!} />;
 }
 
 /** La fiche elle-même, indépendante de l'URL — ce qui permet de l'ouvrir en
  * dialogue (`FicheDossierDialog`) à l'identique de la page, comme
  * `FicheProspection`. */
-export function FicheDossier({ id, variante = 'page' }: { id: string; variante?: VarianteFiche }) {
+export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; variante?: VarianteFiche }>) {
   const { data: d, loading, error, refetch } = useApi(() => getDossier(id), [id], 'dossier');
   // Cascade reference up to the originating Prospection — same
   // reference-the-previous-pipeline-stage convention as Prospection's own
@@ -1183,7 +1192,7 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
   const [historiquePage, setHistoriquePage] = useState(0);
   const historique = useApi(() => listHistoriqueDossier(id, { page: historiquePage, size: 20 }), [id, historiquePage], 'dossier-historique');
   const navigate = useNavigate();
-  const [toast, setToast] = useState<string | null>(null);
+  const showToast = useToast();
   const [searchParams] = useSearchParams();
   // Landing here right after "Créer le dossier" (see NewDossier.tsx).
   // En dialogue, l'URL est celle de la page derrière : `?nouveau` ne la concerne pas.
@@ -1195,11 +1204,6 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
   // « Montants » par défaut, comme l'écran légataire, qui l'ouvre sur cet
   // onglet : c'est la première chose qu'un commercial regarde sur un dossier.
   const [panneauTab, setPanneauTab] = useState<PanneauDossierTab>('montants');
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3600);
-  }
 
   // `!d` : avec une valeur en cache (cf. `useApi(..., 'dossier')`), on repeint
   // le dossier connu et la revalidation se fait en fond, sans écran de chargement.
@@ -1398,8 +1402,8 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {historique.data.content.map((h, i) => (
-                    <TableRow key={`${h.date}-${i}`}>
+                  {avecCles(historique.data.content, (e) => `${e.date}-${e.type}-${e.utilisateur}-${e.description}`).map(({ item: h, cle }) => (
+                    <TableRow key={cle}>
                       <TableCell className="tabular-nums text-muted-foreground">{formatDateTime(h.date)}</TableCell>
                       <TableCell className="font-medium text-foreground">{h.type || 'Événement'}</TableCell>
                       <TableCell className="min-w-60 max-w-120 py-1 whitespace-normal text-muted-foreground">
@@ -1463,7 +1467,7 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
           {montants.data?.dossierSorti && <Badge tone="warning">Dossier sorti</Badge>}
           {/* 95 % des dossiers valent 1,00 : la quote-part ne s'affiche qu'en indivision. */}
           {typeof d.quotePart === 'number' && d.quotePart !== 1 && (
-            <span className="text-micro font-medium text-foreground">Quote-part {(d.quotePart * 100).toFixed(2)} %</span>
+            <span className="text-micro font-medium text-foreground">Quote-part {formatPercent(d.quotePart, 2)}</span>
           )}
         </EnteteFiche>
       }
@@ -1564,7 +1568,7 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
                   aide="Type de présentation du lot."
                 />
                 <ChampLecture label="Type" valeur={premierArticle?.typeLibelle || premierArticle?.typeCode} />
-                <ChampLecture label="Surface" valeur={premierArticle?.area ? `${premierArticle.area} m²` : null} />
+                <ChampLecture label="Surface" valeur={premierArticle?.area ? formatSurface(premierArticle.area) : null} />
                 <ChampLecture label="Prix du m²" valeur={d.prixM2 ? formatCurrency(d.prixM2) : null} />
 
                 <ChampLecture label="Total HT" valeur={formatCurrency(d.prixAvantRemiseHT)} />
@@ -1579,7 +1583,7 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
                 />
                 <ChampLecture
                   label="TVA"
-                  valeur={d.tauxTVA ? `${(d.tauxTVA * 100).toFixed(2)} %` : null}
+                  valeur={d.tauxTVA ? formatPercent(d.tauxTVA, 2) : null}
                   aide="Nul ou absent sur la majorité des dossiers — c'est une absence de saisie, pas un taux nul."
                 />
                 <ChampLecture label="Prix de vente HT" valeur={formatCurrency(d.prixHT)} />
@@ -1689,7 +1693,7 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
                       await montants.refetch();
                       showToast(`Statut changé : ${canonicalStatusLabel(newStatus)}.`);
                     } catch (err) {
-                      showToast(err instanceof Error ? err.message : "Échec de l'opération.");
+                      showToast({ texte: err instanceof Error ? err.message : "Échec de l'opération.", variante: 'erreur' });
                     }
                   }}
                 />
@@ -1746,7 +1750,7 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
                         <Field label="Étage" value={a.etageLibelle || a.etageCode} />
                         <Field label="Catégorie" value={a.categorieLibelle || a.categorieCode} />
                         <Field label="Type" value={a.typeLibelle || a.typeCode} />
-                        <Field label="Surface" value={a.area ? `${a.area} m²` : undefined} />
+                        <Field label="Surface" value={a.area ? formatSurface(a.area) : undefined} />
                         <Field label="Prix" value={a.price ? formatCurrency(a.price) : undefined} />
                       </FieldGrid>
                     </div>
@@ -1817,12 +1821,6 @@ export function FicheDossier({ id, variante = 'page' }: { id: string; variante?:
           },
         ]}
       />
-
-      {toast && (
-        <div role="status" aria-live="polite" className="fixed right-6 bottom-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-label font-medium text-background shadow-lg">
-          {toast}
-        </div>
-      )}
     </CadreFiche>
   );
 }

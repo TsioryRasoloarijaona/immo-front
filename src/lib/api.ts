@@ -152,6 +152,8 @@ export const API_BASE_URL: string =
   (import.meta.env.back_end_url as string | undefined)?.replace(/\/$/, '') ||
   `${window.location.protocol}//${window.location.hostname}:8080`;
 
+const MESSAGE_API_INJOIGNABLE = `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`;
+
 export class ApiError extends Error {
   status: number;
   /** Corps ProblemDetail (RFC 7807) parsé, quand la réponse en portait un.
@@ -188,9 +190,13 @@ async function readErrorBody(res: Response, fallback: string): Promise<{ message
     return { message: `${fallback} — ${text.slice(0, 300)}` };
   }
   const problem = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
-  const detail =
-    typeof problem?.detail === 'string' ? problem.detail : typeof problem?.title === 'string' ? problem.title : null;
-  return { message: detail || `${fallback} — ${text.slice(0, 300)}`, problem };
+  return { message: detailProblem(problem) || `${fallback} — ${text.slice(0, 300)}`, problem };
+}
+
+function detailProblem(problem: Record<string, unknown> | undefined): string | null {
+  if (typeof problem?.detail === 'string') return problem.detail;
+  if (typeof problem?.title === 'string') return problem.title;
+  return null;
 }
 
 type QueryValue = string | number | boolean | string[] | undefined | null;
@@ -371,7 +377,9 @@ export function clearApiCache(): void {
 async function request<T>(
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   path: string,
-  opts?: { body?: unknown; query?: Record<string, QueryValue> },
+  // `lecture` : POST sans effet (simulation) — ne vide pas les caches, sinon un
+  // `useApi` qui l'appelle relancerait sa propre requête.
+  opts?: { body?: unknown; query?: Record<string, QueryValue>; lecture?: boolean },
 ): Promise<T> {
   const url = `${API_BASE_URL}${path}${buildQuery(opts?.query)}`;
 
@@ -388,7 +396,7 @@ async function request<T>(
   }
 
   const result = await performRequest<T>(method, url, opts);
-  clearApiCache();
+  if (!opts?.lecture) clearApiCache();
   return result;
 }
 
@@ -410,13 +418,18 @@ async function performRequest<T>(
       credentials: 'include',
     });
   } catch {
-    throw new ApiError(0, `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`);
+    throw new ApiError(0, MESSAGE_API_INJOIGNABLE);
   }
   if (!res.ok) {
     signalerSiSessionExpiree(url, res.status);
     const { message, problem } = await readErrorBody(res, `${method} ${url} a échoué (${res.status})`);
     throw new ApiError(res.status, message, problem);
   }
+  return lireCorpsJson<T>(res);
+}
+
+/** 204 ou corps vide → `undefined` ; sinon le JSON. */
+async function lireCorpsJson<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
   const text = await res.text();
   if (!text) return undefined as T;
@@ -473,10 +486,6 @@ export function listClients(params?: { search?: string; trancheId?: UUID }, page
 
 export function getClient(id: UUID): Promise<ProspectDetailDto> {
   return request('GET', `/api/clients/${id}`);
-}
-
-export function listClientDossiers(clientId: UUID, pageable?: Pageable): Promise<PageDto<DossierListItemDto>> {
-  return request('GET', `/api/clients/${clientId}/dossiers`, { query: withPageable(undefined, pageable) });
 }
 
 /** `POST /api/prospects`. Depuis `FEATURE-doublons-prospect-projet.md` §2
@@ -613,7 +622,13 @@ export function listProspections(
 ): Promise<PageDto<ProspectionListItemDto>> {
   const query: Record<string, QueryValue> = withPageable(params, pageable);
   if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
-  for (const [cle, valeur] of Object.entries(options?.filtres ?? {})) {
+  ajouterFiltres(query, options?.filtres);
+  if (options?.depliage) withDepliage(query, options.depliage);
+  return request('GET', '/api/prospections', { query });
+}
+
+function ajouterFiltres(query: Record<string, QueryValue>, filtres: FiltresAvancesProspection | undefined): void {
+  for (const [cle, valeur] of Object.entries(filtres ?? {})) {
     // `false` et `0` sont des filtres légitimes (« sans relance active »), donc
     // seuls `undefined` et les listes vides sont écartés. `buildQuery` ignore
     // ensuite `null` et la chaîne vide.
@@ -621,8 +636,6 @@ export function listProspections(
     if (Array.isArray(valeur) && valeur.length === 0) continue;
     query[cle] = valeur as QueryValue;
   }
-  if (options?.depliage) withDepliage(query, options.depliage);
-  return request('GET', '/api/prospections', { query });
 }
 
 /** `GET /api/prospections/groupes` — la liste repliée en groupes.
@@ -643,11 +656,7 @@ export function listProspectionsGroupes(
   options?: { filtres?: FiltresAvancesProspection },
 ): Promise<PageGroupesDto> {
   const query = withGroupes(withPageable(params, pageable), groupes);
-  for (const [cle, valeur] of Object.entries(options?.filtres ?? {})) {
-    if (valeur === undefined) continue;
-    if (Array.isArray(valeur) && valeur.length === 0) continue;
-    query[cle] = valeur as QueryValue;
-  }
+  ajouterFiltres(query, options?.filtres);
   return request('GET', '/api/prospections/groupes', { query });
 }
 
@@ -937,12 +946,6 @@ export function listDevis(prospectionId: UUID, pageable?: Pageable): Promise<Pag
 export function creerDevis(prospectionId: UUID, body: CreerDevisRequest): Promise<DevisDto> {
   return request('POST', `/api/prospections/${prospectionId}/devis`, { body });
 }
-/** Détail complet d'une offre, y compris le HT/TTC de l'onglet "Montants"
- * (`montants`) — la liste (`listDevis`) renvoie déjà ce détail complet par
- * offre, donc cet endpoint sert surtout à re-fetcher une offre isolément. */
-export function getDevisById(prospectionId: UUID, devisId: UUID): Promise<DevisDto> {
-  return request('GET', `/api/prospections/${prospectionId}/devis/${devisId}`);
-}
 
 /** Filtres pour la liste globale des offres (page `/offres`, tout
  * `Vente > Offres` de l'ancien Omran) — mêmes conventions que
@@ -1075,7 +1078,7 @@ export function createDossier(body: CreerDossierRequest): Promise<DossierDetailD
  * de financement" `POST /api/dossiers` would generate, without creating or
  * persisting anything. Call again on every articleIds/prix change. */
 export function simulerSchemaFinancement(body: SimulerSchemaFinancementRequest): Promise<SchemaFinancementDto> {
-  return request('POST', '/api/dossiers/simulation-financement', { body });
+  return request('POST', '/api/dossiers/simulation-financement', { body, lecture: true });
 }
 
 export function changerStatutDossier(id: UUID, body: ChangerStatutRequest): Promise<DossierDetailDto> {
@@ -1115,7 +1118,7 @@ async function postMultipart<T>(path: string, file: File, query?: Record<string,
   try {
     res = await fetch(url, { method: 'POST', body: form, credentials: 'include' });
   } catch {
-    throw new ApiError(0, `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`);
+    throw new ApiError(0, MESSAGE_API_INJOIGNABLE);
   }
   if (!res.ok) {
     signalerSiSessionExpiree(url, res.status);
@@ -1123,7 +1126,7 @@ async function postMultipart<T>(path: string, file: File, query?: Record<string,
     throw new ApiError(res.status, message, problem);
   }
   clearApiCache();
-  return res.json() as Promise<T>;
+  return lireCorpsJson<T>(res);
 }
 
 /** `POST /api/dossiers/{id}/pieces-jointes`. `description` est une légende
@@ -1177,10 +1180,12 @@ async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestIn
   try {
     res = await fetch(url, { credentials: 'include', ...init });
   } catch {
-    throw new ApiError(0, `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`);
+    throw new ApiError(0, MESSAGE_API_INJOIGNABLE);
   }
   if (!res.ok) {
-    throw new ApiError(res.status, `Téléchargement échoué (${res.status}).`);
+    signalerSiSessionExpiree(url, res.status);
+    const { message, problem } = await readErrorBody(res, `Téléchargement échoué (${res.status}).`);
+    throw new ApiError(res.status, message, problem);
   }
 
   const contentType = res.headers.get('content-type') ?? '';
@@ -1325,6 +1330,17 @@ function showBlobInTab(win: Window | null, blob: Blob): void {
   // off a still-open preview.
 }
 
+/** Onglet ouvert **avant** le premier `await` (geste utilisateur), fermé si le chargement échoue. */
+async function ouvrirBlobDansOnglet(charger: () => Promise<Blob>): Promise<void> {
+  const win = window.open('', '_blank');
+  try {
+    showBlobInTab(win, await charger());
+  } catch (err) {
+    win?.close();
+    throw err;
+  }
+}
+
 /** Ouvre un fichier stocké sur S3/MinIO. Les endpoints `.../fichier` des
  * pièces jointes ne renvoient pas de binaire : ils répondent `302` vers une
  * URL présignée, valable quelques minutes (cf. `docs/api-docsV4.json`).
@@ -1362,15 +1378,8 @@ export async function downloadFicheReservation(dossierId: UUID, filename: string
   triggerBlobDownload(blob, filename);
 }
 
-export async function viewFicheReservation(dossierId: UUID, format: 'pdf' | 'docx' = 'pdf'): Promise<void> {
-  const win = window.open('', '_blank');
-  try {
-    const blob = await fetchDossierDocumentBlob(dossierId, 'fiche-reservation', format);
-    showBlobInTab(win, blob);
-  } catch (err) {
-    win?.close();
-    throw err;
-  }
+export function viewFicheReservation(dossierId: UUID, format: 'pdf' | 'docx' = 'pdf'): Promise<void> {
+  return ouvrirBlobDansOnglet(() => fetchDossierDocumentBlob(dossierId, 'fiche-reservation', format));
 }
 
 export async function downloadActeReservation(dossierId: UUID, filename: string, format: 'pdf' | 'docx' = 'pdf'): Promise<void> {
@@ -1378,15 +1387,8 @@ export async function downloadActeReservation(dossierId: UUID, filename: string,
   triggerBlobDownload(blob, filename);
 }
 
-export async function viewActeReservation(dossierId: UUID, format: 'pdf' | 'docx' = 'pdf'): Promise<void> {
-  const win = window.open('', '_blank');
-  try {
-    const blob = await fetchDossierDocumentBlob(dossierId, 'acte-reservation', format);
-    showBlobInTab(win, blob);
-  } catch (err) {
-    win?.close();
-    throw err;
-  }
+export function viewActeReservation(dossierId: UUID, format: 'pdf' | 'docx' = 'pdf'): Promise<void> {
+  return ouvrirBlobDansOnglet(() => fetchDossierDocumentBlob(dossierId, 'acte-reservation', format));
 }
 
 export async function downloadDevisDocument(prospectionId: UUID, devisId: UUID, filename: string): Promise<void> {
@@ -1394,15 +1396,8 @@ export async function downloadDevisDocument(prospectionId: UUID, devisId: UUID, 
   triggerBlobDownload(blob, filename);
 }
 
-export async function viewDevisDocument(prospectionId: UUID, devisId: UUID): Promise<void> {
-  const win = window.open('', '_blank');
-  try {
-    const blob = await fetchDevisDocumentBlob(prospectionId, devisId);
-    showBlobInTab(win, blob);
-  } catch (err) {
-    win?.close();
-    throw err;
-  }
+export function viewDevisDocument(prospectionId: UUID, devisId: UUID): Promise<void> {
+  return ouvrirBlobDansOnglet(() => fetchDevisDocumentBlob(prospectionId, devisId));
 }
 
 export async function downloadDossierPdfOnlyDocument(dossierId: UUID, docKind: DossierPdfOnlyDocKind, filename: string): Promise<void> {
@@ -1410,15 +1405,8 @@ export async function downloadDossierPdfOnlyDocument(dossierId: UUID, docKind: D
   triggerBlobDownload(blob, filename);
 }
 
-export async function viewDossierPdfOnlyDocument(dossierId: UUID, docKind: DossierPdfOnlyDocKind): Promise<void> {
-  const win = window.open('', '_blank');
-  try {
-    const blob = await fetchDossierPdfOnlyDocumentBlob(dossierId, docKind);
-    showBlobInTab(win, blob);
-  } catch (err) {
-    win?.close();
-    throw err;
-  }
+export function viewDossierPdfOnlyDocument(dossierId: UUID, docKind: DossierPdfOnlyDocKind): Promise<void> {
+  return ouvrirBlobDansOnglet(() => fetchDossierPdfOnlyDocumentBlob(dossierId, docKind));
 }
 
 /** `POST /api/dossiers/documents/{kind}` — batch counterpart of the 6
@@ -1452,15 +1440,8 @@ export async function downloadDossiersDocumentsEnLot(kind: DossierBatchDocKind, 
   triggerBlobDownload(blob, filename);
 }
 
-export async function viewDossiersDocumentsEnLot(kind: DossierBatchDocKind, dossierIds: UUID[]): Promise<void> {
-  const win = window.open('', '_blank');
-  try {
-    const blob = await fetchDossiersDocumentsEnLotBlob(kind, dossierIds);
-    showBlobInTab(win, blob);
-  } catch (err) {
-    win?.close();
-    throw err;
-  }
+export function viewDossiersDocumentsEnLot(kind: DossierBatchDocKind, dossierIds: UUID[]): Promise<void> {
+  return ouvrirBlobDansOnglet(() => fetchDossiersDocumentsEnLotBlob(kind, dossierIds));
 }
 
 export async function downloadRecuReglement(dossierId: UUID, reglementId: UUID, filename: string): Promise<void> {
@@ -1468,15 +1449,8 @@ export async function downloadRecuReglement(dossierId: UUID, reglementId: UUID, 
   triggerBlobDownload(blob, filename);
 }
 
-export async function viewRecuReglement(dossierId: UUID, reglementId: UUID): Promise<void> {
-  const win = window.open('', '_blank');
-  try {
-    const blob = await fetchRecuReglementBlob(dossierId, reglementId);
-    showBlobInTab(win, blob);
-  } catch (err) {
-    win?.close();
-    throw err;
-  }
+export function viewRecuReglement(dossierId: UUID, reglementId: UUID): Promise<void> {
+  return ouvrirBlobDansOnglet(() => fetchRecuReglementBlob(dossierId, reglementId));
 }
 
 export async function downloadAutorisationVersement(dossierId: UUID, reglementId: UUID, filename: string): Promise<void> {
@@ -1484,15 +1458,8 @@ export async function downloadAutorisationVersement(dossierId: UUID, reglementId
   triggerBlobDownload(blob, filename);
 }
 
-export async function viewAutorisationVersement(dossierId: UUID, reglementId: UUID): Promise<void> {
-  const win = window.open('', '_blank');
-  try {
-    const blob = await fetchAutorisationVersementBlob(dossierId, reglementId);
-    showBlobInTab(win, blob);
-  } catch (err) {
-    win?.close();
-    throw err;
-  }
+export function viewAutorisationVersement(dossierId: UUID, reglementId: UUID): Promise<void> {
+  return ouvrirBlobDansOnglet(() => fetchAutorisationVersementBlob(dossierId, reglementId));
 }
 
 export async function downloadProspectionDocument(prospectionId: UUID, docKind: ProspectionPdfDocKind, filename: string): Promise<void> {
@@ -1500,15 +1467,8 @@ export async function downloadProspectionDocument(prospectionId: UUID, docKind: 
   triggerBlobDownload(blob, filename);
 }
 
-export async function viewProspectionDocument(prospectionId: UUID, docKind: ProspectionPdfDocKind): Promise<void> {
-  const win = window.open('', '_blank');
-  try {
-    const blob = await fetchProspectionDocumentBlob(prospectionId, docKind);
-    showBlobInTab(win, blob);
-  } catch (err) {
-    win?.close();
-    throw err;
-  }
+export function viewProspectionDocument(prospectionId: UUID, docKind: ProspectionPdfDocKind): Promise<void> {
+  return ouvrirBlobDansOnglet(() => fetchProspectionDocumentBlob(prospectionId, docKind));
 }
 
 export function listEcheances(dossierId: UUID, pageable?: Pageable): Promise<PageDto<EcheanceDto>> {
@@ -1779,29 +1739,6 @@ export function listEncaissementsGroupes(
   });
 }
 
-/** Ce que `GET /api/encaissements` **ne sert pas**, et qu'aucun filtre ne
- * ramènera.
- *
- * Deux exclusions, toutes deux alignées sur l'écran légataire et toutes deux
- * documentées côté serveur :
- *
- * 1. les **décaissements** (`StlSettlement.IsCredit` faux — typiquement un
- *    remboursement à montant négatif) ;
- * 2. les **encaissements non affectés** — un règlement encaissé mais pas
- *    encore imputé à une échéance n'a aucune ligne, donc ne satisfait pas le
- *    critère « rattaché à une échéance de dossier de vente » sur lequel la
- *    liste entière repose.
- *
- * La seconde compte : le spec la chiffre à **16 pièces pour 6 435 400 DH**,
- * toutes à l'état `IN_WORK`, et l'écran légataire les affiche. Un opérateur
- * qui compare les deux totaux trouvera donc un écart, et rien dans une liste
- * filtrée ne lui dira pourquoi — d'où la mention portée par l'écran.
- *
- * Les servir suppose de changer le critère « Vente » côté backend : décision
- * produit en attente, pas un filtre trop strict qu'on pourrait desserrer
- * d'ici. Ne pas tenter de les récupérer autrement. */
-export const ENCAISSEMENTS_NON_AFFECTES_ABSENTS = true;
-
 export const getEntitesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/entites');
 export const getComptesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/comptes');
 export const getDepotsReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/depots');
@@ -2071,14 +2008,6 @@ export const getSexes = (): Promise<ReferentielItemDto[]> => request('GET', '/ap
 export const getSalaires = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/salaires');
 export const getRegimesMatrimoniaux = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/regimes-matrimoniaux');
 export const getRaisonsCloture = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/raisons-cloture');
-// Rôles applicatifs (AdmRole) assignables à un compte — alimente les cases à
-// cocher "Rôles" de l'ancien formulaire de création de compte, retiré (les
-// comptes se créent dans Omran). Plus appelé par aucun écran.
-export const getRoles = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/roles');
-// Types d'employé (CfgTierKind, pré-filtrés sur CfgTierType "EMP") — alimente
-// le champ "Type d'employé" de l'ancien formulaire de création de compte,
-// retiré. Plus appelé par aucun écran.
-export const getTypesEmploye = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-employe');
 export const getProfilsProspection = (): Promise<ProfilCategorieDto[]> => request('GET', '/api/referentiels/profils-prospection');
 export const getProfessions = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/professions');
 export const getPays = (): Promise<PaysDto[]> => request('GET', '/api/referentiels/pays');

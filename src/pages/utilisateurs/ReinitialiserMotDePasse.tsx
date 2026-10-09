@@ -23,7 +23,7 @@ export interface CompteAReinitialiser {
 }
 
 /** Bouton de copie avec retour visuel « Copié » pendant 1,5 s. */
-function CopierBouton({ texte, libelle, compact }: { texte: string; libelle: string; compact?: boolean }) {
+function CopierBouton({ texte, libelle, compact }: Readonly<{ texte: string; libelle: string; compact?: boolean }>) {
   const [etat, setEtat] = useState<'repos' | 'copie' | 'echec'>('repos');
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
@@ -41,16 +41,18 @@ function CopierBouton({ texte, libelle, compact }: { texte: string; libelle: str
     minuteur.current = setTimeout(() => setEtat('repos'), 1500);
   }
 
-  const contenu = etat === 'copie' ? 'Copié' : etat === 'echec' ? 'Copie impossible' : compact ? 'Copier' : libelle;
+  const libelleRepos = compact ? 'Copier' : libelle;
+  const contenu = { copie: 'Copié', echec: 'Copie impossible', repos: libelleRepos }[etat];
+  const IconeRepos = compact ? Copy : ClipboardCopy;
   return (
     <Button type="button" size="sm" variant={compact ? 'outline' : 'default'} onClick={copier} aria-label={libelle} aria-live="polite">
-      {etat === 'copie' ? <Check data-icon="inline-start" /> : compact ? <Copy data-icon="inline-start" /> : <ClipboardCopy data-icon="inline-start" />}
+      {etat === 'copie' ? <Check data-icon="inline-start" /> : <IconeRepos data-icon="inline-start" />}
       {contenu}
     </Button>
   );
 }
 
-function LigneSecret({ libelle, valeur, monospace }: { libelle: string; valeur: string; monospace?: boolean }) {
+function LigneSecret({ libelle, valeur, monospace }: Readonly<{ libelle: string; valeur: string; monospace?: boolean }>) {
   return (
     <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
       <div className="w-28 shrink-0 text-micro font-medium text-muted-foreground">{libelle}</div>
@@ -67,7 +69,7 @@ function LigneSecret({ libelle, valeur, monospace }: { libelle: string; valeur: 
   );
 }
 
-function Identifiants({ result }: { result: ReinitialiserMotDePasseResponse }) {
+function Identifiants({ result }: Readonly<{ result: ReinitialiserMotDePasseResponse }>) {
   const username = result.username ?? '';
   const motDePasse = result.motDePasseTemporaire ?? '';
   const bloc = `Arpent : ${ARPENT_URL}\nIdentifiant : ${username}\nMot de passe : ${motDePasse}`;

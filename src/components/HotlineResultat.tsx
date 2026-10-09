@@ -11,7 +11,7 @@ import { getDossier, getProspection } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { etapeBadgeTone, interactionIcon, personDisplayName, prospectionDisplayName } from '../lib/domain';
 import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
-import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../lib/format';
+import { formatCurrency, formatDate, formatDateTime, formatFourchetteSurface, formatPercent, formatTelephone } from '../lib/format';
 import type { DossierListItemDto, HotlineFicheDto, HotlineResultDto, ProspectionListItemDto } from '../types';
 
 /* Le rendu du résultat de `GET /api/hotline/recherche`, extrait de la page
@@ -76,7 +76,7 @@ function HotlineProspectionRow({ prospection: p, expanded, onToggle }: { prospec
                   <Field label="Support" value={detail.data.origineSupport} />
                   <Field label="Vocation" value={detail.data.vocation} />
                   <Field label="Type de contact" value={detail.data.typeContact} />
-                  <Field label="Surface" value={detail.data.surface != null ? `${detail.data.surface}${detail.data.surfaceJusqua ? ` à ${detail.data.surfaceJusqua}` : ''} m²` : undefined} />
+                  <Field label="Surface" value={formatFourchetteSurface(detail.data.surface, detail.data.surfaceJusqua)} />
                   <Field label="Budget" value={detail.data.prix != null ? `${formatCurrency(detail.data.prix)}${detail.data.prixJusqua ? ` à ${formatCurrency(detail.data.prixJusqua)}` : ''}` : undefined} />
                   <Field label="Avance" value={detail.data.avance != null ? formatCurrency(detail.data.avance) : undefined} />
                   {detail.data.fermee && <Field label="Raison de fermeture" value={detail.data.raisonFermeture || detail.data.raisonFermetureTexte} />}
@@ -145,7 +145,7 @@ function HotlineDossierRow({ dossier: d, expanded, onToggle }: { dossier: Dossie
                 <FieldGrid>
                   <Field label="Commercial" value={detail.data.commercialNom} />
                   <Field label="Prix avant remise" value={detail.data.prixAvantRemise != null ? formatCurrency(detail.data.prixAvantRemise) : undefined} />
-                  <Field label="Remise" value={detail.data.remise != null ? `${Math.round(detail.data.remise * 100)} %` : undefined} />
+                  <Field label="Remise" value={detail.data.remise != null ? formatPercent(detail.data.remise, 0) : undefined} />
                   <Field label="Avance" value={detail.data.montantAvance != null ? formatCurrency(detail.data.montantAvance) : undefined} />
                   <Field label="Mode de paiement" value={detail.data.modePaie} />
                 </FieldGrid>

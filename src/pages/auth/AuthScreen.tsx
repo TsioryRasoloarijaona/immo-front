@@ -9,11 +9,11 @@ export default function AuthScreen({
   title,
   description,
   children,
-}: {
+}: Readonly<{
   title: string;
   description?: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <div className="flex min-h-svh items-center justify-center bg-muted/30 px-4">
       <div className="w-full max-w-sm">

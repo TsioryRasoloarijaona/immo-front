@@ -6,8 +6,9 @@ import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldLabel, FieldError, FieldDescription } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { useAuth } from '../../lib/auth';
-import { ApiError } from '../../lib/api';
 import { toApiDateTime } from '../../lib/format';
+import { ROLES_EXEMPTES } from '../../lib/roles';
+import { errorMessage } from '../../lib/useApi';
 
 // `description` on UtilisateurCourantDto is a single "Prénom Nom" string (no
 // separate prenom/nom fields come back from GET /api/mon-compte) — split it
@@ -64,7 +65,7 @@ function InformationsPersonnelles() {
       setEditing(false);
       setSavedAt(Date.now());
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Erreur inconnue.');
+      setError(errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -168,7 +169,7 @@ function Securite() {
       setConfirmation('');
       setSavedAt(Date.now());
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Erreur inconnue.');
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -224,10 +225,24 @@ function Securite() {
   );
 }
 
-// Same exemption set as `AffecterProjetsDialog` (Comptes utilisateurs) —
-// an Administrateur/Direction Générale account always sees every project,
-// independent of any project assignment.
-const EXEMPT_ROLES = new Set(['Administrateur', 'Direction Générale']);
+function SansRestriction({ exemptRoles }: Readonly<{ exemptRoles: string[] }>) {
+  if (exemptRoles.length > 0) {
+    return (
+      <p className="text-body text-muted-foreground">
+        Aucune restriction ne s'applique à votre compte : le rôle{' '}
+        <span className="font-medium text-foreground">{exemptRoles.join(' / ')}</span> vous donne accès à
+        tous les projets, quelle que soit l'affectation.
+      </p>
+    );
+  }
+  return (
+    <p className="text-body text-muted-foreground">
+      Aucune restriction de périmètre n'est appliquée à ce compte : vous avez accès à tous les
+      projets. Un administrateur peut en configurer une depuis l'écran Comptes utilisateurs si
+      nécessaire.
+    </p>
+  );
+}
 
 /** Read-only summary of the connected account's commercial perimeter. The
  * three states below are enforced server-side (see `UtilisateurCourantDto`
@@ -241,8 +256,7 @@ const EXEMPT_ROLES = new Set(['Administrateur', 'Direction Générale']);
  *   an error or an empty list, so it must not be phrased like one. */
 function ProjetsAffectes() {
   const { user } = useAuth();
-  const exemptRoles = (user?.roles ?? []).filter((r) => EXEMPT_ROLES.has(r));
-  const isExempt = exemptRoles.length > 0;
+  const exemptRoles = (user?.roles ?? []).filter((r) => ROLES_EXEMPTES.has(r));
   const projets = user?.projetsAutorises ?? [];
 
   return (
@@ -269,18 +283,8 @@ function ProjetsAffectes() {
             Seul un administrateur peut modifier cette affectation, depuis l'écran Comptes utilisateurs.
           </p>
         </div>
-      ) : isExempt ? (
-        <p className="text-body text-muted-foreground">
-          Aucune restriction ne s'applique à votre compte : le rôle{' '}
-          <span className="font-medium text-foreground">{exemptRoles.join(' / ')}</span> vous donne accès à
-          tous les projets, quelle que soit l'affectation.
-        </p>
       ) : (
-        <p className="text-body text-muted-foreground">
-          Aucune restriction de périmètre n'est appliquée à ce compte : vous avez accès à tous les
-          projets. Un administrateur peut en configurer une depuis l'écran Comptes utilisateurs si
-          nécessaire.
-        </p>
+        <SansRestriction exemptRoles={exemptRoles} />
       )}
     </Card>
   );

@@ -22,7 +22,8 @@ import {
   type ProspectionFilterParams,
 } from '../lib/api';
 import { useApi } from '../lib/useApi';
-import { formatCurrency, formatDate, formatTelephone } from '../lib/format';
+import { formatCurrency, formatDate, formatNumber, formatTelephone } from '../lib/format';
+import { estAdministrateur } from '../lib/roles';
 import { canonicalStatusLabel, estStatutSortie, toneForStatus } from '../lib/dossierStatus';
 import type { PorteeRelance, ReferentielItemDto, RelanceProspectionDto, UUID } from '../types';
 import { etapeBadgeTone, prospectionDisplayName, PIPELINE_STAGES } from '../lib/domain';
@@ -138,7 +139,7 @@ const TAILLE_FILE = 200;
  * mesuré **50/50 renseigné** là où le nom manque une fois sur cinquante. Sur
  * une pré-prospection il est même la seule prise — aucune fiche tiers
  * n'existe encore. */
-function LigneRelance({ r, onOuvrir }: { r: RelanceProspectionDto; onOuvrir: (fiche: FicheOuverte) => void }) {
+function LigneRelance({ r, onOuvrir }: Readonly<{ r: RelanceProspectionDto; onOuvrir: (fiche: FicheOuverte) => void }>) {
   const tel = (r.telephone ?? '').replace(/\s/g, '');
   return (
     <div className="flex min-w-0 items-baseline gap-2.5 border-b border-border py-1.5 last:border-b-0">
@@ -190,7 +191,7 @@ function ColonneRelances({
   plusRecentesDAbord,
   onOuvrir,
   onVoirTout,
-}: {
+}: Readonly<{
   /** Ouvre la fiche d'une relance en dialogue. */
   onOuvrir: (fiche: FicheOuverte) => void;
   /** Ouvre la file complète en dialogue. */
@@ -206,7 +207,7 @@ function ColonneRelances({
    * plus récentes d'abord. Sans objet sur « Aujourd'hui », dont toutes les
    * lignes sont à zéro jour. */
   plusRecentesDAbord?: boolean;
-}) {
+}>) {
   const page = etat.data;
   /* La fin de la file, renversée — le serveur ne sait trier que dans l'autre
      sens. Voir `TAILLE_FILE`. */
@@ -281,7 +282,7 @@ function KanbanColumn({
   countTone = 'neutral',
   className = '',
   children,
-}: {
+}: Readonly<{
   icon: ReactNode;
   title: string;
   /** Small muted qualifier next to the title. */
@@ -308,7 +309,7 @@ function KanbanColumn({
   /** Fusionné sur la racine — sert au couloir en pleine largeur. */
   className?: string;
   children: ReactNode;
-}) {
+}>) {
   const items = Children.toArray(children).filter(Boolean);
   return (
     <div className={`flex min-h-0 flex-col overflow-hidden rounded-lg bg-(--neutral-bg)/50 ${className}`}>
@@ -358,7 +359,7 @@ const CLASSE_VOIR_TOUT =
 
 /** Une section de la bande KPI segmentée — label micro, gros chiffre
  * tabulaire, précision en dessous. */
-function KpiCell({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function KpiCell({ label, value, sub }: Readonly<{ label: string; value: string; sub?: string }>) {
   return (
     <div className="flex flex-col gap-0.5 bg-card px-4 py-2.5">
       <span className="text-micro font-medium text-muted-foreground">{label}</span>
@@ -369,7 +370,7 @@ function KpiCell({ label, value, sub }: { label: string; value: string; sub?: st
 }
 
 /** Shared hover-pill treatment for every Kanban row. */
-function KanbanItemRow({ onClick, to, children }: { onClick?: () => void; to?: string; children: ReactNode }) {
+function KanbanItemRow({ onClick, to, children }: Readonly<{ onClick?: () => void; to?: string; children: ReactNode }>) {
   const className =
     'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body font-medium text-foreground no-underline transition-colors hover:bg-(--surface-hover)';
   if (to) {
@@ -386,6 +387,17 @@ function KanbanItemRow({ onClick, to, children }: { onClick?: () => void; to?: s
   );
 }
 
+/* `sort` explicite : sans lui le serveur rend un ordre non déterministe —
+   le défaut déjà payé sur la pagination des listes. Les premières lignes de
+   chaque couloir sont ce que « récent » veut dire sur cet écran.
+
+   Le nom à passer est la **propriété d'entité** (`docDate`), pas le champ
+   DTO (`dateDocument`) : Spring Data résout le tri sur l'entité et répond
+   400 « Propriété de tri invalide » sinon. `id,asc` départage les ex æquo,
+   comme sur les listes (docs/filtres-avances.md) — sans lui l'ordre des
+   dates égales dépend du plan SQL du moment. */
+const TRI_PROSPECTIONS = ['docDate,desc', 'id,asc'];
+
 export default function Dashboard() {
   /* Filtre par tranche — FEATURE-dashboard-filtre-tranche. Réservé à
      l'administrateur (même règle que Layout.tsx) ; le backend répond 403 à
@@ -393,7 +405,7 @@ export default function Dashboard() {
      `trancheId` ne part, et un `?tranche=` présent dans l'URL est ignoré. Le
      choix vit dans l'URL pour survivre au rechargement. */
   const { user } = useAuth();
-  const isAdmin = user?.roles?.includes('Administrateur') ?? false;
+  const isAdmin = estAdministrateur(user);
   const [searchParams, setSearchParams] = useSearchParams();
   const trancheId: UUID | undefined = isAdmin ? searchParams.get('tranche') || undefined : undefined;
   const choisirTranche = (id: UUID | null) => {
@@ -419,16 +431,6 @@ export default function Dashboard() {
   const filtresATraiter = useMemo(() => avecTranche(FILTRES_A_TRAITER, trancheId), [trancheId]);
 
   const { data: dashboard, loading, error } = useApi(() => getDashboard({ trancheId }), [trancheId]);
-  /* `sort` explicite : sans lui le serveur rend un ordre non déterministe —
-     le défaut déjà payé sur la pagination des listes. Les premières lignes de
-     chaque couloir sont ce que « récent » veut dire sur cet écran.
-
-     Le nom à passer est la **propriété d'entité** (`docDate`), pas le champ
-     DTO (`dateDocument`) : Spring Data résout le tri sur l'entité et répond
-     400 « Propriété de tri invalide » sinon. `id,asc` départage les ex æquo,
-     comme sur les listes (docs/filtres-avances.md) — sans lui l'ordre des
-     dates égales dépend du plan SQL du moment. */
-  const TRI_PROSPECTIONS = ['docDate,desc', 'id,asc'];
   const { data: prospectionsPage, error: prospectionsErreur } = useApi(
     () => listProspections(filtresOuvertes, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
     [trancheId],
@@ -546,13 +548,13 @@ export default function Dashboard() {
             porte la hiérarchie, pas une icône colorée. */}
         <div className="grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border xl:grid-cols-4">
           <KpiCell label="Valeur du pipeline" value={formatCurrency(dashboard.valeurPipeline)} />
-          <KpiCell label="Panier moyen" value={formatCurrency(dashboard.panierMoyen)} sub={`sur ${dossiersActifs} dossiers actifs`} />
+          <KpiCell label="Panier moyen" value={formatCurrency(dashboard.panierMoyen)} sub={`sur ${formatNumber(dossiersActifs)} dossiers actifs`} />
           <KpiCell
             label="Prospections ouvertes"
-            value={String(dashboard.prospectionsOuvertes ?? 0)}
-            sub={`sur ${dashboard.prospectionsTotal ?? 0} au total`}
+            value={formatNumber(dashboard.prospectionsOuvertes ?? 0)}
+            sub={`sur ${formatNumber(dashboard.prospectionsTotal ?? 0)} au total`}
           />
-          <KpiCell label="Dossiers actifs" value={String(dossiersActifs)} sub={`sur ${dossiersTotal} au total`} />
+          <KpiCell label="Dossiers actifs" value={formatNumber(dossiersActifs)} sub={`sur ${formatNumber(dossiersTotal)} au total`} />
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 xl:flex-row">

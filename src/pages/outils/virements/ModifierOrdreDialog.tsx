@@ -51,13 +51,13 @@ export default function ModifierOrdreDialog({
   moi,
   onClose,
   toasts,
-}: {
+}: Readonly<{
   ordre: Ordre;
   meta: Meta;
   moi: Moi;
   onClose: () => void;
   toasts: Notifications;
-}) {
+}>) {
   const admin = moi.admin;
   const societesApi = useApi(() => (admin ? listerSocietes() : Promise.resolve([])), [admin]);
   const beneficiairesApi = useApi(() => (admin ? listerBeneficiaires() : Promise.resolve([])), [admin]);

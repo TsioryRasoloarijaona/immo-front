@@ -30,7 +30,23 @@ export default function Beneficiaires() {
 /** Bénéficiaires (§9) : `GET /dossiers` chargé en entier, recherche et filtre
  * faits à l'écran. Les chiffres (ordres, total viré, dossiers) sont ceux du
  * serveur. */
-function Carnet({ ctx }: { ctx: ContexteCharge }) {
+interface CompteDossier {
+  nb_ordres: number;
+  nb_incomplets: number;
+}
+
+function libelleDossier(b: CompteDossier): string {
+  if (b.nb_ordres === 0) return 'Aucun virement';
+  return b.nb_incomplets === 0 ? 'Complet' : `${b.nb_incomplets} à compléter`;
+}
+
+function EtatDossier({ b }: Readonly<{ b: CompteDossier }>) {
+  if (b.nb_ordres === 0) return <span className="text-muted-foreground">Aucun virement</span>;
+  if (b.nb_incomplets === 0) return <Badge tone="success">Complet</Badge>;
+  return <Badge tone="amber">{b.nb_incomplets} à compléter</Badge>;
+}
+
+function Carnet({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   const { meta, moi, revision } = ctx;
   const toasts = useNotification();
   const [confirmation, demander] = useConfirmation();
@@ -132,15 +148,8 @@ function Carnet({ ctx }: { ctx: ContexteCharge }) {
       nom: 'dossier',
       libelle: 'Dossier',
       largeur: 10,
-      valeur: (r) => (r.b.nb_ordres === 0 ? 'Aucun virement' : r.b.nb_incomplets === 0 ? 'Complet' : `${r.b.nb_incomplets} à compléter`),
-      rendu: (r) =>
-        r.b.nb_ordres === 0 ? (
-          <span className="text-muted-foreground">Aucun virement</span>
-        ) : r.b.nb_incomplets === 0 ? (
-          <Badge tone="success">Complet</Badge>
-        ) : (
-          <Badge tone="amber">{r.b.nb_incomplets} à compléter</Badge>
-        ),
+      valeur: (r) => libelleDossier(r.b),
+      rendu: (r) => <EtatDossier b={r.b} />,
     },
     {
       nom: 'actions',

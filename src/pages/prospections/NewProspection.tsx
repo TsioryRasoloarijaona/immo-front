@@ -23,7 +23,7 @@ import {
   listTrancheArticles,
   prospectionExistanteDepuisErreur,
 } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { usePreview } from '../../lib/previewContext';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { personDisplayName } from '../../lib/domain';
@@ -65,7 +65,7 @@ function ProspectPicker({
   onModeChange,
   selectedProspect,
   verrouille = false,
-}: {
+}: Readonly<{
   onSelectExisting: (p: ProspectListItemDto | null) => void;
   onNewFormChange: (form: CreerProspectRequest) => void;
   mode: 'existing' | 'new';
@@ -73,11 +73,12 @@ function ProspectPicker({
   selectedProspect: ProspectListItemDto | null;
   /** Prospect imposé par l'appelant : ni bascule, ni recherche, ni retrait. */
   verrouille?: boolean;
-}) {
+}>) {
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search.trim());
   const results = useApi(
-    () => (mode === 'existing' && search.trim() ? listProspects({ search: search.trim() }, { page: 0, size: 20 }) : Promise.resolve(null)),
-    [mode, search],
+    () => (mode === 'existing' && debouncedSearch ? listProspects({ search: debouncedSearch }, { page: 0, size: 20 }) : Promise.resolve(null)),
+    [mode, debouncedSearch],
   );
   const [newForm, setNewForm] = useState<CreerProspectRequest>(EMPTY_NEW_PROSPECT);
   const tierTypes = useTierTypes();
@@ -123,7 +124,7 @@ function ProspectPicker({
               <Input id="pp-search" placeholder="Nom, téléphone, email…" value={search} onChange={(e) => setSearch(e.target.value)} />
             </FormField>
             {results.loading && <LoadingState />}
-            {!results.loading && search.trim() && (results.data?.content.length ?? 0) === 0 && (
+            {!results.loading && debouncedSearch && (results.data?.content.length ?? 0) === 0 && (
               <EmptyState title="Aucun résultat" message="Essayez un autre terme, ou basculez sur « Nouveau prospect »." />
             )}
             {results.data && results.data.content.length > 0 && (
@@ -234,13 +235,13 @@ export default function NouvelleProspectionDialog({
   onClose,
   prospectInitial,
   onCree,
-}: {
+}: Readonly<{
   onClose: () => void;
   /** Prospect pré-sélectionné et verrouillé (mode « existant » forcé). */
   prospectInitial?: ProspectListItemDto;
   /** Remplace la navigation après succès ; l'appelant ferme la boîte. */
   onCree?: (prospection: ProspectionDetailDto) => void;
-}) {
+}>) {
   const navigate = useNavigate();
   const { ouvrirFicheProspection } = usePreview();
   const [prospectMode, setProspectMode] = useState<'existing' | 'new'>('existing');

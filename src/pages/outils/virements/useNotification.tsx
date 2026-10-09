@@ -7,6 +7,7 @@ export type GenreNotification = 'succes' | 'erreur' | 'avertissement';
 
 /** Durées du guide (§3) : succès ~4 s, erreur ~7 s. */
 const DUREE: Record<GenreNotification, number> = { succes: 4000, erreur: 7000, avertissement: 7000 };
+const ICONE: Record<GenreNotification, typeof CheckCircle2> = { succes: CheckCircle2, erreur: XCircle, avertissement: AlertTriangle };
 
 export interface Notifications {
   noeud: ReactNode;
@@ -38,7 +39,7 @@ export function useNotification(): Notifications {
     [notifier],
   );
 
-  const Icone = courante?.genre === 'succes' ? CheckCircle2 : courante?.genre === 'erreur' ? XCircle : AlertTriangle;
+  const Icone = ICONE[courante?.genre ?? 'avertissement'];
   const noeud = courante ? (
     <button
       type="button"

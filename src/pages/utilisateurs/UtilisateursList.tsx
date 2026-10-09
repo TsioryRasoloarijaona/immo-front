@@ -9,13 +9,12 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import { DEFAULT_PAGE_SIZE, listUtilisateurs } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
-import { formatDate } from '../../lib/format';
+import { formatDate, formatNumber } from '../../lib/format';
+import { estExempte } from '../../lib/roles';
 import type { UtilisateurListItemDto } from '../../types';
 import AdminGuard from './AdminGuard';
 import AffecterProjetsDialog from './AffecterProjetsDialog';
 import type { CompteAReinitialiser } from './ReinitialiserMotDePasse';
-
-const EXEMPT_ROLES = new Set(['Administrateur', 'Direction Générale']);
 
 /** Badge for the "Périmètre" column — mirrors the exempt/unrestricted/
  * restricted read-out `AffecterProjetsDialog` itself shows, so an admin sees
@@ -23,7 +22,7 @@ const EXEMPT_ROLES = new Set(['Administrateur', 'Direction Générale']);
  * "unrestricted", not "broken" (FEATURE-perimetre-commercial.md §6.3) — it
  * must never be styled to look like an empty/error state. */
 function perimetreBadge(count: number, roles?: string[]) {
-  if (roles?.some((r) => EXEMPT_ROLES.has(r))) return <Badge tone="amber">Exempté</Badge>;
+  if (estExempte({ roles })) return <Badge tone="amber">Exempté</Badge>;
   if (count === 0) return <Badge tone="neutral">Tous les projets</Badge>;
   return <Badge tone="progress">{count} projet{count > 1 ? 's' : ''}</Badge>;
 }
@@ -35,6 +34,8 @@ const DISABLED_ITEMS: { label: string; value: DisabledFilter }[] = [
   { label: 'Actifs', value: 'active' },
   { label: 'Désactivés', value: 'disabled' },
 ];
+
+const DISABLED_PARAM: Record<DisabledFilter, boolean | undefined> = { all: undefined, active: false, disabled: true };
 
 function employeeName(row: { employeePrenom?: string; employeeNom?: string }): string {
   const name = [row.employeePrenom, row.employeeNom].filter(Boolean).join(' ');
@@ -65,7 +66,7 @@ export default function UtilisateursList() {
       listUtilisateurs(
         {
           search: debouncedSearch || undefined,
-          disabled: disabledFilter === 'active' ? false : disabledFilter === 'disabled' ? true : undefined,
+          disabled: DISABLED_PARAM[disabledFilter],
         },
         { page, size: DEFAULT_PAGE_SIZE },
       ),
@@ -231,7 +232,7 @@ export default function UtilisateursList() {
         {!error && data && (
           <ResultsRegion loading={loading}>
             <div className="shrink-0 text-body text-muted-foreground">
-              {(data?.totalElements ?? 0)} compte{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+              {formatNumber(data.totalElements ?? 0)} compte{(data?.totalElements ?? 0) > 1 ? 's' : ''}
             </div>
             {rows.length === 0 ? (
               <EmptyState

@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { rechercherHotline } from '../../lib/api';
+import { useToast } from '../../lib/toastContext';
 import { useApi } from '../../lib/useApi';
 
 // Hotline — recherche instantanée "qui m'appelle ?" par numéro de téléphone,
@@ -36,7 +37,7 @@ export default function Hotline() {
   const [queryMode, setQueryMode] = useState<CritereMode>('telephone');
   const [refreshToken, setRefreshToken] = useState(0);
   const [createForProspectionId, setCreateForProspectionId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const showToast = useToast();
 
   const { data, loading, error } = useApi(
     () =>
@@ -45,11 +46,6 @@ export default function Hotline() {
         : Promise.resolve(null),
     [query, queryMode, refreshToken],
   );
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3600);
-  }
 
   // Le serveur refuse un nom de moins de 2 caractères (400) ; on ne l'envoie
   // pas pour ça. Le téléphone, lui, n'a pas de longueur minimale — c'est la
@@ -162,12 +158,6 @@ export default function Hotline() {
             showToast('Fiche créée — relancez la recherche pour la voir apparaître.');
           }}
         />
-      )}
-
-      {toast && (
-        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-label font-medium text-background shadow-lg">
-          {toast}
-        </div>
       )}
     </PageShell>
   );

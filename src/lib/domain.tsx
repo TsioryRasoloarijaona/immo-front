@@ -244,7 +244,9 @@ export function emptyProspectionFilters(commercialParDefaut?: string): Prospecti
 /** Le filtre « Archivé » traduit vers le paramètre `?ouvertes=` : le serveur
  * pose la question à l'envers. « Tous » omet le paramètre. */
 export function ouvertesDepuisArchive(archive: ProspectionFilterBarState['archive']): boolean | undefined {
-  return archive === 'non' ? true : archive === 'oui' ? false : undefined;
+  if (archive === 'non') return true;
+  if (archive === 'oui') return false;
+  return undefined;
 }
 
 /** True when the user has narrowed the list away from its default state.

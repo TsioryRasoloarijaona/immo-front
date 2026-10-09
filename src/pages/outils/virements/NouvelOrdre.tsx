@@ -38,10 +38,20 @@ export default function NouvelOrdre() {
   return <CadreVirements ecran="Nouvel ordre">{(ctx) => <Formulaire ctx={ctx} />}</CadreVirements>;
 }
 
+function libelleRib(rib: string | undefined, nom: string): string {
+  if (rib) return `RIB ${rib}`;
+  return nom.trim() ? 'Bénéficiaire non enregistré' : ' ';
+}
+
+function libelleGenerer(enCours: boolean, groupe: boolean): string {
+  if (enCours) return 'Enregistrement…';
+  return groupe ? 'Générer le PDF groupé' : 'Générer le PDF';
+}
+
 /** « Nouvel ordre » (§4) : le formulaire à gauche, l'aperçu du courrier à
  * droite, recalculé à chaque frappe. Générer = **un seul appel** ; le service
  * construit et archive le PDF dans la même transaction que l'ordre. */
-function Formulaire({ ctx }: { ctx: ContexteCharge }) {
+function Formulaire({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   const { meta, revision } = ctx;
   const navigate = useNavigate();
   const toasts = useNotification();
@@ -280,7 +290,7 @@ function Formulaire({ ctx }: { ctx: ContexteCharge }) {
                           maxLength={200}
                         />
                         <span className="truncate px-1 font-mono text-micro text-muted-foreground" title={ribDe(l.nom)}>
-                          {ribDe(l.nom) ? `RIB ${ribDe(l.nom)}` : l.nom.trim() ? 'Bénéficiaire non enregistré' : ' '}
+                          {libelleRib(ribDe(l.nom), l.nom)}
                         </span>
                       </div>
                       <Input
@@ -336,7 +346,7 @@ function Formulaire({ ctx }: { ctx: ContexteCharge }) {
 
             <Button type="submit" className="mt-4 w-full" disabled={enCours}>
               <FileDown data-icon="inline-start" />
-              {enCours ? 'Enregistrement…' : mode === 'groupe' ? 'Générer le PDF groupé' : 'Générer le PDF'}
+              {libelleGenerer(enCours, mode === 'groupe')}
             </Button>
           </form>
         </Card>

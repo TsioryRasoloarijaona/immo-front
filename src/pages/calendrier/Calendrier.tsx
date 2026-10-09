@@ -57,7 +57,7 @@ function eventTone(ev: EvenementCalendrierDto): 'amber' | 'info' {
   return isVisiteEvenement(ev) ? 'amber' : 'info';
 }
 
-function EventPill({ ev, onClick }: { ev: EvenementCalendrierDto; onClick: () => void }) {
+function EventPill({ ev, onClick }: Readonly<{ ev: EvenementCalendrierDto; onClick: () => void }>) {
   const visite = isVisiteEvenement(ev);
   const heure = formatHeure(ev.dateDebut);
   return (
@@ -77,7 +77,7 @@ function EventPill({ ev, onClick }: { ev: EvenementCalendrierDto; onClick: () =>
   );
 }
 
-function EventCard({ ev }: { ev: EvenementCalendrierDto }) {
+function EventCard({ ev }: Readonly<{ ev: EvenementCalendrierDto }>) {
   const { previewProspection } = usePreview();
   const visite = isVisiteEvenement(ev);
   const heure = formatHeure(ev.dateDebut);

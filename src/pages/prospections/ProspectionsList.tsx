@@ -11,7 +11,7 @@ import ProspectionFiltresAvances from '../../components/ProspectionFiltresAvance
 import ProspectionTable from '../../components/ProspectionTable';
 import BandeGroupement from '../../components/BandeGroupement';
 import { useActionsLigneProspection } from '../../components/ActionsLigneProspection';
-import { DEFAULT_PAGE_SIZE, listProspections, listProspectionsGroupes, listTranches } from '../../lib/api';
+import { DEFAULT_PAGE_SIZE, listProspections, listProspectionsGroupes } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { useGroupement, useLignesGroupes } from '../../lib/groupement';
 import type { ProspectionListItemDto } from '../../types';
@@ -19,7 +19,7 @@ import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { useColonnesProspections, useOriginesProspection } from '../../lib/referentiels';
+import { useColonnesProspections, useOriginesProspection, useTranchesFiltre } from '../../lib/referentiels';
 import {
   PIPELINE_STAGES,
   countActiveFiltresAvances,
@@ -47,7 +47,7 @@ const NouvelleProspectionDialog = lazy(() => import('./NewProspection'));
    avec la boîte ouverte par-dessus. Une prop plutôt qu'un état local : c'est
    l'URL qui porte l'intention, donc le bouton Retour ferme la boîte et le lien
    reste partageable. */
-export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}) {
+export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boolean }> = {}) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
@@ -229,8 +229,8 @@ export default function ProspectionsList({ nouveau }: { nouveau?: boolean } = {}
 
   // Aggregate fetches for the filter dropdowns — independent of the
   // prospections query above.
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  const tranches = useTranchesFiltre();
+  const trancheItems = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   // `origine` on ProspectionListItemDto stores the référentiel *code*, not
   // necessarily `description` — same code/description mismatch as tier-types
   // on ProspectsList (e.g. "Bouche à Oreille" vs "BOUCHE À OREILLE"). Filter

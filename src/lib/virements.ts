@@ -79,13 +79,13 @@ async function lireErreur(res: Response): Promise<ErreurVirement> {
   } catch {
     // Corps non JSON : un 502 de Caddy quand le service est arrêté, par exemple.
   }
-  const erreur =
-    typeof corps.erreur === 'string'
-      ? corps.erreur
-      : res.status === 502
-        ? 'service des virements indisponible'
-        : `le service a répondu ${res.status}`;
-  return new ErreurVirement(res.status, erreur, corps);
+  return new ErreurVirement(res.status, messageErreur(corps, res.status), corps);
+}
+
+function messageErreur(corps: Record<string, unknown>, status: number): string {
+  if (typeof corps.erreur === 'string') return corps.erreur;
+  if (status === 502) return 'service des virements indisponible';
+  return `le service a répondu ${status}`;
 }
 
 /** Envoie la requête et rend la réponse brute (2xx), ou lève une

@@ -26,8 +26,12 @@ type EncaissementTab = 'affectations' | 'documents';
 type PanneauTab = 'montants' | 'tracabilite';
 
 export default function EncaissementDetail() {
-  const { id } = useParams();
-  const { data: e, loading, error, refetch } = useApi(() => getEncaissement(id!), [id]);
+  const { id = '' } = useParams();
+  return <FicheEncaissement key={id} id={id} />;
+}
+
+function FicheEncaissement({ id }: Readonly<{ id: string }>) {
+  const { data: e, loading, error, refetch } = useApi(() => getEncaissement(id), [id]);
   const navigate = useNavigate();
   const confirm = useConfirm();
   const [tab, setTab] = useState<EncaissementTab>('affectations');
@@ -371,9 +375,7 @@ export default function EncaissementDetail() {
             payeurNom: e.tierPayeurNom,
           }}
           onClose={() => setPointageOuvert(false)}
-          onPointed={async () => {
-            refetch();
-          }}
+          onPointed={refetch}
         />
       )}
     </CadreFiche>
@@ -383,13 +385,18 @@ export default function EncaissementDetail() {
 /** Une ligne de la synthèse. Le rouge du reste à affecter est repris du
  * logiciel de bureau, qui le porte aussi — mais il ne porte pas
  * l'information seul : la ligne est étiquetée et les montants sont alignés. */
+function couleurMontant(colore: boolean | undefined, fort: boolean | undefined): string {
+  if (colore) return 'font-semibold text-(--warning)';
+  return fort ? '' : 'text-foreground';
+}
+
 function LigneMontant({
   libelle,
   valeur,
   fort,
   alerte,
   separe,
-}: {
+}: Readonly<{
   libelle: string;
   valeur: number | undefined;
   /** Le montant brut, la seule valeur que l'on cherche des yeux. */
@@ -399,7 +406,7 @@ function LigneMontant({
   /** Trait de séparation au-dessus : sépare la synthèse d'affectation des
    * montants de la pièce, qui ne s'additionnent pas entre eux. */
   separe?: boolean;
-}) {
+}>) {
   const reste = valeur ?? 0;
   const colore = alerte && Math.abs(reste) > 0.005;
   return (
@@ -411,7 +418,7 @@ function LigneMontant({
         className={[
           'py-1 text-right tabular-nums',
           fort ? 'text-label font-semibold text-foreground' : 'text-body',
-          colore ? 'font-semibold text-(--warning)' : fort ? '' : 'text-foreground',
+          couleurMontant(colore, fort),
         ].join(' ')}
       >
         {formatCurrency(valeur)}

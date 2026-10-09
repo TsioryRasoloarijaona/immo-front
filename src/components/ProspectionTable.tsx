@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from 'react';
 import { Badge } from './ui';
 import { InactiviteBadge } from './ActiviteProspection';
 import DataGrid, { type ColonneGrille, type GroupementGrille } from './DataGrid';
-import { formatCurrency, formatDate, isPastOrToday } from '../lib/format';
+import { formatCurrency, formatDate, formatSurface, isPastOrToday } from '../lib/format';
 import { etapeBadgeTone, prospectionDisplayName, relanceEnRetard } from '../lib/domain';
 import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_PROSPECTIONS } from '../lib/dispositions';
@@ -33,7 +33,7 @@ const RENDUS: Record<string, (p: ProspectionListItemDto) => ReactNode> = {
     p.derniereCommunicationResultat ? <Badge tone="neutral">{p.derniereCommunicationResultat}</Badge> : TIRET,
   statutDossier: (p) => (p.statutDossier ? <Badge tone="success">{p.statutDossier}</Badge> : TIRET),
   prix: (p) => (p.prix ? formatCurrency(p.prix) : <span className="font-normal text-muted-foreground">—</span>),
-  surface: (p) => (p.surface ? `${p.surface} m²` : TIRET),
+  surface: (p) => (p.surface ? formatSurface(p.surface) : TIRET),
 };
 
 /** Classes propres à une colonne, en plus de `truncate` et de l'alignement

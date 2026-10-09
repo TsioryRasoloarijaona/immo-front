@@ -27,6 +27,11 @@ const EMPTY: CreerProspectRequest = { indicatifTelephone: INDICATIF_MAROC, indic
 // Everything else (coordonnées complètes, état civil, pièce d'identité…)
 // stays editable afterwards from the "Modifier" button on ProspectDetail.tsx
 // — this page only covers what's needed to get a usable record started.
+function libelleCreer(enCours: boolean, doublons: boolean): string {
+  if (enCours) return 'Création…';
+  return doublons ? 'Réessayer' : 'Créer le prospect';
+}
+
 export default function NewProspect() {
   const navigate = useNavigate();
   const [form, setForm] = useState<CreerProspectRequest>(EMPTY);
@@ -181,7 +186,7 @@ export default function NewProspect() {
               reste actif pour un formulaire retouché — retoucher est la
               troisième réponse possible à un homonyme. */}
           <Button type="button" onClick={() => { setDoublons(null); void handleCreate(false); }} disabled={!canCreate || submitting}>
-            <Check data-icon="inline-start" /> {submitting ? 'Création…' : doublons ? 'Réessayer' : 'Créer le prospect'}
+            <Check data-icon="inline-start" /> {libelleCreer(submitting, !!doublons)}
           </Button>
         </div>
       </div>

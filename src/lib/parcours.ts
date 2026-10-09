@@ -119,8 +119,14 @@ export function calculerParcours(
   // Une étape non faite *avant* l'étape courante a été sautée (grisée « — »).
   return affichees.map(({ faite, ...e }, i) => ({
     ...e,
-    statut: i === derniere ? 'courante' : faite ? 'faite' : i < derniere ? 'sautee' : 'a-venir',
+    statut: statutEtape(i, derniere, faite),
   }));
+}
+
+function statutEtape(i: number, derniere: number, faite: boolean) {
+  if (i === derniere) return 'courante' as const;
+  if (faite) return 'faite' as const;
+  return i < derniere ? ('sautee' as const) : ('a-venir' as const);
 }
 
 /** Toast après « Transformer en prospect » (création ou rattachement). Le

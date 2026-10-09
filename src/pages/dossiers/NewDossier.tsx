@@ -26,7 +26,13 @@ import {
   simulerSchemaFinancement,
 } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
-import { formatCurrency, formatPercent, formatPercentValue } from '../../lib/format';
+import { formatCurrency, formatPercent, formatPercentValue, formatSurface } from '../../lib/format';
+import { avecCles } from '../../lib/cles';
+
+function libelleArticlesCharges(affiches: number, charges: number): string {
+  const s = (n: number) => (n > 1 ? 's' : '');
+  return `${affiches} article${s(affiches)} sur ${charges} chargé${s(charges)}`;
+}
 import { prospectionDisplayName } from '../../lib/domain';
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../../lib/referentiels';
 import type { ArticleDetailDto, ArticleListItemDto } from '../../types';
@@ -209,7 +215,7 @@ export default function NewDossier() {
   const autoPrixFromArticles = selectedArticles.reduce((sum, a) => sum + (a.prixSuggere ?? 0), 0);
   const prixPlancherPropose = selectedArticles.some((a) => a.prixSuggereEstPlancher);
   const autoPrix = latestDevis?.montants?.prixVenteTTC || autoPrixFromArticles;
-  const prixValue = priceTouched ? prix : autoPrix > 0 ? String(autoPrix) : prix;
+  const prixValue = !priceTouched && autoPrix > 0 ? String(autoPrix) : prix;
 
   // Remise commerciale — `remisePercent` est un **pourcentage 0–100**, pas un
   // ratio (contrairement à `DossierDetailDto.remise`, lu en 0–1 sur la fiche
@@ -468,7 +474,9 @@ export default function NewDossier() {
 
               <div className="mb-3 flex items-center justify-between gap-3 border-t border-border pt-3">
                 <span className="text-body text-muted-foreground">
-                  {trancheId ? `${filteredArticles.length} article${filteredArticles.length > 1 ? 's' : ''} sur ${articles.data?.content.length ?? 0} chargé${(articles.data?.content.length ?? 0) > 1 ? 's' : ''}` : 'Choisissez un projet puis une tranche.'}
+                  {trancheId
+                    ? libelleArticlesCharges(filteredArticles.length, articles.data?.content.length ?? 0)
+                    : 'Choisissez un projet puis une tranche.'}
                 </span>
                 <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
                   <RotateCcw data-icon="inline-start" /> Réinitialiser
@@ -511,7 +519,7 @@ export default function NewDossier() {
                             <TableCell className="text-muted-foreground">{a.description || '—'}</TableCell>
                             <TableCell className="text-muted-foreground">{a.categorieLibelle || '—'}</TableCell>
                             <TableCell className="text-muted-foreground">{a.typeLibelle || '—'}</TableCell>
-                            <TableCell className="text-right tabular-nums">{a.area ? `${a.area} m²` : '—'}</TableCell>
+                            <TableCell className="text-right tabular-nums">{a.area ? formatSurface(a.area) : '—'}</TableCell>
                             <TableCell className="text-right tabular-nums">{a.salePrice ? formatCurrency(a.salePrice) : '—'}</TableCell>
                             <TableCell>
                               <Badge tone={a.statut === 'DISPONIBLE' ? 'success' : 'neutral'}>{a.statut === 'DISPONIBLE' ? 'Disponible' : 'Occupé'}</Badge>
@@ -712,8 +720,8 @@ export default function NewDossier() {
                     </p>
                   ) : (
                     <div className="flex flex-col gap-1.5">
-                      {(schemaFinancement.data.lignes ?? []).map((ligne, i) => (
-                        <div key={i} className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2 text-label">
+                      {avecCles(schemaFinancement.data.lignes ?? [], (l) => `${l.categorie}-${l.exclureDuPrix}-${l.montant}`).map(({ item: ligne, cle }) => (
+                        <div key={cle} className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2 text-label">
                           <span className="flex items-center gap-2 font-medium text-foreground">
                             {ligne.categorie}
                             {ligne.exclureDuPrix && <Badge tone="neutral">Hors prix</Badge>}

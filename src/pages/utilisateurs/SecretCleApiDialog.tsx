@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, Copy } from 'lucide-react';
 import Modal from '../../components/Modal';
 import { Button } from '../../components/ui/button';
@@ -20,18 +20,27 @@ export default function SecretCleApiDialog({
   resultat,
   mode,
   onClose,
-}: {
+}: Readonly<{
   resultat: CleApiCreeeDto;
   mode: 'creation' | 'regeneration';
   onClose: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
+}>) {
+  const [copie, setCopie] = useState<'repos' | 'copie' | 'echec'>('repos');
+  const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (minuteur.current) clearTimeout(minuteur.current);
+  }, []);
   const { cleApi, cle } = resultat;
 
-  function copier() {
-    void navigator.clipboard.writeText(cle);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function copier() {
+    try {
+      await navigator.clipboard.writeText(cle);
+      setCopie('copie');
+    } catch {
+      setCopie('echec');
+    }
+    if (minuteur.current) clearTimeout(minuteur.current);
+    minuteur.current = setTimeout(() => setCopie('repos'), 2000);
   }
 
   return (
@@ -59,7 +68,10 @@ export default function SecretCleApiDialog({
               <Copy />
             </Button>
           </div>
-          {copied && <div className="mt-1 text-micro text-(--success)">Copié.</div>}
+          {copie === 'copie' && <div className="mt-1 text-micro text-(--success)">Copié.</div>}
+          {copie === 'echec' && (
+            <div className="mt-1 text-micro text-destructive">Copie impossible — sélectionnez le secret et copiez-le à la main.</div>
+          )}
           <p className="mt-2 text-micro text-muted-foreground">
             Le serveur n'en conserve que l'empreinte : une fois cette boîte fermée, il ne pourra plus être affiché.
             En cas de perte, régénérez la clé.

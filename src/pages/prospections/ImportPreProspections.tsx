@@ -11,16 +11,16 @@ import {
   apercuImportPreProspections,
   getSupportsForOrigine,
   importerPreProspections,
-  listTranches,
   type ImportPreProspectionsParams,
   type StatutImportable,
 } from '../../lib/api';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, formatNumber } from '../../lib/format';
 import {
   referentielItems,
   useActionsCommerciales,
   useEtapesProspection,
   useOriginesProspection,
+  useTranchesFiltre,
   useTypesContactProspection,
 } from '../../lib/referentiels';
 import { useApi } from '../../lib/useApi';
@@ -41,6 +41,22 @@ const ORDRE_STATUTS: StatutLigneImport[] = ['NOUVELLE', 'DOUBLON', 'DEJA_IMPORTE
 /** Les deux statuts importables, cochés par défaut (= tout ce qui peut être créé). */
 const STATUTS_IMPORTABLES: StatutImportable[] = ['NOUVELLE', 'DOUBLON'];
 const TOUS_COCHES: Record<StatutImportable, boolean> = { NOUVELLE: true, DOUBLON: true };
+
+function compteParStatut(rapport: RapportImportPreProspectionsDto, s: StatutLigneImport): number {
+  const comptes: Record<StatutLigneImport, number> = {
+    NOUVELLE: rapport.nouvelles,
+    DOUBLON: rapport.doublons,
+    DEJA_IMPORTEE: rapport.dejaImportees,
+    ERREUR: rapport.erreurs,
+  };
+  return comptes[s];
+}
+
+function libelleDejaImportees(n: number): string {
+  if (n <= 0) return '';
+  const s = n > 1 ? 's' : '';
+  return ` — ${n} déjà importée${s} ignorée${s}`;
+}
 
 type Etape = 'fichier' | 'apercu' | 'resultat';
 type Filtre = StatutLigneImport | 'TOUTES';
@@ -83,8 +99,8 @@ export default function ImportPreProspections() {
   // Même source que le filtre Tranche de la liste : à plat, toutes tranches
   // visibles de l'appelant. Chargée dès l'arrivée pour que la liste soit
   // prête quand l'aperçu la pré-sélectionne.
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({
+  const tranches = useTranchesFiltre();
+  const trancheItems = tranches.data.map((t) => ({
     label: t.code && t.description ? `${t.code} — ${t.description}` : t.description || t.code || t.id,
     value: t.id,
   }));
@@ -209,18 +225,18 @@ export default function ImportPreProspections() {
                 <span>
                   <span className="font-medium">{creees} pré-prospection{creees > 1 ? 's' : ''} créée{creees > 1 ? 's' : ''}</span>
                   {rapport.trancheCode ? ` sur la tranche ${rapport.trancheCode}` : ''}
-                  {rapport.dejaImportees > 0 ? ` — ${rapport.dejaImportees} déjà importée${rapport.dejaImportees > 1 ? 's' : ''} ignorée${rapport.dejaImportees > 1 ? 's' : ''}` : ''}
+                  {libelleDejaImportees(rapport.dejaImportees)}
                   {rapport.erreurs > 0 ? ` — ${rapport.erreurs} en erreur` : ''}.
                 </span>
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              <StatCard label="Lignes lues" value={String(rapport.totalLignes)} />
-              <StatCard label="Nouvelles" value={String(rapport.nouvelles)} tone="success" icon={<Check />} />
-              <StatCard label="Doublons" value={String(rapport.doublons)} sub="signalés" tone="amber" icon={<AlertTriangle />} />
-              <StatCard label="Déjà importées" value={String(rapport.dejaImportees)} sub="ignorées" />
-              <StatCard label="Erreurs" value={String(rapport.erreurs)} sub="ignorées" tone={rapport.erreurs > 0 ? 'warning' : 'neutral'} />
+              <StatCard label="Lignes lues" value={formatNumber(rapport.totalLignes)} />
+              <StatCard label="Nouvelles" value={formatNumber(rapport.nouvelles)} tone="success" icon={<Check />} />
+              <StatCard label="Doublons" value={formatNumber(rapport.doublons)} sub="signalés" tone="amber" icon={<AlertTriangle />} />
+              <StatCard label="Déjà importées" value={formatNumber(rapport.dejaImportees)} sub="ignorées" />
+              <StatCard label="Erreurs" value={formatNumber(rapport.erreurs)} sub="ignorées" tone={rapport.erreurs > 0 ? 'warning' : 'neutral'} />
             </div>
 
             {rapport.avertissements.length > 0 && (
@@ -354,7 +370,7 @@ export default function ImportPreProspections() {
                     Toutes ({rapport.totalLignes})
                   </Button>
                   {ORDRE_STATUTS.map((s) => {
-                    const n = s === 'NOUVELLE' ? rapport.nouvelles : s === 'DOUBLON' ? rapport.doublons : s === 'DEJA_IMPORTEE' ? rapport.dejaImportees : rapport.erreurs;
+                    const n = compteParStatut(rapport, s);
                     return (
                       <Button key={s} type="button" size="sm" variant={filtre === s ? 'default' : 'outline'} title={STATUTS[s].aide} onClick={() => setFiltre(s)}>
                         {STATUTS[s].libelle}s ({n})
@@ -388,7 +404,21 @@ export default function ImportPreProspections() {
  * non `DataGrid` : c'est un compte rendu à lire une fois, pas une liste de
  * travail à trier et filtrer par colonne. Après l'import, la colonne Code
  * ouvre la pré-prospection créée. */
-function TableauLignes({ lignes, importe }: { lignes: LigneImportDto[]; importe: boolean }) {
+function CodeLigne({ ligne }: Readonly<{ ligne: LigneImportDto }>) {
+  if (ligne.preProspectionId) {
+    return (
+      <Link to={`/pre-prospections/${ligne.preProspectionId}`} className="font-medium underline-offset-2 hover:underline">
+        {ligne.code || ligne.preProspectionId}
+      </Link>
+    );
+  }
+  if (ligne.statut === 'NOUVELLE' || ligne.statut === 'DOUBLON') {
+    return <span className="whitespace-nowrap text-muted-foreground">Non importée</span>;
+  }
+  return <span className="text-muted-foreground">—</span>;
+}
+
+function TableauLignes({ lignes, importe }: Readonly<{ lignes: LigneImportDto[]; importe: boolean }>) {
   if (lignes.length === 0) {
     return <p className="text-body text-muted-foreground">Aucune ligne pour ce filtre.</p>;
   }
@@ -417,15 +447,7 @@ function TableauLignes({ lignes, importe }: { lignes: LigneImportDto[]; importe:
                 <TableCell><Badge tone={s.tone}>{s.libelle}</Badge></TableCell>
                 {importe && (
                   <TableCell>
-                    {l.preProspectionId ? (
-                      <Link to={`/pre-prospections/${l.preProspectionId}`} className="font-medium underline-offset-2 hover:underline">
-                        {l.code || l.preProspectionId}
-                      </Link>
-                    ) : l.statut === 'NOUVELLE' || l.statut === 'DOUBLON' ? (
-                      <span className="whitespace-nowrap text-muted-foreground">Non importée</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    <CodeLigne ligne={l} />
                   </TableCell>
                 )}
                 <TableCell className="whitespace-nowrap tabular-nums">{formatDateTime(l.dateCreation)}</TableCell>

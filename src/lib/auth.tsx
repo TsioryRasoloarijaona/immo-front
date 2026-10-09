@@ -1,6 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  ApiError,
   changerMotDePasse as apiChangerMotDePasse,
   completerProfil as apiCompleterProfil,
   connexion as apiConnexion,
@@ -37,7 +36,19 @@ export interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+/** Le sondage au retour d'onglet ne doit pas re-rendre toute l'app quand rien n'a changé. */
+function memeCompte(a: UtilisateurCourantDto | null, b: UtilisateurCourantDto): boolean {
+  if (!a) return false;
+  const projets = (u: UtilisateurCourantDto) => (u.projetsAutorises ?? []).map((p) => p.id).join('|');
+  return (
+    a.id === b.id &&
+    (a.roles ?? []).join('|') === (b.roles ?? []).join('|') &&
+    a.perimetreRestreint === b.perimetreRestreint &&
+    projets(a) === projets(b)
+  );
+}
+
+export function AuthProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<UtilisateurCourantDto | null>(null);
   const [sessionExpiree, setSessionExpiree] = useState(false);
@@ -59,6 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // juste dire « personne n'est connecté » : le laisser passer ici
       // afficherait « session expirée » à qui vient d'ouvrir l'application.
       if (statusRef.current !== 'authenticated') return;
+      // Avant le vidage : les rechargements qu'il déclenche finiront eux aussi en 401.
+      statusRef.current = 'unauthenticated';
       clearApiCache();
       setUser(null);
       setSessionExpiree(true);
@@ -89,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // En cas d'échec on ne fait rien : un 401 est déjà traité par l'accroche
       // ci-dessus, et une coupure réseau passagère ne doit pas déconnecter.
       getMonCompte()
-        .then(setUser)
+        .then((u) => setUser((prev) => (memeCompte(prev, u) ? prev : u)))
         .catch(() => {});
     }
 
@@ -127,13 +140,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    // Synchrone, avant l'appel : le POST vide les caches, et les 401 des
+    // rechargements qui suivent ne doivent pas se lire comme une expiration.
+    statusRef.current = 'unauthenticated';
     try {
       await apiDeconnexion();
-    } catch (err) {
-      // A failed logout call shouldn't trap the user in the app — the
-      // cookie is cleared server-side on a best-effort basis anyway
-      // (see the endpoint's own doc note); just drop local state.
-      if (!(err instanceof ApiError)) throw err;
+    } catch {
+      // Un échec (réseau compris) ne doit pas garder l'utilisateur connecté
+      // localement : l'état est vidé quoi qu'il arrive.
     }
     // Les caches GET (api.ts) et de valeurs (apiCache) vivent au niveau module,
     // pas dans l'arbre React : la déconnexion ne rechargeant pas la page, sans
@@ -157,8 +171,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(u);
   }, []);
 
+  const value = useMemo(
+    () => ({ status, user, sessionExpiree, login, logout, changePassword, completeProfile }),
+    [status, user, sessionExpiree, login, logout, changePassword, completeProfile],
+  );
+
   return (
-    <AuthContext.Provider value={{ status, user, sessionExpiree, login, logout, changePassword, completeProfile }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

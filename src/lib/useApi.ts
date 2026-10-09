@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from './api';
-import { readCachedValue, writeCachedValue } from './apiCache';
+import { cacheGeneration, readCachedValue, writeCachedValue } from './apiCache';
 
 /** Trailing-edge debounce for a value fed into a `useApi` dependency array.
  *
@@ -37,23 +37,24 @@ export function useDebouncedValue<T>(value: T, delay = 300): T {
  * relit rien tant que ses deps ne bougent pas : ce registre permet de re-runner
  * chaque requête montée, en gardant les données précédentes visibles pendant
  * le refetch (même comportement que `refetch`). */
-const mountedRunners = new Set<() => void>();
+const mountedRunners = new Set<() => Promise<void>>();
 
 /** Re-lance toutes les requêtes `useApi` actuellement montées. À appeler
  * après une invalidation globale hors-page (cycle de synchronisation). */
 export function refetchAllApis(): void {
-  for (const run of mountedRunners) run();
+  for (const run of mountedRunners) void run();
 }
 
 export interface ApiState<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
-  /** Re-runs the fetcher, keeping the previous data visible while it does. */
-  refetch: () => void;
+  /** Re-runs the fetcher, keeping the previous data visible while it does.
+   * Resolves once the new data (or error) is set. */
+  refetch: () => Promise<void>;
 }
 
-function errorMessage(err: unknown): string {
+export function errorMessage(err: unknown): string {
   if (err instanceof ApiError) return err.message;
   if (err instanceof Error) return err.message;
   return 'Erreur inconnue.';
@@ -61,8 +62,12 @@ function errorMessage(err: unknown): string {
 
 /**
  * Runs `fetcher` whenever `deps` changes and exposes {data, loading, error}.
- * Ignores results from a stale in-flight call (e.g. deps changed again
- * before the first request resolved) and from calls made after unmount.
+ * Ignores results from a stale in-flight call (deps changed again before it
+ * resolved) and results arriving after unmount; a result that started before
+ * a cache clear is not written and the request is re-run.
+ *
+ * Quand la clé change, l'ancien `data` reste affiché jusqu'à la réponse : une
+ * page détail doit donc être montée avec `key={id}`.
  *
  * `cacheKey` — nom logique de la requête (« dossiers », « prospection-devis »),
  * pas une URL. Quand il est fourni, la dernière valeur obtenue est mémorisée
@@ -101,7 +106,15 @@ export function useApi<T>(
     keyRef.current = key;
   });
 
-  const run = useCallback(() => {
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const run = useCallback(async (): Promise<void> => {
     const id = ++callId.current;
     const activeKey = keyRef.current;
     // Changement de dépendances : la valeur affichée est celle de la clé
@@ -112,23 +125,35 @@ export function useApi<T>(
     }
     setLoading(true);
     setError(null);
-    fetcherRef
-      .current()
-      .then((result) => {
-        if (callId.current !== id) return;
+    const isStale = () => !mounted.current || callId.current !== id;
+    try {
+      let gen = cacheGeneration();
+      let result = await fetcherRef.current();
+      if (isStale()) return;
+      // Cache vidé pendant le vol (mutation, logout) : la réponse date d'avant,
+      // on relance une fois. Une seule : un fetcher qui vide lui-même le cache
+      // bouclerait ; si le cache a encore bougé, la réponse n'est pas posée.
+      if (gen !== cacheGeneration()) {
+        gen = cacheGeneration();
+        result = await fetcherRef.current();
+        if (isStale()) return;
+      }
+      if (gen === cacheGeneration()) {
         if (activeKey !== null) writeCachedValue(activeKey, result);
         setData(result);
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (callId.current !== id) return;
-        setError(errorMessage(err));
-        setLoading(false);
-      });
+      }
+      setLoading(false);
+    } catch (err: unknown) {
+      if (isStale()) return;
+      setError(errorMessage(err));
+      setLoading(false);
+    }
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(run, deps);
+  useEffect(() => {
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
 
   // Inscription au registre global pour `refetchAllApis` — voir en tête de
   // fichier. `run` est stable (useCallback []), une inscription par montage.

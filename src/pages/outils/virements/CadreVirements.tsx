@@ -26,12 +26,12 @@ export default function CadreVirements({
   fullHeight,
   adminSeulement,
   children,
-}: {
+}: Readonly<{
   ecran: string;
   fullHeight?: boolean;
   adminSeulement?: boolean;
   children: (ctx: ContexteCharge) => ReactNode;
-}) {
+}>) {
   const { moi, meta, erreur, accesRefuse, revision } = useContexteVirement();
 
   let contenu: ReactNode;
@@ -80,13 +80,13 @@ export function ChoixSimple<V extends string>({
   value,
   onChange,
   className,
-}: {
+}: Readonly<{
   id?: string;
   items: { value: V; label: string }[];
   value: V;
   onChange: (v: V) => void;
   className?: string;
-}) {
+}>) {
   return (
     <Select items={items} value={value} onValueChange={(v) => onChange(v as V)}>
       <SelectTrigger id={id} className={cn('w-full', className)}>

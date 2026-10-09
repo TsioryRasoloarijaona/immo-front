@@ -10,14 +10,14 @@ import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import ProspectionTable from '../../components/ProspectionTable';
 import BandeGroupement from '../../components/BandeGroupement';
 import { useActionsLigneProspection } from '../../components/ActionsLigneProspection';
-import { DEFAULT_PAGE_SIZE, listPreProspections, listPreProspectionsGroupes, listTranches } from '../../lib/api';
+import { DEFAULT_PAGE_SIZE, listPreProspections, listPreProspectionsGroupes } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { useGroupement, useLignesGroupes } from '../../lib/groupement';
 import type { ProspectionListItemDto } from '../../types';
 import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { useColonnesProspections, useOriginesProspection } from '../../lib/referentiels';
+import { useColonnesProspections, useOriginesProspection, useTranchesFiltre } from '../../lib/referentiels';
 import {
   PIPELINE_STAGES,
   emptyProspectionFilters,
@@ -47,7 +47,7 @@ const NouvellePreProspectionDialog = lazy(() => import('./NewPreProspection'));
 
 /* `nouveau` vient de la route `/pre-prospections/nouveau` — la liste avec la
    boîte de saisie ouverte par-dessus, même convention que `/prospections/nouveau`. */
-export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } = {}) {
+export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: boolean }> = {}) {
   const navigate = useNavigate();
   const { commerciaux } = useAppData();
   const origines = useOriginesProspection();
@@ -176,8 +176,8 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
   const error = enGroupes ? groupes.error : liste.error;
   const vide = enGroupes ? (groupes.data?.content.length ?? 0) === 0 : rows.length === 0;
 
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  const tranches = useTranchesFiltre();
+  const trancheItems = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   // See ProspectionsList.tsx — filter on `code`, not `description`.
   const origineItems = origines.data.map((o) => ({ label: o.description || o.code || o.id, value: o.code || o.id }));
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));

@@ -1,5 +1,5 @@
 import { Ban } from 'lucide-react';
-import { formatCurrency } from '../lib/format';
+import { formatCurrency, formatPercent } from '../lib/format';
 import { cn } from '../lib/utils';
 import type { MontantsDossierDto, SyntheseMontantDto } from '../types';
 
@@ -143,7 +143,7 @@ export default function SyntheseMontants({
           <span className="text-micro font-medium text-muted-foreground">Probabilité de finalisation</span>
           {/* Fraction, pas pourcentage : `formatNumber` afficherait « 0 ». */}
           <span className="text-label font-semibold tabular-nums text-foreground">
-            {(probabiliteFinalisation * 100).toFixed(2)} %
+            {formatPercent(probabiliteFinalisation, 2)}
           </span>
         </div>
       )}

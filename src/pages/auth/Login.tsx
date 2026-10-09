@@ -2,6 +2,7 @@ import { useState } from 'react';
 import AuthScreen from './AuthScreen';
 import { useAuth } from '../../lib/auth';
 import { ApiError } from '../../lib/api';
+import { errorMessage } from '../../lib/useApi';
 import { Button } from '../../components/ui/button';
 import { Field, FieldGroup, FieldLabel, FieldError } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
@@ -22,11 +23,7 @@ export default function Login() {
       await login({ username: username.trim(), password });
     } catch (err) {
       setError(
-        err instanceof ApiError && err.status === 401
-          ? 'Identifiants invalides ou compte désactivé.'
-          : err instanceof Error
-            ? err.message
-            : 'Erreur inconnue.',
+        err instanceof ApiError && err.status === 401 ? 'Identifiants invalides ou compte désactivé.' : errorMessage(err),
       );
     } finally {
       setSubmitting(false);

@@ -44,7 +44,7 @@ function ChampSelect({
   onChange,
   disabled,
   placeholder = 'Choisir…',
-}: {
+}: Readonly<{
   id: string;
   label: string;
   items: { label: string; value: string }[];
@@ -52,7 +52,7 @@ function ChampSelect({
   onChange: (v: string | null) => void;
   disabled?: boolean;
   placeholder?: string;
-}) {
+}>) {
   return (
     <FormField>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -85,7 +85,7 @@ function ChampSelect({
  * une ligne par soumission). Sans doublon, la création navigue vers la fiche,
  * comme pour une prospection. Avec, la boîte reste ouverte et les nomme : la
  * ligne est bien créée, mais l'opérateur doit le savoir avant de l'appeler. */
-export default function NouvellePreProspectionDialog({ onClose }: { onClose: () => void }) {
+export default function NouvellePreProspectionDialog({ onClose }: Readonly<{ onClose: () => void }>) {
   const navigate = useNavigate();
 
   const [nom, setNom] = useState('');

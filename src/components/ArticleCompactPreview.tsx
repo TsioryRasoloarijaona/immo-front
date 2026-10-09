@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { Badge, Field, FieldGrid } from './ui';
 import { Button } from './ui/button';
-import { formatCurrency } from '../lib/format';
+import { formatSurface, libellePrix } from '../lib/format';
 import type { ArticleDetailDto } from '../types';
 
 /** Compact article display — code + statut badge on one line, with a
@@ -57,15 +57,9 @@ export default function ArticleCompactPreview({
             <Field label="Tranche" value={article.trancheDescription || article.trancheCode} />
             <Field label="Catégorie" value={article.categorieLibelle} />
             <Field label="Type" value={article.typeLibelle} />
-            <Field label="Surface" value={article.area ? `${article.area} m²` : undefined} />
-            <Field
-              label="Prix de vente"
-              value={article.salePrice ? formatCurrency(article.salePrice) : article.salePriceFloor ? `${formatCurrency(article.salePriceFloor)} (plancher)` : undefined}
-            />
-            <Field
-              label="Prix commercial"
-              value={article.comSalePrice ? formatCurrency(article.comSalePrice) : article.comSalePriceFloor ? `${formatCurrency(article.comSalePriceFloor)} (plancher)` : undefined}
-            />
+            <Field label="Surface" value={article.area ? formatSurface(article.area) : undefined} />
+            <Field label="Prix de vente" value={libellePrix(article.salePrice, article.salePriceFloor)} />
+            <Field label="Prix commercial" value={libellePrix(article.comSalePrice, article.comSalePriceFloor)} />
             <Field label="Titre foncier" value={article.titreFoncier} />
             <Field label="Adresse" value={article.adresse} />
           </FieldGrid>

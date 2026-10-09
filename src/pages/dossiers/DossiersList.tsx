@@ -17,7 +17,6 @@ import {
   downloadDossiersDocumentsEnLot,
   listDossiers,
   listDossiersGroupes,
-  listTranches,
   viewDossiersDocumentsEnLot,
   type DossierBatchDocKind,
   type DossierChampDate,
@@ -26,7 +25,7 @@ import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { useGroupement, useLignesGroupes } from '../../lib/groupement';
 import { DISPOSITION_DOSSIERS } from '../../lib/dispositions';
-import { useColonnesDossiers } from '../../lib/referentiels';
+import { useColonnesDossiers, useTranchesFiltre } from '../../lib/referentiels';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { debutMoisISO, finMoisISO } from '../../lib/format';
 // Formatage monétaire et de date : porté par DataGrid via le `type` de
@@ -36,6 +35,9 @@ import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, canonicalStatusLabel, n
 import type { DossierListItemDto, PageDto } from '../../types';
 
 const BATCH_DOC_ITEMS = (Object.entries(DOSSIER_BATCH_DOC_LABELS) as [DossierBatchDocKind, string][]).map(([value, label]) => ({ label, value }));
+
+/** Référence stable : un `[]` neuf à chaque rendu invaliderait `dossiersParId`. */
+const EMPTY: DossierListItemDto[] = [];
 
 const STATUS_ITEMS = [...DOSSIER_STATUS_PIPELINE, ...DOSSIER_EXIT_STATUSES].map((s) => ({ label: s, value: s }));
 
@@ -254,7 +256,7 @@ export default function DossiersList() {
   );
 
   const data = liste.data;
-  const dossiers = data?.content ?? [];
+  const dossiers = data?.content ?? EMPTY;
   /** La page qui pilote le décompte et la pagination — groupes ou lignes. */
   const pageAffichee = enGroupes ? groupes.data : liste.data;
   const loading = enGroupes ? groupes.loading : liste.loading;
@@ -274,8 +276,8 @@ export default function DossiersList() {
 
   // Aggregate fetch (once, 16 tranches in the real portfolio per CLAUDE.md) —
   // populates the Tranche dropdown. Independent of the dossiers query above.
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({
+  const tranches = useTranchesFiltre();
+  const trancheItems = tranches.data.map((t) => ({
     label: t.description || t.code || t.id,
     value: t.id,
   }));

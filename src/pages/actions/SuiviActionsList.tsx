@@ -15,7 +15,6 @@ import {
   DEFAULT_PAGE_SIZE,
   listSuiviActions,
   listSuiviActionsGroupes,
-  listTranches,
   type SuiviActionsFilterParams,
 } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
@@ -23,11 +22,13 @@ import { CLES_OUVERTURE_SUIVI_ACTION, DISPOSITION_SUIVI_ACTIONS } from '../../li
 import { useGroupement, useLignesGroupes } from '../../lib/groupement';
 import { useApi } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
-import { referentielItems, useColonnesSuiviActions, useTypesContactProspection } from '../../lib/referentiels';
+import { estAdministrateur } from '../../lib/roles';
+import { referentielItems, useColonnesSuiviActions, useTranchesFiltre, useTypesContactProspection } from '../../lib/referentiels';
 import { debutMoisISO as premierDuMois, todayISO } from '../../lib/format';
 import type { SuiviActionDto } from '../../types';
 
 type SystemeFilter = 'all' | 'saisies' | 'systeme';
+const SYSTEME_PARAM: Record<SystemeFilter, boolean | undefined> = { all: undefined, saisies: false, systeme: true };
 
 const SYSTEME_ITEMS: { label: string; value: SystemeFilter }[] = [
   { label: 'Toutes les actions', value: 'all' },
@@ -65,7 +66,7 @@ export default function SuiviActionsList() {
      groupes — le serveur l'impose, l'écran s'y conforme en masquant le
      sélecteur d'utilisateur (demander quelqu'un d'autre rendrait une page
      vide, sans 403) et en le disant. Même rôle que `GET /api/kpi/commerciaux`. */
-  const isAdmin = user?.roles?.includes('Administrateur') ?? false;
+  const isAdmin = estAdministrateur(user);
   const typesAction = useTypesContactProspection();
 
   const [dateDebut, setDateDebut] = useState(premierDuMois);
@@ -138,7 +139,7 @@ export default function SuiviActionsList() {
     utilisateur: utilisateur.length > 0 ? utilisateur : undefined,
     typeId: typeId.length > 0 ? typeId : undefined,
     trancheId: trancheId.length > 0 ? trancheId : undefined,
-    systeme: systeme === 'systeme' ? true : systeme === 'saisies' ? false : undefined,
+    systeme: SYSTEME_PARAM[systeme],
   };
 
   const enGroupes = groupement.actif;
@@ -215,8 +216,8 @@ export default function SuiviActionsList() {
     .filter((g) => g.cle !== null && g.cle !== undefined)
     .map((g) => ({ label: `${g.libelle ?? String(g.cle)} (${g.nombre})`, value: String(g.cle) }));
 
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  const tranches = useTranchesFiltre();
+  const trancheItems = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   const typeItems = referentielItems(typesAction.data);
 
   return (

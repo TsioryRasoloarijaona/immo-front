@@ -1,6 +1,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
+import { formatNumber } from '../lib/format';
 
 // Shared pager for every paginated list view — the API's PageDto is
 // 0-indexed (page/size/totalElements/totalPages), this renders it as a
@@ -35,7 +36,7 @@ export default function Pagination({
   return (
     <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
       <div className="text-micro text-muted-foreground">
-        Page {page + 1} sur {totalPages} · {totalElements} résultat{totalElements > 1 ? 's' : ''}
+        Page {formatNumber(page + 1)} sur {formatNumber(totalPages)} · {formatNumber(totalElements)} résultat{totalElements > 1 ? 's' : ''}
       </div>
       <nav aria-label="Pagination" className="flex items-center gap-1">
         <Button

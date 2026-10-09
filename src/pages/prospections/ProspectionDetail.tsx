@@ -26,7 +26,7 @@ import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Separator } from '../../components/ui/separator';
 import { cn } from '../../lib/utils';
-import { formatCurrency, formatDate, formatDateTime, formatTelephone } from '../../lib/format';
+import { formatCurrency, formatDate, formatDateTime, formatPercent, formatPercentValue, formatTelephone } from '../../lib/format';
 import {
   PIPELINE_STAGES,
   PIPELINE_STAGE_SHORT,
@@ -177,14 +177,14 @@ function ProspectionDocCell({
   disabledReason,
   divider,
   onError,
-}: {
+}: Readonly<{
   prospectionId: string;
   kind: ProspectionPdfDocKind;
   disabled?: boolean;
   disabledReason?: string;
   divider?: boolean;
   onError: (message: string | null) => void;
-}) {
+}>) {
   const [busy, setBusy] = useState<'view' | 'download' | null>(null);
 
   async function handle(action: 'view' | 'download') {
@@ -231,7 +231,7 @@ function ProspectionDocCell({
  * segmented control (Voir/Télécharger per document) instead of two
  * disconnected button pairs floating in the header. Errors from either cell
  * surface as one line under the whole group. */
-function ProspectionDocumentButtons({ prospectionId, hasProspect }: { prospectionId: string; hasProspect: boolean }) {
+function ProspectionDocumentButtons({ prospectionId, hasProspect }: Readonly<{ prospectionId: string; hasProspect: boolean }>) {
   const [error, setError] = useState<string | null>(null);
   return (
     <div className="flex flex-col items-end gap-1">
@@ -260,7 +260,7 @@ function ProspectionDocumentButtons({ prospectionId, hasProspect }: { prospectio
  * Les motifs ne sont pas interchangeables : `DESTINATAIRE_ABSENT` demande
  * d'obtenir la coordonnée, `NUMERO_INEXPLOITABLE` de réparer celle qui existe.
  * Deux gestes différents, donc deux phrases différentes. */
-function LigneCanal({ nom, canal }: { nom: 'Email' | 'WhatsApp'; canal?: CanalEnvoiDto }) {
+function LigneCanal({ nom, canal }: Readonly<{ nom: 'Email' | 'WhatsApp'; canal?: CanalEnvoiDto }>) {
   if (!canal) return null;
 
   if (canal.envoye) {
@@ -300,7 +300,7 @@ function LigneCanal({ nom, canal }: { nom: 'Email' | 'WhatsApp'; canal?: CanalEn
  * dit quoi faire ensuite. Un toast disparaîtrait avant qu'il ait vérifié.
  *
  * `envoye: false` n'est **pas** rendu comme une erreur : c'est un 200. */
-function ConfirmationVisiteButton({ prospectionId, interactionId }: { prospectionId: string; interactionId: string }) {
+function ConfirmationVisiteButton({ prospectionId, interactionId }: Readonly<{ prospectionId: string; interactionId: string }>) {
   const [busy, setBusy] = useState(false);
   const [resultat, setResultat] = useState<ResultatEnvoiVisiteDto | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -366,11 +366,11 @@ function OffrePrixSection({
   prospectionId,
   articleId,
   onVoirArticle,
-}: {
+}: Readonly<{
   prospectionId: string;
   articleId?: string;
   onVoirArticle: () => void;
-}) {
+}>) {
   const modes = useModesPaiement();
   const [ouvert, setOuvert] = useState(false);
   const [remise, setRemise] = useState('');
@@ -540,10 +540,15 @@ function OffrePrixSection({
  * "Prospections" even when opened from Pré-prospections. Detect the
  * prefix from the URL and swap those labels only — `isPre` in the fiche
  * (data-driven, not route-driven) still governs the actual page content. */
+function libelleOuiNon(v: boolean | null | undefined): string | null {
+  if (v === null || v === undefined) return null;
+  return v ? 'Oui' : 'Non';
+}
+
 export default function ProspectionDetail() {
   const { id } = useParams();
   const location = useLocation();
-  return <FicheProspection id={id!} pre={location.pathname.startsWith('/pre-prospections')} />;
+  return <FicheProspection key={id} id={id!}pre={location.pathname.startsWith('/pre-prospections')} />;
 }
 
 /** La fiche elle-même, indépendante de l'URL : `id` et `pre` lui sont donnés.
@@ -558,11 +563,11 @@ export function FicheProspection({
   id,
   pre: isPreRoute,
   variante = 'page',
-}: {
+}: Readonly<{
   id: string;
   pre: boolean;
   variante?: VarianteFiche;
-}) {
+}>) {
   const listPath = isPreRoute ? '/pre-prospections' : '/prospections';
   const listLabel = isPreRoute ? 'Pré-prospections' : 'Prospections';
   // Section-identity accent (index.css) reused for the pipeline stepper and
@@ -730,9 +735,11 @@ export function FicheProspection({
    * plus d'appel « commercial seul ». Les erreurs restent à la boîte, qui
    * les affiche sur place. */
   async function handleTransform(body: TransformerProspectionRequest) {
+    if (!p) return;
+    const id = p.id;
     setBusy(true);
     try {
-      const maj = await transformerProspection(p!.id, body);
+      const maj = await transformerProspection(id, body);
       await refetch();
       void parcours.refetch();
       if (variante === 'page') {
@@ -789,9 +796,11 @@ export function FicheProspection({
   }
 
   async function handleArchiver() {
+    if (!p) return;
+    const id = p.id;
     setBusy(true);
     try {
-      await archiverProspection(p!.id, { raisonId: raisonId ?? undefined, raisonTexte: raisonTexte.trim() || undefined });
+      await archiverProspection(id, { raisonId: raisonId ?? undefined, raisonTexte: raisonTexte.trim() || undefined });
       setShowArchiver(false);
       await refetch();
       showToast('Prospection archivée.');
@@ -803,9 +812,11 @@ export function FicheProspection({
   }
 
   async function handleDesarchiver() {
+    if (!p) return;
+    const id = p.id;
     setBusy(true);
     try {
-      await desarchiverProspection(p!.id);
+      await desarchiverProspection(id);
       await refetch();
       showToast('Prospection désarchivée.');
     } catch (err) {
@@ -909,7 +920,7 @@ export function FicheProspection({
       <ChampLecture
         key="ancienClient"
         label="Ancien client"
-        valeur={p.ancienClient === null || p.ancienClient === undefined ? null : p.ancienClient ? 'Oui' : 'Non'}
+        valeur={libelleOuiNon(p.ancienClient)}
         aide="Servi par la fiche mais absent de ModifierProspectionRequest : lecture seule tant que le backend ne l'expose pas."
       />
     ),
@@ -1448,10 +1459,10 @@ export function FicheProspection({
                   </div>
                   {parcours.data && parcours.data.content.length > 0 && (
                     <TimelineList>
-                      {parcours.data.content.map((h, i) => (
+                      {parcours.data.content.map((h, i, liste) => (
                         <TimelineRow
                           key={h.id}
-                          dernier={i === parcours.data!.content.length - 1}
+                          dernier={i === liste.length - 1}
                           titre={h.workflowDescription || h.statutDescription || 'Événement'}
                           meta={`${formatDateTime(h.date)} · ${h.utilisateur || 'Système'}`}
                           note={h.description}
@@ -1509,13 +1520,15 @@ export function FicheProspection({
                           <ContactsProspect
                             contacts={contactsLies}
                             onAdd={async (body) => {
-                              await addProspectionContact(p!.id, body);
+                              await addProspectionContact(p.id, body);
                               await contactsLies.refetch();
                               showToast('Contact ajouté.');
                             }}
                             onRemove={async (linkId) => {
-                              await removeProspectContact(p!.prospectId!, linkId);
-                              contactsLies.refetch();
+                              const prospectId = p.prospectId;
+                              if (!prospectId) return;
+                              await removeProspectContact(prospectId, linkId);
+                              await contactsLies.refetch();
                             }}
                           />
                         </div>
@@ -1565,7 +1578,7 @@ export function FicheProspection({
         <InteractionForm
           onClose={() => setShowInteractionForm(false)}
           onSubmit={async (input) => {
-            await addInteraction(p!.id, input);
+            await addInteraction(p.id, input);
             interactions.refetch();
             showToast('Action enregistrée.');
           }}
@@ -1611,14 +1624,14 @@ function ArticleCascadePicker({
   initialTrancheId,
   initialArticleId,
   principalTrancheId,
-}: {
+}: Readonly<{
   onModifier?: (trancheId: string, articleId?: string) => Promise<void>;
   onAjouter?: (trancheId: string, articleId?: string) => Promise<void>;
   onCancel?: () => void;
   initialTrancheId?: string;
   initialArticleId?: string;
   principalTrancheId?: string;
-}) {
+}>) {
   const projets = useApi(() => getProjetsReferentiel(), []);
   const categoriesRef = useCategoriesBien();
   const typesRef = useTypesBienReferentiel();
@@ -1824,14 +1837,14 @@ function ChoixArticleSection({
   onUpdated,
   onAdded,
   navigate,
-}: {
+}: Readonly<{
   prospectionId: string;
   trancheId?: string;
   articleId?: string;
   onUpdated: () => Promise<void>;
   onAdded: () => Promise<void>;
   navigate: (path: string) => void;
-}) {
+}>) {
   const current = useApi(() => (articleId ? getArticle(articleId) : Promise.resolve(null)), [articleId]);
   const currentTranche = useApi(() => (trancheId ? getTranche(trancheId) : Promise.resolve(null)), [trancheId]);
   // Same "seen it, now tucked behind Modifier" pattern as the dossier-creation
@@ -1917,13 +1930,13 @@ function ArticleAssocieRow({
   onRemove,
   onEdited,
   navigate,
-}: {
+}: Readonly<{
   prospectionId: string;
   item: { id: string; trancheId?: string; tranche?: string; articleId?: string; article?: string };
   onRemove: (itemId: string) => Promise<void>;
   onEdited: () => Promise<void>;
   navigate: (path: string) => void;
-}) {
+}>) {
   const [editing, setEditing] = useState(false);
   const article = useApi(() => (item.articleId ? getArticle(item.articleId) : Promise.resolve(null)), [item.articleId]);
 
@@ -1982,13 +1995,13 @@ function ArticlesAssociesSection({
   onRemove,
   onEdited,
   navigate,
-}: {
+}: Readonly<{
   prospectionId: string;
   items: { id: string; trancheId?: string; tranche?: string; articleId?: string; article?: string }[];
   onRemove: (itemId: string) => Promise<void>;
   onEdited: () => Promise<void>;
   navigate: (path: string) => void;
-}) {
+}>) {
   return (
     <Card title="Articles associés">
       <div className="flex flex-col gap-2">
@@ -2008,7 +2021,7 @@ function ArticlesAssociesSection({
  * remise itself, figures after remise, then the final Prix de vente line —
  * same expand-on-demand shape as `ArticleCompactPreview`, so a dense
  * ~20-field breakdown never dumps onto the page uninvited. */
-function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: DevisDto }) {
+function DevisRow({ prospectionId, devis: dv }: Readonly<{ prospectionId: string; devis: DevisDto }>) {
   const [expanded, setExpanded] = useState(false);
   const [generating, setGenerating] = useState<'view' | 'download' | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
@@ -2079,7 +2092,7 @@ function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: 
           <div>
             <div className="mb-1.5 text-micro font-medium text-muted-foreground">Avant remise</div>
             <FieldGrid>
-              <Field label="TVA" value={m.tvaRatio != null ? `${Math.round(m.tvaRatio * 100)} %` : undefined} />
+              <Field label="TVA" value={m.tvaRatio != null ? formatPercent(m.tvaRatio, 0) : undefined} />
               <Field label="Prix m² HT" value={m.prixM2HT != null ? formatCurrency(m.prixM2HT) : undefined} />
               <Field label="Prix m² TTC" value={m.prixM2TTC != null ? formatCurrency(m.prixM2TTC) : undefined} />
               <Field label="Article HT" value={m.prixArticleHT != null ? formatCurrency(m.prixArticleHT) : undefined} />
@@ -2095,7 +2108,7 @@ function DevisRow({ prospectionId, devis: dv }: { prospectionId: string; devis: 
             <div>
               <div className="mb-1.5 text-micro font-medium text-muted-foreground">Remise</div>
               <FieldGrid>
-                <Field label="Taux" value={m.remisePercent != null ? `${m.remisePercent} %` : undefined} />
+                <Field label="Taux" value={m.remisePercent != null ? formatPercentValue(m.remisePercent) : undefined} />
                 <Field label="Remise HT" value={m.remiseHT != null ? formatCurrency(m.remiseHT) : undefined} />
                 <Field label="Remise TTC" value={m.remiseTTC != null ? formatCurrency(m.remiseTTC) : undefined} />
                 <Field label="Prix m² après remise HT" value={m.prixM2ApresRemiseHT != null ? formatCurrency(m.prixM2ApresRemiseHT) : undefined} />

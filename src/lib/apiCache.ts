@@ -39,6 +39,14 @@ const MAX_ENTRIES = 200;
 
 const store = new Map<string, ValueEntry>();
 
+let generation = 0;
+
+/** Incrémentée par `clearCachedValues` : une réponse partie avant le vidage
+ * (logout, mutation) ne doit plus réécrire le cache. */
+export function cacheGeneration(): number {
+  return generation;
+}
+
 /** `hit` distingue « rien en cache » d'une valeur légitimement `null` —
  * plusieurs fetchers résolvent `null` quand leur identifiant est absent. */
 export function readCachedValue(key: string): { hit: boolean; value: unknown } {
@@ -68,6 +76,15 @@ export function writeCachedValue(key: string, value: unknown): void {
 /** Appelé par `api.ts` après toute mutation réussie, en même temps que le
  * cache GET : une valeur mémorisée ne doit pas survivre à l'écriture qui la
  * périme. */
+const clearListeners = new Set<() => void>();
+
+/** Autres caches de module (référentiels) à vider en même temps que celui-ci. */
+export function onCacheClear(listener: () => void): void {
+  clearListeners.add(listener);
+}
+
 export function clearCachedValues(): void {
+  generation += 1;
   store.clear();
+  for (const listener of clearListeners) listener();
 }

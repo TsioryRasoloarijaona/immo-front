@@ -14,14 +14,14 @@ export default function ModaleSaisie({
   onClose,
   width,
   children,
-}: {
+}: Readonly<{
   titre: string;
   /** Un champ a changé depuis l'ouverture (ou depuis le dernier enregistrement). */
   modifie: boolean;
   onClose: () => void;
   width?: number | string;
   children: (fermer: () => void) => ReactNode;
-}) {
+}>) {
   const [confirmation, demander] = useConfirmation();
 
   const fermer = useCallback(() => {

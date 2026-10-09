@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import * as api from './api';
+import { onCacheClear } from './apiCache';
+import { errorMessage } from './useApi';
 import type { ReferentielItemDto } from '../types';
 
 // Every /api/referentiels/* endpoint below is small, static-ish lookup data
@@ -15,33 +17,67 @@ interface CacheEntry<T> {
 
 function makeCachedListHook<T>(fetcher: () => Promise<T[]>) {
   const cache: CacheEntry<T[]> = { promise: null, data: null, error: null };
+  // Référence stable : un `[]` neuf à chaque rendu relancerait les effets qui en dépendent.
+  const vide: T[] = [];
+  const abonnes = new Set<() => void>();
+  const prevenir = () => {
+    for (const abonne of abonnes) abonne();
+  };
+
+  function charger(revalider = false): void {
+    if (!revalider && (cache.data || cache.promise)) return;
+    cache.error = null;
+    const promise: Promise<T[]> = fetcher();
+    cache.promise = promise;
+    promise
+      .then((result) => {
+        if (cache.promise !== promise) return;
+        cache.data = result;
+        prevenir();
+      })
+      .catch((err: unknown) => {
+        if (cache.promise !== promise) return;
+        // `promise` remis à zéro : le prochain montage réessaie.
+        cache.promise = null;
+        cache.data = null;
+        cache.error = errorMessage(err);
+        prevenir();
+      });
+  }
+
+  // Vidé avec `clearApiCache` (logout, login, mutation) : un autre compte peut
+  // avoir un autre périmètre. Écran monté : l'ancienne liste reste affichée
+  // pendant le rechargement, et tombe si celui-ci échoue.
+  const vider = () => {
+    cache.data = null;
+    cache.error = null;
+  };
+  onCacheClear(() => {
+    cache.promise = null;
+    if (abonnes.size === 0) {
+      vider();
+      return;
+    }
+    // Différé : au logout, l'écran est démonté avant et rien ne repart sans cookie.
+    setTimeout(() => {
+      if (abonnes.size === 0) vider();
+      else charger(true);
+    }, 0);
+  });
 
   return function useCachedList(): { data: T[]; loading: boolean; error: string | null } {
     const [, forceUpdate] = useState(0);
-    const mounted = useRef(true);
+
     useEffect(() => {
-      mounted.current = true;
+      const abonne = () => forceUpdate((n) => n + 1);
+      abonnes.add(abonne);
+      charger();
       return () => {
-        mounted.current = false;
+        abonnes.delete(abonne);
       };
     }, []);
 
-    useEffect(() => {
-      if (cache.data || cache.promise) return;
-      cache.promise = fetcher()
-        .then((result) => {
-          cache.data = result;
-          if (mounted.current) forceUpdate((n) => n + 1);
-          return result;
-        })
-        .catch((err: unknown) => {
-          cache.error = err instanceof Error ? err.message : 'Erreur inconnue.';
-          if (mounted.current) forceUpdate((n) => n + 1);
-          return [];
-        });
-    }, []);
-
-    return { data: cache.data ?? [], loading: !cache.data && !cache.error, error: cache.error };
+    return { data: cache.data ?? vide, loading: !cache.data && !cache.error, error: cache.error };
   };
 }
 
@@ -88,6 +124,13 @@ export const useResultatsInteraction = makeCachedListHook(api.getResultatsIntera
 /** `CfgProject` — premier maillon de la cascade Projet → Tranche → Article,
  * et source du filtre avancé `projetId` sur la liste des prospections. */
 export const useProjetsReferentiel = makeCachedListHook(api.getProjetsReferentiel);
+
+export const useTranchesReferentiel = makeCachedListHook(api.getTranchesReferentiel);
+
+/** Toutes les tranches visibles, pour les filtres des listes (une seule page de 500). */
+export const useTranchesFiltre = makeCachedListHook(() =>
+  api.listTranches(undefined, { page: 0, size: 500 }).then((page) => page.content),
+);
 
 /* Les trois catalogues de colonnes. Seuls référentiels d'ici qui ne soient pas
    des listes `{id, code, description}` — ils alimentent le sélecteur de

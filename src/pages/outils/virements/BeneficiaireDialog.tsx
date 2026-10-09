@@ -19,14 +19,14 @@ export default function BeneficiaireDialog({
   meta,
   onClose,
   toasts,
-}: {
+}: Readonly<{
   /** Absent : création. */
   beneficiaire?: { id: number; nom: string; rib: string; type: TypeBeneficiaire };
   natureParDefaut: TypeBeneficiaire;
   meta: Meta;
   onClose: () => void;
   toasts: Notifications;
-}) {
+}>) {
   const initial = {
     nom: beneficiaire?.nom ?? '',
     rib: beneficiaire?.rib ?? '',

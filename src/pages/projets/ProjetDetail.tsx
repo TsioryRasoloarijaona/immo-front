@@ -10,10 +10,14 @@ import { useApi } from '../../lib/useApi';
 import { formatDate } from '../../lib/format';
 
 export default function ProjetDetail() {
-  const { id } = useParams();
-  const { data: projet, loading, error } = useApi(() => getProjet(id!), [id]);
+  const { id = '' } = useParams();
+  return <FicheProjet key={id} id={id} />;
+}
+
+function FicheProjet({ id }: Readonly<{ id: string }>) {
+  const { data: projet, loading, error } = useApi(() => getProjet(id), [id]);
   const [tranchesPage, setTranchesPage] = useState(0);
-  const tranches = useApi(() => listProjetTranches(id!, { page: tranchesPage, size: 20 }), [id, tranchesPage]);
+  const tranches = useApi(() => listProjetTranches(id,{ page: tranchesPage, size: 20 }), [id, tranchesPage]);
   const navigate = useNavigate();
 
   if (loading) return <PageShell title="Projet"><LoadingState /></PageShell>;

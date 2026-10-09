@@ -1,7 +1,7 @@
 import { Badge } from './ui';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { cn } from '../lib/utils';
-import { formatCurrency } from '../lib/format';
+import { formatSurface, libellePrix } from '../lib/format';
 import type { ArticleListItemDto } from '../types';
 
 /** Scrollable article-picker table — code/description/catégorie/type/
@@ -66,9 +66,9 @@ export default function ArticleResultsList({
               <TableCell className="text-muted-foreground">{a.description || '—'}</TableCell>
               <TableCell className="text-muted-foreground">{a.categorieLibelle || '—'}</TableCell>
               <TableCell className="text-muted-foreground">{a.typeLibelle || '—'}</TableCell>
-              <TableCell className="text-right tabular-nums">{a.area ? `${a.area} m²` : '—'}</TableCell>
+              <TableCell className="text-right tabular-nums">{a.area ? formatSurface(a.area) : '—'}</TableCell>
               <TableCell className="text-right tabular-nums">
-                {a.salePrice ? formatCurrency(a.salePrice) : a.salePriceFloor ? `${formatCurrency(a.salePriceFloor)} (plancher)` : '—'}
+                {libellePrix(a.salePrice, a.salePriceFloor) ?? '—'}
               </TableCell>
               <TableCell>
                 {a.statut && <Badge tone={a.statut === 'DISPONIBLE' ? 'success' : 'warning'}>{a.statut}</Badge>}

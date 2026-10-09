@@ -206,7 +206,7 @@ export function useOrdreColonnes<C extends { nom: string }>(
      réellement affichées : stocker un ordre partiel rendrait la position d'une
      colonne dépendante de celles qui étaient visibles au moment du
      déplacement. */
-  const noms = colonnesOrdonnees.map((c) => c.nom);
+  const noms = useMemo(() => colonnesOrdonnees.map((c) => c.nom), [colonnesOrdonnees]);
 
   const deplacerVers = useCallback(
     (nom: string, cible: string) => {

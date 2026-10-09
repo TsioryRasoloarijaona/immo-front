@@ -30,24 +30,24 @@ function estUneNote(code: string | undefined): boolean {
   return (code ?? '').trim().toLowerCase() === 'note';
 }
 
-function Exigence({ requis }: { requis: boolean }) {
+function Exigence({ requis }: Readonly<{ requis: boolean }>) {
   return (
     <span className="ml-1.5 text-micro font-normal text-muted-foreground">{requis ? '(obligatoire)' : '(facultatif)'}</span>
   );
 }
 
-function Indication({ children }: { children: string }) {
+function Indication({ children }: Readonly<{ children: string }>) {
   return <p className="mt-1 text-micro text-muted-foreground">{children}</p>;
 }
 
 export default function InteractionForm({
   onClose,
   onSubmit,
-}: {
+}: Readonly<{
   onClose: () => void;
   /** Rejette en cas d'échec : le formulaire reste ouvert, saisie conservée, et affiche le message. */
   onSubmit: (input: CreerInteractionRequest) => Promise<void>;
-}) {
+}>) {
   const actionTypes = useTypesContactProspection();
   const resultats = useResultatsInteraction();
 

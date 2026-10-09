@@ -105,11 +105,11 @@ function Section({
   titre,
   aide,
   children,
-}: {
+}: Readonly<{
   titre: string;
   aide?: ReactNode;
   children: ReactNode;
-}) {
+}>) {
   return (
     <section className="flex flex-col gap-3">
       <h2 className="border-b border-border pb-1 text-label font-semibold text-foreground">
@@ -125,11 +125,11 @@ function Case({
   checked,
   onChange,
   children,
-}: {
+}: Readonly<{
   checked: boolean;
   onChange: (v: Bit) => void;
   children: ReactNode;
-}) {
+}>) {
   return (
     <label className="flex cursor-pointer items-center gap-2 text-body text-foreground">
       <input
@@ -151,13 +151,13 @@ export default function SocieteDialog({
   premiere,
   onClose,
   toasts,
-}: {
+}: Readonly<{
   societe?: Societe;
   /** Aucune société encore : « par défaut » est coché d'office. */
   premiere: boolean;
   onClose: () => void;
   toasts: Notifications;
-}) {
+}>) {
   const [initial] = useState<SocieteSaisie>(() =>
     societe
       ? saisieDe(societe)

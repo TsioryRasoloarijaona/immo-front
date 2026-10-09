@@ -16,7 +16,6 @@ import {
   DEFAULT_PAGE_SIZE,
   listEncaissements,
   listEncaissementsGroupes,
-  listTranches,
   type EncaissementChampDate,
 } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
@@ -30,6 +29,7 @@ import {
   useComptesReferentiel,
   useDepotsReferentiel,
   useEntitesReferentiel,
+  useTranchesFiltre,
   useTypesReglement,
 } from '../../lib/referentiels';
 // `formatCurrency`/`formatDate` ne sont plus importés ici : DataGrid formate
@@ -40,6 +40,7 @@ import { debutMoisISO, finMoisISO } from '../../lib/format';
 import type { EncaissementDto } from '../../types';
 
 type ComptabiliseFilter = 'all' | 'yes' | 'no';
+const COMPTABILISE_PARAM: Record<ComptabiliseFilter, boolean | undefined> = { all: undefined, yes: true, no: false };
 type ChampDate = EncaissementChampDate;
 
 const ETAT_ITEMS: { label: string; value: string }[] = Object.entries(ENCAISSEMENT_ETAT_LABELS).map(([value, label]) => ({ label, value }));
@@ -151,7 +152,7 @@ export default function EncaissementsList() {
           trancheId: trancheId.length > 0 ? trancheId : undefined,
           compteId: compteId || undefined,
           depotId: depotId || undefined,
-          comptabilise: comptabilise === 'yes' ? true : comptabilise === 'no' ? false : undefined,
+          comptabilise: COMPTABILISE_PARAM[comptabilise],
           champDate: dateDebut || dateFin ? champDate : undefined,
           dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
           dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
@@ -229,8 +230,8 @@ export default function EncaissementsList() {
   /* Même source que les filtres Tranche des écrans Dossiers et Prospections :
      un seul appel, 16 tranches dans le portefeuille réel, et `size: 500` pour
      ne pas dépendre de la pagination. Indépendant de la requête principale. */
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({
+  const tranches = useTranchesFiltre();
+  const trancheItems = tranches.data.map((t) => ({
     label: t.description || t.code || t.id,
     value: t.id,
   }));

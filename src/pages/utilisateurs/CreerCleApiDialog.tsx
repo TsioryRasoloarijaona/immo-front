@@ -21,12 +21,12 @@ import type { CleApiCreeeDto, PorteeCleApi } from '../../types';
 export default function CreerCleApiDialog({
   onClose,
   onCreated,
-}: {
+}: Readonly<{
   onClose: () => void;
   /** Reçoit le secret en clair : à afficher **tout de suite**, il ne sera
    * plus jamais renvoyé. */
   onCreated: (resultat: CleApiCreeeDto) => void;
-}) {
+}>) {
   const [nom, setNom] = useState('');
   const [portees, setPortees] = useState<Set<PorteeCleApi>>(new Set(PORTEES_N8N));
   const [compteCode, setCompteCode] = useState('');

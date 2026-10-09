@@ -9,6 +9,27 @@ import { lireDossierBeneficiaire } from '../../../lib/virements';
 import { cn } from '../../../lib/utils';
 import { pluriel } from './donnees';
 
+interface EtatDossier {
+  nb_ordres: number;
+  nb_incomplets: number;
+  dossier_complet: boolean;
+}
+
+function classeEtat(d: EtatDossier): string {
+  if (d.nb_ordres === 0) return 'bg-muted text-muted-foreground';
+  return d.dossier_complet ? 'bg-(--success-bg) text-(--success)' : 'bg-(--amber-bg) text-(--amber)';
+}
+
+function messageEtat(d: EtatDossier): string {
+  if (d.nb_ordres === 0) return 'Aucun ordre de virement pour ce bénéficiaire.';
+  if (d.dossier_complet) {
+    const pieces = d.nb_ordres > 1 ? `les ${d.nb_ordres} ordres ont toutes leurs pièces` : "l'ordre a toutes ses pièces";
+    return `Dossier complet — ${pieces}.`;
+  }
+  const plusieurs = d.nb_incomplets > 1;
+  return `${d.nb_incomplets} ${plusieurs ? 'ordres' : 'ordre'} sur ${d.nb_ordres} ${plusieurs ? 'sont incomplets' : 'est incomplet'}.`;
+}
+
 /** « Dossier — Nom » (§9.5) : chiffres du serveur, récapitulatif par société,
  * et les ordres un par un. Ouvrir un ordre ferme cette fenêtre et ouvre sa
  * fiche (c'est la page qui l'enchaîne). */
@@ -16,20 +37,17 @@ export default function DossierBeneficiaireDialog({
   beneficiaire,
   onClose,
   onOuvrirOrdre,
-}: {
+}: Readonly<{
   beneficiaire: { id: number; nom: string };
   onClose: () => void;
   onOuvrirOrdre: (ordreId: number) => void;
-}) {
+}>) {
   const { data: d, error } = useApi(() => lireDossierBeneficiaire(beneficiaire.id), [beneficiaire.id]);
 
   return (
     <Modal title={`Dossier — ${beneficiaire.nom}`} onClose={onClose} width={760}>
-      {error && !d ? (
-        <ErrorState message={error} />
-      ) : !d ? (
-        <LoadingState />
-      ) : (
+      {!d && (error ? <ErrorState message={error} /> : <LoadingState />)}
+      {d && (
         <div className="flex flex-col gap-3">
           <p className="-mt-2 text-body text-muted-foreground">
             {pluriel(d.nb_ordres, 'ordre')} · {formatCurrency(d.total_montant)} virés au total
@@ -39,17 +57,11 @@ export default function DossierBeneficiaireDialog({
           <div
             className={cn(
               'flex items-start gap-2 rounded-lg px-3 py-2 text-body',
-              d.nb_ordres === 0 ? 'bg-muted text-muted-foreground' : d.dossier_complet ? 'bg-(--success-bg) text-(--success)' : 'bg-(--amber-bg) text-(--amber)',
+              classeEtat(d),
             )}
           >
             {d.nb_ordres > 0 && (d.dossier_complet ? <Check className="mt-0.5 size-4 shrink-0" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0" />)}
-            <span>
-              {d.nb_ordres === 0
-                ? 'Aucun ordre de virement pour ce bénéficiaire.'
-                : d.dossier_complet
-                  ? `Dossier complet — ${d.nb_ordres > 1 ? `les ${d.nb_ordres} ordres ont toutes leurs pièces` : "l'ordre a toutes ses pièces"}.`
-                  : `${d.nb_incomplets} ${d.nb_incomplets > 1 ? 'ordres' : 'ordre'} sur ${d.nb_ordres} ${d.nb_incomplets > 1 ? 'sont incomplets' : 'est incomplet'}.`}
-            </span>
+            <span>{messageEtat(d)}</span>
           </div>
 
           {d.par_societe.length > 1 && (

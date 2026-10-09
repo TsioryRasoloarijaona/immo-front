@@ -6,9 +6,8 @@ import { Button } from '../../components/ui/button';
 import { Badge, ErrorState, LoadingState } from '../../components/ui';
 import { getProjetsUtilisateur, listProjets, remplacerProjetsUtilisateur } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { estExempte } from '../../lib/roles';
 import type { ProjetPerimetreDto } from '../../types';
-
-const EXEMPT_ROLES = new Set(['Administrateur', 'Direction Générale']);
 
 /** Boîte de dialogue "Projets affectés" ouverte depuis une ligne de
  * `UtilisateursList` — même coquille `Modal` que toutes les autres boîtes de
@@ -27,13 +26,13 @@ export default function AffecterProjetsDialog({
   user,
   onClose,
   onSaved,
-}: {
+}: Readonly<{
   user: { id: string; label: string; roles?: string[] };
   onClose: () => void;
   /** Appelé après un PUT réussi — le parent doit rafraîchir sa liste pour
    * que le badge `nombreProjets` reflète le nouvel état. */
   onSaved: () => void;
-}) {
+}>) {
   const {
     data: projetsPage,
     loading: loadingProjets,
@@ -72,7 +71,7 @@ export default function AffecterProjetsDialog({
     });
   }
 
-  const isExempt = !!user.roles?.some((r) => EXEMPT_ROLES.has(r));
+  const isExempt = estExempte(user);
   const projets = projetsPage?.content ?? [];
   const error = errorProjets || errorAssigned;
   const loading = loadingProjets || (loadingAssigned && !seeded);

@@ -12,10 +12,11 @@ import { Field as FormField, FieldLabel } from '../../components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
-import { creerDevis, DEFAULT_PAGE_SIZE, downloadDevisDocument, getProspection, listOffres, listProspections, listTranches, viewDevisDocument } from '../../lib/api';
+import { creerDevis, DEFAULT_PAGE_SIZE, downloadDevisDocument, getProspection, listOffres, listProspections, viewDevisDocument } from '../../lib/api';
+import { useTranchesFiltre } from '../../lib/referentiels';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { formatCurrency, jourISO } from '../../lib/format';
+import { formatCurrency, formatPercent, formatPercentValue, jourISO } from '../../lib/format';
 import { prospectionDisplayName } from '../../lib/domain';
 import type { CreerDevisRequest, DevisDto } from '../../types';
 
@@ -106,8 +107,8 @@ export default function OffresList() {
   // plein-filtre) — `sommePrixVenteTTCPage`, calculée côté backend.
   const totalPageTTC = data?.sommePrixVenteTTCPage ?? 0;
 
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({
+  const tranches = useTranchesFiltre();
+  const trancheItems = tranches.data.map((t) => ({
     label: t.description || t.code || t.id,
     value: t.id,
   }));
@@ -294,7 +295,7 @@ export default function OffresList() {
  * prospection's own tranche/article/prospect/commercial as defaults, same
  * contract as the per-prospection usage. Same `Modal` shell as every other
  * create-flow in the app (`CreateProspectForm`, `InteractionForm`). */
-function NouvelleOffreDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NouvelleOffreDialog({ onClose, onCreated }: Readonly<{ onClose: () => void; onCreated: () => void }>) {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [pickedId, setPickedId] = useState<string | null>(null);
@@ -400,7 +401,7 @@ function NouvelleOffreDialog({ onClose, onCreated }: { onClose: () => void; onCr
  * (`generating`/`genError`) est **par ligne**. Une fonction de rendu de
  * cellule ne peut pas porter d'etat ; un composant si. C'est ce qui permet de
  * passer l'ecran a DataGrid sans perdre le retour d'erreur par offre. */
-function FicheOffreActions({ offre: o }: { offre: DevisDto }) {
+function FicheOffreActions({ offre: o }: Readonly<{ offre: DevisDto }>) {
   const [generating, setGenerating] = useState<'view' | 'download' | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
 
@@ -461,7 +462,7 @@ function detailOffre(o: DevisDto) {
       <div>
         <div className="mb-1.5 text-micro font-medium text-muted-foreground">Avant remise</div>
         <FieldGrid>
-          <Field label="TVA" value={m.tvaRatio != null ? `${Math.round(m.tvaRatio * 100)} %` : undefined} />
+          <Field label="TVA" value={m.tvaRatio != null ? formatPercent(m.tvaRatio, 0) : undefined} />
           <Field label="Prix m2 HT" value={m.prixM2HT != null ? formatCurrency(m.prixM2HT) : undefined} />
           <Field label="Prix m2 TTC" value={m.prixM2TTC != null ? formatCurrency(m.prixM2TTC) : undefined} />
           <Field label="Article HT" value={m.prixArticleHT != null ? formatCurrency(m.prixArticleHT) : undefined} />
@@ -477,7 +478,7 @@ function detailOffre(o: DevisDto) {
         <div>
           <div className="mb-1.5 text-micro font-medium text-muted-foreground">Remise</div>
           <FieldGrid>
-            <Field label="Taux" value={m.remisePercent != null ? `${m.remisePercent} %` : undefined} />
+            <Field label="Taux" value={m.remisePercent != null ? formatPercentValue(m.remisePercent) : undefined} />
             <Field label="Remise HT" value={m.remiseHT != null ? formatCurrency(m.remiseHT) : undefined} />
             <Field label="Remise TTC" value={m.remiseTTC != null ? formatCurrency(m.remiseTTC) : undefined} />
             <Field label="Prix m2 apres remise HT" value={m.prixM2ApresRemiseHT != null ? formatCurrency(m.prixM2ApresRemiseHT) : undefined} />

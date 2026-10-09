@@ -48,7 +48,7 @@ export default function ApercuCourrier({
   reference,
   logoSrc,
   className,
-}: {
+}: Readonly<{
   societe: Societe | undefined;
   /** Source de l'image d'en-tête imposée par l'appelant (un logo choisi mais
    * pas encore déposé, dans la modale Société). Sinon : logo de la société
@@ -59,7 +59,7 @@ export default function ApercuCourrier({
   date: string;
   reference?: string;
   className?: string;
-}) {
+}>) {
   const papier = 'flex aspect-[2159/2794] w-full flex-col rounded-sm bg-white text-[10.5px] leading-[1.5] text-neutral-900 shadow-md';
   if (!societe) {
     return <div className={cn(papier, 'items-center justify-center text-neutral-500', className)}>Aucune société émettrice.</div>;

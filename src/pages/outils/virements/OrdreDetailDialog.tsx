@@ -27,13 +27,13 @@ export default function OrdreDetailDialog({
   moi,
   onClose,
   toasts,
-}: {
+}: Readonly<{
   ordreId: number;
   meta: Meta;
   moi: Moi;
   onClose: () => void;
   toasts: Notifications;
-}) {
+}>) {
   const api = useApi(() => lireOrdre(ordreId), [ordreId]);
   const [maj, setMaj] = useState<Ordre | null>(null);
   const ordre = maj ?? api.data;
@@ -79,7 +79,7 @@ function Contenu({
   onOrdre,
   fermer,
   toasts,
-}: {
+}: Readonly<{
   ordre: Ordre;
   meta: Meta;
   moi: Moi;
@@ -88,7 +88,7 @@ function Contenu({
   onOrdre: (o: Ordre) => void;
   fermer: () => void;
   toasts: Notifications;
-}) {
+}>) {
   const [confirmation, demander] = useConfirmation();
   const fichier = useRef<HTMLInputElement>(null);
   const [typeDepot, setTypeDepot] = useState<string>('autre');
@@ -340,13 +340,13 @@ function MontantPiece({
   libelle,
   onOrdre,
   toasts,
-}: {
+}: Readonly<{
   piece: Piece;
   ordre: Ordre;
   libelle: string;
   onOrdre: (o: Ordre) => void;
   toasts: Notifications;
-}) {
+}>) {
   const [saisie, setSaisie] = useState(piece.montant != null ? String(piece.montant) : '');
   const [enCours, setEnCours] = useState(false);
 

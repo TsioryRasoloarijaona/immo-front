@@ -21,12 +21,13 @@ import ActionsRecentes from './ActionsRecentes';
 import EntreesAdminVirements from '../pages/outils/virements/EntreesAdminVirements';
 import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
+import { estAdministrateur } from '../lib/roles';
 
 export default function Layout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const activeModule = moduleForPath(location.pathname);
   const { user, logout } = useAuth();
-  const isAdmin = user?.roles?.includes('Administrateur') ?? false;
+  const isAdmin = estAdministrateur(user);
   // Commercial accounts only ever touch Ventes/Patrimoine/Profil — for this
   // role the sidebar skips the module-switcher concept entirely (no picking
   // one module at a time) and instead lists all three sections at once,
