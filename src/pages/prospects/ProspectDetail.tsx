@@ -31,7 +31,7 @@ import { useToast } from '../../lib/toastContext';
 import { routeFicheProspection } from '../../lib/parcours';
 import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-import { formatCurrency, formatDate, formatFourchetteMontant, formatFourchetteSurface, formatPercent, formatTelephone } from '../../lib/format';
+import { formatCurrency, formatDate, formatFourchetteMontant, formatFourchetteSurface, formatPercent, formatPercentValue, formatTelephone } from '../../lib/format';
 import TelephoneField from '../../components/TelephoneField';
 import ContactsProspect from '../../components/ContactsProspect';
 import type { DossierListItemDto, ModifierProspectRequest, ProspectionDetailDto, ProspectionListItemDto } from '../../types';
@@ -588,8 +588,8 @@ function DossierRow({
                   <Field label="Commercial" value={detail.data.commercialNom} />
                   <Field label="Avocat" value={detail.data.avocatNom} />
                   <Field label="Prix avant remise" value={detail.data.prixAvantRemise != null ? formatCurrency(detail.data.prixAvantRemise) : undefined} />
-                  <Field label="Remise" value={detail.data.remise != null ? formatPercent(detail.data.remise, 0) : undefined} />
-                  <Field label="Remise montant" value={detail.data.remiseMontant != null ? formatCurrency(detail.data.remiseMontant) : undefined} />
+                  <Field label="Remise" value={detail.data.remise != null ? formatPercentValue(detail.data.remise) : undefined} />
+                  <Field label="Remise HT" value={detail.data.remiseMontant != null ? formatCurrency(detail.data.remiseMontant) : undefined} />
                   <Field label="Prix après remise" value={detail.data.prixApresRemise != null ? formatCurrency(detail.data.prixApresRemise) : undefined} />
                   <Field label="Avance" value={detail.data.montantAvance != null ? formatCurrency(detail.data.montantAvance) : undefined} />
                   <Field label="Mode de paiement" value={detail.data.modePaie} />

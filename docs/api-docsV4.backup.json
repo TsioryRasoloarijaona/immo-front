@@ -2474,7 +2474,7 @@
           "Dossiers"
         ],
         "summary": "Crée un dossier de vente à partir d'une prospection",
-        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  prix **avant** remise et sert de base à la place du prix commercial de l'article ; les annexes\n  (articles suivants de `articleIds`) s'y ajoutent ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Prospect → client** : si le statut initial porte l'indicateur OMRAN « Transforme le prospect en\nclient », le tiers passe au type client (voir `PATCH /api/dossiers/{id}/statut`).",
+        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Prospect → client** : si le statut initial porte l'indicateur OMRAN « Transforme le prospect en\nclient », le tiers passe au type client (voir `PATCH /api/dossiers/{id}/statut`).",
         "operationId": "create_1",
         "requestBody": {
           "content": {
@@ -2498,7 +2498,7 @@
             }
           },
           "400": {
-            "description": "Champ requis manquant (`prospectionId`, `articleIds`, `modePaieId`, `cin`), prospection/article/mode\nde paiement introuvable, prospection sans prospect lié, article déjà occupé, ou `remisePercent` hors\nde [0 ; 100].",
+            "description": "Champ requis manquant (`prospectionId`, `articleIds`, `modePaieId`, `cin`), prospection/article/mode\nde paiement introuvable, prospection sans prospect lié, article déjà occupé, `remisePercent` hors\nde [0 ; 100], ou — avec `remisePercent` — `prix` inférieur au prix des annexes.",
             "content": {
               "*/*": {
                 "schema": {
@@ -3027,7 +3027,7 @@
           "Dossiers"
         ],
         "summary": "Prévisualise le schéma de financement (étape avant création du dossier)",
-        "description": "Calcule le \"Schéma de financement\" (AUTO-FINANCEMENT / AVANCE / FRAIS SYNDIC) que `POST\n/api/dossiers` générerait pour ce(s) article(s) et ce prix, **sans rien créer ni persister** — ni\ndossier, ni échéance. Étape de simulation dans l'assistant de création : le front appelle cet\nendpoint à chaque changement de prix/article pour afficher le récapitulatif avant validation finale\nvia `POST /api/dossiers`. `articleIds` accepte le même format que la création réelle (le premier\narticle détermine la tranche — barème AVANCE/SYNDIC — et la vocation — catégorie d'échéance). Les\narticles n'ont pas besoin d'être DISPONIBLE ici : rien n'est réservé. Si `remisePercent` est fourni,\nAVANCE et AUTO-FINANCEMENT sont calculés sur le prix **après** remise (`prix` étant alors le prix\navant remise, articles suivants comptés comme annexes) — mêmes montants que ceux que `POST\n/api/dossiers` persistera pour les mêmes paramètres. FRAIS SYNDIC ne dépend pas du prix (barème de\nla tranche) et n'est donc jamais remisé.",
+        "description": "Calcule le \"Schéma de financement\" (AUTO-FINANCEMENT / AVANCE / FRAIS SYNDIC) que `POST\n/api/dossiers` générerait pour ce(s) article(s) et ce prix, **sans rien créer ni persister** — ni\ndossier, ni échéance. Étape de simulation dans l'assistant de création : le front appelle cet\nendpoint à chaque changement de prix/article pour afficher le récapitulatif avant validation finale\nvia `POST /api/dossiers`. `articleIds` accepte le même format que la création réelle (le premier\narticle détermine la tranche — barème AVANCE/SYNDIC — et la vocation — catégorie d'échéance). Les\narticles n'ont pas besoin d'être DISPONIBLE ici : rien n'est réservé. Si `remisePercent` est fourni,\nAVANCE et AUTO-FINANCEMENT sont calculés sur le prix **après** remise (`prix` étant alors le total\navant remise, annexes comprises — articles suivants de `articleIds`) — mêmes montants que ceux que `POST\n/api/dossiers` persistera pour les mêmes paramètres. FRAIS SYNDIC ne dépend pas du prix (barème de\nla tranche) et n'est donc jamais remisé.",
         "operationId": "simulerSchemaFinancement",
         "requestBody": {
           "content": {
@@ -3051,7 +3051,7 @@
             }
           },
           "400": {
-            "description": "`articleIds` manquant/vide, `prix` manquant, `remisePercent` hors de [0 ; 100], ou un des articles est introuvable.",
+            "description": "`articleIds` manquant/vide, `prix` manquant, `remisePercent` hors de [0 ; 100], un des articles est\nintrouvable, ou — avec `remisePercent` — `prix` inférieur au prix des annexes.",
             "content": {
               "*/*": {
                 "schema": {
@@ -12430,7 +12430,7 @@
           },
           "prix": {
             "type": "number",
-            "description": "Prix de vente TTC. **Avec `remisePercent`** : prix AVANT remise (remplace le prix commercial de\nl'article principal comme base de calcul, même rôle que le `prix` d'une Offre) — le prix réellement\ndû est recalculé en appliquant la remise. **Sans `remisePercent`** (mode historique) : prix négocié\nAPRÈS remise, et la remise est alors déduite de l'écart avec le prix commercial de l'article.\nOptionnel : sans lui, aucun montant n'est calculé et aucun schéma de financement n'est généré.",
+            "description": "Total TTC de la vente, **article principal + annexes** (ex. parking), dans les deux modes.\n**Avec `remisePercent`** : total AVANT remise — le prix du principal en est déduit (`prix` − prix\ndes annexes, qui gardent leur prix de référence) et le prix réellement dû est recalculé en appliquant\nla remise. `prix` inférieur au prix des annexes ⇒ 400. **Sans `remisePercent`** (mode historique) :\nprix négocié APRÈS remise, et la remise est déduite de l'écart avec le prix de référence (principal +\nannexes). Ce n'est pas le `prix` d'une Offre (prix du principal seul). Optionnel : sans lui, aucun\nmontant n'est calculé et aucun schéma de financement n'est généré.",
             "example": 1000000
           },
           "remisePercent": {
@@ -13043,7 +13043,7 @@
           },
           "prix": {
             "type": "number",
-            "description": "Prix de vente TTC envisagé. Avec `remisePercent` : prix AVANT remise. Sans `remisePercent` : prix\nnégocié, utilisé tel quel. Obligatoire.",
+            "description": "Total TTC envisagé, article principal + annexes. Avec `remisePercent` : total AVANT remise (le\nprincipal vaut `prix` − prix des annexes ; `prix` inférieur au prix des annexes ⇒ 400). Sans\n`remisePercent` : prix négocié, utilisé tel quel. Même sens que dans `POST /api/dossiers`. Obligatoire.",
             "example": 1000000
           },
           "remisePercent": {
@@ -13077,7 +13077,7 @@
           },
           "remisePercent": {
             "type": "number",
-            "description": "Taux de remise en pourcentage, de 0 à 100 (5 = 5 %), jamais un ratio 0–1. Le taux saisi s'il a été\nfourni ; sinon le taux déduit de l'écart entre le prix de référence de l'article (+ annexes) et le\n`prix` négocié. Exactement la valeur que `POST /api/dossiers` enregistrera dans `ComFolder.Discount`.",
+            "description": "Taux de remise en pourcentage (5 = 5 %), jamais un ratio 0–1. De 0 à 100 quand il est saisi\n(`remisePercent` de la requête) ; déduit de l'écart entre le prix de référence de l'article (+ annexes)\net le `prix` négocié, il peut être négatif (prix négocié > prix de référence). Exactement la valeur\nque `POST /api/dossiers` enregistrera dans `ComFolder.Discount`.",
             "example": 5
           },
           "prixApresRemise": {

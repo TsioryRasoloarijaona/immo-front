@@ -63,8 +63,8 @@ function libellePrix(remiseRenseignee: boolean, avecAnnexes: boolean): string {
 }
 
 /**
- * Taux tiré des montants de l'offre, jamais de `remisePercent` (ratio 0–1 pour les offres OMRAN,
- * % pour celles de l'API). Non arrondi : le serveur retombe ainsi sur `prixVenteTTC` au centime.
+ * Taux tiré des montants de l'offre, pas de `remisePercent` (arrondi à 6 décimales en base). Non
+ * arrondi : le serveur retombe ainsi sur `prixVenteTTC` au centime.
  */
 function remiseDeduiteDeLOffre(montants: MontantsOffreDto | undefined): { totalTTC: number; taux: number } | null {
   const totalTTC = montants?.totalTTC;
@@ -252,8 +252,8 @@ export default function NewDossier() {
   const autoPrix = prixOffre || autoPrixFromArticles;
   const prixValue = !priceTouched && autoPrix > 0 ? String(autoPrix) : prix;
 
-  // `remisePercent` est un pourcentage 0–100, pas un ratio (contrairement à `DossierDetailDto.remise`,
-  // en 0–1). Avec une remise, `prix` devient le total avant remise, annexes comprises.
+  // `remisePercent` est un pourcentage 0–100, pas un ratio. Avec une remise, `prix` devient le total
+  // avant remise, annexes comprises.
   const remiseRenseignee = remiseNumber !== null && !Number.isNaN(remiseNumber);
   const remiseHorsBornes = remiseRenseignee && (remiseNumber < 0 || remiseNumber > 100);
   // Seuil générique : l'API n'expose aucun plafond de remise par article.

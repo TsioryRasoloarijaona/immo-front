@@ -940,6 +940,7 @@ export interface MontantsOffreDto {
   prixSousArticlesTTC?: number;
   totalHT?: number;
   totalTTC?: number;
+  /** Pourcentage 0–100 (5 = 5 %) sur toutes les offres, OMRAN comprises. */
   remisePercent?: number;
   remiseHT?: number;
   remiseTTC?: number;
@@ -1141,8 +1142,9 @@ export interface DossierListItemDto {
   dateConcretisation?: string | null;
 
   prixAvantRemise?: number;
-  /** Pourcentage entier (5 = 5 %), contrairement à `probabiliteFinalisation`. */
+  /** Pourcentage 0–100 (5 = 5 %), contrairement à `probabiliteFinalisation`. */
   remise?: number;
+  /** HT. */
   remiseMontant?: number;
   prixApresRemise?: number;
   montantAvance?: number;
@@ -1249,7 +1251,9 @@ export interface DossierDetailDto {
   modifieLe?: string | null;
   articles?: ArticleSummaryDto[];
   prixAvantRemise?: number;
+  /** Pourcentage 0–100 (`formatPercentValue`), quel que soit l'auteur du dossier. */
   remise?: number;
+  /** HT ; le TTC est `prixAvantRemise − prixApresRemise`. */
   remiseMontant?: number;
   prixApresRemise?: number;
   prix?: number;
@@ -1308,7 +1312,8 @@ export interface LigneSchemaFinancementDto {
   /** Frais en sus (frais syndic) : ne pas l'additionner au prix. */
   exclureDuPrix?: boolean;
 }
-/** Montants de remise lus sur le calcul de `POST /api/dossiers` : principal + annexes, TTC. */
+/** Montants de remise lus sur le calcul de `POST /api/dossiers` : principal + annexes, TTC
+ * (le dossier créé expose `remiseMontant` en HT). */
 export interface SchemaFinancementDto {
   lignes?: LigneSchemaFinancementDto[];
   totalGeneral?: number;

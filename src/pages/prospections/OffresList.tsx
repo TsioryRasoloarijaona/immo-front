@@ -527,7 +527,7 @@ const COLONNES: ColonneGrille<DevisDto>[] = [
     valeur: (o) => o.montants?.remisePercent ?? 0,
     rendu: (o) =>
       (o.montants?.remisePercent ?? 0) > 0 ? (
-        <Badge tone="amber">{o.montants?.remisePercent} %</Badge>
+        <Badge tone="amber">{formatPercentValue(o.montants?.remisePercent)}</Badge>
       ) : (
         <span className="text-muted-foreground">0 %</span>
       ),
