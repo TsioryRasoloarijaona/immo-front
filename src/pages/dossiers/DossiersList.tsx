@@ -473,7 +473,8 @@ export default function DossiersList() {
                     cleOrdre="dossiers"
                     rows={enGroupes ? [] : dossiers}
                     colonnes={colonnes.colonnes}
-                    groupes={groupesGrille(groupement, groupes.data, lignesGroupes, { statut: canonicalStatusLabel })}
+                    // `enGroupes` et non `groupement.actif` : un filtre de statut bloque le groupement.
+                    groupes={groupesGrille(groupement, groupes.data, lignesGroupes, { statut: canonicalStatusLabel }, enGroupes)}
                     onOuvrir={(id) => navigate(`/dossiers/${id}`)}
                     onOuvrirProspection={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
                     bandeauRegroupement={false}

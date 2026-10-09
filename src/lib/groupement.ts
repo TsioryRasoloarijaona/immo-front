@@ -225,15 +225,17 @@ export function useGroupement(
 }
 
 /** Prop `groupes` de la grille, montée de la même façon par toutes les listes groupables.
- * `libelles` : traduction d'affichage par colonne groupée (ex. `statut` → libellé canonique). */
+ * `libelles` : traduction d'affichage par colonne groupée (ex. `statut` → libellé canonique).
+ * `actif` : à passer quand l'écran peut bloquer un groupement choisi ; `undefined` rendu, la grille lit `rows`. */
 export function groupesGrille<T>(
   groupement: EtatGroupement,
   page: PageGroupesDto | null | undefined,
   lignes: ReturnType<typeof useLignesGroupes<T>>,
   libelles: Partial<Record<string, (brut: string) => string>> = {},
+  actif: boolean = groupement.actif,
 ): GroupementGrille<T> | undefined {
   const colonne = groupement.colonneGroupee;
-  if (!colonne) return undefined;
+  if (!actif || !colonne) return undefined;
   return {
     liste: page?.content ?? [],
     colonneLibelle: colonne.libelle,
