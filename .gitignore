@@ -32,4 +32,10 @@ instructions
 .playwright-mcp
 graphify-out
 .impeccable
-instructions
+
+# Configuration et notes d'assistant IA (Claude Code et autres agents) : locales, jamais versionnées
+CLAUDE.md
+SESSION_MEMORY.md
+PRODUCT.md
+.claude/
+.agents/
