@@ -650,8 +650,11 @@ export default function DataGrid<T extends { id: string }>({
           <span className="shrink-0 rounded-full bg-(--amber-bg) px-1.25 font-bold text-(--amber)">Bientôt</span>
         </div>
       )}
-      {(tri || sommes.size > 0 || cochees.size > 0 || filtreActif || ordrePersonnalise) && (
-        <div className="flex h-5 shrink-0 items-center gap-3 border-b border-border/70 bg-card px-2 text-micro text-muted-foreground">
+      {/* Toujours rendue, vide au repos : la faire apparaître ou disparaître
+          décale les lignes de sa hauteur et le clic suivant ouvre une fiche. */}
+      <div className="flex h-5 shrink-0 items-center gap-3 border-b border-border/70 bg-card px-2 text-micro text-muted-foreground">
+        {(tri || sommes.size > 0 || cochees.size > 0 || filtreActif || ordrePersonnalise) && (
+        <>
           {cochees.size > 0 && <span className="shrink-0">{cochees.size} sélectionnée(s)</span>}
           {tri && (
             <button type="button" className="shrink-0 truncate hover:text-foreground hover:underline" onClick={() => setTri(null)}>
@@ -682,8 +685,9 @@ export default function DataGrid<T extends { id: string }>({
                 ? `${formatNumber(visibles.length)} / ${formatNumber(rows.length)} ligne(s) chargée(s) — filtre sur la page affichée seulement`
                 : `${formatNumber(rows.length)} ligne(s)`}
           </span>
-        </div>
-      )}
+        </>
+        )}
+      </div>
       <Table
         /* `w-max` : la table prend la largeur de son contenu et déborde le
            conteneur, qui défile — c'est ce qui permet d'afficher chaque valeur

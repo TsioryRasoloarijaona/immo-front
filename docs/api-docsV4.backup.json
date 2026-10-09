@@ -9761,7 +9761,7 @@
           "Actions récentes"
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
-        "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**« Voir plus ».** Rappeler avec `avant` = `date` de la dernière action reçue : seules les actions\nstrictement antérieures sont servies, sans doublon. Deux actions de la même date exacte à cheval\nsur deux pages : la seconde n'est pas servie.",
+        "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
         "operationId": "lister_1",
         "parameters": [
           {
@@ -9794,13 +9794,24 @@
           {
             "name": "avant",
             "in": "query",
-            "description": "Date-heure ISO-8601, **exclusive** : seules les actions de `date` strictement antérieure. Absente =\nles plus récentes.",
+            "description": "Curseur, date-heure ISO-8601 : la `date` de la dernière action reçue. Seul (sans `avantId`), il ne\nsert que les actions de date strictement antérieure — des actions de même date peuvent alors\nmanquer. Absent = les plus récentes.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
             },
             "example": "2026-10-08T10:42:00"
+          },
+          {
+            "name": "avantId",
+            "in": "query",
+            "description": "Curseur, avec `avant` : l'`id` de la dernière action reçue. Sont servies les actions de date\nantérieure, ou de même date et d'`id` inférieur dans l'ordre ci-dessus. Sans `avant` : 400.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "example": "3f2a7c1e-9b4d-4e8a-a1c2-5d6e7f809a1b"
           }
         ],
         "responses": {
@@ -9818,7 +9829,7 @@
             }
           },
           "400": {
-            "description": "`portee` inconnue, `limite` hors 1–100 ou `avant` mal formée.",
+            "description": "`portee` inconnue, `limite` hors 1–100, `avant`/`avantId` mal formés, `avantId` sans `avant`.",
             "content": {
               "*/*": {
                 "schema": {
