@@ -36,7 +36,7 @@ function libelleArticlesCharges(affiches: number, charges: number): string {
 }
 import { prospectionDisplayName } from '../../lib/domain';
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../../lib/referentiels';
-import type { ArticleDetailDto, ArticleListItemDto, SchemaFinancementDto } from '../../types';
+import type { ArticleDetailDto, ArticleListItemDto, MontantsOffreDto, SchemaFinancementDto } from '../../types';
 
 type FiltreStatut = 'DISPONIBLE' | 'OCCUPE' | 'all';
 
@@ -60,6 +60,17 @@ function AideRemise({ horsBornes, inhabituelle }: Readonly<{ horsBornes: boolean
 function libellePrix(remiseRenseignee: boolean, avecAnnexes: boolean): string {
   if (!remiseRenseignee) return 'Prix retenu (DH) *';
   return avecAnnexes ? 'Prix total avant remise (bien + annexes) (DH) *' : 'Prix avant remise (DH) *';
+}
+
+/**
+ * Taux tiré des montants de l'offre, jamais de `remisePercent` (ratio 0–1 pour les offres OMRAN,
+ * % pour celles de l'API). Non arrondi : le serveur retombe ainsi sur `prixVenteTTC` au centime.
+ */
+function remiseDeduiteDeLOffre(montants: MontantsOffreDto | undefined): { totalTTC: number; taux: number } | null {
+  const totalTTC = montants?.totalTTC;
+  const prixVenteTTC = montants?.prixVenteTTC;
+  if (totalTTC == null || prixVenteTTC == null || totalTTC <= 0 || prixVenteTTC >= totalTTC) return null;
+  return { totalTTC, taux: ((totalTTC - prixVenteTTC) / totalTTC) * 100 };
 }
 
 /** Montants de la simulation serveur, ceux que la création enregistrera. Rien si aucune remise. */
@@ -203,6 +214,7 @@ export default function NewDossier() {
 
   const [prix, setPrix] = useState('');
   const [remise, setRemise] = useState('');
+  const [remiseTouched, setRemiseTouched] = useState(false);
   const [priceTouched, setPriceTouched] = useState(false);
   const [notes, setNotes] = useState('');
   const [notesTouched, setNotesTouched] = useState(false);
@@ -228,12 +240,20 @@ export default function NewDossier() {
   // `prixSuggere` = prix commercial, ou plancher quand il vaut 0 — même calcul que le serveur.
   const autoPrixFromArticles = selectedArticles.reduce((sum, a) => sum + (a.prixSuggere ?? 0), 0);
   const prixPlancherPropose = selectedArticles.some((a) => a.prixSuggereEstPlancher);
-  const autoPrix = latestDevis?.montants?.prixVenteTTC || autoPrixFromArticles;
+  const remiseOffre = remiseDeduiteDeLOffre(latestDevis?.montants);
+  // Taux auto seulement si le prix l'est aussi : sinon il s'appliquerait à un prix tapé à la main.
+  const remiseAuto = !remiseTouched && !priceTouched ? remiseOffre : null;
+  const remiseSaisie = remise.trim() === '' ? null : Number(remise.replace(',', '.'));
+  const remiseNumber = remiseAuto?.taux ?? remiseSaisie;
+  const remiseValue = remiseAuto ? String(Math.round(remiseAuto.taux * 100) / 100) : remise;
+
+  // Avec une remise, `prix` est le total avant remise : depuis une offre remisée, c'est son `totalTTC`.
+  const prixOffre = remiseOffre && remiseNumber !== null ? remiseOffre.totalTTC : latestDevis?.montants?.prixVenteTTC;
+  const autoPrix = prixOffre || autoPrixFromArticles;
   const prixValue = !priceTouched && autoPrix > 0 ? String(autoPrix) : prix;
 
   // `remisePercent` est un pourcentage 0–100, pas un ratio (contrairement à `DossierDetailDto.remise`,
   // en 0–1). Avec une remise, `prix` devient le total avant remise, annexes comprises.
-  const remiseNumber = remise.trim() === '' ? null : Number(remise.replace(',', '.'));
   const remiseRenseignee = remiseNumber !== null && !Number.isNaN(remiseNumber);
   const remiseHorsBornes = remiseRenseignee && (remiseNumber < 0 || remiseNumber > 100);
   // Seuil générique : l'API n'expose aucun plafond de remise par article.
@@ -598,14 +618,22 @@ export default function NewDossier() {
                     max={100}
                     step="0.01"
                     placeholder="0"
-                    value={remise}
-                    onChange={(e) => setRemise(e.target.value)}
+                    value={remiseValue}
+                    onChange={(e) => {
+                      setRemiseTouched(true);
+                      setRemise(e.target.value);
+                    }}
                   />
                   <InputGroupAddon align="inline-end">
                     <InputGroupText>%</InputGroupText>
                   </InputGroupAddon>
                 </InputGroup>
                 <AideRemise horsBornes={remiseHorsBornes} inhabituelle={remiseInhabituelle} />
+                {remiseAuto && (
+                  <p className="mt-1 text-micro text-muted-foreground">
+                    Déduite de l'offre ({latestDevis?.code}) : son prix de vente {formatCurrency(latestDevis?.montants?.prixVenteTTC)} est retrouvé.
+                  </p>
+                )}
               </FormField>
               <FormField>
                 <FieldLabel htmlFor="cin">CIN du client *</FieldLabel>
