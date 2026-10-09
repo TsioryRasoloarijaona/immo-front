@@ -1308,9 +1308,15 @@ export interface LigneSchemaFinancementDto {
   /** Frais en sus (frais syndic) : ne pas l'additionner au prix. */
   exclureDuPrix?: boolean;
 }
+/** Montants de remise lus sur le calcul de `POST /api/dossiers` : principal + annexes, TTC. */
 export interface SchemaFinancementDto {
   lignes?: LigneSchemaFinancementDto[];
   totalGeneral?: number;
+  prixAvantRemise?: number;
+  montantRemise?: number;
+  /** 0–100 (`formatPercentValue`), pas un ratio. */
+  remisePercent?: number;
+  prixApresRemise?: number;
 }
 
 export interface ChangerStatutRequest {

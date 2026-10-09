@@ -4078,7 +4078,7 @@
           "Dossiers"
         ],
         "summary": "Change le statut du dossier de vente",
-        "description": "Change le statut du dossier. La transition doit figurer dans la table des transitions validées\n(sinon **409**, avec `transitionsAutorisees`) ; un dossier sans statut courant accepte tout statut.\n\n**Prospect → client, comme OMRAN** : si le statut cible porte l'indicateur « Transforme le prospect\nen client » (`StrStatus.BoolField011` : CONCRETISATION, COMPROMIS, FORMALISE…), et que le client du\ndossier est de type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`), son type devient le type client\ncorrespondant (`CLI`, `CLIRNT`, `CLIPRM`, `CLIROM`), dans la même transaction. La ligne\nd'historique du changement de statut porte alors la mention « Prospect transformé en client ».\nDéjà client, type absent ou inconnu : rien ne change. Jamais de retour client → prospect.",
+        "description": "Change le statut du dossier. La transition doit figurer dans la table des transitions validées\n(sinon **409**, avec `transitionsAutorisees`) ; un dossier sans statut courant accepte tout statut.\n\n**Prospect → client, comme OMRAN** : si le statut cible porte l'indicateur « Transforme le prospect\nen client » (`StrStatus.BoolField011` : CONCRETISATION, COMPROMIS, FORMALISE…), et que le client du\ndossier est de type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`), son type devient le type client\ncorrespondant (`CLI`, `CLIRNT`, `CLIPRM`, `CLIROM`), dans la même transaction. Une ligne\nd'historique distincte « Prospect transformé en client » (type `STATUT`) s'ajoute alors à celle du\nchangement de statut, dont la note reste intacte.\nDéjà client, type absent ou inconnu : rien ne change. Jamais de retour client → prospect.",
         "operationId": "changerStatut",
         "parameters": [
           {
@@ -13064,6 +13064,26 @@
           },
           "totalGeneral": {
             "type": "number"
+          },
+          "prixAvantRemise": {
+            "type": "number",
+            "description": "Prix TTC avant remise : article principal + annexes (ex. parking). Exactement la valeur que `POST\n/api/dossiers` enregistrera (`prixAvantRemise` du dossier) avec les mêmes paramètres.",
+            "example": 1200000
+          },
+          "montantRemise": {
+            "type": "number",
+            "description": "Montant TTC de la remise, calculé sur `prixAvantRemise` (principal + annexes). Exactement la valeur\nque `POST /api/dossiers` enregistrera (`remiseMontant` du dossier) avec les mêmes paramètres.",
+            "example": 60000
+          },
+          "remisePercent": {
+            "type": "number",
+            "description": "Taux de remise en pourcentage, de 0 à 100 (5 = 5 %), jamais un ratio 0–1. Le taux saisi s'il a été\nfourni ; sinon le taux déduit de l'écart entre le prix de référence de l'article (+ annexes) et le\n`prix` négocié. Exactement la valeur que `POST /api/dossiers` enregistrera dans `ComFolder.Discount`.",
+            "example": 5
+          },
+          "prixApresRemise": {
+            "type": "number",
+            "description": "Prix TTC après remise (`prixAvantRemise` − `montantRemise`), base du schéma de financement. Exactement\nla valeur que `POST /api/dossiers` enregistrera (`prixApresRemise` du dossier) avec les mêmes paramètres.",
+            "example": 1140000
           }
         }
       },

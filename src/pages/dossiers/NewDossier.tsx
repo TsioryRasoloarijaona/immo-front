@@ -36,7 +36,7 @@ function libelleArticlesCharges(affiches: number, charges: number): string {
 }
 import { prospectionDisplayName } from '../../lib/domain';
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../../lib/referentiels';
-import type { ArticleDetailDto, ArticleListItemDto } from '../../types';
+import type { ArticleDetailDto, ArticleListItemDto, SchemaFinancementDto } from '../../types';
 
 type FiltreStatut = 'DISPONIBLE' | 'OCCUPE' | 'all';
 
@@ -53,6 +53,37 @@ function AideRemise({ horsBornes, inhabituelle }: Readonly<{ horsBornes: boolean
     <p className="mt-1 text-micro text-muted-foreground">
       Facultatif. Laissée vide, le prix ci-contre est le prix négocié.
     </p>
+  );
+}
+
+/** Montants de la simulation serveur, ceux que la création enregistrera. Rien si aucune remise. */
+function BlocRemise({ schema, avecAnnexes }: Readonly<{ schema: SchemaFinancementDto; avecAnnexes: boolean }>) {
+  const { prixAvantRemise, montantRemise, remisePercent, prixApresRemise } = schema;
+  if (montantRemise == null || prixApresRemise == null || montantRemise === 0) return null;
+  // Prix négocié au-dessus du prix de référence : le serveur déduit une remise négative.
+  const signe = montantRemise > 0 ? '−' : '+';
+  return (
+    <div className="mt-4 flex flex-col gap-1.5 border-t border-border pt-3">
+      <div className="flex items-center justify-between text-body">
+        <span className="text-muted-foreground">Montant de la remise ({formatPercentValue(remisePercent)})</span>
+        <span className="tabular-nums text-foreground">
+          {signe} {formatCurrency(Math.abs(montantRemise))}
+        </span>
+      </div>
+      {avecAnnexes && (
+        <p className="text-micro text-muted-foreground">
+          Calculée sur le prix principal + annexes : {formatCurrency(prixAvantRemise)}.
+        </p>
+      )}
+      <div className="flex items-center justify-between">
+        <span className="text-label font-semibold text-foreground">Prix après remise</span>
+        <span className="text-title font-semibold tabular-nums text-foreground">{formatCurrency(prixApresRemise)}</span>
+      </div>
+      <p className="text-micro text-muted-foreground">
+        C'est ce montant qui sera dû. Les frais de syndic, issus du barème de la tranche, ne sont
+        jamais remisés et s'ajoutent au schéma de financement ci-dessous.
+      </p>
+    </div>
   );
 }
 
@@ -217,12 +248,9 @@ export default function NewDossier() {
     [selectedIds, debouncedPrixNumber, debouncedRemise],
   );
 
-  // `SchemaFinancementDto` ne renvoie pas la remise. Le total du schéma n'est pas `prix × (1 − r)` :
-  // les FRAIS SYNDIC (barème de la tranche) ne sont jamais remisés.
-  const prixAvantRemise = prixNumber && prixNumber > 0 ? prixNumber : null;
-  const montantRemise =
-    prixAvantRemise !== null && remiseRenseignee && !remiseHorsBornes ? (prixAvantRemise * remiseNumber) / 100 : null;
-  const prixApresRemise = prixAvantRemise !== null && montantRemise !== null ? prixAvantRemise - montantRemise : null;
+  // Remise jamais recalculée ici : le serveur l'applique à principal + annexes, et la déduit
+  // du prix de référence quand aucun taux n'est saisi. En erreur, rien plutôt qu'un chiffre périmé.
+  const remiseServeur = schemaFinancement.error ? null : schemaFinancement.data;
 
   if (loading) return <PageShell title="Nouveau dossier"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Nouveau dossier"><ErrorState message={error} /></PageShell>;
@@ -618,22 +646,7 @@ export default function NewDossier() {
               )}
             </FormField>
           </FieldGroup>
-          {montantRemise !== null && prixApresRemise !== null && (
-            <div className="mt-4 flex flex-col gap-1.5 border-t border-border pt-3">
-              <div className="flex items-center justify-between text-body">
-                <span className="text-muted-foreground">Montant de la remise ({formatPercentValue(remiseNumber)})</span>
-                <span className="tabular-nums text-foreground">− {formatCurrency(montantRemise)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-label font-semibold text-foreground">Prix après remise</span>
-                <span className="text-title font-semibold tabular-nums text-foreground">{formatCurrency(prixApresRemise)}</span>
-              </div>
-              <p className="text-micro text-muted-foreground">
-                C'est ce montant qui sera dû. Les frais de syndic, issus du barème de la tranche, ne sont
-                jamais remisés et s'ajoutent au schéma de financement ci-dessous.
-              </p>
-            </div>
-          )}
+          {remiseServeur && !remiseHorsBornes && <BlocRemise schema={remiseServeur} avecAnnexes={selectedIds.length > 1} />}
         </Card>
 
         <Card title="Schéma de financement">
