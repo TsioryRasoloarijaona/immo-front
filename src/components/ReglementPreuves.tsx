@@ -20,35 +20,12 @@ import { useApi } from '../lib/useApi';
 import { cn } from '../lib/utils';
 import type { PieceJointeDto } from '../types';
 
-/* Les preuves de paiement d'un règlement, et son pointage.
- *
- * Ce bloc vivait dans `DossierDetail`, où il ne servait que l'échéancier. Il
- * est sorti ici parce qu'un **deuxième** écran en a besoin : la fiche
- * encaissement, qui est le même règlement vu par l'autre bout. Les règles que
- * ces composants font respecter sont celles du serveur, et elles ne doivent
- * exister qu'une fois :
- *
- *   - pointer exige au moins une preuve de paiement (409 sinon), d'où le dépôt
- *     proposé dans la boîte de pointage elle-même ;
- *   - pointer exige une date d'encaissement (400 sinon) ;
- *   - `POINTED` et `CANCELED` sont terminaux (409 au retour) ;
- *   - un règlement pointé ne peut pas perdre sa **dernière** preuve (409).
- *
- * Les deux appelants passent un `dossierId` : les endpoints sont scopés
- * `/api/dossiers/{id}/reglements/{reglementId}/…`. La fiche encaissement le
- * tient de `EncaissementDetailDto.dossierId` — vérifié présent et accepté par
- * ces endpoints sur les 332 règlements servis, y compris les 7 à cheval sur
- * plusieurs dossiers, où **tous** les dossiers des affectations sont acceptés
- * indifféremment. */
+/* Partagé par la fiche dossier et la fiche encaissement : ces règles serveur ne
+ * doivent exister qu'une fois. Les endpoints sont scopés par dossier, d'où le
+ * `dossierId` exigé des deux appelants. */
 
-/** Ce dont le pointage a besoin d'un règlement, et rien de plus.
- *
- * `ReglementDto` le satisfait tel quel ; `EncaissementDetailDto` s'y adapte en
- * une ligne. Les deux décrivent la **même** ligne `StlSettlement`, avec des
- * noms de champs différents selon le bout par lequel on la regarde :
- * `montant` / `montantBrut`, `payeurNom` / `tierPayeurNom`. Élargir la
- * signature à ce contrat minimal évite de fabriquer un faux `ReglementDto`
- * côté fiche encaissement pour satisfaire un type trop large. */
+/** Contrat minimal : `EncaissementDetailDto` nomme autrement les mêmes champs
+ * (`montantBrut`, `tierPayeurNom`) de la même ligne `StlSettlement`. */
 export type ReglementAPointer = {
   id: string;
   montant?: number | null;
@@ -56,12 +33,7 @@ export type ReglementAPointer = {
   payeurNom?: string | null;
 };
 
-/** Dépôt d'une preuve de paiement sur un règlement — même coquille que
- * `AddPieceJointeRow` (input fichier masqué derrière un label pointillé),
- * en plus compact : ni type ni description obligatoires, les justificatifs
- * réels n'en portent pas. Partagé par le panneau « Preuves de paiement » et
- * la boîte de pointage, pour que déposer une preuve se fasse au même endroit
- * qu'on l'exige. */
+/** Ni type ni description obligatoires : les justificatifs réels n'en portent pas. */
 export function ReglementPieceUpload({
   dossierId,
   reglementId,
@@ -116,10 +88,8 @@ export function ReglementPieceUpload({
   );
 }
 
-/** Les justificatifs d'encaissement d'un règlement (chèque scanné, avis de
- * virement, reçu). Toujours consultable, quel que soit le statut : les
- * règlements legacy pointés sans pièce jointe restent parfaitement valides —
- * la règle de preuve ne s'applique qu'au moment de la transition. */
+/** Consultable quel que soit le statut : un règlement legacy pointé sans pièce
+ * reste valide, la règle de preuve ne joue qu'à la transition. */
 export function ReglementPiecesJointesPanel({
   dossierId,
   reglementId,
@@ -173,14 +143,9 @@ export function ReglementPieceJointeRow({
   reglementId: string;
   piece: PieceJointeDto;
   onDeleted: () => void;
-  /** Renseignée quand la suppression est interdite : sert de motif affiché et
-   * désactive le bouton. Le parent décide, la ligne se contente d'obéir. */
+  /** Renseignée quand la suppression est interdite : motif affiché, bouton désactivé. */
   raisonBlocage?: string;
-  /** Ne rendre que le couple de boutons, sans le libellé ni les métadonnées.
-   * L'onglet « Documents joints » les affiche déjà ailleurs — dans sa liste et
-   * dans l'en-tête de l'aperçu. Les redire ici les dirait trois fois ; les
-   * reprendre dans un composant séparé dupliquerait la suppression et son
-   * garde-fou 409. */
+  /** Les boutons seuls, pour réutiliser la suppression et son garde-fou 409 sans les dupliquer. */
   actionsSeules?: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
@@ -199,10 +164,8 @@ export function ReglementPieceJointeRow({
     }
   }
 
-  // Le garde-fou `raisonBlocage` désactive déjà le bouton dans le cas connu
-  // (dernière preuve d'un règlement pointé) ; le 409 reste rattrapé ici pour
-  // les courses et les lignes rafraîchies entre-temps. Son `detail` est déjà
-  // porté par `ApiError.message`, on le montre tel quel.
+  // `raisonBlocage` couvre le cas connu ; le 409 reste rattrapé pour les courses
+  // (son `detail` est déjà dans `ApiError.message`).
   async function handleDelete() {
     const ok = await confirm({
       title: 'Supprimer la preuve de paiement',
@@ -263,16 +226,9 @@ export function ReglementPieceJointeRow({
   );
 }
 
-/** Pointage d'un règlement : `IN_WORK → POINTED`.
- *
- * Deux règles serveur, toutes deux exposées ici plutôt que subies :
- * `dateReglement` est obligatoire (400 sinon), et le règlement doit porter au
- * moins une pièce jointe (409 sinon). Plutôt que d'envoyer la requête pour en
- * récolter un 409, on lit d'abord les pièces jointes et on propose le dépôt
- * dans la boîte elle-même — c'est exactement la séquence décrite par la spec
- * (créer → déposer la preuve → pointer). Le 409 reste géré en dernier recours
- * (course, ou ligne legacy), en affichant les `transitionsAutorisees` du
- * ProblemDetail quand le serveur en fournit. */
+/** Règles serveur : `dateReglement` obligatoire (400) et au moins une pièce jointe
+ * (409). On lit les pièces d'abord pour proposer le dépôt ici ; le 409 reste géré
+ * en dernier recours (course, ligne legacy). */
 export function PointerReglementModal({
   dossierId,
   reglement,
@@ -371,26 +327,11 @@ export function PointerReglementModal({
 }
 
 
-/* ---------------------------------------------------------------------------
-   L'onglet « Documents joints » — la version pleine page des mêmes preuves.
+/* L'`<iframe>` marche parce que le stockage sert en `inline` sans X-Frame-Options
+   ni CSP. Son `src` vise l'endpoint, jamais l'URL présignée qu'il renvoie :
+   celle-ci expire en quelques minutes. */
 
-   Le panneau replié plus haut tient dans une ligne d'échéancier : il liste, et
-   c'est tout. Ici la place existe, donc on **rend** le fichier au lieu de le
-   décrire — maître-détail, la liste à gauche, la pièce elle-même à droite.
-
-   C'est mesuré, pas supposé. Le stockage sert ces fichiers en
-   `Content-Disposition: inline`, avec leur vrai `content-type`
-   (`application/pdf`, `image/jpeg` sur les pièces réelles) et **sans**
-   `X-Frame-Options` ni `Content-Security-Policy` : un `<iframe>` les affiche
-   donc. Le `src` vise l'endpoint et jamais l'URL présignée qu'il renvoie,
-   celle-ci n'étant valable que quelques minutes.
-   --------------------------------------------------------------------------- */
-
-/** Extensions que le navigateur affiche de lui-même. Le reste — `.docx` au
- * premier chef — n'a pas d'aperçu : autant le dire, plutôt que de montrer un
- * cadre vide ou de déclencher un téléchargement surprise. `PieceJointeDto` ne
- * porte pas de type MIME, l'extension est le seul signal disponible (même
- * limite que `mimeForExtension` dans `lib/api.ts`). */
+/** `PieceJointeDto` ne porte pas de type MIME : l'extension est le seul signal. */
 const EXTENSIONS_AVEC_APERCU = new Set(['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg', 'txt']);
 
 function extensionNue(piece: PieceJointeDto): string {
@@ -411,8 +352,7 @@ export function ReglementDocumentsJoints({
   dossierId: string;
   reglementId: string;
   statut?: string;
-  /** Prévenir le parent : le nombre de preuves conditionne le pointage, donc
-   * la barre d'action au-dessus doit se réévaluer à chaque dépôt. */
+  /** Le nombre de preuves conditionne le pointage : le parent doit se réévaluer à chaque dépôt. */
   onChanged?: () => void;
 }) {
   const [version, setVersion] = useState(0);
@@ -425,9 +365,8 @@ export function ReglementDocumentsJoints({
   }
 
   const liste = pieces.data ?? [];
-  /* Sélection dérivée plutôt que synchronisée : la pièce retenue est celle
-     qu'on a cliquée tant qu'elle existe, la plus récente sinon. Supprimer la
-     pièce affichée bascule donc sur la suivante, sans effet ni état mort. */
+  /* Sélection dérivée, pas synchronisée : supprimer la pièce affichée bascule sur
+     la suivante sans effet ni état mort. */
   const selectionnee = liste.find((p) => p.id === selectionneId) ?? liste[0];
   const raisonBlocage = raisonPreuveVerrouillee(statut, liste.length);
 
@@ -530,10 +469,8 @@ function ApercuPiece({
       </div>
 
       {affichable ? (
-        /* `key` sur l'URL : sans elle, changer de pièce réutilise le document
-           déjà chargé dans le cadre au lieu d'en demander un autre. Fond blanc
-           en dur — un chèque scanné est un document papier, il ne suit pas le
-           thème de l'application. */
+        /* `key` sur l'URL : sans elle, le cadre garde le document déjà chargé.
+           Fond blanc en dur : un document scanné ne suit pas le thème. */
         <iframe
           key={url}
           src={url}

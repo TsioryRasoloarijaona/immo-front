@@ -26,8 +26,6 @@ export default function ProspectsList() {
 
   const catalogue = useColonnesProspects();
   const colonnes = useColonnesVisibles('prospects', catalogue.data, DISPOSITION_PROSPECTS);
-  // `undefined` tant que la sélection ne s'écarte pas des défauts — le hook
-  // porte cette règle et la raison qui la rend portante.
   const colonnesDemandees = colonnes.demandees;
 
   function resetAndSet<T>(setter: (v: T) => void, v: T) {
@@ -41,7 +39,6 @@ export default function ProspectsList() {
     setType([]);
   }
 
-  // Drives the empty state's wording and its escape hatch — see ArticlesList.
   const hasActiveFilters =
     !!search || type.length > 0;
 
@@ -57,10 +54,7 @@ export default function ProspectsList() {
   );
   const rows = data?.content ?? [];
 
-  // `type` on ProspectListItemDto stores the tier-type *code* (e.g. "PRO"),
-  // not its `description` ("PROSPECT") — confirmed live against
-  // /api/referentiels/tier-types, whose `code` values are exactly what
-  // shows up in the table's Type column. Filter must match on `code`.
+  // `type` porte le *code* du type de tiers (« PRO »), pas sa `description` : filtrer sur `code`.
   const typeItems = tierTypes.data.map((t) => ({ label: t.description || t.code || t.id, value: t.code || t.id }));
 
   return (
@@ -130,14 +124,9 @@ export default function ProspectsList() {
                 }
               />
             ) : (
-              /* `min-w-0` : voir ProspectionsList — sans lui la largeur de la
-                 table remonte la chaîne flex et élargit la page entière au lieu
-                 de faire défiler. Le nombre de colonnes n'est plus fixe, et
-                 `minWidth` en dur a cédé au défaut de DataGrid, qui le suit. */
+              /* `min-w-0` : sans lui la largeur de la table remonte la chaîne flex
+                 et élargit la page au lieu de défiler. */
               <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                {/* Le catalogue porte les libellés d'en-tête : sans lui il n'y
-                    a pas de tableau à dessiner, seulement des lignes sans
-                    colonnes. */}
                 {colonnes.colonnes.length > 0 ? (
                   <ProspectTable
                     rows={rows}

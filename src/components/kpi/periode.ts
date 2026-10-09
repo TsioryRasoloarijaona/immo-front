@@ -1,14 +1,6 @@
-/** Période `du`/`au` des endpoints KPI.
- *
- * Séparé de `PeriodeFilterBar.tsx` : un fichier qui exporte un composant *et*
- * des fonctions casse le Fast Refresh (`react-refresh/only-export-components`).
- *
- * Les deux bornes sont des dates **nues** (`YYYY-MM-DD`), telles que les rend un
- * `<input type="date">` et telles que les attend l'API — voir le commentaire des
- * endpoints KPI dans `lib/api.ts` : y ajouter `T00:00:00` renvoie un 400.
- *
- * Deux chaînes vides ne veulent pas dire « aucune période » mais « les 30
- * derniers jours », valeur par défaut du serveur. */
+/** Dates nues `YYYY-MM-DD` : y ajouter `T00:00:00` renvoie un 400. Deux chaînes
+ * vides = la période par défaut du serveur, pas « aucune période ». Hors de
+ * `PeriodeFilterBar.tsx` pour ne pas casser le Fast Refresh. */
 export interface Periode {
   du: string;
   au: string;
@@ -18,14 +10,11 @@ export function emptyPeriode(): Periode {
   return { du: '', au: '' };
 }
 
-/** Aujourd'hui en UTC. Les bornes de période sont des jours, pas des instants :
- * passer par UTC évite qu'un fuseau à l'ouest de Greenwich ne fasse reculer la
- * borne d'un jour en fin de soirée. */
+/** En UTC : un fuseau à l'ouest de Greenwich ferait sinon reculer la borne d'un jour le soir. */
 export function aujourdHuiISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Il y a `jours` jours, même convention UTC. */
 export function ilYA(jours: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() - jours);

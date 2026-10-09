@@ -2,26 +2,21 @@ import { useCallback, type ReactNode } from 'react';
 import Modal from '../../../components/Modal';
 import { useConfirmation } from './useConfirmation';
 
-/** Modale de saisie du module (§3) : fermer — Échap, clic hors fenêtre,
- * Annuler, croix — une fenêtre dont un champ a changé demande d'abord
- * « Quitter sans enregistrer ? ».
- *
- * `children` reçoit `fermer`, à brancher sur le bouton Annuler pour qu'il
- * passe par la même garde. */
+/** `children` reçoit `fermer` : à brancher sur le bouton Annuler, sinon il échappe à la garde « Quitter sans
+ * enregistrer ? ». */
 export default function ModaleSaisie({
   titre,
   modifie,
   onClose,
   width,
   children,
-}: {
+}: Readonly<{
   titre: string;
-  /** Un champ a changé depuis l'ouverture (ou depuis le dernier enregistrement). */
   modifie: boolean;
   onClose: () => void;
   width?: number | string;
   children: (fermer: () => void) => ReactNode;
-}) {
+}>) {
   const [confirmation, demander] = useConfirmation();
 
   const fermer = useCallback(() => {

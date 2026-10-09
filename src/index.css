@@ -1,107 +1,6 @@
-/* ===========================================================================
-   Ayad Développement — design tokens & global styles
-
-   Colour model: ONE brand accent (indigo #4f46e5 since the 20/09 redesign —
-   see the note at the end of this header; formerly Ayad purple #5d396e)
-   carrying every action, focus ring and section-identity chip, over cool
-   tinted grays, plus a small reserved set of status hues for state. Nothing
-   else gets a colour. Entities are told apart by icon *shape*, never by hue —
-   an earlier per-entity rainbow proved that unreadable.
-
-   Dense, information-forward sales CRM layout (tight spacing/radius) so more
-   of the pipeline is visible without scrolling — this is an operator tool
-   measured against a legacy Windows grid, so density is a feature.
-
-   Every colour below is chosen to clear WCAG AA *in the pairing it is
-   actually used in* (badge text on its own tint, not merely on white).
-
-   ---------------------------------------------------------------------------
-   Cette palette a été refaite entièrement, puis restaurée. Lire avant d'y
-   toucher.
-   ---------------------------------------------------------------------------
-   Une session a remplacé tout ce qui suit, en plusieurs passes, avant de
-   revenir ici sur demande : « remets l'ancien thème violet comme au tout
-   début ». Les accents essayés et rejetés, dans l'ordre :
-
-     achromatique   presque-noir sur gris vrais. Rejeté : « the app looks like
-                    it died on colour ». C'est la DEUXIÈME fois que
-                    l'achromatique échoue (cf. la note sur --brand plus bas) —
-                    à traiter comme une impasse et non comme une
-                    simplification à redécouvrir.
-     violet vif     #7c3aed, tiré d'une capture de référence. Rejeté.
-     teal           #0f766e. Rejeté : lu comme du vert.
-     bleu marine    #1e3a8a. Rejeté.
-
-   Deux constats de cette boucle valent d'être gardés, parce qu'ils ne sont pas
-   évidents et qu'ils ont coûté cher :
-
-   1. **Les gris de cette palette sont légèrement violacés, et c'est voulu.**
-      Une passe les a « corrigés » en gris parfaitement neutres. Le voile est
-      parti, et la vie de l'interface avec : un gris neutre se lit *mort*, un
-      gris teinté se lit *dessiné*. Ne pas égaliser les composantes de
-      --text/--text-h/--bg.
-   2. **Le fond de page gris (#f7f7f9) a été signalé comme gênant** — « the
-      gray color bother me » — puis blanc pur et quasi-blanc ont été essayés.
-      La valeur d'origine est de retour, mais si le sujet revient, c'est
-      --bg/--background qu'il faut regarder, et la piste « blanc pur » est déjà
-      documentée comme fonctionnelle (cartes détachées par filet et ombre, pas
-      par remplissage).
-
-   Ce qui a SURVÉCU à la restauration, et n'est pas à défaire : le nom du
-   produit (Arpent — marque « A »-pignon adoptée le 20/09, public/brand/,
-   remplaçant l'engagement « sans logo » de PRODUCT.md) et les glyphes de statut
-   (TONE_GLYPH dans components/ui.tsx), qui empêchent la couleur d'être seule
-   porteuse du sens.
-
-   ---------------------------------------------------------------------------
-   Redesign du 20/09/2026 — le violet est remplacé, sur demande explicite.
-   ---------------------------------------------------------------------------
-   L'utilisateur a demandé un redesign complet inspiré d'Attio/Linear/Pipedrive
-   (« change totalement même les palettes de couleurs »), a d'abord validé un
-   bleu #2563EB puis l'a rejeté (« choisi une autre couleur que le bleu »).
-   L'accent est désormais l'INDIGO #4F46E5 (référence Linear) : le vert, le
-   rouge et l'ambre sont réservés aux statuts, le teal et le bleu sont des
-   rejets documentés, l'indigo était la seule voie restante — et il garde une
-   parenté avec l'identité violette d'origine. 6,3:1 sur blanc, AA dans les
-   deux sens (texte indigo sur blanc, blanc sur aplat indigo).
-
-   Deux leçons de l'historique ci-dessus restent appliquées, pas abandonnées :
-   le fond de page est passé au BLANC PUR (la piste « cartes détachées par
-   filet et ombre » documentée plus haut est devenue la valeur), et les gris
-   restent TEINTÉS — le voile a seulement tourné du violet vers l'indigo
-   (froid). Les statuts (--success/--warning/--amber/--info) ne bougent pas :
-   leur validation AA sur leurs propres tintes reste valable.
-
-   ---------------------------------------------------------------------------
-   20/09, second mouvement — capture de référence « Uxerflow » fournie.
-   ---------------------------------------------------------------------------
-   L'indigo a vécu quelques heures : l'utilisateur a fourni une capture de
-   référence (dashboard SaaS type Uxerflow/orbit) avec « inspire-toi plutôt de
-   ce style, surtout aussi les spacing ». Le modèle de couleur devient :
-
-     canvas greige chaud (--sidebar) sous une FEUILLE blanche flottante
-       (sidebar variant="inset" — le contenu principal est une carte m-2
-       rounded-xl, voir Layout.tsx/PageShell.tsx) ;
-     boutons primaires NOIRS (--primary = encre, découplé de --brand pour la
-       première fois — la référence fait pareil : action = noir, accent =
-       orange) ;
-     accent ORANGE #c2410c (orange-700 — la teinte coral #ff5a2d de la
-       référence ne tient pas 4,5:1 en texte ; orange-700 est le pas le plus
-       vif qui passe, 5,2:1) pour liens actifs, focus, sélection, jauges ;
-     gris re-voilés au CHAUD (greige) — la leçon « gris teinté » tient
-       toujours, le voile a tourné une fois de plus.
-
-   Vigilance héritée de ce choix : --brand orange vit près de --warning rouge
-   et de --amber. La séparation tient parce que brand n'apparaît que dans le
-   chrome (nav active, liens, focus) et warning/amber que sur la donnée
-   (badges avec glyphe, lignes en retard). Ne pas introduire d'orange dans
-   les badges, ni de rouge dans le chrome.
-
-   Le spacing : la densité de GRILLE (--row-h 24px, mesurée sur Omran) ne
-   bouge pas — c'est la demande « max d'infos sans scroll » du même
-   utilisateur. Ce qui respire davantage : --radius 12px, paddings de cartes
-   et de page, bande KPI segmentée.
-   =========================================================================== */
+/* Gris volontairement teintés : un gris neutre se lit mort, ne pas égaliser --text/--text-h/--bg. Supprimer
+   l'accent (achromatique) est une impasse déjà essayée deux fois. --brand ne vit que dans le chrome, les statuts
+   que sur la donnée : pas d'orange dans les badges, pas de rouge dans le chrome. */
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -110,65 +9,34 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* -----------------------------------------------------------------------
-     Legacy hand-rolled tokens. Still consumed by the not-yet-migrated CSS
-     classes below (.btn, .card, .badge-*, .sidebar-*, ...). Being retired
-     page by page as the Tailwind + shadcn migration proceeds — do not add
-     new usages, prefer the shadcn semantic vars underneath instead.
-     ----------------------------------------------------------------------- */
+  /* Jetons hérités : ne pas en ajouter d'usages, préférer les variables sémantiques shadcn plus bas. */
   --text: #57534a;
-  /* Aligné sur --muted-foreground (5,4:1) — il était à 3,41:1, même échec AA,
-     et il sert encore les classes héritées (badge, sidebar) plus bas. */
+  /* Aligné sur --muted-foreground : plus clair, il échoue WCAG AA. */
   --text-muted: #6d6a60;
   --text-h: #201d17;
-  /* Blanc pur pour la feuille de contenu — le canvas greige vit sur
-     --sidebar (architecture inset, voir l'en-tête). */
   --bg: #ffffff;
   --surface: #ffffff;
   --surface-hover: #f7f5f0;
   --border-strong: #d9d5cb;
 
-  /* THE brand accent — orange #c2410c (référence Uxerflow du 20/09, second
-     mouvement ; l'historique violet→indigo est dans l'en-tête). Nouveauté de
-     cette itération : les ACTIONS primaires ne portent plus --brand mais
-     --primary (encre noire, comme la référence) — l'orange reste l'accent de
-     structure : nav active, liens, focus, sélection, jauges.
-     5,2:1 on white, so white-on-brand fills and orange text both pass AA.
-     Hover darkens in light mode, matching the rest of the palette. */
+  /* Accent de structure seulement (nav active, liens, focus, sélection, jauges) : les actions primaires portent
+     --primary, pas --brand. */
   --brand: #c2410c;
   --brand-hover: #9a3412;
   --brand-bg: rgba(194, 65, 12, 0.08);
   --brand-border: rgba(194, 65, 12, 0.25);
-  /* Foreground color for text/icons sitting on a solid --brand fill. */
   --brand-contrast: #fff;
 
-  /* Status hues. Each value below is chosen so the text passes AA *on its own
-     tinted background* (the badge case), not merely on white — the previous
-     --success/--amber pairings cleared white but failed at 4.38:1 / 4.08:1
-     against their own tints, which is where they are actually used. */
+  /* Chaque statut passe AA sur sa propre teinte (cas du badge), pas seulement sur blanc : vérifier les deux. */
   --success: #146c34;
   --success-bg: rgba(20, 108, 52, 0.1);
   --success-border: rgba(20, 108, 52, 0.28);
 
-  /* Deal OUTCOME red — "Annulé", "Désistement", overdue relances. A dossier
-     dying is a business fact, not an application error; it must not look
-     identical to a failed form. Kept distinctly lighter and warmer than
-     --destructive below. */
+  /* Rouge d'issue métier (Annulé, relance en retard), pas d'erreur : rester distinct de --destructive. */
   --warning: #b02012;
   --warning-bg: rgba(176, 32, 18, 0.1);
-  /* Fond d'une **ligne de grille entière** signalant une relance en retard.
-     Distinct de --warning-bg, et plus faible que lui, pour deux raisons.
-
-     La première est mesurée : à l'alpha des pastilles (0,10 clair / 0,12
-     sombre) le texte --muted-foreground des cellules tombe à 4,55:1 et
-     4,34:1 — le second échoue WCAG AA. À 0,07 les deux thèmes donnent
-     4,77:1 et 4,81:1. Le garde `npm run check:contrast` couvre désormais
-     cette paire ; il ne la couvrait pas, et c'est lui qui a trouvé l'échec.
-
-     La seconde est de composition : une teinte qui va bien sur une pastille
-     de 40 px hurle sur une ligne pleine largeur. À densité de grille, une
-     ligne sur deux peut être en retard — mesuré 17 sur 20 en page 1 des
-     prospections — donc le repère doit rester un fond, pas un aplat. */
+  /* Fond de ligne entière, plus faible que --warning-bg : à l'alpha des pastilles, le texte des cellules échoue AA
+     en sombre (paire couverte par `npm run check:contrast`). */
   --retard-bg: rgba(176, 32, 18, 0.07);
   --warning-border: rgba(176, 32, 18, 0.28);
 
@@ -180,10 +48,7 @@
   --info-bg: rgba(28, 95, 192, 0.1);
   --info-border: rgba(28, 95, 192, 0.28);
 
-  /* Ton « progress » (étapes en avancement) — DÉCOUPLÉ de --brand depuis le
-     passage à l'accent orange : un badge d'étape orange devenait illisible à
-     côté de l'ambre, et redonnait à l'accent un rôle de donnée qu'on vient
-     de lui retirer. Violet : distinct des cinq autres familles. 7:1. */
+  /* Découplé de --brand : un badge d'étape orange se confond avec l'ambre et rend à l'accent un rôle de donnée. */
   --progress: #6d28d9;
   --progress-bg: rgba(109, 40, 217, 0.09);
   --progress-border: rgba(109, 40, 217, 0.28);
@@ -191,28 +56,8 @@
   --neutral-bg: rgba(87, 83, 74, 0.09);
   --neutral-border: rgba(87, 83, 74, 0.22);
 
-  /* ---------------------------------------------------------------------
-     Section-identity accent — icon chips (PageShell header, sidebar nav in
-     Layout.tsx), card relief (Card's `accent` prop) and the pipeline
-     steppers (ProspectionDetail, DossierStatusStepper).
-
-     History: every entity first got its own hue, which read as a rainbow;
-     that was collapsed to a single plum #823060 aliased to all eight
-     entity names. The collapse was right, the colour was not — it left the
-     app with TWO unrelated accents (ink for actions, plum for structure)
-     so neither read as "the app's colour", which is why primary actions
-     were hard to find. It now aliases --brand: one accent, used for both
-     actions and structure.
-
-     The eight --sec-* names below are kept as aliases so the 80 call sites
-     across 25 files don't have to churn; they all resolve here. Do not
-     reintroduce a per-entity hue — icon *shape* identifies the entity, and
-     colour is reserved for state. */
-  /* 20/09, retenue demandée (« réduit l'influence de l'orange ») : les puces
-     d'icônes d'entité repassent en GRIS — la forme de l'icône porte déjà
-     l'identité, l'orange n'y ajoutait que du bruit sur ~80 sites. L'accent
-     orange ne reste que là où il signifie quelque chose : nav active, focus,
-     sélection, jauges. */
+  /* Pas de teinte par entité : la forme de l'icône identifie l'entité, la couleur est réservée à l'état.
+     Les --sec-* restent des alias pour ne pas toucher leurs nombreux sites d'appel. */
   --sec-accent: var(--text);
   --sec-accent-bg: var(--neutral-bg);
 
@@ -250,70 +95,41 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  /* -----------------------------------------------------------------------
-     shadcn/Tailwind semantic tokens — the system new components build on.
-     Neutrals tuned to the same muted Linear/Stripe palette as --bg/--surface
-     above (not shadcn's stock pure white/black); --primary and --accent
-     are seeded from the indigo brand accent rather than the neutral preset.
-     ----------------------------------------------------------------------- */
   --background: #ffffff;
   --foreground: #201d17;
   --card: #ffffff;
   --card-foreground: #201d17;
   --popover: #ffffff;
   --popover-foreground: #201d17;
-  /* Découplé de --brand (une première) : l'action primaire est NOIRE comme
-     dans la référence — le bouton « Add New Product » de la capture. L'orange
-     reste l'accent de structure, jamais le remplissage d'un bouton. */
+  /* Découplé de --brand : l'action primaire est en encre, l'orange n'est jamais le remplissage d'un bouton. */
   --primary: #201d17;
   --primary-foreground: #ffffff;
   --secondary: #f4f2ed;
   --secondary-foreground: #201d17;
   --muted: #f4f2ed;
-  /* 5.4:1 on --card, up from #8b8a94's 3.41:1 — a straight AA failure at the
-     11px this is mostly used at. It is the colour of every Field label, every
-     breadcrumb, every secondary table cell and every helper caption, so this
-     single value is the app's largest accessibility lever. */
+  /* Couleur de tous les libellés et cellules secondaires, souvent en 11px : ne pas l'éclaircir (AA). */
   --muted-foreground: #6d6a60;
   --accent: var(--brand-bg);
   --accent-foreground: var(--brand);
-  /* ERRORS ONLY — deliberately deeper and less orange than --warning above,
-     which carries deal outcomes. The two were byte-identical (#c0361c), so a
-     cancelled 1.5 M DH sale rendered in exactly the hue of a failed form and
-     users had no way to tell "this deal died" from "your input is invalid". */
+  /* ERREURS SEULEMENT : plus profond et moins orangé que --warning, pour qu'une vente annulée ne ressemble pas
+     à un formulaire en erreur. */
   --destructive: #7f1d1d;
   --destructive-foreground: #fff;
-  /* Doctrine des bordures (équilibrage du 20/09) : UN cadre par zone —
-     conteneur de liste, panneau d'onglets, popover, contrôle. Tout
-     regroupement interne est une SURFACE (bg-muted/30-40, rounded-lg),
-     jamais une boîte bordée. --input volontairement à peine plus soutenu
-     que --border : les contrôles des toolbars nues ne doivent pas crier
-     plus fort que les cadres qu'ils côtoient. */
+  /* Un seul cadre par zone ; tout regroupement interne est une surface, jamais une boîte bordée.
+     --input à peine plus soutenu que --border : un contrôle ne doit pas crier plus fort que son cadre. */
   --border: #e9e6de;
   --input: #e0dcd2;
   --ring: var(--brand);
-  /* Categorical ramp derived from the brand hue, walking hue as well as
-     lightness so adjacent series stay separable — the previous ramp was
-     `oklch(L 0 0)` (chroma ZERO: five greys), identical in light and dark,
-     with chart-1 at L=0.87 landing around 1.4:1 on a white card. Nothing
-     consumes these yet; they are fixed now so the first chart added doesn't
-     ship an invisible series. */
+  /* Rampe qui varie en teinte et en luminosité : une rampe sans chroma rendait des séries invisibles. */
   --chart-1: oklch(0.55 0.15 50);
   --chart-2: oklch(0.60 0.11 355);
   --chart-3: oklch(0.62 0.10 300);
   --chart-4: oklch(0.58 0.11 245);
   --chart-5: oklch(0.55 0.12 190);
-  /* Fond de jauge : un pas clair du MÊME ramp que --chart-1, pas un gris.
-     Une jauge se lit sur toute sa longueur — piste et remplissage doivent
-     appartenir à la même teinte pour que la portion vide reste lisible
-     comme « le reste de la mesure » et non comme un séparateur neutre. */
+  /* Même teinte que --chart-1, pas un gris : la portion vide doit se lire comme le reste de la mesure. */
   --chart-1-track: oklch(0.93 0.03 50);
-  /* 12px — la référence arrondit généreusement : cartes rounded-xl ≈ 17px,
-     boutons ≈ 10px. */
   --radius: 0.75rem;
-  /* Le CANVAS de l'architecture inset : la sidebar ET le fond de fenêtre
-     vivent sur ce greige chaud, la feuille de contenu flotte en blanc
-     par-dessus (SidebarInset m-2 rounded-xl shadow). */
+  /* Canvas de l'architecture inset (sidebar et fond de fenêtre) : la feuille de contenu blanche flotte dessus. */
   --sidebar: #f2f0ea;
   --sidebar-foreground: #57534a;
   --sidebar-primary: var(--brand);
@@ -324,22 +140,13 @@
   --sidebar-ring: var(--brand);
 }
 
-/* Dark mode is an explicit user choice (toggle in the sidebar, persisted to
-   localStorage — see src/lib/theme.tsx), applied as a `.dark` class on
-   <html>. :root above is the light mode default; this is the only place
-   dark values live, covering both the legacy hand-rolled tokens and the
-   shadcn/Tailwind semantic tokens so the whole app — old and new
-   components alike — stays in sync under one class instead of being split
-   across a media query and a separate fallback block. */
+/* Seul bloc de valeurs sombres (classe `.dark` posée par src/lib/theme.tsx, pas de media query) : ne pas en
+   ajouter un second, plus bas dans la cascade il masquerait celui-ci. */
 .dark {
   color-scheme: dark;
 
-  /* Sombre quasi NEUTRE (retenue de l'orange, 20/09) : le voile brun-orangé
-     du premier jet (« bg en dark ») tirait tout le thème vers l'accent. Le
-     sombre garde un souffle de chaleur (composante bleue un cran sous les
-     autres), plus aucun brun. */
+  /* Sombre quasi neutre : un voile brun tirait tout le thème vers l'accent. */
   --text: #acaba4;
-  /* Aligné sur --muted-foreground, cf. la note en mode clair. */
   --text-muted: #93928a;
   --text-h: #f1f0ec;
   --bg: #1b1b19;
@@ -348,22 +155,17 @@
   --border: #31312d;
   --border-strong: #403f3a;
 
-  /* Same orange accent, lightened for contrast against a dark surface —
-     7.7:1 on --card. Still one hue, just the light end of the brand ramp. */
   --brand: #fb923c;
   --brand-hover: #fdba74;
   --brand-bg: rgba(251, 146, 60, 0.14);
   --brand-border: rgba(251, 146, 60, 0.32);
-  /* --brand is light here, so a solid fill needs a dark foreground instead
-     (white-on-light-orange fails contrast). 8:1. */
+  /* --brand est clair ici : un aplat demande un texte sombre (blanc sur orange clair échoue le contraste). */
   --brand-contrast: #1b1b19;
 
   --success: #4ade80;
   --success-bg: rgba(74, 222, 128, 0.12);
   --success-border: rgba(74, 222, 128, 0.3);
 
-  /* Deal outcome — see the light-mode note. Kept clearly lighter/warmer than
-     --destructive so the two stay separable in dark mode too. */
   --warning: #fca5a5;
   --warning-bg: rgba(252, 165, 165, 0.12);
   /* Voir le bloc clair : alpha volontairement plus faible que --warning-bg. */
@@ -378,7 +180,6 @@
   --info-bg: rgba(96, 165, 250, 0.12);
   --info-border: rgba(96, 165, 250, 0.3);
 
-  /* Voir le bloc clair — pas le --brand orange. 6,4:1 sur --card. */
   --progress: #a78bfa;
   --progress-bg: rgba(167, 139, 250, 0.12);
   --progress-border: rgba(167, 139, 250, 0.3);
@@ -386,8 +187,6 @@
   --neutral-bg: rgba(172, 171, 164, 0.1);
   --neutral-border: rgba(172, 171, 164, 0.22);
 
-  /* Gris neutre, comme en clair — voir la note du :root (retenue de
-     l'orange, 20/09). */
   --sec-accent: var(--text);
   --sec-accent-bg: var(--neutral-bg);
 
@@ -418,38 +217,27 @@
   --card-foreground: #f1f0ec;
   --popover: #222220;
   --popover-foreground: #f1f0ec;
-  /* Le bouton noir du clair devient clair sur sombre — même découplage. */
   --primary: #eaeae5;
   --primary-foreground: #1b1b19;
   --secondary: #242421;
   --secondary-foreground: #f1f0ec;
   --muted: #242421;
-  /* 5.5:1 on --card, up from #75737f's 3.83:1 — the dark theme failed AA on
-     the label colour too, so switching themes was never an escape hatch. */
   --muted-foreground: #93928a;
   --accent: var(--brand-bg);
   --accent-foreground: var(--brand);
-  /* ERRORS ONLY, and visibly hotter/more saturated than --warning's soft rose
-     above — the inverse of the light-mode relationship, because on a dark
-     surface it is saturation rather than depth that separates them. */
+  /* ERREURS SEULEMENT, plus saturé que --warning : l'inverse du clair, car sur fond sombre c'est la saturation
+     et non la profondeur qui les sépare. */
   --destructive: #f26d6d;
   --destructive-foreground: #1b1b19;
   --input: #3a3933;
   --ring: var(--brand);
-  /* Lighter than the light-mode ramp — the previous values were byte-identical
-     across both themes, which left chart-5 (L=0.269) near-invisible on a
-     #18171d card. */
   --chart-1: oklch(0.72 0.13 50);
   --chart-2: oklch(0.75 0.12 355);
   --chart-3: oklch(0.78 0.11 300);
   --chart-4: oklch(0.76 0.12 245);
   --chart-5: oklch(0.74 0.13 190);
-  /* En sombre la piste descend au lieu de monter : le mode sombre se choisit
-     pas à pas depuis le même ramp, il ne s’obtient pas en inversant le clair. */
   --chart-1-track: oklch(0.3 0.04 50);
-  /* Canvas sombre, un cran SOUS la feuille — l'inverse du clair où le
-     canvas est plus foncé que la feuille blanche. Neutre, comme le reste
-     du thème sombre. */
+  /* Canvas sombre un cran sous la feuille : l'inverse du clair. */
   --sidebar: #121211;
   --sidebar-foreground: #acaba4;
   --sidebar-primary: var(--brand);
@@ -464,24 +252,8 @@
   box-sizing: border-box;
 }
 
-/* ---------------------------------------------------------------------------
-   Reduced motion
-   ---------------------------------------------------------------------------
-   Nothing in the app honoured `prefers-reduced-motion` before this, while the
-   UI grew hover lifts, dialog/dropdown/popover enter-exit animations, sidebar
-   collapse and opacity cross-fades — all vestibular triggers for users who
-   have asked the OS to stop them.
-
-   Animations are collapsed to ~0 rather than removed so that anything relying
-   on `animationend`/`transitionend` firing still completes (Base UI's popup
-   primitives close on transition end — removing the transition outright can
-   leave a popup mounted forever).
-
-   `.animate-spin` is deliberately exempt: a busy spinner is status, not
-   decoration. WCAG's motion criteria target non-essential animation, and
-   freezing the one indicator that says "still working" would leave a reduced-
-   motion user staring at what looks like a hung screen.
-   --------------------------------------------------------------------------- */
+/* Durées réduites à ~0 plutôt que supprimées : les popups Base UI se ferment sur `transitionend`, sans lui elles
+   restent montées. `.animate-spin` exempté : un spinner est un statut, le figer ferait croire à un écran bloqué. */
 @media (prefers-reduced-motion: reduce) {
   *:not(.animate-spin),
   *:not(.animate-spin)::before,
@@ -534,12 +306,6 @@ table {
   background: var(--brand-bg);
 }
 
-/* ---------------------------------------------------------------------------
-   App shell — sidebar lives in components/ui/sidebar.tsx (shadcn Sidebar),
-   topbar lives in PageShell.tsx (Tailwind). What's left here is .page
-   content padding and the not-yet-migrated pages' use of .detail-actions.
-   --------------------------------------------------------------------------- */
-
 @media (max-width: 880px) {
   .page {
     padding-left: 16px;
@@ -552,9 +318,6 @@ table {
 }
 
 .page {
-  /* Référence Uxerflow : le contenu respire davantage dans la feuille —
-     14px/28px au lieu de 10px/24px. La densité de grille, elle, ne bouge
-     pas (voir « Grid density » plus bas). */
   padding: 14px 28px 20px;
   max-width: 1680px;
   width: 100%;
@@ -562,33 +325,8 @@ table {
   flex: 1;
 }
 
-/* ---------------------------------------------------------------------------
-   Type scale
-   ---------------------------------------------------------------------------
-   Six semantic steps replacing the 15 distinct arbitrary sizes the app had
-   accumulated (text-micro through text-hero, including half-pixel values
-   like 11.5 / 12.5 / 13.5 / 14.5). Sizes half a pixel apart aren't hierarchy,
-   they're drift: nobody can see the difference between text-micro and
-   text-micro, so they carried no meaning while making every new component
-   a guess. Six steps that are actually distinguishable do carry meaning.
-
-   Named rather than t-shirt-sized on purpose: `text-xs`/`text-sm`/`text-base`
-   already exist as Tailwind defaults and are used by the shadcn primitives
-   (button, table, dropdown…), so redefining them would silently restyle every
-   vendored component. These names sit alongside the defaults instead.
-
-   Font size only, no paired line-height: the arbitrary values being replaced
-   set font-size alone, and the ~40 call sites that pair one with an explicit
-   `leading-*` must keep winning. Adding `--text-*--line-height` here would
-   make that override order load-bearing.
-
-     micro  11px — badges, table meta, timestamps, helper captions
-     body   12.5px — the workhorse: table cells, field values, descriptions
-     label  13px — field labels, card titles, emphasized rows
-     title  15px — section headings, prominent figures
-     page   19px — the PageShell H1
-     hero   21px — auth screen wordmark, dashboard headline figures
-   --------------------------------------------------------------------------- */
+/* Noms sémantiques et non `text-xs`/`text-sm` : les redéfinir restylerait en silence les primitives shadcn.
+   Taille seule, sans `--text-*--line-height` : les `leading-*` explicites des sites d'appel doivent l'emporter. */
 @theme {
   --text-micro: 11px;
   --text-body: 12.5px;
@@ -598,39 +336,8 @@ table {
   --text-hero: 21px;
 }
 
-/* ---------------------------------------------------------------------------
-   Pastilles dépouillées en contexte de grille
-   ---------------------------------------------------------------------------
-   Dans une cellule de tableau, `Badge` redevient du **texte coloré** : plus de
-   fond, plus de bordure, plus de gouttière, plus de point décoratif. La
-   couleur du ton est conservée — c'est elle qui porte l'information, la pilule
-   ne portait que de l'encombrement.
-
-   Le compte, par pastille : `px-2` (16px) + bordure (2px) + point (6px) +
-   gouttière du point (6px) = ~30px de large, et une hauteur de 20px qui
-   empêchait la ligne de descendre à sa vraie taille. La liste des prospections
-   aligne six colonnes à pastille : ~180px rendus à la donnée, et une ligne qui
-   peut enfin se serrer.
-
-   C'est aussi ce que fait la grille légataire, qui affiche « Hors Budget » ou
-   « Rendez vous pris à confirmer » en texte simple.
-
-   Portée par le **contexte** et non par un prop `dense`/`plain` à faire passer
-   dans dix-huit fichiers : il suffit d'un oubli pour qu'un écran garde ses
-   pilules. Le sélecteur s'appuie sur `data-slot`/`data-variant`, que le
-   `useRender` de Base UI produit à partir du `state` de `ui/badge.tsx` — vérifié
-   dans `internals/getStateAttributesProps.js`, qui écrit
-   `data-${clé}="${valeur}"` pour toute valeur non booléenne.
-
-   Hors couche `@layer` volontairement : le CSS auteur hors couche l'emporte sur
-   tout `@layer utilities`, donc ceci bat les classes de la cva sans compter les
-   spécificités.
-
-   La couleur est réaffirmée par `data-variant` plutôt que laissée aux classes
-   `text-*` de la cva. Deux raisons : le ton `default` pose
-   `text-primary-foreground`, quasi blanc, qui deviendrait invisible une fois le
-   fond retiré ; et un ton ajouté plus tard sans entrée ici gardera au moins la
-   couleur du texte courant au lieu de disparaître. */
+/* Portée par le contexte, pas par un prop à oublier. Hors `@layer` exprès : bat les classes de la cva.
+   Couleur réaffirmée par `data-variant` : le ton `default` pose un texte quasi blanc, invisible sans fond. */
 [data-slot='table-cell'] [data-slot='badge'] {
   height: auto;
   gap: 0;
@@ -640,8 +347,6 @@ table {
   overflow: visible;
 }
 
-/* Le point décoratif : `size-1.5` + la gouttière, pour une information que la
-   couleur du texte porte déjà. */
 [data-slot='table-cell'] [data-slot='badge'] > span[aria-hidden]:first-child {
   display: none;
 }
@@ -670,33 +375,8 @@ table {
   color: var(--destructive);
 }
 
-/* ---------------------------------------------------------------------------
-   Grid density
-   ---------------------------------------------------------------------------
-   Measured off the legacy Omran Estate grid, which is what the commerciaux
-   are migrating from and still compare this against. Their prospection list
-   fits ~24 rows in the viewport; ours fit ~17, because the shadcn table
-   primitive ships a 33px row (`py-1.5` + `text-sm`, 20px line-height). Same
-   screen, seven fewer leads per glance, on a screen whose entire job is
-   triaging who to call back.
-
-   Deliberately NOT font sizes: cells take `--text-body` and headers
-   `--text-micro` from that scale. Density changed; the type system didn't.
-
-   A previous pass here had a single `--row-h` for header and body, arguing a
-   second height would be drift. Measuring the reference again killed that:
-   the legacy grid really does run three heights — 23.8px data, ~22px header,
-   ~19px filter row — and the ask was the *exact* density. Three measured
-   values aren't drift; the thing the type scale had to undo was fifteen
-   *unmeasured* ones half a pixel apart.
-
-     row-h         24px — data rows (measured 23.77, rounded to the integer)
-     row-h-head    22px — header band, deliberately shorter than a data row
-     row-h-filter  19px — the per-column filter row, shorter again
-     cell-px       6px  — was 8px (`px-2`); ~2 more columns before scroll
-     gutter-mark   18px — current-row indicator column
-     gutter-check  22px — checkbox column
-   --------------------------------------------------------------------------- */
+/* Densité calquée sur la grille Omran : ne pas revenir aux lignes shadcn. Trois hauteurs voulues (en-tête plus
+   court qu'une ligne, filtre plus court encore). Ajuster ces jetons, pas les composants. */
 @theme {
   --row-h: 24px;
   --row-h-head: 22px;
@@ -706,20 +386,8 @@ table {
   --gutter-check: 22px;
 }
 
-/* Pastilles en contexte de grille.
-   `Badge` mesure 20px (`h-5`) pour du `text-xs` : dans une ligne de 24px il
-   la fait grandir, et la liste de prospection en aligne six colonnes. Plutôt
-   qu'un prop `dense` à faire passer dans dix-huit fichiers — où il suffit d'un
-   oubli pour qu'une ligne dépasse — une règle unique, portée par le contexte.
-
-   Le sélecteur passe par `:has()` sur le point décoratif et non par
-   `[data-slot="badge"]` : ce slot est produit par le `useRender` de Base UI,
-   donc par une convention que ce dépôt ne contrôle pas. `:has(> [data-badge-dot])`
-   ne peut désigner que la pastille, et ne dépend que du markup d'ui.tsx.
-
-   Non calée dans `@layer` volontairement : le CSS auteur hors couche l'emporte
-   sur tout `@layer utilities`, donc ceci bat `h-5`/`text-xs`/`px-2` de la cva
-   sans compter les spécificités. */
+/* Sinon `h-5` fait grandir la ligne de grille. `:has(> [data-badge-dot])` plutôt que `data-slot` : ne dépend que
+   du markup d'ui.tsx, pas d'une convention Base UI. Hors `@layer` exprès, pour battre la cva. */
 [data-slot='table-cell'] *:has(> [data-badge-dot]) {
   height: 16px;
   gap: 0;
@@ -727,37 +395,13 @@ table {
   font-size: var(--text-micro);
 }
 
-/* Le point est devenu un GLYPHE, et il reste visible en cellule.
-   Cette règle posait `display: none` pour récupérer ~12px par pastille, ce qui
-   était juste tant que le point ne redisait que la couleur du texte. Le
-   `TONE_GLYPH` de `components/ui.tsx` en a fait un porteur de sens — ✓, ✕, !,
-   par ton — et la couleur seule est un échec WCAG de sévérité High. Le masquer
-   ferait des six tons six pastilles identiques.
-   Seule la gouttière est reprise : `gap: 0` ci-dessus colle le glyphe à son
-   libellé, ce qui récupère une partie des 12px sans coût de lisibilité. */
+/* Ne pas masquer ce glyphe (`TONE_GLYPH`) : il porte le sens, la couleur seule est un échec WCAG. */
 [data-slot='table-cell'] [data-slot='badge'] > [data-badge-dot] {
   margin-right: 1px;
 }
 
-/* ---------------------------------------------------------------------------
-   Barres de défilement fines
-   ---------------------------------------------------------------------------
-   Une grille dense place une barre horizontale sous chaque liste large. À la
-   largeur par défaut de Windows (~17px) elle coûte presque une ligne de
-   données entière — exactement ce que la densité vient de gagner.
-
-   6px : assez fin pour disparaître, assez large pour rester attrapable à la
-   souris. En dessous (4px et moins) la cible devient plus petite que la marge
-   d'erreur du pointeur, et on n'a pas de bouton de défilement de repli.
-
-   Deux syntaxes, non interchangeables : `scrollbar-width`/`scrollbar-color`
-   est le standard (Firefox, et Chromium récent), `::-webkit-scrollbar` reste
-   nécessaire pour les WebKit plus anciens — mais dès qu'on déclare un
-   pseudo-élément webkit, il l'emporte sur `scrollbar-width` dans ces
-   moteurs, donc les deux doivent décrire la *même* géométrie.
-
-   `scrollbar-gutter: stable` sur les conteneurs de table évite que
-   l'apparition de la barre ne décale la dernière colonne d'un cran. */
+/* Pas sous 6px : la barre ne serait plus attrapable. Le pseudo-élément webkit l'emporte sur `scrollbar-width`
+   dans ces moteurs : les deux syntaxes doivent décrire la même géométrie. */
 @layer base {
   * {
     scrollbar-width: thin;
@@ -835,18 +479,6 @@ table {
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 }
-
-/* NOTE — a second `.dark` block used to live here, duplicating all 32 tokens
-   from the block above with hardcoded literals instead of `var(--brand)`
-   aliases. Identical selector, later in source order, so it WON the cascade
-   and silently shadowed the real one: editing --brand would have changed
-   nothing in dark mode for --primary, --accent, --ring or any --sidebar-*.
-   Its comment also claimed "no toggle wires this today — dark mode is
-   system-preference driven via the @media block above", which was false on
-   both counts (there is no @media block — `prefers-color-scheme` appears
-   nowhere in this file — and ThemeToggle renders on every page via
-   PageShell). Deleted; the block above is now genuinely the only place dark
-   values live, as its own comment always claimed. */
 
 @layer base {
   * {

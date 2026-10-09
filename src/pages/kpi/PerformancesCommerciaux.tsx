@@ -11,29 +11,21 @@ import { useApi } from '../../lib/useApi';
 import { formatCurrency, formatHeures, formatNumber, formatPercent } from '../../lib/format';
 import type { PerformanceCommercialDto } from '../../types';
 
-/** Somme d’un compteur sur tout le classement. */
 function somme(rows: PerformanceCommercialDto[], pick: (r: PerformanceCommercialDto) => number | null | undefined): number {
   return rows.reduce((acc, r) => acc + (pick(r) ?? 0), 0);
 }
 
-/** Un taux d’ensemble se recalcule à partir des sommes du numérateur et du
- * dénominateur — **jamais en moyennant les pourcentages par personne**, qui est
- * un autre nombre : la moyenne de 100 % (1 dossier sur 1) et de 10 % (5 sur 50)
- * vaut 55 %, alors que le taux réel est 6/51, soit 12 %. Et comme partout,
- * dénominateur nul ⇒ `null`, pas 0. */
+/* Recalculé depuis les sommes, jamais en moyennant les taux par personne (autre nombre).
+   Dénominateur nul ⇒ `null`, pas 0. */
 function tauxGlobal(numerateur: number, denominateur: number): number | null {
   return denominateur > 0 ? numerateur / denominateur : null;
 }
 
-/** Clé React d’une ligne. Depuis FEATURE-suivi-actions.md §7, un compte sans
- * fiche employé a **sa propre ligne** : `commercialId` nul, `utilisateurId`
- * renseigné. Sans ce repli, seize lignes partageraient la clé « undefined ». */
+// Un compte sans fiche employé a `commercialId` nul : sans repli sur `utilisateurId`, clés en double.
 function cleLigne(r: PerformanceCommercialDto): string {
   return r.commercialId ?? r.utilisateurId ?? r.commercialNom ?? '?';
 }
 
-/** Les actions par type de tout le classement : sommes par libellé, du plus
- * au moins fréquent — le même ordre que le serveur donne par ligne. */
 function actionsParTypeGlobal(rows: PerformanceCommercialDto[]): { type: string; nombre: number }[] {
   const parType = new Map<string, number>();
   for (const r of rows) {
@@ -45,8 +37,6 @@ function actionsParTypeGlobal(rows: PerformanceCommercialDto[]): { type: string;
   return [...parType.entries()].map(([type, nombre]) => ({ type, nombre })).sort((a, b) => b.nombre - a.nombre);
 }
 
-/** Colonnes du tableau détaillé. `sortable` porte l’accesseur numérique ; le tri
- * se fait côté client, le jeu tenant dans quelques dizaines de lignes. */
 type SortKey =
   | 'dossiersCrees'
   | 'montantTotal'
@@ -73,9 +63,7 @@ export default function PerformancesCommerciaux() {
 
   const rows = useMemo(() => data ?? [], [data]);
 
-  // Sans tri explicite on garde **l’ordre du serveur** : l’endpoint classe déjà
-  // par dossiers créés décroissant puis appels passés. Re-trier par défaut
-  // reviendrait à défaire le classement qu’on est venu lire.
+  // Sans tri explicite, l'ordre du serveur (dossiers créés puis appels passés) : c'est le classement.
   const rowsTriees = useMemo(() => {
     if (!tri) return rows;
     return [...rows].sort((a, b) => {
@@ -114,8 +102,6 @@ export default function PerformancesCommerciaux() {
   const maxDossiers = Math.max(0, ...rows.map((r) => r.dossiersCrees ?? 0));
   const maxAppels = Math.max(0, ...rows.map((r) => r.appelsPasses ?? 0));
   const maxActionsParType = Math.max(0, ...totaux.actionsParType.map((a) => a.nombre));
-  /** Comptes sans fiche employé, à signaler sous le classement : leurs
-   * actions comptent, leur portefeuille est vide par construction. */
   const comptesSansEmploye = rows.filter((r) => !r.commercialId && r.utilisateurId).length;
 
   function enTete(key: SortKey, libelle: string, classe = 'text-right') {
@@ -144,11 +130,6 @@ export default function PerformancesCommerciaux() {
       fullHeight
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">
-        {/* La description de la page a été retirée, cet avertissement non : il
-            change ce que le classement veut dire. Sans lui, une vingtaine de
-            lignes se lisent comme l'effectif complet alors que c'est le nombre
-            de personnes actives sur la période. Réduit à une ligne, gardé
-            contre le tableau qu'il qualifie. */}
         <p className="text-micro text-muted-foreground">
           <strong className="font-medium text-foreground">Seuls les commerciaux actifs</strong> sur
           la période y figurent — une interaction, une prospection assignée ou un dossier. Ce n’est
@@ -168,9 +149,6 @@ export default function PerformancesCommerciaux() {
                 message="Aucun commercial n’a d’interaction, de prospection assignée ni de dossier sur cet intervalle. Élargissez la période."
               />
             ) : (
-              /* Redesign 20/09 : la page ne défile plus — le filtre de
-                 période reste épinglé, cette zone de résultats porte le
-                 seul défilement. */
               <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
                 <KpiFamilySection
                   titre={`Ensemble de la période — ${rows.length} commercial${rows.length > 1 ? 'aux' : ''} actif${rows.length > 1 ? 's' : ''}`}
@@ -244,9 +222,6 @@ export default function PerformancesCommerciaux() {
                         ))}
                     </div>
                   </Card>
-                  {/* Le détail de « Actions » par type, sommé sur le classement :
-                      téléphone sortant, visite, note, message… La somme des
-                      barres égale la carte « Actions » au-dessus. */}
                   <Card title="Actions par type">
                     <div className="flex flex-col">
                       {totaux.actionsParType.length === 0 ? (
@@ -286,8 +261,6 @@ export default function PerformancesCommerciaux() {
                           <TableRow key={cleLigne(r)} className="hover:bg-muted/40">
                             <TableCell className="font-medium text-foreground">
                               {r.commercialNom || '—'}
-                              {/* Un compte sans fiche employé : ses actions comptent,
-                                  son portefeuille est vide par construction. */}
                               {!r.commercialId && r.utilisateurId && (
                                 <span className="text-micro font-normal text-muted-foreground"> (compte)</span>
                               )}
@@ -301,8 +274,6 @@ export default function PerformancesCommerciaux() {
                             </TableCell>
                             <TableCell className="text-right tabular-nums text-muted-foreground">{formatNumber(r.prospectionsAssignees)}</TableCell>
                             <TableCell className="text-right tabular-nums text-muted-foreground">{formatNumber(r.prospectionsPrisesEnCharge)}</TableCell>
-                            {/* Chaque taux porte sa fraction : sur une période courte le
-                                dénominateur est faible et le pourcentage seul induit en erreur. */}
                             <TableCell className="text-right tabular-nums text-foreground">
                               {formatPercent(r.tauxPriseEnCharge)}
                               <span className="text-micro text-muted-foreground">

@@ -7,6 +7,7 @@ import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import { listClesApi, regenererCleApi, revoquerCleApi } from '../../lib/api';
 import { libellePortee } from '../../lib/clesApi';
 import { useConfirm } from '../../lib/confirmContext';
+import { useToast } from '../../lib/toastContext';
 import { useApi } from '../../lib/useApi';
 import { formatDateTime } from '../../lib/format';
 import type { CleApiCreeeDto, CleApiDto } from '../../types';
@@ -22,43 +23,25 @@ const STATUT_ITEMS: { label: string; value: StatutFilter }[] = [
   { label: 'Révoquées', value: 'revoquees' },
 ];
 
-/** Administration des clés d'API des clients machine — `/api/cles-api`
- * (`FEATURE-cle-api-n8n.md`). Quatrième écran du module Administration, sur
- * le même patron que les comptes utilisateurs : `AdminGuard`, `DataGrid`,
- * actions par ligne.
- *
- * Pas de pagination ni de recherche serveur : l'endpoint renvoie la liste
- * entière (quelques clés, pas des milliers), et la ligne de filtres du
- * `DataGrid` couvre la recherche. Le seul filtre d'écran est le statut,
- * parce qu'une clé révoquée reste listée pour l'audit (qui, quand) mais
- * n'intéresse plus au quotidien.
- *
- * Les deux gestes sont irréversibles et passent par la confirmation :
- * régénérer casse le client tant que le nouveau secret n'est pas posé,
- * révoquer le casse définitivement. Le secret n'apparaît que dans
- * `SecretCleApiDialog`, une seule fois — la liste ne montre que le préfixe. */
+function correspondStatut(c: CleApiDto, statut: StatutFilter): boolean {
+  if (statut === 'all') return true;
+  return statut === 'actives' ? c.actif !== false : c.actif === false;
+}
+
+/* `/api/cles-api` renvoie la liste entière : pas de pagination serveur. Régénérer et
+   révoquer sont irréversibles (le client est cassé tant que le nouveau secret n'est pas
+   posé) ; le secret n'apparaît qu'une fois, dans `SecretCleApiDialog`. */
 export default function ClesApiList() {
   const confirm = useConfirm();
   const [statut, setStatut] = useState<StatutFilter>('all');
   const [creation, setCreation] = useState(false);
   const [secret, setSecret] = useState<{ resultat: CleApiCreeeDto; mode: 'creation' | 'regeneration' } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const toast = useToast();
 
   const { data, loading, error, refetch } = useApi(() => listClesApi(), [], 'cles-api');
 
-  const rows = useMemo(
-    () =>
-      (data ?? []).filter((c) =>
-        statut === 'all' ? true : statut === 'actives' ? c.actif !== false : c.actif === false,
-      ),
-    [data, statut],
-  );
-
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3600);
-  }
+  const rows = useMemo(() => (data ?? []).filter((c) => correspondStatut(c, statut)), [data, statut]);
 
   async function regenerer(c: CleApiDto) {
     const ok = await confirm({
@@ -73,7 +56,7 @@ export default function ClesApiList() {
       setSecret({ resultat, mode: 'regeneration' });
       await refetch();
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Échec de la régénération.');
+      toast({ texte: err instanceof Error ? err.message : 'Échec de la régénération.', variante: 'erreur' });
     } finally {
       setBusyId(null);
     }
@@ -90,9 +73,9 @@ export default function ClesApiList() {
     try {
       await revoquerCleApi(c.id);
       await refetch();
-      showToast(`Clé « ${c.nom} » révoquée.`);
+      toast(`Clé « ${c.nom} » révoquée.`);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Échec de la révocation.');
+      toast({ texte: err instanceof Error ? err.message : 'Échec de la révocation.', variante: 'erreur' });
     } finally {
       setBusyId(null);
     }
@@ -121,8 +104,6 @@ export default function ClesApiList() {
         nom: 'portees',
         libelle: 'Portées',
         largeur: 18,
-        // Tri et filtre sur les libellés concaténés : taper « référentiels »
-        // doit trouver la ligne.
         valeur: (r) => (r.portees ?? []).map(libellePortee).join(', '),
         rendu: (r) =>
           r.portees && r.portees.length > 0 ? (
@@ -297,9 +278,7 @@ export default function ClesApiList() {
         <CreerCleApiDialog
           onClose={() => setCreation(false)}
           onCreated={(resultat) => {
-            // Le secret d'abord, la liste ensuite : la boîte de secret
-            // remplace celle de création sans passer par la liste, pour
-            // que rien ne puisse s'intercaler avant la copie.
+            // Le secret d'abord, la liste ensuite : rien ne doit s'intercaler avant la copie.
             setCreation(false);
             setSecret({ resultat, mode: 'creation' });
             void refetch();
@@ -307,16 +286,6 @@ export default function ClesApiList() {
         />
       )}
       {secret && <SecretCleApiDialog resultat={secret.resultat} mode={secret.mode} onClose={() => setSecret(null)} />}
-
-      {toast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed inset-x-4 bottom-4 z-50 rounded-lg bg-foreground px-4.5 py-3 text-center text-label font-medium text-background shadow-lg sm:inset-x-auto sm:right-6 sm:bottom-6 sm:text-left"
-        >
-          {toast}
-        </div>
-      )}
     </AdminGuard>
   );
 }

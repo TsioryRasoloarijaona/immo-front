@@ -27,10 +27,24 @@ export default function Beneficiaires() {
   );
 }
 
-/** Bénéficiaires (§9) : `GET /dossiers` chargé en entier, recherche et filtre
- * faits à l'écran. Les chiffres (ordres, total viré, dossiers) sont ceux du
- * serveur. */
-function Carnet({ ctx }: { ctx: ContexteCharge }) {
+/** `GET /dossiers` chargé en entier : recherche et filtre à l'écran, chiffres toujours ceux du serveur. */
+interface CompteDossier {
+  nb_ordres: number;
+  nb_incomplets: number;
+}
+
+function libelleDossier(b: CompteDossier): string {
+  if (b.nb_ordres === 0) return 'Aucun virement';
+  return b.nb_incomplets === 0 ? 'Complet' : `${b.nb_incomplets} à compléter`;
+}
+
+function EtatDossier({ b }: Readonly<{ b: CompteDossier }>) {
+  if (b.nb_ordres === 0) return <span className="text-muted-foreground">Aucun virement</span>;
+  if (b.nb_incomplets === 0) return <Badge tone="success">Complet</Badge>;
+  return <Badge tone="amber">{b.nb_incomplets} à compléter</Badge>;
+}
+
+function Carnet({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   const { meta, moi, revision } = ctx;
   const toasts = useNotification();
   const [confirmation, demander] = useConfirmation();
@@ -51,8 +65,6 @@ function Carnet({ ctx }: { ctx: ContexteCharge }) {
   ];
   const importItems = natures.map(([v, l]) => ({ value: v, label: `Importer des ${l.toLowerCase()}s` }));
 
-  // « hamid enne » trouve « M Hamid ENNEASSI » : chaque mot tapé doit figurer
-  // dans le nom ou le RIB (RIB comparé sans espaces).
   const lignes = useMemo<Ligne[]>(() => {
     const mots = normaliser(q).split(/\s+/).filter(Boolean);
     return (data ?? [])
@@ -80,7 +92,7 @@ function Carnet({ ctx }: { ctx: ContexteCharge }) {
         toasts.notifierErreur(e, 'Impossible de supprimer le bénéficiaire');
         return;
       }
-      // Second temps : il a des ordres (§9.3).
+      // 409 : il a des ordres, la suppression forcée demande une seconde confirmation.
       const encore = await demander({
         titre: 'Ce bénéficiaire a des ordres',
         message: `${e.erreur.charAt(0).toUpperCase()}${e.erreur.slice(1)}. Ces ordres resteront dans l'historique avec le nom et le RIB d'origine, mais le bénéficiaire ne sera plus proposé dans le formulaire.`,
@@ -132,15 +144,8 @@ function Carnet({ ctx }: { ctx: ContexteCharge }) {
       nom: 'dossier',
       libelle: 'Dossier',
       largeur: 10,
-      valeur: (r) => (r.b.nb_ordres === 0 ? 'Aucun virement' : r.b.nb_incomplets === 0 ? 'Complet' : `${r.b.nb_incomplets} à compléter`),
-      rendu: (r) =>
-        r.b.nb_ordres === 0 ? (
-          <span className="text-muted-foreground">Aucun virement</span>
-        ) : r.b.nb_incomplets === 0 ? (
-          <Badge tone="success">Complet</Badge>
-        ) : (
-          <Badge tone="amber">{r.b.nb_incomplets} à compléter</Badge>
-        ),
+      valeur: (r) => libelleDossier(r.b),
+      rendu: (r) => <EtatDossier b={r.b} />,
     },
     {
       nom: 'actions',
@@ -190,8 +195,7 @@ function Carnet({ ctx }: { ctx: ContexteCharge }) {
           <ChoixSimple items={filtreItems} value={nature} onChange={setNature} className="w-48" />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* La nature choisie s'applique aux lignes du classeur qui ne
-              portent pas leur propre colonne « type ». */}
+          {/* Ne s'applique qu'aux lignes du classeur sans leur propre colonne « type ». */}
           <ChoixSimple items={importItems} value={natureImport} onChange={setNatureImport} className="w-52" />
           <Button type="button" variant="outline" disabled={importEnCours} onClick={() => fichier.current?.click()}>
             <Upload data-icon="inline-start" /> {importEnCours ? 'Import…' : 'Fichier Excel'}

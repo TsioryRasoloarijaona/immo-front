@@ -11,14 +11,8 @@ import { formatDate, formatHeure } from '../../lib/format';
 import { cn } from '../../lib/utils';
 import type { EvenementCalendrierDto } from '../../types';
 
-// Calendrier — vue mensuelle des rendez-vous/visites planifiés, backed by
-// GET /api/calendrier/evenements (V4) : une entrée par interaction dont le
-// résultat impliquait une date de RDV (Rendez vous pris / RDV reporté / Le
-// prospect veut faire une visite du projet — voir InteractionForm.tsx).
-// Ce formulaire capture désormais date **et** heure (`datetime-local`) ;
-// l'heure est affichée quand elle existe. Les RDV saisis avant ce champ
-// sont tous à `T00:00:00` : `formatHeure` les rend sans heure — créneau
-// « jour entier », on n'invente pas un horaire que la donnée ne porte pas.
+// Les anciens RDV sont à `T00:00:00` (saisis sans heure) : `formatHeure` les rend « jour entier »,
+// sans inventer d'horaire.
 
 const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 const MONTH_LABELS = [
@@ -44,8 +38,6 @@ function addDays(d: Date, n: number): Date {
   return copy;
 }
 
-/** 6 semaines (42 jours), du lundi précédant (ou incluant) le 1er du mois au
- * dimanche suivant — grille fixe pour un rendu stable quel que soit le mois. */
 function buildGrid(month: Date): Date[] {
   const first = startOfMonth(month);
   const mondayOffset = (first.getDay() + 6) % 7; // getDay(): 0=dimanche
@@ -57,7 +49,7 @@ function eventTone(ev: EvenementCalendrierDto): 'amber' | 'info' {
   return isVisiteEvenement(ev) ? 'amber' : 'info';
 }
 
-function EventPill({ ev, onClick }: { ev: EvenementCalendrierDto; onClick: () => void }) {
+function EventPill({ ev, onClick }: Readonly<{ ev: EvenementCalendrierDto; onClick: () => void }>) {
   const visite = isVisiteEvenement(ev);
   const heure = formatHeure(ev.dateDebut);
   return (
@@ -77,7 +69,7 @@ function EventPill({ ev, onClick }: { ev: EvenementCalendrierDto; onClick: () =>
   );
 }
 
-function EventCard({ ev }: { ev: EvenementCalendrierDto }) {
+function EventCard({ ev }: Readonly<{ ev: EvenementCalendrierDto }>) {
   const { previewProspection } = usePreview();
   const visite = isVisiteEvenement(ev);
   const heure = formatHeure(ev.dateDebut);
@@ -143,9 +135,7 @@ export default function Calendrier() {
       if (!map.has(day)) map.set(day, []);
       map.get(day)!.push(ev);
     }
-    /* Ordre horaire dans chaque jour, maintenant que l'heure existe : les
-       RDV « jour entier » (minuit, saisis avant le champ date+heure) passent
-       naturellement en tête — l'ISO se compare tel quel. */
+    // L'ISO se compare tel quel ; les RDV « jour entier » (minuit) passent en tête.
     for (const list of map.values()) list.sort((a, b) => (a.dateDebut ?? '').localeCompare(b.dateDebut ?? ''));
     return map;
   }, [events]);
@@ -164,10 +154,6 @@ export default function Calendrier() {
 
   return (
     <PageShell title="Calendrier" crumbs={[{ label: 'Calendrier' }]} icon={<Calendar />} accent="var(--sec-accent)" accentBg="var(--sec-accent-bg)" fullHeight>
-      {/* Zéro-scroll (redesign 20/09) : la grille des six semaines s'étire
-          pour occuper la hauteur restante du viewport au lieu d'imposer
-          92px par cellule (min-h-23) — le mois entier tient à l'écran, la
-          colonne latérale défile en interne si besoin. */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-1 lg:flex-row">
         <Card
           padded={false}
@@ -210,11 +196,8 @@ export default function Calendrier() {
                   const isSelected = iso === selectedDate;
                   const dayEvents = eventsByDay.get(iso) ?? [];
                   return (
-                    // A day cell embeds EventPill buttons, so it can't be a
-                    // <button> itself (nested interactive elements are
-                    // invalid HTML and broke rendering) — div+role="button"
-                    // instead, same pattern as the clickable TableRows
-                    // elsewhere in this app.
+                    // Pas un <button> : la cellule contient des boutons EventPill, et des
+                    // éléments interactifs imbriqués sont du HTML invalide.
                     <div
                       role="button"
                       tabIndex={0}

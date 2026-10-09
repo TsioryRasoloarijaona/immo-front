@@ -15,16 +15,12 @@ export interface DemandeConfirmation {
   message: ReactNode;
   confirmer: string;
   annuler?: string;
-  /** Bouton rouge : toute suppression (§3). La saisie protégée ne l'est pas. */
+  /** Bouton rouge pour toute suppression ; la garde de saisie protégée ne l'est pas. */
   danger?: boolean;
 }
 
-/** Confirmation intégrée, propre au module.
- *
- * Pas le `useConfirm` global : son bouton n'est jamais rouge, et il est monté
- * à la racine de l'app. Ici, le nœud rendu se place **dans** la fenêtre qui
- * demande, pour que la pile de dialogues soit imbriquée — Échap ne ferme
- * alors que la fenêtre du dessus. */
+/** Pas le `useConfirm` global (monté à la racine, jamais rouge) : le nœud rendu se place dans la fenêtre qui
+ * demande, pour qu'Échap ne ferme que la fenêtre du dessus. */
 export function useConfirmation(): [ReactNode, (d: DemandeConfirmation) => Promise<boolean>] {
   const [demande, setDemande] = useState<DemandeConfirmation | null>(null);
   const resoudre = useRef<((ok: boolean) => void) | null>(null);

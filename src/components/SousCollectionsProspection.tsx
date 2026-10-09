@@ -21,18 +21,6 @@ import { useApi } from '../lib/useApi';
 import { useCategoriesBien, useProfilsProspection, useTypesBienReferentiel } from '../lib/referentiels';
 import type { UUID } from '../types';
 
-/* Les quatre sous-collections de la prospection — profils, villes, types de
- * bien, catégories — servies par douze endpoints qui avaient leurs fonctions
- * dans `api.ts` et **aucun appelant**. Elles décrivent ce que le prospect
- * cherche, là où le formulaire principal décrit d'où il vient.
- *
- * Le logiciel de bureau les range dans deux onglets — « Profils » d'un côté,
- * « Autres » de l'autre. On garde ce découpage : ce sont les mêmes gestes, et
- * un commercial qui migre retrouve ses repères.
- *
- * Une même mécanique quatre fois : lister, ajouter depuis un référentiel,
- * retirer. D'où un composant générique plutôt que quatre copies. */
-
 type Ligne = { id: string; libelle: string; secondaire?: string };
 
 function ListeEditable({
@@ -60,8 +48,7 @@ function ListeEditable({
   const [occupe, setOccupe] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
-  // Ce qui est déjà posé ne doit pas être reproposé : le serveur accepterait le
-  // doublon et la liste afficherait deux fois la même ville.
+  // Ne pas reproposer ce qui est posé : le serveur accepterait le doublon.
   const dejaPose = new Set(lignes.map((l) => l.libelle));
   const disponibles = items.filter((i) => !dejaPose.has(i.label));
 
@@ -140,8 +127,6 @@ function ListeEditable({
   );
 }
 
-/** Onglet « Profils » — les profils recherchés, groupés par catégorie de bien
- * dans le référentiel. */
 export function OngletProfils({ prospectionId }: { prospectionId: string }) {
   const profils = useApi(() => listProspectionProfils(prospectionId), [prospectionId], 'prospection-profils');
   const referentiel = useProfilsProspection();
@@ -152,11 +137,8 @@ export function OngletProfils({ prospectionId }: { prospectionId: string }) {
     secondaire: p.categorie ?? undefined,
   }));
 
-  /* Le référentiel est **imbriqué** — une liste de catégories portant chacune
-     ses profils — alors que la sous-collection est plate et ne référence que
-     le profil. On l'aplatit, en gardant la catégorie dans le libellé : sans
-     elle, « 2 chambres » ne dit pas s'il s'agit d'un appartement ou d'une
-     villa, et deux profils homonymes deviennent indiscernables. */
+  /* Référentiel imbriqué (catégorie → profils) aplati : la catégorie reste dans le
+     libellé, sinon deux profils homonymes deviennent indiscernables. */
   const optionsProfils = (referentiel.data ?? []).flatMap((cat) =>
     (cat.profils ?? []).map((pr) => ({
       label: `${pr.description || pr.code || pr.id} — ${cat.description || cat.code || ''}`.replace(/ — $/, ''),
@@ -181,9 +163,6 @@ export function OngletProfils({ prospectionId }: { prospectionId: string }) {
   );
 }
 
-/** Onglet « Autres » — villes visées, types de bien, catégories. Trois listes
- * du même geste, côte à côte plutôt qu'empilées : elles sont courtes, et les
- * empiler ferait défiler un onglet qui tient largement dans sa hauteur. */
 export function OngletAutres({ prospectionId }: { prospectionId: string }) {
   const villes = useApi(() => listProspectionVilles(prospectionId), [prospectionId], 'prospection-villes');
   const typesBien = useApi(() => listProspectionTypesBien(prospectionId), [prospectionId], 'prospection-types-bien');
@@ -198,11 +177,8 @@ export function OngletAutres({ prospectionId }: { prospectionId: string }) {
 
   return (
     <div className="grid gap-5 p-3 lg:grid-cols-3">
-      {/* Les villes ont leur propre référentiel paginé et cherchable, que ce
-          composant ne sait pas alimenter en une liste plate. Tant qu'il n'est
-          pas branché, la liste reste consultable et supprimable — c'est déjà
-          plus que l'écran n'en montrait, où ces données n'existaient nulle
-          part. */}
+      {/* `items` vide : le référentiel des villes est paginé, ce composant ne sait
+          pas l'alimenter en liste plate. La liste reste consultable et supprimable. */}
       <ListeEditable
         idChamp="ajout-ville"
         titre="Villes visées"
@@ -240,9 +216,6 @@ export function OngletAutres({ prospectionId }: { prospectionId: string }) {
   );
 }
 
-/** Onglet « Contacts » — la fiche tiers derrière la prospection. Omran y liste
- * les contacts rattachés au prospect ; ici on affiche ce que la fiche porte, et
- * le lien vers elle. */
 export function OngletVide({ message }: { message: string }) {
   return (
     <div className="p-3">

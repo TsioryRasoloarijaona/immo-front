@@ -25,7 +25,7 @@ type Brouillon = {
   note: string;
 };
 
-/** Ce qu'un non-admin peut modifier sur un ordre émis (§8.1, §12). */
+/** Ce qu'un non-admin peut modifier sur un ordre émis (règle du service). */
 const CHAMPS_UTILISATEUR: (keyof Brouillon)[] = ['statut', 'reference', 'note'];
 
 function depuis(o: Ordre): Brouillon {
@@ -42,22 +42,20 @@ function depuis(o: Ordre): Brouillon {
   };
 }
 
-/** « Modifier OV-… » (§8.1). Un non-admin ne voit que statut, référence et
- * note ; dans tous les cas, **seuls les champs changés** partent dans le
- * `PATCH` — le service refait le PDF dès qu'un champ imprimé change. */
+/** Seuls les champs changés partent dans le `PATCH` : le service refait le PDF dès qu'un champ imprimé change. */
 export default function ModifierOrdreDialog({
   ordre,
   meta,
   moi,
   onClose,
   toasts,
-}: {
+}: Readonly<{
   ordre: Ordre;
   meta: Meta;
   moi: Moi;
   onClose: () => void;
   toasts: Notifications;
-}) {
+}>) {
   const admin = moi.admin;
   const societesApi = useApi(() => (admin ? listerSocietes() : Promise.resolve([])), [admin]);
   const beneficiairesApi = useApi(() => (admin ? listerBeneficiaires() : Promise.resolve([])), [admin]);
@@ -67,8 +65,7 @@ export default function ModifierOrdreDialog({
   const [enCours, setEnCours] = useState(false);
   const maj = (patch: Partial<Brouillon>) => setB((x) => ({ ...x, ...patch }));
 
-  // Un utilisateur rétrogradé en cours d'édition (403 → `/moi` relu) garde
-  // sa saisie, mais seuls les champs qu'il peut encore changer partent.
+  // Rétrogradé en cours d'édition (403 → `/moi` relu) : il garde sa saisie, seuls ses champs permis partent.
   const changes = (Object.keys(initial) as (keyof Brouillon)[]).filter(
     (k) => b[k] !== initial[k] && (admin || CHAMPS_UTILISATEUR.includes(k)),
   );
@@ -76,8 +73,7 @@ export default function ModifierOrdreDialog({
 
   const societes = societesApi.data ?? [];
   const beneficiaires = beneficiairesApi.data ?? [];
-  // Une société supprimée depuis n'est plus dans la liste : on la garde en
-  // option pour ne pas afficher un choix vide.
+  // Une société supprimée depuis n'est plus listée : gardée en option pour ne pas afficher un choix vide.
   const societeItems = [
     ...societes.map((s) => ({ value: String(s.id), label: s.nom })),
     ...(initial.societe_id && !societes.some((s) => String(s.id) === initial.societe_id)
@@ -116,7 +112,7 @@ export default function ModifierOrdreDialog({
       toasts.notifier(`Ordre ${o.numero} modifié avec succès.`);
       onClose();
     } catch (err) {
-      // 400 près du formulaire (§1) ; un 403 se signale aussi en toast.
+      // 400 près du formulaire ; un 403 se signale aussi en toast.
       setErreur(err instanceof Error ? err.message : 'Erreur inconnue.');
       if (err instanceof ErreurVirement && err.status === 403) toasts.notifierErreur(err);
     } finally {

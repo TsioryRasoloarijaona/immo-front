@@ -22,123 +22,42 @@ import {
   type ProspectionFilterParams,
 } from '../lib/api';
 import { useApi } from '../lib/useApi';
-import { formatCurrency, formatDate, formatTelephone } from '../lib/format';
+import { formatCurrency, formatDate, formatNumber, formatTelephone } from '../lib/format';
+import { estAdministrateur } from '../lib/roles';
 import { canonicalStatusLabel, estStatutSortie, toneForStatus } from '../lib/dossierStatus';
 import type { PorteeRelance, ReferentielItemDto, RelanceProspectionDto, UUID } from '../types';
 import { etapeBadgeTone, prospectionDisplayName, PIPELINE_STAGES } from '../lib/domain';
 
-/* ---------------------------------------------------------------------------
-   Redesign 20/09 — un seul viewport, plus aucun défilement de page.
-
-   L'écran précédent empilait ~1500px (trois hauteurs d'écran) avec deux
-   doublons : `prospectionsPage` rendu deux fois (couloir Pipeline + carte
-   « Prospections récentes »), `dossiersPage` rendu deux fois (couloir + table
-   « Dossiers récents »), et trois StatCards qui redisaient des compteurs déjà
-   visibles ailleurs sur le même écran. La géométrie est maintenant celle des
-   listes (`fullHeight`) : bande KPI, puis une rangée [file de travail |
-   pipeline / (synthèse + dossiers)] qui occupe le reste du viewport.
-
-   Ce qui a été fusionné plutôt que supprimé :
-   - « Vente — actualité » (Nouveau / À traiter) : « À traiter » devient un
-     couloir à part entière du pipeline (c'est une étape de travail, ambre) ;
-     « Nouveau (7 j) » disparaît — les couloirs sont déjà triés
-     docDate,desc, leurs premières lignes SONT les nouvelles.
-   - « Leads du jour » : vide la plupart des jours (l'injection arrive par
-     rafales), il coûtait 140px d'état vide. Le couloir Pré-prospections
-     porte la même information, triée par date.
-   - « Prospections récentes » : doublon strict du couloir Prospections.
-   Appels au montage : 10 → 8 (− listNouveauxPreProspects, − la requête
-   « Nouveau 7 j »).
-
-   Retouche 24/09 — le viewport unique est abandonné pour le Pipeline.
-
-   Au format nominal (1536px CSS) cinq couloirs sur une ligne faisaient 220px
-   chacun : « Pré-prospec… », « À t… non prise… », « Dossier de … ». Illisible
-   pour l'écran censé donner l'état du flux d'un coup d'œil. Décision
-   utilisateur : deux couloirs par ligne, le dernier en pleine largeur, cinq
-   lignes visibles par couloir au lieu de trois. La carte prend sa hauteur
-   naturelle et la colonne racine (`overflow-y-auto`) défile — c'est le prix
-   assumé.
-
-   Même passe : les trois couloirs prospection étaient vides depuis le 20/09.
-   Le tri passait `dateDocument` (nom du champ DTO) là où Spring Data attend
-   la propriété d'entité `docDate` — 400 « Propriété de tri invalide », avalé
-   parce que seul `data` était lu. Corrigé, et `KanbanColumn` affiche
-   désormais l'erreur au lieu de la déguiser en « Aucune … / 0 ».
-   --------------------------------------------------------------------------- */
-
-// Étapes counted as "needs action" for the À traiter lane — the pipeline's
-// own starting stage plus its two side-track exception states (see CLAUDE.md
-// / lib/domain.tsx's PIPELINE_STAGES / isSideTrackEtape). Not "2 EN COURS DE
-// TRAITEMENT" onward — those are already being worked, this bucket is
-// specifically the ones nobody has picked up yet.
 const A_TRAITER_ETAPES = [PIPELINE_STAGES[0], 'A RAPPELER PAR LE COMMERCIAL', 'AFFAIRES A SUIVRE'];
 
-/* Les filtres de chaque couloir prospection, déclarés **une fois** et lus à
-   deux endroits : la requête du couloir et le dialogue « Voir tout ». C'est ce
-   qui garantit que la liste complète compte ce que le couloir annonce —
-   l'ancien « Voir tout » d'« À traiter » ouvrait toutes les prospections,
-   filtre d'étape perdu en route. */
+/* Déclarés une fois, lus par le couloir et par son dialogue « Voir tout » : la
+   liste complète doit compter ce que le couloir annonce. */
 const FILTRES_OUVERTES: ProspectionFilterParams = { ouvertes: true };
 const FILTRES_A_TRAITER: ProspectionFilterParams = { ouvertes: true, etape: A_TRAITER_ETAPES };
 
-/** Ajoute la tranche choisie (administrateur) à des filtres de couloir —
- * absente, les filtres restent ceux d'avant, mot pour mot. */
 function avecTranche(filtres: ProspectionFilterParams, trancheId: UUID | undefined): ProspectionFilterParams {
   return trancheId ? { ...filtres, trancheId: [trancheId] } : filtres;
 }
 
-/** Libellé d'une tranche dans le filtre : code + libellé. */
 function libelleTranche(t: ReferentielItemDto): string {
   return [t.code, t.description].filter(Boolean).join(' — ') || t.id;
 }
 
-/** La liste complète ouverte en dialogue, s'il y en a une. */
 type ListeOuverte = 'relances-jour' | 'relances-retard' | 'pre-prospections' | 'a-traiter' | 'prospections';
 
-/** Lignes visibles par couloir du Pipeline — cinq depuis que les couloirs
- * font une demi-largeur (24/09) ; trois quand ils en faisaient un cinquième. */
 const LIGNES_COULOIR = 5;
 
-/* ---------------------------------------------------------------------------
-   La file du jour — le bloc que cet écran existe pour porter.
+// Relances commerciales, pas `DashboardDto.relancesEnRetard` (relances de dossier, servies vides).
+// `echeance=RETARD` est borné à 30 jours glissants côté serveur.
 
-   Ce qu'il remplace : une tuile « Relances en retard » alimentée par
-   `DashboardDto.relancesEnRetard`, qui porte les relances de **dossier**
-   (rappels de titre foncier) et que le serveur renvoie **vide**. L'écran
-   affichait donc 0 pendant que 75 relances *commerciales* attendaient d'être
-   passées. Deux populations, une seule câblée, et la mauvaise.
-
-   **Ce panneau est une file de travail, pas un compteur d'arriéré, et il le
-   dit.** `echeance=RETARD` est borné à 30 jours glissants côté serveur,
-   délibérément : la base porte 3 710 relances en retard dont 2 020 de plus
-   d'un an. Intituler ce bloc « relances en retard » sans plus le ferait
-   mentir presque autant que le « 0 » d'avant — d'où la mention de la fenêtre
-   et le lien vers l'arriéré complet.
-   --------------------------------------------------------------------------- */
-
-/** Combien de lignes on affiche par section de la file. */
 const LIGNES_AFFICHEES = 6;
 
-/** Combien on en demande au serveur — toute la file, pas les six affichées.
- *
- * **L'endpoint ignore `sort`** : `dateRelance,desc`, `joursDeRetard,asc` et
- * leurs inverses rendent tous le même ordre, échéance croissante, figé côté
- * serveur. Pour montrer les plus récentes il faut donc prendre la **fin** de la
- * file. Inverser la page de six donnerait « les six plus anciennes à
- * l'envers » — le genre de faux exact que cet écran a déjà servi une fois.
- *
- * Le surcoût est mesuré et négligeable : les 75 lignes de la file reviennent en
- * 367 ms contre 118 pour six. La borne serveur de 30 jours garantit que cette
- * file reste petite par construction ; `fileComplete` ci-dessous vérifie
- * l'hypothèse au lieu de la supposer. */
+/* Toute la file, pas les six affichées : l'endpoint ignore `sort` (échéance
+   croissante figée), les plus récentes sont donc la fin de la file.
+   `fileComplete` vérifie qu'elle tient dans une page. */
 const TAILLE_FILE = 200;
 
-/** Une relance à passer. Le numéro est mis en avant parce que c'est l'action :
- * mesuré **50/50 renseigné** là où le nom manque une fois sur cinquante. Sur
- * une pré-prospection il est même la seule prise — aucune fiche tiers
- * n'existe encore. */
-function LigneRelance({ r, onOuvrir }: { r: RelanceProspectionDto; onOuvrir: (fiche: FicheOuverte) => void }) {
+function LigneRelance({ r, onOuvrir }: Readonly<{ r: RelanceProspectionDto; onOuvrir: (fiche: FicheOuverte) => void }>) {
   const tel = (r.telephone ?? '').replace(/\s/g, '');
   return (
     <div className="flex min-w-0 items-baseline gap-2.5 border-b border-border py-1.5 last:border-b-0">
@@ -149,8 +68,6 @@ function LigneRelance({ r, onOuvrir }: { r: RelanceProspectionDto; onOuvrir: (fi
         {r.joursDeRetard ? `${r.joursDeRetard} j` : "auj."}
       </span>
 
-      {/* Un bouton et non plus un lien : la fiche s'ouvre en dialogue, on ne
-          quitte pas le tableau de bord (décision utilisateur du 28/09). */}
       <button
         type="button"
         onClick={() => onOuvrir({ id: r.prospectionId, pre: !!r.preProspection })}
@@ -178,7 +95,6 @@ function LigneRelance({ r, onOuvrir }: { r: RelanceProspectionDto; onOuvrir: (fi
   );
 }
 
-/** Une des deux sections de la file : « Aujourd'hui » ou « En retard ». */
 function ColonneRelances({
   titre,
   precision,
@@ -190,10 +106,8 @@ function ColonneRelances({
   plusRecentesDAbord,
   onOuvrir,
   onVoirTout,
-}: {
-  /** Ouvre la fiche d'une relance en dialogue. */
+}: Readonly<{
   onOuvrir: (fiche: FicheOuverte) => void;
-  /** Ouvre la file complète en dialogue. */
   onVoirTout: () => void;
   titre: string;
   precision?: string;
@@ -202,26 +116,18 @@ function ColonneRelances({
   accentBg: string;
   etat: { data: { content: RelanceProspectionDto[]; totalElements: number } | null; loading: boolean; error: string | null };
   messageVide: string;
-  /** `true` pour la section « En retard » : afficher la fin de la file, les
-   * plus récentes d'abord. Sans objet sur « Aujourd'hui », dont toutes les
-   * lignes sont à zéro jour. */
   plusRecentesDAbord?: boolean;
-}) {
+}>) {
   const page = etat.data;
-  /* La fin de la file, renversée — le serveur ne sait trier que dans l'autre
-     sens. Voir `TAILLE_FILE`. */
+  // La fin de la file, renversée : le serveur ne trie que dans l'autre sens.
   const lignes = !page
     ? []
     : plusRecentesDAbord
       ? page.content.slice(-LIGNES_AFFICHEES).reverse()
       : page.content.slice(0, LIGNES_AFFICHEES);
-  /* Ce qui reste **non affiché**, pas ce qui reste non chargé : on charge
-     désormais toute la file pour pouvoir en prendre la fin, donc compter sur
-     `content.length` afficherait « et 0 de plus » en masquant 69 lignes. */
+  // Le reste non affiché, pas non chargé : toute la file est chargée.
   const reste = page ? page.totalElements - lignes.length : 0;
-  /* L'hypothèse « la file tient dans une page » est vérifiée, pas supposée :
-     si elle tombait, `slice(-6)` rendrait la fin du *premier lot* et non la
-     fin de la file — les plus récentes seraient fausses sans rien signaler. */
+  // Si la file dépasse une page, `slice(-6)` rendrait la fin du premier lot, pas celle de la file.
   const fileComplete = !page || page.content.length >= page.totalElements;
   return (
     <div className="overflow-hidden rounded-lg" style={{ background: accentBg }}>
@@ -241,9 +147,6 @@ function ColonneRelances({
           <p className="py-2 text-body text-muted-foreground">{messageVide}</p>
         )}
         {lignes.map((r) => <LigneRelance key={r.interactionId} r={r} onOuvrir={onOuvrir} />)}
-        {/* Proposé dès qu'il y a une relance, pas seulement quand il en reste
-            de cachées : la liste complète montre aussi le motif et la
-            dernière action, que la carte n'a pas la place d'afficher. */}
         {page && page.totalElements > 0 && (
           <button
             type="button"
@@ -264,9 +167,6 @@ function ColonneRelances({
   );
 }
 
-/** One lane of the pipeline band. Entity lanes share the section-identity
- * accent (icon shape distinguishes them — see index.css); the À traiter lane
- * passes a semantic amber because it is an urgency state, not an entity. */
 function KanbanColumn({
   icon,
   title,
@@ -281,34 +181,23 @@ function KanbanColumn({
   countTone = 'neutral',
   className = '',
   children,
-}: {
+}: Readonly<{
   icon: ReactNode;
   title: string;
-  /** Small muted qualifier next to the title. */
   subtitle?: string;
   count: number | undefined;
   emptyMessage: string;
-  /** Message d'échec de la requête du couloir. Rendu à la place de
-   * `emptyMessage`, et le compte devient `—` : un 400 sur le tri a passé
-   * quatre jours déguisé en « Aucune pré-prospection. / 0 » parce que rien
-   * ne distinguait « vide » de « pas chargé ». */
+  /** Rendu à la place de `emptyMessage`, compte `—` : sans lui une erreur se lirait « vide / 0 ». */
   error?: string | null;
-  /** Shown as a "Voir tout" footer link when the real total exceeds what's
-   * previewed here — every column only ever renders a handful of records. */
   viewAllTo?: string;
-  /** « Voir tout » en **dialogue** plutôt qu'en redirection — les couloirs
-   * prospection (décision utilisateur du 28/09). L'emporte sur `viewAllTo`,
-   * que gardent Clients et Dossier de vente. */
+  /** L'emporte sur `viewAllTo`. */
   onVoirTout?: () => void;
   accent?: string;
   accentBg?: string;
-  /** 'neutral' (the count is just a tally) or 'accent' (the count *is* the
-   * urgency signal, so it gets the same color as the lane). */
   countTone?: 'neutral' | 'accent';
-  /** Fusionné sur la racine — sert au couloir en pleine largeur. */
   className?: string;
   children: ReactNode;
-}) {
+}>) {
   const items = Children.toArray(children).filter(Boolean);
   return (
     <div className={`flex min-h-0 flex-col overflow-hidden rounded-lg bg-(--neutral-bg)/50 ${className}`}>
@@ -356,9 +245,7 @@ function KanbanColumn({
 const CLASSE_VOIR_TOUT =
   'flex w-full shrink-0 items-center justify-center gap-0.5 border-t border-border/70 py-1.5 text-micro font-medium text-muted-foreground transition-colors hover:bg-background hover:text-primary';
 
-/** Une section de la bande KPI segmentée — label micro, gros chiffre
- * tabulaire, précision en dessous. */
-function KpiCell({ label, value, sub }: { label: string; value: string; sub?: string }) {
+function KpiCell({ label, value, sub }: Readonly<{ label: string; value: string; sub?: string }>) {
   return (
     <div className="flex flex-col gap-0.5 bg-card px-4 py-2.5">
       <span className="text-micro font-medium text-muted-foreground">{label}</span>
@@ -368,8 +255,7 @@ function KpiCell({ label, value, sub }: { label: string; value: string; sub?: st
   );
 }
 
-/** Shared hover-pill treatment for every Kanban row. */
-function KanbanItemRow({ onClick, to, children }: { onClick?: () => void; to?: string; children: ReactNode }) {
+function KanbanItemRow({ onClick, to, children }: Readonly<{ onClick?: () => void; to?: string; children: ReactNode }>) {
   const className =
     'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-body font-medium text-foreground no-underline transition-colors hover:bg-(--surface-hover)';
   if (to) {
@@ -386,14 +272,15 @@ function KanbanItemRow({ onClick, to, children }: { onClick?: () => void; to?: s
   );
 }
 
+/* Propriété d'entité `docDate`, pas le champ DTO `dateDocument` : sinon 400.
+   `id,asc` départage les ex æquo, sans lui l'ordre n'est pas déterministe. */
+const TRI_PROSPECTIONS = ['docDate,desc', 'id,asc'];
+
 export default function Dashboard() {
-  /* Filtre par tranche — FEATURE-dashboard-filtre-tranche. Réservé à
-     l'administrateur (même règle que Layout.tsx) ; le backend répond 403 à
-     tout autre rôle qui enverrait `trancheId`, donc pour un non-admin **aucun**
-     `trancheId` ne part, et un `?tranche=` présent dans l'URL est ignoré. Le
-     choix vit dans l'URL pour survivre au rechargement. */
+  /* Le backend répond 403 à un non-admin qui envoie `trancheId` : pour lui aucun
+     `trancheId` ne part, et `?tranche=` dans l'URL est ignoré. */
   const { user } = useAuth();
-  const isAdmin = user?.roles?.includes('Administrateur') ?? false;
+  const isAdmin = estAdministrateur(user);
   const [searchParams, setSearchParams] = useSearchParams();
   const trancheId: UUID | undefined = isAdmin ? searchParams.get('tranche') || undefined : undefined;
   const choisirTranche = (id: UUID | null) => {
@@ -413,28 +300,15 @@ export default function Dashboard() {
   );
   const trancheActive = trancheId ? tranches.data?.find((t) => t.id === trancheId) : undefined;
 
-  /* Les filtres des couloirs, tranche comprise — partagés avec les dialogues
-     « Voir tout » pour que la liste complète compte ce que le couloir annonce. */
   const filtresOuvertes = useMemo(() => avecTranche(FILTRES_OUVERTES, trancheId), [trancheId]);
   const filtresATraiter = useMemo(() => avecTranche(FILTRES_A_TRAITER, trancheId), [trancheId]);
 
   const { data: dashboard, loading, error } = useApi(() => getDashboard({ trancheId }), [trancheId]);
-  /* `sort` explicite : sans lui le serveur rend un ordre non déterministe —
-     le défaut déjà payé sur la pagination des listes. Les premières lignes de
-     chaque couloir sont ce que « récent » veut dire sur cet écran.
-
-     Le nom à passer est la **propriété d'entité** (`docDate`), pas le champ
-     DTO (`dateDocument`) : Spring Data résout le tri sur l'entité et répond
-     400 « Propriété de tri invalide » sinon. `id,asc` départage les ex æquo,
-     comme sur les listes (docs/filtres-avances.md) — sans lui l'ordre des
-     dates égales dépend du plan SQL du moment. */
-  const TRI_PROSPECTIONS = ['docDate,desc', 'id,asc'];
   const { data: prospectionsPage, error: prospectionsErreur } = useApi(
     () => listProspections(filtresOuvertes, { size: LIGNES_COULOIR, sort: TRI_PROSPECTIONS }),
     [trancheId],
   );
-  /* 7 et non `LIGNES_COULOIR` : la même page alimente aussi « Dossiers
-     récents », qui rend tout ce qu'elle reçoit. */
+  // 7 et non `LIGNES_COULOIR` : la même page alimente aussi « Dossiers récents ».
   const { data: dossiersPage, error: dossiersErreur } = useApi(
     () => listDossiers(trancheId ? { trancheId: [trancheId] } : undefined, { size: 7, sort: ['docDate,desc'] }),
     [trancheId],
@@ -452,10 +326,6 @@ export default function Dashboard() {
     [trancheId],
   );
 
-  /* `MOI` est le défaut du serveur et le bon défaut métier — un commercial
-     ouvre son tableau de bord pour voir *ses* rappels. La bascule vers
-     l'équipe reste à un clic, et elle compte : sur le jeu réel, ce compte voit
-     2 relances en propre pour 75 côté équipe. */
   const [portee, setPortee] = useState<PorteeRelance>('MOI');
   const relancesJour = useApi(
     () => listRelancesDashboard({ echeance: 'AUJOURDHUI', portee, trancheId }, { size: TAILLE_FILE }),
@@ -468,18 +338,11 @@ export default function Dashboard() {
 
   const { previewDossier } = usePreview();
 
-  /* Deux niveaux de dialogue, sans jamais quitter l'écran (décision
-     utilisateur du 28/09) : « Voir tout » ouvre la liste complète, une ligne
-     ouvre la fiche. `fiche` ne sert qu'aux lignes cliquées **sur le tableau de
-     bord** ; une ligne cliquée dans une liste ouvre sa fiche depuis la liste,
-     qui reste montée dessous. */
+  // `fiche` ne sert qu'aux lignes cliquées sur le tableau de bord ; une liste ouverte gère les siennes.
   const [liste, setListe] = useState<ListeOuverte | null>(null);
   const [fiche, setFiche] = useState<FicheOuverte | null>(null);
 
-  /* Contrôle de tranche dans l'en-tête — rendu pour l'administrateur seul.
-     Le rappel « Tranche : <code> » et son bouton de retour n'apparaissent que
-     quand une tranche est active. Rendu aussi sur les états chargement /
-     erreur : une tranche qui échoue doit rester réversible. */
+  // Rendu aussi sur les états chargement / erreur : une tranche qui échoue doit rester réversible.
   const filtreTranche = isAdmin ? (
     <div className="flex flex-wrap items-center gap-2">
       {trancheId && (
@@ -510,20 +373,13 @@ export default function Dashboard() {
     </div>
   ) : undefined;
 
-  /* Premier chargement seulement : au changement de tranche, `useApi` garde
-     les données précédentes pendant le rechargement — la mise en page reste,
-     atténuée, au lieu de repasser par un écran blanc. */
   if (loading && !dashboard) return <PageShell title="Dashboard" actions={filtreTranche}><LoadingState /></PageShell>;
   if (error) return <PageShell title="Dashboard" actions={filtreTranche}><ErrorState message={error} /></PageShell>;
   if (!dashboard) return null;
 
   const statusCounts = dashboard.dossiersParEtape ?? [];
-  /* « Actifs » veut dire ce que le serveur entend par là. `dossiersParEtape`
-     renvoie **toutes** les étapes, sorties comprises — 15 `ANNULATION` et 5
-     `DESISTEMENT` sur 116 —, et sommer le tableau entier annonçait donc 116
-     dossiers actifs. L'agrégat affiché juste à côté disait déjà le contraire :
-     `panierMoyen` divise `valeurPipeline` par 96, pas par 116. L'écran se
-     contredisait lui-même. */
+  /* `dossiersParEtape` inclut les étapes de sortie : les exclure, comme le fait
+     le serveur pour `panierMoyen`. */
   const dossiersActifs = statusCounts
     .filter((c) => !estStatutSortie(c.etape))
     .reduce((s, c) => s + (c.nombre ?? 0), 0);
@@ -531,37 +387,22 @@ export default function Dashboard() {
 
   return (
     <PageShell title="Dashboard" crumbs={[{ label: 'Portefeuille' }]} actions={filtreTranche} fullHeight>
-      {/* Un seul viewport : la colonne racine est bornée par `fullHeight` et
-          ne défile qu'en dégradé (petit écran) — au format nominal tout tient.
-          L'ordre de lecture porte la priorité : la file de travail est en
-          haut-gauche, seule zone où vit le rouge ; les chiffres d'argent en
-          bande KPI ; l'état du pipeline au centre ; le contexte annuel et les
-          derniers dossiers en pied. */}
       <div
         className={`flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pt-1 transition-opacity ${loading ? 'opacity-60' : ''}`}
         aria-busy={loading}
       >
-        {/* Bande KPI segmentée (référence Uxerflow) : UNE carte, quatre
-            sections séparées par un filet — pas quatre cartes. Le chiffre
-            porte la hiérarchie, pas une icône colorée. */}
         <div className="grid shrink-0 grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border xl:grid-cols-4">
           <KpiCell label="Valeur du pipeline" value={formatCurrency(dashboard.valeurPipeline)} />
-          <KpiCell label="Panier moyen" value={formatCurrency(dashboard.panierMoyen)} sub={`sur ${dossiersActifs} dossiers actifs`} />
+          <KpiCell label="Panier moyen" value={formatCurrency(dashboard.panierMoyen)} sub={`sur ${formatNumber(dossiersActifs)} dossiers actifs`} />
           <KpiCell
             label="Prospections ouvertes"
-            value={String(dashboard.prospectionsOuvertes ?? 0)}
-            sub={`sur ${dashboard.prospectionsTotal ?? 0} au total`}
+            value={formatNumber(dashboard.prospectionsOuvertes ?? 0)}
+            sub={`sur ${formatNumber(dashboard.prospectionsTotal ?? 0)} au total`}
           />
-          <KpiCell label="Dossiers actifs" value={String(dossiersActifs)} sub={`sur ${dossiersTotal} au total`} />
+          <KpiCell label="Dossiers actifs" value={formatNumber(dossiersActifs)} sub={`sur ${formatNumber(dossiersTotal)} au total`} />
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col gap-3 xl:flex-row">
-          {/* -------------------------------------------------------------
-              Niveau 1 — la file de travail. Haut-gauche, accent warning :
-              c'est le travail de la journée, le reste de l'écran est du
-              contexte. Un commercial qui ouvre l'application doit voir qui
-              rappeler sans chercher.
-              ------------------------------------------------------------- */}
           <Card
             title="À rappeler"
             accent="var(--warning)"
@@ -610,15 +451,10 @@ export default function Dashboard() {
               />
             </div>
 
-            {/* La borne de 30 jours est une décision serveur, pas un hasard de
-                pagination : la base porte 2 020 relances de plus d'un an, qui
-                feraient de ce panneau un cimetière plutôt qu'une file. Le dire
-                ici est ce qui sépare un chiffre juste d'un chiffre trompeur —
-                et le lien donne la sortie vers l'arriéré complet. */}
             <p className="shrink-0 border-t border-border px-3 py-1.5 text-micro text-muted-foreground">
               File bornée aux 30 derniers jours. Les relances désarmées n'y figurent pas.{' '}
-              {/* `?periode=toutes` : la liste s'ouvre par défaut sur le mois
-                  courant, ce qui cacherait l'arriéré que ce lien annonce. */}
+              {/* `?periode=toutes` : la liste s'ouvre sinon sur le mois courant et
+                  cacherait l'arriéré. */}
               <Link to="/prospections?periode=toutes" className="text-(--info) hover:underline">
                 Toutes les prospections
               </Link>
@@ -626,21 +462,6 @@ export default function Dashboard() {
           </Card>
 
           <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-            {/* -----------------------------------------------------------
-                Niveau 3 — l'état du flux, cinq couloirs dans l'ordre du
-                flux : pré-prospection → à traiter → prospection →
-                client → dossier. « À traiter » est un couloir d'urgence
-                (ambre) intercalé à sa place réelle dans le flux ; les
-                autres sont des entités (accent partagé, l'icône
-                distingue). Comptes serveur réels (totalElements), pas des
-                estimations client. Pas de drag/drop — un enregistrement
-                change d'étape par sa propre action métier.
-
-                Deux couloirs par ligne (24/09), le dernier en pleine
-                largeur : à cinq sur une ligne les titres se tronquaient au
-                format nominal. La carte prend sa hauteur naturelle, la
-                colonne racine défile — voir le commentaire de tête.
-                ----------------------------------------------------------- */}
             <Card title="Pipeline" accent="var(--sec-accent)" padded={false} className="shrink-0">
               <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2">
                 <KanbanColumn
@@ -735,12 +556,6 @@ export default function Dashboard() {
               </div>
             </Card>
 
-            {/* -----------------------------------------------------------
-                Niveau 2 — l'argent dans le temps, et les derniers dossiers
-                avec leurs montants. Côte à côte au format large, empilés
-                en dessous — la synthèse garde la majorité de la largeur
-                pour ses douze barres.
-                ----------------------------------------------------------- */}
             <div className="flex shrink-0 flex-col gap-3 min-[1500px]:flex-row">
               <div className="min-w-0 min-[1500px]:flex-[13]">
                 <SyntheseAnnuelle trancheId={trancheId} />
@@ -759,10 +574,6 @@ export default function Dashboard() {
                 {!dossiersPage || dossiersPage.content.length === 0 ? (
                   <p className="px-4 py-3 text-body text-muted-foreground">Aucun dossier.</p>
                 ) : (
-                  /* Le primitif Table, pour hériter de la densité de grille.
-                     Le `pl-4`/`pr-4` sur les cellules de bord remplace
-                     l'ancien `px-4` uniforme — la Card est `padded={false}`,
-                     c'est donc la table qui porte la gouttière du bloc. */
                   <Table containerClassName="overflow-x-auto">
                     <TableHeader>
                       <TableRow className="text-muted-foreground hover:bg-transparent [&>*:first-child]:pl-4 [&>*:last-child]:pr-4">

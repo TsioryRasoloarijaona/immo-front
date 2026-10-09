@@ -10,23 +10,20 @@ import ModaleSaisie from './ModaleSaisie';
 import type { Meta, TypeBeneficiaire } from './types';
 import type { Notifications } from './useNotification';
 
-/** Ajout ou modification d'un bénéficiaire (§9.3). La création est un
- * **upsert sur le nom** côté service : un nom existant voit seulement son RIB
- * mis à jour, sans changer de nature. */
+/** Création = upsert sur le nom côté service : un nom existant ne voit que son RIB mis à jour, nature inchangée. */
 export default function BeneficiaireDialog({
   beneficiaire,
   natureParDefaut,
   meta,
   onClose,
   toasts,
-}: {
-  /** Absent : création. */
+}: Readonly<{
   beneficiaire?: { id: number; nom: string; rib: string; type: TypeBeneficiaire };
   natureParDefaut: TypeBeneficiaire;
   meta: Meta;
   onClose: () => void;
   toasts: Notifications;
-}) {
+}>) {
   const initial = {
     nom: beneficiaire?.nom ?? '',
     rib: beneficiaire?.rib ?? '',

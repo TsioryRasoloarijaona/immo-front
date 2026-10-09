@@ -18,22 +18,21 @@ import type { Notifications } from './useNotification';
 
 const FORMATS_PIECE = '.pdf,.jpg,.jpeg,.png,.webp,.xlsx,.xls,.docx,.doc';
 
-/** Fiche d'un ordre (§7) : données, état du dossier, checklist des pièces,
- * autres pièces, statut. Chaque action rend l'ordre décoré, qui remplace
- * l'affichage ; les listes ouvertes derrière sont relues (`rafraichir`). */
+/** Chaque action rend l'ordre décoré, qui remplace l'affichage ; les listes ouvertes derrière sont relues
+ * par `rafraichir`. */
 export default function OrdreDetailDialog({
   ordreId,
   meta,
   moi,
   onClose,
   toasts,
-}: {
+}: Readonly<{
   ordreId: number;
   meta: Meta;
   moi: Moi;
   onClose: () => void;
   toasts: Notifications;
-}) {
+}>) {
   const api = useApi(() => lireOrdre(ordreId), [ordreId]);
   const [maj, setMaj] = useState<Ordre | null>(null);
   const ordre = maj ?? api.data;
@@ -79,7 +78,7 @@ function Contenu({
   onOrdre,
   fermer,
   toasts,
-}: {
+}: Readonly<{
   ordre: Ordre;
   meta: Meta;
   moi: Moi;
@@ -88,7 +87,7 @@ function Contenu({
   onOrdre: (o: Ordre) => void;
   fermer: () => void;
   toasts: Notifications;
-}) {
+}>) {
   const [confirmation, demander] = useConfirmation();
   const fichier = useRef<HTMLInputElement>(null);
   const [typeDepot, setTypeDepot] = useState<string>('autre');
@@ -332,21 +331,20 @@ function Contenu({
   );
 }
 
-/** Montant porté par une pièce (facture, bulletin), enregistré au `change`
- * (§7.1). La puce compare au montant viré, au centime. */
+/** Enregistré au `change`, pas à la frappe ; la puce compare au montant viré, au centime. */
 function MontantPiece({
   piece,
   ordre,
   libelle,
   onOrdre,
   toasts,
-}: {
+}: Readonly<{
   piece: Piece;
   ordre: Ordre;
   libelle: string;
   onOrdre: (o: Ordre) => void;
   toasts: Notifications;
-}) {
+}>) {
   const [saisie, setSaisie] = useState(piece.montant != null ? String(piece.montant) : '');
   const [enCours, setEnCours] = useState(false);
 

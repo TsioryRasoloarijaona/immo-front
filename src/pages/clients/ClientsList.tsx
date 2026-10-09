@@ -11,9 +11,6 @@ import { DEFAULT_PAGE_SIZE, listClients } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import type { ClientListItemDto } from '../../types';
 
-/* Les quatre colonnes de droite sont typées MONTANT/NOMBRE : DataGrid les
-   aligne à droite, les met en `tabular-nums` et sait les totaliser sous Σ —
-   ce qui rend le pied de tableau immédiatement utile sur cet écran. */
 const COLONNES: ColonneGrille<ClientListItemDto>[] = [
   { nom: 'code', libelle: 'Code', largeur: 10, classe: 'text-muted-foreground' },
   { nom: 'nomAffiche', libelle: 'Affiché comme', largeur: 18, classe: 'font-medium text-foreground', titre: (r) => r.nomAffiche || undefined },
@@ -27,18 +24,6 @@ const COLONNES: ColonneGrille<ClientListItemDto>[] = [
   { nom: 'totalReste', libelle: 'Reste', type: 'MONTANT', largeur: 12, classe: 'text-destructive' },
 ];
 
-// "Clients" — a person-centric view distinct from the Dossiers list (per
-// instructions/FIX-clients-and-module-switcher.md): useful once a client
-// has several dossiers/tranches, to see them by person rather than by file.
-// Backed by GET /api/clients (V4) — anyone who's the clientId of at least
-// one dossier de vente, with À payer/Réglé/Reste totals aggregated
-// server-side (ClientListItemDto). GET /api/clients/{id} returns the same
-// ProspectDetailDto shape as /api/prospects/{id}, so the detail view reuses
-// the existing ProspectDetail component (Général/Contacts/Prospections/
-// Dossiers/Règlements/Historique already cover "toutes les fiches relatives
-// à ce client") — mounted at its own /clients/:id route rather than
-// redirecting into /prospects/:id, so the breadcrumb/back-link/URL stay
-// under "Clients" (ProspectDetail detects the /clients prefix and adapts).
 export default function ClientsList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');

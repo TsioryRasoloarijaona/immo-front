@@ -4,16 +4,8 @@ import { Button } from '../ui/button';
 import { InputGroup, InputGroupInput } from '../ui/input-group';
 import { aujourdHuiISO, emptyPeriode, ilYA, premierJourDuMois, type Periode } from './periode';
 
-/** Sélecteur de période des écrans KPI.
- *
- * Volontairement séparé de `ProspectionFilterBar`, qui est soudé à
- * `ProspectionFilterBarState` (recherche, étape, origine, commercial, tranche…) :
- * le généraliser ferait bouger quatre pages de liste sans rien gagner ici.
- *
- * La période par défaut du serveur — les 30 derniers jours — est écrite en
- * toutes lettres quand les deux champs sont vides : un intervalle implicite
- * qu'aucun libellé n'affiche est la façon la plus simple de faire lire un
- * chiffre sur la mauvaise période. */
+/** Champs vides : la période par défaut du serveur est écrite en toutes lettres,
+ * sinon on lirait un chiffre sur la mauvaise période. */
 export default function PeriodeFilterBar({
   value,
   onChange,
@@ -22,8 +14,7 @@ export default function PeriodeFilterBar({
   onChange: (next: Periode) => void;
 }) {
   const parDefaut = !value.du && !value.au;
-  // Le serveur refuse `du` postérieure à `au` (400). Le signaler ici évite un
-  // aller-retour réseau dont le seul retour serait un bandeau d'erreur.
+  // Le serveur refuse `du` postérieure à `au` (400).
   const intervalleInverse = !!value.du && !!value.au && value.du > value.au;
 
   return (

@@ -1,57 +1,27 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { ApiError, declencherSynchronisation } from '../lib/api';
+import { useToast } from '../lib/toastContext';
 import { refetchAllApis } from '../lib/useApi';
 import { useAuth } from '../lib/auth';
 import { cn } from '../lib/utils';
 import type { SynchronisationResultatDto } from '../types';
 
-/** Les rôles auxquels le backend ouvre `POST /api/synchronisation` (spec du
- * 21/09, MB4) : l'Administrateur et les trois déclinaisons commerciales.
- * Tout autre rôle recevrait 403 — on ne lui montre pas un bouton qui ne peut
- * qu'échouer. */
+/** Doit refléter les rôles que le backend ouvre à `POST /api/synchronisation` :
+ * tout autre rôle recevrait 403. */
 const ROLES_SYNCHRONISATION = ['Administrateur', 'Commercial', 'Commercial Chef', 'Commercial Aide'];
 
-/** Bouton « Synchroniser » du pied de sidebar (MB4 : accessible aux
- * commerciaux, et bien plus visible que l'ancienne icône seule).
- *
- * L'emplacement a été décidé en deux temps : une pilule flottante bas droit
- * a été essayée puis retirée — elle recouvrait la pagination des listes,
- * qui vit exactement là. Le pied de sidebar est l'endroit qui reste visible
- * sur toutes les pages sans jamais rien recouvrir ; le bouton y est pleine
- * largeur, encre sur fond clair, pour rester un vrai geste et non une icône
- * anonyme. Rail replié : l'icône seule, centrée.
- *
- * Déclenche `POST /api/synchronisation` : rapatriement immédiat depuis la
- * base de référence, au lieu d'attendre le cycle automatique (2 min).
- * L'appel est SYNCHRONE côté backend — quelques secondes — d'où l'icône qui
- * tourne et le bouton inerte pendant le cycle. Un 409 (cycle déjà en cours,
- * ou mono-base) n'est pas une panne : le message du backend est montré tel
- * quel.
- *
- * Au succès, les caches sont déjà vidés (toute mutation passe par
- * `clearApiCache`) ; `refetchAllApis()` re-lance chaque `useApi` monté pour
- * que la page affichée relise des données fraîches sans navigation. */
+/** L'appel est synchrone côté backend (quelques secondes) : bouton inerte pendant le cycle. */
 export default function SyncButton() {
   const { user } = useAuth();
   const [enCours, setEnCours] = useState(false);
-  const [toast, setToast] = useState<{ message: string; erreur: boolean } | null>(null);
-  const timerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) clearTimeout(timerRef.current);
-    };
-  }, []);
+  const toast = useToast();
 
   const autorise = user?.roles?.some((r) => ROLES_SYNCHRONISATION.includes(r)) ?? false;
   if (!autorise) return null;
 
   function montrerToast(message: string, erreur: boolean) {
-    if (timerRef.current !== null) clearTimeout(timerRef.current);
-    setToast({ message, erreur });
-    // Le bilan est plus long à lire qu'une confirmation simple : 8 s.
-    timerRef.current = window.setTimeout(() => setToast(null), 8000);
+    toast({ texte: message, variante: erreur ? 'erreur' : 'succes' });
   }
 
   function bilan(r: SynchronisationResultatDto): string {
@@ -75,13 +45,11 @@ export default function SyncButton() {
     setEnCours(true);
     try {
       const resultat = await declencherSynchronisation();
-      // Les caches GET/valeurs sont déjà vidés par la mutation elle-même ;
-      // reste à faire relire leurs données aux requêtes montées.
+      // Les caches sont déjà vidés par la mutation ; reste à faire relire les `useApi` montés.
       refetchAllApis();
       montrerToast(bilan(resultat), false);
     } catch (err) {
-      // 409 = cycle déjà en cours ou mono-base — le message du backend
-      // précise le cas et se suffit. Idem 403.
+      // 409 = cycle déjà en cours ou mono-base, pas une panne : message backend tel quel.
       const message = err instanceof ApiError ? err.message : 'La synchronisation a échoué.';
       montrerToast(message, true);
     } finally {
@@ -108,18 +76,6 @@ export default function SyncButton() {
         <RefreshCw className={cn('size-4 shrink-0', enCours && 'animate-spin')} />
         <span className="group-data-[collapsible=icon]:hidden">{enCours ? 'Synchronisation…' : 'Synchroniser'}</span>
       </button>
-      {toast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className={cn(
-            'fixed bottom-6 right-6 z-50 max-w-sm rounded-lg px-4.5 py-3 text-label font-medium shadow-lg',
-            toast.erreur ? 'border border-destructive/40 bg-background text-destructive' : 'bg-foreground text-background',
-          )}
-        >
-          {toast.message}
-        </div>
-      )}
     </>
   );
 }

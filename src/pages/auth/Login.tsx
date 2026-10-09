@@ -2,6 +2,7 @@ import { useState } from 'react';
 import AuthScreen from './AuthScreen';
 import { useAuth } from '../../lib/auth';
 import { ApiError } from '../../lib/api';
+import { errorMessage } from '../../lib/useApi';
 import { Button } from '../../components/ui/button';
 import { Field, FieldGroup, FieldLabel, FieldError } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
@@ -22,11 +23,7 @@ export default function Login() {
       await login({ username: username.trim(), password });
     } catch (err) {
       setError(
-        err instanceof ApiError && err.status === 401
-          ? 'Identifiants invalides ou compte désactivé.'
-          : err instanceof Error
-            ? err.message
-            : 'Erreur inconnue.',
+        err instanceof ApiError && err.status === 401 ? 'Identifiants invalides ou compte désactivé.' : errorMessage(err),
       );
     } finally {
       setSubmitting(false);
@@ -37,9 +34,6 @@ export default function Login() {
     <AuthScreen title="Connexion" description="Accédez à votre espace Arpent.">
       <form onSubmit={handleSubmit}>
         <FieldGroup>
-          {/* Sans ce mot, une session expirée renvoie au formulaire sans dire
-              pourquoi — et l'utilisateur croit avoir perdu son travail sur un
-              bug plutôt que sur un délai. */}
           {sessionExpiree && !error && (
             <p role="status" className="rounded-md border border-(--amber-border) bg-(--amber-bg) px-3 py-2 text-body text-(--amber)">
               Votre session a expiré. Reconnectez-vous pour continuer.

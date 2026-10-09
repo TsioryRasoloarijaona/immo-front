@@ -20,22 +20,6 @@ import {
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../lib/referentiels';
 import type { CreerDevisRequest } from '../types';
 
-/** "Nouveau devis" — reproduces the legacy Offre form's own picking mechanic
- * (same projet → tranche → catégorie/type → article cascade as
- * `ArticleCascadePicker` in `ProspectionDetail.tsx`, reused conceptually but
- * self-contained here since this form also needs a sous-articles
- * multi-select, a prix override, a remise and a mode de paiement, none of
- * which the tranche-principale picker needs). Tucked behind "Nouvelle
- * offre" like every other "Modifier"-gated picker on this page — collapsed
- * by default, forced open only via the toggle.
- *
- * Prospection-agnostic: `onAdd` is the only place a prospection id is
- * bound, so this is shared as-is by `ProspectionDetail.tsx` (bound via
- * closure to the page's own prospection) and `OffresList.tsx`'s "Nouvelle
- * offre" flow (bound to whichever prospection the user picks first there).
- * `defaultProspectId`/`defaultCommercialId` default silently to the
- * prospection's own (per `CreerDevisRequest`), so they're not asked for
- * again in this form. */
 export default function DevisFormSection({
   defaultTrancheId,
   defaultArticleId,
@@ -49,18 +33,7 @@ export default function DevisFormSection({
   defaultArticleId?: string;
   defaultProspectId?: string;
   defaultCommercialId?: string;
-  /** Opens the form immediately instead of behind the "Nouvelle offre"
-   * toggle — for callers where opening it already *is* the user's explicit
-   * action (e.g. `OffresList.tsx`'s "Nouvelle offre" flow, where picking a
-   * prospection is itself step one of creating an offer, so a second
-   * "Nouvelle offre" click right after would be redundant). Defaults to
-   * collapsed, matching the original per-prospection usage. */
   startOpen?: boolean;
-  /** Skips the wrapping `Card`/title/toggle entirely and always renders the
-   * form fields — for callers that already provide their own "Nouvelle
-   * offre" chrome one level up (`OffresList.tsx`, whose own Card already
-   * carries that title) and would otherwise end up with two nested
-   * "Nouvelle offre" cards. Implies `startOpen`. */
   bare?: boolean;
   onAdd: (body: CreerDevisRequest) => Promise<void>;
 }) {

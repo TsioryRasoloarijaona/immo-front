@@ -2,11 +2,9 @@ import type { ReactNode } from 'react';
 import PageShell from '../../components/PageShell';
 import { EmptyState } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
+import { estAdministrateur } from '../../lib/roles';
 
-/** Wraps an admin-only page — same "roles includes Administrateur" rule
- * enforced for the sidebar link (Layout.tsx) and here, and the backend
- * itself 403s these endpoints for non-admins, so this is UX only, not the
- * real security boundary. */
+// Confort seulement : la vraie barrière est le 403 du backend pour les non-admins.
 export default function AdminGuard({
   title,
   crumbs,
@@ -15,7 +13,7 @@ export default function AdminGuard({
   accentBg,
   fullHeight,
   children,
-}: {
+}: Readonly<{
   title: string;
   crumbs: { label: string; to?: string }[];
   icon?: ReactNode;
@@ -23,9 +21,9 @@ export default function AdminGuard({
   accentBg?: string;
   fullHeight?: boolean;
   children: ReactNode;
-}) {
+}>) {
   const { user } = useAuth();
-  const isAdmin = user?.roles?.includes('Administrateur') ?? false;
+  const isAdmin = estAdministrateur(user);
   return (
     <PageShell title={title} crumbs={crumbs} icon={icon} accent={accent} accentBg={accentBg} fullHeight={fullHeight}>
       {isAdmin ? (

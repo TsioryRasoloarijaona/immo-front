@@ -22,17 +22,18 @@ export default function Societes() {
   );
 }
 
-function Vignette({ s }: { s: Societe }) {
+function Vignette({ s }: Readonly<{ s: Societe }>) {
   if (s.entete_mode === 'logo' && s.logo) {
     return <img src={lienLogoSociete(s.id, s.updated_at)} alt={`Logo ${s.nom}`} className="h-4.5 max-w-24 object-contain" />;
   }
-  const texte = s.entete_mode === 'logo' ? 'logo GHRIZA' : s.entete_mode === 'texte' ? 'en-tête texte' : 'sans en-tête';
+  let texte = 'sans en-tête';
+  if (s.entete_mode === 'logo') texte = 'logo GHRIZA';
+  else if (s.entete_mode === 'texte') texte = 'en-tête texte';
   return <span className="text-micro text-muted-foreground">{texte}</span>;
 }
 
-/** Sociétés émettrices (§10), admin seulement. L'ordre est celui du
- * serveur : la société par défaut d'abord, puis par nom. */
-function ListeSocietes({ ctx }: { ctx: ContexteCharge }) {
+/** L'ordre est celui du serveur (société par défaut d'abord, puis par nom) : ne pas retrier. */
+function ListeSocietes({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   const toasts = useNotification();
   const [confirmation, demander] = useConfirmation();
   const { data, loading, error } = useApi(listerSocietes, [ctx.revision]);
@@ -49,8 +50,7 @@ function ListeSocietes({ ctx }: { ctx: ContexteCharge }) {
     try {
       await supprimerSociete(s.id);
     } catch (e) {
-      // Deux 409 (§10.2) : la dernière société (refus définitif), ou une
-      // société qui a émis des ordres (second temps de confirmation).
+      // Deux 409 : la dernière société (refus définitif), ou une société qui a émis des ordres (seconde confirmation).
       if (!(e instanceof ErreurVirement && e.status === 409 && e.erreur.includes('ordre(s)'))) {
         toasts.notifierErreur(e, 'Impossible de supprimer la société');
         return;

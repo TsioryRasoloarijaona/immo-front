@@ -79,13 +79,6 @@ function RefSelect({
   );
 }
 
-// The étape intermédiaire between a raw Pré-Prospection and a qualified
-// Prospection — maps to POST /api/pre-prospections/{id}/creer-prospect.
-// Field set mirrors the real Omran "Prospect : Général" screen
-// (omaran_visual/prospect-creation.png) now that the référentiels needed to
-// drive it (titres, sexes, pays, nationalités, situations familiales, types
-// de résidence, régimes matrimoniaux, salaires, tier types/kinds, types de
-// pièce d'identité) are exposed by the API.
 export default function CreateProspectForm({
   preProspectionId,
   initial,
@@ -95,7 +88,6 @@ export default function CreateProspectForm({
   preProspectionId: string;
   initial?: CreateProspectInitial;
   onClose: () => void;
-  /** `mode` : prospect créé (`cree`) ou fiche existante rattachée (`rattache`). */
   onSubmit: (updated: ProspectionDetailDto, mode: 'cree' | 'rattache') => void;
 }) {
   const [prenom, setPrenom] = useState(initial?.firstName ?? '');
@@ -136,12 +128,8 @@ export default function CreateProspectForm({
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Réponse 409 `doublons` de creer-prospect : le serveur a trouvé des fiches
-  // au même nom, téléphone ou email et attend que l'utilisateur tranche. Ce
-  // n'est pas une erreur — voir `DoublonsProspectPanel`.
+  // Un 409 `doublons` n'est pas une erreur : le serveur attend que l'utilisateur tranche.
   const [doublons, setDoublons] = useState<ProspectDoublonDto[] | null>(null);
-  // Réponse 409 `prospectionExistante` de lier-prospect : la personne choisie
-  // a déjà une prospection ouverte sur le projet de cette pré-prospection.
   const [existante, setExistante] = useState<ProspectionExistanteDto | null>(null);
 
   const titres = useTitres();
@@ -164,8 +152,7 @@ export default function CreateProspectForm({
       prenom: prenom.trim(),
       nom: nom.trim(),
       telephone: telephone.trim(),
-      // L'indicatif n'accompagne le numéro que si celui-ci existe : l'envoyer
-      // seul décrirait un correspondant qu'on ne sait pas joindre.
+      // Jamais d'indicatif sans numéro : il décrirait un correspondant injoignable.
       indicatifTelephone: telephone.trim() ? indicatifTelephone ?? undefined : undefined,
       mobile: mobile.trim() || undefined,
       indicatifMobile: mobile.trim() ? indicatifMobile ?? undefined : undefined,
@@ -173,8 +160,7 @@ export default function CreateProspectForm({
       ville: ville.trim() || undefined,
       adresse: adresse.trim() || undefined,
       codePostal: codePostal.trim() || undefined,
-      // These 3 are `format: date-time` on the backend — a bare
-      // "YYYY-MM-DD" from the date inputs 400s, so pad to midnight ISO.
+      // Ces 3 dates sont `date-time` côté backend : un « YYYY-MM-DD » nu y fait 400.
       dateNaissance: toApiDateTime(dateNaissance),
       lieuNaissance: lieuNaissance.trim() || undefined,
       nombreEnfants: nombreEnfants ? Number(nombreEnfants) : undefined,
@@ -207,9 +193,6 @@ export default function CreateProspectForm({
     };
   }
 
-  /** Envoie la création. Sur 409 `doublons`, la question « est-ce l'une de
-   * ces personnes ? » remplace le message d'erreur ; « Nouveau contact »
-   * rappelle cette même fonction avec `ignorerDoublons: true`. */
   async function envoyer(ignorerDoublons: boolean) {
     setSubmitting(true);
     setError(null);
@@ -231,9 +214,6 @@ export default function CreateProspectForm({
     }
   }
 
-  /** « C'est cette personne » : rattache la fiche existante à la place
-   * d'en créer une. Le 409 `prospectionExistante` (déjà une prospection
-   * ouverte sur ce projet) se lit comme une redirection, pas une erreur. */
   async function rattacher(doublon: ProspectDoublonDto) {
     setSubmitting(true);
     setError(null);
@@ -417,10 +397,7 @@ export default function CreateProspectForm({
 
         <DialogFooter className="mt-5">
           <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>Annuler</Button>
-          {/* Une fois la question posée, le geste principal est dans le
-              panneau (« Rattacher » / « Nouveau contact ») : le bouton Créer
-              se retire pour ne pas proposer un troisième chemin qui ne ferait
-              que reposer la même question. */}
+          {/* Doublons affichés : Créer se retire, il ne ferait que reposer la même question. */}
           {!doublons && (
             <Button type="submit" disabled={submitting}>{submitting ? 'Création…' : 'Créer'}</Button>
           )}

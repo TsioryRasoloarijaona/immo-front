@@ -15,22 +15,9 @@ import { filtrerColonnes, libelleGroupe } from '../lib/colonnes';
 import { cn } from '../lib/utils';
 import type { ColonneDto } from '../types';
 
-/** Sélecteur de colonnes d'une liste.
- *
- * Le catalogue vient de `GET /api/referentiels/colonnes/prospections` — la même
- * source que la liste blanche qui valide `?colonnes=`, donc les deux ne peuvent
- * pas diverger. Rien n'est codé en dur ici : une colonne ajoutée côté serveur
- * apparaît dans ce menu sans redéploiement.
- *
- * Présenté par sections et doublé d'une recherche : le catalogue dépasse la
- * quarantaine de colonnes, où parcourir six sections à l'œil coûte plus cher
- * que taper trois lettres.
- *
- * Cocher une colonne change la **requête**, pas seulement l'affichage : les
- * groupes `ACTIVITE` et `CONVERSION` ne sont servis que s'ils sont demandés, et
- * sans eux le backend n'interroge pas la vue légataire. C'est ce qui sépare
- * 123 ms de 5 942 ms à la page 250 — et pourquoi on ne charge jamais tout pour
- * filtrer ensuite côté client. */
+/** Cocher une colonne change la requête, pas seulement l'affichage : `ACTIVITE` et
+ * `CONVERSION` ne sont servis que demandés, sans eux le backend évite la vue légataire
+ * lente. Ne jamais tout charger pour filtrer côté client. */
 export default function ColumnSelector({
   catalogue,
   visibles,
@@ -50,8 +37,6 @@ export default function ColumnSelector({
   const [requete, setRequete] = useState('');
 
   const filtre = filtrerColonnes(catalogue, requete);
-  // Ordre de première apparition, pour que les sections suivent l'ordre des
-  // colonnes dans le tableau. Un groupe dont plus rien ne correspond disparaît.
   const groupes = [...new Set(filtre.map((c) => c.groupe))];
   const derniere = visibles.length === 1;
 
@@ -60,8 +45,7 @@ export default function ColumnSelector({
       open={ouvert}
       onOpenChange={(o) => {
         setOuvert(o);
-        // Une recherche laissée en place rouvrirait le menu amputé de la
-        // plupart de ses colonnes, sans que rien n'explique pourquoi.
+        // Recherche vidée à la fermeture : sinon le menu rouvrirait amputé, sans explication.
         if (!o) setRequete('');
       }}
     >
@@ -88,11 +72,8 @@ export default function ColumnSelector({
         {filtre.length === 0 ? (
           <p className="px-2 py-3 text-body text-muted-foreground">Aucune colonne ne correspond.</p>
         ) : (
-          /* `DropdownMenuLabel` est un `Menu.GroupLabel` de Base UI : il lit un
-             contexte que seul `Menu.Group` fournit et jette « MenuGroupContext
-             is missing » s'il en sort. Le `DropdownMenuGroup` n'est donc pas
-             une commodité sémantique, c'est ce qui rend le titre de section
-             légal — un `<div>` à la place fait planter l'écran entier. */
+          /* `DropdownMenuLabel` exige le contexte de `DropdownMenuGroup` : hors de lui,
+             Base UI jette « MenuGroupContext is missing » et l'écran entier tombe. */
           groupes.map((groupe, i) => (
             <Fragment key={groupe}>
               {i > 0 && <DropdownMenuSeparator />}
@@ -106,9 +87,6 @@ export default function ColumnSelector({
                       <DropdownMenuCheckboxItem
                         key={c.nom}
                         checked={coche}
-                        // Un tableau sans colonne n'a pas de sens : la dernière
-                        // cochée se verrouille plutôt que de laisser produire
-                        // une grille vide.
                         disabled={coche && derniere}
                         onCheckedChange={() => onBasculer(c.nom)}
                       >

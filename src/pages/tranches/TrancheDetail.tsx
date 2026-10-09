@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import Pagination from '../../components/Pagination';
 import { getTranche, listTrancheArticles } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { formatCurrency, formatDate, formatPercent } from '../../lib/format';
+import { formatCurrency, formatDate, formatPercent, formatSurface, libellePrix } from '../../lib/format';
 import type { ArticleStatut, TrancheDetailDto } from '../../types';
 
 type FieldFmt = 'percent' | 'currency' | 'days' | 'hours' | 'number' | 'toggle';
@@ -99,12 +99,16 @@ const ARTICLE_STATUT_ITEMS: { label: string; value: ArticleStatut | 'all' }[] = 
 ];
 
 export default function TrancheDetail() {
-  const { id } = useParams();
-  const { data: t, loading, error } = useApi(() => getTranche(id!), [id]);
+  const { id = '' } = useParams();
+  return <FicheTranche key={id} id={id} />;
+}
+
+function FicheTranche({ id }: Readonly<{ id: string }>) {
+  const { data: t, loading, error } = useApi(() => getTranche(id), [id]);
   const [statut, setStatut] = useState<ArticleStatut | 'all'>('all');
   const [articlesPage, setArticlesPage] = useState(0);
   const articles = useApi(
-    () => listTrancheArticles(id!, { statut: statut !== 'all' ? statut : undefined }, { page: articlesPage, size: 20 }),
+    () => listTrancheArticles(id,{ statut: statut !== 'all' ? statut : undefined }, { page: articlesPage, size: 20 }),
     [id, statut, articlesPage],
   );
   const navigate = useNavigate();
@@ -128,10 +132,6 @@ export default function TrancheDetail() {
       accentBg="var(--sec-tranche-bg)"
       fullHeight
     >
-      {/* Redesign 20/09 : le bouton « Retour à la liste » et le bloc titre
-          hero redisaient le fil d'Ariane du PageShell (~90px) ; l'identité
-          tient sur une ligne, l'aperçu reste épinglé, et seules les règles
-          de gestion + les articles défilent. */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">
         <div className="flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="text-title font-semibold tracking-tight text-foreground">{t.description}</h2>
@@ -241,9 +241,9 @@ export default function TrancheDetail() {
                       <TableCell className="text-muted-foreground">{a.description || '—'}</TableCell>
                       <TableCell className="text-muted-foreground">{a.typeLibelle}</TableCell>
                       <TableCell className="text-muted-foreground">{a.categorieLibelle}</TableCell>
-                      <TableCell className="text-right tabular-nums">{a.area ? `${a.area} m²` : '—'}</TableCell>
+                      <TableCell className="text-right tabular-nums">{a.area ? formatSurface(a.area) : '—'}</TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {a.salePrice ? formatCurrency(a.salePrice) : a.salePriceFloor ? `${formatCurrency(a.salePriceFloor)} (plancher)` : '—'}
+                        {libellePrix(a.salePrice, a.salePriceFloor) ?? '—'}
                       </TableCell>
                       <TableCell>
                         <Badge tone={a.statut === 'DISPONIBLE' ? 'success' : 'neutral'}>{a.statut === 'DISPONIBLE' ? 'Disponible' : 'Occupé'}</Badge>

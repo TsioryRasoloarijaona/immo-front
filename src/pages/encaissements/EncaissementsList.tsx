@@ -16,7 +16,6 @@ import {
   DEFAULT_PAGE_SIZE,
   listEncaissements,
   listEncaissementsGroupes,
-  listTranches,
   type EncaissementChampDate,
 } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
@@ -30,16 +29,15 @@ import {
   useComptesReferentiel,
   useDepotsReferentiel,
   useEntitesReferentiel,
+  useTranchesFiltre,
   useTypesReglement,
 } from '../../lib/referentiels';
-// `formatCurrency`/`formatDate` ne sont plus importés ici : DataGrid formate
-// lui-même selon le `type` de colonne (MONTANT, DATE), ce qui garantit que les
-// neuf écrans de liste formatent identiquement.
 import { ENCAISSEMENT_ETAT_LABELS, encaissementEtatLabel } from '../../lib/domain';
 import { debutMoisISO, finMoisISO } from '../../lib/format';
 import type { EncaissementDto } from '../../types';
 
 type ComptabiliseFilter = 'all' | 'yes' | 'no';
+const COMPTABILISE_PARAM: Record<ComptabiliseFilter, boolean | undefined> = { all: undefined, yes: true, no: false };
 type ChampDate = EncaissementChampDate;
 
 const ETAT_ITEMS: { label: string; value: string }[] = Object.entries(ENCAISSEMENT_ETAT_LABELS).map(([value, label]) => ({ label, value }));
@@ -76,28 +74,18 @@ export default function EncaissementsList() {
   const [trancheId, setTrancheId] = useState<string[]>([]);
   const [comptabilise, setComptabilise] = useState<ComptabiliseFilter>('all');
   const [champDate, setChampDate] = useState<ChampDate>('DATE_PIECE');
-  /* Par défaut le mois courant, comme toutes les listes à période (décision
-     utilisateur du 28/09). Vider les deux champs rend tout l'historique. */
   const [dateDebut, setDateDebut] = useState(debutMoisISO);
   const [dateFin, setDateFin] = useState(finMoisISO);
   const [montantDe, setMontantDe] = useState('');
   const [montantA, setMontantA] = useState('');
   const [page, setPage] = useState(0);
 
-  /* Le catalogue remplace les dix colonnes que cet écran déclarait en dur.
-     `masquees` y pèse plus qu'ailleurs : sept des vingt-sept colonnes servies
-     par défaut sont des clés UUID — voir `DISPOSITION_ENCAISSEMENTS`. */
+  // Plusieurs colonnes servies par défaut sont des clés UUID : voir `DISPOSITION_ENCAISSEMENTS`.
   const catalogue = useColonnesEncaissements();
   const colonnes = useColonnesVisibles('encaissements', catalogue.data, DISPOSITION_ENCAISSEMENTS);
-  /* `undefined` tant que la sélection ne s'écarte pas des défauts — le hook
-     porte cette règle. Elle pèse ici : mesuré, les 27 colonnes par défaut
-     coûtent 572–694 ms sur une page de 20, une sélection de 16 en coûte
-     307–378. Décocher allège vraiment la requête. */
   const colonnesDemandees = colonnes.demandees;
 
-  /* Changer d'axe de groupement, d'ordre ou de granularité change le jeu de
-     résultats : rester page 7 en passant de 38 groupes à 5 afficherait un
-     écran vide sans rien qui l'explique. */
+  // Changer d'axe de groupement change le jeu de résultats : retour page 0, sinon écran vide.
   const groupement = useGroupement(
     'encaissements',
     catalogue.data,
@@ -134,14 +122,11 @@ export default function EncaissementsList() {
     setDateFin('');
   }
 
-  // Drives the empty state's wording and its escape hatch — see ArticlesList.
   // Les dates se comparent au défaut (le mois courant), pas au vide.
   const hasActiveFilters =
     !!search || !!reference || entiteId.length > 0 || typeId.length > 0 || etat.length > 0 || !!compteId || !!depotId || trancheId.length > 0 || comptabilise !== 'all' || champDate !== 'DATE_PIECE' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || !!montantDe || !!montantA;
 
-  /* Les filtres serveur, **mot pour mot les mêmes** pour la liste et pour les
-     groupes. C'est la condition de l'invariant qui rend l'écran lisible : la
-     somme des effectifs des groupes égale le total de la liste. */
+  // Mêmes filtres pour la liste et les groupes : la somme des effectifs doit égaler le total.
   const filtresServeur = {
           search: debouncedSearch || undefined,
           reference: reference || undefined,
@@ -151,7 +136,7 @@ export default function EncaissementsList() {
           trancheId: trancheId.length > 0 ? trancheId : undefined,
           compteId: compteId || undefined,
           depotId: depotId || undefined,
-          comptabilise: comptabilise === 'yes' ? true : comptabilise === 'no' ? false : undefined,
+          comptabilise: COMPTABILISE_PARAM[comptabilise],
           champDate: dateDebut || dateFin ? champDate : undefined,
           dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
           dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
@@ -159,9 +144,6 @@ export default function EncaissementsList() {
           montantA: montantA ? Number(montantA) : undefined,
   };
 
-  /* Une liste repliée reste **une seule** grille : les en-têtes de groupe s'y
-     intercalent et chacun s'ouvre sur place. La pagination du bas numérote
-     alors les groupes, et chaque groupe pagine ses propres lignes par lots. */
   const enGroupes = groupement.actif;
 
   const clesFiltres = [
@@ -191,7 +173,6 @@ export default function EncaissementsList() {
     'encaissements',
   );
 
-  /* Pas de `colonnes` ici : un groupe ne porte pas de ligne. */
   const groupes = useApi(
     () =>
       enGroupes && groupement.paramsGroupes
@@ -201,17 +182,12 @@ export default function EncaissementsList() {
     'encaissements-groupes',
   );
 
-  /* Les lignes d'un groupe déplié : le **même endpoint que la liste**,
-     restreint par `groupeColonne`/`groupeValeur`/`granularite`. Mêmes colonnes
-     demandées — une ligne doit se lire pareil dépliée ou à plat. */
   const lignesGroupes = useLignesGroupes<EncaissementDto>(
     (cle, taille) =>
       listEncaissements(
         filtresServeur,
-        /* Tri déterministe : « en charger davantage » redemande la page 0 avec
-           une taille plus grande, ce qui suppose que le lot précédent en soit
-           le préfixe. Sans départage, ce n'est pas garanti — voir le même
-           `sort` sur les trois autres écrans. */
+        /* `id,asc` départage les dates ex æquo : « en charger davantage » redemande
+           la page 0 plus grande et suppose que le lot précédent en soit le préfixe. */
         { page: 0, size: taille, sort: ['docDate,desc', 'id,asc'] },
         { colonnes: colonnesDemandees, depliage: groupement.depliagePour(cle) },
       ),
@@ -220,17 +196,13 @@ export default function EncaissementsList() {
 
   const data = liste.data;
   const rows = data?.content ?? [];
-  /** La page qui pilote le décompte et la pagination — groupes ou lignes. */
   const pageAffichee = enGroupes ? groupes.data : liste.data;
   const loading = enGroupes ? groupes.loading : liste.loading;
   const error = enGroupes ? groupes.error : liste.error;
   const vide = enGroupes ? (groupes.data?.content.length ?? 0) === 0 : rows.length === 0;
 
-  /* Même source que les filtres Tranche des écrans Dossiers et Prospections :
-     un seul appel, 16 tranches dans le portefeuille réel, et `size: 500` pour
-     ne pas dépendre de la pagination. Indépendant de la requête principale. */
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({
+  const tranches = useTranchesFiltre();
+  const trancheItems = tranches.data.map((t) => ({
     label: t.description || t.code || t.id,
     value: t.id,
   }));
@@ -273,10 +245,8 @@ export default function EncaissementsList() {
               <MultiSelectDropdown label="Entité" placeholder="Toutes" value={entiteId} onChange={(v) => resetAndSet(setEntiteId, v)} items={entiteItems} />
               <MultiSelectDropdown label="Type" placeholder="Tous" value={typeId} onChange={(v) => resetAndSet(setTypeId, v)} items={typeItems} />
               <MultiSelectDropdown label="État" placeholder="Tous" value={etat} onChange={(v) => resetAndSet(setEtat, v)} items={ETAT_ITEMS} />
-              {/* Le filtre traverse règlement → ligne → échéance → article :
-                  un règlement remonte dès qu'une seule de ses échéances porte
-                  sur un lot de la tranche, et un règlement à cheval sur deux
-                  tranches remonte pour les deux. */}
+              {/* Un règlement remonte dès qu'une de ses échéances porte sur un lot de
+                  la tranche : à cheval sur deux tranches, il remonte pour les deux. */}
               <MultiSelectDropdown label="Tranche" placeholder="Toutes" value={trancheId} onChange={(v) => resetAndSet(setTrancheId, v)} items={trancheItems} />
               <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
                 <RotateCcw data-icon="inline-start" /> Réinitialiser
@@ -346,9 +316,8 @@ export default function EncaissementsList() {
             </div>
         </div>
 
-        {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul par
-            construction, si bien qu'un test sur lui rallumerait l'état de
-            chargement plein écran par-dessus des groupes déjà affichés. */}
+        {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul, le
+            chargement plein écran se rallumerait par-dessus les groupes. */}
         {loading && !pageAffichee && <LoadingState />}
         {error && <ErrorState message={error} />}
         {!error && pageAffichee && (
@@ -360,18 +329,9 @@ export default function EncaissementsList() {
                   ? `${pageAffichee.totalElements} groupe${pageAffichee.totalElements > 1 ? 's' : ''}`
                   : `${pageAffichee.totalElements} encaissement${pageAffichee.totalElements > 1 ? 's' : ''}`}
               </span>
-              {/* Pourquoi cette mention est ici plutôt que nulle part.
-                  Un règlement encaissé mais pas encore imputé à une échéance
-                  n'a aucune ligne, donc ne satisfait pas le critère « rattaché
-                  à une échéance de dossier de vente » sur lequel la liste
-                  repose : l'API ne le sert jamais, aucun filtre ne le
-                  ramènera. L'écran légataire, lui, les affiche.
-
-                  Sans cette phrase, un opérateur qui compare les deux totaux
-                  constate un écart et conclut à un bug. Le chiffre n'est pas
-                  repris — le spec l'établit à 16 pièces pour 6 435 400 DH,
-                  mais cette liste ne les voit pas et l'afficher reviendrait à
-                  recopier une mesure qu'on ne peut pas rafraîchir. */}
+              {/* Un règlement non imputé n'a aucune ligne : l'API ne le sert jamais, alors
+                  que l'écran légataire l'affiche. Sans cette mention, l'écart des totaux
+                  passerait pour un bug. */}
               <span className="inline-flex items-center gap-1 text-micro text-muted-foreground">
                 <Info aria-hidden className="size-3 shrink-0" />
                 Les règlements pas encore imputés à une échéance ne figurent pas dans cette liste.
@@ -387,15 +347,10 @@ export default function EncaissementsList() {
               />
             )}
             </div>
-            {/* La bande est **hors** du test « y a-t-il des lignes » : un groupe
-                qui ne rend rien doit garder sa sortie vers les groupes, sinon
-                l'écran est sans issue. */}
+            {/* La bande reste hors du test « vide » : un groupe vide garde sa sortie. */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} />
               {vide ? (
-                /* Sans filtre actif la liste est bornée au mois courant : un
-                   résultat vide veut dire « rien ce mois-ci », pas « rien
-                   d'enregistré » — d'où la sortie vers toutes les périodes. */
                 <EmptyState
                   title={hasActiveFilters ? 'Aucun résultat' : 'Rien ce mois-ci'}
                   message={
@@ -415,14 +370,10 @@ export default function EncaissementsList() {
                     )
                   }
                 />
-              ) : /* Le catalogue porte les libellés d'en-tête : sans lui il n'y
-                     a pas de tableau à dessiner, seulement des lignes sans
-                     colonnes. Mis en cache au niveau du module. */
+              ) :
               colonnes.colonnes.length > 0 ? (
                 <EncaissementTable
                   cleOrdre="encaissements"
-                  /* En mode groupé la grille ne lit pas `rows` : chaque groupe
-                     porte ses propres lignes. */
                   rows={enGroupes ? [] : rows}
                   colonnes={colonnes.colonnes}
                   onOuvrir={(id) => navigate(`/encaissements/${id}`)}
@@ -435,9 +386,6 @@ export default function EncaissementsList() {
                           libelleGroupe:
                             groupement.colonneGroupee.nom === 'etat' ? encaissementEtatLabel : undefined,
                           agregats: groupement.agregatsActifs,
-                          /* Les totaux plein périmètre, servis par l'enveloppe.
-                             Sans eux, un total de bas de grille ne pourrait
-                             porter que sur les groupes ouverts. */
                           totaux: groupes.data?.totaux ?? {},
                           nombreTotal: groupes.data?.nombreTotal ?? 0,
                           estOuvert: lignesGroupes.estOuvert,

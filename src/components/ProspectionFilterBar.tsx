@@ -6,14 +6,6 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from './ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { emptyProspectionFilters, type ProspectionFilterBarState } from '../lib/domain';
 
-/**
- * Shared filter bar for Prospections / Pré-prospections — same Dossiers-style
- * layout (single-row Card, dropdown multi-selects, date range, Réinitialiser)
- * applied to the prospection side of the pipeline. Every field here is a
- * real server-side param on both `/api/prospections` and
- * `/api/pre-prospections` (see ProspectionFilterParams in lib/api.ts).
- */
-
 export default function ProspectionFilterBar({
   state,
   onChange,
@@ -25,22 +17,15 @@ export default function ProspectionFilterBar({
   defauts,
 }: {
   state: ProspectionFilterBarState;
-  /** Ce que rend « Réinitialiser ». À passer quand les défauts de l'écran
-   * dépendent de la session — la liste des prospections y met le commercial
-   * connecté. Sans lui : `emptyProspectionFilters()`. */
+  /** À passer quand les défauts dépendent de la session (commercial connecté). */
   defauts?: ProspectionFilterBarState;
-  /** Called with the field to patch already reset to page 0 by the caller (via `set`). */
+  /** Le parent remet lui-même la page à 0 (via `set`). */
   onChange: <K extends keyof ProspectionFilterBarState>(key: K, value: ProspectionFilterBarState[K]) => void;
   etapeItems: { label: string; value: string }[];
   origineItems: { label: string; value: string }[];
   commercialItems: { label: string; value: string }[];
   trancheItems: { label: string; value: string }[];
-  /** Contrôle supplémentaire, rendu juste avant « Réinitialiser ».
-   *
-   * Sert au volet de filtres avancés, qui n'existe que côté prospections :
-   * `/api/pre-prospections` n'accepte pas ces paramètres, et l'écran des
-   * pré-prospections passe donc simplement rien ici plutôt que d'afficher un
-   * bouton sans effet. */
+  /** Vide côté pré-prospections : `/api/pre-prospections` n'accepte pas les filtres avancés. */
   extra?: ReactNode;
 }) {
   /* Le nom du filtre est dans chaque libellé : le déclencheur n'affiche que la
@@ -57,9 +42,6 @@ export default function ProspectionFilterBar({
   }
 
   return (
-    /* Toolbar nue (modernisation 20/09, référence Uxerflow) : les filtres
-       vivent directement sur la feuille — chaque contrôle porte son propre
-       liseré, la boîte Card autour ne faisait qu'ajouter un cadre au cadre. */
     <div className="flex shrink-0 flex-wrap items-center gap-2">
         <InputGroup className="min-w-55 flex-1">
           <InputGroupAddon>

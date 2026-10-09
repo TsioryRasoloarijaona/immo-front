@@ -10,14 +10,14 @@ import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import ProspectionTable from '../../components/ProspectionTable';
 import BandeGroupement from '../../components/BandeGroupement';
 import { useActionsLigneProspection } from '../../components/ActionsLigneProspection';
-import { DEFAULT_PAGE_SIZE, listPreProspections, listPreProspectionsGroupes, listTranches } from '../../lib/api';
+import { DEFAULT_PAGE_SIZE, listPreProspections, listPreProspectionsGroupes } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { useGroupement, useLignesGroupes } from '../../lib/groupement';
 import type { ProspectionListItemDto } from '../../types';
 import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { useColonnesProspections, useOriginesProspection } from '../../lib/referentiels';
+import { useColonnesProspections, useOriginesProspection, useTranchesFiltre } from '../../lib/referentiels';
 import {
   PIPELINE_STAGES,
   emptyProspectionFilters,
@@ -32,22 +32,9 @@ const ETAPE_ITEMS = [
   { label: 'Affaires à suivre', value: 'AFFAIRES A SUIVRE' },
 ];
 
-// Pré-prospections are raw, not-yet-qualified leads — Omran stores them in
-// the same table as qualified Prospections (see CLAUDE.md) but this app
-// treats the two as fully separate sections/routes, not tabs on one page,
-// since they're different workflows (a pré-prospection has to go through
-// "créer la fiche prospect" before it becomes a real Prospection). Same
-// filter bar and real server-side filtering as ProspectionsList/DossiersList
-// — GET /api/pre-prospections accepts the same param set as
-// /api/prospections as of the docs/api-docsV4.json 88-route revision.
-
-/* Chargée à la demande, comme la nouvelle prospection : une dizaine de
-   référentiels que la liste seule n'a pas à payer. */
 const NouvellePreProspectionDialog = lazy(() => import('./NewPreProspection'));
 
-/* `nouveau` vient de la route `/pre-prospections/nouveau` — la liste avec la
-   boîte de saisie ouverte par-dessus, même convention que `/prospections/nouveau`. */
-export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } = {}) {
+export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: boolean }> = {}) {
   const navigate = useNavigate();
   const { commerciaux } = useAppData();
   const origines = useOriginesProspection();
@@ -55,25 +42,13 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
   const [filters, setFilters] = useState<ProspectionFilterBarState>(emptyProspectionFilters());
   const debouncedSearch = useDebouncedValue(filters.search);
   const [page, setPage] = useState(0);
-  // `GET /api/pre-prospections` **n'accepte pas `?colonnes=`** : il sert
-  // toujours les colonnes historiques. Les groupes ACTIVITE et CONVERSION
-  // viennent d'une vue légataire qui exclut les pré-prospections par
-  // construction — les proposer ici serait offrir des colonnes vides. Le
-  // catalogue est donc filtré, et rien n'est envoyé au serveur.
+  // `GET /api/pre-prospections` n'accepte pas `?colonnes=`. ACTIVITE et CONVERSION viennent d'une vue
+  // légataire qui exclut les pré-prospections (colonnes vides, refusées au groupement) : écartées ici,
+  // pas dans la disposition partagée avec les prospections.
   const catalogue = useColonnesProspections();
-  // Filtre par *groupe*, posé ici et non dans la disposition : celle-ci est
-  // partagée avec les prospections, qui servent bien ces deux groupes. Il se
-  // compose avec le filtre par nom que le hook applique ensuite.
   const catalogueUtile = catalogue.data.filter((c) => c.groupe !== 'ACTIVITE' && c.groupe !== 'CONVERSION');
-  // Clé distincte de celle des prospections : même DTO, mais les colonnes
-  // utiles ne sont pas les mêmes sur un lead non qualifié.
   const colonnes = useColonnesVisibles('pre-prospections', catalogueUtile, DISPOSITION_PROSPECTIONS);
 
-  /* Le groupement lit `catalogueUtile` et non le catalogue brut : ACTIVITE et
-     CONVERSION sont écartés ici pour la même raison que pour les colonnes, et
-     le serveur les refuse de toute façon au groupement — elles viennent d'une
-     vue qui exclut les pré-prospections. Deux barrières qui disent la même
-     chose, dont une seule suffirait ; c'est la moins chère à maintenir. */
   const groupement = useGroupement(
     'pre-prospections',
     catalogueUtile,
@@ -85,8 +60,7 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
     setFilters((f) => ({ ...f, [key]: value }));
   }
 
-  /* Mêmes filtres des deux côtés : c'est la condition pour que la somme des
-     effectifs des groupes égale le total de la liste. */
+  // Mêmes filtres pour la liste et les groupes : la somme des effectifs doit égaler le total.
   const filtresServeur = {
     search: debouncedSearch || undefined,
     etape: filters.etape.length > 0 ? filters.etape : undefined,
@@ -98,9 +72,6 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
     ouvertes: ouvertesDepuisArchive(filters.archive),
   };
 
-  /* Une liste repliée reste **une seule** grille : les en-têtes de groupe s'y
-     intercalent et chacun s'ouvre sur place. La pagination du bas numérote
-     alors les groupes, et chaque groupe pagine ses propres lignes par lots. */
   const enGroupes = groupement.actif;
 
   const clesFiltres = [
@@ -133,33 +104,18 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
     'pre-prospections-groupes',
   );
 
-  /* Les lignes d'un groupe déplié : le **même endpoint que la liste**,
-     restreint par `groupeColonne`/`groupeValeur`/`granularite`. Mêmes colonnes
-     demandées — une ligne doit se lire pareil dépliée ou à plat.
-
-     La clé de remise à zéro comprend les filtres, l'axe de groupement et la
-     page : dans les trois cas les groupes affichés changent, et des lignes
-     déjà chargées appartiendraient à des en-têtes qui ne sont plus là. */
   const lignesGroupes = useLignesGroupes<ProspectionListItemDto>(
     (cle, taille) =>
       listPreProspections(
         filtresServeur,
-        /* Tri **déterministe**, et c'est une exigence du chargement par lots,
-           pas une préférence : « en charger davantage » redemande la page 0
-           avec une taille plus grande, ce qui suppose que le lot précédent en
-           soit le préfixe. Mesuré sans départage, il ne l'est pas toujours —
-           le groupe « 2024 » des dossiers ressortait dans un ordre différent
-           d'un appel à l'autre, les dates ex æquo étant départagées par le
-           plan SQL du moment. `id` tranche. */
+        /* `id,asc` départage les dates ex æquo : « en charger davantage » redemande
+           la page 0 plus grande et suppose que le lot précédent en soit le préfixe. */
         { page: 0, size: taille, sort: ['docDate,desc', 'id,asc'] },
         { depliage: groupement.depliagePour(cle) },
       ),
     `${clesFiltres.join('|')}|${groupement.cleDeps}`,
   );
 
-  /* Le menu « ⋯ » de chaque ligne — voir ProspectionsList, même mécanique.
-     Ici l'item de conversion est « Transformer en prospect » : toutes les
-     lignes de cette liste sont sans prospect lié par définition. */
   const actionsLigne = useActionsLigneProspection({
     entite: 'pré-prospection',
     onMutation: () => {
@@ -170,15 +126,14 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
 
   const data = liste.data;
   const rows = data?.content ?? [];
-  /** La page qui pilote le décompte et la pagination — groupes ou lignes. */
   const pageAffichee = enGroupes ? groupes.data : liste.data;
   const loading = enGroupes ? groupes.loading : liste.loading;
   const error = enGroupes ? groupes.error : liste.error;
   const vide = enGroupes ? (groupes.data?.content.length ?? 0) === 0 : rows.length === 0;
 
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
-  // See ProspectionsList.tsx — filter on `code`, not `description`.
+  const tranches = useTranchesFiltre();
+  const trancheItems = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  // `origine` porte le code du référentiel : filtrer sur `code`, pas `description`.
   const origineItems = origines.data.map((o) => ({ label: o.description || o.code || o.id, value: o.code || o.id }));
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
 
@@ -192,8 +147,6 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
       accentBg="var(--sec-preprospection-bg)"
       actions={
         <>
-          {/* L'import est une page, pas une boîte : un rapport de plusieurs
-              milliers de lignes veut toute la largeur. */}
           <Button type="button" size="sm" variant="outline" onClick={() => navigate('/pre-prospections/import')}>
             <Upload data-icon="inline-start" /> Importer des leads
           </Button>
@@ -213,10 +166,8 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
           trancheItems={trancheItems}
         />
 
-        {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul par
-            construction, si bien qu'un test sur lui rallumerait l'etat de
-            chargement plein ecran a chaque changement de granularite — par
-            dessus des groupes deja affiches. */}
+        {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul, le
+            chargement plein écran se rallumerait par-dessus les groupes. */}
         {loading && !pageAffichee && <LoadingState />}
         {error && <ErrorState message={error} />}
         {!error && pageAffichee && (
@@ -237,18 +188,11 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
                 />
               )}
             </div>
-            {/* `min-w-0` : voir ProspectionsList — sans lui la largeur de la
-                table remonte la chaîne flex et élargit la page entière.
-
-                La bande et le fil d'Ariane sont **hors** du test « y a-t-il des
-                lignes » : un groupe qui ne rend rien doit garder sa sortie vers
-                les groupes. */}
+            {/* `min-w-0` : sans lui la largeur de la table remonte la chaîne flex et
+                élargit la page. La bande reste hors du test « vide » : sinon sans issue. */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} />
               {vide ? (
-                /* Sans filtre actif la liste est bornée au mois courant : un
-                   résultat vide veut dire « rien ce mois-ci », pas « rien
-                   d'enregistré » — d'où la sortie vers toutes les périodes. */
                 <EmptyState
                   title={hasActiveProspectionFilters(filters) ? 'Aucun résultat' : 'Rien ce mois-ci'}
                   message={
@@ -287,8 +231,6 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
               ) : colonnes.colonnes.length > 0 ? (
                 <ProspectionTable
                   cleOrdre="pre-prospections"
-                  /* En mode groupé la grille ne lit pas `rows` : chaque groupe
-                     porte ses propres lignes. */
                   rows={enGroupes ? [] : rows}
                   colonnes={colonnes.colonnes}
                   entite="pré-prospection"
@@ -301,9 +243,6 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
                           liste: groupes.data?.content ?? [],
                           colonneLibelle: groupement.colonneGroupee.libelle,
                           agregats: groupement.agregatsActifs,
-                          /* Les totaux plein périmètre, servis par l'enveloppe.
-                             Sans eux, un total de bas de grille ne pourrait
-                             porter que sur les groupes ouverts. */
                           totaux: groupes.data?.totaux ?? {},
                           nombreTotal: groupes.data?.nombreTotal ?? 0,
                           estOuvert: lignesGroupes.estOuvert,
@@ -322,8 +261,6 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
               )}
             </div>
             <div className="shrink-0">
-              {/* Une seule pagination, et elle numérote ce qui est à l'écran :
-                  les groupes quand la liste est repliée, les lignes sinon. */}
               <Pagination
                 page={pageAffichee.page}
                 totalPages={pageAffichee.totalPages}
@@ -335,9 +272,8 @@ export default function PreProspectionsList({ nouveau }: { nouveau?: boolean } =
         )}
       </div>
 
-      {/* `fallback={null}` : le voile de la modale suffit pendant les quelques
-          millisecondes du chargement du lot. La fermeture rafraîchit la liste :
-          une création avec doublons se ferme ici sans naviguer vers la fiche. */}
+      {/* La fermeture rafraîchit la liste : une création avec doublons se ferme
+          ici sans naviguer vers la fiche. */}
       {nouveau && (
         <Suspense fallback={null}>
           <NouvellePreProspectionDialog

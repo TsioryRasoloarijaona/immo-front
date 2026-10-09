@@ -5,7 +5,7 @@ import DataGrid, { type ColonneGrille } from '../../../components/DataGrid';
 import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion, StatCard } from '../../../components/ui';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
-import { formatCurrency } from '../../../lib/format';
+import { formatCurrency, formatNumber } from '../../../lib/format';
 import { useApi, useDebouncedValue } from '../../../lib/useApi';
 import { listerOrdres, supprimerOrdre } from '../../../lib/virements';
 import CadreVirements, { ChoixSimple, type ContexteCharge } from './CadreVirements';
@@ -36,9 +36,8 @@ export default function HistoriqueVirements() {
   );
 }
 
-/** Historique (§6) : chiffres, ventilation par société et tableau — tous
- * tirés de la réponse du serveur, qui les calcule sous les mêmes filtres. */
-function Historique({ ctx }: { ctx: ContexteCharge }) {
+/** Chiffres et ventilation viennent de la réponse serveur, calculés sous les mêmes filtres : ne pas les recalculer. */
+function Historique({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   const { meta, moi, revision } = ctx;
   const toasts = useNotification();
   const [confirmation, demander] = useConfirmation();
@@ -179,18 +178,15 @@ function Historique({ ctx }: { ctx: ContexteCharge }) {
         )}
       </div>
 
-      {error && !data ? (
-        <ErrorState message={error} />
-      ) : !data ? (
-        <LoadingState />
-      ) : (
+      {!data && (error ? <ErrorState message={error} /> : <LoadingState />)}
+      {data && (
         <ResultsRegion loading={loading}>
           <div className="grid shrink-0 gap-3 sm:grid-cols-3">
-            <StatCard label={nb > 1 ? 'Ordres' : 'Ordre'} value={String(nb)} icon={<FileText />} />
+            <StatCard label={nb > 1 ? 'Ordres' : 'Ordre'} value={formatNumber(nb)} icon={<FileText />} />
             <StatCard label="Total viré, toutes sociétés" value={formatCurrency(data.total_montant)} icon={<Banknote />} />
             <StatCard
               label={data.nb_incomplets > 1 ? 'Dossiers à compléter' : 'Dossier à compléter'}
-              value={String(data.nb_incomplets)}
+              value={formatNumber(data.nb_incomplets)}
               icon={<AlertTriangle />}
               tone={data.nb_incomplets > 0 ? 'amber' : 'neutral'}
             />

@@ -5,39 +5,14 @@ import { cn } from '../lib/utils';
 export type OngletFiche = {
   id: string;
   libelle: string;
-  /** Pastille de comptage à droite du libellé. `undefined` n'en affiche pas —
-   * distinct de `0`, qui en affiche une à zéro. */
+  /** `undefined` : pas de pastille ; `0` : onglet atténué. */
   compteur?: number;
   contenu: ReactNode;
 };
 
-/** Disposition commune aux fiches prospection, pré-prospection, dossier et
- * encaissement : un formulaire dense, puis une zone à onglets. L'identité et
- * les actions sont au-dessus, dans les deux lignes de `CadreFiche` ; le haut
- * vise ~35 % de la hauteur, le bas ~65 % (voir docs/FEATURE-fiche-equilibre.md).
- * Le tout **tient dans une page** — le commercial lit et corrige sans jamais
- * faire défiler la fiche.
- *
- * Le premier onglet porte l'**état** du document — parcours de statut sur un
- * dossier, étape du pipeline sur une prospection — et s'ouvre par défaut. Le
- * loger dans un onglet lui rend la ligne qu'il occupait en permanence dans la
- * bande d'identité sans être toujours relu : utile les premiers jours d'un
- * dossier, jamais ensuite.
- *
- * Il reste **sous** le formulaire, et pas au-dessus : la zone à onglets est
- * celle qui absorbe la hauteur restante, donc la mettre en premier repoussait
- * le formulaire vers le bas de l'écran à mesure qu'un onglet se remplissait.
- * L'identité et les termes du document d'abord, ce qui s'y rattache ensuite.
- *
- * La contrainte se tient en une phrase : **le document ne défile pas, seul le
- * contenu d'onglet le fait.** D'où `fullHeight` sur `PageShell` côté appelant,
- * `min-h-0` sur toute la chaîne flex — sans lui un enfant refuse de rétrécir
- * sous sa taille intrinsèque et repousse le bas de la page hors du viewport —
- * et `overflow-auto` sur le seul panneau d'onglet.
- *
- * Ce qui est repris d'Omran : les trois bandes, la densité, l'ordre de lecture.
- * Ce qui ne l'est pas : les biseaux 3D, les champs jaunes, la barre d'icônes
- * muettes. La densité est une contrainte de métier, pas une esthétique. */
+/** Seul le contenu d'onglet défile, jamais le document : `fullHeight` sur `PageShell` côté
+ * appelant, et `min-h-0` sur toute la chaîne flex, sans quoi un enfant refuse de rétrécir
+ * et repousse le bas de la page hors de l'écran. */
 export default function FicheShell({
   identite,
   formulaire,
@@ -47,27 +22,12 @@ export default function FicheShell({
   onOngletChange,
   barreAction,
 }: {
-  /** Bandeaux d'exception au-dessus du formulaire (marqueur de tri, dossier
-   * issu, dossier tout juste créé). L'identité elle-même vit dans la ligne de
-   * titre (`CadreFiche`). */
   identite?: ReactNode;
-  /** Le formulaire dense. Hauteur naturelle — il ne défile pas, c'est ce qui
-   * oblige à le garder court. */
   formulaire: ReactNode;
-  /** Panneau à droite du formulaire, sur la même ligne.
-   *
-   * Le logiciel de bureau n'en pose un que sur la fiche **dossier**, et pour
-   * une raison précise : la synthèse Montant / Réglé / Reste doit rester lisible
-   * pendant qu'on parcourt l'échéancier du bas. Deux zones d'onglets sur un
-   * même écran ne se justifient que là — les fiches prospection et
-   * pré-prospection n'ont rien à y mettre et ne passent pas cette prop. */
   panneau?: ReactNode;
   onglets: OngletFiche[];
   ongletActif: string;
   onOngletChange: (id: string) => void;
-  /** Barre d'enregistrement, montée seulement quand quelque chose a changé.
-   * Posée entre le formulaire et les onglets : au contact des champs qu'elle
-   * enregistre, plutôt qu'en pied de page hors du regard. */
   barreAction?: ReactNode;
 }) {
   return (
@@ -75,10 +35,7 @@ export default function FicheShell({
       {identite && <div className="shrink-0">{identite}</div>}
 
       {panneau ? (
-        /* `items-stretch` : le panneau prend la hauteur du formulaire plutôt
-           que la sienne, sinon la synthèse flotte au-dessus d'un vide quand le
-           formulaire est plus haut qu'elle. `min-w-0` des deux côtés — un
-           tableau de montants large élargirait autrement la colonne. */
+        /* `min-w-0` des deux côtés : un tableau de montants large élargirait sinon la colonne. */
         <div className="grid shrink-0 items-stretch gap-2.5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <div className="min-w-0">{formulaire}</div>
           <div className="min-w-0">{panneau}</div>
@@ -100,9 +57,8 @@ export default function FicheShell({
           <TabsContent
             key={o.id}
             value={o.id}
-            /* Le seul endroit qui défile de toute la fiche. `min-w-0` en plus
-               de `min-h-0` : un tableau large remonterait autrement la chaîne
-               flex et élargirait la page au lieu de défiler. */
+            /* `min-w-0` en plus de `min-h-0` : un tableau large remonterait sinon la
+               chaîne flex et élargirait la page au lieu de défiler. */
             className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card"
           >
             {o.contenu}
@@ -113,10 +69,7 @@ export default function FicheShell({
   );
 }
 
-/** La barre d'onglets des fiches : soulignement à l'accent sous l'onglet
- * actif, compteur sur chaque onglet de collection. Un compteur à zéro n'a pas
- * de pastille et atténue l'onglet — une pastille « 0 » se lisait comme du
- * contenu. À poser dans un `Tabs`. */
+// À poser dans un `Tabs` : `TabsList` en lit le contexte.
 export function OngletsLigne({ onglets }: { onglets: Pick<OngletFiche, 'id' | 'libelle' | 'compteur'>[] }) {
   return (
     <TabsList
@@ -153,9 +106,6 @@ export function OngletsLigne({ onglets }: { onglets: Pick<OngletFiche, 'id' | 'l
   );
 }
 
-/** La ligne de résumé en tête de l'onglet d'activité : quelques faits
- * (`ElementResume`) puis l'action la plus fréquente de l'onglet, à droite,
- * juste au-dessus du tableau. */
 export function LigneActivite({ children, action }: { children?: ReactNode; action?: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-body text-muted-foreground">

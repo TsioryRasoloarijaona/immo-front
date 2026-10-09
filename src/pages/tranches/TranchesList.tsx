@@ -7,16 +7,11 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { listProjets, listProjetTranches } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { formatDate } from '../../lib/format';
+import { formatDate, formatNumber } from '../../lib/format';
 import type { TrancheListItemDto } from '../../types';
 
-// No flat "/api/tranches" list endpoint exists — tranches only come back
-// nested under a projet (GET /api/projets/{id}/tranches). This page
-// aggregates across every projet so "Tranches" in the sidebar still shows
-// the full portfolio in one place; see ProjetsList for the drill-down view.
-// Both levels are fetched with a generous page size (large enough for the
-// whole real-world portfolio) rather than exposing nested pagination
-// controls for an aggregate view — that would be awkward UX here.
+// `TrancheListItemDto` ne porte pas `projetId` : la colonne Projet impose une requête par projet
+// (`/api/projets/{id}/tranches`). Voir FEATURE-qualite-front.md A12.
 const AGGREGATE_PAGE_SIZE = 200;
 
 export default function TranchesList() {
@@ -66,11 +61,6 @@ export default function TranchesList() {
       accentBg="var(--sec-tranche-bg)"
       fullHeight
     >
-      {/* Redesign 20/09 : l'ancienne grille de cartes rendait cinq
-          informations pour ~120px de hauteur chacune — le pire ratio
-          densité/surface de l'app. Le portefeuille entier tient désormais
-          dans une table à la densité de grille (24px/ligne), triée par le
-          serveur, visible d'un seul regard. */}
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 pt-1">
         <div className="flex shrink-0 items-center gap-3">
           <InputGroup className="max-w-md">
@@ -84,7 +74,7 @@ export default function TranchesList() {
             />
           </InputGroup>
           <span className="text-body text-muted-foreground">
-            {filtered.length} tranche{filtered.length > 1 ? 's' : ''}
+            {formatNumber(filtered.length)} tranche{filtered.length > 1 ? 's' : ''}
           </span>
         </div>
 

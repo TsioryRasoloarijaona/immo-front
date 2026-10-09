@@ -13,18 +13,7 @@ import { personDisplayName } from '../lib/domain';
 import { referentielItems, useTypesRelationContact } from '../lib/referentiels';
 import type { ContactProspectDto, CreerContactProspectRequest, CreerProspectRequest, ProspectListItemDto } from '../types';
 
-/** Le carnet de contacts d'un prospect (conjoint, notaire, apporteur…) —
- * partagé entre la fiche prospect (onglet Contacts) et le détail de la
- * prospection (onglet Contacts, sous la fiche tiers), qui appellent chacun
- * leur propre endpoint et passent ici l'état + les gestes.
- *
- * L'ajout suit le flux OMRAN de la spec du 21/09 : la personne-contact est
- * soit un tiers **existant** (recherche puis clic, même geste que le
- * sélecteur de prospect de NewProspection), soit **créée à la volée**
- * (`nouveauContact` — le backend insère le CfgTier puis le lien
- * CfgTierContact dans le même appel). Le type de relation est obligatoire
- * (400 sans lui) : pas d'option « non renseigné », et le bouton reste grisé
- * tant qu'il manque. */
+// Type de relation obligatoire (400 sans lui) : pas d'option « non renseigné ».
 export default function ContactsProspect({
   contacts,
   onAdd,
@@ -32,8 +21,7 @@ export default function ContactsProspect({
 }: {
   contacts: { data: ContactProspectDto[] | null; loading: boolean; error: string | null };
   onAdd: (body: CreerContactProspectRequest) => Promise<void>;
-  /** Absent quand le contexte ne permet pas le retrait. `linkId` est l'id du
-   * lien CfgTierContact (`ContactProspectDto.id`), pas celui de la personne. */
+  /** `linkId` est l'id du lien CfgTierContact (`ContactProspectDto.id`), pas celui de la personne. */
   onRemove?: (linkId: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);

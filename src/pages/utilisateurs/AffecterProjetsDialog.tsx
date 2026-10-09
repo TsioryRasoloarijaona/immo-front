@@ -6,34 +6,21 @@ import { Button } from '../../components/ui/button';
 import { Badge, ErrorState, LoadingState } from '../../components/ui';
 import { getProjetsUtilisateur, listProjets, remplacerProjetsUtilisateur } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { estExempte } from '../../lib/roles';
 import type { ProjetPerimetreDto } from '../../types';
 
-const EXEMPT_ROLES = new Set(['Administrateur', 'Direction Générale']);
-
-/** Boîte de dialogue "Projets affectés" ouverte depuis une ligne de
- * `UtilisateursList` — même coquille `Modal` que toutes les autres boîtes de
- * création/édition de l'app (`NouvelleOffreDialog`, `CreateProspectForm`,
- * `InteractionForm`) : le parent la monte/démonte conditionnellement plutôt
- * que de lui passer un `open` piloté, donc le formulaire repart toujours
- * propre à l'ouverture sans effet de re-seed.
- *
- * Deux fetches indépendants au montage : la liste des 8 projets (GET
- * /api/projets, référentiel partagé avec le reste de l'app — pas de
- * recherche/pagination nécessaire ici, voir FEATURE-perimetre-commercial.md
- * §7.3) et le périmètre actuel de cet utilisateur (GET
- * /api/utilisateurs/{id}/projets). Les cases à cocher ne s'affichent qu'une
- * fois les deux résolus, pour ne jamais pré-cocher un état obsolète. */
+/* Montée/démontée par le parent (pas de `open` piloté) : le formulaire repart propre.
+   Les cases n'apparaissent qu'une fois projets et périmètre chargés, pour ne jamais
+   pré-cocher un état obsolète. */
 export default function AffecterProjetsDialog({
   user,
   onClose,
   onSaved,
-}: {
+}: Readonly<{
   user: { id: string; label: string; roles?: string[] };
   onClose: () => void;
-  /** Appelé après un PUT réussi — le parent doit rafraîchir sa liste pour
-   * que le badge `nombreProjets` reflète le nouvel état. */
   onSaved: () => void;
-}) {
+}>) {
   const {
     data: projetsPage,
     loading: loadingProjets,
@@ -49,13 +36,8 @@ export default function AffecterProjetsDialog({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Seed the checked set from the real assignment exactly once, the moment
-  // it arrives — adjusting state during render (React's documented pattern
-  // for "derive state from a prop/fetch the first time it's available")
-  // instead of an effect, so it applies synchronously on the same render
-  // rather than one render late, and never re-seeds on a later refetch
-  // (tracked via the object reference, which only ever changes once for
-  // this dialog's lifetime).
+  // Amorcé pendant le rendu, pas dans un effet : appliqué au même rendu, et une seule fois
+  // par référence de réponse, pour ne jamais ré-amorcer sur un refetch.
   const [seededFrom, setSeededFrom] = useState<ProjetPerimetreDto[] | null>(null);
   if (assignedProjets && assignedProjets !== seededFrom) {
     setSeededFrom(assignedProjets);
@@ -72,7 +54,7 @@ export default function AffecterProjetsDialog({
     });
   }
 
-  const isExempt = !!user.roles?.some((r) => EXEMPT_ROLES.has(r));
+  const isExempt = estExempte(user);
   const projets = projetsPage?.content ?? [];
   const error = errorProjets || errorAssigned;
   const loading = loadingProjets || (loadingAssigned && !seeded);
@@ -81,8 +63,7 @@ export default function AffecterProjetsDialog({
     setSaving(true);
     setSaveError(null);
     try {
-      // §9bis.6 — l'API 400 sur un corps sans `projetIds` (absent/null) :
-      // toujours envoyer un tableau explicite, y compris `[]`.
+      // L'API répond 400 sans `projetIds` : toujours un tableau explicite, y compris `[]`.
       await remplacerProjetsUtilisateur(user.id, Array.from(selected));
       onSaved();
       onClose();

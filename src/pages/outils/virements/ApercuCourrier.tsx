@@ -12,9 +12,7 @@ export interface LigneCourrier {
 
 type Jeton = 'societe' | 'compte' | 'montant' | 'beneficiaire';
 
-/** Remplace les `{jetons}` d'une phrase, en gras ceux que la société a
- * demandés. Un jeton inconnu reste tel quel : c'est ce que l'utilisateur a
- * tapé, et le service l'imprimera ainsi. */
+/** Un jeton inconnu reste tel quel : c'est ce que l'utilisateur a tapé, et le service l'imprimera ainsi. */
 function remplir(modele: string, valeurs: Partial<Record<Jeton, string>>, gras: Set<Jeton>): ReactNode[] {
   return modele.split(/(\{\w+\})/g).map((morceau, i) => {
     const m = /^\{(\w+)\}$/.exec(morceau);
@@ -32,14 +30,8 @@ const POLICE: Record<Societe['police'], string> = {
 
 const montantTexte = (m: number | null) => (m != null && m > 0 ? formatNumber(m, 2) : '…');
 
-/** Aperçu HTML du courrier envoyé à la banque — le PDF, lui, est construit
- * par le service (`src/pdf/courrier.js`) et suit le même modèle (§5) :
- * en-tête, banque et lieu-date à droite, objet, salutation, corps, une ligne
- * par bénéficiaire, clôture, signatures, pied de page.
- *
- * **Le papier reste blanc en thème sombre**, volontairement : c'est l'image
- * d'une feuille imprimée, pas une surface d'interface. Format Letter
- * (215,9 × 279,4 mm), marges 25 mm. */
+/** Doit suivre le modèle du PDF construit par le service (`src/pdf/courrier.js`), format Letter.
+ * Le papier reste blanc en thème sombre, volontairement : c'est une feuille imprimée, pas une surface d'interface. */
 export default function ApercuCourrier({
   societe,
   type,
@@ -48,18 +40,16 @@ export default function ApercuCourrier({
   reference,
   logoSrc,
   className,
-}: {
+}: Readonly<{
   societe: Societe | undefined;
-  /** Source de l'image d'en-tête imposée par l'appelant (un logo choisi mais
-   * pas encore déposé, dans la modale Société). Sinon : logo de la société
-   * servi par le service, ou le logo GHRIZA par défaut. */
+  /** Pour un logo choisi mais pas encore déposé ; sinon logo servi par le service, ou celui par défaut. */
   logoSrc?: string;
   type: TypeVirement;
   lignes: LigneCourrier[];
   date: string;
   reference?: string;
   className?: string;
-}) {
+}>) {
   const papier = 'flex aspect-[2159/2794] w-full flex-col rounded-sm bg-white text-[10.5px] leading-[1.5] text-neutral-900 shadow-md';
   if (!societe) {
     return <div className={cn(papier, 'items-center justify-center text-neutral-500', className)}>Aucune société émettrice.</div>;

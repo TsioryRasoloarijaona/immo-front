@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -10,20 +10,21 @@ import { Input } from '../../components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
-import { getTranchesReferentiel, listArticles } from '../../lib/api';
+import { listArticles } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import {
   useCategoriesBien,
   useEntitesReferentiel,
   useEtages,
   useNatures,
+  useTranchesReferentiel,
   useTypesBienReferentiel,
   useVocations,
   referentielItems,
 } from '../../lib/referentiels';
-import { formatCurrency, formatPercent } from '../../lib/format';
+import { formatNumber, formatPercent, formatSurface, libellePrix } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-import type { ArticleListItemDto, ArticleStatut, ReferentielItemDto } from '../../types';
+import type { ArticleListItemDto, ArticleStatut } from '../../types';
 
 type StatutFilter = ArticleStatut | 'all';
 
@@ -33,18 +34,12 @@ const STATUT_ITEMS: { label: string; value: StatutFilter }[] = [
   { label: 'Occupé', value: 'OCCUPE' },
 ];
 
-/** Le libellé d'état seul, sans la pastille — ce sur quoi la grille trie et
- * filtre. Sans lui, la colonne « État » se comparerait au `statut` brut alors
- * que l'utilisateur voit « Libre », « Occupé », ou un statut de dossier. */
+// `valeur` de la colonne « État » : sans lui, tri et filtre compareraient le `statut` brut.
 function articleEtatLabel(a: Pick<ArticleListItemDto, 'statut' | 'dossierId' | 'dossierStatut'>): string {
   if (a.dossierId) return canonicalStatusLabel(a.dossierStatut) || '';
   return a.statut === 'DISPONIBLE' ? 'Libre' : 'Occupé';
 }
 
-/** Colonne « État » — montre le vrai statut du dossier lié (via
- * canonicalStatusLabel/toneForStatus, les mêmes helpers que la pastille de
- * /dossiers/:id) quand l'article est réservé ou vendu ; se rabat sur
- * « Libre »/« Occupé » pour un article sans dossier. */
 function articleEtatBadge(a: Pick<ArticleListItemDto, 'statut' | 'dossierId' | 'dossierStatut'>) {
   if (a.dossierId) {
     const label = canonicalStatusLabel(a.dossierStatut);
@@ -54,7 +49,7 @@ function articleEtatBadge(a: Pick<ArticleListItemDto, 'statut' | 'dossierId' | '
   return <Badge tone="neutral">Occupé</Badge>;
 }
 
-const M2 = (v: unknown) => (typeof v === 'number' && v ? `${v} m²` : <span className="text-muted-foreground">—</span>);
+const M2 = (v: unknown) => (typeof v === 'number' && v ? formatSurface(v) : <span className="text-muted-foreground">—</span>);
 
 export default function ArticlesList() {
   const navigate = useNavigate();
@@ -65,8 +60,7 @@ export default function ArticlesList() {
   const vocations = useVocations();
   const etages = useEtages();
 
-  const [tranches, setTranches] = useState<ReferentielItemDto[]>([]);
-  const [tranchesLoading, setTranchesLoading] = useState(true);
+  const tranches = useTranchesReferentiel();
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
@@ -83,14 +77,10 @@ export default function ArticlesList() {
   const [surfaceDe, setSurfaceDe] = useState('');
   const [surfaceA, setSurfaceA] = useState('');
   const [page, setPage] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    getTranchesReferentiel()
-      .then((items) => { if (!cancelled) setTranches(items); })
-      .finally(() => { if (!cancelled) setTranchesLoading(false); });
-    return () => { cancelled = true; };
-  }, []);
+  const debouncedPrixDe = useDebouncedValue(prixDe);
+  const debouncedPrixA = useDebouncedValue(prixA);
+  const debouncedSurfaceDe = useDebouncedValue(surfaceDe);
+  const debouncedSurfaceA = useDebouncedValue(surfaceA);
 
   function resetAndSet<T>(setter: (v: T) => void, v: T) {
     setPage(0);
@@ -114,9 +104,6 @@ export default function ArticlesList() {
     setSurfaceA('');
   }
 
-  // Drives the empty state's wording and its escape hatch: "no rows because
-  // your filters excluded them" (offer a reset) is a different situation from
-  // "this list is genuinely empty" (nothing to undo).
   const hasActiveFilters =
     !!search ||
     trancheId.length > 0 ||
@@ -145,10 +132,10 @@ export default function ArticlesList() {
           natureId: natureId || undefined,
           vocationId: vocationId || undefined,
           etageId: etageId || undefined,
-          prixDe: prixDe ? Number(prixDe) : undefined,
-          prixA: prixA ? Number(prixA) : undefined,
-          surfaceDe: surfaceDe ? Number(surfaceDe) : undefined,
-          surfaceA: surfaceA ? Number(surfaceA) : undefined,
+          prixDe: debouncedPrixDe ? Number(debouncedPrixDe) : undefined,
+          prixA: debouncedPrixA ? Number(debouncedPrixA) : undefined,
+          surfaceDe: debouncedSurfaceDe ? Number(debouncedSurfaceDe) : undefined,
+          surfaceA: debouncedSurfaceA ? Number(debouncedSurfaceA) : undefined,
         },
         { page, size: 20 },
       ),
@@ -162,17 +149,16 @@ export default function ArticlesList() {
       natureId,
       vocationId,
       etageId,
-      prixDe,
-      prixA,
-      surfaceDe,
-      surfaceA,
+      debouncedPrixDe,
+      debouncedPrixA,
+      debouncedSurfaceDe,
+      debouncedSurfaceA,
       page,
     ],
     'articles',
   );
   const rows = data?.content ?? [];
 
-  /* Dans le composant : la colonne « N° Dossier » a besoin de `navigate`. */
   const colonnes = useMemo<ColonneGrille<ArticleListItemDto>[]>(
     () => [
       { nom: 'etat', libelle: 'État', largeur: 7, valeur: articleEtatLabel, rendu: articleEtatBadge },
@@ -237,15 +223,9 @@ export default function ArticlesList() {
         type: 'MONTANT',
         largeur: 9,
         classe: 'text-muted-foreground',
-        // Le repli sur le prix plancher est conservé, et `valeur` suit le même
-        // repli pour que le tri classe un article au plancher à sa vraie place.
+        // `valeur` suit le même repli sur le plancher que le rendu, sinon le tri le classerait mal.
         valeur: (a) => a.salePrice || a.salePriceFloor,
-        rendu: (a) =>
-          a.salePrice
-            ? formatCurrency(a.salePrice)
-            : a.salePriceFloor
-              ? `${formatCurrency(a.salePriceFloor)} (plancher)`
-              : <span className="text-muted-foreground">—</span>,
+        rendu: (a) => libellePrix(a.salePrice, a.salePriceFloor) ?? <span className="text-muted-foreground">—</span>,
       },
       {
         nom: 'dossierCode',
@@ -275,7 +255,7 @@ export default function ArticlesList() {
     [navigate],
   );
 
-  const trancheItems = tranches.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
+  const trancheItems = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   const categorieItems = referentielItems(categories.data);
   const typeItems = referentielItems(types.data);
   const entiteItems = referentielItems(entites.data);
@@ -306,7 +286,7 @@ export default function ArticlesList() {
             </InputGroup>
             <MultiSelectDropdown
               label="Tranche"
-              placeholder={tranchesLoading ? 'Chargement…' : 'Toutes'}
+              placeholder={tranches.loading ? 'Chargement…' : 'Toutes'}
               value={trancheId}
               onChange={(v) => resetAndSet(setTrancheId, v)}
               items={trancheItems}
@@ -391,7 +371,7 @@ export default function ArticlesList() {
         {!error && data && (
           <ResultsRegion loading={loading}>
             <div className="shrink-0 text-body text-muted-foreground">
-              {(data?.totalElements ?? 0)} article{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+              {formatNumber(data.totalElements ?? 0)} article{(data?.totalElements ?? 0) > 1 ? 's' : ''}
             </div>
             {rows.length === 0 ? (
               <EmptyState

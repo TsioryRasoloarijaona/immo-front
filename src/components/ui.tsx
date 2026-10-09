@@ -7,25 +7,9 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '
 import { Avatar as ShadcnAvatar, AvatarFallback } from './ui/avatar';
 import { cn } from '../lib/utils';
 
-/** Glyphe par ton — **c'est ici que vit le sens des statuts.**
- *
- * La palette est achromatique (voir l'en-tête d'index.css), donc la couleur ne
- * peut plus distinguer « abouti » de « annulé ». Le pas de gris classe
- * l'*attention* ; ce glyphe nomme le *genre*.
- *
- * Dérivé du ton et non du statut métier : les six fonctions de `lib/`
- * (`toneForStatus`, `etapeBadgeTone`, `encaissementEtatTone`,
- * `pieceJointeTypeTone`, `echeanceCategorieTone`, `echeanceStatutTone`)
- * retournent déjà un `BadgeTone`. Une table sur les six tons couvre donc les
- * 215 sites d'appel **sans en toucher un seul**, et un statut ajouté plus tard
- * héritera de son glyphe gratuitement.
- *
- * `neutral` n'en a pas, volontairement : c'est le défaut, il concerne la
- * majorité des lignes, et un glyphe partout ne distingue plus rien. L'absence
- * de glyphe *est* l'information « rien à signaler ».
- *
- * Icônes SVG et non emoji ni caractères : à 11px un emoji rend selon la police
- * système et casse l'alignement vertical. */
+/** Ne pas retirer : le glyphe rend le statut lisible sans la couleur
+ * (accessibilité daltoniens, WCAG). `neutral` n'en a pas, volontairement :
+ * l'absence de glyphe signifie « rien à signaler ». */
 const TONE_GLYPH: Record<BadgeTone, LucideIcon | null> = {
   neutral: null,
   info: Info,
@@ -47,18 +31,13 @@ export function Badge({
   const Glyphe = TONE_GLYPH[tone];
   return (
     <ShadcnBadge variant={tone} className={cn('gap-1', className)}>
-      {/* `data-badge-dot` est conservé comme crochet CSS (index.css s'en sert
-          pour ajuster la pastille en cellule de tableau) même si ce n'est plus
-          un point : le renommer aurait cassé la règle sans rien apporter. */}
+      {/* `data-badge-dot` est un crochet CSS d'index.css : ne pas le renommer. */}
       {Glyphe && <Glyphe aria-hidden data-badge-dot="" className="size-3 shrink-0" />}
       {children}
     </ShadcnBadge>
   );
 }
 
-/** Same reserved status hues `Badge`/`BadgeTone` draw from (see index.css) —
- * `StatCard`'s `tone` prop reuses them rather than inventing new colors, so
- * a "warning" stat and a "warning" badge always mean the same thing. */
 const STAT_TONE_VARS: Record<BadgeTone, { fg: string; bg: string }> = {
   neutral: { fg: 'var(--muted-foreground)', bg: 'var(--neutral-bg)' },
   info: { fg: 'var(--info)', bg: 'var(--info-bg)' },
@@ -79,8 +58,6 @@ export function StatCard({
   value: string;
   sub?: string;
   icon?: ReactNode;
-  /** Colors the icon chip and the value text — same palette as `Badge`'s
-   * `tone`. Defaults to the plain neutral look every StatCard had before. */
   tone?: BadgeTone;
 }) {
   const { fg, bg } = STAT_TONE_VARS[tone];
@@ -148,12 +125,7 @@ export function Card({
   children: ReactNode;
   padded?: boolean;
   className?: string;
-  /** Optional section-identity accent (a CSS color, e.g.
-   * `var(--sec-dossier)` — see index.css's "Section-identity accents"
-   * block) — tints a left border plus a small dot before the title.
-   * Purely a secondary/decorative cue, same rule as PageShell's icon chip:
-   * the title text still names the card, color just reinforces which
-   * entity it belongs to. */
+  /** Une couleur CSS, ex. `var(--sec-dossier)`. */
   accent?: string;
 }) {
   return (
@@ -162,8 +134,6 @@ export function Card({
       style={accent ? { borderLeftColor: accent } : undefined}
     >
       {title && (
-        /* py-2.5 (était 1.75) : respiration de la référence Uxerflow — le
-           chrome s'aère, la grille de données garde sa densité. */
         <CardHeader className="gap-0 border-b border-border py-2.5">
           <CardTitle className="flex items-center gap-1.5 text-label">
             {accent && <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: accent }} />}
@@ -186,21 +156,9 @@ export function LoadingState() {
   );
 }
 
-/** Wrapper for a list page's results block (count + table + pagination) that
- * keeps the previous page of data on screen while the next one loads, instead
- * of unmounting it behind `LoadingState`.
- *
- * `useApi` already preserves `data` across a refetch — the lists were simply
- * choosing not to render it (`{!loading && !error && …}`), so every filter
- * change or keystroke collapsed the table, the result count and the
- * pagination to a centred spinner and then rebuilt them. That reads as a page
- * reload for what is really a partial update, and it makes the whole region
- * jump. Dimming the stale rows and marking the region `aria-busy` conveys the
- * same "working" state without the layout churn; the full `LoadingState` is
- * kept for the genuine first load, when there is nothing to keep.
- *
- * `pointer-events-none` while busy stops clicks landing on a row that is
- * about to be replaced by a different one. */
+/** Garde la page précédente à l'écran pendant un rechargement (rendre sur
+ * `data`, pas sur `!loading`). `pointer-events-none` empêche de cliquer une
+ * ligne sur le point d'être remplacée. */
 export function ResultsRegion({
   loading,
   className,
@@ -235,12 +193,6 @@ export function ErrorState({ message }: { message: string }) {
   );
 }
 
-/** `action` renders a way *out* of the empty state — most often "Réinitialiser
- * les filtres" when a list came back empty because the filters excluded
- * everything. Telling someone to "ajustez vos filtres" while making them go
- * find the reset button themselves is a dead end; the escape hatch belongs
- * where the problem is reported. Optional, because plenty of empty states are
- * genuinely just "nothing here yet" with nothing to undo. */
 export function EmptyState({
   title,
   message,
@@ -261,9 +213,6 @@ export function EmptyState({
   );
 }
 
-/** Same amber "Bientôt" pill used in ModuleSwitcher for not-yet-active
- * modules — reused here for filter controls that are visually built but
- * still waiting on backend support. */
 export function SoonBadge({ children = 'Bientôt' }: { children?: ReactNode }) {
   return (
     <span className="rounded-full bg-(--amber-bg) px-1.75 py-0.5 text-micro font-bold text-(--amber)">
@@ -301,15 +250,8 @@ export function Chip({ children, warning }: { children: ReactNode; warning?: boo
   );
 }
 
-/** Discreet-but-explicit "Périmètre limité à : ARS, MBR" indicator for the
- * prospections / pré-prospections / dossiers / encaissements lists
- * (FEATURE-perimetre-commercial.md §9.2). A restricted commercial's list is
- * server-filtered to their assigned projects; without this, a short result
- * count reads as a bug or lost data rather than a deliberate restriction.
- * Renders nothing for the unrestricted case (`projets` empty — zero
- * assigned projects, or an Administrateur/Direction Générale account, both
- * of which see everything per §6.2/§6.3), so callers can pass their
- * perimeter unconditionally rather than guarding the render themselves. */
+/** Sans ce bandeau, une liste filtrée côté serveur au périmètre du commercial
+ * passerait pour une perte de données. `projets` vide = aucune restriction. */
 export function PerimetreBanner({ projets }: { projets: { code: string }[] }) {
   if (projets.length === 0) return null;
   return (
@@ -322,20 +264,8 @@ export function PerimetreBanner({ projets }: { projets: { code: string }[] }) {
   );
 }
 
-/** Sort de l'envoi du mot de passe temporaire, sur les deux écrans qui en
- * génèrent un.
- *
- * `emailEnvoye === false` veut dire que le service d'envoi est inactif : le
- * mot de passe affiché juste à côté est alors **le seul exemplaire existant**,
- * et l'administrateur doit le transmettre lui-même. Sans ce mot, il referme
- * l'écran en supposant que l'employé a reçu son accès, et personne ne
- * s'aperçoit de rien avant que celui-ci ne tente de se connecter.
- *
- * `true` ne promet pas la remise, seulement le déclenchement — l'expédition
- * est asynchrone. Le libellé le dit ainsi plutôt que d'affirmer « envoyé ». */
-/** Résultat d'envoi des identifiants (`emailEnvoye` / `destinataire` des
- * réponses de réinitialisation). `false` couvre les deux cas où rien n'est
- * parti : compte sans adresse, ou service d'envoi inactif. */
+/** `false` (compte sans adresse ou envoi inactif) : le mot de passe affiché est le
+ * seul exemplaire. `true` ne promet que le déclenchement, l'envoi est asynchrone. */
 export function EnvoiMailNotice({ envoye, destinataire }: { envoye?: boolean; destinataire?: string | null }) {
   if (envoye === undefined) return null;
   if (!envoye) {

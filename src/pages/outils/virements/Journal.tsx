@@ -19,10 +19,8 @@ export default function Journal() {
   );
 }
 
-/** Journal d'activité du service (§11), admin seulement, lecture seule, du
- * plus récent au plus ancien. `created_at` est en UTC : affiché tel quel,
- * avec la mention. */
-function ListeJournal({ ctx }: { ctx: ContexteCharge }) {
+/** `created_at` est en UTC : affiché tel quel, avec la mention. */
+function ListeJournal({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   const [limite, setLimite] = useState(LIMITE_INITIALE);
   const { data, loading, error } = useApi(() => lireJournal(limite), [limite, ctx.revision]);
 

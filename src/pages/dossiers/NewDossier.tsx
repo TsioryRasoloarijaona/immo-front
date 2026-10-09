@@ -26,36 +26,32 @@ import {
   simulerSchemaFinancement,
 } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
-import { formatCurrency, formatPercent, formatPercentValue } from '../../lib/format';
+import { formatCurrency, formatPercent, formatPercentValue, formatSurface } from '../../lib/format';
+import { avecCles } from '../../lib/cles';
+
+function libelleArticlesCharges(affiches: number, charges: number): string {
+  const s = (n: number) => (n > 1 ? 's' : '');
+  return `${affiches} article${s(affiches)} sur ${charges} chargé${s(charges)}`;
+}
 import { prospectionDisplayName } from '../../lib/domain';
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../../lib/referentiels';
 import type { ArticleDetailDto, ArticleListItemDto } from '../../types';
 
 const EMPTY_ARTICLES = { content: [] as ArticleListItemDto[], page: 0, size: 0, totalElements: 0, totalPages: 0 };
 
-// Single-form dossier creation — the real API's CreerDossierRequest is just
-// {prospectionId, articleIds, prix, notes}, far simpler than the multi-step
-// financing wizard the prototype used to have (that whole échéancier/plan de
-// financement flow lived only client-side; the real dossier's échéancier
-// lines are added afterwards on the dossier detail page).
 export default function NewDossier() {
   const { id } = useParams();
   const { data: prospection, loading, error } = useApi(() => getProspection(id!), [id]);
   const navigate = useNavigate();
 
-  // Tranche picker (Projet → Tranche), pre-seeded from the prospection's own
-  // trancheId when it has one, but always changeable — the API only exposes
-  // article search scoped to a single tranche (GET /api/tranches/{id}/articles),
-  // there's no cross-tranche endpoint yet, so widening the search means
-  // switching tranche here rather than a real "toutes tranches" filter.
+  // La recherche d'articles n'existe que par tranche (`GET /api/tranches/{id}/articles`) :
+  // élargir veut dire changer de tranche, pas de filtre « toutes tranches ».
   const seedTranche = useApi(
     () => (prospection?.trancheId ? getTranche(prospection.trancheId) : Promise.resolve(null)),
     [prospection?.trancheId],
   );
-  // Overrides start unset (null = "not touched yet, fall back to the
-  // prospection's seed tranche/projet") and avoid a setState-in-effect just
-  // to seed initial state from an async value. '' means "explicitly
-  // cleared" (e.g. after switching projet) — distinct from "untouched".
+  // `null` = pas encore touché (repli sur la tranche de la prospection), `''` = vidé exprès.
+  // Évite un setState dans un effet pour amorcer depuis une valeur asynchrone.
   const [projetIdOverride, setProjetIdOverride] = useState<string | null>(null);
   const [trancheIdOverride, setTrancheIdOverride] = useState<string | null>(null);
   const projetId = projetIdOverride === null ? (seedTranche.data?.projetId ?? null) : projetIdOverride || null;
@@ -67,10 +63,8 @@ export default function NewDossier() {
     [projetId],
   );
 
-  // Server-side filter: statut (the only one /api/tranches/{id}/articles
-  // supports). Everything else below (code/catégorie/type/superficie) is
-  // filtered client-side over the fetched page — the endpoint doesn't take
-  // those params yet.
+  // Seul `statut` est filtré côté serveur ; code, catégorie, type et superficie le sont ici,
+  // l'endpoint ne les accepte pas.
   const [statutFilter, setStatutFilter] = useState<'DISPONIBLE' | 'OCCUPE' | 'all'>('DISPONIBLE');
   const articles = useApi(
     () =>
@@ -116,14 +110,8 @@ export default function NewDossier() {
     });
   }, [articles.data, codeFilter, categorieFilter, typeFilter, superficieMin, superficieMax]);
 
-  // Pre-fill the article selection from everything already known on the
-  // prospection: its own targeted article (`articleId`) plus every entry in
-  // its "Articles associés" list (`/api/prospections/{id}/autres-tranches`)
-  // — this can span several tranches, unlike the single-tranche table below,
-  // so selection state is kept independent of `trancheId`/`articles`.
-  // `selectedIdsOverride` stays null ("not touched yet, use the seed") until
-  // the user checks/unchecks a row — same pattern as the tranche overrides
-  // above — so the pre-fill never fights with manual edits.
+  // La sélection pré-remplie peut couvrir plusieurs tranches : elle reste indépendante de `trancheId`.
+  // `selectedIdsOverride` reste null tant que l'utilisateur n'a rien coché.
   const associes = useApi(
     () => (prospection?.id ? listProspectionAutresTranches(prospection.id) : Promise.resolve([])),
     [prospection?.id],
@@ -139,26 +127,13 @@ export default function NewDossier() {
   const [selectedIdsOverride, setSelectedIdsOverride] = useState<string[] | null>(null);
   const selectedIds = selectedIdsOverride ?? seedArticleIds;
   const isSelectionSeeded = selectedIdsOverride === null && seedArticleIds.length > 0;
-  // The "Sélectionner un article" filters/table stay collapsed behind a
-  // "Modifier" toggle once there's already a selection to show in full
-  // detail above — no point re-showing the whole picker on every visit when
-  // the prospection already resolved to a specific lot.
   const [editingArticles, setEditingArticles] = useState(false);
 
-  // Full detail of every selected article, fetched by id regardless of
-  // which tranche is currently browsed in the table below — pre-filled
-  // selections routinely span tranches the "Sélectionner un article" table
-  // isn't even showing right now.
   const selectedArticleDetails = useApi(
     () => (selectedIds.length > 0 ? Promise.all(selectedIds.map((aid) => getArticle(aid))) : Promise.resolve([])),
     [selectedIds],
   );
 
-  // Every devis already raised on this prospection (`GET
-  // /api/prospections/{id}/devis`) — the most recent one, if any, is the
-  // strongest available source for Prix/Notes (it's a real quote the
-  // commercial already drafted), stronger than summing selected articles'
-  // list price.
   const devisQuery = useApi(
     () => (prospection?.id ? listDevis(prospection.id, { page: 0, size: 20 }) : Promise.resolve(null)),
     [prospection?.id],
@@ -174,18 +149,13 @@ export default function NewDossier() {
   const [priceTouched, setPriceTouched] = useState(false);
   const [notes, setNotes] = useState('');
   const [notesTouched, setNotesTouched] = useState(false);
-  // Both required by the backend since api-docsV2 (CreerDossierRequest.cin /
-  // .modePaieId) — a 400 comes back without them. Auto-filled below from the
-  // prospection's linked prospect / selected articles where possible, but
-  // still editable — the source data isn't always populated.
+  // `cin` et `modePaieId` sont exigés par le serveur (400 sans eux).
   const [cin, setCin] = useState('');
   const [cinTouched, setCinTouched] = useState(false);
   const [modePaieId, setModePaieId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Auto-fill CIN from the linked prospect's pièce d'identité, once loaded —
-  // only while the user hasn't typed their own value.
   const linkedProspect = useApi(
     () => (prospection?.prospectId ? getProspect(prospection.prospectId) : Promise.resolve(null)),
     [prospection?.prospectId],
@@ -193,41 +163,25 @@ export default function NewDossier() {
   const autoCin = linkedProspect.data?.pieceIdentite?.numero ?? '';
   const cinValue = cinTouched ? cin : autoCin || cin;
 
-  // Auto-fill Notes from the latest devis' own notes, falling back to the
-  // prospection's own notes field — only while untouched.
   const autoNotes = latestDevis?.notes || prospection?.notes || '';
   const notesValue = notesTouched ? notes : autoNotes || notes;
 
   const selectedArticles: ArticleDetailDto[] = (selectedArticleDetails.data ?? []).filter((a): a is ArticleDetailDto => !!a);
-  // Nothing to show yet → the picker has to be visible; otherwise it stays
-  // tucked behind "Modifier" until asked for.
   const showPicker = editingArticles || selectedArticles.length === 0;
-  // Auto-fill Prix — prefer the latest devis' own prix (an actual quote
-  // already drafted for this prospection) over the sum of selected
-  // articles' prix suggéré (prix commercial, ou plancher quand il vaut 0 — le
-  // même calcul que le serveur), as long as the user hasn't overridden it by hand.
+  // `prixSuggere` = prix commercial, ou plancher quand il vaut 0 — même calcul que le serveur.
   const autoPrixFromArticles = selectedArticles.reduce((sum, a) => sum + (a.prixSuggere ?? 0), 0);
   const prixPlancherPropose = selectedArticles.some((a) => a.prixSuggereEstPlancher);
   const autoPrix = latestDevis?.montants?.prixVenteTTC || autoPrixFromArticles;
-  const prixValue = priceTouched ? prix : autoPrix > 0 ? String(autoPrix) : prix;
+  const prixValue = !priceTouched && autoPrix > 0 ? String(autoPrix) : prix;
 
-  // Remise commerciale — `remisePercent` est un **pourcentage 0–100**, pas un
-  // ratio (contrairement à `DossierDetailDto.remise`, lu en 0–1 sur la fiche
-  // dossier). Les deux champs sont indépendants : `prix` est la base *avant*
-  // remise, `remisePercent` s'applique dessus. Omettre la remise conserve
-  // exactement le comportement historique, où `prix` est le prix négocié.
+  // `remisePercent` est un pourcentage 0–100, pas un ratio (contrairement à `DossierDetailDto.remise`,
+  // en 0–1). Avec une remise, `prix` devient la base avant remise.
   const remiseNumber = remise.trim() === '' ? null : Number(remise.replace(',', '.'));
   const remiseRenseignee = remiseNumber !== null && !Number.isNaN(remiseNumber);
   const remiseHorsBornes = remiseRenseignee && (remiseNumber < 0 || remiseNumber > 100);
-  // Au-delà de 30 %, on alerte sans bloquer : cette version de l'API n'expose
-  // aucun plafond conseillé par article, donc le seuil est forcément générique.
+  // Seuil générique : l'API n'expose aucun plafond de remise par article.
   const remiseInhabituelle = remiseRenseignee && !remiseHorsBornes && remiseNumber > 30;
 
-  // Preview step — "Schéma de financement" the real `POST /api/dossiers`
-  // would generate for this exact selection/prix/remise, without creating or
-  // persisting anything server-side. Debounced: `prixValue` and `remise` are
-  // raw input strings, so without this the simulation fired once per
-  // keystroke (and a second numeric field would have doubled it).
   const prixNumber = prixValue ? Number(prixValue) : undefined;
   const debouncedPrixNumber = useDebouncedValue(prixNumber, 400);
   const debouncedRemise = useDebouncedValue(remiseRenseignee && !remiseHorsBornes ? remiseNumber : null, 400);
@@ -243,10 +197,8 @@ export default function NewDossier() {
     [selectedIds, debouncedPrixNumber, debouncedRemise],
   );
 
-  // `SchemaFinancementDto` ne renvoie aucune arithmétique de remise — c'est
-  // au client de l'afficher. Attention : le total du schéma n'est pas
-  // `prix × (1 − r)`, les FRAIS SYNDIC venant du barème de la tranche ne sont
-  // jamais remisés.
+  // `SchemaFinancementDto` ne renvoie pas la remise. Le total du schéma n'est pas `prix × (1 − r)` :
+  // les FRAIS SYNDIC (barème de la tranche) ne sont jamais remisés.
   const prixAvantRemise = prixNumber && prixNumber > 0 ? prixNumber : null;
   const montantRemise =
     prixAvantRemise !== null && remiseRenseignee && !remiseHorsBornes ? (prixAvantRemise * remiseNumber) / 100 : null;
@@ -261,10 +213,7 @@ export default function NewDossier() {
       </PageShell>
     );
   }
-  // Already converted — bounce straight to the existing dossier instead of
-  // showing the creation form again (covers a stale link/back-button visit to
-  // this URL after conversion). Le lien vit dans `activite`, alimenté par la
-  // vue légataire, et non au premier niveau du DTO.
+  // Le lien vers le dossier vit dans `activite` (vue légataire), pas au premier niveau du DTO.
   if (prospection.activite?.dossierId) {
     return <Navigate to={`/dossiers/${prospection.activite.dossierId}`} replace />;
   }
@@ -273,17 +222,12 @@ export default function NewDossier() {
     setSelectedIdsOverride(selectedIds.includes(articleId) ? selectedIds.filter((x) => x !== articleId) : [...selectedIds, articleId]);
   }
 
-  // Prix isn't required by the API schema, but leaving it out silently
-  // creates a dossier with a blank Prix that can never be fixed afterwards
-  // (there's no PATCH /api/dossiers/{id} to edit it post-creation) — so it's
-  // enforced client-side instead of just auto-filled-and-forgotten.
+  // Prix facultatif pour l'API, mais exigé ici : pas de PATCH /api/dossiers/{id} pour le corriger ensuite.
   const canCreate =
     selectedIds.length > 0 &&
     prixValue.trim().length > 0 &&
     cinValue.trim().length > 0 &&
     !!modePaieId &&
-    // `remisePercent` hors de [0 ; 100] est un 400 côté serveur — autant le
-    // bloquer ici, le champ étant purement facultatif.
     !remiseHorsBornes;
 
   async function handleCreate() {
@@ -295,9 +239,8 @@ export default function NewDossier() {
         prospectionId: prospection!.id,
         articleIds: selectedIds,
         prix: prixValue ? Number(prixValue) : undefined,
-        // Omise quand le champ est vide : le serveur retombe alors sur le
-        // comportement historique (prix = prix négocié, remise déduite de
-        // l'écart avec le prix commercial de l'article).
+        // Omise si vide : le serveur prend alors `prix` comme prix négocié et déduit la remise
+        // de l'écart avec le prix commercial.
         ...(remiseRenseignee && !remiseHorsBornes ? { remisePercent: remiseNumber } : {}),
         notes: notesValue || undefined,
         cin: cinValue.trim(),
@@ -468,7 +411,9 @@ export default function NewDossier() {
 
               <div className="mb-3 flex items-center justify-between gap-3 border-t border-border pt-3">
                 <span className="text-body text-muted-foreground">
-                  {trancheId ? `${filteredArticles.length} article${filteredArticles.length > 1 ? 's' : ''} sur ${articles.data?.content.length ?? 0} chargé${(articles.data?.content.length ?? 0) > 1 ? 's' : ''}` : 'Choisissez un projet puis une tranche.'}
+                  {trancheId
+                    ? libelleArticlesCharges(filteredArticles.length, articles.data?.content.length ?? 0)
+                    : 'Choisissez un projet puis une tranche.'}
                 </span>
                 <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
                   <RotateCcw data-icon="inline-start" /> Réinitialiser
@@ -511,7 +456,7 @@ export default function NewDossier() {
                             <TableCell className="text-muted-foreground">{a.description || '—'}</TableCell>
                             <TableCell className="text-muted-foreground">{a.categorieLibelle || '—'}</TableCell>
                             <TableCell className="text-muted-foreground">{a.typeLibelle || '—'}</TableCell>
-                            <TableCell className="text-right tabular-nums">{a.area ? `${a.area} m²` : '—'}</TableCell>
+                            <TableCell className="text-right tabular-nums">{a.area ? formatSurface(a.area) : '—'}</TableCell>
                             <TableCell className="text-right tabular-nums">{a.salePrice ? formatCurrency(a.salePrice) : '—'}</TableCell>
                             <TableCell>
                               <Badge tone={a.statut === 'DISPONIBLE' ? 'success' : 'neutral'}>{a.statut === 'DISPONIBLE' ? 'Disponible' : 'Occupé'}</Badge>
@@ -527,12 +472,8 @@ export default function NewDossier() {
           )}
         </Card>
 
-        {/* HT/TVA/TTC breakdown only exists server-side on a Devis (Offre) —
-            MontantsOffreDto — there's no équivalent on ArticleDetailDto or
-            DossierDetailDto to derive it from otherwise (checked: neither
-            carries tvaRatio/prixHT/prixTTC). Shown only when a real devis
-            exists on the prospection; never client-computed/guessed when
-            it doesn't. */}
+        {/* Le détail HT/TVA n'existe que sur un devis (`MontantsOffreDto`) : jamais
+            recalculé côté client quand il n'y en a pas. */}
         <Card title="Détail du prix">
           {latestDevis?.montants ? (
             <>
@@ -712,8 +653,8 @@ export default function NewDossier() {
                     </p>
                   ) : (
                     <div className="flex flex-col gap-1.5">
-                      {(schemaFinancement.data.lignes ?? []).map((ligne, i) => (
-                        <div key={i} className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2 text-label">
+                      {avecCles(schemaFinancement.data.lignes ?? [], (l) => `${l.categorie}-${l.exclureDuPrix}-${l.montant}`).map(({ item: ligne, cle }) => (
+                        <div key={cle} className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2 text-label">
                           <span className="flex items-center gap-2 font-medium text-foreground">
                             {ligne.categorie}
                             {ligne.exclureDuPrix && <Badge tone="neutral">Hors prix</Badge>}

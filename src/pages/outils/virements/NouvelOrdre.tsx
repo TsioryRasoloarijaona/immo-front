@@ -28,7 +28,6 @@ const MODE_ITEMS: { value: Mode; label: string }[] = [
 let compteurLignes = 0;
 const ligne = (nom = '', montant = ''): Ligne => ({ cle: ++compteurLignes, nom, montant });
 
-/** Montant saisi → nombre > 0, ou `null`. */
 function montantSaisi(v: string): number | null {
   const n = Number(v.replace(',', '.'));
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -38,10 +37,18 @@ export default function NouvelOrdre() {
   return <CadreVirements ecran="Nouvel ordre">{(ctx) => <Formulaire ctx={ctx} />}</CadreVirements>;
 }
 
-/** « Nouvel ordre » (§4) : le formulaire à gauche, l'aperçu du courrier à
- * droite, recalculé à chaque frappe. Générer = **un seul appel** ; le service
- * construit et archive le PDF dans la même transaction que l'ordre. */
-function Formulaire({ ctx }: { ctx: ContexteCharge }) {
+function libelleRib(rib: string | undefined, nom: string): string {
+  if (rib) return `RIB ${rib}`;
+  return nom.trim() ? 'Bénéficiaire non enregistré' : ' ';
+}
+
+function libelleGenerer(enCours: boolean, groupe: boolean): string {
+  if (enCours) return 'Enregistrement…';
+  return groupe ? 'Générer le PDF groupé' : 'Générer le PDF';
+}
+
+/** Générer = un seul appel : le service construit et archive le PDF dans la même transaction que l'ordre. */
+function Formulaire({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   const { meta, revision } = ctx;
   const navigate = useNavigate();
   const toasts = useNotification();
@@ -67,8 +74,6 @@ function Formulaire({ ctx }: { ctx: ContexteCharge }) {
   const societe =
     societes.find((s) => s.id === choixSociete) ?? societes.find((s) => s.par_defaut) ?? societes[0];
 
-  // RIB : rempli quand le nom correspond exactement (casse ignorée) à un
-  // bénéficiaire connu, vidé sinon.
   const parNom = useMemo(() => {
     const m = new Map<string, Beneficiaire>();
     for (const b of beneficiairesApi.data ?? []) m.set(b.nom.trim().toLowerCase(), b);
@@ -84,8 +89,8 @@ function Formulaire({ ctx }: { ctx: ContexteCharge }) {
     .map((t) => (meta.types_pieces[t]?.libelle ?? t).toLowerCase())
     .join(', ');
 
-  // Les lignes entièrement vides sont ignorées (§4.2), à l'envoi comme dans
-  // l'aperçu ; leur total n'est qu'un aperçu de saisie (exception R2).
+  // Lignes entièrement vides ignorées, à l'envoi comme dans l'aperçu. Ce total n'est qu'un aperçu de saisie :
+  // le seul chiffre calculé à l'écran, les autres viennent du serveur.
   const lignesRemplies = lignes.filter((l) => l.nom.trim() || l.montant.trim());
   const lignesCourrier =
     mode === 'seul'
@@ -95,7 +100,6 @@ function Formulaire({ ctx }: { ctx: ContexteCharge }) {
 
   function changerMode(m: Mode) {
     if (m === mode) return;
-    // Passage en groupé : la 1re ligne reprend la saisie du mode seul.
     if (m === 'groupe') setLignes([ligne(nom, montant), ligne()]);
     else {
       const premiere = lignes.find((l) => l.nom.trim() || l.montant.trim());
@@ -111,7 +115,7 @@ function Formulaire({ ctx }: { ctx: ContexteCharge }) {
     setLignes((ls) => ls.map((l) => (l.cle === cle ? { ...l, ...patch } : l)));
   }
 
-  /** Contrôles avant envoi (§4.2) — le serveur les refait. */
+  /** Le serveur refait ces contrôles. */
   function controler(): string | null {
     setLignesFautives(new Set());
     if (!societe) return 'Aucune société émettrice : ajoutez-en une dans l\'écran « Sociétés ».';
@@ -161,7 +165,6 @@ function Formulaire({ ctx }: { ctx: ContexteCharge }) {
         });
         setGenere({ ordres: r.ordres, groupe: r.groupe });
       }
-      // Le formulaire repart à vide ; société, type, date restent.
       setNom('');
       setMontant('');
       setLignes([ligne(), ligne()]);
@@ -280,7 +283,7 @@ function Formulaire({ ctx }: { ctx: ContexteCharge }) {
                           maxLength={200}
                         />
                         <span className="truncate px-1 font-mono text-micro text-muted-foreground" title={ribDe(l.nom)}>
-                          {ribDe(l.nom) ? `RIB ${ribDe(l.nom)}` : l.nom.trim() ? 'Bénéficiaire non enregistré' : ' '}
+                          {libelleRib(ribDe(l.nom), l.nom)}
                         </span>
                       </div>
                       <Input
@@ -336,7 +339,7 @@ function Formulaire({ ctx }: { ctx: ContexteCharge }) {
 
             <Button type="submit" className="mt-4 w-full" disabled={enCours}>
               <FileDown data-icon="inline-start" />
-              {enCours ? 'Enregistrement…' : mode === 'groupe' ? 'Générer le PDF groupé' : 'Générer le PDF'}
+              {libelleGenerer(enCours, mode === 'groupe')}
             </Button>
           </form>
         </Card>

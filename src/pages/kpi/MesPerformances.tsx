@@ -10,18 +10,8 @@ import { useApi } from '../../lib/useApi';
 import { formatCurrency, formatDate, formatHeures, formatNumber } from '../../lib/format';
 import type { PerformanceCommercialDto } from '../../types';
 
-/** Le 404 de cet endpoint n'est pas une panne : il dit « ce compte n'est
- * rattaché à aucune fiche employé », donc qu'il n'existe aucun commercial dont
- * parler. Il mérite son propre message, pas un bandeau d'erreur.
- *
- * Depuis FEATURE-suivi-actions.md §7 (23/09), un compte sans employé reçoit
- * **200** avec l'activité du compte (portefeuille vide). Le repli 404 est
- * conservé pour un backend antérieur ; il ne se déclenche plus sur la cible.
- *
- * Or `useApi` aplatit toute erreur en chaîne et jette le `status` (useApi.ts).
- * Plutôt que de refaire un hook de chargement à côté — avec sa garde de réponse
- * périmée à réécrire — on replie le 404 dans la **valeur de succès** : le
- * résultat devient une union discriminée que `useApi` transporte telle quelle. */
+/* 404 = compte sans fiche employé, pas une panne. `useApi` aplatit les erreurs et perd
+   le `status` : le 404 est donc replié dans la valeur de succès (union discriminée). */
 type MesPerformancesResultat =
   | { sansEmploye: true }
   | { sansEmploye: false; perf: PerformanceCommercialDto };
@@ -45,9 +35,7 @@ export default function MesPerformances() {
   const sansEmploye = resultat?.sansEmploye === true;
   const data = resultat && !resultat.sansEmploye ? resultat.perf : null;
 
-  // Le serveur répond 200 avec tous les compteurs à zéro quand rien n’a été
-  // fait : c’est une réponse valide, pas un état vide. On l’annonce en une
-  // phrase au lieu d’afficher un EmptyState qui laisserait croire à une panne.
+  // Rien de fait = 200 avec compteurs à zéro : une réponse valide, pas un état vide.
   const totalActivite =
     (data?.interactionsTotal ?? 0) + (data?.prospectionsAssignees ?? 0) + (data?.dossiersCrees ?? 0);
   const periodeVide = !!data && totalActivite === 0;
@@ -62,11 +50,6 @@ export default function MesPerformances() {
       fullHeight
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">
-        {/* La description de la page a été retirée, cet avertissement non : ce
-            n'est pas de la présentation mais une clé de lecture des chiffres.
-            Sans lui, un commercial au périmètre restreint conclut que ses
-            compteurs sont faux. Réduit à une ligne et posé contre les chiffres
-            qu'il qualifie, plutôt qu'en paragraphe sous l'en-tête. */}
         <p className="text-micro text-muted-foreground">
           Compteurs limités à votre périmètre commercial : s’il est restreint, ils sont inférieurs à
           votre activité réelle.
@@ -86,8 +69,6 @@ export default function MesPerformances() {
 
         {!error && !sansEmploye && data && (
           <ResultsRegion loading={loading}>
-            {/* Redesign 20/09 : filtre de période épinglé, résultats seuls
-                défilants. */}
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
               <span className="text-micro text-muted-foreground">
                 Du {formatDate(data.du)} au {formatDate(data.au)}
@@ -119,10 +100,6 @@ export default function MesPerformances() {
                   />
                   <StatCard icon={<ListChecks />} label="Actions" value={formatNumber(data.interactionsTotal)} sub="hors « Système »" tone="neutral" />
                 </div>
-                {/* Le détail de « Actions » par type, du plus au moins fréquent
-                    — la somme des barres égale la carte. Une action « Système »
-                    (note générée pendant une session) n'est pas la vôtre et
-                    n'y figure pas. */}
                 {(data.actionsParType?.length ?? 0) > 0 && (
                   <Card title="Actions par type">
                     <div className="flex flex-col">

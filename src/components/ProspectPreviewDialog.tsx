@@ -9,7 +9,6 @@ import { personDisplayName } from '../lib/domain';
 import { formatTelephone } from '../lib/format';
 import { formatDate } from '../lib/format';
 
-// Fiche Prospect (contact) preview — fetched by id from /api/prospects/{id}.
 export default function ProspectPreviewDialog({ id, onClose }: { id: string; onClose: () => void }) {
   const { data: person, loading, error } = useApi(() => getProspect(id), [id]);
 

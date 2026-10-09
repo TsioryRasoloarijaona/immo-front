@@ -1,10 +1,5 @@
 import type { PorteeCleApi } from '../types';
 
-/** Les trois portées que le serveur connaît (`domain/PorteeCleApi`), dans
- * l'ordre de l'écran de création. Le libellé dit ce que la clé pourra
- * faire, pas le nom technique — l'administrateur qui configure n8n n'a pas
- * à connaître le code. La description reprend la FEATURE : c'est le seul
- * endroit où le front explique la portée. */
 export const PORTEES_CLE_API: { code: PorteeCleApi; libelle: string; description: string }[] = [
   {
     code: 'PRE_PROSPECTIONS_ECRIRE',
@@ -23,9 +18,6 @@ export const PORTEES_CLE_API: { code: PorteeCleApi; libelle: string; description
   },
 ];
 
-/** Préréglage n8n de la FEATURE §8 : écrire les pré-prospections + lire les
- * référentiels. Coché par défaut à la création — c'est le cas d'usage qui a
- * motivé la fonctionnalité. */
 export const PORTEES_N8N: PorteeCleApi[] = ['PRE_PROSPECTIONS_ECRIRE', 'REFERENTIELS_LIRE'];
 
 export function libellePortee(code: PorteeCleApi | string): string {

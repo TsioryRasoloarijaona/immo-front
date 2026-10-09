@@ -28,14 +28,10 @@ import {
 } from '../../lib/referentiels';
 import type { CreerPreProspectionRequest, PreProspectionCreeeDto } from '../../types';
 
-/** Longueurs maximales du contrat `CreerPreProspectionRequest` — le backend
- * répond 400 au-delà ; autant l'empêcher à la saisie. */
+// Longueurs maximales de `CreerPreProspectionRequest` : 400 au-delà.
 const MAX_TEXTE = 255;
 const MAX_NOTES = 1000;
 
-/** Un `<Select>` de référentiel, tel que le rend `NewProspection` — répété
- * neuf fois ici, d'où le composant local. Tous optionnels : le contrat ne rend
- * que `nom` obligatoire, et le serveur pose la vocation `VENTE` lui-même. */
 function ChampSelect({
   id,
   label,
@@ -44,7 +40,7 @@ function ChampSelect({
   onChange,
   disabled,
   placeholder = 'Choisir…',
-}: {
+}: Readonly<{
   id: string;
   label: string;
   items: { label: string; value: string }[];
@@ -52,7 +48,7 @@ function ChampSelect({
   onChange: (v: string | null) => void;
   disabled?: boolean;
   placeholder?: string;
-}) {
+}>) {
   return (
     <FormField>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -68,24 +64,10 @@ function ChampSelect({
   );
 }
 
-/* `POST /api/pre-prospections` (FEATURE-creation-pre-prospection.md) — la
- * saisie d'un lead brut, équivalent de l'écran « Pré-prospection » d'OMRAN.
- *
- * Même geste que `NouvelleProspectionDialog` : une boîte au-dessus de la
- * liste, ouverte par la route `/pre-prospections/nouveau`. Mais pas de
- * sélecteur de prospect ni de commercial : le contact vit en champs libres
- * (`TempDescription` / `TempTel` / `TempEMail`) et **aucune fiche prospect
- * n'est créée** — c'est l'objet de « Transformer en prospect » ensuite.
- *
- * Le téléphone est un seul champ texte, stocké tel quel : le contrat n'a pas
- * d'indicatif séparé ici, et c'est par ses 9 derniers chiffres que la hotline
- * le retrouve, quel que soit le format.
- *
- * Les doublons sont **signalés, jamais refusés** (OMRAN enregistre lui aussi
- * une ligne par soumission). Sans doublon, la création navigue vers la fiche,
- * comme pour une prospection. Avec, la boîte reste ouverte et les nomme : la
- * ligne est bien créée, mais l'opérateur doit le savoir avant de l'appeler. */
-export default function NouvellePreProspectionDialog({ onClose }: { onClose: () => void }) {
+/* Seul `nom` est obligatoire ; aucune fiche prospect n'est créée (champs `Temp*`).
+   Téléphone stocké tel quel, sans indicatif séparé. Les doublons sont signalés,
+   jamais refusés : la ligne est créée et la boîte les nomme au lieu de naviguer. */
+export default function NouvellePreProspectionDialog({ onClose }: Readonly<{ onClose: () => void }>) {
   const navigate = useNavigate();
 
   const [nom, setNom] = useState('');
@@ -136,8 +118,6 @@ export default function NouvellePreProspectionDialog({ onClose }: { onClose: () 
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  /** Posé quand la création a réussi **avec** des doublons : la boîte bascule
-   * sur le panneau d'avertissement au lieu de naviguer. */
   const [resultat, setResultat] = useState<PreProspectionCreeeDto | null>(null);
 
   const canCreate = !!nom.trim();
@@ -183,8 +163,6 @@ export default function NouvellePreProspectionDialog({ onClose }: { onClose: () 
             <Check aria-hidden className="mr-1 inline size-3.5 text-(--success)" />
             La pré-prospection <span className="font-medium">{preProspection.code ?? ''}</span> a été enregistrée.
           </p>
-          {/* Amber, pas rouge : rien n'a échoué. C'est une mise en garde avant
-              l'appel — le contact a déjà été enregistré, peut-être déjà traité. */}
           <div className="rounded-lg border border-(--amber-border) bg-(--amber-bg) px-3.5 py-3">
             <p className="flex items-start gap-2 text-body font-medium text-(--amber)">
               <AlertTriangle aria-hidden className="mt-0.5 size-3.5 shrink-0" />
@@ -215,8 +193,6 @@ export default function NouvellePreProspectionDialog({ onClose }: { onClose: () 
   }
 
   return (
-    /* 920 : la même largeur que la nouvelle prospection, pour la même grille
-       de trois colonnes. `Modal` borne à 88vh et fait défiler au-delà. */
     <Modal title="Nouvelle pré-prospection" onClose={onClose} width={920}>
       <div className="flex flex-col gap-3">
         <Card title="Contact">

@@ -11,25 +11,22 @@ import {
   apercuImportPreProspections,
   getSupportsForOrigine,
   importerPreProspections,
-  listTranches,
   type ImportPreProspectionsParams,
   type StatutImportable,
 } from '../../lib/api';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, formatNumber } from '../../lib/format';
 import {
   referentielItems,
   useActionsCommerciales,
   useEtapesProspection,
   useOriginesProspection,
+  useTranchesFiltre,
   useTypesContactProspection,
 } from '../../lib/referentiels';
 import { useApi } from '../../lib/useApi';
 import type { BadgeTone, LigneImportDto, RapportImportPreProspectionsDto, StatutLigneImport } from '../../types';
 
-/** Libellé et ton de chaque sort de ligne. Les tons sont choisis pour leurs
- * glyphes (voir `TONE_GLYPH` dans `components/ui.tsx`) : ✓ créée, ⚠ créée
- * mais à vérifier, ✗ rejetée, et rien pour « déjà là » — ignorée sans
- * qu'il y ait quoi que ce soit à faire. */
+// Tons choisis pour leurs glyphes (`TONE_GLYPH`) : ✓ créée, ⚠ à vérifier, ✗ rejetée, rien pour « déjà là ».
 const STATUTS: Record<StatutLigneImport, { libelle: string; tone: BadgeTone; aide: string }> = {
   NOUVELLE: { libelle: 'Nouvelle', tone: 'success', aide: 'Aucun contact identique connu : créée si cochée.' },
   DOUBLON: { libelle: 'Doublon', tone: 'amber', aide: 'Même contact qu\'une prospection existante, autre date : créée si cochée, et signalée.' },
@@ -38,32 +35,34 @@ const STATUTS: Record<StatutLigneImport, { libelle: string; tone: BadgeTone; aid
 };
 const ORDRE_STATUTS: StatutLigneImport[] = ['NOUVELLE', 'DOUBLON', 'DEJA_IMPORTEE', 'ERREUR'];
 
-/** Les deux statuts importables, cochés par défaut (= tout ce qui peut être créé). */
 const STATUTS_IMPORTABLES: StatutImportable[] = ['NOUVELLE', 'DOUBLON'];
 const TOUS_COCHES: Record<StatutImportable, boolean> = { NOUVELLE: true, DOUBLON: true };
+
+function compteParStatut(rapport: RapportImportPreProspectionsDto, s: StatutLigneImport): number {
+  const comptes: Record<StatutLigneImport, number> = {
+    NOUVELLE: rapport.nouvelles,
+    DOUBLON: rapport.doublons,
+    DEJA_IMPORTEE: rapport.dejaImportees,
+    ERREUR: rapport.erreurs,
+  };
+  return comptes[s];
+}
+
+function libelleDejaImportees(n: number): string {
+  if (n <= 0) return '';
+  const s = n > 1 ? 's' : '';
+  return ` — ${n} déjà importée${s} ignorée${s}`;
+}
 
 type Etape = 'fichier' | 'apercu' | 'resultat';
 type Filtre = StatutLigneImport | 'TOUTES';
 
-/** Référentiels optionnels de l'import — vides, le serveur pose ses défauts. */
+// Vides, le serveur pose ses défauts.
 type Reglages = Omit<ImportPreProspectionsParams, 'trancheId' | 'statuts'>;
 
-/* Import CSV des leads (FEATURE-creation-pre-prospection.md §5) — l'export du
- * Leads Center de Meta, en deux temps :
- *
- *   1. `POST /import/apercu` : le fichier est lu, **rien n'est écrit**. Le
- *      rapport dit ce que deviendra chaque ligne.
- *   2. l'écran demande la tranche — l'export n'en porte aucune, et **un
- *      fichier = une tranche** — puis renvoie **le même fichier** à
- *      `POST /import` avec elle.
- *
- * Deux appels sans état plutôt qu'un import « en attente » : rien à nettoyer
- * si l'on abandonne, et le rapport de l'aperçu est exactement celui de
- * l'import. Une page et non une boîte : un rapport de plusieurs milliers de
- * lignes veut toute la largeur.
- *
- * Réimporter un fichier ne crée rien deux fois : le couple contact + date de
- * soumission identifie un lead, et il revient en `DEJA_IMPORTEE`. */
+/* Deux appels sans état : `POST /import/apercu` n'écrit rien, puis le même fichier
+   repart vers `POST /import` avec la tranche (absente de l'export, un fichier =
+   une tranche). Voir FEATURE-creation-pre-prospection.md §5. */
 export default function ImportPreProspections() {
   const navigate = useNavigate();
 
@@ -76,15 +75,12 @@ export default function ImportPreProspections() {
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [filtre, setFiltre] = useState<Filtre>('TOUTES');
-  // Sélection par statut (FEATURE-import-selectif.md §2) : le serveur filtre,
-  // la classification ne bouge pas.
+  // Le serveur filtre par statut, la classification ne bouge pas (FEATURE-import-selectif.md §2).
   const [coches, setCoches] = useState<Record<StatutImportable, boolean>>(TOUS_COCHES);
 
-  // Même source que le filtre Tranche de la liste : à plat, toutes tranches
-  // visibles de l'appelant. Chargée dès l'arrivée pour que la liste soit
-  // prête quand l'aperçu la pré-sélectionne.
-  const tranches = useApi(() => listTranches(undefined, { page: 0, size: 500 }), [], 'tranches-filtre');
-  const trancheItems = (tranches.data?.content ?? []).map((t) => ({
+  // Chargée dès l'arrivée : l'aperçu pré-sélectionne une tranche dans cette liste.
+  const tranches = useTranchesFiltre();
+  const trancheItems = tranches.data.map((t) => ({
     label: t.code && t.description ? `${t.code} — ${t.description}` : t.description || t.code || t.id,
     value: t.id,
   }));
@@ -209,18 +205,18 @@ export default function ImportPreProspections() {
                 <span>
                   <span className="font-medium">{creees} pré-prospection{creees > 1 ? 's' : ''} créée{creees > 1 ? 's' : ''}</span>
                   {rapport.trancheCode ? ` sur la tranche ${rapport.trancheCode}` : ''}
-                  {rapport.dejaImportees > 0 ? ` — ${rapport.dejaImportees} déjà importée${rapport.dejaImportees > 1 ? 's' : ''} ignorée${rapport.dejaImportees > 1 ? 's' : ''}` : ''}
+                  {libelleDejaImportees(rapport.dejaImportees)}
                   {rapport.erreurs > 0 ? ` — ${rapport.erreurs} en erreur` : ''}.
                 </span>
               </div>
             )}
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              <StatCard label="Lignes lues" value={String(rapport.totalLignes)} />
-              <StatCard label="Nouvelles" value={String(rapport.nouvelles)} tone="success" icon={<Check />} />
-              <StatCard label="Doublons" value={String(rapport.doublons)} sub="signalés" tone="amber" icon={<AlertTriangle />} />
-              <StatCard label="Déjà importées" value={String(rapport.dejaImportees)} sub="ignorées" />
-              <StatCard label="Erreurs" value={String(rapport.erreurs)} sub="ignorées" tone={rapport.erreurs > 0 ? 'warning' : 'neutral'} />
+              <StatCard label="Lignes lues" value={formatNumber(rapport.totalLignes)} />
+              <StatCard label="Nouvelles" value={formatNumber(rapport.nouvelles)} tone="success" icon={<Check />} />
+              <StatCard label="Doublons" value={formatNumber(rapport.doublons)} sub="signalés" tone="amber" icon={<AlertTriangle />} />
+              <StatCard label="Déjà importées" value={formatNumber(rapport.dejaImportees)} sub="ignorées" />
+              <StatCard label="Erreurs" value={formatNumber(rapport.erreurs)} sub="ignorées" tone={rapport.erreurs > 0 ? 'warning' : 'neutral'} />
             </div>
 
             {rapport.avertissements.length > 0 && (
@@ -274,8 +270,7 @@ export default function ImportPreProspections() {
                   </div>
                   {reglagesOuverts && (
                     <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-                      {/* Vides, le serveur pose le motif des leads déjà injectés
-                          depuis ces formulaires : 1 A TRAITER / FACEBOOK / WEB. */}
+                      {/* Vides, le serveur pose 1 A TRAITER / FACEBOOK / WEB. */}
                       <FormField>
                         <FieldLabel htmlFor="imp-nature">Nature</FieldLabel>
                         <RefSelect id="imp-nature" value={reglages.etapeId ?? null} onChange={(v) => setReglages((r) => ({ ...r, etapeId: v ?? undefined }))} items={referentielItems(etapes.data)} placeholder="Défaut : 1 A TRAITER" />
@@ -354,7 +349,7 @@ export default function ImportPreProspections() {
                     Toutes ({rapport.totalLignes})
                   </Button>
                   {ORDRE_STATUTS.map((s) => {
-                    const n = s === 'NOUVELLE' ? rapport.nouvelles : s === 'DOUBLON' ? rapport.doublons : s === 'DEJA_IMPORTEE' ? rapport.dejaImportees : rapport.erreurs;
+                    const n = compteParStatut(rapport, s);
                     return (
                       <Button key={s} type="button" size="sm" variant={filtre === s ? 'default' : 'outline'} title={STATUTS[s].aide} onClick={() => setFiltre(s)}>
                         {STATUTS[s].libelle}s ({n})
@@ -384,11 +379,21 @@ export default function ImportPreProspections() {
   );
 }
 
-/** Le rapport, ligne par ligne, dans l'ordre du fichier. Une table simple et
- * non `DataGrid` : c'est un compte rendu à lire une fois, pas une liste de
- * travail à trier et filtrer par colonne. Après l'import, la colonne Code
- * ouvre la pré-prospection créée. */
-function TableauLignes({ lignes, importe }: { lignes: LigneImportDto[]; importe: boolean }) {
+function CodeLigne({ ligne }: Readonly<{ ligne: LigneImportDto }>) {
+  if (ligne.preProspectionId) {
+    return (
+      <Link to={`/pre-prospections/${ligne.preProspectionId}`} className="font-medium underline-offset-2 hover:underline">
+        {ligne.code || ligne.preProspectionId}
+      </Link>
+    );
+  }
+  if (ligne.statut === 'NOUVELLE' || ligne.statut === 'DOUBLON') {
+    return <span className="whitespace-nowrap text-muted-foreground">Non importée</span>;
+  }
+  return <span className="text-muted-foreground">—</span>;
+}
+
+function TableauLignes({ lignes, importe }: Readonly<{ lignes: LigneImportDto[]; importe: boolean }>) {
   if (lignes.length === 0) {
     return <p className="text-body text-muted-foreground">Aucune ligne pour ce filtre.</p>;
   }
@@ -417,15 +422,7 @@ function TableauLignes({ lignes, importe }: { lignes: LigneImportDto[]; importe:
                 <TableCell><Badge tone={s.tone}>{s.libelle}</Badge></TableCell>
                 {importe && (
                   <TableCell>
-                    {l.preProspectionId ? (
-                      <Link to={`/pre-prospections/${l.preProspectionId}`} className="font-medium underline-offset-2 hover:underline">
-                        {l.code || l.preProspectionId}
-                      </Link>
-                    ) : l.statut === 'NOUVELLE' || l.statut === 'DOUBLON' ? (
-                      <span className="whitespace-nowrap text-muted-foreground">Non importée</span>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
+                    <CodeLigne ligne={l} />
                   </TableCell>
                 )}
                 <TableCell className="whitespace-nowrap tabular-nums">{formatDateTime(l.dateCreation)}</TableCell>

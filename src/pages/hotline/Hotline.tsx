@@ -7,36 +7,21 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { rechercherHotline } from '../../lib/api';
+import { useToast } from '../../lib/toastContext';
 import { useApi } from '../../lib/useApi';
 
-// Hotline — recherche instantanée "qui m'appelle ?" par numéro de téléphone,
-// pour un agent qui décroche. Backed by GET /api/hotline/recherche (V4) :
-// jamais 404, `connu: false` + listes vides si personne ne correspond, et
-// une liste séparée d'appels passés jamais rattachés à une fiche formelle.
-// Toute l'info utile (identité complète, prospections, dossiers, règlements,
-// interactions, historique) s'affiche directement sur cette page — l'agent
-// est en ligne avec l'appelant, il ne doit pas avoir à naviguer ailleurs
-// pour voir qui il a au bout du fil. "Voir la fiche complète" reste
-// disponible seulement pour éditer la fiche ou aller plus loin.
-//
-// Le rendu du résultat vit dans `components/HotlineResultat` depuis le lot
-// « suivi des actions » : le détail d'une action l'affiche en boîte, à
-// l'identique. Cette page ne garde que le formulaire et l'état de recherche.
-
-/** Les deux critères exclusifs de GET /api/hotline/recherche. */
+// `GET /api/hotline/recherche` ne répond jamais 404 : `connu: false` et listes vides si personne.
 type CritereMode = 'telephone' | 'nom';
 
 export default function Hotline() {
-  // Le critère fait partie de la requête lancée, pas seulement de la saisie :
-  // basculer le sélecteur après coup ne doit pas réinterpréter un résultat
-  // déjà affiché comme s'il venait de l'autre critère.
+  // `queryMode` fige le critère de la requête lancée : basculer le sélecteur ne réinterprète pas le résultat.
   const [mode, setMode] = useState<CritereMode>('telephone');
   const [input, setInput] = useState('');
   const [query, setQuery] = useState('');
   const [queryMode, setQueryMode] = useState<CritereMode>('telephone');
   const [refreshToken, setRefreshToken] = useState(0);
   const [createForProspectionId, setCreateForProspectionId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const showToast = useToast();
 
   const { data, loading, error } = useApi(
     () =>
@@ -46,15 +31,7 @@ export default function Hotline() {
     [query, queryMode, refreshToken],
   );
 
-  function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3600);
-  }
-
-  // Le serveur refuse un nom de moins de 2 caractères (400) ; on ne l'envoie
-  // pas pour ça. Le téléphone, lui, n'a pas de longueur minimale — c'est la
-  // présence d'au moins un chiffre exploitable qui compte, et le serveur est
-  // seul juge de ce qu'il sait normaliser.
+  // Nom de moins de 2 caractères : 400 côté serveur. Le téléphone n'a pas de minimum, le serveur normalise.
   const saisie = input.trim();
   const saisieValide = mode === 'nom' ? saisie.length >= 2 : saisie.length > 0;
 
@@ -71,11 +48,6 @@ export default function Hotline() {
 
   return (
     <PageShell title="Hotline" crumbs={[{ label: 'Hotline' }]} icon={<Phone />} accent="var(--sec-accent)" accentBg="var(--sec-accent-bg)" fullHeight>
-      {/* Redesign 20/09 : l'écran est piloté par un appel entrant, mais le
-          bloc de recherche occupait ~160px en permanence (label + input
-          hauteur double + bouton lg + deux lignes d'aide). Une seule ligne
-          désormais, l'aide en micro — les fiches trouvées récupèrent la
-          hauteur, et seule la zone de résultats défile. */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">
       <div className="shrink-0">
         <form
@@ -162,12 +134,6 @@ export default function Hotline() {
             showToast('Fiche créée — relancez la recherche pour la voir apparaître.');
           }}
         />
-      )}
-
-      {toast && (
-        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 rounded-lg bg-foreground px-4.5 py-3 text-label font-medium text-background shadow-lg">
-          {toast}
-        </div>
       )}
     </PageShell>
   );

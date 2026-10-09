@@ -9,20 +9,11 @@ import RefSelect from './RefSelect';
 import { referentielItems, useRaisonsCloture } from '../lib/referentiels';
 import type { ArchiverProspectionRequest } from '../types';
 
-/** L'archivage en boîte — le même contenu que le panneau sur place de la
- * fiche (Raison + Détail, tous deux optionnels côté serveur), pour les
- * contextes sans fiche ouverte : le menu Actions des listes.
- *
- * `PATCH /api/prospections/{id}/archiver` reste au parent — la boîte ne
- * connaît que le corps, comme `TransformerProspectionDialog`, et affiche
- * l'erreur sur place plutôt que de se fermer sur un échec. */
 export default function ArchiverProspectionDialog({
   titre,
   onClose,
   onSubmit,
 }: {
-  /** Nom de la prospection, pour que la boîte dise qui elle archive — depuis
-   * une liste, la ligne d'origine peut être hors écran sous le voile. */
   titre?: string;
   onClose: () => void;
   onSubmit: (body: ArchiverProspectionRequest) => Promise<void>;

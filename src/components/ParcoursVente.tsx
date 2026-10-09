@@ -24,9 +24,7 @@ function libelleAccessible(c: CibleEtapeParcours): string {
   return c.code ? `Ouvrir le dossier ${c.code}` : 'Ouvrir le dossier';
 }
 
-/** La barre « parcours de vente » d'une fiche prospection, sur une seule
- * ligne : quel *document* la fiche est devenue, pas où en est la négociation.
- * L'œil ouvre la fiche liée en dialogue, empilé au-dessus du courant. */
+/** Montre quel document la fiche est devenue, pas où en est la négociation. */
 export default function ParcoursVente({ etapes, accent }: { etapes: EtapeParcours[]; accent: string }) {
   const { ouvrirFicheProspect, ouvrirFicheDossier } = usePreview();
 
@@ -88,7 +86,6 @@ export default function ParcoursVente({ etapes, accent }: { etapes: EtapeParcour
                   onClick={() => e.cible && ouvrir(e.cible)}
                 >
                   <Eye data-icon={e.cible.code ? 'inline-start' : undefined} aria-hidden />
-                  {/* Le code du dossier reste lisible ; le prospect n'a qu'un « Voir », l'œil suffit. */}
                   {e.cible.code}
                 </Button>
               )}

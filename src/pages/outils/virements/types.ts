@@ -1,11 +1,6 @@
-/** Formes du service `generateur-virement` (GUIDE-FRONTEND.md §14), noms du
- * fil exactement. Pas dans `src/types.ts`, réservé au miroir de l'OpenAPI
- * d'immo-crm : ce service n'a pas d'OpenAPI, la référence est le guide et
- * `generateur-virement/src/app.js`.
- *
- * Les cases (`par_defaut`, `entete_filet`, `avec_cloture`…) sont des `0 | 1`
- * sur le fil, pas des booléens. Dates : `AAAA-MM-JJ` ; horodatages :
- * `AAAA-MM-JJ HH:MM:SS` (UTC). */
+/* Hors de `src/types.ts` (miroir de l'OpenAPI d'immo-crm) : ce service n'en a pas, la référence est
+   `generateur-virement/src/app.js`. Les cases sont des `0 | 1` sur le fil, pas des booléens ;
+   horodatages `AAAA-MM-JJ HH:MM:SS` en UTC. */
 
 export type Bit = 0 | 1;
 export type TypeVirement = 'fournisseur' | 'salaire';
@@ -42,7 +37,6 @@ export interface Meta {
   longueur_mdp_min: number;
 }
 
-/** `GET /fournisseurs`. */
 export interface Beneficiaire {
   id: number;
   nom: string;
@@ -52,7 +46,6 @@ export interface Beneficiaire {
   updated_at: string;
 }
 
-/** Ligne de `GET /dossiers`. */
 export interface LigneDossier {
   id: number;
   nom: string;
@@ -65,7 +58,6 @@ export interface LigneDossier {
   dossier_complet: boolean;
 }
 
-/** Champs d'une société envoyés à `POST /societes` / `PUT /societes/:id`. */
 export interface SocieteSaisie {
   nom: string;
   banque: string;
@@ -118,7 +110,6 @@ export interface Piece {
   created_at: string;
 }
 
-/** Ordre décoré (`GET /ordres/:id`, chaque élément de liste). */
 export interface Ordre {
   id: number;
   numero: string;
@@ -179,7 +170,6 @@ export interface CreerOrdreGroupe {
   lignes: { fournisseur_nom: string; rib: string; montant: number }[];
 }
 
-/** `POST /ordres/groupe` → 201. */
 export interface OrdreGroupeCree {
   groupe: string;
   total_montant: number;
@@ -199,13 +189,11 @@ export type ModifierOrdre = Partial<{
   type_virement: TypeVirement;
 }>;
 
-/** `POST /ordres/:id/pieces` → 201. */
 export interface PieceAjoutee {
   piece: Piece;
   ordre: Ordre;
 }
 
-/** `GET /fournisseurs/:id/dossier`. */
 export interface DossierBeneficiaire {
   fournisseur: Beneficiaire;
   ordres: Ordre[];
@@ -226,7 +214,6 @@ export interface ResultatImport {
   erreurs: string[];
 }
 
-/** Ligne de `GET /journal`. */
 export interface LigneJournal {
   id: number;
   utilisateur_id: string | null;

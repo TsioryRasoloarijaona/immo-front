@@ -12,29 +12,20 @@ import {
   Wrench,
 } from 'lucide-react';
 
-// Single source of truth for the module switcher grid, the sidebar's
-// "Bientôt" section, and the /bientot/:slug placeholder screens — so all
-// three stay in sync. See instructions/FIX-clients-and-module-switcher.md.
 export interface AppModule {
   slug: string;
   label: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   active: boolean;
   path?: string;
-  /** Masqué du sélecteur de modules pour tout autre rôle qu'Administrateur. */
   adminOnly?: boolean;
 }
 
-/** Which module a given route belongs to, purely from the URL — the single
- * source of truth the sidebar uses to show only that module's submenu.
- * Returns null for module-neutral routes (Dashboard). */
 export function moduleForPath(pathname: string): string | null {
   if (
     pathname.startsWith('/hotline') ||
     pathname.startsWith('/calendrier') ||
     pathname.startsWith('/suivi-actions') ||
-    // Le classement des commerciaux a quitté Administration pour la section
-    // « Suivi » du module Vente (23/09) : c'est du pilotage d'activité.
     pathname.startsWith('/performances') ||
     pathname.startsWith('/prospections') ||
     pathname.startsWith('/pre-prospections') ||
@@ -49,15 +40,11 @@ export function moduleForPath(pathname: string): string | null {
   if (pathname.startsWith('/tranches') || pathname.startsWith('/articles') || pathname.startsWith('/projets')) {
     return 'patrimoine';
   }
-  // `/mes-performances` ne relève d'aucun module : elle est destinée au
-  // commercial, dont les groupes de sidebar ne dépendent pas de la route.
-  // `/cles-api` : les clés des clients machine (n8n), quatrième écran
-  // d'Administration à côté des comptes.
+  // `/mes-performances` ne relève volontairement d'aucun module : la sidebar du
+  // commercial ne dépend pas de la route.
   if (pathname.startsWith('/utilisateurs') || pathname.startsWith('/cles-api')) {
     return 'administration';
   }
-  // Outils : utilitaires internes réservés à l'administrateur, à commencer
-  // par le générateur d'ordres de virement (ex-outil autonome).
   if (pathname.startsWith('/outils')) {
     return 'outils';
   }

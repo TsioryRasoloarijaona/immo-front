@@ -15,23 +15,18 @@ export interface ContexteCharge {
   revision: number;
 }
 
-/** Cadre commun des écrans « Ordres de virement » : visibilité du module
- * (`AdminGuard`, rôle CRM — inchangée), fil d'Ariane, puis le contexte du
- * service (`/moi`, `/meta`) chargé avant de rendre l'écran.
- *
- * `adminSeulement` : réservé à `moi.admin` — le niveau qui vient du service,
- * pas des rôles CRM (§12). */
+/** `adminSeulement` lit `moi.admin`, le niveau du service, pas les rôles CRM. */
 export default function CadreVirements({
   ecran,
   fullHeight,
   adminSeulement,
   children,
-}: {
+}: Readonly<{
   ecran: string;
   fullHeight?: boolean;
   adminSeulement?: boolean;
   children: (ctx: ContexteCharge) => ReactNode;
-}) {
+}>) {
   const { moi, meta, erreur, accesRefuse, revision } = useContexteVirement();
 
   let contenu: ReactNode;
@@ -73,20 +68,19 @@ export default function CadreVirements({
   );
 }
 
-/** Le bloc `Select` de l'app, ramené à une ligne pour les listes courtes. */
 export function ChoixSimple<V extends string>({
   id,
   items,
   value,
   onChange,
   className,
-}: {
+}: Readonly<{
   id?: string;
   items: { value: V; label: string }[];
   value: V;
   onChange: (v: V) => void;
   className?: string;
-}) {
+}>) {
   return (
     <Select items={items} value={value} onValueChange={(v) => onChange(v as V)}>
       <SelectTrigger id={id} className={cn('w-full', className)}>

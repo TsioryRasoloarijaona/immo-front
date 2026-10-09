@@ -14,26 +14,20 @@ import DoublonsProspectPanel from '../../components/DoublonsProspectPanel';
 import TelephoneField, { INDICATIF_MAROC } from '../../components/TelephoneField';
 import type { CreerProspectRequest, ProspectDoublonDto } from '../../types';
 
-// Les indicatifs partent renseignés : c'est leur absence qui produit les
-// numéros que le canal WhatsApp rejette, et la quasi-totalité des prospects
-// sont marocains. L'utilisateur reste libre d'en choisir un autre.
+// Indicatifs pré-remplis : leur absence produit des numéros que le canal WhatsApp rejette.
 const EMPTY: CreerProspectRequest = { indicatifTelephone: INDICATIF_MAROC, indicatifMobile: INDICATIF_MAROC };
 
-// Minimal quick-add form — CreerProspectRequest (POST /api/prospects) has
-// no `required` fields at all per the OpenAPI schema (confirmed: neither
-// CreerProspectRequest nor ProspectListItemDto/ProspectDetailDto carry any
-// tranche/prospection field — a Prospect is a standalone contact record,
-// tranche linkage only exists at the Prospection level, see CLAUDE.md).
-// Everything else (coordonnées complètes, état civil, pièce d'identité…)
-// stays editable afterwards from the "Modifier" button on ProspectDetail.tsx
-// — this page only covers what's needed to get a usable record started.
+function libelleCreer(enCours: boolean, doublons: boolean): string {
+  if (enCours) return 'Création…';
+  return doublons ? 'Réessayer' : 'Créer le prospect';
+}
+
 export default function NewProspect() {
   const navigate = useNavigate();
   const [form, setForm] = useState<CreerProspectRequest>(EMPTY);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // 409 `doublons` : des fiches au même nom, téléphone ou email existent.
-  // Pas une erreur — une question, voir `DoublonsProspectPanel`.
+  // 409 `doublons` : une question, pas une erreur (voir `DoublonsProspectPanel`).
   const [doublons, setDoublons] = useState<ProspectDoublonDto[] | null>(null);
 
   const { commerciaux } = useAppData();
@@ -48,10 +42,7 @@ export default function NewProspect() {
   const isMorale = !!form.raisonSociale?.trim();
   const canCreate = (form.prenom?.trim() && form.nom?.trim()) || isMorale;
 
-  /** Sur 409 `doublons`, la question « est-ce l'une de ces personnes ? »
-   * remplace le message d'erreur ; « Nouveau contact » rappelle cette même
-   * fonction avec `ignorerDoublons: true`. « Ouvrir la fiche » navigue vers
-   * la fiche existante — en création directe il n'y a rien à rattacher. */
+  // « Nouveau contact » rappelle cette fonction avec `ignorerDoublons: true`.
   async function handleCreate(ignorerDoublons = false) {
     if (!canCreate) return;
     setSubmitting(true);
@@ -176,12 +167,8 @@ export default function NewProspect() {
         )}
 
         <div className="flex items-center justify-end border-t border-border pt-4">
-          {/* Une fois la question posée, le geste principal est dans le
-              panneau (« Ouvrir la fiche » / « Nouveau contact »). Le bouton
-              reste actif pour un formulaire retouché — retoucher est la
-              troisième réponse possible à un homonyme. */}
           <Button type="button" onClick={() => { setDoublons(null); void handleCreate(false); }} disabled={!canCreate || submitting}>
-            <Check data-icon="inline-start" /> {submitting ? 'Création…' : doublons ? 'Réessayer' : 'Créer le prospect'}
+            <Check data-icon="inline-start" /> {libelleCreer(submitting, !!doublons)}
           </Button>
         </div>
       </div>

@@ -1,10 +1,7 @@
 import type { BadgeTone } from '../../../types';
 import type { Meta, SocieteSaisie, StatutOrdre, TypeBeneficiaire, TypeVirement } from './types';
 
-/** Ce que le front garde en local. Tout le reste — types de pièces, dossiers,
- * statuts, types de virement et de bénéficiaire — vient de `GET /meta`.
- *
- * Seul libellé local prévu par le guide (§2) : celui des statuts. */
+/** Seul libellé tenu en local : tout le reste des listes métier vient de `GET /meta`. */
 export const STATUT_ORDRE: Record<StatutOrdre, { libelle: string; ton: BadgeTone }> = {
   emis: { libelle: 'Émis', ton: 'progress' },
   paye: { libelle: 'Payé', ton: 'success' },
@@ -15,36 +12,29 @@ export function statutItems(meta: Meta) {
   return meta.statuts.map((s) => ({ value: s, label: STATUT_ORDRE[s]?.libelle ?? s }));
 }
 
-/** Libellés du choix « Type de virement » du formulaire (§4.1) : la clé vient
- * de `/meta`, la formulation du guide. */
+/** La clé vient de `/meta`, la formulation du guide du service. */
 export function libelleChoixType(meta: Meta, t: string): string {
   return t === 'fournisseur' ? "Règlement d'un fournisseur" : (meta.types_virement[t]?.libelle ?? t);
 }
 
-/** Un nouveau bénéficiaire ne se propose que là où il sert : un fournisseur
- * pour un règlement, un salarié pour une paie. */
 export function natureDuType(type: TypeVirement): TypeBeneficiaire {
   return type === 'salaire' ? 'salarie' : 'fournisseur';
 }
 
-/** « 1 ordre », « 3 ordres » — jamais « ordre(s) ». */
 export function pluriel(n: number, singulier: string, plurielForme = `${singulier}s`): string {
   return `${n} ${n > 1 ? plurielForme : singulier}`;
 }
 
-/** `512 o`, `48 Ko`, `1,3 Mo` (§13). */
 export function formatTaille(octets: number): string {
   if (octets < 1024) return `${octets} o`;
   if (octets < 1024 * 1024) return `${Math.round(octets / 1024)} Ko`;
   return `${(octets / 1024 / 1024).toFixed(1).replace('.', ',')} Mo`;
 }
 
-/** Comparaison sans accents ni casse (recherche, noms de bénéficiaires). */
 export function normaliser(s: string): string {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase();
 }
 
-/** Modèle GHRIZA, point de départ d'une nouvelle société (§10.1). */
 export const MODELE_GHRIZA: Omit<SocieteSaisie, 'nom' | 'banque' | 'ville' | 'compte' | 'signataire' | 'par_defaut'> = {
   police: 'helvetica',
   entete_mode: 'logo',
@@ -69,7 +59,7 @@ export const MODELE_GHRIZA: Omit<SocieteSaisie, 'nom' | 'banque' | 'ville' | 'co
   beneficiaire_gras: 1,
 };
 
-/** Libellés du journal (§11). Une action inconnue s'affiche par son code. */
+/** Une action absente d'ici s'affiche par son code brut. */
 export const LIBELLES_ACTION: Record<string, string> = {
   connexion: 'Connexion',
   connexion_refusee: 'Connexion refusée',

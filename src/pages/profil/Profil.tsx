@@ -6,12 +6,11 @@ import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldLabel, FieldError, FieldDescription } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
 import { useAuth } from '../../lib/auth';
-import { ApiError } from '../../lib/api';
 import { toApiDateTime } from '../../lib/format';
+import { ROLES_EXEMPTES } from '../../lib/roles';
+import { errorMessage } from '../../lib/useApi';
 
-// `description` on UtilisateurCourantDto is a single "Prénom Nom" string (no
-// separate prenom/nom fields come back from GET /api/mon-compte) — split it
-// on the first space as a best-effort prefill for the edit form below.
+// `GET /api/mon-compte` ne sert que `description` (« Prénom Nom ») : coupée au premier espace.
 function splitDescription(description: string | undefined): { prenom: string; nom: string } {
   if (!description) return { prenom: '', nom: '' };
   const trimmed = description.trim();
@@ -64,7 +63,7 @@ function InformationsPersonnelles() {
       setEditing(false);
       setSavedAt(Date.now());
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Erreur inconnue.');
+      setError(errorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -168,7 +167,7 @@ function Securite() {
       setConfirmation('');
       setSavedAt(Date.now());
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : 'Erreur inconnue.');
+      setError(errorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -224,25 +223,30 @@ function Securite() {
   );
 }
 
-// Same exemption set as `AffecterProjetsDialog` (Comptes utilisateurs) —
-// an Administrateur/Direction Générale account always sees every project,
-// independent of any project assignment.
-const EXEMPT_ROLES = new Set(['Administrateur', 'Direction Générale']);
+function SansRestriction({ exemptRoles }: Readonly<{ exemptRoles: string[] }>) {
+  if (exemptRoles.length > 0) {
+    return (
+      <p className="text-body text-muted-foreground">
+        Aucune restriction ne s'applique à votre compte : le rôle{' '}
+        <span className="font-medium text-foreground">{exemptRoles.join(' / ')}</span> vous donne accès à
+        tous les projets, quelle que soit l'affectation.
+      </p>
+    );
+  }
+  return (
+    <p className="text-body text-muted-foreground">
+      Aucune restriction de périmètre n'est appliquée à ce compte : vous avez accès à tous les
+      projets. Un administrateur peut en configurer une depuis l'écran Comptes utilisateurs si
+      nécessaire.
+    </p>
+  );
+}
 
-/** Read-only summary of the connected account's commercial perimeter. The
- * three states below are enforced server-side (see `UtilisateurCourantDto`
- * in types.ts) and are not interchangeable:
- * - `perimetreRestreint` true → the account is genuinely filtered to
- *   `projetsAutorises`.
- * - false + an exempt role → the account sees everything *because of the
- *   role*, regardless of any assignment underneath.
- * - false + no exempt role → the account simply has no restriction
- *   configured; this is the default state for an unassigned account, not
- *   an error or an empty list, so it must not be phrased like one. */
+/* Trois états distincts : restreint à `projetsAutorises` ; non restreint par rôle exempté ;
+   non restreint faute d'affectation — l'état par défaut, jamais à présenter comme une erreur. */
 function ProjetsAffectes() {
   const { user } = useAuth();
-  const exemptRoles = (user?.roles ?? []).filter((r) => EXEMPT_ROLES.has(r));
-  const isExempt = exemptRoles.length > 0;
+  const exemptRoles = (user?.roles ?? []).filter((r) => ROLES_EXEMPTES.has(r));
   const projets = user?.projetsAutorises ?? [];
 
   return (
@@ -269,18 +273,8 @@ function ProjetsAffectes() {
             Seul un administrateur peut modifier cette affectation, depuis l'écran Comptes utilisateurs.
           </p>
         </div>
-      ) : isExempt ? (
-        <p className="text-body text-muted-foreground">
-          Aucune restriction ne s'applique à votre compte : le rôle{' '}
-          <span className="font-medium text-foreground">{exemptRoles.join(' / ')}</span> vous donne accès à
-          tous les projets, quelle que soit l'affectation.
-        </p>
       ) : (
-        <p className="text-body text-muted-foreground">
-          Aucune restriction de périmètre n'est appliquée à ce compte : vous avez accès à tous les
-          projets. Un administrateur peut en configurer une depuis l'écran Comptes utilisateurs si
-          nécessaire.
-        </p>
+        <SansRestriction exemptRoles={exemptRoles} />
       )}
     </Card>
   );
@@ -292,10 +286,7 @@ export default function Profil() {
   return (
     <PageShell title="Mon profil" crumbs={[{ label: 'Mon profil' }]} icon={<UserCircle />} accent="var(--sec-accent)" accentBg="var(--sec-accent-bg)">
       <div className="mb-3.5">
-        {/* Not an <h1>: PageShell's header already renders the page's only
-            h1 ("Mon profil"). A second one here gave the page two competing
-            top-level headings in the accessibility tree — this is the user's
-            name as content, so it's an h2 under that heading. */}
+        {/* h2 et non h1 : PageShell rend déjà le seul h1 de la page. */}
         <h2 className="text-hero font-semibold tracking-tight text-foreground">{user?.description || user?.username}</h2>
         <div className="mt-1 flex items-center gap-1.5 text-label text-muted-foreground">
           {user?.username}

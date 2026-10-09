@@ -7,22 +7,18 @@ import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { getArticle, getDossier, listArticlePiecesJointes, openArticlePieceJointeFichier } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { formatCurrency, formatDate, formatPercent } from '../../lib/format';
+import { formatCurrency, formatDate, formatPercent, formatSurface, libellePrix } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import { pieceJointeTypeTone } from '../../lib/domain';
 import type { PieceJointeDto } from '../../types';
 
-/** Read-only counterpart of `PieceJointeRow` in `DossierDetail.tsx` — same
- * row shape (Fichier/Déposé par/Type/Date/Actions), but no upload endpoint
- * exists for articles, so no add-row/delete affordance — and a single open
- * action rather than a view/download pair, for the reason spelled out on
- * `PieceJointeRow`. */
-function ArticlePieceJointeRow({ articleId, piece }: { articleId: string; piece: PieceJointeDto }) {
+// Lecture seule : aucun endpoint d'envoi ni de suppression pour les pièces d'un article.
+function ArticlePieceJointeRow({ articleId, piece }: Readonly<{ articleId: string; piece: PieceJointeDto }>) {
   const [error, setError] = useState<string | null>(null);
   const ext = piece.extension?.replace(/^\./, '') || '';
   const filename = `${piece.description || 'document'}${ext ? `.${ext}` : ''}`;
 
-  // Cf. PieceJointeRow (DossierDetail) : navigation vers le stockage.
+  // URL présignée servie en `inline` : une seule action « Ouvrir », cf. PieceJointeRow (DossierDetail).
   function handle() {
     setError(null);
     try {
@@ -58,19 +54,20 @@ function ArticlePieceJointeRow({ articleId, piece }: { articleId: string; piece:
 }
 
 export default function ArticleDetail() {
-  const { id } = useParams();
-  const { data: a, loading, error } = useApi(() => getArticle(id!), [id]);
+  const { id = '' } = useParams();
+  return <FicheArticle key={id} id={id} />;
+}
+
+function FicheArticle({ id }: Readonly<{ id: string }>) {
+  const { data: a, loading, error } = useApi(() => getArticle(id), [id]);
   const navigate = useNavigate();
 
-  // "Dossier de vente" card only fetches/renders when the article is
-  // actually reserved/sold (a.dossierId set via the reverse Article→Dossier
-  // link on ArticleDetailDto).
   const dossier = useApi(
     () => (a?.dossierId ? getDossier(a.dossierId) : Promise.resolve(null)),
     [a?.dossierId],
   );
 
-  const pieces = useApi(() => listArticlePiecesJointes(id!), [id]);
+  const pieces = useApi(() => listArticlePiecesJointes(id), [id]);
 
   if (loading) return <PageShell title="Article"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Article"><ErrorState message={error} /></PageShell>;
@@ -131,16 +128,16 @@ export default function ArticleDetail() {
             <Field label="Nature" value={a.natureLibelle} />
             <Field label="Immeuble" value={a.immeubleLibelle} />
             <Field label="Étage" value={a.etageLibelle} />
-            <Field label="Superficie" value={a.area ? `${a.area} m²` : undefined} />
-            <Field label="Superficie sous-articles" value={a.superficieSousArticles ? `${a.superficieSousArticles} m²` : undefined} />
+            <Field label="Superficie" value={a.area ? formatSurface(a.area) : undefined} />
+            <Field label="Superficie sous-articles" value={a.superficieSousArticles ? formatSurface(a.superficieSousArticles) : undefined} />
             <Field label="TVA" value={a.tauxTVA != null ? formatPercent(a.tauxTVA) : undefined} />
             <Field
               label="Prix de vente"
-              value={a.salePrice ? formatCurrency(a.salePrice) : a.salePriceFloor ? `${formatCurrency(a.salePriceFloor)} (plancher)` : undefined}
+              value={libellePrix(a.salePrice, a.salePriceFloor)}
             />
             <Field
               label="Prix de vente commercial"
-              value={a.comSalePrice ? formatCurrency(a.comSalePrice) : a.comSalePriceFloor ? `${formatCurrency(a.comSalePriceFloor)} (plancher)` : undefined}
+              value={libellePrix(a.comSalePrice, a.comSalePriceFloor)}
             />
             <Field label="Titre foncier" value={a.titreFoncier} />
           </FieldGrid>

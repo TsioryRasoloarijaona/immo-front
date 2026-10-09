@@ -3,17 +3,12 @@ import { APP_MODULES, type AppModule } from '../lib/modules';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { cn } from '../lib/utils';
 import { useAuth } from '../lib/auth';
+import { estAdministrateur } from '../lib/roles';
 
-// ERPNext/Odoo-style app launcher: full-screen overlay, grid of module cards.
-// Vente/Patrimoine are real; the rest are visibly "Bientôt" and route to a
-// dedicated placeholder rather than a dead link. See
-// instructions/FIX-clients-and-module-switcher.md.
 export default function ModuleSwitcher({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.roles?.includes('Administrateur') ?? false;
-  // Un module réservé n'apparaît pas du tout pour les autres rôles : une
-  // tuile qui mène à « Accès réservé » ne leur apprendrait rien.
+  const isAdmin = estAdministrateur(user);
   const modules = APP_MODULES.filter((m) => !m.adminOnly || isAdmin);
 
   function handleSelect(mod: AppModule) {

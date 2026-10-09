@@ -5,20 +5,17 @@ import { cn } from '../../../lib/utils';
 
 export type GenreNotification = 'succes' | 'erreur' | 'avertissement';
 
-/** Durées du guide (§3) : succès ~4 s, erreur ~7 s. */
 const DUREE: Record<GenreNotification, number> = { succes: 4000, erreur: 7000, avertissement: 7000 };
+const ICONE: Record<GenreNotification, typeof CheckCircle2> = { succes: CheckCircle2, erreur: XCircle, avertissement: AlertTriangle };
 
 export interface Notifications {
   noeud: ReactNode;
   notifier: (msg: string, genre?: GenreNotification) => void;
-  /** Message d'une `ErreurVirement` (déjà adapté au code : référence d'un
-   * 500, « Accès refusé » d'un 403…), précédé de `prefixe` s'il y en a un.
-   * Un 401 ne s'affiche pas : le retour à la connexion est en cours. */
+  /** Un 401 ne s'affiche pas : le retour à la connexion est déjà en cours. */
   notifierErreur: (e: unknown, prefixe?: string) => void;
 }
 
-/** Notification de bas d'écran, au-dessus des dialogues (`z-60`) : elle
- * confirme souvent un geste fait dans l'un d'eux. Un clic la ferme. */
+/** Au-dessus des dialogues (`z-60`) : elle confirme souvent un geste fait dans l'un d'eux. */
 export function useNotification(): Notifications {
   const [courante, setCourante] = useState<{ msg: string; genre: GenreNotification } | null>(null);
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -38,7 +35,7 @@ export function useNotification(): Notifications {
     [notifier],
   );
 
-  const Icone = courante?.genre === 'succes' ? CheckCircle2 : courante?.genre === 'erreur' ? XCircle : AlertTriangle;
+  const Icone = ICONE[courante?.genre ?? 'avertissement'];
   const noeud = courante ? (
     <button
       type="button"

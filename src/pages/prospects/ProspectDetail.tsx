@@ -31,7 +31,7 @@ import { useToast } from '../../lib/toastContext';
 import { routeFicheProspection } from '../../lib/parcours';
 import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-import { formatCurrency, formatDate, formatTelephone } from '../../lib/format';
+import { formatCurrency, formatDate, formatFourchetteSurface, formatPercent, formatTelephone } from '../../lib/format';
 import TelephoneField from '../../components/TelephoneField';
 import ContactsProspect from '../../components/ContactsProspect';
 import type { DossierListItemDto, ModifierProspectRequest, ProspectionDetailDto, ProspectionListItemDto } from '../../types';
@@ -40,31 +40,22 @@ const NouvelleProspectionDialog = lazy(() => import('../prospections/NewProspect
 
 type ProspectTab = 'general' | 'contacts' | 'prospections' | 'dossiers' | 'reglements' | 'historique';
 
-/** La page routée : elle lit l'URL et la passe à la fiche.
- *
- * Reused verbatim for both `/prospects/:id` and `/clients/:id` — GET
- * /api/clients/{id} returns the same ProspectDetailDto shape as
- * /api/prospects/{id} (see ClientsList.tsx's comment), so rather than
- * duplicating this whole page for "Clients", detect the entry point from
- * the URL and swap only the fetch call + breadcrumb/back-link labels. */
+// Sert `/prospects/:id` et `/clients/:id` : `GET /api/clients/{id}` renvoie le même `ProspectDetailDto`.
 export default function ProspectDetail() {
   const { id } = useParams();
   const location = useLocation();
-  return <FicheProspect id={id!} client={location.pathname.startsWith('/clients')} />;
+  return <FicheProspect key={id} id={id!}client={location.pathname.startsWith('/clients')} />;
 }
 
-/** La fiche elle-même, indépendante de l'URL — ce qui permet de l'ouvrir en
- * dialogue (`FicheProspectDialog`) à l'identique de la page, comme
- * `FicheProspection`. `client` choisit l'endpoint et les libellés. */
 export function FicheProspect({
   id,
   client: isClientContext,
   variante = 'page',
-}: {
+}: Readonly<{
   id: string;
   client: boolean;
   variante?: VarianteFiche;
-}) {
+}>) {
   const listPath = isClientContext ? '/clients' : '/prospects';
   const listLabel = isClientContext ? 'Clients' : 'Prospects';
   const { data: person, loading, error, refetch } = useApi(
@@ -87,10 +78,6 @@ export function FicheProspect({
   const reglements = useApi(() => listProspectReglements(id, { page: reglementsPage, size: 20 }), [id, reglementsPage]);
   const [historiquePage, setHistoriquePage] = useState(0);
   const historique = useApi(() => listProspectHistorique(id, { page: historiquePage, size: 20 }), [id, historiquePage]);
-  // Prospections/Dossiers rows expand in place instead of navigating away —
-  // this page is reached from Clients as much as from Prospects, and
-  // leaving it to open /prospections/:id or /dossiers/:id was reported as
-  // an unwanted "redirect" out of the client's fiche.
   const [expandedProspectionId, setExpandedProspectionId] = useState<string | null>(null);
   const [expandedDossierId, setExpandedDossierId] = useState<string | null>(null);
   const [nouvelleProspection, setNouvelleProspection] = useState(false);
@@ -119,30 +106,32 @@ export function FicheProspect({
   }
 
   function startEdit() {
+    const fiche = person;
+    if (!fiche) return;
     setForm({
-      prenom: person!.prenom,
-      nom: person!.nom,
-      telephone: person!.telephone,
-      // Reconduits explicitement : le formulaire renvoie tout le corps, donc
-      // un indicatif omis ici serait absent de la requête et risquerait
-      // d’effacer celui déjà enregistré.
-      indicatifTelephone: person!.indicatifTelephone,
-      mobile: person!.mobile,
-      indicatifMobile: person!.indicatifMobile,
-      email: person!.email,
-      adresse: person!.adresse,
-      ville: person!.ville,
-      codePostal: person!.codePostal,
+      prenom: fiche.prenom,
+      nom: fiche.nom,
+      telephone: fiche.telephone,
+      // Reconduits explicitement : le corps est envoyé en entier, un indicatif omis
+      // risquerait d'effacer celui enregistré.
+      indicatifTelephone: fiche.indicatifTelephone,
+      mobile: fiche.mobile,
+      indicatifMobile: fiche.indicatifMobile,
+      email: fiche.email,
+      adresse: fiche.adresse,
+      ville: fiche.ville,
+      codePostal: fiche.codePostal,
     });
     setEditing(true);
   }
 
   async function save() {
-    if (!form) return;
+    const fiche = person;
+    if (!form || !fiche) return;
     setSaving(true);
     setSaveError(null);
     try {
-      await updateProspect(person!.id, form);
+      await updateProspect(fiche.id, form);
       await refetch();
       setEditing(false);
     } catch (err) {
@@ -162,8 +151,6 @@ export function FicheProspect({
       accent={isClientContext ? 'var(--sec-client)' : 'var(--sec-prospect)'}
       accentBg={isClientContext ? 'var(--sec-client-bg)' : 'var(--sec-prospect-bg)'}
       fullHeight
-      /* Ligne 1 — l'identité, dans la ligne de titre. « Nouvelle prospection »
-         est descendue dans l'onglet Prospections, au-dessus du tableau. */
       entete={
         <EnteteFiche code={person.code} nom={personDisplayName(person)}>
           <span className="text-body text-muted-foreground">
@@ -339,8 +326,6 @@ export function FicheProspect({
         </TabsContent>
 
         <TabsContent value="prospections" className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-          {/* L'onglet d'activité du prospect : l'action la plus fréquente en
-              tête, au-dessus du tableau ; le total est sur l'onglet. */}
           <div className="flex flex-col gap-2.5 p-3">
             <LigneActivite
               action={
@@ -478,21 +463,15 @@ export function FicheProspect({
   );
 }
 
-/** One row of the "Prospections" tab — clicking toggles a detail panel open
- * in place instead of navigating to `/prospections/:id` (this page's own
- * list rows already do that; the Prospect/Client fiche is meant to stay put
- * while browsing what's linked to it). The list row (`ProspectionListItemDto`)
- * only carries a handful of fields, so the full detail (`ProspectionDetailDto`)
- * is fetched lazily via `getProspection`, once, the first time the row opens. */
 function ProspectionRow({
   prospection: p,
   expanded,
   onToggle,
-}: {
+}: Readonly<{
   prospection: ProspectionListItemDto;
   expanded: boolean;
   onToggle: () => void;
-}) {
+}>) {
   const detail = useApi(() => (expanded ? getProspection(p.id) : Promise.resolve(null)), [expanded, p.id]);
 
   return (
@@ -532,7 +511,7 @@ function ProspectionRow({
                   <Field label="Vocation" value={detail.data.vocation} />
                   <Field label="Type de contact" value={detail.data.typeContact} />
                   <Field label="Action commerciale" value={detail.data.actionCommerciale} />
-                  <Field label="Surface" value={detail.data.surface != null ? `${detail.data.surface}${detail.data.surfaceJusqua ? ` à ${detail.data.surfaceJusqua}` : ''} m²` : undefined} />
+                  <Field label="Surface" value={formatFourchetteSurface(detail.data.surface, detail.data.surfaceJusqua)} />
                   <Field label="Budget" value={detail.data.prix != null ? `${formatCurrency(detail.data.prix)}${detail.data.prixJusqua ? ` à ${formatCurrency(detail.data.prixJusqua)}` : ''}` : undefined} />
                   <Field label="Avance" value={detail.data.avance != null ? formatCurrency(detail.data.avance) : undefined} />
                   <Field label="Financement fonds propres" value={detail.data.financementFondsPropres != null ? formatCurrency(detail.data.financementFondsPropres) : undefined} />
@@ -554,18 +533,15 @@ function ProspectionRow({
   );
 }
 
-/** One row of the "Dossiers" tab — same expand-in-place pattern as
- * `ProspectionRow` above, fetching the full `DossierDetailDto` (articles,
- * pricing breakdown) lazily via `getDossier` on first expand. */
 function DossierRow({
   dossier: d,
   expanded,
   onToggle,
-}: {
+}: Readonly<{
   dossier: DossierListItemDto;
   expanded: boolean;
   onToggle: () => void;
-}) {
+}>) {
   const detail = useApi(() => (expanded ? getDossier(d.id) : Promise.resolve(null)), [expanded, d.id]);
 
   return (
@@ -611,12 +587,12 @@ function DossierRow({
                   <Field label="Commercial" value={detail.data.commercialNom} />
                   <Field label="Avocat" value={detail.data.avocatNom} />
                   <Field label="Prix avant remise" value={detail.data.prixAvantRemise != null ? formatCurrency(detail.data.prixAvantRemise) : undefined} />
-                  <Field label="Remise" value={detail.data.remise != null ? `${Math.round(detail.data.remise * 100)} %` : undefined} />
+                  <Field label="Remise" value={detail.data.remise != null ? formatPercent(detail.data.remise, 0) : undefined} />
                   <Field label="Remise montant" value={detail.data.remiseMontant != null ? formatCurrency(detail.data.remiseMontant) : undefined} />
                   <Field label="Prix après remise" value={detail.data.prixApresRemise != null ? formatCurrency(detail.data.prixApresRemise) : undefined} />
                   <Field label="Avance" value={detail.data.montantAvance != null ? formatCurrency(detail.data.montantAvance) : undefined} />
                   <Field label="Mode de paiement" value={detail.data.modePaie} />
-                  <Field label="Probabilité de finalisation" value={detail.data.probabiliteFinalisation != null ? `${Math.round(detail.data.probabiliteFinalisation * 100)} %` : undefined} />
+                  <Field label="Probabilité de finalisation" value={detail.data.probabiliteFinalisation != null ? formatPercent(detail.data.probabiliteFinalisation, 0) : undefined} />
                 </FieldGrid>
                 {detail.data.notes && (
                   <div className="whitespace-pre-wrap rounded-lg bg-muted/40 p-2.5 text-body text-foreground">
@@ -632,9 +608,8 @@ function DossierRow({
   );
 }
 
-/** Lien « Ouvrir → » dans une ligne qui se déplie au clic : il ne doit pas
- * déclencher le dépliage (clic ni Entrée/Espace). */
-function LienOuvrir({ vers, cible }: { vers: string; cible: string }) {
+// Dans une ligne dépliable : ne doit pas déclencher le dépliage (clic ni Entrée/Espace).
+function LienOuvrir({ vers, cible }: Readonly<{ vers: string; cible: string }>) {
   return (
     <Link
       to={vers}

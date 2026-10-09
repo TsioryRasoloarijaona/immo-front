@@ -5,22 +5,7 @@ import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { cn } from '../lib/utils';
 
-/* Cellules de formulaire de fiche.
- *
- * Le logiciel de bureau pose son libellé **à gauche** du champ, en colonne
- * alignée. On garde l'alignement — c'est lui qui rend la grille lisible d'un
- * coup d'œil — mais le libellé passe **au-dessus**, en `--text-micro` : à
- * largeur de fenêtre égale, la colonne de libellés d'Omran mange un tiers de
- * la ligne, et c'est ce tiers qui manquait pour tenir en une page.
- *
- * L'état modifié est porté par un liseré gauche et non par un fond coloré :
- * Omran teinte ses champs éditables en jaune, ce qui à quinze champs revient à
- * teinter tout l'écran et ne distingue plus rien. Ici seul ce qui a **changé**
- * se signale, et rien d'autre. */
-
-/* Colonnes restantes de la dernière ligne de `GrilleFiche` (2 / 4 colonnes),
-   indexées par le nombre de cellules posées avant. Classes littérales : Tailwind
-   ne voit pas les classes calculées. */
+// Classes littérales, indexées par le nombre de cellules posées avant : Tailwind ne voit pas les classes calculées.
 const RESTE_BASE = ['col-span-2', 'col-span-1'];
 const RESTE_LG = ['lg:col-span-4', 'lg:col-span-3', 'lg:col-span-2', 'lg:col-span-1'];
 function classeReste(apres: number | undefined) {
@@ -64,10 +49,6 @@ function Enveloppe({
   );
 }
 
-/** Champ non modifiable — soit qu'aucun endpoint ne l'expose (`ancienClient`,
- * le commercial), soit qu'il soit calculé (le code, la société dérivée de la
- * tranche). Le cadenas dit *pourquoi* c'est gris, ce qu'un simple champ
- * désactivé ne dit pas. */
 export function ChampLecture({
   label,
   valeur,
@@ -80,11 +61,8 @@ export function ChampLecture({
   valeur: ReactNode;
   aide?: string;
   className?: string;
-  /** Nombre de cellules posées avant celle-ci : elle prend alors les colonnes
-   * restantes de la ligne (champ long en fin de grille). */
+  /** Nombre de cellules posées avant celle-ci : elle prend alors le reste de la ligne. */
   apres?: number;
-  /** Texte long : replié sur plusieurs lignes (défilant au-delà de quatre)
-   * au lieu d'être tronqué. */
   multiligne?: boolean;
 }) {
   const vide = valeur === null || valeur === undefined || valeur === '' || valeur === '—';
@@ -104,8 +82,6 @@ export function ChampLecture({
   );
 }
 
-/** Champ adossé à un référentiel. Le gros du formulaire : origine, support,
- * vocation, type de contact, action commerciale, étape. */
 export function ChampRef({
   id,
   label,
@@ -158,9 +134,6 @@ export function ChampTexte({
   );
 }
 
-/** Le champ le plus rempli de la fiche (100 % sur l'échantillon). Il démarre
- * sur une ligne, grandit avec son contenu jusqu'à quatre puis défile : le
- * texte reste entier sans réserver un pavé vide sur les fiches courtes. */
 export function ChampNotes({
   id,
   label,
@@ -178,7 +151,6 @@ export function ChampNotes({
   modifie?: boolean;
   lignes?: number;
   className?: string;
-  /** Voir `ChampLecture`. */
   apres?: number;
 }) {
   return (
@@ -194,10 +166,6 @@ export function ChampNotes({
   );
 }
 
-/** Grille du formulaire : **une seule**, quatre colonnes (deux en écran
- * étroit), lignes complètes — pas de troisième palier, qui cassait le compte
- * des lignes et laissait des trous. Un champ long prend les colonnes restantes
- * de la dernière ligne (`col-span-*` côté appelant). */
 export function GrilleFiche({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
@@ -211,9 +179,6 @@ export function GrilleFiche({ children, className }: { children: ReactNode; clas
   );
 }
 
-/** La petite ligne grise de pied de carte : ce que la ligne d'identité ne
- * reprend pas (date de création, commercial…), pour ne rien perdre sans
- * répéter quatre champs en tête de grille. */
 export function PiedFiche({ children }: { children: ReactNode }) {
   return (
     <p className="col-span-full flex flex-wrap items-center gap-x-1.5 gap-y-0.5 pt-0.5 text-micro text-muted-foreground">
