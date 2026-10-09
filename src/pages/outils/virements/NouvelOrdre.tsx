@@ -72,7 +72,7 @@ function Formulaire({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   const societes = societesApi.data ?? [];
   const beneficiaires = beneficiairesApi.data ?? [];
   const societe =
-    societes.find((s) => s.id === choixSociete) ?? societes.find((s) => s.par_defaut) ?? societes[0];
+    societes.find((s) => s.id === choixSociete) ?? societes.find((s) => s.par_defaut) ?? societes.at(0);
 
   const parNom = useMemo(() => {
     const m = new Map<string, Beneficiaire>();
@@ -146,22 +146,24 @@ function Formulaire({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
     return null;
   }
 
-  async function generer(e: React.FormEvent) {
+  async function generer(e: React.SyntheticEvent) {
     e.preventDefault();
     if (enCours) return;
     const refus = controler();
     setErreur(refus);
     if (refus || !societe) return;
     setEnCours(true);
+    // `controler()` a déjà refusé tout montant absent ou nul : le repli à 0 n'est jamais pris.
+    const montantControle = (saisie: string) => montantSaisi(saisie) ?? 0;
     try {
       const entete = { date_virement: date, reference: reference.trim(), societe_id: societe.id, type_virement: type };
       if (mode === 'seul') {
-        const o = await creerOrdre({ ...entete, fournisseur_nom: nom.trim(), rib: ribDe(nom), montant: montantSaisi(montant)! });
+        const o = await creerOrdre({ ...entete, fournisseur_nom: nom.trim(), rib: ribDe(nom), montant: montantControle(montant) });
         setGenere({ ordres: [o], groupe: null });
       } else {
         const r = await creerOrdreGroupe({
           ...entete,
-          lignes: lignesRemplies.map((l) => ({ fournisseur_nom: l.nom.trim(), rib: ribDe(l.nom), montant: montantSaisi(l.montant)! })),
+          lignes: lignesRemplies.map((l) => ({ fournisseur_nom: l.nom.trim(), rib: ribDe(l.nom), montant: montantControle(l.montant) })),
         });
         setGenere({ ordres: r.ordres, groupe: r.groupe });
       }
@@ -186,6 +188,7 @@ function Formulaire({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
 
   const premier = genere?.ordres[0];
   const dernier = genere?.ordres[genere.ordres.length - 1];
+  const aJoindreAChacun = (genere?.ordres.length ?? 0) > 1 ? ' (à joindre à chacun)' : '';
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(340px,460px)_minmax(0,1fr)]">
@@ -365,7 +368,7 @@ function Formulaire({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
                   <p className="text-muted-foreground">
                     {premier.manquants.length === 0
                       ? 'Le dossier est complet.'
-                      : `Il reste à y joindre ${premier.manquants.join(', ').toLowerCase()}${genere.ordres.length > 1 ? ' (à joindre à chacun)' : ''}.`}
+                      : `Il reste à y joindre ${premier.manquants.join(', ').toLowerCase()}${aJoindreAChacun}.`}
                   </p>
                 </div>
               </div>

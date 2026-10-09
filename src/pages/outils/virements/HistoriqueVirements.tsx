@@ -120,7 +120,7 @@ function Historique({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
       largeur: 9,
       rendu: ({ ordre: o }) => (
         // La ligne s'ouvre au clic : les boutons ne doivent pas l'ouvrir en plus.
-        <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <div role="presentation" className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           <Button type="button" variant="ghost" size="icon-xs" title="Ouvrir" aria-label={`Ouvrir ${o.numero}`} onClick={() => setOuvert(o.id)}>
             <FolderOpen />
           </Button>

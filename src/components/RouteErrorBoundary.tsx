@@ -1,6 +1,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { Button } from './ui/button';
+import { texteBrut } from '../lib/format';
 
 /* `<Suspense>` couvre l'attente d'un `React.lazy`, jamais son échec : sans ce
    filet, un module introuvable (déploiement pendant qu'un onglet est ouvert,
@@ -8,7 +9,7 @@ import { Button } from './ui/button';
 
 /** Reconnu sur le message : chaque navigateur formule l'échec d'import à sa façon. */
 function estEchecDeChargement(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error ?? '');
+  const message = error instanceof Error ? error.message : texteBrut(error);
   return /dynamically imported module|importing a module script|failed to fetch|load failed|chunk/i.test(message);
 }
 
@@ -42,7 +43,7 @@ export default class RouteErrorBoundary extends Component<Props, State> {
 
   render() {
     const { error } = this.state;
-    if (!error) return this.props.children;
+    if (!error) return <>{this.props.children}</>;
 
     const chargement = estEchecDeChargement(error);
 

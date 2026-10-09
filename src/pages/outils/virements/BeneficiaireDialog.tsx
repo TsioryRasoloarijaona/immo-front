@@ -38,7 +38,7 @@ export default function BeneficiaireDialog({
 
   const natureItems = (Object.entries(meta.types_beneficiaire) as [TypeBeneficiaire, string][]).map(([v, l]) => ({ value: v, label: l }));
 
-  async function enregistrer(e: React.FormEvent) {
+  async function enregistrer(e: React.SyntheticEvent) {
     e.preventDefault();
     if (enCours) return;
     if (!nom.trim() || !rib.trim()) return setErreur('Le nom et le RIB sont requis.');
@@ -74,6 +74,7 @@ export default function BeneficiaireDialog({
           <FieldGroup>
             <FormField>
               <FieldLabel htmlFor="be-nom">Nom</FieldLabel>
+              {/* eslint-disable-next-line jsx-a11y/no-autofocus -- boîte de dialogue : le focus initial y est attendu */}
               <Input id="be-nom" value={nom} maxLength={200} onChange={(e) => setNom(e.target.value)} autoFocus />
             </FormField>
             <FormField>

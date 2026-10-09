@@ -18,12 +18,12 @@ export default function ContactsProspect({
   contacts,
   onAdd,
   onRemove,
-}: {
+}: Readonly<{
   contacts: { data: ContactProspectDto[] | null; loading: boolean; error: string | null };
   onAdd: (body: CreerContactProspectRequest) => Promise<void>;
   /** `linkId` est l'id du lien CfgTierContact (`ContactProspectDto.id`), pas celui de la personne. */
   onRemove?: (linkId: string) => Promise<void>;
-}) {
+}>) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'existant' | 'nouveau'>('existant');
   const [search, setSearch] = useState('');
@@ -67,14 +67,14 @@ export default function ContactsProspect({
 
   async function ajouter() {
     if (!canAdd || !relationTypeId) return;
+    const corps =
+      mode === 'existant' && selected
+        ? { contactProspectId: selected.id, relationTypeId }
+        : { nouveauContact: newForm, relationTypeId };
     setBusy(true);
     setErreur(null);
     try {
-      await onAdd(
-        mode === 'existant'
-          ? { contactProspectId: selected!.id, relationTypeId }
-          : { nouveauContact: newForm, relationTypeId },
-      );
+      await onAdd(corps);
       fermer();
     } catch (err) {
       setErreur(err instanceof Error ? err.message : "Échec de l'ajout du contact.");
@@ -104,7 +104,7 @@ export default function ContactsProspect({
             </Button>
             <div className="ml-auto flex flex-col gap-1">
               <label className="text-micro text-muted-foreground" htmlFor="ct-relation">Relation *</label>
-              <Select items={relationItems} value={relationTypeId ?? ''} onValueChange={(v) => setRelationTypeId((v as string) || null)}>
+              <Select items={relationItems} value={relationTypeId ?? ''} onValueChange={(v) => setRelationTypeId((v) || null)}>
                 <SelectTrigger id="ct-relation" size="sm" className="w-45">
                   <SelectValue placeholder="Choisir…" />
                 </SelectTrigger>

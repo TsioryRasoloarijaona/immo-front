@@ -20,7 +20,8 @@ import {
 } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { DISPOSITION_ENCAISSEMENTS } from '../../lib/dispositions';
-import { useGroupement, useLignesGroupes } from '../../lib/groupement';
+import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
+import EtatColonnes from '../../components/EtatColonnes';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import {
@@ -33,7 +34,7 @@ import {
   useTypesReglement,
 } from '../../lib/referentiels';
 import { ENCAISSEMENT_ETAT_LABELS, encaissementEtatLabel } from '../../lib/domain';
-import { debutMoisISO, finMoisISO } from '../../lib/format';
+import { debutMoisISO, finMoisISO, pluriel } from '../../lib/format';
 import type { EncaissementDto } from '../../types';
 
 type ComptabiliseFilter = 'all' | 'yes' | 'no';
@@ -253,7 +254,7 @@ export default function EncaissementsList() {
               </Button>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Select items={compteItems} value={compteId} onValueChange={(v) => resetAndSet(setCompteId, v as string | null)}>
+              <Select items={compteItems} value={compteId} onValueChange={(v) => resetAndSet(setCompteId, v)}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Compte…" />
                 </SelectTrigger>
@@ -265,7 +266,7 @@ export default function EncaissementsList() {
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              <Select items={depotItems} value={depotId} onValueChange={(v) => resetAndSet(setDepotId, v as string | null)}>
+              <Select items={depotItems} value={depotId} onValueChange={(v) => resetAndSet(setDepotId, v)}>
                 <SelectTrigger className="w-40">
                   <SelectValue placeholder="Dépôt…" />
                 </SelectTrigger>
@@ -325,9 +326,7 @@ export default function EncaissementsList() {
             <div className="flex shrink-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <span className="text-body text-muted-foreground">
-                {enGroupes
-                  ? `${pageAffichee.totalElements} groupe${pageAffichee.totalElements > 1 ? 's' : ''}`
-                  : `${pageAffichee.totalElements} encaissement${pageAffichee.totalElements > 1 ? 's' : ''}`}
+                {pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : 'encaissement')}
               </span>
               {/* Un règlement non imputé n'a aucune ligne : l'API ne le sert jamais, alors
                   que l'écran légataire l'affiche. Sans cette mention, l'écart des totaux
@@ -370,37 +369,17 @@ export default function EncaissementsList() {
                     )
                   }
                 />
-              ) :
-              colonnes.colonnes.length > 0 ? (
-                <EncaissementTable
-                  cleOrdre="encaissements"
-                  rows={enGroupes ? [] : rows}
-                  colonnes={colonnes.colonnes}
-                  onOuvrir={(id) => navigate(`/encaissements/${id}`)}
-                  bandeauRegroupement={false}
-                  groupes={
-                    enGroupes && groupement.colonneGroupee
-                      ? {
-                          liste: groupes.data?.content ?? [],
-                          colonneLibelle: groupement.colonneGroupee.libelle,
-                          libelleGroupe:
-                            groupement.colonneGroupee.nom === 'etat' ? encaissementEtatLabel : undefined,
-                          agregats: groupement.agregatsActifs,
-                          totaux: groupes.data?.totaux ?? {},
-                          nombreTotal: groupes.data?.nombreTotal ?? 0,
-                          estOuvert: lignesGroupes.estOuvert,
-                          etat: lignesGroupes.etat,
-                          basculer: lignesGroupes.basculer,
-                          chargerPlus: lignesGroupes.chargerPlus,
-                          lignesChargees: lignesGroupes.lignesChargees,
-                        }
-                      : undefined
-                  }
-                />
-              ) : catalogue.error ? (
-                <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
               ) : (
-                <LoadingState />
+                <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
+                  <EncaissementTable
+                    cleOrdre="encaissements"
+                    rows={enGroupes ? [] : rows}
+                    colonnes={colonnes.colonnes}
+                    onOuvrir={(id) => navigate(`/encaissements/${id}`)}
+                    bandeauRegroupement={false}
+                    groupes={groupesGrille(groupement, groupes.data, lignesGroupes, { etat: encaissementEtatLabel })}
+                  />
+                </EtatColonnes>
               )}
             </div>
             <div className="shrink-0">

@@ -15,7 +15,7 @@ export default function MultiSelectDropdown({
   disabled,
   badge,
   className,
-}: {
+}: Readonly<{
   /** À omettre quand l'étiquette est déjà posée à côté, sinon elle est répétée. */
   label?: string;
   /** Nom accessible du déclencheur, quand `label` est omis : sans lui un
@@ -28,19 +28,16 @@ export default function MultiSelectDropdown({
   disabled?: boolean;
   badge?: ReactNode;
   className?: string;
-}) {
+}>) {
   const selected = value ?? [];
 
   function toggle(itemValue: string) {
     onChange?.(selected.includes(itemValue) ? selected.filter((v) => v !== itemValue) : [...selected, itemValue]);
   }
 
-  const triggerLabel =
-    selected.length === 0
-      ? placeholder
-      : selected.length === 1
-        ? (items.find((i) => i.value === selected[0])?.label ?? placeholder)
-        : `${selected.length} sélectionnés`;
+  let triggerLabel = placeholder;
+  if (selected.length === 1) triggerLabel = items.find((i) => i.value === selected[0])?.label ?? placeholder;
+  else if (selected.length > 1) triggerLabel = `${selected.length} sélectionnés`;
 
   return (
     <DropdownMenu>

@@ -60,7 +60,7 @@ function EventPill({ ev, onClick }: Readonly<{ ev: EvenementCalendrierDto; onCli
         'flex w-full items-center gap-1.5 truncate rounded px-1.5 py-0.75 text-left text-micro font-medium',
         visite ? 'bg-(--amber-bg) text-(--amber)' : 'bg-(--info-bg) text-(--info)'
       )}
-      title={`${heure ? `${heure} — ` : ''}${ev.sujet || (visite ? 'Visite' : 'Rendez-vous')}`}
+      title={[heure, ev.sujet || (visite ? 'Visite' : 'Rendez-vous')].filter(Boolean).join(' — ')}
     >
       <span className="size-1.5 shrink-0 rounded-full bg-current" />
       {heure && <span className="shrink-0 tabular-nums">{heure}</span>}
@@ -132,8 +132,9 @@ export default function Calendrier() {
     for (const ev of events) {
       const day = (ev.dateDebut ?? '').slice(0, 10);
       if (!day) continue;
-      if (!map.has(day)) map.set(day, []);
-      map.get(day)!.push(ev);
+      const liste = map.get(day);
+      if (liste) liste.push(ev);
+      else map.set(day, [ev]);
     }
     // L'ISO se compare tel quel ; les RDV « jour entier » (minuit) passent en tête.
     for (const list of map.values()) list.sort((a, b) => (a.dateDebut ?? '').localeCompare(b.dateDebut ?? ''));

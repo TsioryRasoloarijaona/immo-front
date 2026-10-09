@@ -13,7 +13,9 @@ import BandeGroupement from '../../components/BandeGroupement';
 import { useActionsLigneProspection } from '../../components/ActionsLigneProspection';
 import { DEFAULT_PAGE_SIZE, listProspections, listProspectionsGroupes } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
-import { useGroupement, useLignesGroupes } from '../../lib/groupement';
+import { pluriel } from '../../lib/format';
+import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
+import EtatColonnes from '../../components/EtatColonnes';
 import type { ProspectionListItemDto } from '../../types';
 import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
@@ -161,8 +163,8 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
   const actionsLigne = useActionsLigneProspection({
     entite: 'prospection',
     onMutation: () => {
-      liste.refetch();
-      groupes.refetch();
+      void liste.refetch();
+      void groupes.refetch();
     },
   });
 
@@ -178,6 +180,24 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
   // `origine` porte le *code* du référentiel, pas forcément sa `description` : filtrer sur `code`.
   const origineItems = origines.data.map((o) => ({ label: o.description || o.code || o.id, value: o.code || o.id }));
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
+
+  let messageVide = 'Aucune prospection sur le mois en cours.';
+  if (filtresActifs) messageVide = 'Aucune prospection ne correspond aux filtres actifs.';
+  else if (ownCommercial) messageVide = "Vous n'avez aucune prospection sur le mois en cours.";
+
+  const grille = (
+    <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
+      <ProspectionTable
+        cleOrdre="prospections"
+        rows={enGroupes ? [] : rows}
+        colonnes={colonnes.colonnes}
+        onOuvrir={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
+        bandeauRegroupement={false}
+        actions={actionsLigne.rendu}
+        groupes={groupesGrille(groupement, groupes.data, lignesGroupes)}
+      />
+    </EtatColonnes>
+  );
 
   return (
     <PageShell
@@ -225,8 +245,8 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
             <div className="flex shrink-0 items-center justify-between gap-3">
               <div className="text-body text-muted-foreground">
                 {enGroupes
-                  ? `${pageAffichee.totalElements} groupe${pageAffichee.totalElements > 1 ? 's' : ''}`
-                  : `${pageAffichee.totalElements} prospection${pageAffichee.totalElements > 1 ? 's' : ''} au total`}
+                  ? pluriel(pageAffichee.totalElements, 'groupe')
+                  : `${pluriel(pageAffichee.totalElements, 'prospection')} au total`}
               </div>
               {colonnes.catalogueServi.length > 0 && (
                 <ColumnSelector
@@ -248,13 +268,7 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
                    avec elle : un volet replié rendrait sinon le vide inexplicable. */
                 <EmptyState
                   title={filtresActifs ? 'Aucun résultat' : 'Rien ce mois-ci'}
-                  message={
-                    filtresActifs
-                      ? 'Aucune prospection ne correspond aux filtres actifs.'
-                      : ownCommercial
-                        ? "Vous n'avez aucune prospection sur le mois en cours."
-                        : 'Aucune prospection sur le mois en cours.'
-                  }
+                  message={messageVide}
                   action={
                     filtresActifs ? (
                       <Button
@@ -285,36 +299,8 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
                     )
                   }
                 />
-              ) :
-              colonnes.colonnes.length > 0 ? (
-                <ProspectionTable
-                  cleOrdre="prospections"
-                  rows={enGroupes ? [] : rows}
-                  colonnes={colonnes.colonnes}
-                  onOuvrir={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
-                  bandeauRegroupement={false}
-                  actions={actionsLigne.rendu}
-                  groupes={
-                    enGroupes && groupement.colonneGroupee
-                      ? {
-                          liste: groupes.data?.content ?? [],
-                          colonneLibelle: groupement.colonneGroupee.libelle,
-                          agregats: groupement.agregatsActifs,
-                          totaux: groupes.data?.totaux ?? {},
-                          nombreTotal: groupes.data?.nombreTotal ?? 0,
-                          estOuvert: lignesGroupes.estOuvert,
-                          etat: lignesGroupes.etat,
-                          basculer: lignesGroupes.basculer,
-                          chargerPlus: lignesGroupes.chargerPlus,
-                          lignesChargees: lignesGroupes.lignesChargees,
-                        }
-                      : undefined
-                  }
-                />
-              ) : catalogue.error ? (
-                <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
               ) : (
-                <LoadingState />
+                grille
               )}
             </div>
             <div className="shrink-0">

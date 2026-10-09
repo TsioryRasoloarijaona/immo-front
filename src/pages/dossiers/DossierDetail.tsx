@@ -44,9 +44,9 @@ import {
   echeanceStatut,
   echeanceStatutTone,
   pieceJointeTypeTone,
+  encaissementEtatLabel,
+  encaissementEtatTone,
   reglementModifiable,
-  reglementStatutLabel,
-  reglementStatutTone,
 } from '../../lib/domain';
 import {
   addEcheance,
@@ -82,7 +82,15 @@ import { useApi } from '../../lib/useApi';
 import { useConfirm } from '../../lib/confirmContext';
 import { useToast } from '../../lib/toastContext';
 import { avecCles } from '../../lib/cles';
-import type { CreerEcheanceRequest, CreerReglementRequest, EcheanceDto, PieceJointeDto, ReglementDto } from '../../types';
+import type {
+  ArticleDetailDto,
+  CreerEcheanceRequest,
+  CreerReglementRequest,
+  DossierDetailDto,
+  EcheanceDto,
+  PieceJointeDto,
+  ReglementDto,
+} from '../../types';
 
 type DossierTab = 'statut' | 'financier' | 'articles' | 'acquereurs' | 'pieces' | 'documents' | 'historique';
 
@@ -147,7 +155,7 @@ function AddEcheanceRow({
         <FieldGroup>
           <FormField>
             <FieldLabel htmlFor="new-cat">Catégorie</FieldLabel>
-            <Select items={categorieItems} value={categorieId} onValueChange={(v) => setCategorieId((v as string) || null)}>
+            <Select items={categorieItems} value={categorieId} onValueChange={(v) => setCategorieId((v) || null)}>
               <SelectTrigger id="new-cat" className="w-full">
                 <SelectValue placeholder="Choisir…" />
               </SelectTrigger>
@@ -195,7 +203,7 @@ function PieceJointeRow({
   const [busy, setBusy] = useState(false);
   const confirm = useConfirm();
   const ext = piece.extension?.replace(/^\./, '') || '';
-  const filename = `${piece.description || 'document'}${ext ? `.${ext}` : ''}`;
+  const filename = `${piece.description || 'document'}${ext ? '.' + ext : ''}`;
 
   // Pas de bouton « Télécharger » : l'URL présignée est servie en `Content-Disposition: inline`,
   // il ferait la même chose qu'« Ouvrir » (le distinguer demanderait un paramètre côté API).
@@ -477,7 +485,7 @@ function AddPieceJointeRow({
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
-      <Select items={typesPieceJointeItems} value={typeId} onValueChange={(v) => setTypeId(v as string | null)}>
+      <Select items={typesPieceJointeItems} value={typeId} onValueChange={(v) => setTypeId(v)}>
         <SelectTrigger size="sm" className="w-45">
           <SelectValue placeholder={typesPieceJointe.loading ? 'Chargement…' : 'Type (optionnel)'} />
         </SelectTrigger>
@@ -609,15 +617,7 @@ function AddReglementRow({
           <FormField>
             <FieldLabel htmlFor="reg-montant">Montant</FieldLabel>
             <Input id="reg-montant" type="number" min={0} step="0.01" value={montant} onChange={(e) => setMontant(e.target.value)} />
-            {montantInvalide ? (
-              <p className="mt-1 text-micro text-destructive">Le montant doit être strictement positif.</p>
-            ) : montantDepasse ? (
-              <p className="mt-1 text-micro text-destructive">
-                Dépasse le reste à régler sur cette échéance ({formatCurrency(reste)}).
-              </p>
-            ) : reste !== undefined ? (
-              <p className="mt-1 text-micro text-muted-foreground">Reste à régler : {formatCurrency(reste)}</p>
-            ) : null}
+            <AideMontant invalide={montantInvalide} depasse={montantDepasse} reste={reste} />
           </FormField>
           <FormField>
             <FieldLabel htmlFor="reg-date-echeance">Date d'échéance</FieldLabel>
@@ -625,7 +625,7 @@ function AddReglementRow({
           </FormField>
           <FormField>
             <FieldLabel htmlFor="reg-payeur">Réglé par</FieldLabel>
-            <Select items={payeursItems} value={payeurId} onValueChange={(v) => setPayeurId(v as string | null)} disabled={aucunPayeur}>
+            <Select items={payeursItems} value={payeurId} onValueChange={(v) => setPayeurId(v)} disabled={aucunPayeur}>
               <SelectTrigger id="reg-payeur" className="w-full">
                 <SelectValue placeholder={placeholderPayeur(payeurs.loading, aucunPayeur)} />
               </SelectTrigger>
@@ -649,7 +649,7 @@ function AddReglementRow({
               items={typesReglementItems}
               value={typeId}
               onValueChange={(v) => {
-                setTypeId(v as string | null);
+                setTypeId(v);
                 setBanqueId(null);
               }}
             >
@@ -668,7 +668,7 @@ function AddReglementRow({
           {banqueRequired && (
             <FormField>
               <FieldLabel htmlFor="reg-banque">Banque</FieldLabel>
-              <Select items={banquesItems} value={banqueId} onValueChange={(v) => setBanqueId(v as string | null)}>
+              <Select items={banquesItems} value={banqueId} onValueChange={(v) => setBanqueId(v)}>
                 <SelectTrigger id="reg-banque" className="w-full">
                   <SelectValue placeholder={banques.loading ? 'Chargement…' : 'Banque'} />
                 </SelectTrigger>
@@ -801,7 +801,7 @@ function ReglementRow({
   const [error, setError] = useState<string | null>(null);
   const confirm = useConfirm();
 
-  const tone = reglementStatutTone(reglement.statut);
+  const tone = encaissementEtatTone(reglement.statut);
   const rowTone = REGLEMENT_ROW_TONE[tone] ?? REGLEMENT_ROW_TONE.neutral;
   const modifiable = reglementModifiable(reglement.statut);
 
@@ -828,7 +828,7 @@ function ReglementRow({
   return (
     <div className={`rounded-md border px-2.5 py-1.5 text-body ${rowTone.wrap}`}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5">
-        <Badge tone={tone}>{reglementStatutLabel(reglement.statut)}</Badge>
+        <Badge tone={tone}>{encaissementEtatLabel(reglement.statut)}</Badge>
         <span className="font-medium text-foreground">{reglement.typeLibelle || '—'}</span>
         {reglement.banqueNom && <span className="text-muted-foreground">{reglement.banqueNom}</span>}
         {reglement.reference && <span className="text-muted-foreground">Réf. {reglement.reference}</span>}
@@ -1027,9 +1027,61 @@ function formatJours(jours: number | null | undefined) {
   return typeof jours === 'number' ? `${formatNumber(jours)} j` : undefined;
 }
 
+function AideMontant({
+  invalide,
+  depasse,
+  reste,
+}: Readonly<{ invalide: boolean; depasse: boolean; reste: number | undefined }>) {
+  if (invalide) return <p className="mt-1 text-micro text-destructive">Le montant doit être strictement positif.</p>;
+  if (depasse) {
+    return (
+      <p className="mt-1 text-micro text-destructive">
+        Dépasse le reste à régler sur cette échéance ({formatCurrency(reste)}).
+      </p>
+    );
+  }
+  if (reste === undefined) return null;
+  return <p className="mt-1 text-micro text-muted-foreground">Reste à régler : {formatCurrency(reste)}</p>;
+}
+
+type ArticleDuDossier = NonNullable<DossierDetailDto['articles']>[number];
+
+function ArticleResume({ article: a, chargement }: Readonly<{ article: ArticleDuDossier; chargement: boolean }>) {
+  return (
+    <div className="rounded-lg bg-muted/30 p-3">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-label font-semibold text-foreground">{a.code}</span>
+        {chargement && <span className="text-micro text-muted-foreground">chargement du détail…</span>}
+      </div>
+      <FieldGrid>
+        <Field label="Description" value={a.description} />
+        <Field label="Immeuble" value={a.immeubleLibelle || a.immeubleCode} />
+        <Field label="Étage" value={a.etageLibelle || a.etageCode} />
+        <Field label="Catégorie" value={a.categorieLibelle || a.categorieCode} />
+        <Field label="Type" value={a.typeLibelle || a.typeCode} />
+        <Field label="Surface" value={a.area ? formatSurface(a.area) : undefined} />
+        <Field label="Prix" value={a.price ? formatCurrency(a.price) : undefined} />
+      </FieldGrid>
+    </div>
+  );
+}
+
+function ArticlesDossier({
+  articles,
+  details,
+  chargement,
+}: Readonly<{ articles: DossierDetailDto['articles']; details: ArticleDetailDto[] | null; chargement: boolean }>) {
+  if (!articles || articles.length === 0) return <p className="text-label text-muted-foreground">Aucun article lié.</p>;
+  if (details && details.length > 0) {
+    return <>{details.map((a) => <ArticleCompactPreview key={a.id} article={a} defaultExpanded />)}</>;
+  }
+  return <>{articles.map((a) => <ArticleResume key={a.id} article={a} chargement={chargement} />)}</>;
+}
+
 export default function DossierDetail() {
-  const { id } = useParams();
-  return <FicheDossier key={id} id={id!} />;
+  // La route `/dossiers/:id` garantit le paramètre.
+  const { id = '' } = useParams();
+  return <FicheDossier key={id} id={id} />;
 }
 
 export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; variante?: VarianteFiche }>) {
@@ -1494,29 +1546,7 @@ export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; v
             compteur: d.articles?.length ?? 0,
             contenu: (
               <div className="flex flex-col gap-2 p-3">
-                {!d.articles || d.articles.length === 0 ? (
-                  <p className="text-label text-muted-foreground">Aucun article lié.</p>
-                ) : articleDetails.data && articleDetails.data.length > 0 ? (
-                  articleDetails.data.map((a) => <ArticleCompactPreview key={a.id} article={a} defaultExpanded />)
-                ) : (
-                  d.articles.map((a) => (
-                    <div key={a.id} className="rounded-lg bg-muted/30 p-3">
-                      <div className="mb-2 flex items-center gap-2">
-                        <span className="text-label font-semibold text-foreground">{a.code}</span>
-                        {articleDetails.loading && <span className="text-micro text-muted-foreground">chargement du détail…</span>}
-                      </div>
-                      <FieldGrid>
-                        <Field label="Description" value={a.description} />
-                        <Field label="Immeuble" value={a.immeubleLibelle || a.immeubleCode} />
-                        <Field label="Étage" value={a.etageLibelle || a.etageCode} />
-                        <Field label="Catégorie" value={a.categorieLibelle || a.categorieCode} />
-                        <Field label="Type" value={a.typeLibelle || a.typeCode} />
-                        <Field label="Surface" value={a.area ? formatSurface(a.area) : undefined} />
-                        <Field label="Prix" value={a.price ? formatCurrency(a.price) : undefined} />
-                      </FieldGrid>
-                    </div>
-                  ))
-                )}
+                <ArticlesDossier articles={d.articles} details={articleDetails.data} chargement={articleDetails.loading} />
                 {articleDetails.error && <ErrorState message={articleDetails.error} />}
               </div>
             ),

@@ -14,7 +14,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!username.trim() || !password) return;
     setSubmitting(true);
@@ -44,6 +44,7 @@ export default function Login() {
             <Input
               id="login-username"
               autoComplete="username"
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- écran de connexion : l'identifiant est la seule tâche de la page
               autoFocus
               value={username}
               onChange={(e) => setUsername(e.target.value)}

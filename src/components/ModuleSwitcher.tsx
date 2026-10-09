@@ -5,7 +5,7 @@ import { cn } from '../lib/utils';
 import { useAuth } from '../lib/auth';
 import { estAdministrateur } from '../lib/roles';
 
-export default function ModuleSwitcher({ onClose }: { onClose: () => void }) {
+export default function ModuleSwitcher({ onClose }: Readonly<{ onClose: () => void }>) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = estAdministrateur(user);
@@ -13,7 +13,7 @@ export default function ModuleSwitcher({ onClose }: { onClose: () => void }) {
 
   function handleSelect(mod: AppModule) {
     onClose();
-    navigate(mod.active && mod.path ? mod.path : `/bientot/${mod.slug}`);
+    void navigate(mod.active && mod.path ? mod.path : `/bientot/${mod.slug}`);
   }
 
   return (

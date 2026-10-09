@@ -21,7 +21,7 @@ export default function FicheShell({
   ongletActif,
   onOngletChange,
   barreAction,
-}: {
+}: Readonly<{
   identite?: ReactNode;
   formulaire: ReactNode;
   panneau?: ReactNode;
@@ -29,7 +29,7 @@ export default function FicheShell({
   ongletActif: string;
   onOngletChange: (id: string) => void;
   barreAction?: ReactNode;
-}) {
+}>) {
   return (
     <div className="flex h-full min-h-0 flex-col gap-2.5">
       {identite && <div className="shrink-0">{identite}</div>}
@@ -70,7 +70,7 @@ export default function FicheShell({
 }
 
 // À poser dans un `Tabs` : `TabsList` en lit le contexte.
-export function OngletsLigne({ onglets }: { onglets: Pick<OngletFiche, 'id' | 'libelle' | 'compteur'>[] }) {
+export function OngletsLigne({ onglets }: Readonly<{ onglets: Pick<OngletFiche, 'id' | 'libelle' | 'compteur'>[] }>) {
   return (
     <TabsList
       variant="line"
@@ -106,7 +106,7 @@ export function OngletsLigne({ onglets }: { onglets: Pick<OngletFiche, 'id' | 'l
   );
 }
 
-export function LigneActivite({ children, action }: { children?: ReactNode; action?: ReactNode }) {
+export function LigneActivite({ children, action }: Readonly<{ children?: ReactNode; action?: ReactNode }>) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-body text-muted-foreground">
       {children}
@@ -115,7 +115,7 @@ export function LigneActivite({ children, action }: { children?: ReactNode; acti
   );
 }
 
-export function ElementResume({ libelle, children }: { libelle: string; children: ReactNode }) {
+export function ElementResume({ libelle, children }: Readonly<{ libelle: string; children: ReactNode }>) {
   return (
     <span className="inline-flex flex-wrap items-center gap-x-1.5">
       {libelle}

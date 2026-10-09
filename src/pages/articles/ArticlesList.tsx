@@ -241,7 +241,7 @@ export default function ArticlesList() {
               onClick={(e) => {
                 if (!a.dossierId) return;
                 e.stopPropagation();
-                navigate(`/dossiers/${a.dossierId}`);
+                void navigate(`/dossiers/${a.dossierId}`);
               }}
             >
               {a.dossierCode}
@@ -305,7 +305,7 @@ export default function ArticlesList() {
             </Select>
             <MultiSelectDropdown label="Catégorie" placeholder="Toutes" value={categorieId} onChange={(v) => resetAndSet(setCategorieId, v)} items={categorieItems} />
             <MultiSelectDropdown label="Type" placeholder="Tous" value={typeId} onChange={(v) => resetAndSet(setTypeId, v)} items={typeItems} />
-            <Select items={entiteItems} value={entiteId} onValueChange={(v) => resetAndSet(setEntiteId, v as string | null)}>
+            <Select items={entiteItems} value={entiteId} onValueChange={(v) => resetAndSet(setEntiteId, v)}>
               <SelectTrigger className="w-38">
                 <SelectValue placeholder={entites.loading ? 'Chargement…' : 'Entité…'} />
               </SelectTrigger>
@@ -317,7 +317,7 @@ export default function ArticlesList() {
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <Select items={natureItems} value={natureId} onValueChange={(v) => resetAndSet(setNatureId, v as string | null)}>
+            <Select items={natureItems} value={natureId} onValueChange={(v) => resetAndSet(setNatureId, v)}>
               <SelectTrigger className="w-34">
                 <SelectValue placeholder={natures.loading ? 'Chargement…' : 'Nature…'} />
               </SelectTrigger>
@@ -329,7 +329,7 @@ export default function ArticlesList() {
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <Select items={vocationItems} value={vocationId} onValueChange={(v) => resetAndSet(setVocationId, v as string | null)}>
+            <Select items={vocationItems} value={vocationId} onValueChange={(v) => resetAndSet(setVocationId, v)}>
               <SelectTrigger className="w-38">
                 <SelectValue placeholder={vocations.loading ? 'Chargement…' : 'Vocation…'} />
               </SelectTrigger>
@@ -341,7 +341,7 @@ export default function ArticlesList() {
                 </SelectGroup>
               </SelectContent>
             </Select>
-            <Select items={etageItems} value={etageId} onValueChange={(v) => resetAndSet(setEtageId, v as string | null)}>
+            <Select items={etageItems} value={etageId} onValueChange={(v) => resetAndSet(setEtageId, v)}>
               <SelectTrigger className="w-34">
                 <SelectValue placeholder={etages.loading ? 'Chargement…' : 'Étage…'} />
               </SelectTrigger>
@@ -371,7 +371,7 @@ export default function ArticlesList() {
         {!error && data && (
           <ResultsRegion loading={loading}>
             <div className="shrink-0 text-body text-muted-foreground">
-              {formatNumber(data.totalElements ?? 0)} article{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+              {formatNumber(data.totalElements)} article{data.totalElements > 1 ? 's' : ''}
             </div>
             {rows.length === 0 ? (
               <EmptyState
@@ -401,9 +401,7 @@ export default function ArticlesList() {
               </div>
             )}
             <div className="shrink-0">
-              {data && (
-                <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
-              )}
+              <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
             </div>
           </ResultsRegion>
         )}

@@ -1,8 +1,8 @@
-import { Fragment, useCallback, useDeferredValue, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useDeferredValue, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, Sigma, SquareMinus, SquarePlus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './ui/table';
 import { sansAccents, useOrdreColonnes } from '../lib/colonnes';
-import { formatCurrency, formatDate, formatNumber } from '../lib/format';
+import { formatCurrency, formatDate, formatNumber, texteBrut } from '../lib/format';
 import { cn } from '../lib/utils';
 import {
   LIBELLES_FONCTION,
@@ -43,7 +43,7 @@ export type GroupementGrille<T> = {
   /** La fonction compte pour le formatage : un `MIN` sur une colonne date rend une chaîne ISO. */
   agregats: { jeton: string; colonne: ColonneDto; fonction: FonctionAgregat }[];
   /** Agrégats sur tout le périmètre filtré, à ne pas confondre avec le Σ (lignes chargées). */
-  totaux: Record<string, ValeurAgregat>;
+  totaux: Partial<Record<string, ValeurAgregat>>;
   nombreTotal: number;
   estOuvert: (g: GroupeDto) => boolean;
   etat: (g: GroupeDto) => LignesGroupe<T> | undefined;
@@ -71,19 +71,22 @@ function formatAgregat<T>(
   return type === 'MONTANT' ? formatCurrency(valeur) : formatNumber(valeur, 2);
 }
 
-function rendreParType(valeur: unknown, type: TypeColonne): ReactNode {
-  if (valeur === null || valeur === undefined || valeur === '') return TIRET;
+/** `null` pour une cellule vide, rendue en tiret par l'appelant. */
+function texteParType(valeur: unknown, type: TypeColonne): string | null {
+  if (valeur === null || valeur === undefined || valeur === '') return null;
   switch (type) {
     case 'MONTANT':
-      return typeof valeur === 'number' ? formatCurrency(valeur) : String(valeur);
+      return typeof valeur === 'number' ? formatCurrency(valeur) : texteBrut(valeur);
     case 'NOMBRE':
-      return typeof valeur === 'number' ? formatNumber(valeur) : String(valeur);
+      return typeof valeur === 'number' ? formatNumber(valeur) : texteBrut(valeur);
     case 'DATE':
-      return formatDate(String(valeur));
-    case 'BOOLEEN':
-      return valeur ? 'Oui' : 'Non';
+      return formatDate(texteBrut(valeur));
+    case 'BOOLEEN': {
+      const vrai = Boolean(valeur);
+      return vrai ? 'Oui' : 'Non';
+    }
     default:
-      return String(valeur);
+      return texteBrut(valeur);
   }
 }
 
@@ -101,9 +104,10 @@ function texteComparable<T>(row: T, c: ColonneGrille<T>): string {
   const v = valeurDe(row, c);
   if (v === null || v === undefined) return '';
   const type = typeDe(c);
-  if (type === 'DATE') return formatDate(String(v));
-  if (type === 'BOOLEEN') return v ? 'oui' : 'non';
-  return String(v);
+  if (type === 'DATE') return formatDate(texteBrut(v));
+  const vrai = Boolean(v);
+  if (type === 'BOOLEEN') return vrai ? 'oui' : 'non';
+  return texteBrut(v);
 }
 
 // `\s` couvre aussi les espaces insécables des montants formatés.
@@ -140,6 +144,47 @@ function predicatFiltre<T>(c: ColonneGrille<T>, saisie: string): (row: T) => boo
   };
 }
 
+/** Σ : somme sur une colonne numérique, nombre de cellules renseignées sinon. */
+function resumeColonne<T>(lignes: T[], c: ColonneGrille<T>): string {
+  const type = typeDe(c);
+  if (NUMERIQUES.includes(type)) {
+    let total = 0;
+    for (const r of lignes) {
+      const v = valeurDe(r, c);
+      if (typeof v === 'number') total += v;
+    }
+    return type === 'MONTANT' ? formatCurrency(total) : formatNumber(total);
+  }
+  let renseignees = 0;
+  for (const r of lignes) {
+    const v = valeurDe(r, c);
+    if (v !== null && v !== undefined && v !== '') renseignees++;
+  }
+  return formatNumber(renseignees);
+}
+
+function compteurLignes(
+  groupes: { nbGroupes: number; nbChargees: number } | null,
+  filtreActif: boolean,
+  nbVisibles: number,
+  nbLignes: number,
+): string {
+  if (groupes) {
+    const base = `${formatNumber(groupes.nbGroupes)} groupe(s), ${formatNumber(nbVisibles)}`;
+    return filtreActif
+      ? `${base} / ${formatNumber(groupes.nbChargees)} ligne(s) dépliée(s) — filtre sur les lignes dépliées seulement`
+      : `${base} ligne(s) dépliée(s)`;
+  }
+  return filtreActif
+    ? `${formatNumber(nbVisibles)} / ${formatNumber(nbLignes)} ligne(s) chargée(s) — filtre sur la page affichée seulement`
+    : `${formatNumber(nbLignes)} ligne(s)`;
+}
+
+function ariaTri(trie: boolean, sens: 'asc' | 'desc' | undefined): 'ascending' | 'descending' | 'none' {
+  if (!trie) return 'none';
+  return sens === 'asc' ? 'ascending' : 'descending';
+}
+
 function glypheOperateur(type: TypeColonne): string {
   return type === 'TEXTE' ? 'A' : '=';
 }
@@ -161,7 +206,7 @@ export default function DataGrid<T extends { id: string }>({
   rendreDetail,
   actions,
   groupes,
-}: {
+}: Readonly<{
   rows: T[];
   colonnes: ColonneGrille<T>[];
   /** Absente, l'ordre des colonnes reste déplaçable mais ne vit qu'en mémoire. */
@@ -183,7 +228,7 @@ export default function DataGrid<T extends { id: string }>({
   actions?: (row: T) => ReactNode;
   /** Fourni, `rows` est ignoré : les lignes de chaque groupe viennent de `etat`. */
   groupes?: GroupementGrille<T>;
-}) {
+}>) {
   // Un plafond, pas une largeur : en `table-auto`, `max-width` ne mord que sur les colonnes qui dépassent.
   const plafondColonne = (c: ColonneGrille<T>) => `${Math.max(120, (c.largeur ?? 10) * 20)}px`;
   const aDroite = (c: ColonneGrille<T>) => NUMERIQUES.includes(typeDe(c));
@@ -242,7 +287,7 @@ export default function DataGrid<T extends { id: string }>({
         if (va === null || va === undefined || va === '') return 1;
         if (vb === null || vb === undefined || vb === '') return -1;
         if (numerique) return (Number(va) - Number(vb)) * signe;
-        return String(va).localeCompare(String(vb), 'fr') * signe;
+        return texteBrut(va).localeCompare(texteBrut(vb), 'fr') * signe;
       });
     },
     [filtrer, parNom, tri],
@@ -258,8 +303,12 @@ export default function DataGrid<T extends { id: string }>({
     [lignesDepliees, filtrer, visibles],
   );
 
+  // Cycle croissant → décroissant → sans tri.
   const basculerTri = (nom: string) =>
-    setTri((t) => (t?.nom !== nom ? { nom, sens: 'asc' } : t.sens === 'asc' ? { nom, sens: 'desc' } : null));
+    setTri((t) => {
+      if (t?.nom !== nom) return { nom, sens: 'asc' };
+      return t.sens === 'asc' ? { nom, sens: 'desc' } : null;
+    });
 
   const basculerSomme = (nom: string) =>
     setSommes((s) => {
@@ -295,23 +344,7 @@ export default function DataGrid<T extends { id: string }>({
     const m = new Map<string, string>();
     if (sommes.size === 0) return m;
     for (const c of colonnes) {
-      if (!sommes.has(c.nom)) continue;
-      const type = typeDe(c);
-      if (NUMERIQUES.includes(type)) {
-        let total = 0;
-        for (const r of sommables) {
-          const v = valeurDe(r, c);
-          if (typeof v === 'number') total += v;
-        }
-        m.set(c.nom, type === 'MONTANT' ? formatCurrency(total) : formatNumber(total));
-      } else {
-        let renseignees = 0;
-        for (const r of sommables) {
-          const v = valeurDe(r, c);
-          if (v !== null && v !== undefined && v !== '') renseignees++;
-        }
-        m.set(c.nom, formatNumber(renseignees));
-      }
+      if (sommes.has(c.nom)) m.set(c.nom, resumeColonne(sommables, c));
     }
     return m;
   }, [colonnes, sommes, sommables]);
@@ -319,6 +352,19 @@ export default function DataGrid<T extends { id: string }>({
   const cliquable = Boolean(onOuvrir);
 
   const nbColonnes = colonnes.length + (rendreDetail ? 3 : 2) + (actions ? 1 : 0);
+
+  const gestionnairesLigne = (id: string) => {
+    if (!onOuvrir) return {};
+    return {
+      onClick: () => {
+        setCourante(id);
+        onOuvrir(id);
+      },
+      onKeyDown: (e: KeyboardEvent) => {
+        if (e.key === 'Enter') onOuvrir(id);
+      },
+    };
+  };
 
   const rendreLigne = (r: T) => {
       const estCourante = courante === r.id;
@@ -340,15 +386,8 @@ export default function DataGrid<T extends { id: string }>({
             estCochee && 'bg-muted/40 hover:bg-muted/40',
             estCourante && 'bg-(--brand-bg) hover:bg-(--brand-bg)',
           )}
-          onClick={cliquable ? () => { setCourante(r.id); onOuvrir?.(r.id); } : undefined}
+          {...gestionnairesLigne(r.id)}
           onFocus={() => setCourante(r.id)}
-          onKeyDown={
-            cliquable
-              ? (e) => {
-                  if (e.key === 'Enter') onOuvrir?.(r.id);
-                }
-              : undefined
-          }
         >
           {rendreDetail && (
             <TableCell
@@ -409,7 +448,7 @@ export default function DataGrid<T extends { id: string }>({
               style={{ maxWidth: plafondColonne(c) }}
               title={c.titre?.(r)}
             >
-              {c.rendu ? c.rendu(r) : rendreParType(valeurDe(r, c), typeDe(c))}
+              {c.rendu ? c.rendu(r) : (texteParType(valeurDe(r, c), typeDe(c)) ?? TIRET)}
             </TableCell>
           ))}
         </TableRow>
@@ -437,7 +476,7 @@ export default function DataGrid<T extends { id: string }>({
       {/* Toujours rendue, vide au repos : la faire apparaître ou disparaître
           décale les lignes de sa hauteur et le clic suivant ouvre une fiche. */}
       <div className="flex h-5 shrink-0 items-center gap-3 border-b border-border/70 bg-card px-2 text-micro text-muted-foreground">
-        {(tri || sommes.size > 0 || cochees.size > 0 || filtreActif || ordrePersonnalise) && (
+        {(tri !== null || sommes.size > 0 || cochees.size > 0 || filtreActif || ordrePersonnalise) && (
         <>
           {cochees.size > 0 && <span className="shrink-0">{cochees.size} sélectionnée(s)</span>}
           {tri && (
@@ -456,15 +495,12 @@ export default function DataGrid<T extends { id: string }>({
             </button>
           )}
           <span className="ml-auto shrink-0 tabular-nums">
-            {groupes
-              ? filtreActif
-                ? `${formatNumber(groupes.liste.length)} groupe(s), ${formatNumber(sommables.length)} / ${formatNumber(
-                    groupes.lignesChargees.length,
-                  )} ligne(s) dépliée(s) — filtre sur les lignes dépliées seulement`
-                : `${formatNumber(groupes.liste.length)} groupe(s), ${formatNumber(sommables.length)} ligne(s) dépliée(s)`
-              : filtreActif
-                ? `${formatNumber(visibles.length)} / ${formatNumber(rows.length)} ligne(s) chargée(s) — filtre sur la page affichée seulement`
-                : `${formatNumber(rows.length)} ligne(s)`}
+            {compteurLignes(
+              groupes ? { nbGroupes: groupes.liste.length, nbChargees: groupes.lignesChargees.length } : null,
+              filtreActif,
+              groupes ? sommables.length : visibles.length,
+              rows.length,
+            )}
           </span>
         </>
         )}
@@ -518,7 +554,7 @@ export default function DataGrid<T extends { id: string }>({
                         : 'shadow-[inset_2px_0_0_0_var(--brand)]'),
                   )}
                   style={{ maxWidth: plafondColonne(c) }}
-                  aria-sort={trie ? (tri.sens === 'asc' ? 'ascending' : 'descending') : 'none'}
+                  aria-sort={ariaTri(trie, tri?.sens)}
                   draggable
                   onDragStart={(ev) => {
                     setGlissee(c.nom);
@@ -739,7 +775,7 @@ export default function DataGrid<T extends { id: string }>({
                         <span className="text-muted-foreground">{libelleAgregat(a)} : </span>
                         <span className="font-semibold tabular-nums">
                           {formatAgregat(
-                            groupes.totaux?.[a.jeton],
+                            groupes.totaux[a.jeton],
                             parNom.get(a.colonne.nom),
                             a.fonction,
                             a.colonne.type,

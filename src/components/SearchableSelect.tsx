@@ -17,7 +17,7 @@ export default function SearchableSelect({
   className,
   emptyMessage,
   label,
-}: {
+}: Readonly<{
   id?: string;
   items: SearchableSelectOption[];
   value: string | null;
@@ -28,7 +28,7 @@ export default function SearchableSelect({
   className?: string;
   emptyMessage?: string;
   label?: string;
-}) {
+}>) {
   // '' vaut « aucune sélection » : l'option « — Non renseigné — » de RefSelect
   // doit garder l'aspect du placeholder.
   const selected = useMemo(() => (value ? items.find((i) => i.value === value) ?? null : null), [items, value]);
@@ -37,8 +37,8 @@ export default function SearchableSelect({
     <Combobox
       items={items}
       value={selected}
-      onValueChange={(next) => onValueChange(next ? (next as SearchableSelectOption).value : null)}
-      isItemEqualToValue={(a: SearchableSelectOption, b: SearchableSelectOption) => a?.value === b?.value}
+      onValueChange={(next) => onValueChange(next ? (next).value : null)}
+      isItemEqualToValue={(a: SearchableSelectOption | null, b: SearchableSelectOption | null) => a?.value === b?.value}
     >
       <ComboboxTrigger id={id} size={size} placeholder={placeholder} disabled={disabled} className={className} label={label} />
       <ComboboxContent emptyMessage={emptyMessage}>

@@ -38,11 +38,11 @@ export function ReglementPieceUpload({
   dossierId,
   reglementId,
   onAdded,
-}: {
+}: Readonly<{
   dossierId: string;
   reglementId: string;
   onAdded: () => void;
-}) {
+}>) {
   const [file, setFile] = useState<File | null>(null);
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
@@ -96,14 +96,14 @@ export function ReglementPiecesJointesPanel({
   statut,
   refreshKey,
   onChanged,
-}: {
+}: Readonly<{
   dossierId: string;
   reglementId: string;
   /** Optionnel comme sur ReglementDto : une ligne legacy peut ne pas en porter. */
   statut?: string;
   refreshKey: number;
   onChanged: () => void;
-}) {
+}>) {
   const pieces = useApi(() => listReglementPiecesJointes(dossierId, reglementId), [dossierId, reglementId, refreshKey]);
 
   const raisonBlocage = raisonPreuveVerrouillee(statut, pieces.data?.length);
@@ -138,7 +138,7 @@ export function ReglementPieceJointeRow({
   onDeleted,
   raisonBlocage,
   actionsSeules,
-}: {
+}: Readonly<{
   dossierId: string;
   reglementId: string;
   piece: PieceJointeDto;
@@ -147,12 +147,12 @@ export function ReglementPieceJointeRow({
   raisonBlocage?: string;
   /** Les boutons seuls, pour réutiliser la suppression et son garde-fou 409 sans les dupliquer. */
   actionsSeules?: boolean;
-}) {
+}>) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const confirm = useConfirm();
   const ext = piece.extension?.replace(/^\./, '') || '';
-  const filename = `${piece.description || 'preuve-paiement'}${ext ? `.${ext}` : ''}`;
+  const filename = `${piece.description || 'preuve-paiement'}${ext ? '.' + ext : ''}`;
 
   // Cf. PieceJointeRow : navigation vers le stockage, rien d'asynchrone.
   function handle() {
@@ -234,12 +234,12 @@ export function PointerReglementModal({
   reglement,
   onClose,
   onPointed,
-}: {
+}: Readonly<{
   dossierId: string;
   reglement: ReglementAPointer;
   onClose: () => void;
   onPointed: () => Promise<void>;
-}) {
+}>) {
   const [dateReglement, setDateReglement] = useState(todayISO());
   const [piecesVersion, setPiecesVersion] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -340,7 +340,7 @@ function extensionNue(piece: PieceJointeDto): string {
 
 function nomFichierPiece(piece: PieceJointeDto): string {
   const ext = extensionNue(piece);
-  return `${piece.description || 'preuve-paiement'}${ext ? `.${ext}` : ''}`;
+  return `${piece.description || 'preuve-paiement'}${ext ? '.' + ext : ''}`;
 }
 
 export function ReglementDocumentsJoints({
@@ -348,13 +348,13 @@ export function ReglementDocumentsJoints({
   reglementId,
   statut,
   onChanged,
-}: {
+}: Readonly<{
   dossierId: string;
   reglementId: string;
   statut?: string;
   /** Le nombre de preuves conditionne le pointage : le parent doit se réévaluer à chaque dépôt. */
   onChanged?: () => void;
-}) {
+}>) {
   const [version, setVersion] = useState(0);
   const [selectionneId, setSelectionneId] = useState<string | null>(null);
   const pieces = useApi(() => listReglementPiecesJointes(dossierId, reglementId), [dossierId, reglementId, version]);
@@ -367,7 +367,7 @@ export function ReglementDocumentsJoints({
   const liste = pieces.data ?? [];
   /* Sélection dérivée, pas synchronisée : supprimer la pièce affichée bascule sur
      la suivante sans effet ni état mort. */
-  const selectionnee = liste.find((p) => p.id === selectionneId) ?? liste[0];
+  const selectionnee = liste.find((p) => p.id === selectionneId) ?? liste.at(0);
   const raisonBlocage = raisonPreuveVerrouillee(statut, liste.length);
 
   return (
@@ -442,13 +442,13 @@ function ApercuPiece({
   piece,
   raisonBlocage,
   onDeleted,
-}: {
+}: Readonly<{
   dossierId: string;
   reglementId: string;
   piece: PieceJointeDto;
   raisonBlocage?: string;
   onDeleted: () => void;
-}) {
+}>) {
   const url = urlReglementPieceJointeFichier(dossierId, reglementId, piece.id);
   const affichable = EXTENSIONS_AVEC_APERCU.has(extensionNue(piece));
 

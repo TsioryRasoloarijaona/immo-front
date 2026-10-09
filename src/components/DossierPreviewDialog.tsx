@@ -8,7 +8,7 @@ import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
 import { getDossier } from '../lib/api';
 import { useApi } from '../lib/useApi';
 
-export default function DossierPreviewDialog({ id, onClose }: { id: string; onClose: () => void }) {
+export default function DossierPreviewDialog({ id, onClose }: Readonly<{ id: string; onClose: () => void }>) {
   const { data: d, loading, error } = useApi(() => getDossier(id), [id]);
 
   return (

@@ -9,7 +9,7 @@ import type { ColonneDto, DossierListItemDto } from '../types';
 
 const TIRET = <span className="text-muted-foreground">—</span>;
 
-const RENDUS: Record<string, (d: DossierListItemDto, ctx: Contexte) => ReactNode> = {
+const RENDUS: Partial<Record<string, (d: DossierListItemDto, ctx: Contexte) => ReactNode>> = {
   code: (d) => (
     <Badge tone="neutral" className="font-mono">
       {d.code}
@@ -123,7 +123,7 @@ export default function DossierTable({
   selection,
   bandeauRegroupement,
   groupes,
-}: {
+}: Readonly<{
   rows: DossierListItemDto[];
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
@@ -132,7 +132,7 @@ export default function DossierTable({
   bandeauRegroupement?: boolean;
   groupes?: GroupementGrille<DossierListItemDto>;
   selection?: { ids: Set<string>; onToggle: (id: string) => void; onToggleAll: (ids: string[]) => void };
-}) {
+}>) {
   const grille = useMemo<ColonneGrille<DossierListItemDto>[]>(() => {
     const ctx: Contexte = { onOuvrirProspection };
     return colonnes.map((c) => {

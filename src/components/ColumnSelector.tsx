@@ -25,14 +25,14 @@ export default function ColumnSelector({
   onReinitialiser,
   estDefaut,
   className,
-}: {
+}: Readonly<{
   catalogue: ColonneDto[];
   visibles: string[];
   onBasculer: (nom: string) => void;
   onReinitialiser: () => void;
   estDefaut: boolean;
   className?: string;
-}) {
+}>) {
   const [ouvert, setOuvert] = useState(false);
   const [requete, setRequete] = useState('');
 

@@ -8,8 +8,11 @@ export const STATUT_ORDRE: Record<StatutOrdre, { libelle: string; ton: BadgeTone
   annule: { libelle: 'Annulé', ton: 'warning' },
 };
 
+// Vue partielle : `/meta` peut annoncer un statut que ce front ne connaît pas encore.
+const STATUTS_CONNUS: Partial<Record<string, { libelle: string }>> = STATUT_ORDRE;
+
 export function statutItems(meta: Meta) {
-  return meta.statuts.map((s) => ({ value: s, label: STATUT_ORDRE[s]?.libelle ?? s }));
+  return meta.statuts.map((s) => ({ value: s, label: STATUTS_CONNUS[s]?.libelle ?? s }));
 }
 
 /** La clé vient de `/meta`, la formulation du guide du service. */
@@ -21,9 +24,7 @@ export function natureDuType(type: TypeVirement): TypeBeneficiaire {
   return type === 'salaire' ? 'salarie' : 'fournisseur';
 }
 
-export function pluriel(n: number, singulier: string, plurielForme = `${singulier}s`): string {
-  return `${n} ${n > 1 ? plurielForme : singulier}`;
-}
+export { pluriel } from '../../../lib/format';
 
 export function formatTaille(octets: number): string {
   if (octets < 1024) return `${octets} o`;

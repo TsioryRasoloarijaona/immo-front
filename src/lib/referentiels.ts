@@ -91,6 +91,7 @@ export const useSalaires = makeCachedListHook(api.getSalaires);
 export const useRegimesMatrimoniaux = makeCachedListHook(api.getRegimesMatrimoniaux);
 export const useRaisonsCloture = makeCachedListHook(api.getRaisonsCloture);
 export const useProfilsProspection = makeCachedListHook(api.getProfilsProspection);
+/** @public référentiel servi, pas encore branché sur un écran */
 export const useProfessions = makeCachedListHook(api.getProfessions);
 export const usePays = makeCachedListHook(api.getPays);
 /** Triées ici, sur le libellé affiché : tous les combos « Origine » doivent avoir le même ordre. */

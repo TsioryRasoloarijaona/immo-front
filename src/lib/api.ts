@@ -115,10 +115,9 @@ import type {
 
 export const DEFAULT_PAGE_SIZE = 20;
 
-function withPageable(
-  params: Record<string, string | number | boolean | string[] | undefined | null> | undefined,
-  pageable?: Pageable,
-): Record<string, string | number | boolean | string[] | undefined | null> {
+type ParamsRequete = Record<string, string | number | boolean | string[] | undefined | null>;
+
+function withPageable(params: ParamsRequete | undefined, pageable?: Pageable): ParamsRequete {
   return {
     ...params,
     page: pageable?.page ?? 0,
@@ -131,7 +130,7 @@ function withPageable(
 // vite.config.ts, il vaudrait `undefined` en production, sans erreur.
 // Repli sur l'hôte de la page, pas 'localhost' : un appareil du réseau local appellerait le sien.
 export const API_BASE_URL: string =
-  (import.meta.env.back_end_url as string | undefined)?.replace(/\/$/, '') ||
+  (import.meta.env.back_end_url)?.replace(/\/$/, '') ||
   `${window.location.protocol}//${window.location.hostname}:8080`;
 
 const MESSAGE_API_INJOIGNABLE = `Impossible de joindre l'API (${API_BASE_URL}). Vérifiez que le backend tourne.`;
@@ -368,7 +367,8 @@ export function createProspect(body: CreerProspectRequest): Promise<ProspectDeta
   return request('POST', '/api/prospects', { body });
 }
 
-/** Prévient pendant la saisie ; ne dispense pas de gérer le 409 de `createProspect`. */
+/** Prévient pendant la saisie ; ne dispense pas de gérer le 409 de `createProspect`.
+ * @public endpoint servi, pas encore branché sur un écran */
 export function rechercherDoublonsProspect(params: RechercheDoublonsProspectParams): Promise<ProspectDoublonDto[]> {
   return request('GET', '/api/prospects/doublons', { query: { ...params } });
 }
@@ -821,6 +821,24 @@ function mimeForExtension(extension: string | undefined): string {
   return EXTENSION_MIME[ext] ?? 'application/octet-stream';
 }
 
+function blobDepuisTexte(text: string, mime: string): Blob {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    parsed = text;
+  }
+  if (typeof parsed === 'string') {
+    const base64 = parsed.includes(',') && parsed.trim().startsWith('data:') ? parsed.split(',', 2)[1] : parsed;
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+  if (Array.isArray(parsed)) return new Blob([new Uint8Array(parsed as number[])], { type: mime });
+  return new Blob([text], { type: mime });
+}
+
 /** Un `format: byte` peut arriver en JSON (chaîne base64 ou tableau de nombres)
  * au lieu de binaire : les deux formes sont gérées. */
 async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestInit): Promise<Blob> {
@@ -839,24 +857,7 @@ async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestIn
   const contentType = res.headers.get('content-type') ?? '';
   let blob: Blob;
   if (contentType.includes('application/json') || contentType.includes('text/plain')) {
-    const text = await res.text();
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = text;
-    }
-    if (typeof parsed === 'string') {
-      const base64 = parsed.includes(',') && parsed.trim().startsWith('data:') ? parsed.split(',', 2)[1] : parsed;
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      blob = new Blob([bytes], { type: mime });
-    } else if (Array.isArray(parsed)) {
-      blob = new Blob([new Uint8Array(parsed as number[])], { type: mime });
-    } else {
-      blob = new Blob([text], { type: mime });
-    }
+    blob = blobDepuisTexte(await res.text(), mime);
   } else {
     const raw = await res.blob();
     // `Blob.type` est immuable : pour corriger un type absent ou générique, on reconstruit.
@@ -1061,6 +1062,7 @@ export function addEcheance(dossierId: UUID, body: CreerEcheanceRequest): Promis
   return request('POST', `/api/dossiers/${dossierId}/echeancier`, { body });
 }
 
+/** @public endpoint servi, pas encore branché sur un écran */
 export function updateEcheance(dossierId: UUID, echeanceId: UUID, body: ModifierEcheanceRequest): Promise<EcheanceDto> {
   return request('PATCH', `/api/dossiers/${dossierId}/echeancier/${echeanceId}`, { body });
 }
@@ -1331,7 +1333,8 @@ export function listRelancesDashboard(
 }
 
 /** `jour` est une date seule : `todayISO()`, pas `toApiDateTime()`. Une page vide
- * est le cas courant (injection par rafales), pas une panne. */
+ * est le cas courant (injection par rafales), pas une panne.
+ * @public endpoint servi, pas encore branché sur un écran */
 export function listNouveauxPreProspects(
   jour?: string,
   pageable?: Pageable,
@@ -1404,6 +1407,7 @@ export const getTypesReglement = (): Promise<TypeReglementDto[]> => request('GET
 export const getBanques = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/banques');
 export const getResultatsInteraction = (): Promise<ResultatInteractionDto[]> => request('GET', '/api/referentiels/resultats-interaction');
 
+/** @public endpoint servi, pas encore branché sur un écran */
 export function getVillesReferentiel(
   params?: { paysId?: UUID; search?: string },
   pageable?: Pageable,

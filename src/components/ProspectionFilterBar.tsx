@@ -15,7 +15,7 @@ export default function ProspectionFilterBar({
   trancheItems,
   extra,
   defauts,
-}: {
+}: Readonly<{
   state: ProspectionFilterBarState;
   /** À passer quand les défauts dépendent de la session (commercial connecté). */
   defauts?: ProspectionFilterBarState;
@@ -27,7 +27,7 @@ export default function ProspectionFilterBar({
   trancheItems: { label: string; value: string }[];
   /** Vide côté pré-prospections : `/api/pre-prospections` n'accepte pas les filtres avancés. */
   extra?: ReactNode;
-}) {
+}>) {
   /* Le nom du filtre est dans chaque libellé : le déclencheur n'affiche que la
      valeur choisie, et « Non » seul ne dirait pas de quoi. */
   const archiveItems: { label: string; value: ProspectionFilterBarState['archive'] }[] = [

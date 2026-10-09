@@ -9,10 +9,10 @@ import { aujourdHuiISO, emptyPeriode, ilYA, premierJourDuMois, type Periode } fr
 export default function PeriodeFilterBar({
   value,
   onChange,
-}: {
+}: Readonly<{
   value: Periode;
   onChange: (next: Periode) => void;
-}) {
+}>) {
   const parDefaut = !value.du && !value.au;
   // Le serveur refuse `du` postérieure à `au` (400).
   const intervalleInverse = !!value.du && !!value.au && value.du > value.au;

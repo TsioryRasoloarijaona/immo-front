@@ -14,7 +14,7 @@ import {
   type ImportPreProspectionsParams,
   type StatutImportable,
 } from '../../lib/api';
-import { formatDateTime, formatNumber } from '../../lib/format';
+import { formatDateTime, formatNumber, pluriel } from '../../lib/format';
 import {
   referentielItems,
   useActionsCommerciales,
@@ -329,7 +329,7 @@ export default function ImportPreProspections() {
                     </Button>
                     <Button type="button" disabled={!trancheId || aCreer === 0 || busy} onClick={importer}>
                       <Upload data-icon="inline-start" />
-                      {busy ? 'Import…' : `Importer ${aCreer} ligne${aCreer > 1 ? 's' : ''}`}
+                      {busy ? 'Import…' : `Importer ${pluriel(aCreer, 'ligne')}`}
                     </Button>
                     {aCreer === 0 && (
                       <span className="text-body text-muted-foreground">
@@ -393,6 +393,19 @@ function CodeLigne({ ligne }: Readonly<{ ligne: LigneImportDto }>) {
   return <span className="text-muted-foreground">—</span>;
 }
 
+function LiensDoublons({ ids }: Readonly<{ ids: string[] }>) {
+  if (ids.length === 0) return null;
+  return (
+    <span className="ml-1">
+      {ids.map((id, i) => (
+        <Link key={id} to={`/prospections/${id}`} className="underline-offset-2 hover:underline">
+          {i > 0 ? ', ' : ''}voir{ids.length > 1 ? ` ${i + 1}` : ''}
+        </Link>
+      ))}
+    </span>
+  );
+}
+
 function TableauLignes({ lignes, importe }: Readonly<{ lignes: LigneImportDto[]; importe: boolean }>) {
   if (lignes.length === 0) {
     return <p className="text-body text-muted-foreground">Aucune ligne pour ce filtre.</p>;
@@ -432,15 +445,7 @@ function TableauLignes({ lignes, importe }: Readonly<{ lignes: LigneImportDto[];
                 <TableCell className="max-w-56 truncate" title={l.formulaire ?? undefined}>{l.formulaire || '—'}</TableCell>
                 <TableCell className="text-muted-foreground">
                   {l.message || ''}
-                  {l.doublonIds && l.doublonIds.length > 0 && (
-                    <span className="ml-1">
-                      {l.doublonIds.map((id, i) => (
-                        <Link key={id} to={`/prospections/${id}`} className="underline-offset-2 hover:underline">
-                          {i > 0 ? ', ' : ''}voir{l.doublonIds!.length > 1 ? ` ${i + 1}` : ''}
-                        </Link>
-                      ))}
-                    </span>
-                  )}
+                  <LiensDoublons ids={l.doublonIds ?? []} />
                 </TableCell>
               </TableRow>
             );

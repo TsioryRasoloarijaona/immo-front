@@ -28,7 +28,8 @@ import type { ActionRecente, CibleActionRecente, PorteeActionsRecentes, TypeActi
 const PAGE = 20;
 const CLE_ONGLET = 'actionsRecentes.onglet';
 
-const ICONES: Record<TypeActionRecente, ComponentType<{ className?: string }>> = {
+// Partiel : un type ajouté côté serveur retombe sur l'icône par défaut.
+const ICONES: Partial<Record<TypeActionRecente, ComponentType<{ className?: string }>>> = {
   PRE_PROSPECTION_CREEE: UserPlus,
   PROSPECT_CREE: UserRoundPlus,
   PROSPECT_RATTACHE: Link2,
@@ -141,10 +142,10 @@ export default function ActionsRecentes() {
 function ListeActions({
   portee,
   onOuvrir,
-}: {
+}: Readonly<{
   portee: PorteeActionsRecentes;
   onOuvrir: (cible: FicheCible) => void;
-}) {
+}>) {
   const { data, loading, error, refetch } = useApi(() => listActionsRecentes(portee, PAGE), [portee]);
   const [suite, setSuite] = useState<ActionRecente[]>([]);
   const [suiteEnCours, setSuiteEnCours] = useState(false);
@@ -202,8 +203,8 @@ function ListeActions({
   const groupes: { jour: string; actions: ActionRecente[] }[] = [];
   for (const action of actions) {
     const jour = action.date.slice(0, 10);
-    const dernier = groupes[groupes.length - 1];
-    if (dernier && dernier.jour === jour) dernier.actions.push(action);
+    const dernier = groupes.at(-1);
+    if (dernier?.jour === jour) dernier.actions.push(action);
     else groupes.push({ jour, actions: [action] });
   }
 
@@ -241,11 +242,11 @@ function LigneAction({
   action,
   equipe,
   onOuvrir,
-}: {
+}: Readonly<{
   action: ActionRecente;
   equipe: boolean;
   onOuvrir: (cible: FicheCible) => void;
-}) {
+}>) {
   const Icone = ICONES[action.type] ?? History;
   const cible = CIBLES[action.cibleType];
   const prospectId =

@@ -9,11 +9,11 @@ export default function FicheProspectionDialog({
   id,
   pre,
   onClose,
-}: {
+}: Readonly<{
   id: string;
   pre: boolean;
   onClose: () => void;
-}) {
+}>) {
   /* À la fermeture, tout ce qui est monté derrière relit ses données. Différé d'un
      tour : au nettoyage, les requêtes de la fiche sont encore inscrites et seraient
      relancées pour rien. */

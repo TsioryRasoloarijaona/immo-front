@@ -17,7 +17,7 @@ function toneInactivite(jours: number): BadgeTone {
   return 'warning';
 }
 
-export function InactiviteBadge({ jours }: { jours: number }) {
+export function InactiviteBadge({ jours }: Readonly<{ jours: number }>) {
   return (
     <Badge tone={toneInactivite(jours)}>
       {jours <= 0 ? "Action aujourd'hui" : `${jours} j sans action`}
@@ -29,11 +29,11 @@ export function DossierIssuBanner({
   dossierId,
   dossierCode,
   statutDossier,
-}: {
+}: Readonly<{
   dossierId?: string | null;
   dossierCode?: string | null;
   statutDossier?: string | null;
-}) {
+}>) {
   if (!dossierId) return null;
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 rounded-md border border-(--success-border) bg-(--success-bg) px-3 py-2 text-body text-(--success)">
@@ -59,12 +59,12 @@ export function ResumeActivite({
   tranche,
   premiereNote,
   action,
-}: {
+}: Readonly<{
   activite?: ActiviteProspectionDto | null;
   tranche?: string | null;
   premiereNote?: string | null;
   action?: ReactNode;
-}) {
+}>) {
   if (!activite) {
     return (
       <LigneActivite action={action}>

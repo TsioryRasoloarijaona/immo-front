@@ -100,7 +100,7 @@ function ReinitialiserMotDePasseCard() {
 
   const emailConnu = compte?.email?.trim() || undefined;
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!admUserId.trim()) return;
     setSubmitting(true);

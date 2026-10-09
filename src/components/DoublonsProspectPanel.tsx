@@ -26,14 +26,14 @@ export default function DoublonsProspectPanel({
   onChoisir,
   onNouveauContact,
   busy,
-}: {
+}: Readonly<{
   doublons: ProspectDoublonDto[];
   libelleChoisir: string;
   onChoisir: (doublon: ProspectDoublonDto) => void;
   /** Renvoyer la même création avec `ignorerDoublons: true`. */
   onNouveauContact: () => void;
   busy?: boolean;
-}) {
+}>) {
   return (
     <div
       role="region"

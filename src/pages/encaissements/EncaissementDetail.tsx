@@ -84,7 +84,7 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
     setErreurStatut(null);
     try {
       await modifierStatutReglement(dossierPortee, e.id, { statut: 'CANCELED' });
-      refetch();
+      void refetch();
     } catch (err) {
       setErreurStatut(messageErreurStatut(err));
     } finally {

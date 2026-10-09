@@ -28,7 +28,7 @@ export default function DevisFormSection({
   startOpen,
   bare,
   onAdd,
-}: {
+}: Readonly<{
   defaultTrancheId?: string;
   defaultArticleId?: string;
   defaultProspectId?: string;
@@ -36,7 +36,7 @@ export default function DevisFormSection({
   startOpen?: boolean;
   bare?: boolean;
   onAdd: (body: CreerDevisRequest) => Promise<void>;
-}) {
+}>) {
   const [open, setOpen] = useState((startOpen || bare) ?? false);
 
   const projets = useApi(() => getProjetsReferentiel(), []);
@@ -191,7 +191,7 @@ export default function DevisFormSection({
                 placeholder="Aucun"
                 value={sousArticleIds}
                 onChange={setSousArticleIds}
-                items={(sousArticles.data ?? []).map((a) => ({ label: `${a.code}${a.description ? ` — ${a.description}` : ''}`, value: a.id }))}
+                items={(sousArticles.data ?? []).map((a) => ({ label: [a.code, a.description].filter(Boolean).join(' — '), value: a.id }))}
                 disabled={(sousArticles.data ?? []).length === 0}
               />
             </>
@@ -236,7 +236,12 @@ export default function DevisFormSection({
     <Card
       title="Nouvelle offre"
       action={
-        <Button type="button" variant={open ? 'ghost' : 'outline'} size="sm" onClick={() => { if (open) reset(); setOpen((v) => !v); }}>
+        <Button type="button" variant={open ? 'ghost' : 'outline'} size="sm" onClick={() => {
+          if (open) {
+            reset();
+          }
+          setOpen((v) => !v);
+        }}>
           {open ? 'Annuler' : (<><Plus data-icon="inline-start" /> Nouvelle offre</>)}
         </Button>
       }

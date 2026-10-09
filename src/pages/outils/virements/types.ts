@@ -29,10 +29,10 @@ export interface TypePieceMeta {
 
 /** `GET /meta` — seule source des listes métier. */
 export interface Meta {
-  types_pieces: Record<string, TypePieceMeta>;
+  types_pieces: Partial<Record<string, TypePieceMeta>>;
   dossiers: Record<string, string[]>;
   statuts: StatutOrdre[];
-  types_virement: Record<string, { libelle: string; beneficiaire: string }>;
+  types_virement: Partial<Record<string, { libelle: string; beneficiaire: string }>>;
   types_beneficiaire: Record<string, string>;
   longueur_mdp_min: number;
 }

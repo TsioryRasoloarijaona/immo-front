@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { IconMessage, IconNote, IconPhoneIn, IconPhoneOut } from '../components/icons';
+import { IconPhoneIn, IconPhoneOut } from '../components/icons';
 import { debutMoisISO, finMoisISO, isPastOrToday } from './format';
 import type {
   BadgeTone,
@@ -55,7 +55,8 @@ export function etapeBadgeTone(etape: string | undefined, fermee?: boolean): Bad
 }
 
 // Impayé/Perdu existent comme filtres legacy mais aucune ligne réelle ne les porte : pas de libellé inventé,
-// un code inconnu s'affiche brut, ton neutre.
+// un code inconnu s'affiche brut, ton neutre. Sert aussi `ReglementDto.statut` : même colonne
+// `StlSettlement.Status`, donc un seul mapping.
 export const ENCAISSEMENT_ETAT_LABELS: Record<string, string> = {
   IN_WORK: 'En cours',
   POINTED: 'Pointé',
@@ -76,11 +77,6 @@ export function encaissementEtatTone(etat: string | undefined): BadgeTone {
     default: return 'neutral';
   }
 }
-
-// `ReglementDto.statut` et `EncaissementDto.etat` lisent la même colonne `StlSettlement.Status` : alias, pas de
-// second mapping.
-export const reglementStatutLabel = encaissementEtatLabel;
-export const reglementStatutTone = encaissementEtatTone;
 
 /** Statut absent (DTO servi sans la colonne) = non modifiable : mieux vaut masquer une action possible que d'en
  * proposer une qui finira en 409. */
@@ -190,10 +186,12 @@ export function hasActiveProspectionFilters(
     const current = state[key];
     const base = defauts[key];
     return Array.isArray(current) && Array.isArray(base)
-      ? [...current].sort().join('|') !== [...base].sort().join('|')
+      ? [...current].sort((a, b) => a.localeCompare(b)).join('|') !== [...base].sort((a, b) => a.localeCompare(b)).join('|')
       : current !== base;
   });
 }
+
+type FiltreTernaire = 'all' | 'oui' | 'non';
 
 /** État d'écran, distinct du contrat réseau : nombres et dates en chaînes (champ vidé = pas de filtre, pas `NaN`),
  * booléens ternaires car `avecAlerteActive: false` veut dire « uniquement sans relance », pas « indifférent ».
@@ -207,8 +205,8 @@ export interface FiltresAvancesState {
   paysId: string[];
   actionId: string[];
   typeProspection: string[];
-  ancienClient: 'all' | 'oui' | 'non';
-  avecAlerteActive: 'all' | 'oui' | 'non';
+  ancienClient: FiltreTernaire;
+  avecAlerteActive: FiltreTernaire;
   inactiviteMin: string;
   nbInteractionsMin: string;
   nbVisitesMin: string;
@@ -280,15 +278,6 @@ export const TYPES_PROSPECTION: { label: string; value: string }[] = [
   { label: 'Prospection gestion', value: 'RomProspection' },
 ];
 
-export function standingClass(standing: string): string {
-  const s = (standing || '').toLowerCase();
-  if (s.includes('très haut')) return 'bg-(--brand-bg) text-(--brand)';
-  if (s.includes('touristique')) return 'bg-(--amber-bg) text-(--amber)';
-  if (s.includes('haut')) return 'bg-(--info-bg) text-(--info)';
-  if (s.includes('social')) return 'bg-(--success-bg) text-(--success)';
-  return 'bg-(--neutral-bg) text-foreground';
-}
-
 export function prospectionDisplayName(
   p: Pick<ProspectionListItemDto | ProspectionDetailDto, 'prospectNom' | 'code'> & { tempDescription?: string },
 ): string {
@@ -310,12 +299,4 @@ export function interactionIcon(entrante: boolean | undefined): ReactNode {
 // qu'une entrée future formulée autrement reste reconnue.
 export function isVisiteEvenement(ev: Pick<EvenementCalendrierDto, 'resultatCode'>): boolean {
   return (ev.resultatCode ?? '').toLowerCase().includes('visite');
-}
-
-export function noteIcon(): ReactNode {
-  return <IconNote />;
-}
-
-export function genericIcon(): ReactNode {
-  return <IconMessage />;
 }

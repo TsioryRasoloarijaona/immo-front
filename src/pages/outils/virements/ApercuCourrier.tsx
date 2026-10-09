@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import { formatDate, formatNumber } from '../../../lib/format';
 import { LIEN_LOGO_DEFAUT, lienLogoSociete } from '../../../lib/virements';
 import { cn } from '../../../lib/utils';
@@ -16,7 +16,7 @@ type Jeton = 'societe' | 'compte' | 'montant' | 'beneficiaire';
 function remplir(modele: string, valeurs: Partial<Record<Jeton, string>>, gras: Set<Jeton>): ReactNode[] {
   return modele.split(/(\{\w+\})/g).map((morceau, i) => {
     const m = /^\{(\w+)\}$/.exec(morceau);
-    if (!m || !(m[1] in valeurs)) return morceau;
+    if (!m || !(m[1] in valeurs)) return <Fragment key={i}>{morceau}</Fragment>;
     const cle = m[1] as Jeton;
     const v = valeurs[cle] ?? '';
     return gras.has(cle) ? <strong key={i}>{v}</strong> : <span key={i}>{v}</span>;
@@ -29,6 +29,36 @@ const POLICE: Record<Societe['police'], string> = {
 };
 
 const montantTexte = (m: number | null) => (m != null && m > 0 ? formatNumber(m, 2) : '…');
+
+function EnteteCourrier({ societe, logoSrc }: Readonly<{ societe: Societe; logoSrc?: string }>) {
+  if (societe.entete_mode === 'logo') {
+    return (
+      <img
+        src={logoSrc ?? (societe.logo ? lienLogoSociete(societe.id, societe.updated_at) : LIEN_LOGO_DEFAUT)}
+        alt={`En-tête ${societe.nom}`}
+        className={cn('max-h-[14%] w-full object-contain object-left', societe.entete_filet ? 'border-b border-neutral-800 pb-1' : '')}
+      />
+    );
+  }
+  if (societe.entete_mode === 'texte') {
+    return (
+      <div className={cn('flex items-start justify-between gap-4 pb-1', societe.entete_filet ? 'border-b border-neutral-800' : '')}>
+        <div className="min-w-0">
+          {societe.entete_titre && (
+            <div className="leading-tight font-bold whitespace-pre-line" style={{ fontSize: `${societe.entete_taille * 0.875}px` }}>
+              {societe.entete_titre}
+            </div>
+          )}
+          {societe.entete_sous_titre && <div className="text-[7.9px] whitespace-pre-line">{societe.entete_sous_titre}</div>}
+        </div>
+        {societe.entete_droite && <div className="shrink-0 text-right text-[7px] whitespace-pre-line">{societe.entete_droite}</div>}
+      </div>
+    );
+  }
+  // Mode « aucun » : le filet est tracé quand même, sans en-tête (courrier.js).
+  if (societe.entete_filet) return <div className="border-b border-neutral-800" />;
+  return null;
+}
 
 /** Doit suivre le modèle du PDF construit par le service (`src/pdf/courrier.js`), format Letter.
  * Le papier reste blanc en thème sombre, volontairement : c'est une feuille imprimée, pas une surface d'interface. */
@@ -81,29 +111,7 @@ export default function ApercuCourrier({
 
   return (
     <div className={cn(papier, 'px-[11.6%] py-[9%]', className)} style={{ fontFamily: POLICE[societe.police] }}>
-      {societe.entete_mode === 'logo' && (
-        <img
-          src={logoSrc ?? (societe.logo ? lienLogoSociete(societe.id, societe.updated_at) : LIEN_LOGO_DEFAUT)}
-          alt={`En-tête ${societe.nom}`}
-          className={cn('max-h-[14%] w-full object-contain object-left', societe.entete_filet ? 'border-b border-neutral-800 pb-1' : '')}
-        />
-      )}
-      {societe.entete_mode === 'texte' && (
-        <div className={cn('flex items-start justify-between gap-4 pb-1', societe.entete_filet ? 'border-b border-neutral-800' : '')}>
-          <div className="min-w-0">
-            {societe.entete_titre && (
-              <div className="leading-tight font-bold whitespace-pre-line" style={{ fontSize: `${societe.entete_taille * 0.875}px` }}>
-                {societe.entete_titre}
-              </div>
-            )}
-            {societe.entete_sous_titre && <div className="text-[7.9px] whitespace-pre-line">{societe.entete_sous_titre}</div>}
-          </div>
-          {societe.entete_droite && <div className="shrink-0 text-right text-[7px] whitespace-pre-line">{societe.entete_droite}</div>}
-        </div>
-      )}
-
-      {/* Le filet est tracé quel que soit le mode, même sans en-tête (courrier.js). */}
-      {societe.entete_mode === 'aucun' && societe.entete_filet ? <div className="border-b border-neutral-800" /> : null}
+      <EnteteCourrier societe={societe} logoSrc={logoSrc} />
 
       <div className="mt-5 text-right">
         <div>{societe.banque}</div>

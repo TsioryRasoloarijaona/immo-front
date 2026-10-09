@@ -5,6 +5,11 @@ export function formatCurrency(value: number | null | undefined): string {
   return `${formatNumber(value, 2)} DH`;
 }
 
+/** `undefined` quand le montant est absent : `Field` affiche alors son propre tiret. */
+export function formatMontantOptionnel(value: number | null | undefined): string | undefined {
+  return value == null ? undefined : formatCurrency(value);
+}
+
 export function libellePrix(prix: number | null | undefined, plancher: number | null | undefined): string | undefined {
   if (prix) return formatCurrency(prix);
   if (plancher) return `${formatCurrency(plancher)} (plancher)`;
@@ -31,7 +36,11 @@ export function formatNumber(value: number | null | undefined, decimals = 0): st
   const fixed = value.toFixed(decimals);
   // Signe pris sur la valeur arrondie : -0,004 s'affiche « 0,00 », pas « -0,00 ».
   const negatif = Number(fixed) < 0;
-  const [entier, decimal] = fixed.replace(/^-/, '').split('.');
+  const absolu = fixed.replace(/^-/, '');
+  const point = absolu.indexOf('.');
+  const entier = point === -1 ? absolu : absolu.slice(0, point);
+  const decimal = point === -1 ? undefined : absolu.slice(point + 1);
+  // eslint-disable-next-line sonarjs/super-linear-regex -- appliquée à une suite de chiffres de quelques caractères
   const grouped = entier.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
   const sign = negatif ? '-' : '';
   return decimal === undefined ? `${sign}${grouped}` : `${sign}${grouped},${decimal}`;
@@ -39,6 +48,7 @@ export function formatNumber(value: number | null | undefined, decimals = 0): st
 
 function sansZerosFinaux(texte: string): string {
   if (!texte.includes(',')) return texte;
+  // eslint-disable-next-line sonarjs/super-linear-regex -- appliquée à un nombre déjà formaté, quelques caractères
   return texte.replace(/0+$/, '').replace(/,$/, '');
 }
 
@@ -60,11 +70,29 @@ export function formatFourchetteSurface(de: number | null | undefined, a: number
   return `${sansZerosFinaux(formatNumber(de, 2))} à ${formatSurface(a)}`;
 }
 
+/** « 1 dossier », « 3 dossiers » (le nombre n'est pas formaté). */
+export function pluriel(n: number, singulier: string, plurielForme = `${singulier}s`): string {
+  return `${n} ${n > 1 ? plurielForme : singulier}`;
+}
+
+export function formatFourchetteMontant(de: number | null | undefined, a: number | null | undefined): string | undefined {
+  if (de === null || de === undefined) return undefined;
+  return a ? `${formatCurrency(de)} à ${formatCurrency(a)}` : formatCurrency(de);
+}
+
 /** Pour une valeur **déjà en pourcentage (0–100)** (`remisePercent`, `quotePart`) :
  * aucune conversion. La confondre avec `formatPercent` donne un facteur 100. */
 export function formatPercentValue(value: number | null | undefined, decimals = 2): string {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
   return `${sansZerosFinaux(formatNumber(value, decimals))}${NBSP}%`;
+}
+
+/** Valeur de cellule non typée → texte ; un objet sort en JSON plutôt qu'en « [object Object] ». */
+export function texteBrut(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean' || typeof v === 'bigint') return String(v);
+  return JSON.stringify(v);
 }
 
 export function formatDate(value: string | null | undefined): string {
@@ -82,7 +110,8 @@ export function formatDateTime(value: string | null | undefined): string {
   if (!m) return value;
   const [, y, mo, d, h, min] = m;
   const jour = `${d}/${mo}/${y}`;
-  return h !== undefined ? `${jour} ${h}:${min}` : jour;
+  // Groupe heure optionnel : `h` vaut `undefined` à l'exécution malgré son type `string`.
+  return h ? `${jour} ${h}:${min}` : jour;
 }
 
 // Un champ `format: date-time` rejette une date seule en 400 : on complète à minuit.
@@ -139,27 +168,11 @@ export function isPastOrToday(dateStr: string | null | undefined): boolean {
   return dateStr <= todayISO();
 }
 
-export function daysBetween(a: string | null | undefined, b: string | null | undefined): number | null {
-  if (!a || !b) return null;
-  const da = new Date(a).getTime();
-  const db = new Date(b).getTime();
-  if (Number.isNaN(da) || Number.isNaN(db)) return null;
-  return Math.round((db - da) / 86400000);
-}
-
 /** Ne touche pas au numéro (zéro initial compris) : rien ne dit comment il se
  * recompose avec l'indicatif. */
 export function formatTelephone(numero: string | null | undefined, indicatif?: string | null): string {
   if (!numero) return '—';
   return indicatif ? `+${indicatif} ${numero}` : numero;
-}
-
-export function initials(name: string | null | undefined): string {
-  if (!name) return '?';
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 export function formatHeures(hours: number | null | undefined): string {

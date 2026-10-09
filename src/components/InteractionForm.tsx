@@ -65,7 +65,7 @@ export default function InteractionForm({
   const rdvManquant = isRdv && !dateRdv;
   const incomplet = !actionTypeId || resultatManquant || messageManquant || alerteManquante || rdvManquant;
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     if (incomplet || busy) return;
 

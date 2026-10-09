@@ -23,11 +23,11 @@ export function Badge({
   tone = 'neutral',
   children,
   className,
-}: {
+}: Readonly<{
   tone?: BadgeTone;
   children: ReactNode;
   className?: string;
-}) {
+}>) {
   const Glyphe = TONE_GLYPH[tone];
   return (
     <ShadcnBadge variant={tone} className={cn('gap-1', className)}>
@@ -53,13 +53,13 @@ export function StatCard({
   sub,
   icon,
   tone = 'neutral',
-}: {
+}: Readonly<{
   label: string;
   value: string;
   sub?: string;
   icon?: ReactNode;
   tone?: BadgeTone;
-}) {
+}>) {
   const { fg, bg } = STAT_TONE_VARS[tone];
   return (
     <ShadcnCard size="sm" className="gap-1.5 px-3.5 py-2.5">
@@ -87,11 +87,11 @@ export function Field({
   label,
   value,
   muted,
-}: {
+}: Readonly<{
   label: string;
   value: ReactNode;
   muted?: boolean;
-}) {
+}>) {
   const isEmpty = value === null || value === undefined || value === '' || value === '—';
   return (
     <div className="min-w-0">
@@ -108,7 +108,7 @@ export function Field({
   );
 }
 
-export function FieldGrid({ children }: { children: ReactNode }) {
+export function FieldGrid({ children }: Readonly<{ children: ReactNode }>) {
   return <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-x-4 gap-y-2.5">{children}</div>;
 }
 
@@ -119,7 +119,7 @@ export function Card({
   padded = true,
   className,
   accent,
-}: {
+}: Readonly<{
   title?: ReactNode;
   action?: ReactNode;
   children: ReactNode;
@@ -127,7 +127,7 @@ export function Card({
   className?: string;
   /** Une couleur CSS, ex. `var(--sec-dossier)`. */
   accent?: string;
-}) {
+}>) {
   return (
     <ShadcnCard
       className={cn('gap-0 py-0', accent && 'border-l-2', className)}
@@ -163,11 +163,11 @@ export function ResultsRegion({
   loading,
   className,
   children,
-}: {
+}: Readonly<{
   loading: boolean;
   className?: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <div
       aria-busy={loading}
@@ -182,7 +182,7 @@ export function ResultsRegion({
   );
 }
 
-export function ErrorState({ message }: { message: string }) {
+export function ErrorState({ message }: Readonly<{ message: string }>) {
   return (
     <Empty className="border-none py-17.5">
       <EmptyHeader>
@@ -197,11 +197,11 @@ export function EmptyState({
   title,
   message,
   action,
-}: {
+}: Readonly<{
   title: string;
   message?: string;
   action?: ReactNode;
-}) {
+}>) {
   return (
     <Empty className="border-none py-17.5">
       <EmptyHeader>
@@ -213,15 +213,7 @@ export function EmptyState({
   );
 }
 
-export function SoonBadge({ children = 'Bientôt' }: { children?: ReactNode }) {
-  return (
-    <span className="rounded-full bg-(--amber-bg) px-1.75 py-0.5 text-micro font-bold text-(--amber)">
-      {children}
-    </span>
-  );
-}
-
-export function TogglePill({ on, onLabel = 'Activé', offLabel = 'Désactivé' }: { on: boolean; onLabel?: string; offLabel?: string }) {
+export function TogglePill({ on, onLabel = 'Activé', offLabel = 'Désactivé' }: Readonly<{ on: boolean; onLabel?: string; offLabel?: string }>) {
   return (
     <span
       className={cn(
@@ -235,7 +227,7 @@ export function TogglePill({ on, onLabel = 'Activé', offLabel = 'Désactivé' }
   );
 }
 
-export function Chip({ children, warning }: { children: ReactNode; warning?: boolean }) {
+export function Chip({ children, warning }: Readonly<{ children: ReactNode; warning?: boolean }>) {
   return (
     <span
       className={cn(
@@ -252,7 +244,7 @@ export function Chip({ children, warning }: { children: ReactNode; warning?: boo
 
 /** Sans ce bandeau, une liste filtrée côté serveur au périmètre du commercial
  * passerait pour une perte de données. `projets` vide = aucune restriction. */
-export function PerimetreBanner({ projets }: { projets: { code: string }[] }) {
+export function PerimetreBanner({ projets }: Readonly<{ projets: { code: string }[] }>) {
   if (projets.length === 0) return null;
   return (
     <div className="flex shrink-0 items-center gap-2 rounded-md bg-(--info-bg) px-3 py-1.75 text-body text-(--info)">
@@ -266,7 +258,7 @@ export function PerimetreBanner({ projets }: { projets: { code: string }[] }) {
 
 /** `false` (compte sans adresse ou envoi inactif) : le mot de passe affiché est le
  * seul exemplaire. `true` ne promet que le déclenchement, l'envoi est asynchrone. */
-export function EnvoiMailNotice({ envoye, destinataire }: { envoye?: boolean; destinataire?: string | null }) {
+export function EnvoiMailNotice({ envoye, destinataire }: Readonly<{ envoye?: boolean; destinataire?: string | null }>) {
   if (envoye === undefined) return null;
   if (!envoye) {
     return (
@@ -283,7 +275,7 @@ export function EnvoiMailNotice({ envoye, destinataire }: { envoye?: boolean; de
   );
 }
 
-export function Avatar({ name, small }: { name: string | null | undefined; small?: boolean }) {
+export function Avatar({ name, small }: Readonly<{ name: string | null | undefined; small?: boolean }>) {
   const initials = (() => {
     if (!name) return '?';
     const parts = name.trim().split(/\s+/).filter(Boolean);

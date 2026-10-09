@@ -46,7 +46,7 @@ function InformationsPersonnelles() {
 
   const canSubmit = prenom.trim() && nom.trim() && telephone.trim() && email.trim() && dateNaissance;
 
-  async function save(e: React.FormEvent) {
+  async function save(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!canSubmit) return;
     setSaving(true);
@@ -57,7 +57,8 @@ function InformationsPersonnelles() {
         nom: nom.trim(),
         telephone: telephone.trim(),
         email: email.trim(),
-        dateNaissance: toApiDateTime(dateNaissance)!,
+        // `canSubmit` garantit une date saisie : jamais `undefined` ici.
+        dateNaissance: toApiDateTime(dateNaissance) ?? '',
         adresse: adresse.trim() || undefined,
       });
       setEditing(false);
@@ -90,6 +91,7 @@ function InformationsPersonnelles() {
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <FormField>
               <FieldLabel htmlFor="p-prenom">Prénom</FieldLabel>
+              {/* eslint-disable-next-line jsx-a11y/no-autofocus -- ouvert par « Modifier » : le focus suit l'action de l'utilisateur */}
               <Input id="p-prenom" autoFocus value={prenom} onChange={(e) => setPrenom(e.target.value)} required />
             </FormField>
             <FormField>
@@ -155,7 +157,7 @@ function Securite() {
   const tooShort = nouveau.length > 0 && nouveau.length < 8;
   const canSubmit = ancien && nouveau.length >= 8 && nouveau === confirmation;
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!canSubmit) return;
     setSubmitting(true);

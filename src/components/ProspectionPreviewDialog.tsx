@@ -9,7 +9,7 @@ import { getProspection } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { routeFicheProspection } from '../lib/parcours';
 
-export default function ProspectionPreviewDialog({ id, onClose }: { id: string; onClose: () => void }) {
+export default function ProspectionPreviewDialog({ id, onClose }: Readonly<{ id: string; onClose: () => void }>) {
   const { data: p, loading, error } = useApi(() => getProspection(id), [id]);
 
   return (

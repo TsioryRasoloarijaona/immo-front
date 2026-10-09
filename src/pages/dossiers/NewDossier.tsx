@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { Check, Folder, Pencil, RotateCcw, Search, X } from 'lucide-react';
+import { Check, Folder, RotateCcw, Search, X } from 'lucide-react';
+import BoutonEdition from '../../components/BoutonEdition';
 import PageShell from '../../components/PageShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import ArticleCompactPreview from '../../components/ArticleCompactPreview';
@@ -37,11 +38,30 @@ import { prospectionDisplayName } from '../../lib/domain';
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../../lib/referentiels';
 import type { ArticleDetailDto, ArticleListItemDto } from '../../types';
 
-const EMPTY_ARTICLES = { content: [] as ArticleListItemDto[], page: 0, size: 0, totalElements: 0, totalPages: 0 };
+type FiltreStatut = 'DISPONIBLE' | 'OCCUPE' | 'all';
+
+function AideRemise({ horsBornes, inhabituelle }: Readonly<{ horsBornes: boolean; inhabituelle: boolean }>) {
+  if (horsBornes) return <p className="mt-1 text-micro text-destructive">La remise doit être comprise entre 0 et 100 %.</p>;
+  if (inhabituelle) {
+    return (
+      <p className="mt-1 text-micro text-(--amber)">
+        Remise inhabituelle (supérieure à 30 %) — à vérifier avant de valider.
+      </p>
+    );
+  }
+  return (
+    <p className="mt-1 text-micro text-muted-foreground">
+      Facultatif. Laissée vide, le prix ci-contre est le prix négocié.
+    </p>
+  );
+}
+
+const EMPTY_ARTICLES ={ content: [] as ArticleListItemDto[], page: 0, size: 0, totalElements: 0, totalPages: 0 };
 
 export default function NewDossier() {
-  const { id } = useParams();
-  const { data: prospection, loading, error } = useApi(() => getProspection(id!), [id]);
+  // La route `/prospections/:id/nouveau-dossier` garantit le paramètre.
+  const { id = '' } = useParams();
+  const { data: prospection, loading, error } = useApi(() => getProspection(id), [id]);
   const navigate = useNavigate();
 
   // La recherche d'articles n'existe que par tranche (`GET /api/tranches/{id}/articles`) :
@@ -65,7 +85,7 @@ export default function NewDossier() {
 
   // Seul `statut` est filtré côté serveur ; code, catégorie, type et superficie le sont ici,
   // l'endpoint ne les accepte pas.
-  const [statutFilter, setStatutFilter] = useState<'DISPONIBLE' | 'OCCUPE' | 'all'>('DISPONIBLE');
+  const [statutFilter, setStatutFilter] = useState<FiltreStatut>('DISPONIBLE');
   const articles = useApi(
     () =>
       trancheId
@@ -166,7 +186,7 @@ export default function NewDossier() {
   const autoNotes = latestDevis?.notes || prospection?.notes || '';
   const notesValue = notesTouched ? notes : autoNotes || notes;
 
-  const selectedArticles: ArticleDetailDto[] = (selectedArticleDetails.data ?? []).filter((a): a is ArticleDetailDto => !!a);
+  const selectedArticles: ArticleDetailDto[] = selectedArticleDetails.data ?? [];
   const showPicker = editingArticles || selectedArticles.length === 0;
   // `prixSuggere` = prix commercial, ou plancher quand il vaut 0 — même calcul que le serveur.
   const autoPrixFromArticles = selectedArticles.reduce((sum, a) => sum + (a.prixSuggere ?? 0), 0);
@@ -218,6 +238,9 @@ export default function NewDossier() {
     return <Navigate to={`/dossiers/${prospection.activite.dossierId}`} replace />;
   }
 
+  // Hors de `handleCreate` : le narrowing de `prospection` ne traverse pas une déclaration de fonction.
+  const prospectionId = prospection.id;
+
   function toggleArticle(articleId: string) {
     setSelectedIdsOverride(selectedIds.includes(articleId) ? selectedIds.filter((x) => x !== articleId) : [...selectedIds, articleId]);
   }
@@ -236,17 +259,18 @@ export default function NewDossier() {
     setSubmitError(null);
     try {
       const dossier = await createDossier({
-        prospectionId: prospection!.id,
+        prospectionId,
         articleIds: selectedIds,
         prix: prixValue ? Number(prixValue) : undefined,
         // Omise si vide : le serveur prend alors `prix` comme prix négocié et déduit la remise
         // de l'écart avec le prix commercial.
-        ...(remiseRenseignee && !remiseHorsBornes ? { remisePercent: remiseNumber } : {}),
+        // `canCreate` a déjà écarté une remise hors bornes.
+        ...(remiseRenseignee ? { remisePercent: remiseNumber } : {}),
         notes: notesValue || undefined,
         cin: cinValue.trim(),
-        modePaieId: modePaieId!,
+        modePaieId: modePaieId,
       });
-      navigate(`/dossiers/${dossier.id}?nouveau=1`);
+      void navigate(`/dossiers/${dossier.id}?nouveau=1`);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Échec de la création.');
     } finally {
@@ -256,7 +280,7 @@ export default function NewDossier() {
 
   const projetItems = (projets.data?.content ?? []).map((p) => ({ label: p.description || p.code || p.id, value: p.id }));
   const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
-  const statutItems: { label: string; value: 'DISPONIBLE' | 'OCCUPE' | 'all' }[] = [
+  const statutItems: { label: string; value: FiltreStatut }[] = [
     { label: 'Tous', value: 'all' },
     { label: 'Disponible', value: 'DISPONIBLE' },
     { label: 'Occupé', value: 'OCCUPE' },
@@ -279,15 +303,7 @@ export default function NewDossier() {
           title="Sélectionner un article"
           action={
             selectedArticles.length > 0 ? (
-              editingArticles ? (
-                <Button type="button" variant="ghost" size="sm" onClick={() => setEditingArticles(false)}>
-                  Terminé
-                </Button>
-              ) : (
-                <Button type="button" variant="outline" size="sm" onClick={() => setEditingArticles(true)}>
-                  <Pencil data-icon="inline-start" /> Modifier
-                </Button>
-              )
+              <BoutonEdition enEdition={editingArticles} onBasculer={setEditingArticles} />
             ) : undefined
           }
         >
@@ -322,7 +338,7 @@ export default function NewDossier() {
               <div className="mb-3.5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <FormField>
                   <FieldLabel htmlFor="f-projet">Projet</FieldLabel>
-                  <Select items={projetItems} value={projetId} onValueChange={(v) => { setProjetIdOverride((v as string) || ''); setTrancheIdOverride(''); }}>
+                  <Select items={projetItems} value={projetId} onValueChange={(v) => { setProjetIdOverride((v) || ''); setTrancheIdOverride(''); }}>
                     <SelectTrigger id="f-projet" className="w-full">
                       <SelectValue placeholder="Choisir un projet…" />
                     </SelectTrigger>
@@ -337,7 +353,7 @@ export default function NewDossier() {
                 </FormField>
                 <FormField>
                   <FieldLabel htmlFor="f-tranche">Tranche</FieldLabel>
-                  <Select items={trancheItems} value={trancheId} onValueChange={(v) => setTrancheIdOverride((v as string) || '')} disabled={!projetId}>
+                  <Select items={trancheItems} value={trancheId} onValueChange={(v) => setTrancheIdOverride((v) || '')} disabled={!projetId}>
                     <SelectTrigger id="f-tranche" className="w-full">
                       <SelectValue placeholder="Choisir une tranche…" />
                     </SelectTrigger>
@@ -371,7 +387,7 @@ export default function NewDossier() {
                 </FormField>
                 <FormField>
                   <FieldLabel htmlFor="f-categorie">Catégorie</FieldLabel>
-                  <Select items={categorieItems} value={categorieFilter} onValueChange={(v) => setCategorieFilter((v as string) || null)}>
+                  <Select items={categorieItems} value={categorieFilter} onValueChange={(v) => setCategorieFilter((v) || null)}>
                     <SelectTrigger id="f-categorie" className="w-full">
                       <SelectValue placeholder="Toutes" />
                     </SelectTrigger>
@@ -386,7 +402,7 @@ export default function NewDossier() {
                 </FormField>
                 <FormField>
                   <FieldLabel htmlFor="f-type">Type</FieldLabel>
-                  <Select items={typeItems} value={typeFilter} onValueChange={(v) => setTypeFilter((v as string) || null)}>
+                  <Select items={typeItems} value={typeFilter} onValueChange={(v) => setTypeFilter((v) || null)}>
                     <SelectTrigger id="f-type" className="w-full">
                       <SelectValue placeholder="Tous" />
                     </SelectTrigger>
@@ -552,17 +568,7 @@ export default function NewDossier() {
                     <InputGroupText>%</InputGroupText>
                   </InputGroupAddon>
                 </InputGroup>
-                {remiseHorsBornes ? (
-                  <p className="mt-1 text-micro text-destructive">La remise doit être comprise entre 0 et 100 %.</p>
-                ) : remiseInhabituelle ? (
-                  <p className="mt-1 text-micro text-(--amber)">
-                    Remise inhabituelle (supérieure à 30 %) — à vérifier avant de valider.
-                  </p>
-                ) : (
-                  <p className="mt-1 text-micro text-muted-foreground">
-                    Facultatif. Laissée vide, le prix ci-contre est le prix négocié.
-                  </p>
-                )}
+                <AideRemise horsBornes={remiseHorsBornes} inhabituelle={remiseInhabituelle} />
               </FormField>
               <FormField>
                 <FieldLabel htmlFor="cin">CIN du client *</FieldLabel>
@@ -581,7 +587,7 @@ export default function NewDossier() {
               </FormField>
               <FormField>
                 <FieldLabel htmlFor="modePaieId">Mode de paiement *</FieldLabel>
-                <Select items={modesPaiementItems} value={modePaieId} onValueChange={(v) => setModePaieId((v as string) || null)}>
+                <Select items={modesPaiementItems} value={modePaieId} onValueChange={(v) => setModePaieId((v) || null)}>
                   <SelectTrigger id="modePaieId" className="w-full">
                     <SelectValue placeholder="Choisir…" />
                   </SelectTrigger>

@@ -13,11 +13,11 @@ export default function ArchiverProspectionDialog({
   titre,
   onClose,
   onSubmit,
-}: {
+}: Readonly<{
   titre?: string;
   onClose: () => void;
   onSubmit: (body: ArchiverProspectionRequest) => Promise<void>;
-}) {
+}>) {
   const raisons = useRaisonsCloture();
   const [raisonId, setRaisonId] = useState<string | null>(null);
   const [raisonTexte, setRaisonTexte] = useState('');

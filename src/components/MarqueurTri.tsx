@@ -24,7 +24,7 @@ const APPARENCE = {
   },
 } as const;
 
-export default function MarqueurTri({ p }: { p: ProspectionDetailDto }) {
+export default function MarqueurTri({ p }: Readonly<{ p: ProspectionDetailDto }>) {
   // `marqueurTri` nul ne veut pas dire « pas de note » : beaucoup de lignes
   // portent un texte libre non normalisé, affiché alors plus discrètement.
   if (!p.marqueurTri && !p.noteQualification) return null;

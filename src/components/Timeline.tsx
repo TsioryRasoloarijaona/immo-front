@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-export function TimelineList({ children }: { children: ReactNode }) {
+export function TimelineList({ children }: Readonly<{ children: ReactNode }>) {
   return <div className="flex flex-col">{children}</div>;
 }
 
@@ -11,14 +11,14 @@ export function TimelineRow({
   badges,
   actions,
   dernier,
-}: {
+}: Readonly<{
   titre: ReactNode;
   meta: ReactNode;
   note?: string | null;
   badges?: ReactNode;
   actions?: ReactNode;
   dernier: boolean;
-}) {
+}>) {
   return (
     <div className="relative flex gap-3 pb-4.5 last:pb-0">
       <div className="flex shrink-0 flex-col items-center">

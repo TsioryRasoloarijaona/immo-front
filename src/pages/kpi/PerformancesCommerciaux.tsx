@@ -69,7 +69,7 @@ export default function PerformancesCommerciaux() {
     return [...rows].sort((a, b) => {
       const va = a[tri] ?? -1;
       const vb = b[tri] ?? -1;
-      return (vb as number) - (va as number);
+      return (vb) - (va);
     });
   }, [rows, tri]);
 

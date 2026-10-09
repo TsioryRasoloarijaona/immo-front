@@ -37,7 +37,7 @@ export default function CreerCleApiDialog({
     });
   }
 
-  async function creer(e: React.FormEvent) {
+  async function creer(e: React.SyntheticEvent) {
     e.preventDefault();
     if (!canSubmit) return;
     setBusy(true);
@@ -68,6 +68,7 @@ export default function CreerCleApiDialog({
               onChange={(e) => setNom(e.target.value)}
               placeholder="n8n"
               maxLength={100}
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- boîte de dialogue : le focus initial y est attendu
               autoFocus
               required
             />
@@ -79,6 +80,7 @@ export default function CreerCleApiDialog({
           <fieldset className="flex flex-col gap-1.5">
             <legend className="mb-1 text-label font-medium text-foreground">Portées *</legend>
             {PORTEES_CLE_API.map((p) => (
+              // eslint-disable-next-line jsx-a11y/label-has-associated-control -- faux positif : le libellé est dans deux span imbriqués, au-delà de la profondeur inspectée
               <label key={p.code} className="flex cursor-pointer items-start gap-2.5 rounded-md border border-border px-3 py-2 hover:bg-muted/40 has-checked:border-primary/40 has-checked:bg-primary/5">
                 <input
                   type="checkbox"

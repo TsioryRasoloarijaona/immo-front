@@ -16,9 +16,9 @@ import { creerDevis, DEFAULT_PAGE_SIZE, downloadDevisDocument, getProspection, l
 import { useTranchesFiltre } from '../../lib/referentiels';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { formatCurrency, formatPercent, formatPercentValue, jourISO } from '../../lib/format';
+import { formatCurrency, formatMontantOptionnel, formatPercent, formatPercentValue, jourISO } from '../../lib/format';
 import { prospectionDisplayName } from '../../lib/domain';
-import type { CreerDevisRequest, DevisDto } from '../../types';
+import type { CreerDevisRequest, DevisDto, ProspectionListItemDto } from '../../types';
 
 type PeriodePreset = 'custom' | 'mois-courant' | 'mois-dernier' | 'annee-courante';
 
@@ -143,7 +143,7 @@ export default function OffresList() {
       }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        {showCreate && <NouvelleOffreDialog onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); refetch(); }} />}
+        {showCreate && <NouvelleOffreDialog onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); void refetch(); }} />}
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
             <InputGroup className="min-w-55 flex-1">
@@ -215,7 +215,7 @@ export default function OffresList() {
         {!error && data && (
           <ResultsRegion loading={loading}>
             <div className="flex shrink-0 items-center justify-between text-body text-muted-foreground">
-              <span>{(data?.totalElements ?? 0)} offre{(data?.totalElements ?? 0) > 1 ? 's' : ''}</span>
+              <span>{data.totalElements} offre{data.totalElements > 1 ? 's' : ''}</span>
               {offres.length > 0 && (
                 <span>Total (page) <span className="font-semibold tabular-nums text-(--success)">{formatCurrency(totalPageTTC)}</span></span>
               )}
@@ -252,9 +252,7 @@ export default function OffresList() {
               </div>
             )}
             <div className="shrink-0">
-              {data && (
-                <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
-              )}
+              <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
             </div>
           </ResultsRegion>
         )}
@@ -296,37 +294,17 @@ function NouvelleOffreDialog({ onClose, onCreated }: Readonly<{ onClose: () => v
                 placeholder="Rechercher par nom, code…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                // eslint-disable-next-line jsx-a11y/no-autofocus -- boîte de dialogue : le focus initial y est attendu
                 autoFocus
               />
             </InputGroup>
           </FormField>
-          {search.trim().length < 2 ? (
-            <p className="text-body text-muted-foreground">Tapez au moins 2 caractères pour rechercher une prospection.</p>
-          ) : results.loading ? (
-            <p className="text-body text-muted-foreground">Recherche…</p>
-          ) : (results.data?.content.length ?? 0) === 0 ? (
-            <p className="text-body text-muted-foreground">Aucune prospection trouvée.</p>
-          ) : (
-            <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
-              {results.data!.content.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className="flex items-center justify-between gap-2 rounded-lg bg-muted/30 px-3 py-2 text-left text-body hover:bg-muted/50"
-                  onClick={() => setPickedId(p.id)}
-                >
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate font-medium text-foreground">{prospectionDisplayName(p)}</span>
-                    <span className="truncate text-micro text-muted-foreground">
-                      {p.code}
-                      {p.etape ? ` · ${p.etape}` : ''}
-                    </span>
-                  </span>
-                  {p.commercialNom && <Badge tone="neutral">{p.commercialNom}</Badge>}
-                </button>
-              ))}
-            </div>
-          )}
+          <ResultatsProspections
+            recherche={search}
+            chargement={results.loading}
+            prospections={results.data?.content ?? []}
+            onChoisir={setPickedId}
+          />
           <DialogFooter className="mt-1.5">
             <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>
           </DialogFooter>
@@ -358,6 +336,45 @@ function NouvelleOffreDialog({ onClose, onCreated }: Readonly<{ onClose: () => v
   );
 }
 
+function ResultatsProspections({
+  recherche,
+  chargement,
+  prospections,
+  onChoisir,
+}: Readonly<{
+  recherche: string;
+  chargement: boolean;
+  prospections: ProspectionListItemDto[];
+  onChoisir: (id: string) => void;
+}>) {
+  if (recherche.trim().length < 2) {
+    return <p className="text-body text-muted-foreground">Tapez au moins 2 caractères pour rechercher une prospection.</p>;
+  }
+  if (chargement) return <p className="text-body text-muted-foreground">Recherche…</p>;
+  if (prospections.length === 0) return <p className="text-body text-muted-foreground">Aucune prospection trouvée.</p>;
+  return (
+    <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
+      {prospections.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          className="flex items-center justify-between gap-2 rounded-lg bg-muted/30 px-3 py-2 text-left text-body hover:bg-muted/50"
+          onClick={() => onChoisir(p.id)}
+        >
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate font-medium text-foreground">{prospectionDisplayName(p)}</span>
+            <span className="truncate text-micro text-muted-foreground">
+              {p.code}
+              {p.etape ? ` · ${p.etape}` : ''}
+            </span>
+          </span>
+          {p.commercialNom && <Badge tone="neutral">{p.commercialNom}</Badge>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // Composant et non rendu inline : l'état de génération est par ligne, une fonction de cellule ne peut pas le porter.
 function FicheOffreActions({ offre: o }: Readonly<{ offre: DevisDto }>) {
   const [generating, setGenerating] = useState<'view' | 'download' | null>(null);
@@ -378,7 +395,8 @@ function FicheOffreActions({ offre: o }: Readonly<{ offre: DevisDto }>) {
   }
 
   return (
-    <div className="flex flex-col items-end gap-0.5" onClick={(e) => e.stopPropagation()}>
+    // Conteneur neutre : il arrête seulement le clic avant la ligne, qui ouvrirait le détail.
+    <div role="presentation" className="flex flex-col items-end gap-0.5" onClick={(e) => e.stopPropagation()}>
       <div className="flex items-center gap-1">
         <Button
           type="button"
@@ -410,6 +428,8 @@ function FicheOffreActions({ offre: o }: Readonly<{ offre: DevisDto }>) {
   );
 }
 
+const montant = formatMontantOptionnel;
+
 function detailOffre(o: DevisDto) {
   const m = o.montants;
   if (!m) return <p className="text-body text-muted-foreground">Aucun detail de montants pour cette offre.</p>;
@@ -419,14 +439,14 @@ function detailOffre(o: DevisDto) {
         <div className="mb-1.5 text-micro font-medium text-muted-foreground">Avant remise</div>
         <FieldGrid>
           <Field label="TVA" value={m.tvaRatio != null ? formatPercent(m.tvaRatio, 0) : undefined} />
-          <Field label="Prix m2 HT" value={m.prixM2HT != null ? formatCurrency(m.prixM2HT) : undefined} />
-          <Field label="Prix m2 TTC" value={m.prixM2TTC != null ? formatCurrency(m.prixM2TTC) : undefined} />
-          <Field label="Article HT" value={m.prixArticleHT != null ? formatCurrency(m.prixArticleHT) : undefined} />
-          <Field label="Article TTC" value={m.prixArticleTTC != null ? formatCurrency(m.prixArticleTTC) : undefined} />
-          <Field label="Sous-articles HT" value={m.prixSousArticlesHT != null ? formatCurrency(m.prixSousArticlesHT) : undefined} />
-          <Field label="Sous-articles TTC" value={m.prixSousArticlesTTC != null ? formatCurrency(m.prixSousArticlesTTC) : undefined} />
-          <Field label="Total HT" value={m.totalHT != null ? formatCurrency(m.totalHT) : undefined} />
-          <Field label="Total TTC" value={m.totalTTC != null ? formatCurrency(m.totalTTC) : undefined} />
+          <Field label="Prix m2 HT" value={montant(m.prixM2HT)} />
+          <Field label="Prix m2 TTC" value={montant(m.prixM2TTC)} />
+          <Field label="Article HT" value={montant(m.prixArticleHT)} />
+          <Field label="Article TTC" value={montant(m.prixArticleTTC)} />
+          <Field label="Sous-articles HT" value={montant(m.prixSousArticlesHT)} />
+          <Field label="Sous-articles TTC" value={montant(m.prixSousArticlesTTC)} />
+          <Field label="Total HT" value={montant(m.totalHT)} />
+          <Field label="Total TTC" value={montant(m.totalTTC)} />
         </FieldGrid>
       </div>
 
@@ -435,22 +455,22 @@ function detailOffre(o: DevisDto) {
           <div className="mb-1.5 text-micro font-medium text-muted-foreground">Remise</div>
           <FieldGrid>
             <Field label="Taux" value={m.remisePercent != null ? formatPercentValue(m.remisePercent) : undefined} />
-            <Field label="Remise HT" value={m.remiseHT != null ? formatCurrency(m.remiseHT) : undefined} />
-            <Field label="Remise TTC" value={m.remiseTTC != null ? formatCurrency(m.remiseTTC) : undefined} />
-            <Field label="Prix m2 apres remise HT" value={m.prixM2ApresRemiseHT != null ? formatCurrency(m.prixM2ApresRemiseHT) : undefined} />
-            <Field label="Prix m2 apres remise TTC" value={m.prixM2ApresRemiseTTC != null ? formatCurrency(m.prixM2ApresRemiseTTC) : undefined} />
-            <Field label="Article apres remise HT" value={m.prixArticleApresRemiseHT != null ? formatCurrency(m.prixArticleApresRemiseHT) : undefined} />
-            <Field label="Article apres remise TTC" value={m.prixArticleApresRemiseTTC != null ? formatCurrency(m.prixArticleApresRemiseTTC) : undefined} />
-            <Field label="Sous-articles apres remise HT" value={m.prixSousArticlesApresRemiseHT != null ? formatCurrency(m.prixSousArticlesApresRemiseHT) : undefined} />
-            <Field label="Sous-articles apres remise TTC" value={m.prixSousArticlesApresRemiseTTC != null ? formatCurrency(m.prixSousArticlesApresRemiseTTC) : undefined} />
+            <Field label="Remise HT" value={montant(m.remiseHT)} />
+            <Field label="Remise TTC" value={montant(m.remiseTTC)} />
+            <Field label="Prix m2 apres remise HT" value={montant(m.prixM2ApresRemiseHT)} />
+            <Field label="Prix m2 apres remise TTC" value={montant(m.prixM2ApresRemiseTTC)} />
+            <Field label="Article apres remise HT" value={montant(m.prixArticleApresRemiseHT)} />
+            <Field label="Article apres remise TTC" value={montant(m.prixArticleApresRemiseTTC)} />
+            <Field label="Sous-articles apres remise HT" value={montant(m.prixSousArticlesApresRemiseHT)} />
+            <Field label="Sous-articles apres remise TTC" value={montant(m.prixSousArticlesApresRemiseTTC)} />
           </FieldGrid>
         </div>
       )}
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-border pt-2.5">
         <span className="text-micro font-medium text-muted-foreground">Prix de vente final</span>
-        <span className="text-label font-semibold text-foreground">HT {m.prixVenteHT != null ? formatCurrency(m.prixVenteHT) : '-'}</span>
-        <span className="text-label font-semibold text-foreground">TTC {m.prixVenteTTC != null ? formatCurrency(m.prixVenteTTC) : '-'}</span>
+        <span className="text-label font-semibold text-foreground">HT {montant(m.prixVenteHT) ?? '-'}</span>
+        <span className="text-label font-semibold text-foreground">TTC {montant(m.prixVenteTTC) ?? '-'}</span>
       </div>
 
       {o.notes && <p className="whitespace-pre-wrap text-body text-foreground">{o.notes}</p>}
@@ -507,7 +527,7 @@ const COLONNES: ColonneGrille<DevisDto>[] = [
     valeur: (o) => o.montants?.remisePercent ?? 0,
     rendu: (o) =>
       (o.montants?.remisePercent ?? 0) > 0 ? (
-        <Badge tone="amber">{o.montants!.remisePercent} %</Badge>
+        <Badge tone="amber">{o.montants?.remisePercent} %</Badge>
       ) : (
         <span className="text-muted-foreground">0 %</span>
       ),

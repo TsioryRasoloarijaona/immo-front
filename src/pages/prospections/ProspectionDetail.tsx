@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArchiveRestore, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, Send, UserPlus, Users, X } from 'lucide-react';
+import BoutonEdition from '../../components/BoutonEdition';
 import CadreFiche, { EnteteFiche, type VarianteFiche } from '../../components/CadreFiche';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { DossierIssuBanner, InactiviteBadge, ResumeActivite } from '../../components/ActiviteProspection';
@@ -26,7 +27,16 @@ import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Separator } from '../../components/ui/separator';
 import { cn } from '../../lib/utils';
-import { formatCurrency, formatDate, formatDateTime, formatPercent, formatPercentValue, formatTelephone } from '../../lib/format';
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatMontantOptionnel,
+  formatPercent,
+  formatPercentValue,
+  formatTelephone,
+  pluriel,
+} from '../../lib/format';
 import {
   PIPELINE_STAGES,
   PIPELINE_STAGE_SHORT,
@@ -40,7 +50,6 @@ import {
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { useAuth } from '../../lib/auth';
 import {
-  ApiError,
   addInteraction,
   addProspectionAutreTranche,
   archiverProspection,
@@ -234,27 +243,31 @@ function LigneCanal({ nom, canal }: Readonly<{ nom: 'Email' | 'WhatsApp'; canal?
     return (
       <span className="text-micro text-(--success)">
         {nom} : envoyé à {canal.destinataire || 'ce prospect'}
-        {plans > 0 ? ` avec ${plans} plan${plans > 1 ? 's' : ''}` : ''}.
+        {plans > 0 ? ` avec ${pluriel(plans, 'plan')}` : ''}.
       </span>
     );
   }
 
-  const explication =
-    canal.motif === 'DESTINATAIRE_ABSENT'
-      ? nom === 'Email'
-        ? "aucune adresse email sur la fiche — renseignez-la, puis relancez."
-        : 'aucun numéro sur la fiche — renseignez-le, puis relancez.'
-      : canal.motif === 'NUMERO_INEXPLOITABLE'
-        ? 'le numéro de la fiche est inutilisable (longueur anormale ou ligne fixe) — corrigez-le, puis relancez.'
-        : canal.motif === 'SERVICE_INACTIF'
-          ? "service d'envoi inactif — prévenez l'administrateur."
-          : `non envoyé (${canal.motif || 'motif non précisé'}).`;
-
   return (
     <span className="text-micro text-(--amber)">
-      {nom} : {explication}
+      {nom} : {explicationCanal(nom, canal.motif)}
     </span>
   );
+}
+
+function explicationCanal(nom: 'Email' | 'WhatsApp', motif: CanalEnvoiDto['motif']): string {
+  switch (motif) {
+    case 'DESTINATAIRE_ABSENT':
+      return nom === 'Email'
+        ? "aucune adresse email sur la fiche — renseignez-la, puis relancez."
+        : 'aucun numéro sur la fiche — renseignez-le, puis relancez.';
+    case 'NUMERO_INEXPLOITABLE':
+      return 'le numéro de la fiche est inutilisable (longueur anormale ou ligne fixe) — corrigez-le, puis relancez.';
+    case 'SERVICE_INACTIF':
+      return "service d'envoi inactif — prévenez l'administrateur.";
+    default:
+      return `non envoyé (${motif || 'motif non précisé'}).`;
+  }
 }
 
 // `envoye: false` arrive en 200 : ce n'est pas une erreur, l'issue s'affiche par canal (email et
@@ -345,13 +358,8 @@ function OffrePrixSection({
     try {
       setResultat(await envoyerOffrePrix(prospectionId, body));
     } catch (err) {
-      setError(
-        err instanceof ApiError && err.status === 409
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : "Échec de l'envoi de l'offre.",
-      );
+      // Un 409 (pas de lot, étape changée) porte déjà le message serveur à afficher.
+      setError(err instanceof Error ? err.message : "Échec de l'envoi de l'offre.");
     } finally {
       setBusy(false);
     }
@@ -468,9 +476,10 @@ function libelleOuiNon(v: boolean | null | undefined): string | null {
 }
 
 export default function ProspectionDetail() {
-  const { id } = useParams();
+  // Les deux routes `:id` garantissent le paramètre.
+  const { id = '' } = useParams();
   const location = useLocation();
-  return <FicheProspection key={id} id={id!}pre={location.pathname.startsWith('/pre-prospections')} />;
+  return <FicheProspection key={id} id={id} pre={location.pathname.startsWith('/pre-prospections')} />;
 }
 
 // `pre` (la route) ne règle que l'habillage ; le contenu suit la donnée (`isPre` plus bas) —
@@ -501,7 +510,7 @@ export function FicheProspection({
   // résultats acceptés, `dateRdv` seul manquerait le cas « visite du projet ».
   const resultatsInteraction = useResultatsInteraction();
   const resultatsAvecRdv = useMemo(
-    () => new Set((resultatsInteraction.data ?? []).filter((r) => r.necessiteDateRdv).map((r) => r.id)),
+    () => new Set(resultatsInteraction.data.filter((r) => r.necessiteDateRdv).map((r) => r.id)),
     [resultatsInteraction.data],
   );
   const [parcoursPage, setParcoursPage] = useState(0);
@@ -520,9 +529,9 @@ export function FicheProspection({
   useEffect(() => {
     if (variante !== 'page' || loading || !p || p.id !== id) return;
     if (isPreRoute && p.typeProspectionCode === CODE_PROSPECTION) {
-      navigate(`/prospections/${id}`, { replace: true });
+      void navigate(`/prospections/${id}`, { replace: true });
     } else if (!isPreRoute && p.typeProspectionCode === CODE_PRE_PROSPECTION) {
-      navigate(`/pre-prospections/${id}`, { replace: true });
+      void navigate(`/pre-prospections/${id}`, { replace: true });
     }
   }, [variante, loading, p, id, isPreRoute, navigate]);
   const [showCreateProspect, setShowCreateProspect] = useState(false);
@@ -583,8 +592,9 @@ export function FicheProspection({
 
   const name = prospectionDisplayName(p);
   const createProspectInitial: CreateProspectInitial = {
-    firstName: name?.trim().split(' ')[0] ?? '',
-    lastName: name?.trim().split(' ').slice(1).join(' ') ?? '',
+    // `split` rend toujours au moins un élément.
+    firstName: name.trim().split(' ')[0],
+    lastName: name.trim().split(' ').slice(1).join(' '),
     phone: p.tempTel ?? '',
     email: p.tempEmail ?? '',
   };
@@ -615,7 +625,7 @@ export function FicheProspection({
       await refetch();
       void parcours.refetch();
       if (variante === 'page') {
-        if (isPreRoute) navigate(`/prospections/${maj.id}`, { replace: true });
+        if (isPreRoute) void navigate(`/prospections/${maj.id}`, { replace: true });
         showToast(texteProspectionTransformee(name, maj));
       } else {
         showToast({
@@ -707,7 +717,7 @@ export function FicheProspection({
       <ChampLecture
         key="article"
         label="Article"
-        valeur={p.articleCode ? `${p.articleCode}${p.articleDescription ? ` · ${p.articleDescription}` : ''}` : null}
+        valeur={p.articleCode ? [p.articleCode, p.articleDescription].filter(Boolean).join(' · ') : null}
         aide="Se modifie dans l'onglet « Choix article »."
       />
     ),
@@ -824,6 +834,34 @@ export function FicheProspection({
     ),
   ].filter(Boolean);
 
+  // Une seule action principale, selon l'avancement : prospect → transformation → dossier.
+  let actionPrincipale;
+  if (isPre) {
+    actionPrincipale = (
+      <Button variant="outline" size="sm" onClick={() => setShowCreateProspect(true)}>
+        <Plus data-icon="inline-start" /> Créer prospect
+      </Button>
+    );
+  } else if (!p.commercialId) {
+    actionPrincipale = (
+      <Button size="sm" onClick={() => setShowTransform(true)} disabled={busy}>
+        Transformer
+      </Button>
+    );
+  } else if (dossierIssu) {
+    actionPrincipale = (
+      <Button size="sm" onClick={() => navigate(`/dossiers/${dossierIssu.id}`)}>
+        <ArrowUpRight data-icon="inline-start" /> Dossier {dossierIssu.code ?? ''}
+      </Button>
+    );
+  } else {
+    actionPrincipale = (
+      <Button size="sm" onClick={() => navigate(`/prospections/${p.id}/nouveau-dossier`)} disabled={p.fermee}>
+        Créer un dossier
+      </Button>
+    );
+  }
+
   return (
     <CadreFiche
       variante={variante}
@@ -877,23 +915,7 @@ export function FicheProspection({
             </Button>
           )}
           <Separator orientation="vertical" className="h-6" />
-          {isPre ? (
-            <Button variant="outline" size="sm" onClick={() => setShowCreateProspect(true)}>
-              <Plus data-icon="inline-start" /> Créer prospect
-            </Button>
-          ) : !p.commercialId ? (
-            <Button size="sm" onClick={() => setShowTransform(true)} disabled={busy}>
-              Transformer
-            </Button>
-          ) : dossierIssu ? (
-            <Button size="sm" onClick={() => navigate(`/dossiers/${dossierIssu.id}`)}>
-              <ArrowUpRight data-icon="inline-start" /> Dossier {dossierIssu.code ?? ''}
-            </Button>
-          ) : (
-            <Button size="sm" onClick={() => navigate(`/prospections/${p.id}/nouveau-dossier`)} disabled={p.fermee}>
-              Créer un dossier
-            </Button>
-          )}
+          {actionPrincipale}
         </>
       }
     >
@@ -1069,7 +1091,7 @@ export function FicheProspection({
                 <ArticlesAssociesSection
                   prospectionId={p.id}
                   items={autresTranches.data ?? []}
-                  onRemove={async (itemId) => { await removeProspectionAutreTranche(p.id, itemId); autresTranches.refetch(); }}
+                  onRemove={async (itemId) => { await removeProspectionAutreTranche(p.id, itemId); void autresTranches.refetch(); }}
                   onEdited={async () => { await autresTranches.refetch(); showToast('Article mis à jour.'); }}
                   navigate={navigate}
                 />
@@ -1351,7 +1373,7 @@ export function FicheProspection({
           onClose={() => setShowCreateProspect(false)}
           onSubmit={(maj, mode) => {
             if (maj.prospectId) setProspectLie({ id: maj.id, prospectId: maj.prospectId });
-            refetch();
+            void refetch();
             void parcours.refetch();
             toastProspectLie(name, maj, mode)
               .then(showToast)
@@ -1365,7 +1387,7 @@ export function FicheProspection({
           onClose={() => setShowInteractionForm(false)}
           onSubmit={async (input) => {
             await addInteraction(p.id, input);
-            interactions.refetch();
+            void interactions.refetch();
             showToast('Action enregistrée.');
           }}
         />
@@ -1600,19 +1622,7 @@ function ChoixArticleSection({
   return (
     <Card
       title="Choix article"
-      action={
-        trancheId ? (
-          editing ? (
-            <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
-              Terminé
-            </Button>
-          ) : (
-            <Button type="button" variant="outline" size="sm" onClick={() => setEditing(true)}>
-              <Pencil data-icon="inline-start" /> Modifier
-            </Button>
-          )
-        ) : undefined
-      }
+      action={trancheId ? <BoutonEdition enEdition={editing} onBasculer={setEditing} /> : undefined}
     >
       <div className={cn('flex flex-col gap-1.5', showPicker && 'mb-3.5 border-b border-border pb-3.5')}>
         <span className="text-micro font-medium text-muted-foreground">Tranche principale</span>
@@ -1816,14 +1826,14 @@ function DevisRow({ prospectionId, devis: dv }: Readonly<{ prospectionId: string
             <div className="mb-1.5 text-micro font-medium text-muted-foreground">Avant remise</div>
             <FieldGrid>
               <Field label="TVA" value={m.tvaRatio != null ? formatPercent(m.tvaRatio, 0) : undefined} />
-              <Field label="Prix m² HT" value={m.prixM2HT != null ? formatCurrency(m.prixM2HT) : undefined} />
-              <Field label="Prix m² TTC" value={m.prixM2TTC != null ? formatCurrency(m.prixM2TTC) : undefined} />
-              <Field label="Article HT" value={m.prixArticleHT != null ? formatCurrency(m.prixArticleHT) : undefined} />
-              <Field label="Article TTC" value={m.prixArticleTTC != null ? formatCurrency(m.prixArticleTTC) : undefined} />
-              <Field label="Sous-articles HT" value={m.prixSousArticlesHT != null ? formatCurrency(m.prixSousArticlesHT) : undefined} />
-              <Field label="Sous-articles TTC" value={m.prixSousArticlesTTC != null ? formatCurrency(m.prixSousArticlesTTC) : undefined} />
-              <Field label="Total HT" value={m.totalHT != null ? formatCurrency(m.totalHT) : undefined} />
-              <Field label="Total TTC" value={m.totalTTC != null ? formatCurrency(m.totalTTC) : undefined} />
+              <Field label="Prix m² HT" value={formatMontantOptionnel(m.prixM2HT)} />
+              <Field label="Prix m² TTC" value={formatMontantOptionnel(m.prixM2TTC)} />
+              <Field label="Article HT" value={formatMontantOptionnel(m.prixArticleHT)} />
+              <Field label="Article TTC" value={formatMontantOptionnel(m.prixArticleTTC)} />
+              <Field label="Sous-articles HT" value={formatMontantOptionnel(m.prixSousArticlesHT)} />
+              <Field label="Sous-articles TTC" value={formatMontantOptionnel(m.prixSousArticlesTTC)} />
+              <Field label="Total HT" value={formatMontantOptionnel(m.totalHT)} />
+              <Field label="Total TTC" value={formatMontantOptionnel(m.totalTTC)} />
             </FieldGrid>
           </div>
 
@@ -1832,22 +1842,22 @@ function DevisRow({ prospectionId, devis: dv }: Readonly<{ prospectionId: string
               <div className="mb-1.5 text-micro font-medium text-muted-foreground">Remise</div>
               <FieldGrid>
                 <Field label="Taux" value={m.remisePercent != null ? formatPercentValue(m.remisePercent) : undefined} />
-                <Field label="Remise HT" value={m.remiseHT != null ? formatCurrency(m.remiseHT) : undefined} />
-                <Field label="Remise TTC" value={m.remiseTTC != null ? formatCurrency(m.remiseTTC) : undefined} />
-                <Field label="Prix m² après remise HT" value={m.prixM2ApresRemiseHT != null ? formatCurrency(m.prixM2ApresRemiseHT) : undefined} />
-                <Field label="Prix m² après remise TTC" value={m.prixM2ApresRemiseTTC != null ? formatCurrency(m.prixM2ApresRemiseTTC) : undefined} />
-                <Field label="Article après remise HT" value={m.prixArticleApresRemiseHT != null ? formatCurrency(m.prixArticleApresRemiseHT) : undefined} />
-                <Field label="Article après remise TTC" value={m.prixArticleApresRemiseTTC != null ? formatCurrency(m.prixArticleApresRemiseTTC) : undefined} />
-                <Field label="Sous-articles après remise HT" value={m.prixSousArticlesApresRemiseHT != null ? formatCurrency(m.prixSousArticlesApresRemiseHT) : undefined} />
-                <Field label="Sous-articles après remise TTC" value={m.prixSousArticlesApresRemiseTTC != null ? formatCurrency(m.prixSousArticlesApresRemiseTTC) : undefined} />
+                <Field label="Remise HT" value={formatMontantOptionnel(m.remiseHT)} />
+                <Field label="Remise TTC" value={formatMontantOptionnel(m.remiseTTC)} />
+                <Field label="Prix m² après remise HT" value={formatMontantOptionnel(m.prixM2ApresRemiseHT)} />
+                <Field label="Prix m² après remise TTC" value={formatMontantOptionnel(m.prixM2ApresRemiseTTC)} />
+                <Field label="Article après remise HT" value={formatMontantOptionnel(m.prixArticleApresRemiseHT)} />
+                <Field label="Article après remise TTC" value={formatMontantOptionnel(m.prixArticleApresRemiseTTC)} />
+                <Field label="Sous-articles après remise HT" value={formatMontantOptionnel(m.prixSousArticlesApresRemiseHT)} />
+                <Field label="Sous-articles après remise TTC" value={formatMontantOptionnel(m.prixSousArticlesApresRemiseTTC)} />
               </FieldGrid>
             </div>
           )}
 
           <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-border pt-2.5">
             <span className="text-micro font-medium text-muted-foreground">Prix de vente final</span>
-            <span className="text-label font-semibold text-foreground">HT {m.prixVenteHT != null ? formatCurrency(m.prixVenteHT) : '—'}</span>
-            <span className="text-label font-semibold text-foreground">TTC {m.prixVenteTTC != null ? formatCurrency(m.prixVenteTTC) : '—'}</span>
+            <span className="text-label font-semibold text-foreground">HT {formatMontantOptionnel(m.prixVenteHT) ?? '—'}</span>
+            <span className="text-label font-semibold text-foreground">TTC {formatMontantOptionnel(m.prixVenteTTC) ?? '—'}</span>
           </div>
         </div>
       )}

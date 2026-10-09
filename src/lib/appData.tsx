@@ -1,6 +1,4 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
-import { listCommerciaux } from './api';
-import { useApi } from './useApi';
+import { createContext, useContext } from 'react';
 import type { CommercialListItemDto } from '../types';
 import { personDisplayName } from './domain';
 
@@ -9,16 +7,8 @@ export interface AppDataValue {
   commerciauxLoading: boolean;
 }
 
-const AppDataContext = createContext<AppDataValue | null>(null);
-
-const EMPTY: CommercialListItemDto[] = [];
-
-export function AppDataProvider({ children }: Readonly<{ children: ReactNode }>) {
-  const { data, loading } = useApi(() => listCommerciaux({ page: 0, size: 500 }), []);
-  const commerciaux = data?.content ?? EMPTY;
-  const value = useMemo<AppDataValue>(() => ({ commerciaux, commerciauxLoading: loading }), [commerciaux, loading]);
-  return <AppDataContext.Provider value={value}>{children}</AppDataContext.Provider>;
-}
+/** Fourni par `AppDataProvider` (fichier à part : Fast Refresh exige un fichier de composants seuls). */
+export const AppDataContext = createContext<AppDataValue | null>(null);
 
 export function useAppData(): AppDataValue {
   const ctx = useContext(AppDataContext);

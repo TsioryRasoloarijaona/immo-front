@@ -8,7 +8,7 @@ export default function RefSelect({
   placeholder,
   size,
   label,
-}: {
+}: Readonly<{
   id: string;
   value: string | null;
   onChange: (v: string | null) => void;
@@ -18,7 +18,7 @@ export default function RefSelect({
   /** Pastille « Label : valeur », à la hauteur d'un `MultiSelectDropdown` voisin.
    * À omettre pour un champ qui a son propre `FieldLabel`. */
   label?: string;
-}) {
+}>) {
   const allItems = [{ label: placeholder ?? '— Non renseigné —', value: '' }, ...items];
   return (
     <SearchableSelect

@@ -18,12 +18,12 @@ export default function ListeProspectionsDialog({
   pre,
   filtres,
   onClose,
-}: {
+}: Readonly<{
   titre: string;
   pre: boolean;
   filtres: ProspectionFilterParams;
   onClose: () => void;
-}) {
+}>) {
   const [page, setPage] = useState(0);
   const [fiche, setFiche] = useState<FicheOuverte | null>(null);
 
@@ -51,6 +51,26 @@ export default function ListeProspectionsDialog({
   const data = liste.data;
   const entite = pre ? 'pré-prospection' : 'prospection';
 
+  function corpsListe(rows: NonNullable<typeof data>['content']) {
+    if (rows.length === 0) {
+      return <EmptyState title="Rien à afficher" message={`Aucune ${entite} dans ce couloir.`} />;
+    }
+    if (colonnes.colonnes.length > 0) {
+      return (
+        <ProspectionTable
+          cleOrdre={pre ? 'dashboard-pre-prospections' : 'dashboard-prospections'}
+          rows={rows}
+          colonnes={colonnes.colonnes}
+          entite={entite}
+          onOuvrir={(id) => setFiche({ id, pre })}
+          bandeauRegroupement={false}
+        />
+      );
+    }
+    if (catalogue.error) return <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />;
+    return <LoadingState />;
+  }
+
   return (
     <Modal title={titre} onClose={onClose} width="min(1280px, calc(100vw - 2rem))" pleineHauteur>
       {liste.loading && !data && <LoadingState />}
@@ -62,22 +82,7 @@ export default function ListeProspectionsDialog({
             {data.totalElements > 1 ? 's' : ''} au total
           </div>
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
-            {data.content.length === 0 ? (
-              <EmptyState title="Rien à afficher" message={`Aucune ${entite} dans ce couloir.`} />
-            ) : colonnes.colonnes.length > 0 ? (
-              <ProspectionTable
-                cleOrdre={pre ? 'dashboard-pre-prospections' : 'dashboard-prospections'}
-                rows={data.content}
-                colonnes={colonnes.colonnes}
-                entite={entite}
-                onOuvrir={(id) => setFiche({ id, pre })}
-                bandeauRegroupement={false}
-              />
-            ) : catalogue.error ? (
-              <ErrorState message={`Colonnes indisponibles — ${catalogue.error}`} />
-            ) : (
-              <LoadingState />
-            )}
+            {corpsListe(data.content)}
           </div>
           <div className="shrink-0">
             <Pagination

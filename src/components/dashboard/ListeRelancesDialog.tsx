@@ -36,7 +36,7 @@ const COLONNES: ColonneGrille<LigneRelance>[] = [
       ) : (
         <span className="text-muted-foreground">—</span>
       ),
-    valeur: (r) => formatTelephone(r.telephone) ?? '',
+    valeur: (r) => formatTelephone(r.telephone),
   },
   { nom: 'dateRelance', libelle: 'Échéance', type: 'DATE', largeur: 8 },
   { nom: 'joursDeRetard', libelle: 'Retard (j)', type: 'NOMBRE', largeur: 7 },
@@ -68,7 +68,7 @@ export default function ListeRelancesDialog({
   plusRecentesDAbord,
   note,
   onClose,
-}: {
+}: Readonly<{
   titre: string;
   note?: string;
   etat: {
@@ -79,7 +79,7 @@ export default function ListeRelancesDialog({
   /** La file arrive par échéance croissante ; « En retard » se lit à rebours. */
   plusRecentesDAbord?: boolean;
   onClose: () => void;
-}) {
+}>) {
   const [fiche, setFiche] = useState<FicheOuverte | null>(null);
 
   const page = etat.data;

@@ -203,13 +203,12 @@ export function useColonnesVisibles(
 
   const basculer = useCallback(
     (nom: string) => {
-      const suivantes = visibles.includes(nom)
-        // La dernière colonne cochée se verrouille : l'invariant vit ici, pas dans l'UI.
-        ? visibles.length === 1
-          ? null
-          : visibles.filter((n) => n !== nom)
-        : [...visibles, nom];
-      if (suivantes) enregistrer(suivantes);
+      if (!visibles.includes(nom)) {
+        enregistrer([...visibles, nom]);
+        return;
+      }
+      // La dernière colonne cochée se verrouille : l'invariant vit ici, pas dans l'UI.
+      if (visibles.length > 1) enregistrer(visibles.filter((n) => n !== nom));
     },
     [visibles, enregistrer],
   );

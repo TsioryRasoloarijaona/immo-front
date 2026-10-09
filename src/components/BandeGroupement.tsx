@@ -26,10 +26,10 @@ const CLASSE_DECLENCHEUR =
 export default function BandeGroupement({
   etat,
   bloque,
-}: {
+}: Readonly<{
   etat: EtatGroupement;
   bloque?: string;
-}) {
+}>) {
   const { groupables, agregeables, colonneGroupee, actif, estDate, granularite, tri, agregats } = etat;
   const [menuOuvert, setMenuOuvert] = useState(false);
   const [requete, setRequete] = useState('');

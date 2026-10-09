@@ -16,7 +16,7 @@ import type { PieceJointeDto } from '../../types';
 function ArticlePieceJointeRow({ articleId, piece }: Readonly<{ articleId: string; piece: PieceJointeDto }>) {
   const [error, setError] = useState<string | null>(null);
   const ext = piece.extension?.replace(/^\./, '') || '';
-  const filename = `${piece.description || 'document'}${ext ? `.${ext}` : ''}`;
+  const filename = `${piece.description || 'document'}${ext ? '.' + ext : ''}`;
 
   // URL présignée servie en `inline` : une seule action « Ouvrir », cf. PieceJointeRow (DossierDetail).
   function handle() {

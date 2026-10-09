@@ -164,7 +164,7 @@ export default function UtilisateursList() {
               size="sm"
               onClick={() => {
                 const compte: CompteAReinitialiser = { username: r.username, description: r.description, email: r.email };
-                navigate(`/utilisateurs/reinitialiser-mot-de-passe?admUserId=${r.id}`, { state: compte });
+                void navigate(`/utilisateurs/reinitialiser-mot-de-passe?admUserId=${r.id}`, { state: compte });
               }}
             >
               <KeyRound data-icon="inline-start" /> Réinitialiser
@@ -219,7 +219,7 @@ export default function UtilisateursList() {
         {!error && data && (
           <ResultsRegion loading={loading}>
             <div className="shrink-0 text-body text-muted-foreground">
-              {formatNumber(data.totalElements ?? 0)} compte{(data?.totalElements ?? 0) > 1 ? 's' : ''}
+              {formatNumber(data.totalElements)} compte{data.totalElements > 1 ? 's' : ''}
             </div>
             {rows.length === 0 ? (
               <EmptyState
@@ -243,9 +243,7 @@ export default function UtilisateursList() {
               </div>
             )}
             <div className="shrink-0">
-              {data && (
-                <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
-              )}
+              <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
             </div>
           </ResultsRegion>
         )}

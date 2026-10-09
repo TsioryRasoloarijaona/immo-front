@@ -100,7 +100,7 @@ function ListeSocietes({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
       largeur: 6,
       rendu: (r) => (
         // La ligne s'ouvre au clic : les boutons ne doivent pas l'ouvrir en plus.
-        <div className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        <div role="presentation" className="flex items-center justify-end gap-0.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           <Button type="button" variant="ghost" size="icon-xs" title="Modifier" aria-label={`Modifier ${r.s.nom}`} onClick={() => setEdition(r.s)}>
             <Pencil />
           </Button>
@@ -132,13 +132,12 @@ function ListeSocietes({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
         </Button>
       </div>
 
-      {error && !data ? (
-        <ErrorState message={error} />
-      ) : !data ? (
-        <LoadingState />
-      ) : lignes.length === 0 ? (
+      {error && !data && <ErrorState message={error} />}
+      {!error && !data && <LoadingState />}
+      {data && lignes.length === 0 && (
         <EmptyState title="Aucune société" message="Ajoutez la société émettrice des ordres de virement." />
-      ) : (
+      )}
+      {data && lignes.length > 0 && (
         <ResultsRegion loading={loading}>
           <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
             <DataGrid

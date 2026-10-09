@@ -23,11 +23,9 @@ export default function Hotline() {
   const [createForProspectionId, setCreateForProspectionId] = useState<string | null>(null);
   const showToast = useToast();
 
+  const critere = queryMode === 'nom' ? { nom: query } : { telephone: query };
   const { data, loading, error } = useApi(
-    () =>
-      query
-        ? rechercherHotline(queryMode === 'nom' ? { nom: query } : { telephone: query })
-        : Promise.resolve(null),
+    () => (query ? rechercherHotline(critere) : Promise.resolve(null)),
     [query, queryMode, refreshToken],
   );
 
@@ -59,6 +57,7 @@ export default function Hotline() {
         >
           <Input
             id="hotline-critere"
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- écran de prise d'appel : la saisie du numéro est la seule tâche
             autoFocus
             aria-label={mode === 'nom' ? "Nom de l'appelant" : "Numéro de téléphone de l'appelant"}
             inputMode={mode === 'nom' ? 'text' : 'tel'}

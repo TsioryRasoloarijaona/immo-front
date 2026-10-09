@@ -12,14 +12,14 @@ export default function RechercheMenu({
   onChange,
   placeholder,
   libelle,
-}: {
+}: Readonly<{
   /** Requis : le popup est monté par portail, sa référence n'existe pas avant l'ouverture. */
   ouvert: boolean;
   valeur: string;
   onChange: (v: string) => void;
   placeholder: string;
   libelle: string;
-}) {
+}>) {
   const champRef = useRef<HTMLInputElement>(null);
 
   // Écouteur natif, pas `onKeyDown` React : React délègue à la racine, donc

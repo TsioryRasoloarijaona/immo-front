@@ -1,4 +1,5 @@
 
+// eslint-disable-next-line sonarjs/redundant-type-aliases -- nomme le format du fil (OpenAPI `format: uuid`)
 export type UUID = string;
 
 
@@ -504,7 +505,7 @@ export interface ColonneDto {
   agregeable: boolean;
   /** Ne se déduit ni du type ni du nom ; dans l'ordre du menu Σ. Une liste vide
    * signifie : absente du menu Σ. */
-  fonctions: FonctionAgregat[];
+  fonctions?: FonctionAgregat[];
 }
 
 /** `SUM` est implicite : un nom nu vaut une somme et revient nu ; les autres
@@ -531,7 +532,7 @@ export interface GroupeDto {
   nombre: number;
   /** Arrive bruité en flottant (somme SQL sur des `float`) :
    * `formatCurrency`/`formatNumber` l'absorbent. */
-  agregats: Record<string, ValeurAgregat>;
+  agregats?: Partial<Record<string, ValeurAgregat>>;
 }
 
 export interface PageGroupesDto {
@@ -542,7 +543,7 @@ export interface PageGroupesDto {
   totalElements: number;
   totalPages: number;
   /** Total général sur tout le périmètre filtré, pas sur les groupes chargés. */
-  totaux: Record<string, ValeurAgregat>;
+  totaux: Partial<Record<string, ValeurAgregat>>;
   nombreTotal: number;
 }
 
@@ -1369,7 +1370,7 @@ export interface ReglementDto {
   /** Écrite seulement au passage à `POINTED`, jamais à la création. */
   dateReglement?: string | null;
   /** `IN_WORK`, `POINTED` ou `CANCELED` (terminaux), non énuméré par la spec :
-   * normaliser via `reglementStatutLabel`/`reglementStatutTone`. */
+   * normaliser via `encaissementEtatLabel`/`encaissementEtatTone`. */
   statut?: string;
   montant?: number;
   typeId?: UUID;
@@ -1383,13 +1384,11 @@ export interface ReglementDto {
   notes?: string;
 }
 
-export type EncaissementEtat = 'IN_WORK' | 'POINTED' | 'CANCELED';
-
 export interface EncaissementDto {
   id: UUID;
   reference?: string;
-  /** Typé `string` : d'autres valeurs que `EncaissementEtat` existent côté
-   * légataire (impayé, perdu). */
+  /** Typé `string` : outre `IN_WORK`, `POINTED` et `CANCELED`, d'autres valeurs
+   * existent côté légataire (impayé, perdu). */
   etat?: string;
   dossierId?: UUID;
   dossierCode?: string;

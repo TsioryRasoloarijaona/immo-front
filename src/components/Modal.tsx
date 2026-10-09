@@ -8,7 +8,7 @@ export default function Modal({
   width = 480,
   pleineHauteur = false,
   titreMasque = false,
-}: {
+}: Readonly<{
   title: string;
   onClose: () => void;
   children: ReactNode;
@@ -19,7 +19,7 @@ export default function Modal({
   pleineHauteur?: boolean;
   /** Le titre reste le nom accessible du dialogue mais n'est plus affiché. */
   titreMasque?: boolean;
-}) {
+}>) {
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent
