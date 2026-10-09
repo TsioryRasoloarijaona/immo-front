@@ -11,7 +11,7 @@ import { getDossier, getProspection } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { etapeBadgeTone, interactionIcon, personDisplayName, prospectionDisplayName } from '../lib/domain';
 import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
-import { formatCurrency, formatDate, formatDateTime, formatFourchetteMontant, formatFourchetteSurface, formatPercent, formatTelephone } from '../lib/format';
+import { formatCurrency, formatDate, formatDateTime, formatFourchetteMontant, formatFourchetteSurface, formatPercentValue, formatTelephone } from '../lib/format';
 import type { DossierListItemDto, HotlineFicheDto, HotlineResultDto, ProspectionListItemDto } from '../types';
 
 type HotlineTab = 'general' | 'prospections' | 'dossiers' | 'reglements' | 'interactions' | 'historique';
@@ -126,7 +126,7 @@ function HotlineDossierRow({ dossier: d, expanded, onToggle }: Readonly<{ dossie
                 <FieldGrid>
                   <Field label="Commercial" value={detail.data.commercialNom} />
                   <Field label="Prix avant remise" value={detail.data.prixAvantRemise != null ? formatCurrency(detail.data.prixAvantRemise) : undefined} />
-                  <Field label="Remise" value={detail.data.remise != null ? formatPercent(detail.data.remise, 0) : undefined} />
+                  <Field label="Remise" value={detail.data.remise != null ? formatPercentValue(detail.data.remise) : undefined} />
                   <Field label="Avance" value={detail.data.montantAvance != null ? formatCurrency(detail.data.montantAvance) : undefined} />
                   <Field label="Mode de paiement" value={detail.data.modePaie} />
                 </FieldGrid>

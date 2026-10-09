@@ -52,7 +52,7 @@ function sansZerosFinaux(texte: string): string {
   return texte.replace(/0+$/, '').replace(/,$/, '');
 }
 
-/** Pour un **ratio 0–1** (`remise`, `probabiliteFinalisation`, `tauxTVA`) : multiplie
+/** Pour un **ratio 0–1** (`probabiliteFinalisation`, `tauxTVA`) : multiplie
  * par 100. Valeur déjà en pourcentage : `formatPercentValue`. */
 export function formatPercent(ratio: number | null | undefined, decimals = 1): string {
   if (ratio === null || ratio === undefined || Number.isNaN(ratio)) return '—';
@@ -80,7 +80,7 @@ export function formatFourchetteMontant(de: number | null | undefined, a: number
   return a ? `${formatCurrency(de)} à ${formatCurrency(a)}` : formatCurrency(de);
 }
 
-/** Pour une valeur **déjà en pourcentage (0–100)** (`remisePercent`, `quotePart`) :
+/** Pour une valeur **déjà en pourcentage (0–100)** (`remise`, `remisePercent`, `quotePart`) :
  * aucune conversion. La confondre avec `formatPercent` donne un facteur 100. */
 export function formatPercentValue(value: number | null | undefined, decimals = 2): string {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';

@@ -1420,10 +1420,10 @@ export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; v
                 <ChampLecture label="Total HT" valeur={formatCurrency(d.prixAvantRemiseHT)} />
                 <ChampLecture label="Total TTC" valeur={formatCurrency(d.prixAvantRemise)} />
                 <ChampLecture
-                  label="Remise"
+                  label="Remise HT"
                   valeur={
                     d.remise
-                      ? `${formatCurrency(d.remiseMontant)} · ${formatPercent(d.remise, 2)}`
+                      ? `${formatCurrency(d.remiseMontant)} · ${formatPercentValue(d.remise, 2)}`
                       : null
                   }
                 />

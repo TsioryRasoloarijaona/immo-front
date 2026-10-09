@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { Badge } from './ui';
 import DataGrid, { type ColonneGrille, type GroupementGrille } from './DataGrid';
-import { formatPercent } from '../lib/format';
+import { formatPercent, formatPercentValue } from '../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
 import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_DOSSIERS } from '../lib/dispositions';
@@ -36,9 +36,9 @@ const RENDUS: Partial<Record<string, (d: DossierListItemDto, ctx: Contexte) => R
   articleCode: (d) => (d.articleCode ? <Badge tone="neutral" className="font-mono">{d.articleCode}</Badge> : TIRET),
   trancheLibelle: (d) => (d.trancheLibelle ? <Badge tone="neutral">{d.trancheLibelle}</Badge> : TIRET),
   projetCode: (d) => (d.projetCode ? <Badge tone="neutral">{d.projetCode}</Badge> : TIRET),
-  /* Typées `NOMBRE` par le serveur mais ce sont des ratios 0–1 (idem `FORMATS_VALEUR`) :
-     le rendu par défaut afficherait « 0 ». Une remise négative est une majoration. */
-  remise: (d) => (typeof d.remise === 'number' ? formatPercent(d.remise, 2) : TIRET),
+  /* Typées `NOMBRE` par le serveur : `remise` est déjà en pourcentage 0–100, la probabilité est
+     un ratio 0–1 (idem `FORMATS_VALEUR`). Une remise négative est une majoration. */
+  remise: (d) => (typeof d.remise === 'number' ? formatPercentValue(d.remise, 2) : TIRET),
   probabiliteFinalisation: (d) =>
     typeof d.probabiliteFinalisation === 'number' ? formatPercent(d.probabiliteFinalisation) : TIRET,
 };
@@ -49,7 +49,7 @@ const VALEURS: Record<string, (d: DossierListItemDto) => unknown> = {
 };
 
 const FORMATS_VALEUR: Record<string, (v: unknown) => string> = {
-  remise: (v) => formatPercent(typeof v === 'number' ? v : null, 2),
+  remise: (v) => formatPercentValue(typeof v === 'number' ? v : null, 2),
   probabiliteFinalisation: (v) => formatPercent(typeof v === 'number' ? v : null),
 };
 
