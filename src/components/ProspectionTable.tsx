@@ -16,18 +16,14 @@ const RENDUS: Record<string, (p: ProspectionListItemDto) => ReactNode> = {
   origine: (p) => (p.origine ? <Badge tone="info">{p.origine}</Badge> : TIRET),
   trancheDescription: (p) => (p.trancheDescription ? <Badge tone="neutral">{p.trancheDescription}</Badge> : TIRET),
   trancheCode: (p) => (p.trancheCode ? <Badge tone="neutral">{p.trancheCode}</Badge> : TIRET),
-  // Le message de l'alerte passe en infobulle plutôt qu'en colonne : c'est une
-  // note libre, de longueur imprévisible, qui ferait éclater la largeur du
-  // tableau. La date, elle, se compare d'un coup d'œil.
+  // Le message d'alerte, note libre de longueur imprévisible, va en infobulle.
   derniereAlerteDate: (p) =>
     p.derniereAlerteDate ? (
       <Badge tone={isPastOrToday(p.derniereAlerteDate) ? 'warning' : 'neutral'}>{formatDate(p.derniereAlerteDate)}</Badge>
     ) : (
       TIRET
     ),
-  // Mêmes seuils que la pastille de la fiche — 30/90 j en un seul endroit,
-  // sinon la liste et le détail finiraient par colorer différemment la même
-  // prospection.
+  // Même composant que la fiche : les seuils restent définis en un seul endroit.
   joursInactivite: (p) => (typeof p.joursInactivite === 'number' ? <InactiviteBadge jours={p.joursInactivite} /> : TIRET),
   derniereCommunicationResultat: (p) =>
     p.derniereCommunicationResultat ? <Badge tone="neutral">{p.derniereCommunicationResultat}</Badge> : TIRET,
@@ -36,8 +32,6 @@ const RENDUS: Record<string, (p: ProspectionListItemDto) => ReactNode> = {
   surface: (p) => (p.surface ? formatSurface(p.surface) : TIRET),
 };
 
-/** Classes propres à une colonne, en plus de `truncate` et de l'alignement
- * déduit du type. Reprend la mise en forme d'avant le sélecteur. */
 const CLASSES: Record<string, string> = {
   code: 'tabular-nums text-muted-foreground',
   prospectCode: 'tabular-nums text-muted-foreground',
@@ -65,8 +59,6 @@ const CLASSES: Record<string, string> = {
   modifiePar: 'text-muted-foreground',
 };
 
-/** Infobulle par colonne — le texte complet de ce que `truncate` a coupé, et
- * pour la relance le message que la colonne ne montre pas. */
 const TITRES: Record<string, (p: ProspectionListItemDto) => string | undefined> = {
   prospectNom: (p) => prospectionDisplayName(p),
   origine: (p) => p.origine || undefined,
@@ -84,15 +76,6 @@ const TITRES: Record<string, (p: ProspectionListItemDto) => string | undefined> 
   origineSupport: (p) => p.origineSupport || undefined,
 };
 
-/** Tableau partagé par la liste des prospections et celle des
- * pré-prospections : les deux consomment le même `ProspectionListItemDto` et
- * affichaient jusqu'ici deux copies du même balisage.
- *
- * Adaptateur au-dessus de `DataGrid` : tout le chrome de grille (tri, filtres,
- * Σ, gouttières, bandeau) y vit désormais, et ce fichier ne garde que ce qui
- * est propre à la prospection — les rendus riches, les classes par colonne,
- * les infobulles, et la traduction du catalogue serveur `ColonneDto` en
- * colonnes de grille. */
 export default function ProspectionTable({
   rows,
   colonnes,
@@ -106,26 +89,16 @@ export default function ProspectionTable({
   rows: ProspectionListItemDto[];
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
-  /** Identité d'écran pour la persistance de l'ordre des colonnes.
-   * Passe-plat vers `DataGrid.cleOrdre`. */
   cleOrdre?: string;
-  /** Coupe le bandeau inerte de `DataGrid` : l'écran rend sa propre bande de
-   * groupement au-dessus de la grille. Voir `DataGrid.bandeauRegroupement`. */
+  /** `false` quand l'écran rend sa propre bande de groupement au-dessus de la grille. */
   bandeauRegroupement?: boolean;
-  /** Repliage en groupes dépliables sur place. Passe-plat vers `DataGrid`. */
   groupes?: GroupementGrille<ProspectionListItemDto>;
-  /** Nom de l'entité dans l'étiquette d'accessibilité de chaque ligne — les
-   * deux écrans lisent le même DTO mais un lecteur d'écran doit entendre
-   * « pré-prospection » sur l'un et « prospection » sur l'autre. */
+  /** Même DTO pour les deux écrans : c'est ce que le lecteur d'écran annonce par ligne. */
   entite?: 'prospection' | 'pré-prospection';
-  /** Colonne « Actions » statique en tête de grille — le menu par ligne des
-   * deux listes. Passe-plat vers `DataGrid.actions`. */
   actions?: (p: ProspectionListItemDto) => ReactNode;
 }) {
-  /* Le catalogue vient du serveur et peut changer à chaque livraison : la
-     traduction reste donc pilotée par `c.nom`/`c.type` et non par une liste en
-     dur. Une colonne ajoutée côté serveur apparaît formatée et alignée sans
-     toucher à ce fichier ; seuls les rendus riches sont nommés. */
+  /* Piloté par `c.nom`/`c.type`, pas par une liste en dur : une colonne ajoutée
+     côté serveur s'affiche sans toucher à ce fichier. */
   const grille = useMemo<ColonneGrille<ProspectionListItemDto>[]>(
     () =>
       colonnes.map((c) => ({
@@ -146,24 +119,13 @@ export default function ProspectionTable({
       rows={rows}
       colonnes={grille}
       onOuvrir={onOuvrir}
-      /* Le retard doit aussi s'entendre. Le fond rouge seul serait un échec
-         WCAG de sévérité High — la raison même pour laquelle les pastilles de
-         statut ont gardé leurs glyphes. Le badge de la colonne Alerte porte
-         déjà un glyphe, mais cette colonne est décochable alors que le fond,
-         lui, reste. */
+      /* Le retard doit aussi s'entendre : le fond rouge seul est un échec WCAG,
+         et la colonne Alerte (qui porte un glyphe) est décochable. */
       libelleLigne={(p) =>
         `Ouvrir la ${entite} ${prospectionDisplayName(p)}${relanceEnRetard(p) ? ' — relance en retard' : ''}`
       }
-      /* Repérer un retard sans lire la colonne Alerte : c'est ce que fait le
-         logiciel de bureau avec son icône rouge, porté ici sur la ligne
-         entière. `--retard-bg` reprend la teinte du badge d'alerte échue — les
-         deux s'allument sur le même critère et doivent se lire comme un seul
-         signal — mais à un alpha plus faible : voir `index.css`, où l'alpha des
-         pastilles faisait échouer le texte des cellules en contraste.
-
-         `hover:` répété : sans lui le survol repeindrait la ligne en
-         `bg-muted/50` et le retard disparaîtrait sous le curseur, c'est-à-dire
-         exactement quand on le regarde. */
+      /* `hover:` répété : sans lui le survol repeint la ligne en `bg-muted/50` et
+         le retard disparaît sous le curseur. */
       classeLigne={(p) => (relanceEnRetard(p) ? 'bg-(--retard-bg) hover:bg-(--retard-bg)' : undefined)}
       bandeauRegroupement={bandeauRegroupement}
       groupes={groupes}

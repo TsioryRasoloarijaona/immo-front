@@ -105,9 +105,6 @@ import type {
   TransformerProspectionRequest,
 } from '../../types';
 
-/** Les sept onglets du logiciel de bureau, dans son ordre. `article` garde
- * son ancien nom de valeur — la clé sert d'identifiant interne, pas de
- * libellé, et `OffrePrixSection` s'y renvoie déjà. */
 type ProspectionTab =
   | 'etape'
   | 'autres-tranches'
@@ -118,13 +115,7 @@ type ProspectionTab =
   | 'actions'
   | 'contacts';
 
-/** Nom lisible de chaque champ du formulaire, pour que la barre
- * d'enregistrement dise *ce qui* a changé. À quinze champs, « 2 modifications »
- * oblige à relire toute la fiche pour les retrouver. */
-/** Les deux onglets qu'une pré-prospection n'a pas — le logiciel de bureau ne
- * les montre pas non plus. « Offres » suppose un article, mesuré à 0,2 % sur
- * cette population ; « Contacts » suppose une fiche tiers, qui par définition
- * n'existe pas encore. */
+// Masqués sur une pré-prospection : elle n'a pas encore de fiche tiers, et presque jamais d'article.
 const ONGLETS_PROSPECTION_SEULE = new Set(['devis', 'contacts']);
 
 const LIBELLE_CHAMP: Record<string, string> = {
@@ -137,11 +128,8 @@ const LIBELLE_CHAMP: Record<string, string> = {
   notes: 'Notes',
 };
 
-/** Les champs que le formulaire pilote, et rien d'autre. Tranche et article en
- * sont absents volontairement : le serveur les a sortis de
- * `PATCH /api/prospections/{id}` pour leur donner un endpoint propre, et
- * l'onglet « Choix article » porte déjà le sélecteur en cascade qui l'appelle.
- * Les rendre modifiables ici aussi ferait deux chemins pour un même geste. */
+// Tranche et article absents exprès : le serveur les a sortis de `PATCH /api/prospections/{id}`,
+// ils passent par leur endpoint propre (onglet « Choix article »).
 type FormFiche = {
   etapeId: string | null;
   origineId: string | null;
@@ -152,11 +140,8 @@ type FormFiche = {
   notes: string;
 };
 
-/** Valeur de `InteractionDto.categorie` qui n'apprend rien dans le journal
- * d'une prospection. Les trois autres valeurs réelles — « Dossier de vente
- * (Réservation) », « (Livraison) », « Réclamation » — sont, elles, des
- * exceptions à signaler. Chaîne littérale parce que la catégorie n'est pas
- * exposée en référentiel : c'est le libellé que porte la vue légataire. */
+// Catégorie ordinaire, jamais badgée. Libellé en dur : la catégorie n'est pas exposée en
+// référentiel, c'est le texte que porte la vue légataire.
 const CATEGORIE_INTERACTION_ORDINAIRE = 'Prospection';
 
 const PROSPECTION_DOC_LABELS: Record<ProspectionPdfDocKind, string> = {
@@ -164,12 +149,6 @@ const PROSPECTION_DOC_LABELS: Record<ProspectionPdfDocKind, string> = {
   fiche: 'Fiche',
 };
 
-/** One "Voir + Télécharger" cell pair inside the merged Documents group
- * below — same actions as before (`viewProspectionDocument`/
- * `downloadProspectionDocument`), just laid out as two adjoining cells of
- * one segmented control instead of two separate floating buttons, so NDA
- * and Fiche read as one "Documents" affordance rather than a scatter of
- * near-identical button pairs. */
 function ProspectionDocCell({
   prospectionId,
   kind,
@@ -227,10 +206,6 @@ function ProspectionDocCell({
   );
 }
 
-/** "Documents" — NDA + Fiche prospection generated PDFs, as one bordered
- * segmented control (Voir/Télécharger per document) instead of two
- * disconnected button pairs floating in the header. Errors from either cell
- * surface as one line under the whole group. */
 function ProspectionDocumentButtons({ prospectionId, hasProspect }: Readonly<{ prospectionId: string; hasProspect: boolean }>) {
   const [error, setError] = useState<string | null>(null);
   return (
@@ -250,16 +225,7 @@ function ProspectionDocumentButtons({ prospectionId, hasProspect }: Readonly<{ p
   );
 }
 
-/** Une ligne d'issue, pour un canal.
- *
- * Chaque canal a son état propre et **l'asymétrie est la norme** : 99 % des
- * prospects portent un numéro exploitable contre 57 % une adresse email, donc
- * « parti sur WhatsApp, pas par email » est le cas courant. N'afficher que le
- * `envoye` d'ensemble reviendrait à le taire une fois sur deux.
- *
- * Les motifs ne sont pas interchangeables : `DESTINATAIRE_ABSENT` demande
- * d'obtenir la coordonnée, `NUMERO_INEXPLOITABLE` de réparer celle qui existe.
- * Deux gestes différents, donc deux phrases différentes. */
+// Une ligne par canal : l'`envoye` d'ensemble tairait le cas courant « parti sur WhatsApp, pas par email ».
 function LigneCanal({ nom, canal }: Readonly<{ nom: 'Email' | 'WhatsApp'; canal?: CanalEnvoiDto }>) {
   if (!canal) return null;
 
@@ -291,15 +257,8 @@ function LigneCanal({ nom, canal }: Readonly<{ nom: 'Email' | 'WhatsApp'; canal?
   );
 }
 
-/** Renvoi de la confirmation de visite, sur une interaction qui planifie un
- * rendez-vous. Le message part sur **deux canaux tentés indépendamment**,
- * email et WhatsApp : l'échec de l'un n'empêche jamais l'autre.
- *
- * L'issue s'affiche en ligne plutôt qu'en toast : elle porte les destinataires
- * retenus, que le commercial doit pouvoir relire, et un motif par canal qui lui
- * dit quoi faire ensuite. Un toast disparaîtrait avant qu'il ait vérifié.
- *
- * `envoye: false` n'est **pas** rendu comme une erreur : c'est un 200. */
+// `envoye: false` arrive en 200 : ce n'est pas une erreur, l'issue s'affiche par canal (email et
+// WhatsApp tentés indépendamment).
 function ConfirmationVisiteButton({ prospectionId, interactionId }: Readonly<{ prospectionId: string; interactionId: string }>) {
   const [busy, setBusy] = useState(false);
   const [resultat, setResultat] = useState<ResultatEnvoiVisiteDto | null>(null);
@@ -312,8 +271,6 @@ function ConfirmationVisiteButton({ prospectionId, interactionId }: Readonly<{ p
     try {
       setResultat(await renvoyerEmailVisite(prospectionId, interactionId));
     } catch (err) {
-      // Ne restent ici que les vraies erreurs : 404 (introuvable ou hors
-      // périmètre) et 409 (aucun rendez-vous à confirmer).
       setError(err instanceof Error ? err.message : "Échec de l'envoi.");
     } finally {
       setBusy(false);
@@ -338,9 +295,7 @@ function ConfirmationVisiteButton({ prospectionId, interactionId }: Readonly<{ p
   );
 }
 
-/** Nombre saisi au clavier français : la virgule décimale est acceptée, et un
- * champ vide vaut « non renseigné » plutôt que 0 — la distinction compte, le
- * backend traitant l'absence de `prix` comme « partir du prix catalogue ». */
+// Champ vide = `undefined`, jamais 0 : le backend lit l'absence de `prix` comme « prix catalogue ».
 function nombreSaisi(v: string): number | undefined {
   const t = v.trim().replace(',', '.');
   if (!t) return undefined;
@@ -348,20 +303,8 @@ function nombreSaisi(v: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-/** Envoi de l'**offre de prix** — second temps de l'après-visite, là où le
- * remerciement, lui, part tout seul au passage à l'étape « 4 APRES VISITES ».
- * L'offre demande un prix qu'un humain doit arrêter, d'où ce formulaire.
- *
- * **Le garde-fou du lot est l'essentiel de cet écran.** Le montant vient du
- * lot, et le lot n'est renseigné que sur 7 % des prospections de cette étape
- * (94 sur 1 266) : sans lui l'appel répond 409. Plutôt que de laisser partir
- * neuf clics sur dix pour rien, le bouton reste visible mais inactif, avec le
- * geste à faire et un lien vers l'onglet « Article » — qui porte déjà le
- * rattachement (`ChoixArticleSection`). Le 409 est tout de même rattrapé : le
- * serveur reste seul juge, et l'étape peut changer sous nos pieds.
- *
- * Rendu sous le sélecteur d'étape et **seulement à partir de l'étape 4** :
- * avant, un bouton perpétuellement grisé ne serait que du bruit. */
+// Sans lot l'appel répond 409 : le bouton reste inactif tant qu'aucun lot n'est rattaché. Le 409
+// est tout de même rattrapé, le serveur reste seul juge (l'étape peut changer entre-temps).
 function OffrePrixSection({
   prospectionId,
   articleId,
@@ -380,7 +323,6 @@ function OffrePrixSection({
   const [busy, setBusy] = useState(false);
   const [resultat, setResultat] = useState<ResultatEnvoiOffreDto | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Chargé seulement à l'ouverture : la mention « prix plancher » ne sert que là.
   const article = useApi(() => (ouvert && articleId ? getArticle(articleId) : Promise.resolve(null)), [ouvert, articleId]);
 
   const sansLot = !articleId;
@@ -393,10 +335,8 @@ function OffrePrixSection({
     setBusy(true);
     setError(null);
     setResultat(null);
-    // Champs vides omis : un corps vide est un appel valide qui signifie
-    // « plein tarif du lot ». Envoyer `remisePercent: 0` reviendrait au même
-    // montant mais interdirait la réutilisation d'une offre existante, le
-    // backend ne réutilisant que si l'appel n'impose ni remise ni prix.
+    // Champs vides omis : `remisePercent: 0` donnerait le même montant mais empêcherait le backend
+    // de réutiliser une offre existante (il ne réutilise que sans remise ni prix imposés).
     const body: EnvoyerOffrePrixRequest = {};
     if (remiseVal !== undefined) body.remisePercent = remiseVal;
     if (prixVal !== undefined) body.prix = prixVal;
@@ -405,8 +345,6 @@ function OffrePrixSection({
     try {
       setResultat(await envoyerOffrePrix(prospectionId, body));
     } catch (err) {
-      // Le 409 n'est pas une panne : lot manquant, ou étape qui n'est plus la
-      // bonne. Le message du backend porte déjà le geste à faire.
       setError(
         err instanceof ApiError && err.status === 409
           ? err.message
@@ -419,9 +357,6 @@ function OffrePrixSection({
     }
   }
 
-  // 8 prospects sur 10 n'ont pas d'adresse à cette étape (19,7 % contre 99,7 %
-  // de numéros exploitables) : sans ce rappel, l'avertissement ambre de
-  // `LigneCanal` se lit comme un incident alors que c'est la normale.
   const emailAbsentMaisWhatsappParti =
     resultat?.email?.envoye === false && resultat.email.motif === 'DESTINATAIRE_ABSENT' && resultat.whatsapp?.envoye === true;
 
@@ -504,10 +439,8 @@ function OffrePrixSection({
 
       {resultat && (
         <div className="mt-3 flex flex-col gap-0.5 rounded-lg bg-muted/40 p-3">
-          {/* L'offre est créée avant l'envoi et le reste quoi qu'il arrive :
-              son numéro s'affiche donc même quand les deux canaux échouent,
-              sans quoi le commercial la croirait perdue et en régénérerait une
-              sous un autre numéro. */}
+          {/* L'offre existe même si les deux canaux échouent : son numéro s'affiche quand même,
+              sinon le commercial en régénérerait une sous un autre numéro. */}
           <span className="text-label font-medium text-foreground">
             Offre {resultat.offreCode || '—'}
             {resultat.prixFinalTTC !== undefined ? ` · ${formatCurrency(resultat.prixFinalTTC)}` : ''}
@@ -529,17 +462,6 @@ function OffrePrixSection({
   );
 }
 
-/** La page routée : elle ne fait que lire l'URL et la passer à la fiche.
- *
- * Reused for both `/prospections/:id` and `/pre-prospections/:id` — Omran
- * stores both in the same table (see CLAUDE.md), so this is genuinely the
- * same GET /api/prospections/{id} record either way. Only the entry
- * point (which list you came from) differs, and that's what previously
- * made every pré-prospection row feel like it "redirected to a
- * prospection": the URL, breadcrumb and back-link always said
- * "Prospections" even when opened from Pré-prospections. Detect the
- * prefix from the URL and swap those labels only — `isPre` in the fiche
- * (data-driven, not route-driven) still governs the actual page content. */
 function libelleOuiNon(v: boolean | null | undefined): string | null {
   if (v === null || v === undefined) return null;
   return v ? 'Oui' : 'Non';
@@ -551,14 +473,8 @@ export default function ProspectionDetail() {
   return <FicheProspection key={id} id={id!}pre={location.pathname.startsWith('/pre-prospections')} />;
 }
 
-/** La fiche elle-même, indépendante de l'URL : `id` et `pre` lui sont donnés.
- * C'est ce qui permet au tableau de bord de l'ouvrir dans un dialogue
- * (`FicheProspectionDialog`) **à l'identique de la page**, actions comprises —
- * une seule fiche, deux cadres (`CadreFiche`), plutôt qu'un aperçu allégé qui
- * divergerait.
- *
- * `pre` ne règle que l'habillage (libellés, accent, fil d'Ariane) ; le contenu
- * suit la donnée, voir `isPre` plus bas. */
+// `pre` (la route) ne règle que l'habillage ; le contenu suit la donnée (`isPre` plus bas) —
+// pré-prospection et prospection sont la même ligne en base.
 export function FicheProspection({
   id,
   pre: isPreRoute,
@@ -570,17 +486,8 @@ export function FicheProspection({
 }>) {
   const listPath = isPreRoute ? '/pre-prospections' : '/prospections';
   const listLabel = isPreRoute ? 'Pré-prospections' : 'Prospections';
-  // Section-identity accent (index.css) reused for the pipeline stepper and
-  // the "Contact" card's left border — same color as the PageShell icon
-  // chip above, so the whole page reads as one consistent identity instead
-  // of the plain black-on-white the monochrome --brand would otherwise
-  // give every page.
   const sectionAccent = isPreRoute ? 'var(--sec-preprospection)' : 'var(--sec-prospection)';
   const { data: p, loading, error, refetch } = useApi(() => getProspection(id), [id], 'prospection');
-  // Cascade reference down to the linked Prospect — same pipeline-chain
-  // convention as Dossier's own "Prospection" reference: each stage links
-  // to the one before it. Only fetched once the prospection actually
-  // resolved to a prospect (unset while still a pré-prospection).
   /* Le prospect lié rendu par « Créer prospect » / rattachement : la relecture
      peut revenir avec l'ancien état (base de lecture en retard), et le bouton
      redeviendrait cliquable — risque de double création. */
@@ -590,39 +497,26 @@ export function FicheProspection({
   const [interactionsPage, setInteractionsPage] = useState(0);
   const interactions = useApi(() => listInteractions(id, { page: interactionsPage, size: 20 }), [id, interactionsPage], 'prospection-interactions');
 
-  // L'endpoint email-visite n'accepte que les interactions qui planifient un
-  // rendez-vous, et répond 409 sinon. `necessiteDateRdv` du référentiel porte
-  // exactement cette liste (« Rendez vous pris », « RDV reporté », « Le prospect
-  // veut faire une visite du projet ») — s'y adosser évite de coder ces
-  // libellés métier en dur, et couvre le cas « visite » que `dateRdv` seul
-  // manquerait puisque celui-ci ne vaut que pour les deux premiers.
+  // email-visite répond 409 hors rendez-vous : `necessiteDateRdv` porte la liste exacte des
+  // résultats acceptés, `dateRdv` seul manquerait le cas « visite du projet ».
   const resultatsInteraction = useResultatsInteraction();
   const resultatsAvecRdv = useMemo(
     () => new Set((resultatsInteraction.data ?? []).filter((r) => r.necessiteDateRdv).map((r) => r.id)),
     [resultatsInteraction.data],
   );
-  // Parcours pré-prospect → prospect → prospection — GET
-  // /api/prospections/{id}/historique, distinct from the interactions/
-  // "Actions" timeline above: this one is the two transitions the API
-  // writes automatically ("Prospect créé et lié", "Transformée en
-  // prospection"), not manually-logged calls/visits/notes.
   const [parcoursPage, setParcoursPage] = useState(0);
   const parcours = useApi(() => listProspectionHistorique(id, { page: parcoursPage, size: 20 }), [id, parcoursPage], 'prospection-parcours');
   const { commerciaux } = useAppData();
   const { user } = useAuth();
-  // A commercial assigning themselves doesn't need the "pick a commercial"
-  // dropdown at all — `user.employeeId` is the CfgTier id created for their
-  // account (POST /api/utilisateurs), the same id space `commerciaux`
-  // (CfgTier rows of kind commercial) uses, so this resolves whenever the
-  // logged-in employee actually is one of the assignable commerciaux.
+  // `user.employeeId` est l'id CfgTier du compte : même espace d'ids que `commerciaux`.
   const ownCommercial = commerciaux.find((c) => c.id === user?.employeeId) ?? null;
   const navigate = useNavigate();
   const showToast = useToast();
   const toastErreur = (err: unknown, defaut: string) =>
     showToast({ texte: err instanceof Error ? err.message : defaut, variante: 'erreur' });
 
-  /* R5 : la route suit le code de type. Attendre la fin du chargement — une
-     fiche servie du cache peut porter l'ancien code. */
+  /* Attendre la fin du chargement avant de rediriger : une fiche servie du
+     cache peut porter l'ancien code de type. */
   useEffect(() => {
     if (variante !== 'page' || loading || !p || p.id !== id) return;
     if (isPreRoute && p.typeProspectionCode === CODE_PROSPECTION) {
@@ -638,15 +532,9 @@ export function FicheProspection({
   const [raisonId, setRaisonId] = useState<string | null>(null);
   const [raisonTexte, setRaisonTexte] = useState('');
   const [busy, setBusy] = useState(false);
-  // « Étape » par défaut, comme le dossier ouvre sur « Statut » : la première
-  // question devant une fiche est où elle en est, pas quels sont ses termes.
   const [tab, setTab] = useState<ProspectionTab>('etape');
   const [saving, setSaving] = useState(false);
 
-  /* Le formulaire est **toujours** ouvert : la fiche du logiciel de bureau
-     n'a pas de mode consultation, on y corrige une source de contact en la
-     changeant. L'ancien couple « Modifier / Enregistrer » ajoutait un clic
-     avant chaque correction et un état de plus à tenir. */
   const sourceForm = useMemo<FormFiche>(
     () => ({
       etapeId: p?.etapeId ?? null,
@@ -667,10 +555,9 @@ export function FicheProspection({
   const vocations = useVocations();
   const typesContact = useTypesContactProspection();
   const actionsCommerciales = useActionsCommerciales();
-  /* Les supports sont servis **par origine** : changer la source de contact
-     recharge la liste, et le brouillon — pas la valeur du serveur — est ce qui
-     la pilote, sinon le champ proposerait les supports de l'ancienne origine
-     jusqu'au prochain enregistrement. */
+  /* Supports servis par origine, pilotés par le brouillon et non par la valeur
+     serveur : sinon le champ proposerait ceux de l'ancienne origine jusqu'à
+     l'enregistrement. */
   const supports = useApi(
     () => (form.valeurs.origineId ? getSupportsForOrigine(form.valeurs.origineId) : Promise.resolve([])),
     [form.valeurs.origineId],
@@ -678,15 +565,12 @@ export function FicheProspection({
   );
 
   const autresTranches = useApi(() => (id ? listProspectionAutresTranches(id) : Promise.resolve([])), [id], 'prospection-autres-tranches');
-  // Le carnet de contacts du prospect lié (spec du 21/09) — adressé par la
-  // prospection, le serveur résout le prospect. Une pré-prospection renvoie
-  // une liste vide, jamais une erreur.
+  // Adressé par la prospection, le serveur résout le prospect ; une pré-prospection renvoie [], jamais d'erreur.
   const contactsLies = useApi(() => (id ? listProspectionContacts(id) : Promise.resolve([])), [id], 'prospection-contacts');
   const [devisPage, setDevisPage] = useState(0);
   const devis = useApi(() => listDevis(id, { page: devisPage, size: 20 }), [id, devisPage], 'prospection-devis');
 
-  // `!p` : cf. DossierDetail — une prospection déjà vue se repeint depuis le
-  // cache, la revalidation restant invisible.
+  // `!p` : une prospection déjà vue se repeint depuis le cache, la revalidation reste invisible.
   if (loading && !p) return <CadreFiche variante={variante} title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><LoadingState /></CadreFiche>;
   if (error) return <CadreFiche variante={variante} title={isPreRoute ? 'Pré-prospection' : 'Prospection'}><ErrorState message={error} /></CadreFiche>;
   if (!p) {
@@ -706,34 +590,22 @@ export function FicheProspection({
   };
   const stageIdx = pipelineStageIndex(p.etape);
   const isPre = !prospectId;
-  /* Le parcours n'a de sens que sur une prospection ouverte et dans le
-     pipeline : une clôturée ou une garée sur une voie de côté
-     (« À rappeler », « Affaires à suivre ») n'a pas de rang à montrer. */
   const showStepper = !p.fermee && !isSideTrackEtape(p.etape) && stageIdx >= 0;
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
-  // Dossier déjà issu de cette prospection, s'il existe. Le lien vit dans
-  // `activite` (vue légataire), pas au premier niveau du DTO. Hoisté ici parce
-  // que le narrowing d'un `p.activite?.dossierId` testé en JSX ne survit pas
-  // jusqu'au closure du onClick.
+  // Le lien vit dans `activite` (vue légataire), pas au premier niveau du DTO. Hoisté : le
+  // narrowing de `p.activite?.dossierId` testé en JSX ne survit pas jusqu'au closure du onClick.
   const dossierIssu = p.activite?.dossierId
     ? { id: p.activite.dossierId, code: p.activite.dossierCode }
     : null;
-  // R10 : l'historique du « Parcours » plus bas, pas de requête en plus.
   const etapesParcours = calculerParcours(
     { typeProspectionCode: p.typeProspectionCode, prospectId,dossierId: dossierIssu?.id, dossierCode: dossierIssu?.code },
     parcours.data?.content,
   );
-  // Rang 1 du guide : les deux seuls indicateurs de l'en-tête, donc toujours
-  // visibles quand ils existent. Hoistés pour la même raison que `dossierIssu`
-  // — et parce que `null` doit rester distinct de `0` : « aucune interaction »
-  // et « bloc d'activité absent » ne se disent pas de la même façon.
+  // `null` reste distinct de `0` : « bloc d'activité absent » n'est pas « aucune interaction ».
   const joursInactivite = typeof p.activite?.joursInactivite === 'number' ? p.activite.joursInactivite : null;
 
-  /** Depuis la spec du 21/09 la transformation porte aussi la tranche
-   * (obligatoire côté serveur si la prospection n'en a pas déjà une — 400
-   * sinon) et l'article : le corps complet vient de la boîte de dialogue,
-   * plus d'appel « commercial seul ». Les erreurs restent à la boîte, qui
-   * les affiche sur place. */
+  // Tranche obligatoire côté serveur si la prospection n'en a pas (400). Pas de catch : la boîte
+  // de dialogue affiche elle-même les erreurs.
   async function handleTransform(body: TransformerProspectionRequest) {
     if (!p) return;
     const id = p.id;
@@ -743,7 +615,6 @@ export function FicheProspection({
       await refetch();
       void parcours.refetch();
       if (variante === 'page') {
-        // R4 : la fiche reprend l'habillage prospection ; le toast n'a pas de lien, on y est.
         if (isPreRoute) navigate(`/prospections/${maj.id}`, { replace: true });
         showToast(texteProspectionTransformee(name, maj));
       } else {
@@ -757,14 +628,8 @@ export function FicheProspection({
     }
   }
 
-  /** Enregistre la fiche. Deux endpoints, appelés **seulement si leurs champs
-   * ont bougé** : `PATCH /{id}` porte la qualification, `PATCH /{id}/etape`
-   * porte l'étape et écrit une ligne d'historique. Appeler les deux
-   * systématiquement inscrirait des changements d'étape qui n'ont pas eu lieu.
-   *
-   * La clôture garde son propre geste : elle est destructive et demande une
-   * raison, elle n'a pas sa place derrière le même bouton que six listes
-   * déroulantes. */
+  // Chaque endpoint seulement si ses champs ont bougé : `PATCH /{id}/etape` écrit une ligne
+  // d'historique, l'appeler à chaque fois inscrirait des changements d'étape fictifs.
   async function enregistrerFiche() {
     if (!p) return;
     setSaving(true);
@@ -782,9 +647,8 @@ export function FicheProspection({
       if (form.aChange('etapeId') && form.valeurs.etapeId) {
         await changerEtapeProspection(p.id, { etapeId: form.valeurs.etapeId });
       }
-      // Le brouillon devient la base avant le refetch : sans ça, le formulaire
-      // resterait « modifié » le temps de l'aller-retour, et sa propre garde
-      // anti-écrasement empêcherait la resynchronisation.
+      // Le brouillon devient la base avant le refetch : sinon la garde anti-écrasement du
+      // formulaire, encore « modifié », empêcherait la resynchronisation.
       form.confirmer(form.valeurs);
       await refetch();
       showToast('Fiche enregistrée.');
@@ -826,9 +690,6 @@ export function FicheProspection({
     }
   }
 
-  /* Les cellules de la grille avant « Notes », comptées pour que Notes prenne
-     les colonnes restantes de la dernière ligne. Code, date, nom et commercial
-     n'y sont plus : la ligne d'identité et le pied de carte les portent. */
   const tranche = p.trancheDescription || p.trancheCode;
   const descriptionDistincte = !!p.tempDescription?.trim() && p.tempDescription.trim() !== name;
   const mobile = p.mobileProspect ? `+${p.indicatifMobile ?? ''} ${p.mobileProspect}`.replace('+ ', '') : null;
@@ -842,7 +703,6 @@ export function FicheProspection({
       valeur={tranche}
       aide="Se modifie dans l'onglet « Choix article » — le serveur l'expose sur un endpoint distinct."
     />,
-    /* Article : mesuré à 0,2 % sur les pré-prospections — pas de place réservée. */
     !isPre && (
       <ChampLecture
         key="article"
@@ -913,8 +773,6 @@ export function FicheProspection({
       items={referentielItems(vocations.data)}
       modifie={form.aChange('vocationId')}
     />,
-    /* La tranche est renseignée sur 95,5 % des pré-prospections, et la société
-       en dérive : elle reste utile ici. */
     <ChampLecture key="societe" label="Société" valeur={p.societeLibelle || p.societeCode} aide="Dérivée de la tranche, jamais saisie." />,
     !isPre && (
       <ChampLecture
@@ -925,9 +783,8 @@ export function FicheProspection({
       />
     ),
     <ChampLecture key="typeTiers" label="Type de tiers" valeur={p.typeProspectLibelle || p.typeProspect} />,
-    /* Une pré-prospection n'a pas de fiche tiers : le lead vit dans les champs
-       `temp*`, absents de `ModifierProspectionRequest` — d'où le cadenas. La
-       description n'est reprise que si elle diffère du nom de la ligne de titre. */
+    /* Le lead d'une pré-prospection vit dans les champs `temp*`, absents de
+       `ModifierProspectionRequest` : lecture seule. */
     isPre && descriptionDistincte && (
       <ChampLecture
         key="description"
@@ -953,8 +810,8 @@ export function FicheProspection({
       valeur={isPre ? p.tempEmail : p.emailFiche || p.tempEmail}
       aide={isPre ? "Idem : servi, mais non modifiable par l'API." : undefined}
     />,
-    /* Clôture : pas de place réservée. Le désarchivage conserve date et motif
-       (fidèle à OMRAN) — l'état se lit sur `fermee`, jamais sur la date. */
+    /* Le désarchivage conserve date et motif : l'état se lit sur `fermee`,
+       jamais sur la date. */
     (p.fermee || !!p.dateFermeture) && (
       <ChampLecture key="dateFermeture" label={p.fermee ? "Date d'archivage" : 'Dernier archivage'} valeur={formatDate(p.dateFermeture)} />
     ),
@@ -977,9 +834,6 @@ export function FicheProspection({
       icon={isPreRoute ? <UserPlus /> : <Users />}
       accent={sectionAccent}
       accentBg={isPreRoute ? 'var(--sec-preprospection-bg)' : 'var(--sec-prospection-bg)'}
-      /* Ligne 1 — l'identité. Date, commercial et société n'y sont plus : le
-         pied de carte et la grille les portent ; le nombre d'interactions est
-         sur l'onglet Actions. */
       entete={
         <EnteteFiche
           code={p.code}
@@ -1023,18 +877,11 @@ export function FicheProspection({
             </Button>
           )}
           <Separator orientation="vertical" className="h-6" />
-          {/* L'action propre à l'état courant reste seule, après le filet :
-              c'est la seule de la barre qui fasse avancer la prospection. */}
           {isPre ? (
             <Button variant="outline" size="sm" onClick={() => setShowCreateProspect(true)}>
               <Plus data-icon="inline-start" /> Créer prospect
             </Button>
           ) : !p.commercialId ? (
-            /* La transformation choisit désormais commercial + tranche (+
-               article) dans une boîte — le geste « un clic, mon compte »
-               d'avant enverrait un corps sans tranche, 400 dès que la
-               prospection n'en porte pas. Le commercial du compte reste le
-               pré-choix de la boîte. */
             <Button size="sm" onClick={() => setShowTransform(true)} disabled={busy}>
               Transformer
             </Button>
@@ -1053,9 +900,6 @@ export function FicheProspection({
       <FicheShell
         ongletActif={tab}
         onOngletChange={(v) => setTab(v as ProspectionTab)}
-        /* Bandeaux d'exception seulement. Le marqueur de tri passe avant tout :
-           une fiche sur cinq du vivier est un doublon ou du spam encore rangé à
-           « 1 A TRAITER », et rien d'autre à l'écran ne le dit. */
         identite={
           (p.marqueurTri || p.noteQualification || dossierIssu) && (
             <div className="flex flex-col gap-1.5">
@@ -1070,18 +914,6 @@ export function FicheProspection({
             </div>
           )
         }
-        /* ---------------------------------------------------------------
-           Bande 2 — le formulaire. Même contenu et même ordre de lecture
-           que le formulaire du logiciel de bureau, sur quatre colonnes au
-           lieu de deux : le libellé passe au-dessus du champ, ce qui rend
-           la moitié de la largeur que la colonne de libellés occupait.
-           C'est cette moitié qui laisse la place aux onglets sans faire
-           défiler la page.
-
-           Tout ce qui est modifiable l'est **en même temps** : un seul
-           Enregistrer, qui n'appelle que les endpoints dont les champs ont
-           bougé.
-           --------------------------------------------------------------- */
         formulaire={
           <Card padded={false}>
             <div className="p-3">
@@ -1140,12 +972,6 @@ export function FicheProspection({
             </div>
           </Card>
         }
-        /* ---------------------------------------------------------------
-           La barre n'existe que s'il y a quelque chose à enregistrer, et
-           elle se place au contact du formulaire plutôt qu'en pied de page.
-           Elle nomme ce qui a bougé : à quinze champs, « 2 modifications »
-           ne dit pas lesquelles.
-           --------------------------------------------------------------- */
         barreAction={
           form.estModifie ? (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-(--warning)/40 bg-(--warning-bg) px-3 py-2">
@@ -1167,17 +993,6 @@ export function FicheProspection({
             </div>
           ) : undefined
         }
-        /* ---------------------------------------------------------------
-           Bande 3 — les onglets du logiciel de bureau, dans son ordre. Sept
-           sur une prospection, **cinq sur une pré-prospection** : ni Offres ni
-           Contacts, exactement comme là-bas. Ce n'est pas un raccourci — un
-           lead non transformé n'a pas de fiche tiers à montrer, et une offre
-           suppose un article, mesuré à 0,2 % sur cette population.
-           Rien de ce que l'écran savait faire n'est perdu : les offres, le
-           journal et le sélecteur d'article en cascade sont relogés tels
-           quels. Ce qui s'ajoute, ce sont les quatre sous-collections dont
-           les fonctions existaient depuis des mois sans aucun appelant.
-           --------------------------------------------------------------- */
         onglets={[
           {
             id: 'etape',
@@ -1210,9 +1025,6 @@ export function FicheProspection({
                         </div>
                       ))}
                     </div>
-                    {/* Sur mobile, les cinq libellés serrés dans ~68 px chacun
-                        formeraient une échelle illisible : on ne nomme que
-                        l'étape courante. */}
                     <div className="mt-2 text-center text-body font-medium text-foreground sm:hidden">
                       Étape {stageIdx + 1}/{PIPELINE_STAGES.length} · {PIPELINE_STAGE_SHORT[PIPELINE_STAGES[stageIdx]]}
                     </div>
@@ -1225,10 +1037,6 @@ export function FicheProspection({
                   </p>
                 )}
 
-                {/* L'étape se change ici **ou** par le champ « Nature » du
-                    formulaire, qui passe par le même endpoint. Deux chemins
-                    pour un même geste, assumés : celui-ci montre le parcours,
-                    l'autre se corrige au fil de la saisie. */}
                 {!p.fermee && (
                   <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
                     <span className="text-micro font-medium text-muted-foreground">Changer d'étape :</span>
@@ -1281,9 +1089,6 @@ export function FicheProspection({
                   onAdded={async () => { await autresTranches.refetch(); showToast('Article ajouté.'); }}
                   navigate={navigate}
                 />
-                {/* L'offre de prix n'a de sens qu'après les visites. Elle
-                    suivait le sélecteur d'étape ; elle suit maintenant
-                    l'article, qui est ce sur quoi elle porte. */}
                 {stageIdx >= PIPELINE_STAGES.indexOf('4 APRES VISITES') && !p.fermee && (
                   <OffrePrixSection prospectionId={p.id} articleId={p.articleId} onVoirArticle={() => setTab('article')} />
                 )}
@@ -1354,17 +1159,8 @@ export function FicheProspection({
                   <p className="text-label text-muted-foreground">Aucune action enregistrée pour cette prospection.</p>
                 )}
                 {interactions.data && interactions.data.content.length > 0 && (
-                  /* Table dense au lieu de la timeline (demande du 20/09) :
-                     une ligne par action, triée serveur. Les règles
-                     d'affichage de l'ancienne timeline sont conservées :
-                     `categorie` n'apparaît que hors de l'ordinaire
-                     (« Prospection » = 46 666 lignes sur 48 160 — la badger
-                     partout serait 20 fois le même mot par page), et la
-                     tranche seulement quand elle diverge de celle de la
-                     prospection. */
-                  /* Sans cadre propre : le panneau d'onglet fournit déjà le
-                     sien. `overflow-visible` : le panneau est la zone qui
-                     défile, l'en-tête y colle. */
+                  /* `overflow-visible` : le panneau d'onglet est la zone qui
+                     défile, l'en-tête collant s'y accroche. */
                   <div>
                     <Table containerClassName="overflow-visible">
                       <TableHeader className="sticky top-0 z-1">
@@ -1404,11 +1200,8 @@ export function FicheProspection({
                                 <span className="text-muted-foreground">—</span>
                               )}
                             </TableCell>
-                            {/* La note entière, jamais tronquée (demande du
-                                20/09) : la cellule replie le texte et la ligne
-                                grandit — h-(--row-h) est un minimum, pas un
-                                plafond. min-w évite que la colonne s'écrase,
-                                max-w qu'elle avale la table. */}
+                            {/* Note jamais tronquée : h-(--row-h) est un minimum, la ligne
+                                grandit avec le texte replié. */}
                             <TableCell className="min-w-60 max-w-120 py-1 whitespace-normal text-muted-foreground">
                               {c.note || '—'}
                             </TableCell>
@@ -1443,10 +1236,6 @@ export function FicheProspection({
                   />
                 )}
 
-                {/* Les transitions que l'API écrit elle-même, sous le journal
-                    manuel : la même chronologie, vue par l'autre bout. Nommé
-                    « Historique de statut » pour ne pas le confondre avec la
-                    barre de parcours du haut. */}
                 {parcours.data && parcours.data.content.length === 0 ? (
                   <p className="text-body text-muted-foreground">
                     Historique de statut (0) — aucune transition tracée ; apparaîtra dès que cette fiche sera liée à un
@@ -1510,11 +1299,8 @@ export function FicheProspection({
                           </Button>
                         </div>
 
-                        {/* Le carnet de contacts (conjoint, notaire, apporteur…),
-                            sous la fiche tiers — l'endpoint prospection-scopé
-                            existe précisément pour accompagner cet écran. Le
-                            retrait passe par le prospect : le DELETE n'existe
-                            que sous /api/prospects/{id}/contacts. */}
+                        {/* Le retrait passe par le prospect : le DELETE n'existe que
+                            sous /api/prospects/{id}/contacts. */}
                         <div className="flex flex-col gap-2">
                           <h3 className="text-label font-medium text-foreground">Contacts liés</h3>
                           <ContactsProspect
@@ -1589,34 +1375,8 @@ export function FicheProspection({
   );
 }
 
-/** Full detail table of an article/sous-article result set — every row shown
- * with code, description, catégorie, type, surface, prix and statut (not
- * just a bare code list), click a row to select it. As soon as a tranche is
- * picked and no Catégorie/Type filter is set yet, this shows *every*
- * available article for that tranche with full details; ticking a filter
- * narrows the same table in place. Mirrors the backend's guidance: the user
- * picks the article from *this* filtered list, never from a dropdown of
- * every article in the tranche. */
-/** Full référentiel picker reproducing the legacy "Choix article" form's
- * exact mechanic (per the backend's implementation guide on the
- * `Référentiels` OpenAPI tag): the user narrows by Projet → Tranche, ticks
- * Catégorie/Type checkboxes (loaded once, independent of the tranche), and
- * picks the article from the resulting filtered list — never from a raw
- * dropdown of every article. Sous-article picking (if the chosen article has
- * any) replays the same mechanic one level down. Self-contained; reused both
- * to update a prospection's primary tranche/article ("tranche principale",
- * `onModifier`) and to add entries to its "Articles associés" list
- * (`onAjouter`) — both buttons render side by side when both are passed, so
- * either action is one click away from the same picked article; resets
- * itself after either succeeds.
- *
- * When `principalTrancheId` is given (i.e. this picker can modify the
- * tranche principale), "Modifier" is only enabled while the tranche
- * currently selected in the picker still matches it — switching to a
- * different tranche means the pick can only become a secondary interest
- * ("Ajouter"), per the backend's `tranche-principale` vs. `autres-tranches`
- * split: the principal tranche/article is never silently overwritten by
- * picking an article in a different tranche. */
+// Avec `principalTrancheId`, « Modifier » n'est actif que sur cette tranche : une autre tranche ne
+// peut devenir qu'un intérêt secondaire (« Ajouter »), jamais écraser la tranche principale.
 function ArticleCascadePicker({
   onModifier,
   onAjouter,
@@ -1645,10 +1405,8 @@ function ArticleCascadePicker({
   const [sousArticleId, setSousArticleId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // 409 « un prospect, un projet, une prospection » sur `onModifier` : la
-  // tranche cible est sur un **autre projet** où le prospect a déjà une
-  // prospection ouverte. Changer de tranche au sein du même projet n'est
-  // jamais refusé. Une redirection, pas une erreur.
+  // 409 « un prospect, un projet, une prospection » : la tranche cible est sur un autre projet où le
+  // prospect a déjà une prospection ouverte. Une redirection, pas une erreur.
   const [existante, setExistante] = useState<ReturnType<typeof prospectionExistanteDepuisErreur>>(null);
 
   const isPrincipalTranche = !principalTrancheId || trancheId === principalTrancheId;
@@ -1669,9 +1427,7 @@ function ArticleCascadePicker({
     [articleId, onlyDisponible, categorieIds, typeIds],
   );
 
-  // Full detail (catégorie, type, surface, prix, statut…) of whichever is
-  // currently picked — the sous-article if one is chosen, else the article —
-  // via `GET /api/articles/{id}`, which resolves either indifferently.
+  // `GET /api/articles/{id}` résout indifféremment un article ou un sous-article.
   const selectedId = sousArticleId || articleId;
   const selected = useApi(() => (selectedId ? getArticle(selectedId) : Promise.resolve(null)), [selectedId]);
 
@@ -1820,16 +1576,7 @@ function ArticleCascadePicker({
   );
 }
 
-/** "Choix article" section — every prospection carries a "tranche
- * principale" (per the backend's implementation guide on the `Prospections`
- * tag), even before an article is picked within it, so the tranche selector
- * below defaults to it. Picking a different article *within* that same
- * tranche and confirming "Modifier" updates the principal tranche/article
- * via `PATCH /api/prospections/{id}/tranche-principale` (the only endpoint
- * allowed to touch those two fields). Switching to a *different* tranche
- * disables "Modifier" — the picker falls back to "Ajouter", which appends
- * the pick to "Articles associés" (a secondary interest) instead, never
- * silently replacing the tranche principale. */
+// `PATCH /api/prospections/{id}/tranche-principale` est le seul endpoint qui touche tranche et article.
 function ChoixArticleSection({
   prospectionId,
   trancheId,
@@ -1847,12 +1594,6 @@ function ChoixArticleSection({
 }>) {
   const current = useApi(() => (articleId ? getArticle(articleId) : Promise.resolve(null)), [articleId]);
   const currentTranche = useApi(() => (trancheId ? getTranche(trancheId) : Promise.resolve(null)), [trancheId]);
-  // Same "seen it, now tucked behind Modifier" pattern as the dossier-creation
-  // article picker (`NewDossier.tsx`): once a tranche principale is already
-  // set, the full projet/tranche/catégorie/type picker + article table stays
-  // collapsed by default instead of always spilling a 40+ row list under an
-  // already-answered question. Forced open only while there's nothing to show
-  // yet, so the first pick is never hidden behind an extra click.
   const [editing, setEditing] = useState(false);
   const showPicker = editing || !trancheId;
 
@@ -1917,13 +1658,7 @@ function ChoixArticleSection({
   );
 }
 
-/** One row of `ArticlesAssociesSection` — same compact-code/+Détails concept
- * as the "Article visé" preview, fetching the article's full detail so its
- * catégorie/type/surface/prix are one click away instead of a bare label.
- * "Modifier" opens an inline `ArticleCascadePicker` pre-filled with this
- * row's current tranche/article; since the backend has no PATCH for a single
- * `autres-tranches` entry, confirming replaces it under the hood (remove the
- * old entry, add the newly picked one) but reads as a single edit in the UI. */
+// Pas de PATCH sur une entrée `autres-tranches` : « Modifier » la retire puis ajoute la nouvelle.
 function ArticleAssocieRow({
   prospectionId,
   item,
@@ -1984,11 +1719,6 @@ function ArticleAssocieRow({
   );
 }
 
-/** "Articles associés" — the prospection's list of secondary tranche/article
- * interests (`/api/prospections/{id}/autres-tranches`), each row resolved to
- * its full article detail (not raw UUIDs), with per-row "Modifier"/remove
- * actions. Brand new entries are added from the picker above
- * (`ChoixArticleSection`'s "Ajouter" button), not from here. */
 function ArticlesAssociesSection({
   prospectionId,
   items,
@@ -2014,13 +1744,6 @@ function ArticlesAssociesSection({
   );
 }
 
-/** One row of the "Offres" list — code/tranche/article on top, the final
- * TTC price always visible, and a "Montants" toggle revealing the full
- * HT/TTC breakdown (`montants`, a `MontantsOffreDto`) grouped the way the
- * legacy Offre form's "Montants" tab does: figures before remise, the
- * remise itself, figures after remise, then the final Prix de vente line —
- * same expand-on-demand shape as `ArticleCompactPreview`, so a dense
- * ~20-field breakdown never dumps onto the page uninvited. */
 function DevisRow({ prospectionId, devis: dv }: Readonly<{ prospectionId: string; devis: DevisDto }>) {
   const [expanded, setExpanded] = useState(false);
   const [generating, setGenerating] = useState<'view' | 'download' | null>(null);

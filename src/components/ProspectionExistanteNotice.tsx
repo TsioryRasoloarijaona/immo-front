@@ -6,15 +6,9 @@ import type { ProspectionExistanteDto } from '../types';
 const CLASSE_LIEN =
   'inline-flex items-center gap-1 text-body font-semibold text-foreground underline-offset-2 hover:underline';
 
-/** Le 409 « un prospect, un projet, une prospection »
- * (`FEATURE-doublons-prospect-projet.md` §3), rendu comme une redirection et
- * non comme une erreur : le prospect a déjà une prospection **ouverte** sur
- * ce projet, et c'est là qu'on ajoute un dossier. Le lien est la seule action
- * utile — il n'y a rien à corriger dans le formulaire.
- *
- * Ton `info`, pas `destructive` : l'utilisateur n'a rien fait de faux, le
- * système lui montre où est déjà son travail. `message` est le `detail` du
- * ProblemDetail, qui nomme le prospect et le projet en clair. */
+/** Le 409 « un prospect, un projet, une prospection » rendu comme une redirection,
+ * ton `info` et non `destructive` : l'utilisateur n'a rien fait de faux.
+ * `message` est le `detail` du ProblemDetail. */
 export default function ProspectionExistanteNotice({
   existante,
   message,
@@ -23,7 +17,6 @@ export default function ProspectionExistanteNotice({
 }: {
   existante: ProspectionExistanteDto;
   message?: string | null;
-  /** Appelé au clic du lien, pour fermer la boîte qui porte l'avis. */
   onOuvrir?: () => void;
   /** Ouvre la fiche existante sans naviguer (remplace le lien et `onOuvrir`). */
   ouvrirEnDialogue?: (id: string) => void;

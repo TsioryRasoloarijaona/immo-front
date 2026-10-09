@@ -1,7 +1,3 @@
-// Real API client — talks to the Spring Boot backend described in
-// docs/api-docsV0.json. No more static JSON / mock mutation layer: every
-// function here issues an actual HTTP request.
-
 import { clearCachedValues } from './apiCache';
 import type {
   ActionRecente,
@@ -117,7 +113,6 @@ import type {
   VilleDto,
 } from '../types';
 
-/** Default page size used whenever a caller doesn't specify one. */
 export const DEFAULT_PAGE_SIZE = 20;
 
 function withPageable(
@@ -132,22 +127,9 @@ function withPageable(
   };
 }
 
-// `back_end_url` (if set — see .env) always wins, for pointing at a
-// specific/remote backend. The name has no `VITE_` prefix on purpose (Vercel
-// rejected that one), so `vite.config.ts` declares an `envPrefix` entry for
-// it — without that, Vite would not inject it and this would silently be
-// `undefined` in the production bundle.
-// Otherwise, fall back to the *same host the page
-// was loaded from*, port 8080 — not a hardcoded 'localhost'. A hardcoded
-// localhost default works fine when both frontend and backend run on the
-// developer's own machine, but breaks for anyone else on the network: a
-// phone/laptop that loads the frontend from the dev machine's LAN IP
-// (e.g. http://192.168.1.50:5173) would still send API calls to its own
-// "localhost:8080", which has no backend running on it at all — this is
-// the actual cause behind "backend unreachable from another device."
-// `window.location.hostname` is whatever host the browser used to reach
-// this page, so it's correct in every case: localhost, 127.0.0.1, or a LAN
-// IP — no per-device/per-network configuration needed.
+// `back_end_url` n'a pas de préfixe `VITE_` : sans son entrée `envPrefix` dans
+// vite.config.ts, il vaudrait `undefined` en production, sans erreur.
+// Repli sur l'hôte de la page, pas 'localhost' : un appareil du réseau local appellerait le sien.
 export const API_BASE_URL: string =
   (import.meta.env.back_end_url as string | undefined)?.replace(/\/$/, '') ||
   `${window.location.protocol}//${window.location.hostname}:8080`;
@@ -156,10 +138,6 @@ const MESSAGE_API_INJOIGNABLE = `Impossible de joindre l'API (${API_BASE_URL}). 
 
 export class ApiError extends Error {
   status: number;
-  /** Corps ProblemDetail (RFC 7807) parsé, quand la réponse en portait un.
-   * Sans lui, un 409 métier n'est qu'une phrase : `PATCH .../statut` renvoie
-   * par exemple `transitionsAutorisees` à côté de `detail`, et c'est la seule
-   * façon de proposer les cibles réellement possibles à l'utilisateur. */
   problem?: Record<string, unknown>;
   constructor(status: number, message: string, problem?: Record<string, unknown>) {
     super(message);
@@ -169,12 +147,6 @@ export class ApiError extends Error {
   }
 }
 
-/** Lit le corps d'erreur une seule fois et en tire (message lisible, corps
- * ProblemDetail). Spring renvoie `{detail, title, status, …}` : on affiche
- * `detail` (ou `title`) plutôt que de déverser le JSON brut, tout en gardant
- * l'objet parsé pour les appelants qui ont besoin d'un champ métier précis.
- * Partagé par `performRequest` et l'upload multipart — les deux seuls
- * endroits qui construisent une `ApiError` à partir d'une réponse HTTP. */
 async function readErrorBody(res: Response, fallback: string): Promise<{ message: string; problem?: Record<string, unknown> }> {
   let text: string;
   try {
@@ -201,69 +173,25 @@ function detailProblem(problem: Record<string, unknown> | undefined): string | n
 
 type QueryValue = string | number | boolean | string[] | undefined | null;
 
-// ---------------------------------------------------------------------------
-// Groupement des listes — `GET /api/{prospections,pre-prospections,dossiers}/groupes`
-//
-// Reproduit la bande de groupement du logiciel de bureau. Trois faits mesurés
-// qui justifient que ce soit un endpoint serveur et non un `groupBy` côté
-// front :
-//   1. les listes sont paginées — grouper la page chargée ne donnerait que des
-//      groupes tronqués et des totaux faux ;
-//   2. la somme des effectifs retombe exactement sur le `totalElements` de la
-//      liste à filtres égaux (vérifié : 116 dossiers, 9 654 prospections) ;
-//   3. le groupe des lignes **sans valeur** est servi, pas masqué — sans lui
-//      l'égalité ci-dessus cesserait d'être vraie (93 dossiers sans avocat).
-// ---------------------------------------------------------------------------
-
-/** Ce qui décrit le repliage lui-même, par opposition aux filtres de la liste,
- * qui sont partagés à l'identique avec l'endpoint plat. */
 export interface ParamsGroupes {
-  /** Colonne de groupement. Un seul niveau. **Doit être `groupable`** dans le
-   * catalogue : sinon 400, dont le corps RFC 7807 porte `colonnesValides`. */
+  /** Doit être `groupable` dans le catalogue, sinon 400 (`colonnesValides`). */
   groupBy: string;
-  /** Agrégats à calculer, sous forme de **jetons**, pas de noms de colonne.
-   *
-   * Deux formes, qui coexistent dans le même appel. Un **nom nu** (`prix`)
-   * vaut une **somme** et revient sous ce nom nu — comportement historique,
-   * inchangé. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et
-   * revient sous le jeton complet.
-   *
-   * Les fonctions acceptées **dépendent de la colonne** et sont publiées par
-   * le catalogue (`ColonneDto.fonctions`). Une fonction refusée rend 400 avec
-   * `fonctionsValides` — construire le menu sur le catalogue, jamais sur une
-   * liste en dur. Voir `jetonAgregat` dans `lib/groupement.ts`. */
+  /** Jetons, pas noms de colonne : `prix` = somme, `prix:AVG` = fonction nommée.
+   * Fonctions permises par colonne dans `ColonneDto.fonctions`, sinon 400 ;
+   * jamais de liste en dur (voir `jetonAgregat`). */
   agregats?: string[];
-  /** N'a de sens que si `groupBy` est une colonne DATE. Défaut serveur : MOIS. */
   granularite?: GranulariteGroupe;
   tri?: TriGroupes;
-  /** Inclure le groupe des lignes dont la colonne groupée est vide.
-   *
-   * **Le serveur le laisse à `false`**, et son argument se tient sur une
-   * colonne peu renseignée : le groupe vide écraserait tous les autres. Mais
-   * pour une liste, l'effet est qu'il **fait disparaître des lignes sans le
-   * dire**. Mesuré : grouper les dossiers par avocat rend alors 1 groupe et
-   * 23 lignes, sur 116 ; les 93 dossiers sans avocat ne sont dans aucun
-   * groupe. Par étape de prospection, 9 647 au lieu de 9 654.
-   *
-   * Le front envoie donc toujours `true` — voir `useGroupement`. C'est aussi
-   * la seule valeur sous laquelle la somme des effectifs retombe sur le
-   * `totalElements` de la liste, égalité que l'écran affiche. */
+  /** Défaut serveur `false`, qui fait disparaître des lignes sans le dire : le front
+   * envoie toujours `true` (voir `useGroupement`). */
   inclureSansValeur?: boolean;
 }
 
-/** Ce qu'il faut ajouter à une requête de **liste** pour déplier un groupe.
- *
- * `granularite` doit répéter celle passée à `/groupes` : le serveur rejoue le
- * découpage pour retrouver les lignes, et une clé annuelle confrontée à un
- * découpage mensuel ne correspond à rien. Mesuré, cet oubli rend
- * `totalElements: 0` en **HTTP 200** — un écran vide sans message. */
+/** `granularite` doit répéter celle passée à `/groupes` : sinon le serveur rend
+ * `totalElements: 0` en HTTP 200, un écran vide sans message. */
 export interface ParamsDepliage {
   groupeColonne: string;
-  /** Absent ou `null` : le groupe des lignes **sans valeur** sur la colonne.
-   * C'est le contrat du serveur, qui n'a pas d'autre façon de le désigner.
-   *
-   * Conséquence assumée : une clé qui serait la chaîne vide se confondrait
-   * avec ce groupe, `buildQuery` écartant `''` au même titre que `null`. */
+  /** `null` désigne le groupe sans valeur ; une clé `''` s'y confondrait (`buildQuery` l'écarte). */
   groupeValeur?: string | null;
   granularite?: GranulariteGroupe;
 }
@@ -306,17 +234,8 @@ function buildQuery(params?: Record<string, QueryValue>): string {
   return qs ? `?${qs}` : '';
 }
 
-// ---------------------------------------------------------------------------
-// GET cache — every navigation (switching tabs, going back to a list you
-// just left, …) used to re-hit the backend even when nothing changed.
-// GET responses are now cached in memory by full URL (method is implicit —
-// only GETs are cached) for CACHE_TTL_MS, and in-flight requests for the
-// same URL are deduplicated instead of firing twice. Any mutating call
-// (POST/PATCH/PUT/DELETE) that succeeds clears the whole cache — simpler
-// and safer than trying to invalidate just the affected resource, and the
-// cache is cheap to rebuild.
-// ---------------------------------------------------------------------------
-
+// Toute mutation réussie vide le cache entier. Le sondage de session d'auth.tsx
+// doit rester plus espacé que ce TTL.
 const CACHE_TTL_MS = 30_000;
 
 interface CacheEntry {
@@ -326,21 +245,8 @@ interface CacheEntry {
 
 const getCache = new Map<string, CacheEntry>();
 
-/** Point unique par lequel remonte l'expiration de session.
- *
- * Le cookie JWT est `httpOnly` : le front ne peut ni le lire ni connaître sa
- * date d'expiration, et la spec n'expose aucun endpoint de rafraîchissement.
- * Un 401 sur un appel quelconque est donc le **seul** signal disponible pour
- * savoir que la session est morte.
- *
- * Sans cet accrochage, `AuthProvider` — qui n'interroge `/api/mon-compte` qu'au
- * montage — restait indéfiniment sur `status: 'authenticated'` après
- * l'expiration : chaque page affichait son propre bandeau d'erreur, les
- * référentiels se vidaient, et seul un rafraîchissement complet finissait par
- * ramener l'écran de connexion.
- *
- * `auth.tsx` s'abonne au montage ; l'abonné est unique, il n'y a qu'un
- * `AuthProvider`. */
+/** Cookie JWT httpOnly, pas de rafraîchissement : un 401 est le seul signal
+ * d'expiration. Abonné unique, l'`AuthProvider`. */
 type UnauthorizedHandler = () => void;
 
 let unauthorizedHandler: UnauthorizedHandler | null = null;
@@ -349,26 +255,18 @@ export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): voi
   unauthorizedHandler = handler;
 }
 
-/** Même retour à la connexion, pour un 401 venu d'un autre client que celui-ci
- * — le service des virements (`lib/virements.ts`), dont la session est le même
- * cookie, vérifié par la passerelle. */
+/** Pour un 401 d'un autre client partageant le cookie (`lib/virements.ts`). */
 export function signalerSessionExpiree(): void {
   unauthorizedHandler?.();
 }
 
-/** Un 401 sur le formulaire de connexion n'est pas une expiration : c'est un
- * mauvais identifiant, et il doit rester au formulaire — le transformer en
- * « session expirée » afficherait un message absurde à quelqu'un qui n'a
- * jamais été connecté. */
+/** Un 401 sur le formulaire de connexion est un mauvais identifiant, pas une expiration. */
 function signalerSiSessionExpiree(url: string, status: number): void {
   if (status !== 401) return;
   if (url.includes('/api/auth/connexion')) return;
   unauthorizedHandler?.();
 }
 
-/** Escape hatch for callers that need a guaranteed-fresh read (e.g. after an
- * out-of-band change). Not needed for normal use — mutations already clear
- * the cache automatically. */
 export function clearApiCache(): void {
   getCache.clear();
   clearCachedValues();
@@ -390,7 +288,7 @@ async function request<T>(
     }
     const promise = performRequest<T>(method, url, opts);
     getCache.set(url, { expiresAt: Date.now() + CACHE_TTL_MS, promise });
-    // A failed request must not poison the cache for the next attempt.
+    // Un échec ne doit pas rester en cache pour la tentative suivante.
     promise.catch(() => getCache.delete(url));
     return promise;
   }
@@ -411,10 +309,7 @@ async function performRequest<T>(
       method,
       headers: opts?.body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
       body: opts?.body !== undefined ? JSON.stringify(opts.body) : undefined,
-      // Auth (V4) rides on an httpOnly `access_token` cookie set by
-      // /api/auth/connexion — without `include`, cross-origin dev setups
-      // (frontend on a different port than the backend) would silently
-      // never send it back, and every call would look like a 401.
+      // Sans `include`, le cookie httpOnly n'est pas renvoyé en cross-origin : tout finirait en 401.
       credentials: 'include',
     });
   } catch {
@@ -428,7 +323,6 @@ async function performRequest<T>(
   return lireCorpsJson<T>(res);
 }
 
-/** 204 ou corps vide → `undefined` ; sinon le JSON. */
 async function lireCorpsJson<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T;
   const text = await res.text();
@@ -436,23 +330,14 @@ async function lireCorpsJson<T>(res: Response): Promise<T> {
   return JSON.parse(text) as T;
 }
 
-// ---------------------------------------------------------------------------
-// Prospects
-// ---------------------------------------------------------------------------
-
 export function listProspects(
   params?: {
     search?: string;
-    /** Repeatable — pass several to OR-match any of them. Backend today only
-     * binds the first value of a repeated `type` param (see
-     * docs/filtres-avances.md); kept as `string[]` here so the UI is ready
-     * the moment the backend adds real array support. */
+    /** Le serveur ne lie que la première valeur d'un `type` répété. */
     type?: string[];
   },
   pageable?: Pageable,
-  /** Voir `listProspections` : `colonnes` n'est pas un filtre, un nom hors
-   * catalogue renvoie 400, et `id` est servi qu'on le demande ou non. Absent,
-   * le serveur renvoie les 10 colonnes historiques. */
+  /** Un nom hors catalogue renvoie 400 ; `id` est servi qu'on le demande ou non. */
   options?: { colonnes?: string[] },
 ): Promise<PageDto<ProspectListItemDto>> {
   const query: Record<string, QueryValue> = withPageable(params, pageable);
@@ -460,13 +345,6 @@ export function listProspects(
   return request('GET', '/api/prospects', { query });
 }
 
-/** Catalogue des colonnes sélectionnables de la liste des prospects.
- *
- * Même contrat que celui des prospections. Deux réserves relevées par la spec
- * au moment de bâtir le sélecteur : `profession` est alimentée par une colonne
- * mesurée à **0 ligne sur 13 664** et sera donc toujours vide, et `kind` l'est
- * sur 14 339 des 14 516 tiers réels. Les tranches d'intérêt sont absentes du
- * catalogue — elles exigent une requête par prospect et restent à la fiche. */
 export function getColonnesProspects(): Promise<ColonneDto[]> {
   return request('GET', '/api/referentiels/colonnes/prospects');
 }
@@ -475,11 +353,7 @@ export function getProspect(id: UUID): Promise<ProspectDetailDto> {
   return request('GET', `/api/prospects/${id}`);
 }
 
-// "Clients" (V4) — anyone who's the clientId of at least one dossier, with
-// server-aggregated totals. Distinct controller from /api/prospects, but
-// /api/clients/{id} returns the same ProspectDetailDto shape.
-/** `trancheId` : clients ayant au moins un dossier dans cette tranche — **réservé
- * aux administrateurs, 403 sinon** (FEATURE-dashboard-filtre-tranche). */
+/** `trancheId` réservé aux administrateurs : 403 sinon. */
 export function listClients(params?: { search?: string; trancheId?: UUID }, pageable?: Pageable): Promise<PageDto<ClientListItemDto>> {
   return request('GET', '/api/clients', { query: withPageable(params, pageable) });
 }
@@ -488,42 +362,23 @@ export function getClient(id: UUID): Promise<ProspectDetailDto> {
   return request('GET', `/api/clients/${id}`);
 }
 
-/** `POST /api/prospects`. Depuis `FEATURE-doublons-prospect-projet.md` §2
- * la création peut répondre **409** là où elle répondait 201 : une fiche
- * prospect/client existante porte le même nom, téléphone ou email et
- * `ignorerDoublons` n'est pas `true`. Le corps porte `doublons` — lire avec
- * `doublonsDepuisErreur` et demander « est-ce l'une de ces personnes ? »
- * avant de renvoyer avec `ignorerDoublons: true`. Ne pas gérer ce 409 fait
- * « échouer » la création sur tout homonyme, qui est le cas courant. */
+/** 409 + `doublons` sur tout homonyme (cas courant) sauf `ignorerDoublons: true` :
+ * lire avec `doublonsDepuisErreur`, faire choisir, puis renvoyer. */
 export function createProspect(body: CreerProspectRequest): Promise<ProspectDetailDto> {
   return request('POST', '/api/prospects', { body });
 }
 
-/** `GET /api/prospects/doublons` — le contrôle d'identité à faire **avant**
- * de créer un prospect. Fiches prospect/client correspondant sur au moins un
- * critère (`NOM`, `TELEPHONE`, `EMAIL`), le plus de critères d'abord puis les
- * plus récentes, 50 au plus. **Vide = aucune fiche ne correspond.** 400 si
- * aucun paramètre exploitable. Pas de périmètre commercial : les prospects
- * n'y sont pas soumis. Le même contrôle est appliqué par `createProspect` et
- * `creerProspectFromPreProspection` — cet endpoint sert à prévenir pendant
- * la saisie, pas à remplacer le 409. */
+/** Prévient pendant la saisie ; ne dispense pas de gérer le 409 de `createProspect`. */
 export function rechercherDoublonsProspect(params: RechercheDoublonsProspectParams): Promise<ProspectDoublonDto[]> {
   return request('GET', '/api/prospects/doublons', { query: { ...params } });
 }
 
-/** Extrait la liste `doublons` d'un 409 de `createProspect` /
- * `creerProspectFromPreProspection`. `null` pour toute autre erreur — un 409
- * sans `doublons` n'en est pas un de ce type et doit rester une phrase. */
 export function doublonsDepuisErreur(err: unknown): ProspectDoublonDto[] | null {
   if (!(err instanceof ApiError) || err.status !== 409) return null;
   const doublons = err.problem?.doublons;
   return Array.isArray(doublons) ? (doublons as ProspectDoublonDto[]) : null;
 }
 
-/** Extrait `prospectionExistante` d'un 409 « un prospect, un projet, une
- * prospection » (`createProspection`, `transformerProspection`,
- * `modifierTranchePrincipale`, `lierProspectAPreProspection`). `null` pour
- * toute autre erreur. */
 export function prospectionExistanteDepuisErreur(err: unknown): ProspectionExistanteDto | null {
   if (!(err instanceof ApiError) || err.status !== 409) return null;
   const existante = err.problem?.prospectionExistante;
@@ -564,59 +419,31 @@ export function listProspectHistorique(prospectId: UUID, pageable?: Pageable): P
   return request('GET', `/api/prospects/${prospectId}/historique`, { query: withPageable(undefined, pageable) });
 }
 
-// ---------------------------------------------------------------------------
-// Prospections / Pré-prospections
-// ---------------------------------------------------------------------------
-
-/** Shared filter shape for /api/prospections and /api/pre-prospections — the
- * two endpoints list the same underlying table (see CLAUDE.md) and accept
- * the same filter set, for UI consistency with /api/dossiers. All fields
- * below are real, repeatable-where-noted server-side params on both
- * endpoints as of docs/api-docsV4.json's 88-route revision (confirmed
- * 2026-08-22 — see docs/filtres-avances.md for the backend ask history). */
 export interface ProspectionFilterParams {
   [key: string]: string | number | boolean | string[] | undefined | null;
-  /** Repeatable — pass several to OR-match any of them. */
   etape?: string[];
-  /** Repeatable — pass several to OR-match any of them. */
   origine?: string[];
-  /** Repeatable — pass several to OR-match any of them. */
   commercial?: UUID[];
-  /** Repeatable — pass several to OR-match prospections whose tranche is any of them. */
   trancheId?: UUID[];
-  /** ISO-8601 datetime, inclusive lower bound on `dateDocument`. */
+  /** Date-heure ISO (pas une date seule), borne incluse. */
   dateDebut?: string;
-  /** ISO-8601 datetime, inclusive upper bound on `dateDocument`. */
+  /** Date-heure ISO (pas une date seule), borne incluse. */
   dateFin?: string;
   search?: string;
   ouvertes?: boolean;
 }
 
-/** `colonnes` n'est **pas** un filtre et ne vit donc pas dans
- * `ProspectionFilterParams`, que `/api/pre-prospections` partage sans accepter
- * ce paramètre. Il est passé à part, sur le seul endpoint qui le comprend.
- *
- * Omettre le paramètre n'est pas neutre : sans lui le backend **n'interroge pas
- * la vue légataire du tout** et les colonnes des groupes `ACTIVITE`/
- * `CONVERSION` sont absentes de la réponse. C'est ce qui rend la liste rapide
- * par défaut — servir toutes les colonnes coûte 5 942 ms à la page 250 contre
- * 123 ms. Un nom hors catalogue renvoie 400.
- *
- * `id` est toujours renvoyé, demandé ou non : sans lui la ligne ne serait pas
- * cliquable. */
+/** `colonnes` hors de `ProspectionFilterParams` : /api/pre-prospections le refuse.
+ * L'omettre n'est pas neutre : la vue légataire n'est pas lue et les colonnes
+ * `ACTIVITE`/`CONVERSION` manquent. Nom hors catalogue → 400. */
 export function listProspections(
   params?: ProspectionFilterParams,
   pageable?: Pageable,
   options?: {
     colonnes?: string[];
-    /** Aplati en paramètres de requête individuels, **pas** sérialisé comme un
-     * objet : la spec le déclare en un seul paramètre `filtres` parce que
-     * springdoc rend ainsi un objet de commande, mais Spring le lie depuis des
-     * paramètres plats. Son `required: true` est le même artefact — un objet
-     * sans champ obligatoire se lie vide. */
+    /** Aplati en paramètres plats, pas sérialisé en objet : la spec déclare un objet
+     * `filtres` (`required`), artefact springdoc ; Spring lie des paramètres plats. */
     filtres?: FiltresAvancesProspection;
-    /** Restreint la liste aux lignes d'un groupe renvoyé par
-     * `listProspectionsGroupes`. Voir `ParamsDepliage`. */
     depliage?: ParamsDepliage;
   },
 ): Promise<PageDto<ProspectionListItemDto>> {
@@ -629,26 +456,15 @@ export function listProspections(
 
 function ajouterFiltres(query: Record<string, QueryValue>, filtres: FiltresAvancesProspection | undefined): void {
   for (const [cle, valeur] of Object.entries(filtres ?? {})) {
-    // `false` et `0` sont des filtres légitimes (« sans relance active »), donc
-    // seuls `undefined` et les listes vides sont écartés. `buildQuery` ignore
-    // ensuite `null` et la chaîne vide.
+    // `false` et `0` sont des filtres légitimes : seuls `undefined` et `[]` sont écartés.
     if (valeur === undefined) continue;
     if (Array.isArray(valeur) && valeur.length === 0) continue;
     query[cle] = valeur as QueryValue;
   }
 }
 
-/** `GET /api/prospections/groupes` — la liste repliée en groupes.
- *
- * Mêmes filtres que `listProspections`, périmètre commercial compris : c'est
- * ce qui garantit que la somme des effectifs égale le `totalElements` de la
- * liste. `colonnes` n'a en revanche aucun sens ici — un groupe ne porte pas de
- * ligne, donc pas de colonne.
- *
- * Les colonnes des groupes `ACTIVITE` et `CONVERSION` ne sont **pas**
- * groupables : elles viennent de la vue légataire `ComSaleProspectionView`,
- * chargée par une requête distincte, et n'existent pas dans le graphe
- * d'entités. Le catalogue le dit via `groupable` — ne pas le redéduire ici. */
+/** Colonnes `ACTIVITE`/`CONVERSION` non groupables (vue légataire) : se fier à
+ * `groupable` du catalogue, ne pas le redéduire. */
 export function listProspectionsGroupes(
   params: ProspectionFilterParams | undefined,
   groupes: ParamsGroupes,
@@ -660,11 +476,6 @@ export function listProspectionsGroupes(
   return request('GET', '/api/prospections/groupes', { query });
 }
 
-/** Catalogue des colonnes sélectionnables de la liste des prospections.
- *
- * Même source que la liste blanche qui valide `?colonnes=` côté serveur, donc
- * les deux ne peuvent pas diverger — c'est la raison d'être de cet endpoint, et
- * ce qu'un catalogue codé en dur côté front ne pouvait pas garantir. */
 export function getColonnesProspections(): Promise<ColonneDto[]> {
   return request('GET', '/api/referentiels/colonnes/prospections');
 }
@@ -673,68 +484,19 @@ export function getProspection(id: UUID): Promise<ProspectionDetailDto> {
   return request('GET', `/api/prospections/${id}`);
 }
 
-/** `POST /api/prospections` (from_front.md demande #9, livré) — crée une
- * prospection qualifiée pour un prospect existant. `prospectId` obligatoire
- * (400 sinon) ; pas de contrepartie pour un lead brut/non identifié, voir
- * plutôt le flux pré-prospection (`creerProspectFromPreProspection`/
- * `transformerProspection`, si câblés) pour ce cas-là. */
 export function createProspection(body: CreerProspectionRequest): Promise<ProspectionDetailDto> {
   return request('POST', '/api/prospections', { body });
 }
 
-/** Piste d'audit paginée (plus récent en premier) des deux transitions du
- * parcours pré-prospect → prospect → prospection que cette API trace
- * elle-même — "Prospect créé et lié" (POST /api/pre-prospections/{id}/
- * creer-prospect) et "Transformée en prospection" (POST /api/prospections/
- * {id}/transformer). Comble une lacune réelle d'Omran : ces deux
- * transitions n'y sont tracées nulle part (ComProspection.UserUpdateDateTime
- * reste NULL même après transformation, la ligne étant mutée en place). La
- * date de création du pré-prospect n'est pas dupliquée ici, elle reste sur
- * ProspectionDetailDto.dateDocument. Le stade "Dossier de vente" a son
- * propre historique séparé, voir listHistoriqueDossier. */
-/** `POST .../interactions/{interactionId}/email-visite` — réexpédie au
- * prospect la confirmation de visite déjà envoyée à la création de
- * l'interaction. Le contenu est **recalculé** à chaque appel, jamais rejoué :
- * une adresse de projet corrigée ou un plan déposé entre-temps y figureront.
- *
- * Le chemin dit `email-visite` mais l'envoi part sur **deux canaux tentés
- * indépendamment**, email et WhatsApp — la réponse porte un bloc par canal, et
- * son `envoye` racine vaut vrai dès qu'au moins un a abouti. Les plans ne
- * partent que par email (UltraMsg exige une URL publique, or celles du
- * stockage expirent en quinze minutes).
- *
- * **Un envoi qui n'a pas lieu n'est pas une erreur** : un prospect sans
- * coordonnée donne un 200 avec `envoye: false` et un motif par canal. Ne
- * réserver le traitement d'erreur qu'au 404 (introuvable ou hors périmètre) et
- * au 409 (l'interaction ne planifie aucun rendez-vous). */
+/** Malgré le chemin, part aussi par WhatsApp : un bloc par canal, `envoye` vrai si
+ * l'un a abouti. Un 200 avec `envoye: false` (sans coordonnée) n'est pas une erreur. */
 export function renvoyerEmailVisite(prospectionId: UUID, interactionId: UUID): Promise<ResultatEnvoiVisiteDto> {
   return request('POST', `/api/prospections/${prospectionId}/interactions/${interactionId}/email-visite`);
 }
 
-/** `POST /api/prospections/{id}/offre-prix` — **second temps de l'après-visite.**
- * Le remerciement, lui, part tout seul au passage à l'étape « 4 APRES VISITES »
- * (`changerEtapeProspection`) ; l'offre exige un prix qu'un humain doit arrêter,
- * d'où cet appel explicite. Il crée une offre `StlQuote` numérotée comme le
- * legacy, rend la Fiche Offre en PDF, puis expédie sur les deux canaux.
- *
- * `body` est **entièrement facultatif** : sans lui, plein tarif du lot. Et
- * `remisePercent` est un pourcentage (5 = 5 %), pas un ratio.
- *
- * **Le 409 est le cas majoritaire, pas une panne.** Le montant vient du lot, et
- * le lot n'est renseigné que sur 7 % des prospections de cette étape (94 sur
- * 1 266) — d'où le garde-fou côté écran, qui n'active le bouton qu'une fois le
- * lot rattaché. Le 409 restant est un filet, à rendre comme une étape de
- * parcours (« rattachez d'abord un lot ») et non comme une erreur rouge.
- *
- * **Le corps du 409 n'est pas vérifiable.** La spec le déclare en
- * `ResultatEnvoiOffreDto` sous un content-type générique — signature typique de
- * springdoc quand l'`@ApiResponse` n'a pas de bloc `content`, alors que la
- * convention du projet
- * est un ProblemDetail. Impossible de trancher sans session (401 hors
- * authentification). `ApiError.problem` porte le corps parsé quelle que soit sa
- * forme : lire le message d'`ApiError` et ne rien déduire de sa structure.
- *
- * Comme pour la visite, `envoye: false` sur un 200 n'est pas un échec d'appel. */
+/** `remisePercent` est un pourcentage (5 = 5 %), pas un ratio. Le 409 (lot non
+ * rattaché) est courant : l'afficher comme une étape, pas une erreur, et ne rien
+ * déduire de la forme de son corps. `envoye: false` sur un 200 n'est pas un échec. */
 export function envoyerOffrePrix(id: UUID, body?: EnvoyerOffrePrixRequest): Promise<ResultatEnvoiOffreDto> {
   return request('POST', `/api/prospections/${id}/offre-prix`, { body: body ?? {} });
 }
@@ -752,13 +514,8 @@ export function listPreProspections(
   return request('GET', '/api/pre-prospections', { query });
 }
 
-/** `GET /api/pre-prospections/groupes` — même mécanique que pour les
- * prospections, sur le périmètre `CfgProspectId IS NULL AND CfgCommercialId IS
- * NULL`.
- *
- * `prospectNom` et `commercialNom` y sont nuls par définition : les grouper
- * rend un groupe unique sans valeur. Le serveur l'accepte plutôt que de le
- * refuser par un cas particulier ; c'est à l'écran de ne pas les proposer. */
+/** `prospectNom` et `commercialNom` y sont toujours nuls : le serveur accepte de
+ * grouper dessus, c'est à l'écran de ne pas les proposer. */
 export function listPreProspectionsGroupes(
   params: ProspectionFilterParams | undefined,
   groupes: ParamsGroupes,
@@ -769,65 +526,41 @@ export function listPreProspectionsGroupes(
   });
 }
 
-/** `POST /api/pre-prospections/{id}/creer-prospect`. Même contrôle de doublon
- * que `createProspect` : 409 + `doublons` sauf `ignorerDoublons: true`. Oui à
- * « c'est l'une de ces personnes » → `lierProspectAPreProspection` ; non →
- * renvoyer le même corps avec `ignorerDoublons: true`. */
+/** 409 + `doublons` comme `createProspect`. Personne existante →
+ * `lierProspectAPreProspection` ; sinon renvoyer avec `ignorerDoublons: true`. */
 export function creerProspectFromPreProspection(id: UUID, body: CreerProspectRequest): Promise<ProspectionDetailDto> {
   return request('POST', `/api/pre-prospections/${id}/creer-prospect`, { body });
 }
 
-/** `POST /api/pre-prospections/{id}/lier-prospect` — le pendant de
- * `creer-prospect` quand la personne existe déjà : pose un CfgTier existant
- * comme prospect de la pré-prospection, sans rien créer. 400 si un prospect
- * est déjà lié ou si le tiers n'est pas prospect/client ; **409** avec
- * `prospectionExistante` si la pré-prospection porte une tranche et que ce
- * prospect a déjà une prospection ouverte sur son projet. L'étape suivante
- * reste `transformerProspection`. */
+/** 409 + `prospectionExistante` si ce prospect a déjà une prospection ouverte sur le projet. */
 export function lierProspectAPreProspection(id: UUID, body: LierProspectRequest): Promise<ProspectionDetailDto> {
   return request('POST', `/api/pre-prospections/${id}/lier-prospect`, { body });
 }
 
-/** `POST /api/pre-prospections` — un lead brut, comme l'écran
- * « Pré-prospection » d'OMRAN. Réponse **enveloppée** `{ preProspection,
- * doublons }` : les doublons sont signalés, jamais refusés (400 nom absent ou
- * référentiel inconnu, 403 tranche hors périmètre). */
+/** Réponse enveloppée `{ preProspection, doublons }` : doublons signalés, jamais refusés. */
 export function creerPreProspection(body: CreerPreProspectionRequest): Promise<PreProspectionCreeeDto> {
   return request('POST', '/api/pre-prospections', { body });
 }
 
-/** Référentiels de l'import CSV — chacun remplace le défaut serveur (Nature
- * `1 A TRAITER`, source `FACEBOOK`, type `WEB`). `trancheId` seul est
- * obligatoire : **toutes** les lignes du fichier y sont rattachées. */
 export interface ImportPreProspectionsParams {
+  /** Toutes les lignes du fichier y sont rattachées. */
   trancheId: UUID;
   etapeId?: UUID;
   origineId?: UUID;
   origineSupportId?: UUID;
   typeContactId?: UUID;
   actionCommercialeId?: UUID;
-  /** Statuts à importer. Absent : les deux. Vide, `DEJA_IMPORTEE` ou
-   * `ERREUR` → 400. Ne change pas la classification des lignes. */
+  /** Absent : les deux. Vide, `DEJA_IMPORTEE` ou `ERREUR` → 400. */
   statuts?: StatutImportable[];
 }
 
-/** Statuts qu'un import peut créer — les deux autres sont toujours ignorés. */
 export type StatutImportable = Extract<StatutLigneImport, 'NOUVELLE' | 'DOUBLON'>;
 
-/** `POST /api/pre-prospections/import/apercu` — étape 1 de l'import : le
- * fichier est lu, rien n'est écrit. Le rapport donne le sort de chaque ligne
- * et propose une tranche (`trancheSuggereeId`) quand tous les formulaires du
- * fichier désignent la même. 400 : fichier vide, colonne « Nom » absente,
- * plus de 5 000 lignes. */
 export function apercuImportPreProspections(fichier: File): Promise<RapportImportPreProspectionsDto> {
   return postMultipart<RapportImportPreProspectionsDto>('/api/pre-prospections/import/apercu', fichier);
 }
 
-/** `POST /api/pre-prospections/import` — étape 2 : **le même fichier**, avec
- * la tranche choisie après l'aperçu. Tout ou rien pour les erreurs de requête
- * (400 tranche inconnue, 403 hors périmètre : aucune ligne écrite) ; les
- * lignes `ERREUR` n'empêchent pas les autres. `statuts` part répété
- * (`statuts=NOUVELLE&statuts=DOUBLON`) via `buildQuery`. */
+/** Renvoyer le même fichier qu'à l'aperçu ; les lignes `ERREUR` n'empêchent pas les autres. */
 export function importerPreProspections(fichier: File, params: ImportPreProspectionsParams): Promise<RapportImportPreProspectionsDto> {
   return postMultipart<RapportImportPreProspectionsDto>('/api/pre-prospections/import', fichier, { ...params });
 }
@@ -844,10 +577,8 @@ export function archiverProspection(id: UUID, body: ArchiverProspectionRequest):
   return request('PATCH', `/api/prospections/${id}/archiver`, { body });
 }
 
-/** Inverse d'`archiverProspection`, sans corps. Seul `fermee` repasse à
- * `false` : date et motif de clôture restent renseignés (fidèle à OMRAN), et
- * les relances désarmées à l'archivage ne sont pas réarmées. 409 si la
- * prospection n'est pas archivée. */
+/** Seul `fermee` repasse à `false` : date et motif de clôture restent, les relances
+ * ne sont pas réarmées. 409 si la prospection n'est pas archivée. */
 export function desarchiverProspection(id: UUID): Promise<ProspectionDetailDto> {
   return request('PATCH', `/api/prospections/${id}/desarchiver`);
 }
@@ -856,10 +587,7 @@ export function modifierProspection(id: UUID, body: ModifierProspectionRequest):
   return request('PATCH', `/api/prospections/${id}`, { body });
 }
 
-/** The only endpoint that changes a prospection's tranche/article
- * "principal" — distinct from `addProspectionAutreTranche`, which manages
- * independent secondary interests and never touches `trancheId`/`articleId`.
- * See `ModifierTranchePrincipaleRequest`. */
+/** Seul moyen de changer `trancheId`/`articleId` : `addProspectionAutreTranche` n'y touche jamais. */
 export function modifierTranchePrincipale(id: UUID, body: ModifierTranchePrincipaleRequest): Promise<ProspectionDetailDto> {
   return request('PATCH', `/api/prospections/${id}/tranche-principale`, { body });
 }
@@ -871,9 +599,6 @@ export function listInteractions(prospectionId: UUID, pageable?: Pageable): Prom
 export function addInteraction(prospectionId: UUID, body: CreerInteractionRequest): Promise<InteractionDto> {
   return request('POST', `/api/prospections/${prospectionId}/interactions`, { body });
 }
-
-// --- Prospection sub-collections: villes / types-bien / profils /
-// catégories / autres-tranches / devis ---
 
 export function listProspectionVilles(prospectionId: UUID): Promise<ProspectionVilleDto[]> {
   return request('GET', `/api/prospections/${prospectionId}/villes`);
@@ -925,17 +650,11 @@ export function removeProspectionAutreTranche(prospectionId: UUID, itemId: UUID)
   return request('DELETE', `/api/prospections/${prospectionId}/autres-tranches/${itemId}`);
 }
 
-/** `GET /api/prospections/{id}/contacts` — les contacts (conjoint, notaire,
- * apporteur…) du prospect lié à cette prospection. Une pré-prospection (sans
- * prospect encore lié) renvoie une **liste vide**, jamais une erreur. */
+/** Sans prospect lié (pré-prospection) : liste vide, jamais une erreur. */
 export function listProspectionContacts(prospectionId: UUID): Promise<ContactProspectDto[]> {
   return request('GET', `/api/prospections/${prospectionId}/contacts`);
 }
-/** `POST /api/prospections/{id}/contacts` — même effet que
- * `POST /api/prospects/{prospectId}/contacts`, mais adressé par la
- * prospection : le prospect est résolu depuis elle. 400 si `relationTypeId`
- * manque, si ni `contactProspectId` ni `nouveauContact` (ou les deux), ou si
- * la prospection n'a pas encore de prospect. */
+/** 400 si la prospection n'a pas encore de prospect. */
 export function addProspectionContact(prospectionId: UUID, body: CreerContactProspectRequest): Promise<ContactProspectDto> {
   return request('POST', `/api/prospections/${prospectionId}/contacts`, { body });
 }
@@ -947,35 +666,21 @@ export function creerDevis(prospectionId: UUID, body: CreerDevisRequest): Promis
   return request('POST', `/api/prospections/${prospectionId}/devis`, { body });
 }
 
-/** Filtres pour la liste globale des offres (page `/offres`, tout
- * `Vente > Offres` de l'ancien Omran) — mêmes conventions que
- * `ProspectionFilterParams`/`DossierFilterParams` (liste répétable pour le
- * multi-select `trancheId`, plage `dateDebut`/`dateFin` sur `dateDocument`).
- * Confirmé dans `docs/api-docsV4.json` (`GET /api/devis`) — voir
- * `docs/filtres-avances.md` §Offres. */
 export interface DevisFilterParams {
   [key: string]: string | number | boolean | string[] | undefined | null;
   search?: string;
-  /** Repeatable — pass several to OR-match any of them. */
   trancheId?: UUID[];
   commercial?: UUID;
-  /** ISO-8601 datetime, inclusive lower bound on `dateDocument`. */
+  /** Date-heure ISO (pas une date seule), borne incluse. */
   dateDebut?: string;
-  /** ISO-8601 datetime, inclusive upper bound on `dateDocument`. */
+  /** Date-heure ISO (pas une date seule), borne incluse. */
   dateFin?: string;
 }
 
-/** `GET /api/devis` — liste globale, cross-prospections, des offres émises.
- * Réponse `DevisPageDto` : mêmes champs qu'une page standard plus
- * `sommePrixVenteTTCPage` (somme des prix TTC de la page courante
- * uniquement — pas un total plein-filtre, voir le type). */
+/** `sommePrixVenteTTCPage` : somme de la page courante seulement, pas du filtre entier. */
 export function listOffres(params?: DevisFilterParams, pageable?: Pageable): Promise<DevisPageDto> {
   return request('GET', '/api/devis', { query: withPageable(params, pageable) });
 }
-
-// ---------------------------------------------------------------------------
-// Dossiers
-// ---------------------------------------------------------------------------
 
 export type DossierChampDate =
   | 'RESERVATION'
@@ -988,26 +693,19 @@ export type DossierChampDate =
   | 'FORMALISATION'
   | 'ANNULATION';
 
-/** Filtres de `GET /api/dossiers`, **et de `GET /api/dossiers/groupes`** : les
- * deux endpoints les acceptent à l'identique, ce qui est la condition pour que
- * la somme des effectifs des groupes égale le total de la liste.
- *
- * Alias de type et non `interface` à dessein : `withPageable` attend un
- * `Record<string, QueryValue>`, et seul un alias d'objet reçoit de TypeScript
- * la signature d'index implicite qui le rend assignable. */
+/** Alias et non `interface` à dessein : seul un alias d'objet reçoit la signature
+ * d'index implicite qui le rend assignable au `Record` de `withPageable`. */
 export type DossierFilterParams = {
-  /** Repeatable — pass several to OR-match any of them. */
   statut?: string[];
   commercial?: UUID;
-  /** Filters by Entité/Projet (`CfgProject.id`), matched via the dossier's main article. */
+  /** Rapproché via l'article principal du dossier. */
   projet?: UUID;
-  /** Repeatable — pass several to OR-match dossiers with an article in any of them. */
   trancheId?: UUID[];
-  /** Milestone `dateDebut`/`dateFin` applies to. Ignored if neither is set. Default: RESERVATION. */
+  /** Défaut serveur RESERVATION ; ignoré sans `dateDebut`/`dateFin`. */
   champDate?: DossierChampDate;
-  /** ISO-8601 datetime, inclusive lower bound on `champDate`. */
+  /** Date-heure ISO (pas une date seule), borne incluse. */
   dateDebut?: string;
-  /** ISO-8601 datetime, inclusive upper bound on `champDate`. */
+  /** Date-heure ISO (pas une date seule), borne incluse. */
   dateFin?: string;
   search?: string;
 };
@@ -1015,18 +713,10 @@ export type DossierFilterParams = {
 export function listDossiers(
   params?: DossierFilterParams,
   pageable?: Pageable,
-  /** Voir `listProspections` : `colonnes` n'est pas un filtre, un nom hors
-   * catalogue renvoie 400, et `id` est servi qu'on le demande ou non. Absent,
-   * le serveur renvoie les 13 colonnes historiques.
-   *
-   * Le coût est ici plus marqué qu'ailleurs : les groupes `PATRIMOINE` et
-   * `ORIGINE` traversent article → tranche → projet → société et déréférencent
-   * la prospection, soit trois jointures paresseuses par ligne quand on les
-   * demande, aucune quand on s'en abstient. */
+  /** Nom hors catalogue → 400. Les groupes `PATRIMOINE`/`ORIGINE` coûtent des
+   * jointures par ligne : ne les demander qu'affichés. */
   options?: {
     colonnes?: string[];
-    /** Restreint la liste aux lignes d'un groupe renvoyé par
-     * `listDossiersGroupes`. Voir `ParamsDepliage`. */
     depliage?: ParamsDepliage;
   },
 ): Promise<PageDto<DossierListItemDto>> {
@@ -1036,15 +726,6 @@ export function listDossiers(
   return request('GET', '/api/dossiers', { query });
 }
 
-/** `GET /api/dossiers/groupes` — la liste repliée en groupes.
- *
- * L'écran le plus outillé des trois : 22 colonnes groupables et 8 agrégeables,
- * contre 21 et 2 côté prospections. Et le plus rapide — mesuré 48 à 114 ms en
- * régime établi.
- *
- * Pas de `colonnes` : un groupe ne porte pas de ligne. Les jointures
- * `PATRIMOINE`/`ORIGINE` que `listDossiers` fait payer à la ligne ne se posent
- * donc pas, même quand on groupe *par* une de ces colonnes. */
 export function listDossiersGroupes(
   params: DossierFilterParams | undefined,
   groupes: ParamsGroupes,
@@ -1055,13 +736,6 @@ export function listDossiersGroupes(
   });
 }
 
-/** Catalogue des colonnes sélectionnables de la liste des dossiers de vente.
- *
- * Même contrat que les deux autres. Ne figurent pas au catalogue, et c'est
- * délibéré : les **articles** (une requête par dossier), la ventilation
- * financière du légataire (5 postes vivants sur 12, et un bloc `Agreement*` qui
- * diverge du bloc principal sur 20 % des lignes sans qu'on sache lequel fait
- * foi) et `notes`, mesurée à 0 ligne sur 358. */
 export function getColonnesDossiers(): Promise<ColonneDto[]> {
   return request('GET', '/api/referentiels/colonnes/dossiers');
 }
@@ -1074,9 +748,6 @@ export function createDossier(body: CreerDossierRequest): Promise<DossierDetailD
   return request('POST', '/api/dossiers', { body });
 }
 
-/** Preview step of the dossier creation wizard — computes the same "Schéma
- * de financement" `POST /api/dossiers` would generate, without creating or
- * persisting anything. Call again on every articleIds/prix change. */
 export function simulerSchemaFinancement(body: SimulerSchemaFinancementRequest): Promise<SchemaFinancementDto> {
   return request('POST', '/api/dossiers/simulation-financement', { body, lecture: true });
 }
@@ -1101,15 +772,8 @@ export function listPiecesJointes(dossierId: UUID): Promise<PieceJointeDto[]> {
   return request('GET', `/api/dossiers/${dossierId}/pieces-jointes`);
 }
 
-/** Dépôt d'un fichier en `multipart/form-data` — ne peut pas passer par
- * `request()`, qui encode toujours le corps en JSON. Deux endpoints
- * l'utilisent (pièces jointes de dossier, preuves de paiement d'un
- * règlement) ; ils partagent la même convention côté serveur : le fichier
- * est le champ de formulaire `fichier`, tandis que `description` et `typeId`
- * voyagent en **query string**, pas dans le corps. Aucun `Content-Type`
- * n'est posé à la main — le navigateur doit générer la boundary lui-même.
- * Vide le cache GET au succès, comme toute mutation, pour que la liste des
- * pièces jointes se rafraîchisse. */
+/** Les autres champs voyagent en query string, pas dans le corps. Pas de
+ * `Content-Type` à la main : le navigateur doit poser la boundary. */
 async function postMultipart<T>(path: string, file: File, query?: Record<string, QueryValue>): Promise<T> {
   const form = new FormData();
   form.set('fichier', file);
@@ -1129,21 +793,11 @@ async function postMultipart<T>(path: string, file: File, query?: Record<string,
   return lireCorpsJson<T>(res);
 }
 
-/** `POST /api/dossiers/{id}/pieces-jointes`. `description` est une légende
- * libre — absente, le backend retombe sur le nom de fichier d'origine.
- * `typeId` (AdmAttachedFileType.PKey, voir `getTypesPieceJointe`) est
- * optionnel — absent = type non renseigné. */
 export function uploadPieceJointe(dossierId: UUID, file: File, description?: string, typeId?: UUID): Promise<PieceJointeDto> {
   return postMultipart<PieceJointeDto>(`/api/dossiers/${dossierId}/pieces-jointes`, file, { description, typeId });
 }
 
-/** `DELETE /api/dossiers/{id}/pieces-jointes/{pieceId}` — suppression
- * **logique** : la pièce disparaît de `listPiecesJointes` et son `.../fichier`
- * renvoie désormais 404, mais le fichier reste sur le stockage en attendant un
- * balayage hors ligne. Récupérable en base, jamais via l'API — d'où la
- * confirmation exigée côté UI. L'auteur de la suppression est déduit du token,
- * jamais envoyé d'ici. Réponse `204` sans corps ; rejouer le `DELETE` renvoie
- * 404, la pièce n'étant plus visible. */
+/** Irréversible via l'API (d'où la confirmation à l'écran) ; rejouer le DELETE renvoie 404. */
 export function removePieceJointe(dossierId: UUID, pieceId: UUID): Promise<void> {
   return request('DELETE', `/api/dossiers/${dossierId}/pieces-jointes/${pieceId}`);
 }
@@ -1161,20 +815,14 @@ const EXTENSION_MIME: Record<string, string> = {
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 };
 
-/** PieceJointeDto carries no mimeType — the only signal available is the
- * file's extension. Falls back to a generic binary type (forces a download,
- * never renders garbled) when the extension is unknown or absent. */
+/** `PieceJointeDto` n'a pas de type MIME : l'extension est le seul indice. */
 function mimeForExtension(extension: string | undefined): string {
   const ext = (extension ?? '').replace(/^\./, '').toLowerCase();
   return EXTENSION_MIME[ext] ?? 'application/octet-stream';
 }
 
-/** Shared by every `format: byte` file endpoint (pièces jointes, fiche de
- * réservation, …): Spring *could* serialize the byte[] as JSON (base64
- * string or a raw `[137,80,78,...]` number array) instead of real binary —
- * this handles either shape and always returns a proper Blob, tagged with
- * the given MIME type, so a "view" can render inline instead of forcing a
- * download. */
+/** Un `format: byte` peut arriver en JSON (chaîne base64 ou tableau de nombres)
+ * au lieu de binaire : les deux formes sont gérées. */
 async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestInit): Promise<Blob> {
   let res: Response;
   try {
@@ -1199,23 +847,19 @@ async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestIn
       parsed = text;
     }
     if (typeof parsed === 'string') {
-      // Base64 (optionally as a data URI) → real bytes.
       const base64 = parsed.includes(',') && parsed.trim().startsWith('data:') ? parsed.split(',', 2)[1] : parsed;
       const binary = atob(base64);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       blob = new Blob([bytes], { type: mime });
     } else if (Array.isArray(parsed)) {
-      // Raw byte[] serialized as a JSON number array.
       blob = new Blob([new Uint8Array(parsed as number[])], { type: mime });
     } else {
       blob = new Blob([text], { type: mime });
     }
   } else {
     const raw = await res.blob();
-    // Re-tag with the guessed MIME when the server didn't send a useful
-    // content-type (e.g. octet-stream/empty) — a Blob's `type` is
-    // immutable, so this means constructing a new one from its bytes.
+    // `Blob.type` est immuable : pour corriger un type absent ou générique, on reconstruit.
     blob = raw.type && raw.type !== 'application/octet-stream' ? raw : new Blob([raw], { type: mime });
   }
 
@@ -1225,74 +869,44 @@ async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestIn
   return blob;
 }
 
-/** `GET /api/articles/{id}/pieces-jointes` — read-only counterpart of the
- * dossier's pièces jointes: mostly plans (PLAN/PLAN_ARCHITECTE/PLAN_ETAGE),
- * same `PieceJointeDto` shape, but no upload endpoint exists for articles
- * (no `POST` documented) — view/download only. */
 export function listArticlePiecesJointes(articleId: UUID): Promise<PieceJointeDto[]> {
   return request('GET', `/api/articles/${articleId}/pieces-jointes`);
 }
 
-/** `GET /api/articles/{id}/pieces-jointes/{pieceId}/fichier` — plan ou autre
- * pièce de l'article. Redirection `302` vers le stockage, cf.
- * {@link openStoredFileInTab}. */
+/** Redirection 302 vers le stockage : voir {@link openStoredFileInTab}. */
 export function openArticlePieceJointeFichier(articleId: UUID, pieceId: UUID): void {
   openStoredFileInTab(`${API_BASE_URL}/api/articles/${articleId}/pieces-jointes/${pieceId}/fichier`);
 }
 
-/** Shared by the dossier's generated-document endpoints that offer both
- * `pdf`/`docx` (`/documents/fiche-reservation`, `/documents/acte-reservation`)
- * — same `format: byte` shape, just a different document kind in the path. */
 function fetchDossierDocumentBlob(dossierId: UUID, docKind: 'fiche-reservation' | 'acte-reservation', format: 'pdf' | 'docx'): Promise<Blob> {
   const url = `${API_BASE_URL}/api/dossiers/${dossierId}/documents/${docKind}?format=${format}`;
   return fetchByteEndpointBlob(url, mimeForExtension(format));
 }
 
-/** Shared by the dossier's generated-document endpoints that are PDF-only —
- * no `format` query param exists on these, unlike `fetchDossierDocumentBlob`
- * above (see e.g. Fiche Bancaire's "pas de variante Word pour ce document"). */
 export type DossierPdfOnlyDocKind = 'fiche-visite-technique' | 'fiche-dossier-vente' | 'fiche-bancaire' | 'fiche-trop-percu';
 function fetchDossierPdfOnlyDocumentBlob(dossierId: UUID, docKind: DossierPdfOnlyDocKind): Promise<Blob> {
   const url = `${API_BASE_URL}/api/dossiers/${dossierId}/documents/${docKind}`;
   return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
 }
 
-/** `GET /api/dossiers/{id}/reglements/{reglementId}/documents/recu` — the
- * "Reçu de règlement" ("ATTESTATION DE RÉCEPTION CHEQUE") for one specific
- * règlement, not the whole dossier — unlike `DossierPdfOnlyDocKind` above,
- * this needs a second id in the path, so it gets its own fetch helper
- * rather than being folded into that union. PDF-only. */
 function fetchRecuReglementBlob(dossierId: UUID, reglementId: UUID): Promise<Blob> {
   const url = `${API_BASE_URL}/api/dossiers/${dossierId}/reglements/${reglementId}/documents/recu`;
   return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
 }
 
-/** `GET /api/dossiers/{id}/reglements/{reglementId}/documents/autorisation-versement`
- * — the "Autorisation d'Encaissement" for one specific règlement
- * (`StlSettlement.PKey`), authorizing the client's bank to release that
- * règlement's amount. Scoped to the règlement, *not* the échéance: the
- * fields that give the document its value (compte destinataire, mode de
- * versement, tiers payeur) are populated on the règlement in real data and
- * almost never on the échéance. Same per-row-id shape as
- * `fetchRecuReglementBlob` above. PDF-only. */
+/** Par règlement et non par échéance : compte, mode de versement et tiers payeur
+ * ne sont renseignés que sur le règlement dans les données réelles. */
 function fetchAutorisationVersementBlob(dossierId: UUID, reglementId: UUID): Promise<Blob> {
   const url = `${API_BASE_URL}/api/dossiers/${dossierId}/reglements/${reglementId}/documents/autorisation-versement`;
   return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
 }
 
-/** Shared by the prospection's generated-document endpoints
- * (`/documents/nda`, `/documents/fiche`) — PDF-only, prospection-scoped
- * (no devisId in the path, unlike the offer document). */
 export type ProspectionPdfDocKind = 'nda' | 'fiche';
 function fetchProspectionDocumentBlob(prospectionId: UUID, docKind: ProspectionPdfDocKind): Promise<Blob> {
   const url = `${API_BASE_URL}/api/prospections/${prospectionId}/documents/${docKind}`;
   return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
 }
 
-/** `/api/prospections/{id}/devis/{devisId}/document` — the "Fiche Offre
- * vente" PDF, reproducing the legacy Offre form exactly (entête, onglet
- * "Montants" HT/TTC, tableau des sous-articles). PDF-only, unlike the
- * dossier documents which also offer `docx`. */
 function fetchDevisDocumentBlob(prospectionId: UUID, devisId: UUID): Promise<Blob> {
   const url = `${API_BASE_URL}/api/prospections/${prospectionId}/devis/${devisId}/document`;
   return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
@@ -1306,28 +920,17 @@ function triggerBlobDownload(blob: Blob, filename: string): void {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  // Revoking immediately after click() races the browser's actual save
-  // against the URL being invalidated — a known cause of 0-byte downloads
-  // (the save hasn't finished reading the blob yet). Give it a beat.
+  // Révoquer juste après click() fait la course avec l'enregistrement : fichier de 0 octet.
   setTimeout(() => URL.revokeObjectURL(objectUrl), 2000);
 }
 
-/** Opens a blob inline in a new tab (PDF/image/text render directly;
- * anything else the browser doesn't know how to display just downloads —
- * normal browser behaviour, not something to special-case here).
- *
- * `win` must be opened synchronously by the caller, *before* the async
- * fetch that produces the blob, so it stays tied to the click's
- * user-gesture and isn't blocked as a popup. */
 function showBlobInTab(win: Window | null, blob: Blob): void {
   if (!win) {
     throw new ApiError(0, "Le navigateur a bloqué l'ouverture d'un nouvel onglet.");
   }
   const objectUrl = URL.createObjectURL(blob);
   win.location.href = objectUrl;
-  // Left un-revoked deliberately — the viewer tab keeps reading from this
-  // URL for as long as it's open; revoking on a timer would risk cutting
-  // off a still-open preview.
+  // Jamais révoquée : l'onglet de visualisation la relit tant qu'il est ouvert.
 }
 
 /** Onglet ouvert **avant** le premier `await` (geste utilisateur), fermé si le chargement échoue. */
@@ -1341,24 +944,9 @@ async function ouvrirBlobDansOnglet(charger: () => Promise<Blob>): Promise<void>
   }
 }
 
-/** Ouvre un fichier stocké sur S3/MinIO. Les endpoints `.../fichier` des
- * pièces jointes ne renvoient pas de binaire : ils répondent `302` vers une
- * URL présignée, valable quelques minutes (cf. `docs/api-docsV4.json`).
- *
- * On ne peut donc pas les `fetch` comme les documents générés : la
- * redirection conserve `credentials: 'include'`, or ni S3 ni MinIO ne renvoie
- * `Access-Control-Allow-Credentials`, et le CORS rejette la réponse. Une
- * navigation, elle, n'est pas soumise au CORS et envoie quand même le cookie
- * JWT (même site — seul le port diffère). D'où l'ouverture d'un onglet.
- *
- * Conséquence assumée : « Voir » et « Télécharger » déclenchent la même
- * navigation. C'est le `Content-Disposition` du stockage qui décide de
- * l'affichage ou de l'enregistrement, et aucun paramètre `download` n'existe
- * côté API pour l'influencer. Le nom du fichier vient lui aussi du stockage,
- * qui reprend la description de la pièce.
- *
- * L'onglet est ouvert de façon synchrone, sans `await` en amont, pour rester
- * rattaché au geste utilisateur et ne pas être bloqué comme popup. */
+/** `.../fichier` répond 302 vers une URL présignée : un `fetch` avec credentials est
+ * rejeté par le CORS du stockage, une navigation non. D'où un onglet, ouvert sans
+ * `await` en amont (bloqueur de popups) ; « Voir » et « Télécharger » y sont identiques. */
 function openStoredFileInTab(url: string): void {
   const win = window.open('', '_blank');
   if (!win) {
@@ -1367,8 +955,7 @@ function openStoredFileInTab(url: string): void {
   win.location.href = url;
 }
 
-/** `GET /api/dossiers/{id}/pieces-jointes/{pieceId}/fichier` — redirection
- * `302` vers le stockage, cf. {@link openStoredFileInTab}. */
+/** Redirection 302 vers le stockage : voir {@link openStoredFileInTab}. */
 export function openPieceJointeFichier(dossierId: UUID, pieceId: UUID): void {
   openStoredFileInTab(`${API_BASE_URL}/api/dossiers/${dossierId}/pieces-jointes/${pieceId}/fichier`);
 }
@@ -1409,12 +996,7 @@ export function viewDossierPdfOnlyDocument(dossierId: UUID, docKind: DossierPdfO
   return ouvrirBlobDansOnglet(() => fetchDossierPdfOnlyDocumentBlob(dossierId, docKind));
 }
 
-/** `POST /api/dossiers/documents/{kind}` — batch counterpart of the 6
- * single-dossier generated documents above: one concatenated PDF covering
- * every id in `dossierIds`, in order. Always PDF-only, even for the two
- * kinds (`fiche-reservation`/`acte-reservation`) that offer a Word variant
- * in single mode — no batch docx exists. Used by `DossiersList.tsx`'s
- * multi-select "Générer un document" toolbar. */
+/** En lot, toujours PDF, même pour les types qui ont une variante Word à l'unité. */
 export type DossierBatchDocKind = 'fiche-reservation' | 'acte-reservation' | DossierPdfOnlyDocKind;
 
 export const DOSSIER_BATCH_DOC_LABELS: Record<DossierBatchDocKind, string> = {
@@ -1487,36 +1069,21 @@ export function addReglement(dossierId: UUID, echeanceId: UUID, body: CreerRegle
   return request('POST', `/api/dossiers/${dossierId}/echeancier/${echeanceId}/reglements`, { body });
 }
 
-/** Historique complet des règlements d'une échéance (type/banque/payeur/
- * référence par ligne) — contrepartie en lecture de `addReglement`, derrière
- * le seul total `montantRegle`/`reste` que `listEcheances` renvoie. Pas
- * paginé côté API (tableau simple). */
 export function listEcheanceReglements(dossierId: UUID, echeanceId: UUID): Promise<ReglementDto[]> {
   return request('GET', `/api/dossiers/${dossierId}/echeancier/${echeanceId}/reglements`);
 }
 
-/** `GET /api/dossiers/{id}/payeurs` — candidats du champ « Réglé par »
- * (`CreerReglementRequest.payeurId`, obligatoire) : acquéreur principal du
- * dossier puis co-acquéreurs. Liste vide si le dossier n'a aucun acquéreur
- * rattaché — auquel cas aucun règlement n'est saisissable. Noter que la
- * liste est indicative et non fermée côté serveur (un tiers payeur est
- * accepté) ; faute de recherche de tiers dans cette app, c'est néanmoins la
- * seule source de l'UI. */
+/** Liste vide : aucun règlement saisissable. Indicative seulement, le serveur accepte
+ * aussi un tiers payeur. */
 export function listPayeurs(dossierId: UUID): Promise<PayeurDto[]> {
   return request('GET', `/api/dossiers/${dossierId}/payeurs`);
 }
 
-/** `GET .../reglements/{reglementId}/pieces-jointes` — les preuves de
- * paiement d'un règlement (chèques scannés, avis de virement, reçus), plus
- * récente d'abord. Leur présence est ce qui autorise le passage à `POINTED`. */
+/** Leur présence conditionne le passage à `POINTED`. */
 export function listReglementPiecesJointes(dossierId: UUID, reglementId: UUID): Promise<PieceJointeDto[]> {
   return request('GET', `/api/dossiers/${dossierId}/reglements/${reglementId}/pieces-jointes`);
 }
 
-/** `POST .../reglements/{reglementId}/pieces-jointes` — dépose un justificatif
- * d'encaissement. `typeId` est facultatif et laissé vide en pratique : les
- * preuves de paiement réelles n'en portent aucune. `creePar` est déduit du
- * token côté serveur, jamais envoyé d'ici. */
 export function uploadReglementPieceJointe(
   dossierId: UUID,
   reglementId: UUID,
@@ -1531,47 +1098,25 @@ export function uploadReglementPieceJointe(
   );
 }
 
-/** L'adresse de la preuve de paiement, sans l'ouvrir — ce que
- * {@link openReglementPieceJointeFichier} consomme, et ce qu'un `<iframe>`
- * d'aperçu prend pour `src`.
- *
- * Elle vise **l'endpoint**, jamais l'URL présignée qu'il renvoie : la signature
- * n'est valable que quelques minutes, alors que l'endpoint la renouvelle à
- * chaque chargement. Le cookie de session part bien sur cette sous-ressource,
- * `localhost:5173` et `localhost:8080` étant le même site au sens `SameSite`
- * (le port ne compte pas) ; le 302 conduit ensuite au stockage, qui sert le
- * fichier en `inline` avec son vrai `content-type` et **sans** `X-Frame-Options`
- * ni CSP — mesuré sur les pièces réelles, PDF comme JPEG. C'est cette absence
- * qui rend l'aperçu intégré possible. */
+/** Vise l'endpoint, jamais l'URL présignée (elle expire, l'endpoint la renouvelle).
+ * L'aperçu en `<iframe>` ne tient que parce que le stockage ne pose ni
+ * `X-Frame-Options` ni CSP. */
 export function urlReglementPieceJointeFichier(dossierId: UUID, reglementId: UUID, pieceId: UUID): string {
   return `${API_BASE_URL}/api/dossiers/${dossierId}/reglements/${reglementId}/pieces-jointes/${pieceId}/fichier`;
 }
 
-/** `GET .../reglements/{reglementId}/pieces-jointes/{pieceId}/fichier` — la
- * preuve de paiement. Redirection `302` vers le stockage, cf.
- * {@link openStoredFileInTab}. */
+/** Redirection 302 vers le stockage : voir {@link openStoredFileInTab}. */
 export function openReglementPieceJointeFichier(dossierId: UUID, reglementId: UUID, pieceId: UUID): void {
   openStoredFileInTab(urlReglementPieceJointeFichier(dossierId, reglementId, pieceId));
 }
 
-/** `DELETE .../reglements/{reglementId}/pieces-jointes/{pieceId}` — retire un
- * justificatif d'encaissement. Mêmes effets que {@link removePieceJointe}
- * (suppression logique, `204` sans corps), **plus une règle propre au
- * règlement** : un règlement `POINTED` ne peut pas perdre sa *dernière* preuve
- * (409). C'est elle qui a autorisé le pointage ; un règlement pointé sans
- * justificatif serait un trou d'audit. Supprimer une pièce parmi plusieurs, ou
- * n'importe quelle pièce d'un règlement `IN_WORK`/`CANCELED`, passe
- * normalement. Pour remplacer l'unique preuve d'un règlement pointé : déposer
- * la nouvelle d'abord, supprimer l'ancienne ensuite. */
+/** 409 sur la dernière preuve d'un règlement `POINTED` : déposer la nouvelle d'abord. */
 export function removeReglementPieceJointe(dossierId: UUID, reglementId: UUID, pieceId: UUID): Promise<void> {
   return request('DELETE', `/api/dossiers/${dossierId}/reglements/${reglementId}/pieces-jointes/${pieceId}`);
 }
 
-/** `PATCH .../reglements/{reglementId}/statut` — pointage (`POINTED`) ou
- * annulation (`CANCELED`) depuis `IN_WORK`. Les deux cibles sont terminales :
- * repartir de l'une d'elles renvoie 409, avec `transitionsAutorisees` dans le
- * corps ProblemDetail (lisible via `ApiError.problem`). Pointer sans aucune
- * pièce jointe renvoie également 409. */
+/** `POINTED` et `CANCELED` sont terminaux (409 + `transitionsAutorisees`) ; pointer
+ * sans pièce jointe rend aussi 409. */
 export function modifierStatutReglement(
   dossierId: UUID,
   reglementId: UUID,
@@ -1580,27 +1125,9 @@ export function modifierStatutReglement(
   return request('PATCH', `/api/dossiers/${dossierId}/reglements/${reglementId}/statut`, { body });
 }
 
-// ---------------------------------------------------------------------------
-// Encaissements — catalogue transverse des règlements de Dossiers de vente
-// (reprend l'écran legacy Vente > Encaissements Vente), tous dossiers
-// confondus. Distinct de listEcheanceReglements (scopé à une échéance).
-// ---------------------------------------------------------------------------
-
 export type EncaissementChampDate = 'DATE_PIECE' | 'DATE_ECHEANCE' | 'DATE_REGLEMENT';
 
-/** `GET /api/encaissements/{id}` — pas encore livré côté backend (demandé,
- * voir instructions/from_front.md #3) ; câblé dès maintenant comme tout
- * autre écran de détail de l'app (`getDossier`, `getProspection`…) plutôt
- * que de faire naviguer `/encaissements/:id` sans vrai fetch. 404 tant que
- * l'endpoint n'existe pas — EncaissementDetail.tsx affiche l'erreur telle
- * quelle jusque-là. */
-/** La fiche d'un règlement — mêmes champs que la ligne de liste, non filtrés
- * par `?colonnes=`, **plus ses affectations**.
- *
- * Un encaissement hors du périmètre commercial de l'appelant renvoie **404** et
- * non 403, délibérément : un 403 confirmerait son existence et permettrait
- * d'énumérer les identifiants. Un id qui n'est pas un UUID valide renvoie 404
- * lui aussi, pas 400. */
+/** Hors périmètre → 404 et non 403 (pas d'énumération) ; un id non UUID → 404 aussi. */
 export function getEncaissement(id: UUID): Promise<EncaissementDetailDto> {
   return request('GET', `/api/encaissements/${id}`);
 }
@@ -1609,15 +1136,11 @@ export function listEncaissements(
   params?: {
     entiteId?: UUID[];
     typeId?: UUID[];
-    /** IN_WORK/POINTED/CANCELED confirmés — voir EncaissementEtat. */
     etat?: string[];
     compteId?: UUID;
     depotId?: UUID;
     dossierId?: UUID;
-    /** Répétable, OR. Un règlement remonte dès qu'**une** de ses échéances
-     * porte sur un lot de l'une des tranches citées — le filtre traverse donc
-     * règlement → ligne → échéance → article, et un règlement à cheval sur
-     * deux tranches remonte pour les deux. Absent : toutes. */
+    /** Un règlement à cheval sur deux tranches remonte pour les deux. */
     trancheId?: UUID[];
     tierId?: UUID;
     reference?: string;
@@ -1625,19 +1148,13 @@ export function listEncaissements(
     comptabilise?: boolean;
     montantDe?: number;
     montantA?: number;
-    /** Jalon sur lequel s'appliquent dateDebut/dateFin — ignoré si les deux
-     * sont absents. Défaut serveur : DATE_PIECE. */
+    /** Défaut serveur DATE_PIECE ; ignoré sans `dateDebut`/`dateFin`. */
     champDate?: EncaissementChampDate;
     dateDebut?: string;
     dateFin?: string;
   },
   pageable?: Pageable,
-  /** Voir `listProspections` : `colonnes` n'est pas un filtre, un nom hors
-   * catalogue renvoie 400, et `id` est servi qu'on le demande ou non.
-   *
-   * Ici la sélection **allège** la réponse plus qu'ailleurs : mesuré, les 27
-   * colonnes par défaut coûtent 572–694 ms sur une page de 20, une sélection
-   * de 16 en coûte 307–378. Décocher n'est pas qu'un confort d'affichage. */
+  /** Nom hors catalogue → 400. */
   options?: { colonnes?: string[]; depliage?: ParamsDepliage },
 ): Promise<PageDto<EncaissementDto>> {
   const query: Record<string, QueryValue> = withPageable(params, pageable);
@@ -1646,51 +1163,30 @@ export function listEncaissements(
   return request('GET', '/api/encaissements', { query });
 }
 
-/** Catalogue des colonnes sélectionnables de la liste des encaissements.
- *
- * Même contrat que les trois autres, mais bâti **sur mesure** : l'écran
- * légataire fait un `SELECT StlSettlementView.*` — 107 colonnes, aucune
- * nommée — et ne stocke aucune disposition de grille. Les 40 retenues sont
- * celles qui portent une information réelle sur le périmètre servi.
- *
- * Deux réserves que le serveur documente et qu'il ne faut pas prendre pour des
- * colonnes utiles : `depotId`/`depotCode` sont mesurés à **0 ligne sur 643**,
- * `compteId`/`compteCode` à 12 et `dateReglement` à 10. */
 export function getColonnesEncaissements(): Promise<ColonneDto[]> {
   return request('GET', '/api/referentiels/colonnes/encaissements');
 }
 
-/** `GET /api/referentiels/colonnes/suivi-actions` — catalogue de l'écran
- * « Suivi des actions » (FEATURE-suivi-actions.md §4) : établi sur la vue
- * OMRAN `ComActionMessageView`, filtré par la mesure sur 48 213 actions
- * réelles. Non groupables : `rang`, `alerteActive`, `etat`, `personnel`
- * (calculées pour la page servie) et `message`. **Aucune colonne
- * agrégeable** : la mesure d'un groupe est son effectif. */
 export function getColonnesSuiviActions(): Promise<ColonneDto[]> {
   return request('GET', '/api/referentiels/colonnes/suivi-actions');
 }
 
-/** Filtres de `GET /api/suivi-actions` — tous optionnels, combinés en ET.
- * **Période fin exclue**, comme OMRAN : `dateDebut <= DocDate < dateFin` ;
- * un jour J = `dateDebut=J T00:00` et `dateFin=J+1 T00:00`. */
+/** Fin **exclue** : `dateDebut <= DocDate < dateFin` ; un jour J =
+ * `dateDebut=J T00:00` et `dateFin=J+1 T00:00`. */
 export type SuiviActionsFilterParams = {
   dateDebut?: string;
   dateFin?: string;
-  /** Tranche **résolue** (celle de la prospection, sinon de l'article). OU. */
+  /** Tranche résolue : celle de la prospection, sinon de l'article. */
   trancheId?: string[];
-  /** `UserName` de l'action, égalité exacte. Valeurs présentes :
-   * `/groupes?groupBy=utilisateur`. OU. */
+  /** `UserName` de l'action, égalité exacte. */
   utilisateur?: string[];
-  /** ComActionMessageType.id — même référentiel que `getTypesContactProspection`. OU. */
+  /** Même référentiel que `getTypesContactProspection`. */
   typeId?: string[];
   categorieId?: string[];
-  /** `true` = système seules, `false` = saisies seules, absent = tout. */
   systeme?: boolean;
 };
 
-/** `GET /api/suivi-actions` — la grille de l'écran OMRAN, colonnes au choix.
- * Tri par défaut `docDate,desc` ; seules les propriétés de l'action sont
- * triables. Les actions système sont listées comme dans OMRAN. */
+/** Seules les propriétés de l'action sont triables. */
 export function listSuiviActions(
   params: SuiviActionsFilterParams,
   pageable?: Pageable,
@@ -1702,11 +1198,7 @@ export function listSuiviActions(
   return request('GET', '/api/suivi-actions', { query });
 }
 
-/** `GET /api/suivi-actions/groupes` — un groupe par valeur de `groupBy`, avec
- * son effectif = nombre d'actions sur tout le périmètre filtré. Recette de
- * l'écran : appels passés par jour d'un commercial =
- * `utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR`.
- * `agregats` rend 400 : rien n'est agrégeable ici. */
+/** `agregats` rend 400 : rien n'est agrégeable ici. */
 export function listSuiviActionsGroupes(
   params: SuiviActionsFilterParams,
   groupes: ParamsGroupes,
@@ -1717,18 +1209,8 @@ export function listSuiviActionsGroupes(
   });
 }
 
-/** `GET /api/encaissements/groupes` — la liste repliée en groupes.
- *
- * Mêmes filtres que `listEncaissements`, restriction `IsCredit = 1` et
- * périmètre commercial compris : c'est ce qui garantit que la somme des
- * effectifs égale le `totalElements` de la liste.
- *
- * **`dossierId` et `dossierCode` ne sont pas groupables**, et ce n'est pas un
- * oubli : un règlement n'a pas de dossier, il a des lignes rattachées à des
- * échéances. Mesuré — 643 règlements pour 654 couples (règlement, dossier),
- * dont 8 règlements sur plusieurs dossiers — grouper par ce chemin les
- * compterait plusieurs fois. Le catalogue le dit par booléen ; ne pas
- * redéduire la liste ici. */
+/** `dossierId`/`dossierCode` non groupables : un règlement peut couvrir plusieurs
+ * dossiers et serait compté plusieurs fois. Se fier à `groupable` du catalogue. */
 export function listEncaissementsGroupes(
   params: Parameters<typeof listEncaissements>[0],
   groupes: ParamsGroupes,
@@ -1742,25 +1224,13 @@ export function listEncaissementsGroupes(
 export const getEntitesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/entites');
 export const getComptesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/comptes');
 export const getDepotsReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/depots');
-/** `StkKind` — instructions/from_front.md #4, alimente le filtre `natureId`
- * de `GET /api/articles`/`GET /api/tranches/{id}/articles`. */
 export const getNatures = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/natures');
-/** `StkFloor` — instructions/from_front.md #4, alimente le filtre `etageId`
- * de `GET /api/articles`/`GET /api/tranches/{id}/articles`. */
 export const getEtages = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/etages');
-
-// ---------------------------------------------------------------------------
-// Tranches / Projets / Articles
-// ---------------------------------------------------------------------------
 
 export function getTranche(id: UUID): Promise<TrancheDetailDto> {
   return request('GET', `/api/tranches/${id}`);
 }
 
-/** Filtres de parité avec la grille legacy "Articles" (instructions/from_front.md
- * #4), partagés par `listArticles`/`listTrancheArticles` — bornes `prixDe`/
- * `prixA` sur `comSalePrice`, `surfaceDe`/`surfaceA` sur `area`, toutes
- * inclusives et indépendamment optionnelles. */
 export type ArticleListFilters = {
   entiteId?: UUID;
   natureId?: UUID;
@@ -1772,10 +1242,7 @@ export type ArticleListFilters = {
   surfaceA?: number;
 };
 
-/** Catalogue transverse — toutes tranches confondues, restreint aux entités
- * juridiques actives (ADMOD/GHRIZA) côté serveur. Contrairement à
- * `listTrancheArticles`, `statut` absent renvoie DISPONIBLE **et** OCCUPE
- * (vraie vue "tout le patrimoine"), pas juste DISPONIBLE. */
+/** `statut` absent : DISPONIBLE **et** OCCUPE, contrairement à `listTrancheArticles`. */
 export function listArticles(
   params?: { search?: string; trancheId?: UUID[]; statut?: ArticleStatut; categorieId?: UUID[]; typeId?: UUID[] } & ArticleListFilters,
   pageable?: Pageable,
@@ -1803,10 +1270,6 @@ export function listProjetTranches(projetId: UUID, pageable?: Pageable): Promise
   return request('GET', `/api/projets/${projetId}/tranches`, { query: withPageable(undefined, pageable) });
 }
 
-/** Flat tranches listing (optionally scoped to one Entité/Projet) — added
- * alongside the `trancheId` filter on `/api/dossiers` so callers no longer
- * need the `listProjets` + `listProjetTranches` N+1 aggregate (still used by
- * `TranchesList.tsx`'s full-portfolio view, which has other needs). */
 export function listTranches(params?: { projetId?: UUID }, pageable?: Pageable): Promise<PageDto<TrancheListItemDto>> {
   return request('GET', '/api/tranches', { query: withPageable(params, pageable) });
 }
@@ -1815,92 +1278,47 @@ export function getArticle(id: UUID): Promise<ArticleDetailDto> {
   return request('GET', `/api/articles/${id}`);
 }
 
-/** Dropdown "Projet" — first link of the cascade Projet → Tranche → Article
- * → Sous-article, to narrow the Tranche dropdown below it. */
 export function getProjetsReferentiel(): Promise<ReferentielItemDto[]> {
   return request('GET', '/api/referentiels/projets');
 }
 
-/** Dropdown "Tranche" — all tranches, or only those of `projetId` if given
- * (second link of the cascade). Unpaginated, meant to populate a `<select>`
- * directly (unlike `listTranches`, which is paginated). */
 export function getTranchesReferentiel(projetId?: UUID): Promise<ReferentielItemDto[]> {
   return request('GET', '/api/referentiels/tranches', { query: { projetId } });
 }
 
-/** Filters shared by `getArticlesReferentiel`/`getSousArticlesReferentiel` —
- * `categorieId`/`typeId` mirror the legacy "Catégorie"/"Type" checkbox
- * cascade (repeatable, OR'd server-side); absent = no restriction. */
 export interface ArticleReferentielFilters {
   statut?: ArticleStatut;
   categorieId?: UUID[];
   typeId?: UUID[];
 }
 
-/** Root articles (hors sous-articles) of a tranche, filtered by availability
- * (default DISPONIBLE) and optionally by catégorie/type — reproduces the
- * legacy qualification form's checkbox cascade before picking the article
- * itself from the resulting filtered list (not a dropdown of every article).
- * Each entry already carries its catégorie/type libellés and code/description
- * for display without a separate call. Last link of the cascade Projet →
- * Tranche → Article before optionally picking a sous-article. */
+/** `statut` absent : DISPONIBLE seul. */
 export function getArticlesReferentiel(trancheId: UUID, filters?: ArticleReferentielFilters): Promise<ArticleListItemDto[]> {
   return request('GET', '/api/referentiels/articles', { query: { trancheId, ...filters } });
 }
 
-/** Sous-articles of an article (e.g. a parking spot or cave attached to a
- * lot), same availability/catégorie/type filtering as `getArticlesReferentiel`. */
 export function getSousArticlesReferentiel(articleId: UUID, filters?: ArticleReferentielFilters): Promise<ArticleListItemDto[]> {
   return request('GET', '/api/referentiels/sous-articles', { query: { articleId, ...filters } });
 }
 
-// ---------------------------------------------------------------------------
-// Dashboard / Commerciaux
-// ---------------------------------------------------------------------------
-
-/** `trancheId` restreint tous les agrégats à une tranche — **réservé aux
- * administrateurs, 403 sinon** ; une tranche inconnue rend des zéros. Absent =
- * toutes les tranches (FEATURE-dashboard-filtre-tranche). */
+/** `trancheId` réservé aux administrateurs (403 sinon) ; une tranche inconnue rend des zéros. */
 export function getDashboard(params?: { trancheId?: UUID }): Promise<DashboardDto> {
   return request('GET', '/api/dashboard', { query: { trancheId: params?.trancheId } });
 }
 
-/** `GET /api/dashboard/annuel` — l'écran d'accueil du logiciel de bureau :
- * l'échéancier mois par mois, les ventes concrétisées, les encaissements.
- *
- * **Les trois blocs ne se somment pas entre eux.** `echeancier` est du *dû*
- * (`ComDocument.Amount`), `encaissements` du *réalisé*, `ventesConcretisees`
- * un sous-ensemble des dossiers. Les présenter comme un tout serait un
- * contresens — d'où trois zones distinctes à l'écran.
- *
- * **Des mois à venir sont renseignés**, et c'est voulu : mesuré en septembre
- * 2026, octobre portait 380 000 DH et novembre 50 000. Une courbe arrêtée au
- * mois courant masquerait de la donnée vraie.
- *
- * `annee` absente = année courante. Une année hors données répond `200` avec
- * des compteurs à zéro, pas une erreur. */
+/** Les trois blocs ne se somment pas : `echeancier` est du dû, `encaissements` du
+ * réalisé, `ventesConcretisees` un sous-ensemble. Des mois futurs sont renseignés :
+ * ne pas arrêter la courbe au mois courant. */
 export function getSyntheseAnnuelle(annee?: number, trancheId?: UUID): Promise<SyntheseAnnuelleDto> {
-  // `trancheId` : réservé aux administrateurs (403 sinon) — voir getDashboard.
+  // `trancheId` : réservé aux administrateurs (403 sinon).
   return request('GET', '/api/dashboard/annuel', { query: { annee, trancheId } });
 }
 
-/** `GET /api/dashboard/relances` — les échéances de relance encore armées,
- * triées par échéance croissante (le plus ancien retard d'abord).
- *
- * **Ce n'est pas le compte des relances en retard, et l'écran doit le dire.**
- * `RETARD` est borné à 30 jours glissants côté serveur, délibérément : la base
- * porte 3 710 relances en retard dont 2 020 de plus d'un an, et sans cette
- * borne l'endpoint servirait un arriéré abandonné au lieu d'une file de
- * travail. Mesuré à la livraison : 75 en `RETARD`/`EQUIPE`, 0 en
- * `AUJOURDHUI`. L'arriéré complet se lit par les filtres de
- * `GET /api/prospections`.
- *
- * Les relances non affectées (2,9 %) sont servies quelle que soit la portée,
- * `MOI` compris — elles n'appartiennent à personne et un périmètre les rendrait
- * invisibles à tout le monde. Elles portent `nonAffectee: true`. */
+/** `RETARD` est borné à 30 jours glissants : ce n'est pas le compte des relances en
+ * retard, l'écran doit le dire. Les relances non affectées (`nonAffectee`) sont
+ * servies quelle que soit la portée, `MOI` compris. */
 export function listRelancesDashboard(
-  /** `trancheId` : relances dont la prospection vise cette tranche — réservé
-   * aux administrateurs (403 sinon). */
+  /** `trancheId` réservé aux administrateurs (403 sinon). */
   params?: { echeance?: EcheanceRelance; portee?: PorteeRelance; trancheId?: UUID },
   pageable?: Pageable,
 ): Promise<PageDto<RelanceProspectionDto>> {
@@ -1912,16 +1330,8 @@ export function listRelancesDashboard(
   });
 }
 
-/** `GET /api/dashboard/nouveaux-pre-prospects` — les leads créés le jour
- * demandé (défaut : aujourd'hui), du plus récent au plus ancien.
- *
- * `jour` est une date seule (`YYYY-MM-DD`), pas un instant — d'où `todayISO()`
- * et non `toApiDateTime()`. Pas de `portee` : une pré-prospection n'ayant pas
- * de commercial, « les miennes » n'aurait aucun sens.
- *
- * **Une page vide est le cas courant**, pas une panne : l'injection est
- * automatique et se fait par rafales, la plupart des jours à zéro puis des
- * pointes à 20 ou 34 — week-end compris. */
+/** `jour` est une date seule : `todayISO()`, pas `toApiDateTime()`. Une page vide
+ * est le cas courant (injection par rafales), pas une panne. */
 export function listNouveauxPreProspects(
   jour?: string,
   pageable?: Pageable,
@@ -1935,47 +1345,22 @@ export function listCommerciaux(pageable?: Pageable): Promise<PageDto<Commercial
   return request('GET', '/api/commerciaux', { query: withPageable(undefined, pageable) });
 }
 
-// ---------------------------------------------------------------------------
-// Hotline — recherche par numéro de téléphone (V4). Ne renvoie jamais 404 :
-// même un numéro inconnu répond 200 avec `connu: false` et des listes vides.
-// ---------------------------------------------------------------------------
-
-/** Critère de recherche hotline. **Exactement un des deux** : le serveur
- * répond 400 si les deux sont fournis, comme s'il n'y en a aucun. Le type en
- * union plutôt qu'un objet à deux champs optionnels rend cette exclusivité
- * impossible à violer depuis l'appelant. */
+/** Exactement un des deux, sinon 400 : l'union l'impose à l'appelant. */
 export type CritereHotline = { telephone: string } | { nom: string };
 
-/** `GET /api/hotline/recherche` — tout ce que le système sait d'un appelant,
- * en une requête.
- *
- * Par téléphone : espaces, tirets, parenthèses et indicatif sont ignorés, et
- * la recherche n'est pas plafonnée. Par nom : sous-chaîne insensible à la
- * casse et aux accents, **2 caractères minimum** (400 en deçà) et **plafond de
- * 20 fiches** — au-delà, `tronque` vaut true et doit être montré à l'agent.
- *
- * Ne renvoie jamais 404 : un critère sans correspondance répond 200 avec
- * `connu: false` et des listes vides. */
+/** Par nom : 2 caractères minimum (400) et plafond de fiches, `tronque` doit être
+ * montré à l'agent. Jamais 404 : sans correspondance, 200 avec `connu: false`. */
 export function rechercherHotline(critere: CritereHotline): Promise<HotlineResultDto> {
   return request('GET', '/api/hotline/recherche', { query: { ...critere } });
 }
 
-// ---------------------------------------------------------------------------
-// Calendrier — rendez-vous/visites planifiés (V4). debut/fin doivent être
-// des date-time ISO (voir toApiDateTime dans lib/format.ts) ; l'API répond
-// aussi en 400 avec un tableau vide si fin < debut.
-// ---------------------------------------------------------------------------
-
+/** `debut`/`fin` en date-heure ISO (`toApiDateTime`), sinon 400 ; 400 aussi si fin < debut. */
 export function getEvenementsCalendrier(debut: string, fin: string): Promise<EvenementCalendrierDto[]> {
   return request('GET', '/api/calendrier/evenements', { query: { debut, fin } });
 }
 
-// ---------------------------------------------------------------------------
-// Actions récentes — plus récentes d'abord. « Voir plus » : curseur composite
-// `avant` = `date` et `avantId` = `id` de la dernière ligne reçue (la date
-// seule perdrait des actions de même date). `limite` 1–100, sinon 400.
-// ---------------------------------------------------------------------------
-
+/** Curseur composite `avant` = date et `avantId` = id de la dernière ligne : la date
+ * seule perdrait les actions de même date. `limite` 1–100, sinon 400. */
 export function listActionsRecentes(
   portee: PorteeActionsRecentes,
   limite?: number,
@@ -1985,12 +1370,6 @@ export function listActionsRecentes(
     query: { portee, limite, avant: apres?.date, avantId: apres?.id },
   });
 }
-
-// ---------------------------------------------------------------------------
-// Référentiels — lookup tables backing every UUID picker in the app. Most
-// are plain unpaginated lists; getVilles is the one paginated + searchable
-// exception (real cities table, potentially large).
-// ---------------------------------------------------------------------------
 
 export const getVocations = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/vocations');
 export const getTypesResidence = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-residence');
@@ -2020,14 +1399,9 @@ export const getCategoriesBien = (): Promise<ReferentielItemDto[]> => request('G
 export const getCategoriesEcheance = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/categories-echeance');
 export const getActionsCommerciales = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/actions-commerciales');
 export const getModesPaiement = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/modes-paiement');
-// Distinct de modes-paiement (StlSettlementType, pas ComPaymentMethod) —
-// alimente le Select `typeId` de "Ajouter un règlement" (AddReglementRow).
+// Distinct de modes-paiement : StlSettlementType, pas ComPaymentMethod.
 export const getTypesReglement = (): Promise<TypeReglementDto[]> => request('GET', '/api/referentiels/types-reglement');
-// Alimente le Select `banqueId`, affiché seulement quand le type de
-// règlement choisi a banqueObligatoire === true.
 export const getBanques = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/banques');
-// Dropdown "Résultat" de la boîte de dialogue Action — chaque entrée indique
-// via necessiteDateRdv/alerteRecommandee comment adapter InteractionForm.
 export const getResultatsInteraction = (): Promise<ResultatInteractionDto[]> => request('GET', '/api/referentiels/resultats-interaction');
 
 export function getVillesReferentiel(
@@ -2036,14 +1410,6 @@ export function getVillesReferentiel(
 ): Promise<PageDto<VilleDto>> {
   return request('GET', '/api/referentiels/villes', { query: withPageable(params, pageable) });
 }
-
-// ---------------------------------------------------------------------------
-// Authentification / Mon compte (V4) — connexion pose un cookie JWT httpOnly
-// `access_token` (jamais lu ni manipulé côté front, juste transporté par
-// `credentials: 'include'` sur chaque requête, voir plus haut). Plus de
-// portail de première connexion : mustChangePassword/profileCompleted sont
-// renvoyés mais ignorés (FEATURE-acces-arpent-depuis-omran.md).
-// ---------------------------------------------------------------------------
 
 export function connexion(body: ConnexionRequest): Promise<UtilisateurCourantDto> {
   return request('POST', '/api/auth/connexion', { body });
@@ -2065,11 +1431,6 @@ export function completerProfil(body: CompleterProfilRequest): Promise<Utilisate
   return request('PATCH', '/api/mon-compte/profil', { body });
 }
 
-/** Réservé au rôle Administrateur — annuaire des comptes (AdmUser) avec
- * fiche employé et rôles. `search` filtre sur identifiant/description/email
- * (sous-chaîne, insensible à la casse) ; `disabled` sur le statut
- * activé/désactivé (absent = tous les comptes). Seuls filtres exposés par
- * l'API — pas de filtre par rôle ou type d'employé côté serveur. */
 export function listUtilisateurs(
   params?: { search?: string; disabled?: boolean },
   pageable?: Pageable,
@@ -2077,129 +1438,60 @@ export function listUtilisateurs(
   return request('GET', '/api/utilisateurs', { query: withPageable(params, pageable) });
 }
 
-/** Réservé au rôle Administrateur — génère le mot de passe Arpent d'un compte
- * Omran (toujours renvoyé, une seule fois) et rend le compte utilisable tout
- * de suite. `email` facultatif : adresse d'envoi pour cette fois seulement,
- * jamais enregistrée ; sans lui, envoi à l'adresse connue du compte, ou aucun
- * envoi s'il n'en a pas (`emailEnvoye=false`, `destinataire=null`). 400 si
- * `email` est fourni mais invalide (compte intact), 404 compte inconnu. */
+/** Mot de passe renvoyé une seule fois ; `email` sert à cet envoi, jamais enregistré. */
 export function reinitialiserMotDePasse(admUserId: UUID, email?: string): Promise<ReinitialiserMotDePasseResponse> {
   const body: ReinitialiserMotDePasseRequest = email?.trim() ? { email: email.trim() } : {};
   return request('POST', `/api/utilisateurs/${admUserId}/reinitialiser-mot-de-passe`, { body });
 }
 
-// ---------------------------------------------------------------------------
-// Clés d'API — `/api/cles-api`, rôle Administrateur (`FEATURE-cle-api-n8n.md`).
-// Le front reste sur le cookie ; ces appels administrent les clés que les
-// clients machine (n8n, agent) enverront dans `X-Api-Key`.
-
-/** Toutes les clés, actives et révoquées, les plus récentes d'abord. Le
- * secret n'est jamais renvoyé ; `clePrefixe` suffit à reconnaître la clé
- * configurée côté client. 403 pour un non-administrateur — ou pour une clé
- * d'API, qui n'a jamais cette portée. */
 export function listClesApi(): Promise<CleApiDto[]> {
   return request('GET', '/api/cles-api');
 }
 
-/** Génère un secret, n'en stocke que le hash, et le renvoie **une seule
- * fois** dans `cle`. Crée aussi le compte de service sauf `compteCode`.
- * 400 nom vide/trop long, portées vides ou inconnues, `compteCode` inconnu ;
- * 409 nom déjà pris (ou compte de ce code existant sans `compteCode`). */
+/** Le secret n'est renvoyé qu'une fois, dans `cle`. */
 export function creerCleApi(body: CreerCleApiRequest): Promise<CleApiCreeeDto> {
   return request('POST', '/api/cles-api', { body });
 }
 
-/** Nouveau secret, même compte, mêmes portées ; l'ancien cesse d'être
- * accepté immédiatement. Pour une fuite ou une rotation. 404 inconnue,
- * **409 révoquée** — on en crée une nouvelle à la place. */
+/** 409 sur une clé révoquée : en créer une nouvelle. */
 export function regenererCleApi(id: UUID): Promise<CleApiCreeeDto> {
   return request('POST', `/api/cles-api/${id}/regenerer`);
 }
 
-/** Révoque : refusée en 401 dès le commit, la ligne reste listée avec
- * `actif = false`, `revoqueLe` et `revoquePar`. Idempotent. Le compte de
- * service n'est pas touché. 204 sans corps. */
 export function revoquerCleApi(id: UUID): Promise<void> {
   return request('DELETE', `/api/cles-api/${id}`);
 }
 
-/** Réservé au rôle Administrateur — projets actuellement affectés à ce
- * compte (périmètre commercial brut, pas le périmètre effectif : un compte
- * exempté — Administrateur, Direction Générale — peut avoir une liste non
- * vide sans être filtré). 404 si l'AdmUser n'existe pas. */
+/** Périmètre brut, pas effectif : un compte exempté peut avoir une liste non vide
+ * sans être filtré. */
 export function getProjetsUtilisateur(admUserId: UUID): Promise<ProjetPerimetreDto[]> {
   return request('GET', `/api/utilisateurs/${admUserId}/projets`);
 }
 
-/** Réservé au rôle Administrateur — remplacement intégral du périmètre
- * projet de ce compte (état final des cases à cocher, pas un delta). Une
- * liste vide retire toute restriction ; le backend 400 sur un corps sans
- * `projetIds` (absent/null), donc `projetIds` doit toujours être un tableau
- * explicite ici — jamais `undefined`. Les lignes d'habilitation société/
- * tranche/projet-travaux préexistantes de l'utilisateur sont préservées
- * côté serveur (voir FEATURE-perimetre-commercial.md §9bis.4). 400 si un
- * `projetId` est inconnu, 404 si l'AdmUser n'existe pas. */
+/** Remplacement intégral, pas un delta ; liste vide = aucune restriction. `projetIds`
+ * toujours un tableau : absent, 400. */
 export function remplacerProjetsUtilisateur(admUserId: UUID, projetIds: UUID[]): Promise<ProjetPerimetreDto[]> {
   const body: AffecterProjetsRequest = { projetIds };
   return request('PUT', `/api/utilisateurs/${admUserId}/projets`, { body });
 }
 
-// ---------------------------------------------------------------------------
-// KPI commerciaux — indicateurs de performance sur une période.
-//
-// `du`/`au` sont des dates **nues** (`YYYY-MM-DD`, format: date dans la spec),
-// pas des date-time. Ne PAS leur appliquer le gabarit `T00:00:00`/`T23:59:59`
-// des listes (ProspectionsList, EncaissementsList) : ces endpoints-là filtrent
-// sur des colonnes date-time, ceux-ci non, et une valeur suffixée repart en 400
-// « date non parsable ». La valeur d’un <input type="date"> passe telle quelle.
-//
-// Les deux paramètres sont optionnels ; omis, le serveur retient les 30 derniers
-// jours, `au` inclus jusqu’à 23:59:59.
-// ---------------------------------------------------------------------------
+// KPI : `du`/`au` sont des dates nues (`YYYY-MM-DD`), pas des date-time : un suffixe
+// `T00:00:00` comme sur les listes rend 400.
 
-/** `GET /api/kpi/commerciaux` — classement des commerciaux sur la période, les
- * plus performants d’abord (dossiers créés décroissant, puis appels passés).
- * **403 hors rôle `Administrateur`.**
- *
- * Seuls les commerciaux ayant au moins une ligne sur la période apparaissent :
- * ne jamais présenter cette liste comme l’effectif complet de
- * `GET /api/commerciaux` (60 des 75 comptes réels sont désactivés). Un tableau
- * vide est une réponse normale, pas une erreur. 400 si `du` est postérieure à
- * `au` ou si une date n’est pas parsable. */
+/** Seuls les commerciaux actifs sur la période : ne pas présenter la liste comme
+ * l'effectif complet. 403 hors Administrateur. */
 export function listPerformancesCommerciaux(params?: { du?: string; au?: string }): Promise<PerformanceCommercialDto[]> {
   return request('GET', '/api/kpi/commerciaux', { query: { du: params?.du, au: params?.au } });
 }
 
-/** `GET /api/kpi/commerciaux/moi` — les indicateurs du commercial rattaché au
- * compte connecté.
- *
- * **200 avec tous les compteurs à zéro** quand rien n’a été fait sur la période
- * — ce n’est pas une erreur et cela ne doit pas s’afficher comme un état vide.
- * Le **404 est réservé** au compte non rattaché à un employé : il n’y a alors
- * aucun commercial dont parler, ce qui mérite son propre message. */
+/** 200 à zéro n'est pas un état vide ; 404 = compte non rattaché à un employé,
+ * à afficher avec son propre message. */
 export function getMesPerformances(params?: { du?: string; au?: string }): Promise<PerformanceCommercialDto> {
   return request('GET', '/api/kpi/commerciaux/moi', { query: { du: params?.du, au: params?.au } });
 }
 
-// ---------------------------------------------------------------------------
-// Synchronisation
-// ---------------------------------------------------------------------------
-
-/** `POST /api/synchronisation` — rapatrie sur-le-champ, dans la copie de
- * lecture, ce que le logiciel de bureau a écrit sur la base de référence
- * depuis le dernier cycle, au lieu d'attendre le cycle automatique (toutes
- * les deux minutes). Renvoie le bilan du cycle.
- *
- * **Synchrone** : la réponse n'arrive qu'une fois le cycle terminé — quelques
- * secondes en régime normal, plus long si une table repart d'une
- * reconstruction complète. **409** si un cycle (automatique ou manuel) tourne
- * déjà, ou si l'application est en mono-base : rien n'est relancé, le message
- * précise le cas. **403 hors rôle `Administrateur`.** Idempotent, sans risque
- * de doublon.
- *
- * En tant que mutation, l'appel vide déjà les caches GET/valeurs via
- * `request` — l'appelant doit ensuite déclencher `refetchAllApis()`
- * (useApi.ts) pour que les pages montées relisent des données fraîches. */
+/** Synchrone ; 409 si un cycle tourne déjà. Les caches sont vidés, mais l'appelant
+ * doit lancer `refetchAllApis()` pour que les pages montées relisent. */
 export function declencherSynchronisation(): Promise<SynchronisationResultatDto> {
   return request('POST', '/api/synchronisation');
 }

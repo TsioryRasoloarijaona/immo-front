@@ -10,8 +10,7 @@ import { useApi } from '../../lib/useApi';
 import { formatDate, formatNumber } from '../../lib/format';
 import type { TrancheListItemDto } from '../../types';
 
-// `GET /api/tranches` existe, mais `TrancheListItemDto` ne porte pas
-// `projetId` : la colonne Projet impose une requête par projet
+// `TrancheListItemDto` ne porte pas `projetId` : la colonne Projet impose une requête par projet
 // (`/api/projets/{id}/tranches`). Voir FEATURE-qualite-front.md A12.
 const AGGREGATE_PAGE_SIZE = 200;
 
@@ -62,11 +61,6 @@ export default function TranchesList() {
       accentBg="var(--sec-tranche-bg)"
       fullHeight
     >
-      {/* Redesign 20/09 : l'ancienne grille de cartes rendait cinq
-          informations pour ~120px de hauteur chacune — le pire ratio
-          densité/surface de l'app. Le portefeuille entier tient désormais
-          dans une table à la densité de grille (24px/ligne), triée par le
-          serveur, visible d'un seul regard. */}
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 pt-1">
         <div className="flex shrink-0 items-center gap-3">
           <InputGroup className="max-w-md">

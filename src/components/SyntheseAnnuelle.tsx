@@ -7,25 +7,9 @@ import { formatCurrency, formatMontantCompact, formatNumber } from '../lib/forma
 import { cn } from '../lib/utils';
 import type { PointMensuelDto, UUID } from '../types';
 
-/* ---------------------------------------------------------------------------
-   La synthèse annuelle — l'écran d'accueil du logiciel de bureau.
-
-   **Trois blocs qui ne s'additionnent pas**, et c'est la seule chose qu'il ne
-   faut pas rater en les mettant côte à côte : l'échéancier est du *dû*, les
-   encaissements du *réalisé*, les ventes concrétisées un *sous-ensemble des
-   dossiers*. D'où trois zones nettement séparées, chacune avec son unité
-   annoncée, plutôt qu'une rangée de chiffres qu'on serait tenté de soustraire
-   les uns des autres.
-
-   Forme : douze **barres**, pas une courbe, malgré le mot du spec. Ce sont
-   douze sommes mensuelles discrètes, pas une grandeur échantillonnée ; un mois
-   à zéro doit se lire comme une barre absente, pas comme un creux interpolé.
-
-   Une seule teinte pour les douze barres. La distinction échu / à venir est un
-   **état**, pas une valeur : elle passe par le remplissage et par une légende,
-   jamais par une rampe de couleur — colorer plus foncé ce qui est plus grand
-   redirait la hauteur de la barre et brûlerait le seul canal libre.
-   --------------------------------------------------------------------------- */
+/* Trois blocs qui ne s'additionnent pas : l'échéancier est du dû, les
+   encaissements du réalisé, les ventes un sous-ensemble des dossiers. Les
+   garder séparés, chacun avec son unité. */
 
 const MOIS = ['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'];
 const MOIS_LONG = [
@@ -33,13 +17,11 @@ const MOIS_LONG = [
   'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
 ];
 
-/** Hauteur de la zone de tracé. La bande d'axe et la légende vivent **hors**
- * de cette hauteur : un conteneur dimensionné sur le seul tracé rogne ses
- * étiquettes de mois et fabrique une barre de défilement dans la carte. */
+/** Tracé seul : l'axe et la légende vivent hors de cette hauteur, sinon les
+ * étiquettes de mois sont rognées et la carte défile. */
 const H_TRACE = 104;
 
-/** `trancheId` : filtre par tranche du tableau de bord (administrateur seul —
- * le parent ne le passe jamais pour un autre rôle). Absent = toutes. */
+/** `trancheId` : administrateur seul, le parent ne le passe pas pour un autre rôle. */
 export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {}) {
   const anneeCourante = new Date().getFullYear();
   const [annee, setAnnee] = useState(anneeCourante);
@@ -49,11 +31,7 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
   const echeancier = data?.echeancier ?? [];
   const max = echeancier.reduce((m, p) => Math.max(m, p.montant ?? 0), 0);
   const total = echeancier.reduce((s, p) => s + (p.montant ?? 0), 0);
-  /* Le mois de bascule n'existe que sur l'année en cours : une année passée
-     est échue de bout en bout, une année à venir ne l'est nulle part. */
   const moisPivot = annee < anneeCourante ? 12 : annee > anneeCourante ? 0 : new Date().getMonth() + 1;
-  /* Étiquette directe sur le seul mois le plus fort — pas un nombre sur chaque
-     barre, qui ne se lit pas. L'axe et l'infobulle portent le reste. */
   const moisMax = max > 0 ? echeancier.find((p) => p.montant === max)?.mois : undefined;
 
   const v = data?.ventesConcretisees;
@@ -92,18 +70,10 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
 
       {!error && (
         <div className="grid grid-cols-1 gap-3 p-3 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          {/* ---------------------------------------------------------------
-              Bloc 1 — l'échéancier. Du *dû*, et le sous-titre le dit : c'est
-              la confusion la plus facile de tout cet écran, et celle qui
-              ferait lire une prévision comme un réalisé.
-              --------------------------------------------------------------- */}
           <section className="min-w-0">
             <div className="mb-1 flex items-baseline gap-2">
               <h3 className="text-label font-semibold text-foreground">Échéancier</h3>
               <span className="text-micro text-muted-foreground">montants dus, pas encaissés</span>
-              {/* L'étiquette directe du seul extrême — ni un nombre sur
-                  chaque barre, qui ne se lit pas, ni une étiquette flottante
-                  au-dessus du tracé, qui se cognerait à ce titre. */}
               {moisMax !== undefined && (
                 <span className="shrink-0 text-micro text-muted-foreground">
                   max {MOIS_LONG[moisMax - 1].toLowerCase()} {formatMontantCompact(max)}
@@ -115,9 +85,6 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
             </div>
 
             <div className="relative" style={{ height: H_TRACE }}>
-              {/* Filet de base plein, une nuance au-dessus de la surface. Pas
-                  de pointillés : sur une grille ils se lisent comme un seuil
-                  ou une projection alors qu'ils ne sont qu'un repère. */}
               <div className="absolute inset-x-0 bottom-0 h-px bg-border" />
 
               <div className="flex h-full items-end gap-[2px]">
@@ -146,7 +113,6 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
               </div>
             </div>
 
-            {/* La bande d'axe, hors de la hauteur de tracé. */}
             <div className="flex gap-[2px] pt-1">
               {MOIS.map((m, i) => (
                 <span
@@ -161,8 +127,7 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
               ))}
             </div>
 
-            {/* Deux états, donc une légende : l'information n'est jamais
-                portée par la seule teinte. */}
+            {/* Légende obligatoire : l'état échu / à venir ne doit pas passer par la seule teinte. */}
             {moisPivot > 0 && moisPivot < 12 && (
               <div className="mt-1.5 flex items-center gap-3 text-micro text-muted-foreground">
                 <span className="flex items-center gap-1">
@@ -171,13 +136,11 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
                 <span className="flex items-center gap-1">
                   <span className="size-2 rounded-[2px] bg-(--brand)/35" /> à venir
                 </span>
-                {/* Pourquoi les mois à venir sont là et doivent y rester. */}
                 <span>— un montant dû peut porter sur un mois futur</span>
               </div>
             )}
 
-            {/* La vue tabulaire : l'infobulle ne se survole pas au clavier ni
-                au lecteur d'écran. */}
+            {/* Table `sr-only` : l'infobulle ne se survole ni au clavier ni au lecteur d'écran. */}
             <table className="sr-only">
               <caption>Échéancier {annee} — montants dus par mois</caption>
               <thead>
@@ -195,11 +158,6 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
             </table>
           </section>
 
-          {/* ---------------------------------------------------------------
-              Blocs 2 et 3 — des nombres, pas des graphiques. Un compteur de
-              dossiers et deux totaux ne gagnent rien à devenir des barres, et
-              une barre unique n'est pas un graphique.
-              --------------------------------------------------------------- */}
           <section className="flex min-w-0 flex-col gap-2">
             <div className="rounded-lg bg-muted/30 px-3 py-2">
               <div className="flex items-baseline gap-2">
@@ -214,19 +172,15 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
                   <dd className="tabular-nums text-foreground">{v ? formatCurrency(v.prixTotal) : '—'}</dd>
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
-                  {/* Ce n'est pas « prix moins reste à payer » : les frais
-                      n'entrent pas dans ce montant. Le libellé reste donc
-                      « déjà réglé » et non « encaissé sur ces ventes ». */}
+                  {/* Pas « prix moins reste à payer » : les frais n'y entrent pas,
+                      d'où « déjà réglé » et non « encaissé sur ces ventes ». */}
                   <dt className="text-muted-foreground">Déjà réglé</dt>
                   <dd className="tabular-nums text-foreground">{v ? formatCurrency(v.montantRegle) : '—'}</dd>
                 </div>
               </dl>
 
-              {/* Le trou d'assiette, affiché plutôt que subi — c'est la raison
-                  d'être du compteur côté serveur. Sans cette ligne,
-                  « nombreDossiers » se lirait comme le total des ventes de
-                  l'année alors qu'il ne couvre que les dossiers pourvus d'une
-                  date d'avance. */}
+              {/* Sans cette ligne, `nombreDossiers` se lirait comme le total des ventes,
+                  alors qu'il ne couvre que les dossiers pourvus d'une date d'avance. */}
               {!!v?.dossiersSansDateAvance && (
                 <p className="mt-1.5 flex items-start gap-1.5 border-t border-border pt-1.5 text-micro text-(--amber)">
                   <Info aria-hidden className="mt-px size-3 shrink-0" />
@@ -249,7 +203,6 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
               <p className="mt-0.5 text-body text-muted-foreground">
                 {e ? `${formatCurrency(e.montantTotal)} sur ${formatNumber(e.nombreLignes)} règlements` : '—'}
               </p>
-              {/* Pourquoi ce total ne se rapproche pas de l'échéancier. */}
               <p className="mt-1 text-micro text-muted-foreground">
                 Crédits seuls — un décaissement n'est pas un encaissement négatif.
               </p>
@@ -261,8 +214,6 @@ export default function SyntheseAnnuelle({ trancheId }: { trancheId?: UUID } = {
   );
 }
 
-/** La valeur exacte, au survol. L'axe porte un montant abrégé ; celui-ci ne
- * remplace jamais le chiffre entier, il y renvoie. */
 function InfobulleMois({ point, aVenir }: { point: PointMensuelDto; aVenir: boolean }) {
   return (
     <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 shadow-md">
@@ -271,8 +222,7 @@ function InfobulleMois({ point, aVenir }: { point: PointMensuelDto; aVenir: bool
         {aVenir && <span className="ml-1 font-normal text-muted-foreground">(à venir)</span>}
       </div>
       <div className="text-body font-semibold tabular-nums text-foreground">{formatCurrency(point.montant)}</div>
-      {/* `lignes` est la seule colonne qui sépare « mois vide » de « mois à
-          zéro » — deux situations différentes que le montant seul confond. */}
+      {/* Seul `lignes` distingue « mois vide » de « mois à zéro ». */}
       <div className="text-micro tabular-nums text-muted-foreground">
         {point.lignes === 0 ? 'aucune échéance' : `${point.lignes} échéance${point.lignes > 1 ? 's' : ''}`}
       </div>

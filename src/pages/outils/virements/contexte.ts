@@ -3,25 +3,14 @@ import { useAuth } from '../../../lib/auth';
 import { ErreurVirement, lireMeta, lireMoi, surAccesRefuse } from '../../../lib/virements';
 import type { Meta, Moi } from './types';
 
-/** État partagé par les écrans du module : qui je suis pour le service
- * (`GET /moi`), le référentiel (`GET /meta`, chargé une fois — §2) et une
- * révision qui avance après chaque écriture.
- *
- * La révision est la règle de fraîcheur (R5) : chaque liste la met dans les
- * dépendances de son `useApi`, donc une génération, une pièce déposée ou un
- * bénéficiaire supprimé fait relire l'historique, les bénéficiaires et les
- * sociétés montés — sans que l'écran qui agit ait à savoir qui en dépend.
- *
- * L'état vit au niveau module mais **appartient à un utilisateur CRM** :
- * `proprietaire` est son id, et un autre utilisateur dans le même onglet
- * (déconnexion puis reconnexion, sans rechargement) repart de zéro au lieu
- * d'hériter du `admin` du précédent. */
+/** `revision` avance après chaque écriture : chaque liste la met dans les dépendances de son `useApi`.
+ * L'état appartient à un utilisateur CRM (`proprietaire`) : un autre compte dans le même onglet repart de zéro
+ * au lieu d'hériter du `admin` du précédent. */
 export interface EtatContexte {
   moi: Moi | null;
   meta: Meta | null;
   erreur: string | null;
-  /** `/moi` a répondu 403 : l'utilisateur n'a aucun rôle d'accès au service.
-   * Le message du service, affiché pour tout le module. */
+  /** `/moi` en 403 : aucun rôle d'accès au service ; ce message vaut pour tout le module. */
   accesRefuse: string | null;
   revision: number;
 }
@@ -30,8 +19,7 @@ const VIDE: EtatContexte = { moi: null, meta: null, erreur: null, accesRefuse: n
 
 let etat: EtatContexte = VIDE;
 let proprietaire: string | null = null;
-/** Avance à chaque changement d'utilisateur : une réponse arrivée après le
- * changement est ignorée. */
+/** Avance à chaque changement d'utilisateur : une réponse arrivée après est ignorée. */
 let generation = 0;
 let chargement: Promise<void> | null = null;
 const abonnes = new Set<() => void>();
@@ -57,16 +45,13 @@ function charger(): Promise<void> {
     })
     .catch((e: unknown) => {
       if (g !== generation) return;
-      // Échec : le prochain écran monté retentera — une fois par montage,
-      // jamais en boucle.
+      // Le prochain écran monté retentera : une fois par montage, jamais en boucle.
       chargement = null;
       publier(estAccesRefuse(e) ? { accesRefuse: e.erreur } : { erreur: message(e) });
     });
   return chargement;
 }
 
-/** Relit `/moi` : après un 403 « réservé aux administrateurs », les droits
- * ont pu changer pendant la session (§12) et l'affichage se réaligne. */
 export function relireMoi(): void {
   const g = generation;
   lireMoi()
@@ -74,14 +59,12 @@ export function relireMoi(): void {
       if (g === generation) publier({ moi, accesRefuse: null });
     })
     .catch((e: unknown) => {
-      // Plus aucun accès : tout le module passe en « Accès réservé ». Les
-      // autres erreurs sont déjà signalées par l'écran qui a appelé.
+      // Seul le 403 est traité ici : les autres erreurs sont déjà signalées par l'écran appelant.
       if (g === generation && estAccesRefuse(e)) publier({ accesRefuse: e.erreur });
     });
 }
 
-// Un 403 de `/moi` n'appelle jamais `/moi` (c'était une boucle) ; seul un
-// refus qui parle d'administrateur justifie de relire le niveau (§12).
+// Un 403 de `/moi` ne relit jamais `/moi` (boucle) ; seul un refus qui parle d'administrateur relit le niveau.
 surAccesRefuse((err, chemin) => {
   if (chemin === '/moi') return;
   if (/administrateur/i.test(err.erreur)) relireMoi();
@@ -117,7 +100,6 @@ export function useContexteVirement(): EtatContexte {
   return id === proprietaire ? valeur : VIDE;
 }
 
-/** Retente après un échec de chargement (bouton de l'écran d'erreur). */
 export function rechargerContexte(): void {
   publier({ erreur: null });
   void charger();

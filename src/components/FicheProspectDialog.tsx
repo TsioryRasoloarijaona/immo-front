@@ -4,13 +4,7 @@ import { ToastProvider } from './ToastProvider';
 import { FicheProspect } from '../pages/prospects/ProspectDetail';
 import { refetchAllApis } from '../lib/useApi';
 
-/**
- * La fiche d'un prospect dans un dialogue, **la même que la page** —
- * `FicheProspect` en variante `dialogue`, actions comprises. Même modèle que
- * `FicheProspectionDialog`.
- *
- * À charger par `lazy()` : ce module tire toute la page de détail.
- */
+// À charger par `lazy()` : ce module tire toute la page de détail.
 export default function FicheProspectDialog({ id, onClose }: { id: string; onClose: () => void }) {
   // Différé d'un tour : voir FicheProspectionDialog.
   useEffect(

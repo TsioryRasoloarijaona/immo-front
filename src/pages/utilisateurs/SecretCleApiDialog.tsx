@@ -6,16 +6,8 @@ import { DialogFooter } from '../../components/ui/dialog';
 import { libellePortee } from '../../lib/clesApi';
 import type { CleApiCreeeDto } from '../../types';
 
-/** Le secret d'une clé, **montré une seule fois** — après la création et
- * après la régénération, les deux seules routes qui le renvoient. Le serveur
- * n'en garde que le hash : fermer cette boîte sans copier, c'est devoir
- * régénérer.
- *
- * Même boîte pour les deux cas : `mode` ne change que le titre et la phrase
- * d'avertissement (en régénération, l'ancien secret a déjà cessé d'être
- * accepté — le client est cassé tant que la nouvelle valeur n'est pas
- * posée). La mécanique de copie reprend `TempPasswordBox` de la
- * réinitialisation de mot de passe, qui répond au même besoin. */
+/* Le serveur ne garde que le hash : fermer sans copier, c'est devoir régénérer.
+   En régénération, l'ancien secret est déjà refusé. */
 export default function SecretCleApiDialog({
   resultat,
   mode,

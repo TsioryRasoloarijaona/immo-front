@@ -5,13 +5,7 @@ import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_SUIVI_ACTIONS } from '../lib/dispositions';
 import type { ColonneDto, SuiviActionDto } from '../types';
 
-/** Rendus riches. Le reste est formaté par `DataGrid` d'après le `type` du
- * catalogue (DATE, BOOLEEN…) — une colonne ajoutée côté serveur apparaît
- * alignée et formatée sans toucher à ce fichier.
- *
- * `alerteActive` en pastille et non en « oui/non » : c'est le seul booléen
- * qui appelle une action (rappeler), les trois autres (`systeme`, `impaye`,
- * `entrante`) qualifient la ligne et restent en texte. */
+/** `alerteActive` en pastille : seul booléen qui appelle une action (rappeler). */
 const RENDUS: Record<string, (r: SuiviActionDto) => ReactNode> = {
   alerteActive: (r) =>
     r.alerteActive ? <Badge tone="warning">Active</Badge> : <span className="text-muted-foreground">—</span>,
@@ -49,10 +43,7 @@ const CLASSES: Record<string, string> = {
   modifieLe: 'text-muted-foreground',
 };
 
-/** Infobulle : le texte complet de ce que `truncate` a coupé. */
 const TITRES: Record<string, (r: SuiviActionDto) => string | undefined> = {
-  // 46 613 notes sur 48 213 actions, en `nvarchar(max)` : la colonne coupée
-  // le plus souvent, et celle qu'on veut lire en entier sans ouvrir la fiche.
   message: (r) => r.message || undefined,
   tiersNom: (r) => r.tiersNom || undefined,
   resultat: (r) => r.resultat || undefined,
@@ -61,14 +52,8 @@ const TITRES: Record<string, (r: SuiviActionDto) => string | undefined> = {
   programme: (r) => r.programme || undefined,
 };
 
-/** Tableau du suivi des actions — adaptateur au-dessus de `DataGrid`, sur le
- * patron de `EncaissementTable` : le chrome de grille vit dans `DataGrid`, ce
- * fichier ne garde que ce qui est propre à l'action et la traduction du
- * catalogue serveur `ColonneDto` en colonnes de grille.
- *
- * `onOuvrir` reçoit l'id de l'**action** : c'est la page qui décide quelle
- * fiche s'ouvre (prospection, à défaut dossier), puisqu'elle seule tient les
- * lignes et leurs clés de rattachement. */
+/** `onOuvrir` reçoit l'id de l'action, pas de la fiche : la page choisit quelle
+ * fiche ouvrir (prospection, à défaut dossier). */
 export default function SuiviActionTable({
   rows,
   colonnes,

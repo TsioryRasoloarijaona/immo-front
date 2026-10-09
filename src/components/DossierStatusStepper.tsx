@@ -10,14 +10,8 @@ import { todayISO } from '../lib/format';
 import { cn } from '../lib/utils';
 import type { EtapeSuivanteDto } from '../types';
 
-// Interactive, non-linear status changer — see instructions/FEATURE-changement-statut.md
-// for the original design. GET /api/dossiers/{id}/statut/etapes-suivantes
-// (V4) still informs each step when it can — the date field it hangs off
-// (`champDate`/`libelleChampDate`) and the backend's confidence that the
-// dossier is actually ready (`confiance`) — but every step in the pipeline
-// is clickable regardless of whether the API listed it as reachable: real
-// dossiers routinely skip steps, so this is left un-enforced by design and
-// any status is one click away.
+// Toute étape reste cliquable même si l'API ne la liste pas comme atteignable :
+// les vrais dossiers sautent des étapes, c'est voulu.
 export default function DossierStatusStepper({
   currentStatus,
   nextSteps,
@@ -133,9 +127,8 @@ function ConfirmPopoverBody({
           type="button"
           size="sm"
           onClick={() => {
-            // Submit the exact statut string the API gave us as reachable
-            // (step.statut), not our display label — they can differ in
-            // casing/accents (e.g. "CONCRETISATION" vs "Concrétisation").
+            // Envoyer `step.statut` tel que l'API le donne, pas le libellé affiché :
+            // casse et accents diffèrent (« CONCRETISATION » / « Concrétisation »).
             onConfirm(step?.statut ?? label, note.trim(), step?.champDate ? date || undefined : undefined);
             setNote('');
             close();

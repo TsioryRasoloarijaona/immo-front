@@ -4,12 +4,6 @@ import { cn } from '../lib/utils';
 import { formatSurface, libellePrix } from '../lib/format';
 import type { ArticleListItemDto } from '../types';
 
-/** Scrollable article-picker table — code/description/catégorie/type/
- * surface/prix/statut, one row selectable at a time. Shared by
- * `ArticleCascadePicker`/`ChoixArticleSection` and `DevisFormSection`
- * (`ProspectionDetail.tsx`), and the "Nouvelle offre" flow on `/offres`
- * (`OffresList.tsx`) — every place that filters a tranche's articles down
- * to one pick. */
 export default function ArticleResultsList({
   items,
   loading,

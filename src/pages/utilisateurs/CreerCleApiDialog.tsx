@@ -9,22 +9,15 @@ import { creerCleApi } from '../../lib/api';
 import { PORTEES_CLE_API, PORTEES_N8N } from '../../lib/clesApi';
 import type { CleApiCreeeDto, PorteeCleApi } from '../../types';
 
-/** Création d'une clé d'API — `POST /api/cles-api`. Trois champs, dont deux
- * obligatoires : le nom (unique, il devient aussi le code du compte de
- * service) et au moins une portée. Le préréglage coché est celui de n8n,
- * le cas d'usage qui a motivé la fonctionnalité (FEATURE §8).
- *
- * `compteCode` reste un champ libre et non un sélecteur de comptes : le cas
- * nominal est de laisser le serveur créer le compte, et un sélecteur
- * inviterait à rattacher la clé à un compte humain — dont elle hériterait
- * le périmètre, ce que la FEATURE ne recommande pas. */
+/* Le nom est unique et devient le code du compte de service. `compteCode` reste un
+   champ libre, pas un sélecteur : rattachée à un compte humain, la clé en hériterait
+   le périmètre (FEATURE-cle-api-n8n.md §8). */
 export default function CreerCleApiDialog({
   onClose,
   onCreated,
 }: Readonly<{
   onClose: () => void;
-  /** Reçoit le secret en clair : à afficher **tout de suite**, il ne sera
-   * plus jamais renvoyé. */
+  /** Secret en clair, à afficher tout de suite : il ne sera plus jamais renvoyé. */
   onCreated: (resultat: CleApiCreeeDto) => void;
 }>) {
   const [nom, setNom] = useState('');
@@ -52,7 +45,6 @@ export default function CreerCleApiDialog({
     try {
       const resultat = await creerCleApi({
         nom: nom.trim(),
-        // Dans l'ordre du référentiel, pas dans l'ordre des clics.
         portees: PORTEES_CLE_API.map((p) => p.code).filter((c) => portees.has(c)),
         compteCode: compteCode.trim() || undefined,
       });

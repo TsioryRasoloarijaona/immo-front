@@ -9,48 +9,13 @@ import type {
 } from '../types';
 import type { ParamsDepliage, ParamsGroupes } from './api';
 
-/** État de la bande de groupement d'une liste.
- *
- * Le **serveur** fait le groupement (`/groupes`) parce que les listes sont
- * paginées : grouper la page chargée ne grouperait qu'elle, et les effectifs
- * comme les totaux seraient faux. Ce fichier ne porte donc que le choix de
- * l'utilisateur et sa traduction en paramètres de requête — aucun calcul.
- *
- * Pas de composant ici, et c'est volontaire : co-loger une constante avec un
- * composant déclenche `react-refresh/only-export-components`, ce qui a déjà
- * coûté une erreur eslint à ce dépôt. Le mécanisme vit dans `lib/`, le rendu
- * dans `components/`.
- *
- * **Le groupement n'est pas persisté**, contrairement à la sélection de
- * colonnes. Une sélection de colonnes est une préférence d'affichage durable ;
- * un groupement est une question qu'on pose une fois. Le retrouver intact en
- * revenant sur l'écran ferait croire à une liste tronquée. */
+/* Le serveur groupe (`/groupes`) car les listes sont paginées : grouper la page chargée fausserait effectifs et
+   totaux. Le groupement n'est pas persisté : le retrouver en revenant ferait croire à une liste tronquée. */
 
-/** Colonnes dont il ne faut pas proposer la **somme**, le total n'ayant aucun
- * sens — mais dont les autres fonctions, elles, en ont un.
- *
- * Ce sont des **taux**, pas des quantités, et additionner des taux ne produit
- * rien d'interprétable. Mesuré sur les 116 dossiers réels :
- *
- * - `remise` est un **ratio 0–1** (de -0,207865 à 0,988329, les négatifs étant
- *   des majorations). Sa somme par statut vaut 1,88 / 4,97 / 0,29 : des
- *   nombres que rien à l'écran ne permettrait de lire.
- * - `probabiliteFinalisation` vaut **1 sur les 116 lignes**. Sa somme est donc
- *   exactement l'effectif du groupe, déjà affiché à côté — une colonne de
- *   totaux qui répète le décompte en se faisant passer pour autre chose.
- *
- * **Seule `SUM` est écartée, et c'est le changement.** Tant que l'endpoint ne
- * servait que des sommes, écarter la colonne entière revenait au même ; il
- * sert maintenant cinq fonctions, et une remise **moyenne** de 7,31 % informe,
- * comme son minimum et son maximum. C'était déjà écrit ici : « une moyenne
- * serait l'agrégat juste pour un taux ». Elle existe, on la propose.
- *
- * Le serveur a raison d'accepter la somme : elle est calculable, et c'est à
- * l'affichage de savoir qu'elle n'informe pas. */
+/** Des taux, pas des quantités : seule leur somme est écartée, moyenne, min et max restent proposés.
+ * Le serveur accepte la somme ; c'est à l'affichage de savoir qu'elle n'informe pas. */
 export const SOMMES_SANS_SENS = new Set(['remise', 'probabiliteFinalisation']);
 
-/** Libellés français des fonctions, dans l'ordre où le serveur les publie —
- * ce fichier ne les retrie pas, le catalogue décide. */
 export const LIBELLES_FONCTION: Record<FonctionAgregat, string> = {
   SUM: 'Somme',
   AVG: 'Moyenne',
@@ -59,30 +24,19 @@ export const LIBELLES_FONCTION: Record<FonctionAgregat, string> = {
   COUNT: 'Nombre',
 };
 
-/** Le jeton à envoyer dans `?agregats=`.
- *
- * **Un nom nu vaut une somme** : c'est le contrat du serveur, pas une
- * commodité d'écriture. L'émettre nu garde la réponse d'une intégration
- * existante inchangée, puisque la clé de retour est alors ce même nom nu. */
+/** Contrat serveur : un nom nu vaut une somme, et la clé de retour est alors ce même nom nu. */
 export function jetonAgregat(nom: string, fonction: FonctionAgregat): string {
   return fonction === 'SUM' ? nom : `${nom}:${fonction}`;
 }
 
-/** L'inverse. Un jeton sans `:` est une somme. */
 export function decomposerJeton(jeton: string): { nom: string; fonction: FonctionAgregat } {
   const i = jeton.indexOf(':');
   if (i === -1) return { nom: jeton, fonction: 'SUM' };
   return { nom: jeton.slice(0, i), fonction: jeton.slice(i + 1) as FonctionAgregat };
 }
 
-/** Colonnes à ne pas proposer au groupement sur un écran donné, alors que le
- * serveur les déclare `groupable`.
- *
- * Cas unique aujourd'hui : sur les **pré-prospections**, `prospectNom` et
- * `commercialNom` sont nuls par définition du périmètre
- * (`CfgProspectId IS NULL AND CfgCommercialId IS NULL`). Le serveur les accepte
- * plutôt que d'ajouter un cas particulier, et renvoie un groupe unique sans
- * valeur : exact, mais sans information. Autant ne pas les offrir. */
+/** Déclarées `groupable` par le serveur mais nulles par définition sur les pré-prospections
+ * (`CfgProspectId IS NULL AND CfgCommercialId IS NULL`) : un groupe unique sans valeur, sans information. */
 export const GROUPEMENTS_SANS_INTERET: Record<string, Set<string>> = {
   'pre-prospections': new Set(['prospectNom', 'commercialNom']),
 };
@@ -90,21 +44,18 @@ export const GROUPEMENTS_SANS_INTERET: Record<string, Set<string>> = {
 /** Le groupe des lignes **sans valeur** n'a pas de libellé serveur. */
 export const LIBELLE_GROUPE_VIDE = '(non renseigné)';
 
-/** `libelleGroupe` traduit un code brut (`CANCELED`) en libellé d'affichage ;
- * la clé envoyée au serveur, elle, reste le code. */
+/** `libelleGroupe` ne traduit que l'affichage : la clé envoyée au serveur reste le code brut. */
 export function libelleGroupeAffiche(g: GroupeDto, libelleGroupe?: (brut: string) => string): string {
   if (g.libelle === null || g.libelle === undefined) return LIBELLE_GROUPE_VIDE;
   return libelleGroupe ? libelleGroupe(g.libelle) : g.libelle;
 }
 
-/** Clé React stable. `null` est une valeur de groupe légitime et doit se
- * distinguer de la chaîne « null », qu'une colonne texte pourrait porter. */
+/** `null` est une valeur de groupe légitime, à distinguer de la chaîne « null » qu'une colonne texte peut porter. */
 export function identiteGroupe(g: GroupeDto): string {
   return g.cle === null || g.cle === undefined ? ' vide' : String(g.cle);
 }
 
-/** Ce qui part dans `?groupeValeur=`. `undefined` — donc paramètre omis —
- * désigne le groupe sans valeur : c'est le contrat du serveur. */
+/** Contrat serveur : `?groupeValeur=` omis désigne le groupe sans valeur. */
 export function valeurGroupe(cle: GroupeDto['cle']): string | undefined {
   return cle === null || cle === undefined ? undefined : String(cle);
 }
@@ -128,17 +79,9 @@ export function libelleTri(t: TriGroupes, estDate: boolean): string {
 
 export type EtatGroupement = ReturnType<typeof useGroupement>;
 
-/**
- * @param cleEcran identifie l'écran pour `GROUPEMENTS_SANS_INTERET`.
- * @param catalogue catalogue **brut** du serveur ; `groupable` et `agregeable`
- *   s'y lisent, ils ne se déduisent ni du type ni du nom — mesuré,
- *   `joursInactivite` est un `NOMBRE` non agrégeable.
- * @param auChangement appelé quand le **jeu de groupes** change — changement
- *   d'axe, de granularité, d'ordre. Les écrans y remettent leur pagination à
- *   zéro : rester page 7 en passant de 38 groupes à 5 afficherait un écran
- *   vide. Pas appelé par `basculerAgregat`, qui ajoute une colonne de totaux
- *   sans toucher ni au nombre de groupes ni à leur ordre.
- */
+/** `groupable`/`agregeable` se lisent dans le catalogue, jamais déduits du type (un `NOMBRE` peut être non agrégeable).
+ * `auChangement` : les écrans y remettent leur pagination à zéro, sinon une page au-delà des groupes reste vide ;
+ * `basculerAgregat` ne l'appelle pas, il ne change ni le nombre ni l'ordre des groupes. */
 export function useGroupement(
   cleEcran: string,
   catalogue: ColonneDto[],
@@ -155,12 +98,6 @@ export function useGroupement(
     () => catalogue.filter((c) => c.groupable && !exclues?.has(c.nom)),
     [catalogue, exclues],
   );
-  /** Les colonnes proposables au Σ, **avec les fonctions retenues pour
-   * chacune**. Une colonne dont `fonctions` est vide n'a rien à agréger et ne
-   * doit pas apparaître ; une colonne de taux perd `SUM` mais garde le reste.
-   *
-   * L'ordre des fonctions est celui du catalogue : le serveur les publie
-   * « dans l'ordre où le menu Σ doit les proposer ». */
   const agregeables = useMemo(
     () =>
       catalogue
@@ -172,9 +109,7 @@ export function useGroupement(
     [catalogue],
   );
 
-  /* Le catalogue arrive de façon asynchrone : tant qu'il est vide, aucune
-     colonne ne « correspond », et `actif` reste faux. Une colonne choisie puis
-     disparue du catalogue ne laisse donc pas un `groupBy` que le serveur
+  /* Résolue contre le catalogue : une colonne choisie puis disparue ne laisse pas un `groupBy` que le serveur
      refuserait en 400. */
   const colonneGroupee = useMemo(
     () => groupables.find((c) => c.nom === colonne) ?? null,
@@ -183,10 +118,8 @@ export function useGroupement(
   const actif = colonneGroupee !== null;
   const estDate = colonneGroupee?.type === 'DATE';
 
-  /** Une seule granularité circule, et elle doit être **la même** des deux
-   * côtés. La dériver ici plutôt qu'à chaque site d'appel est ce qui empêche
-   * la liste et les groupes de diverger — l'oubli rend un groupe déplié
-   * vide, en HTTP 200, sans le moindre message. */
+  /** La même granularité doit partir vers `/groupes` et vers la liste dépliée : sinon le groupe déplié revient
+   * vide, en HTTP 200, sans message. D'où une seule dérivation ici. */
   const granulariteEffective = estDate ? granularite : undefined;
 
   const paramsGroupes = useMemo<ParamsGroupes | null>(
@@ -197,25 +130,16 @@ export function useGroupement(
             agregats: agregats.length > 0 ? agregats : undefined,
             granularite: granulariteEffective,
             tri,
-            /* Toujours `true`, jamais laissé au défaut serveur.
-               Voir `ParamsGroupes.inclureSansValeur` : le défaut `false`
-               retire les lignes sans valeur des groupes **sans les signaler
-               nulle part**. Mesuré, grouper les dossiers par avocat
-               n'afficherait plus que 23 lignes sur 116.
-               C'est aussi ce qui maintient l'égalité somme des effectifs =
-               `totalElements`, sur laquelle repose tout l'écran. */
+            /* Jamais laissé au défaut serveur `false`, qui retire en silence les lignes sans valeur et casse
+               l'égalité somme des effectifs = `totalElements` dont dépend l'écran. */
             inclureSansValeur: true,
           }
         : null,
     [colonneGroupee, agregats, granulariteEffective, tri],
   );
 
-  /** Les paramètres qui restreignent la **liste** aux lignes d'un groupe.
-   *
-   * `granularite` y est répétée à l'identique : le serveur rejoue le découpage
-   * pour retrouver les lignes, et une clé annuelle confrontée à un découpage
-   * mensuel ne correspond à rien. Mesuré, cet oubli rend `totalElements: 0`
-   * en **HTTP 200**. */
+  /** `granularite` doit être répétée : le serveur rejoue le découpage, et sans elle rend `totalElements: 0`
+   * en HTTP 200. */
   const depliagePour = useCallback(
     (cle: GroupeDto['cle']): ParamsDepliage | undefined =>
       colonneGroupee
@@ -228,9 +152,6 @@ export function useGroupement(
     [colonneGroupee, granulariteEffective],
   );
 
-  /** Clé de dépendance pour `useApi`, et clé de remise à zéro des groupes
-   * dépliés : elle change dès que la requête de groupement change, et
-   * seulement là. */
   const cleDeps = useMemo(() => JSON.stringify(paramsGroupes), [paramsGroupes]);
 
   const choisirColonne = useCallback(
@@ -269,24 +190,16 @@ export function useGroupement(
   }, [auChangement]);
 
   return {
-    /** Colonnes proposables au groupement, telles que le serveur les déclare. */
     groupables,
-    /** Colonnes sommables, purgées des taux (voir `AGREGATS_SANS_SENS`). */
     agregeables,
     colonne,
     colonneGroupee,
-    /** Vrai dès qu'une colonne du catalogue est effectivement groupée. */
     actif,
     estDate,
     granularite,
     tri,
     agregats,
-    /** Les agrégats actifs, résolus — une bande de totaux chacun dans
-     * l'en-tête de groupe et dans le pied de la liste.
-     *
-     * Résolus ici et non à l'affichage : le jeton seul ne dit ni le libellé de
-     * la colonne ni son type, dont dépend le formatage — un `MIN` sur une
-     * colonne date rend une chaîne ISO qu'il faut présenter en date. */
+    /** Résolus avec leur colonne : le formatage dépend du type (un `MIN` sur une date rend une chaîne ISO). */
     agregatsActifs: useMemo(
       () =>
         agregats
@@ -309,59 +222,35 @@ export function useGroupement(
   };
 }
 
-/** Les lignes chargées pour un groupe déplié. */
 export interface LignesGroupe<T> {
   lignes: T[];
-  /** Effectif total du groupe côté serveur, qui peut dépasser ce qui est
-   * chargé — d'où le bouton « en charger davantage ». */
+  /** Effectif serveur du groupe, qui peut dépasser les lignes chargées. */
   total: number;
   chargement: boolean;
   erreur: string | null;
 }
 
-/** Combien de lignes on demande à chaque fois qu'un groupe s'ouvre, puis à
- * chaque « charger plus ».
- *
- * Un groupe n'est pas borné : mesuré, « 1 A TRAITER » compte **3 145**
- * prospections. Tout charger à l'ouverture gèlerait l'écran pour une
- * information que personne ne lit d'un coup. Le lot vaut la taille de page de
- * la liste, pour que déplier un groupe coûte exactement ce que coûte une page
- * ordinaire. */
+/** Un groupe n'est pas borné : tout charger à l'ouverture gèlerait l'écran. Lot = taille de page de la liste. */
 export const TAILLE_LOT_GROUPE = 20;
 
-/** Les groupes dépliés et leurs lignes.
- *
- * **Plusieurs groupes peuvent être ouverts en même temps**, comme dans le
- * logiciel de bureau : chacun garde son propre lot de lignes chargées, son
- * total et son erreur. C'est la raison pour laquelle l'état est un
- * dictionnaire et non un identifiant unique.
- *
- * @param charger fourni par l'écran ; il seul connaît ses filtres et son
- *   endpoint. Reçoit la clé du groupe et le nombre de lignes voulues.
- * @param cleReset toute chaîne qui change quand les groupes changent de sens —
- *   axe, granularité, filtres. Les lignes déjà chargées appartiendraient alors
- *   à d'autres groupes : elles sont jetées.
- */
+/** Plusieurs groupes peuvent être ouverts à la fois, d'où un dictionnaire.
+ * `cleReset` doit changer avec l'axe, la granularité et les filtres : les lignes chargées sont alors jetées. */
 export function useLignesGroupes<T>(
   charger: (cle: GroupeDto['cle'], taille: number) => Promise<PageDto<T>>,
   cleReset: string,
 ) {
   const [etats, setEtats] = useState<Record<string, LignesGroupe<T>>>({});
 
-  /* Remise à zéro **pendant le rendu**, pas dans un effet : c'est le patron
-     que React documente pour un état dérivé d'une entrée qui change, et il
-     évite le rendu intermédiaire où l'on afficherait les lignes de l'ancien
-     groupement sous les en-têtes du nouveau. Un effet le ferait aussi, en une
-     frame de trop — et tomberait sous `react-hooks/set-state-in-effect`. */
+  /* Remise à zéro pendant le rendu, pas dans un effet : évite une frame avec les lignes de l'ancien groupement
+     sous les en-têtes du nouveau, et `react-hooks/set-state-in-effect`. */
   const [precedent, setPrecedent] = useState(cleReset);
   if (precedent !== cleReset) {
     setPrecedent(cleReset);
     setEtats({});
   }
 
-  /* Volontairement non mémoïsées : ce sont des gestionnaires d'événement, et
-     elles doivent lire `charger` tel qu'il est au moment du clic — il se
-     referme sur les filtres courants de l'écran. */
+  /* Volontairement non mémoïsées : elles doivent lire `charger` au moment du clic, il se referme sur les
+     filtres courants de l'écran. */
   const recuperer = (g: GroupeDto, taille: number) => {
     const id = identiteGroupe(g);
     setEtats((e) => ({
@@ -390,9 +279,7 @@ export function useLignesGroupes<T>(
   const basculer = (g: GroupeDto) => {
     const id = identiteGroupe(g);
     if (etats[id]) {
-      // Replier jette les lignes : les rouvrir les recharge. Les garder
-      // ferait diverger l'affichage des filtres si ceux-ci ont bougé entre
-      // les deux, et un groupe replié ne coûte rien à recharger.
+      // Replier jette les lignes : les garder ferait diverger l'affichage si les filtres ont bougé entre-temps.
       setEtats((e) => {
         const suivant = { ...e };
         delete suivant[id];
@@ -405,23 +292,15 @@ export function useLignesGroupes<T>(
 
   const chargerPlus = (g: GroupeDto) => {
     const etat = etats[identiteGroupe(g)];
-    /* Une page plus grande plutôt qu'une concaténation de pages : redemander
-       depuis le début évite les doublons comme les trous qu'un décalage
-       produirait si une ligne changeait de groupe entre deux appels.
-
-       **Cela suppose un ordre déterministe**, ce que le serveur ne garantit
-       pas de lui-même : mesuré, le groupe « 2024 » des dossiers trié sur la
-       seule `docDate` ressort dans un ordre différent d'un appel à l'autre,
-       les ex æquo étant départagés par le plan SQL du moment. C'est à
-       l'appelant de passer un tri qui tranche — voir les `sort` des écrans. */
+    /* Une page plus grande plutôt que des pages concaténées : ni doublon ni trou si une ligne change de groupe.
+       Suppose un ordre déterministe, que le serveur ne garantit pas sur les ex æquo : l'écran doit passer un
+       `sort` qui tranche. */
     recuperer(g, (etat?.lignes.length ?? 0) + TAILLE_LOT_GROUPE);
   };
 
   return {
     estOuvert: (g: GroupeDto) => etats[identiteGroupe(g)] !== undefined,
     etat: (g: GroupeDto): LignesGroupe<T> | undefined => etats[identiteGroupe(g)],
-    /** Toutes les lignes actuellement affichées, tous groupes ouverts
-     * confondus — ce sur quoi porte le pied Σ de la grille. */
     lignesChargees: useMemo(() => Object.values(etats).flatMap((e) => e.lignes), [etats]),
     basculer,
     chargerPlus,

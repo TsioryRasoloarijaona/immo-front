@@ -49,8 +49,7 @@ const APERCU_ITEMS: { value: TypeVirement; label: string }[] = [
   { value: "salaire", label: "Aperçu : salaire" },
 ];
 
-/** Ligne fictive de l'aperçu : le modèle se règle en le regardant, pas en
- * générant un PDF d'essai à chaque retouche. */
+/** Ligne fictive : le modèle se règle sur l'aperçu, sans générer un PDF d'essai à chaque retouche. */
 const LIGNE_EXEMPLE: Record<
   TypeVirement,
   { beneficiaire: string; rib: string; montant: number }
@@ -143,9 +142,7 @@ function Case({
   );
 }
 
-/** Société émettrice (§10.1) : identité et modèle de courrier. Enregistrement
- * en deux temps — la fiche (JSON, cases en 0/1), puis le logo s'il y en a un
- * de choisi, avec l'`id` renvoyé. */
+/** Enregistrement en deux temps : la fiche (JSON, cases en 0/1), puis le logo avec l'`id` renvoyé. */
 export default function SocieteDialog({
   societe,
   premiere,
@@ -153,7 +150,6 @@ export default function SocieteDialog({
   toasts,
 }: Readonly<{
   societe?: Societe;
-  /** Aucune société encore : « par défaut » est coché d'office. */
   premiere: boolean;
   onClose: () => void;
   toasts: Notifications;
@@ -182,16 +178,13 @@ export default function SocieteDialog({
   const [nouveauLogo, setNouveauLogo] = useState<File | null>(null);
   const [erreur, setErreur] = useState<string | null>(null);
   const [enCours, setEnCours] = useState(false);
-  // Créée, mais le logo a échoué : un nouvel essai modifie la fiche au lieu
-  // d'en recréer une (qui serait refusée, nom déjà pris).
+  // Créée mais logo en échec : un nouvel essai modifie la fiche au lieu d'en recréer une (refusée, nom pris).
   const [creeId, setCreeId] = useState<number | null>(null);
   const [confirmation, demander] = useConfirmation();
   const [apercu, setApercu] = useState<TypeVirement>("fournisseur");
   const maj = (patch: Partial<SocieteSaisie>) =>
     setS((x) => ({ ...x, ...patch }));
 
-  // Aperçu nourri par la saisie en cours, non enregistrée comprise. Logo : le
-  // fichier choisi s'il y en a un, sinon le logo actuel, sinon celui par défaut.
   const urlNouveauLogo = useMemo(
     () => (nouveauLogo ? URL.createObjectURL(nouveauLogo) : null),
     [nouveauLogo],

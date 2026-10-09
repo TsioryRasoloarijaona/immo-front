@@ -9,14 +9,13 @@ export type ToastAction =
     }
   | {
       libelle: string;
-      /** Action sans navigation (ex. ouvrir une fiche en dialogue). */
       surClic: () => void;
       vers?: never;
     };
 
 export interface ToastOptions {
   texte: string;
-  /** Avec action, le toast reste affiché jusqu'à fermeture ou clic (R1). */
+  /** Avec action, le toast reste affiché jusqu'à fermeture ou clic. */
   action?: ToastAction;
   variante?: 'succes' | 'erreur';
 }

@@ -4,10 +4,7 @@ import { EmptyState } from '../../components/ui';
 import { useAuth } from '../../lib/auth';
 import { estAdministrateur } from '../../lib/roles';
 
-/** Wraps an admin-only page — same "roles includes Administrateur" rule
- * enforced for the sidebar link (Layout.tsx) and here, and the backend
- * itself 403s these endpoints for non-admins, so this is UX only, not the
- * real security boundary. */
+// Confort seulement : la vraie barrière est le 403 du backend pour les non-admins.
 export default function AdminGuard({
   title,
   crumbs,

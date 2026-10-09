@@ -5,7 +5,6 @@ interface PorteurDeRoles {
   roles?: readonly string[];
 }
 
-/** Rôles qui voient tous les projets, quel que soit leur périmètre affecté. */
 export const ROLES_EXEMPTES: ReadonlySet<string> = new Set(['Administrateur', 'Direction Générale']);
 
 export function estAdministrateur(user: PorteurDeRoles | null | undefined): boolean {

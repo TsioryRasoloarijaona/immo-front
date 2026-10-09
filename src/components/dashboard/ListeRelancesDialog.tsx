@@ -6,9 +6,7 @@ import FicheProspectionLazy, { type FicheOuverte } from './FicheProspectionLazy'
 import { formatTelephone } from '../../lib/format';
 import type { RelanceProspectionDto } from '../../types';
 
-/** Une relance telle que la grille la veut : `DataGrid` identifie ses lignes
- * par `id`, que le DTO ne porte pas. L'interaction est la bonne identité — une
- * même prospection peut porter plusieurs relances. */
+/** `id` = l'interaction, pas la prospection : une prospection peut porter plusieurs relances. */
 type LigneRelance = RelanceProspectionDto & { id: string };
 
 const COLONNES: ColonneGrille<LigneRelance>[] = [
@@ -25,8 +23,7 @@ const COLONNES: ColonneGrille<LigneRelance>[] = [
     libelle: 'Téléphone',
     largeur: 10,
     classe: 'tabular-nums',
-    /* Le numéro reste un lien `tel:` : appeler est l'action de cet écran. Le
-       clic est arrêté avant la ligne, qui ouvrirait la fiche. */
+    /* `stopPropagation` : sinon le clic sur le lien `tel:` ouvrirait aussi la fiche. */
     rendu: (r) =>
       r.telephone ? (
         <a
@@ -63,17 +60,8 @@ const COLONNES: ColonneGrille<LigneRelance>[] = [
   { nom: 'derniereInteractionDate', libelle: 'Dernière action', type: 'DATE', largeur: 9 },
 ];
 
-/**
- * Toute la file d'une section « À rappeler » (Aujourd'hui ou En retard), dans
- * un dialogue.
- *
- * **Aucune requête ici** : le tableau de bord charge déjà la file entière pour
- * pouvoir en montrer la fin (voir `TAILLE_FILE`), et la passe telle quelle. La
- * liste suit donc la bascule Moi / Équipe et se rafraîchit avec la carte.
- *
- * Tri et filtre par colonne sont ceux de `DataGrid`, côté client — légitime
- * ici, puisque la file est complète et non une page.
- */
+/** Aucune requête ici : le tableau de bord passe la file entière déjà chargée,
+ * d'où un tri/filtre client légitime (ce n'est pas une page). */
 export default function ListeRelancesDialog({
   titre,
   etat,
@@ -82,16 +70,13 @@ export default function ListeRelancesDialog({
   onClose,
 }: {
   titre: string;
-  /** Précision de périmètre rendue sous la liste — la borne de 30 jours de la
-   * file « En retard », sans objet sur « Aujourd'hui ». */
   note?: string;
   etat: {
     data: { content: RelanceProspectionDto[]; totalElements: number } | null;
     loading: boolean;
     error: string | null;
   };
-  /** Même sens que sur la carte : la file arrive par échéance croissante, et
-   * « En retard » se lit du plus récent au plus ancien. */
+  /** La file arrive par échéance croissante ; « En retard » se lit à rebours. */
   plusRecentesDAbord?: boolean;
   onClose: () => void;
 }) {
@@ -116,9 +101,6 @@ export default function ListeRelancesDialog({
         <div className="flex min-h-0 flex-1 flex-col gap-2.5">
           <div className="shrink-0 text-body text-muted-foreground">
             {page.totalElements} relance{page.totalElements > 1 ? 's' : ''}
-            {/* La file est censée tenir dans le lot chargé ; si ce n'est plus
-                le cas, le dire plutôt que de laisser croire à une liste
-                complète. */}
             {page.content.length < page.totalElements && (
               <span className="text-(--amber)"> — {page.content.length} affichées, la file dépasse le lot chargé.</span>
             )}

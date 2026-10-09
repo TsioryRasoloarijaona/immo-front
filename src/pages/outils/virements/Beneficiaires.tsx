@@ -27,9 +27,7 @@ export default function Beneficiaires() {
   );
 }
 
-/** Bénéficiaires (§9) : `GET /dossiers` chargé en entier, recherche et filtre
- * faits à l'écran. Les chiffres (ordres, total viré, dossiers) sont ceux du
- * serveur. */
+/** `GET /dossiers` chargé en entier : recherche et filtre à l'écran, chiffres toujours ceux du serveur. */
 interface CompteDossier {
   nb_ordres: number;
   nb_incomplets: number;
@@ -67,8 +65,6 @@ function Carnet({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   ];
   const importItems = natures.map(([v, l]) => ({ value: v, label: `Importer des ${l.toLowerCase()}s` }));
 
-  // « hamid enne » trouve « M Hamid ENNEASSI » : chaque mot tapé doit figurer
-  // dans le nom ou le RIB (RIB comparé sans espaces).
   const lignes = useMemo<Ligne[]>(() => {
     const mots = normaliser(q).split(/\s+/).filter(Boolean);
     return (data ?? [])
@@ -96,7 +92,7 @@ function Carnet({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
         toasts.notifierErreur(e, 'Impossible de supprimer le bénéficiaire');
         return;
       }
-      // Second temps : il a des ordres (§9.3).
+      // 409 : il a des ordres, la suppression forcée demande une seconde confirmation.
       const encore = await demander({
         titre: 'Ce bénéficiaire a des ordres',
         message: `${e.erreur.charAt(0).toUpperCase()}${e.erreur.slice(1)}. Ces ordres resteront dans l'historique avec le nom et le RIB d'origine, mais le bénéficiaire ne sera plus proposé dans le formulaire.`,
@@ -199,8 +195,7 @@ function Carnet({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
           <ChoixSimple items={filtreItems} value={nature} onChange={setNature} className="w-48" />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* La nature choisie s'applique aux lignes du classeur qui ne
-              portent pas leur propre colonne « type ». */}
+          {/* Ne s'applique qu'aux lignes du classeur sans leur propre colonne « type ». */}
           <ChoixSimple items={importItems} value={natureImport} onChange={setNatureImport} className="w-52" />
           <Button type="button" variant="outline" disabled={importEnCours} onClick={() => fichier.current?.click()}>
             <Upload data-icon="inline-start" /> {importEnCours ? 'Import…' : 'Fichier Excel'}

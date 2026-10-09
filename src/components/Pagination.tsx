@@ -3,11 +3,7 @@ import { Button } from './ui/button';
 import { cn } from '../lib/utils';
 import { formatNumber } from '../lib/format';
 
-// Shared pager for every paginated list view — the API's PageDto is
-// 0-indexed (page/size/totalElements/totalPages), this renders it as a
-// numbered "1 2 3 … N" control (1-indexed for display) plus
-// Précédent/Suivant, always keeping the first, last and current ±1 pages
-// visible and collapsing the rest behind "…".
+// `page` vient du PageDto, indexé à partir de 0 ; l'affichage commence à 1.
 function pageWindow(current: number, total: number): (number | 'ellipsis')[] {
   const items = new Set<number>([0, total - 1, current, current - 1, current + 1]);
   const sorted = [...items].filter((p) => p >= 0 && p <= total - 1).sort((a, b) => a - b);
@@ -59,11 +55,8 @@ export default function Pagination({
             <Button
               key={p}
               type="button"
-              /* `secondary`/`ghost` et non `default`/`outline` : depuis que
-                 --primary est l'encre (20/09), le variant default rendait la
-                 page active en pastille noire pleine où le chiffre se perdait.
-                 Pastille grise douce + chiffre en encre, lisible dans les deux
-                 thèmes ; les pages inactives en fantôme, façon Uxerflow. */
+              /* `secondary`/`ghost` et non `default` : --primary étant l'encre,
+                 la page active deviendrait une pastille noire où le chiffre se perd. */
               variant={p === page ? 'secondary' : 'ghost'}
               size="icon-sm"
               className={cn(

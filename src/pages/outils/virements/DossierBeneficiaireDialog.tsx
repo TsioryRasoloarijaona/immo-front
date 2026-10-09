@@ -30,9 +30,7 @@ function messageEtat(d: EtatDossier): string {
   return `${d.nb_incomplets} ${plusieurs ? 'ordres' : 'ordre'} sur ${d.nb_ordres} ${plusieurs ? 'sont incomplets' : 'est incomplet'}.`;
 }
 
-/** « Dossier — Nom » (§9.5) : chiffres du serveur, récapitulatif par société,
- * et les ordres un par un. Ouvrir un ordre ferme cette fenêtre et ouvre sa
- * fiche (c'est la page qui l'enchaîne). */
+/** Ouvrir un ordre ferme cette fenêtre : c'est la page qui enchaîne sur sa fiche. */
 export default function DossierBeneficiaireDialog({
   beneficiaire,
   onClose,

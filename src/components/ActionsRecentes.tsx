@@ -69,11 +69,7 @@ function ecrireOnglet(portee: PorteeActionsRecentes): void {
   }
 }
 
-/** Entrée de barre latérale + panneau « Actions récentes »
- * (FEATURE-actions-recentes.md, partie C et §10.3). Montée une fois dans le pied
- * de la barre de `Layout` (le menu de navigation sur mobile) : aucun élément fixe
- * ne recouvre la pagination des pages. Le panneau n'est monté qu'ouvert :
- * chaque ouverture relit le flux, sans polling. */
+// Le panneau n'est monté qu'ouvert : chaque ouverture relit le flux, il n'y a pas de polling.
 export default function ActionsRecentes() {
   const [ouvert, setOuvert] = useState(false);
   const [portee, setPortee] = useState<PorteeActionsRecentes>(lireOnglet);
@@ -88,7 +84,7 @@ export default function ActionsRecentes() {
   const ouvrir = (cible: FicheCible) => {
     setOuvert(false);
     setOpenMobile(false);
-    // Popover fermé d'abord (R4) : deux pièges à focus ouverts en même temps se
+    // Popover fermé d'abord : deux pièges à focus ouverts en même temps se
     // disputent le focus. Le timer survit au démontage de la barre mobile.
     window.setTimeout(() => {
       if (cible.type === 'prospection') ouvrirFicheProspection(cible.id, cible.pre);

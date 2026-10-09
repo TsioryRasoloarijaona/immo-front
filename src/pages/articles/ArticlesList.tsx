@@ -34,18 +34,12 @@ const STATUT_ITEMS: { label: string; value: StatutFilter }[] = [
   { label: 'Occupé', value: 'OCCUPE' },
 ];
 
-/** Le libellé d'état seul, sans la pastille — ce sur quoi la grille trie et
- * filtre. Sans lui, la colonne « État » se comparerait au `statut` brut alors
- * que l'utilisateur voit « Libre », « Occupé », ou un statut de dossier. */
+// `valeur` de la colonne « État » : sans lui, tri et filtre compareraient le `statut` brut.
 function articleEtatLabel(a: Pick<ArticleListItemDto, 'statut' | 'dossierId' | 'dossierStatut'>): string {
   if (a.dossierId) return canonicalStatusLabel(a.dossierStatut) || '';
   return a.statut === 'DISPONIBLE' ? 'Libre' : 'Occupé';
 }
 
-/** Colonne « État » — montre le vrai statut du dossier lié (via
- * canonicalStatusLabel/toneForStatus, les mêmes helpers que la pastille de
- * /dossiers/:id) quand l'article est réservé ou vendu ; se rabat sur
- * « Libre »/« Occupé » pour un article sans dossier. */
 function articleEtatBadge(a: Pick<ArticleListItemDto, 'statut' | 'dossierId' | 'dossierStatut'>) {
   if (a.dossierId) {
     const label = canonicalStatusLabel(a.dossierStatut);
@@ -110,9 +104,6 @@ export default function ArticlesList() {
     setSurfaceA('');
   }
 
-  // Drives the empty state's wording and its escape hatch: "no rows because
-  // your filters excluded them" (offer a reset) is a different situation from
-  // "this list is genuinely empty" (nothing to undo).
   const hasActiveFilters =
     !!search ||
     trancheId.length > 0 ||
@@ -168,7 +159,6 @@ export default function ArticlesList() {
   );
   const rows = data?.content ?? [];
 
-  /* Dans le composant : la colonne « N° Dossier » a besoin de `navigate`. */
   const colonnes = useMemo<ColonneGrille<ArticleListItemDto>[]>(
     () => [
       { nom: 'etat', libelle: 'État', largeur: 7, valeur: articleEtatLabel, rendu: articleEtatBadge },
@@ -233,8 +223,7 @@ export default function ArticlesList() {
         type: 'MONTANT',
         largeur: 9,
         classe: 'text-muted-foreground',
-        // Le repli sur le prix plancher est conservé, et `valeur` suit le même
-        // repli pour que le tri classe un article au plancher à sa vraie place.
+        // `valeur` suit le même repli sur le plancher que le rendu, sinon le tri le classerait mal.
         valeur: (a) => a.salePrice || a.salePriceFloor,
         rendu: (a) => libellePrix(a.salePrice, a.salePriceFloor) ?? <span className="text-muted-foreground">—</span>,
       },

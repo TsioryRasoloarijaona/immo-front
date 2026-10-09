@@ -1,8 +1,7 @@
 import { Info } from 'lucide-react';
 
-/** Mention neutre sous un champ prix pré-rempli par le prix plancher
- * (`prixSuggereEstPlancher`) : le prix commercial de l'article vaut 0, le
- * serveur a donc proposé le plancher. Informatif, jamais bloquant. */
+/** Affichée quand `prixSuggereEstPlancher` : le prix commercial vaut 0 et le
+ * serveur a proposé le plancher. Informative, jamais bloquante. */
 export default function MentionPrixPlancher() {
   return (
     <p className="mt-1 flex items-start gap-1 text-micro text-muted-foreground">

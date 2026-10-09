@@ -5,12 +5,6 @@ import { Button } from './ui/button';
 import { formatSurface, libellePrix } from '../lib/format';
 import type { ArticleDetailDto } from '../types';
 
-/** Compact article display — code + statut badge on one line, with a
- * "Détails" toggle to expand the full field grid (description, catégorie,
- * type, surface, prix, prix commercial, titre foncier, adresse). Shared
- * across every screen that needs to show an already-picked article without
- * eating the whole layout: the prospection's tranche/article principal and
- * "Articles associés" rows, and the dossier creation form's selection. */
 export default function ArticleCompactPreview({
   article,
   loading,
@@ -22,16 +16,8 @@ export default function ArticleCompactPreview({
   article: ArticleDetailDto | null;
   loading?: boolean;
   emptyLabel?: string;
-  /** Drop the own border/background — use when already nested inside
-   * another bordered container, to avoid a box-in-box look. */
   bare?: boolean;
-  /** Extra controls (e.g. a "Retirer" button) rendered before the "Détails"
-   * toggle, on the same header row. */
   actions?: ReactNode;
-  /** Starts expanded — for contexts where the full detail is the point
-   * (e.g. DossierDetail.tsx's "Article(s) réservé(s)", the final record),
-   * as opposed to a picker/summary context where collapsed-by-default
-   * keeps the layout light. */
   defaultExpanded?: boolean;
 }) {
   const [expanded, setExpanded] = useState(!!defaultExpanded);

@@ -10,12 +10,6 @@ import { AppDataProvider } from './lib/appData';
 import { AuthProvider, useAuth } from './lib/auth';
 import Login from './pages/auth/Login';
 
-// Every routed page is code-split behind React.lazy — none of them are
-// needed for the first paint (auth gates above render before any route
-// does), and together they were the bulk of the single ~720 kB bundle Vite
-// warned about. Splitting per-route means a session only ever downloads the
-// pages it actually visits, and repeat visits hit the browser cache per
-// chunk instead of invalidating one monolithic bundle on every deploy.
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Profil = lazy(() => import('./pages/profil/Profil'));
 const UtilisateursList = lazy(() => import('./pages/utilisateurs/UtilisateursList'));
@@ -54,12 +48,7 @@ const JournalVirement = lazy(() => import('./pages/outils/virements/Journal'));
 const ComingSoon = lazy(() => import('./pages/ComingSoon'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
-// The routed app shell — only ever mounted once a session exists (there is no
-// first-login gate any more: accounts come from Omran already filled in, and
-// mustChangePassword / profileCompleted are ignored), so
-// nothing under here needs to think about auth at all (AppDataProvider's
-// unconditional listCommerciaux() call, for instance, would otherwise 401
-// during the brief window before login).
+// Monté seulement une fois la session ouverte : l'appel inconditionnel de `AppDataProvider` ferait 401 avant.
 function AuthenticatedApp() {
   const { pathname } = useLocation();
 
@@ -69,11 +58,8 @@ function AuthenticatedApp() {
       <ConfirmProvider>
         <PreviewProvider>
           <Layout>
-            {/* La frontière enveloppe le Suspense, et non l’inverse : un module
-                de page qui ne se télécharge pas rejette la promesse que Suspense
-                attendait, et sans elle l’arbre entier se démonte — écran blanc.
-                La clé de réinitialisation est le chemin courant, pour qu’une page
-                en échec n’emprisonne pas les suivantes. */}
+            {/* La frontière enveloppe le Suspense, pas l’inverse : un chunk qui ne se télécharge pas démonterait
+                tout l’arbre (écran blanc). Clé = chemin, pour qu’une page en échec n’emprisonne pas les suivantes. */}
             <RouteErrorBoundary resetKey={pathname}>
               <Suspense fallback={<LoadingState />}>
                 <Routes>
@@ -88,9 +74,7 @@ function AuthenticatedApp() {
                   <Route path="/calendrier" element={<Calendrier />} />
                   <Route path="/suivi-actions" element={<SuiviActionsList />} />
                   <Route path="/prospections" element={<ProspectionsList />} />
-                  {/* La saisie est une boîte, pas une page : la route rend la liste avec
-                      la boîte ouverte par-dessus. L'URL reste partageable et le
-                      bouton Retour la ferme. */}
+                  {/* La saisie est une boîte, pas une page : la route rend la liste avec la boîte ouverte. */}
                   <Route path="/prospections/nouveau" element={<ProspectionsList nouveau />} />
                   <Route path="/pre-prospections" element={<PreProspectionsList />} />
                   {/* Les deux routes statiques avant `:id`, sinon il les capture. */}
@@ -115,7 +99,6 @@ function AuthenticatedApp() {
                   <Route path="/tranches/:id" element={<TrancheDetail />} />
                   <Route path="/articles" element={<ArticlesList />} />
                   <Route path="/articles/:id" element={<ArticleDetail />} />
-                  {/* Module Outils (admin) — générateur d'ordres de virement, maquette statique. */}
                   <Route path="/outils" element={<Navigate to="/outils/virements/nouveau" replace />} />
                   <Route path="/outils/virements" element={<Navigate to="/outils/virements/nouveau" replace />} />
                   <Route path="/outils/virements/nouveau" element={<NouvelOrdre />} />
@@ -141,19 +124,9 @@ function AuthGate() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  // La déconnexion ne navigue pas : elle échange l'arbre React contre
-  // <Login />, et le routeur reste sur l'URL de la page consultée. Sans ce
-  // nettoyage, la connexion suivante y revient — et avec un autre compte on
-  // atterrit sur la dernière page du précédent, à laquelle le nouvel
-  // utilisateur n'a peut-être même pas accès.
-  //
-  // Placé ici plutôt que dans les gestionnaires de déconnexion : il y en a
-  // plusieurs (le menu de Layout, l'expiration de session), et surtout la
-  // session peut aussi tomber d'elle-même (401). Le statut est le seul point
-  // par lequel tous ces chemins passent.
-  //
-  // `replace` et non `push` : la page quittée ne doit pas davantage revenir
-  // d'un retour arrière juste après la reconnexion.
+  // La déconnexion ne navigue pas : sans ceci, un autre compte atterrirait sur la dernière page du précédent.
+  // Ici et non dans les gestionnaires : déconnexion, expiration et 401 passent tous par le statut.
+  // `replace` : la page quittée ne doit pas revenir par un retour arrière.
   useEffect(() => {
     if (status === 'unauthenticated' && pathname !== '/') {
       navigate('/', { replace: true });
@@ -161,17 +134,12 @@ function AuthGate() {
   }, [status, pathname, navigate]);
 
   if (status === 'loading') {
-    // Deliberately blank rather than a spinner — this resolves in one
-    // GET /api/mon-compte round trip, almost always faster than a spinner
-    // would even paint.
+    // Vide plutôt qu'un spinner : un seul aller-retour, plus rapide qu'un spinner à peindre.
     return null;
   }
   if (status === 'unauthenticated') {
     return <Login />;
   }
-  // status === 'authenticated' past this point. Plus de portail de première
-  // connexion : mustChangePassword / profileCompleted sont ignorés, l'utilisateur
-  // arrive directement dans l'application (FEATURE-acces-arpent-depuis-omran.md F3).
   return <AuthenticatedApp />;
 }
 

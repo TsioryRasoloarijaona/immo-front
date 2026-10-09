@@ -12,17 +12,12 @@ export default function Modal({
   title: string;
   onClose: () => void;
   children: ReactNode;
-  /** Largeur maximale. Un nombre est en pixels ; une chaîne est une valeur CSS,
-   * pour borner un dialogue large à la fenêtre (`min(1400px, 100vw - 2rem)`). */
+  /** Un nombre est en pixels ; une chaîne est une valeur CSS. */
   width?: number | string;
-  /** Hauteur fixe au lieu d'une hauteur au contenu, et plus de défilement
-   * propre : le contenu reçoit une hauteur bornée et gère lui-même ce qui
-   * défile. Pour une fiche (`FicheShell`) ou une liste paginée, dont l'en-tête
-   * et le pied doivent rester en place. */
+  /** Le dialogue ne défile plus : le contenu reçoit une hauteur bornée et gère
+   * lui-même son défilement. */
   pleineHauteur?: boolean;
-  /** Le titre reste le nom accessible du dialogue mais n'est plus affiché :
-   * pour une fiche, dont la première ligne (`CadreFiche`) tient lieu de barre
-   * de titre — code, nom, statut — et laisserait sinon une ligne presque vide. */
+  /** Le titre reste le nom accessible du dialogue mais n'est plus affiché. */
   titreMasque?: boolean;
 }) {
   return (

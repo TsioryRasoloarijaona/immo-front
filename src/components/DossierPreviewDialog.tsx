@@ -8,9 +8,6 @@ import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
 import { getDossier } from '../lib/api';
 import { useApi } from '../lib/useApi';
 
-// Reciprocal-access preview: lets any list row or linked-record button in
-// the app show a Dossier's key facts without leaving the current page.
-// See ProspectionPreviewDialog for the mirror direction.
 export default function DossierPreviewDialog({ id, onClose }: { id: string; onClose: () => void }) {
   const { data: d, loading, error } = useApi(() => getDossier(id), [id]);
 

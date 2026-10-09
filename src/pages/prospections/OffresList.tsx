@@ -20,10 +20,6 @@ import { formatCurrency, formatPercent, formatPercentValue, jourISO } from '../.
 import { prospectionDisplayName } from '../../lib/domain';
 import type { CreerDevisRequest, DevisDto } from '../../types';
 
-/** Presets purement client-side (aucun paramètre backend dédié) — chacun ne
- * fait que pré-remplir `dateDebut`/`dateFin`, envoyés ensuite comme une
- * plage normale. Reproduit le sélecteur "Période" de l'ancien Omran
- * (`Vente > Offres`) sans rien demander de plus au backend. */
 type PeriodePreset = 'custom' | 'mois-courant' | 'mois-dernier' | 'annee-courante';
 
 const PERIODE_ITEMS: { label: string; value: PeriodePreset }[] = [
@@ -33,13 +29,10 @@ const PERIODE_ITEMS: { label: string; value: PeriodePreset }[] = [
   { label: "L'année en cours", value: 'annee-courante' },
 ];
 
-/** Le préréglage posé à l'ouverture et par « Réinitialiser » — le mois courant,
- * comme toutes les listes à période (décision utilisateur du 28/09). */
 const PERIODE_DEFAUT: PeriodePreset = 'mois-courant';
 
-/* `jourISO` et non `toISOString()` : les bornes sont construites en heure
-   locale, et les convertir en UTC les faisait reculer d'un jour à l'est de
-   Greenwich — « Le mois en cours » rendait du 31/08 au 29/09. */
+/* `jourISO` et non `toISOString()` : les bornes sont en heure locale, la
+   conversion UTC les ferait reculer d'un jour à l'est de Greenwich. */
 const isoDate = jourISO;
 
 function rangeForPreset(preset: PeriodePreset): { dateDebut: string; dateFin: string } {
@@ -76,10 +69,7 @@ export default function OffresList() {
   const [dateDebut, setDateDebut] = useState(() => rangeForPreset(PERIODE_DEFAUT).dateDebut);
   const [dateFin, setDateFin] = useState(() => rangeForPreset(PERIODE_DEFAUT).dateFin);
   const [page, setPage] = useState(0);
-  // Le dépli des montants HT/TTC appartient maintenant à DataGrid (`rendreDetail`),
-  // qui porte l'état d'expansion. Toujours pas de redirection vers la fiche
-  // prospection au clic : demande explicite, cette liste doit rester
-  // consultable sans quitter la page — d'où l'absence de `onOuvrir`.
+  // Pas de `onOuvrir` exprès : cette liste se consulte sans quitter la page.
   const [showCreate, setShowCreate] = useState(false);
 
   const { data, loading, error, refetch } = useApi(
@@ -92,19 +82,14 @@ export default function OffresList() {
           dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
           dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
         },
-        // Newest-first. Sorts on `docDate` — the actual JPA entity column,
-        // same convention as `listDossiers` (DossiersList.tsx) — not
-        // `dateDocument` (the response DTO's field name), which 400s:
-        // Pageable's `sort` validates against the entity property, and
-        // OpenAPI doesn't document it.
+        // Tri sur `docDate` (propriété d'entité), pas `dateDocument` (champ du DTO) : sinon 400.
         { page, size: DEFAULT_PAGE_SIZE, sort: ['docDate,desc'] },
       ),
     [debouncedSearch, trancheIds.join(','), commercial, dateDebut, dateFin, page],
     'offres',
   );
   const offres = data?.content ?? [];
-  // Somme des prix TTC de la page chargée uniquement (pas un total
-  // plein-filtre) — `sommePrixVenteTTCPage`, calculée côté backend.
+  // Somme de la page chargée seulement, pas un total plein-filtre.
   const totalPageTTC = data?.sommePrixVenteTTCPage ?? 0;
 
   const tranches = useTranchesFiltre();
@@ -139,9 +124,7 @@ export default function OffresList() {
     handlePeriodeChange(PERIODE_DEFAUT);
   }
 
-  // Drives the empty state's wording and its escape hatch — see ArticlesList.
-  // Saisir une date à la main repasse le préréglage à `custom` : comparer le
-  // préréglage au défaut suffit donc à couvrir les deux champs.
+  // Saisir une date repasse le préréglage à `custom` : le comparer au défaut couvre les deux champs.
   const hasActiveFilters =
     !!search || trancheIds.length > 0 || commercial !== 'all' || periode !== PERIODE_DEFAUT;
 
@@ -238,9 +221,6 @@ export default function OffresList() {
               )}
             </div>
             {offres.length === 0 ? (
-              /* Sans filtre actif la liste est bornée au mois courant : un
-                 résultat vide veut dire « rien ce mois-ci », pas « rien
-                 d'enregistré » — d'où la sortie vers toutes les périodes. */
               <EmptyState
                 title={hasActiveFilters ? 'Aucun résultat' : 'Rien ce mois-ci'}
                 message={
@@ -283,18 +263,7 @@ export default function OffresList() {
   );
 }
 
-/** "Nouvelle offre" from the global list, in a dialog — unlike
- * `DevisFormSection`'s per-prospection usage in `ProspectionDetail.tsx`
- * (where the prospection is already known from the page's own URL),
- * creating an offer here needs a prospection picked first:
- * `POST /api/prospections/{id}/devis` is still the only creation endpoint
- * (no global `POST /api/devis`), so step one is always "which prospection
- * is this offer for". Step two reuses the exact same shared
- * `DevisFormSection` — projet→tranche→catégorie/type→article cascade,
- * sous-articles, prix, remise, mode de paiement — seeded with that
- * prospection's own tranche/article/prospect/commercial as defaults, same
- * contract as the per-prospection usage. Same `Modal` shell as every other
- * create-flow in the app (`CreateProspectForm`, `InteractionForm`). */
+// Prospection d'abord : `POST /api/prospections/{id}/devis` est le seul endpoint de création.
 function NouvelleOffreDialog({ onClose, onCreated }: Readonly<{ onClose: () => void; onCreated: () => void }>) {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
@@ -389,18 +358,7 @@ function NouvelleOffreDialog({ onClose, onCreated }: Readonly<{ onClose: () => v
   );
 }
 
-/** One offer's row plus its expand-in-place detail row — clicking anywhere
- * on the row toggles the HT/TTC breakdown open below it, no navigation.
- * Same "Avant remise / Remise / Prix de vente final" grouping as the
- * per-prospection `DevisRow` (`ProspectionDetail.tsx`), reused here since
- * this list has no parent prospection page context of its own to fall back
- * on. */
-/** Actions « Fiche offre » d'une ligne.
- *
- * Composant a part entiere, et non un rendu inline : l'etat de generation
- * (`generating`/`genError`) est **par ligne**. Une fonction de rendu de
- * cellule ne peut pas porter d'etat ; un composant si. C'est ce qui permet de
- * passer l'ecran a DataGrid sans perdre le retour d'erreur par offre. */
+// Composant et non rendu inline : l'état de génération est par ligne, une fonction de cellule ne peut pas le porter.
 function FicheOffreActions({ offre: o }: Readonly<{ offre: DevisDto }>) {
   const [generating, setGenerating] = useState<'view' | 'download' | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
@@ -452,8 +410,6 @@ function FicheOffreActions({ offre: o }: Readonly<{ offre: DevisDto }>) {
   );
 }
 
-/** Panneau de detail d'une offre — le meme contenu qu'avant, deplace sous le
- * `rendreDetail` de DataGrid. */
 function detailOffre(o: DevisDto) {
   const m = o.montants;
   if (!m) return <p className="text-body text-muted-foreground">Aucun detail de montants pour cette offre.</p>;
@@ -547,8 +503,7 @@ const COLONNES: ColonneGrille<DevisDto>[] = [
     libelle: 'Remise',
     type: 'NOMBRE',
     largeur: 6,
-    // La remise vit dans `montants`, pas a la racine : sans `valeur` le tri et
-    // le filtre liraient un champ absent et la colonne serait inerte.
+    // La remise vit dans `montants`, pas à la racine : sans `valeur` tri et filtre seraient inertes.
     valeur: (o) => o.montants?.remisePercent ?? 0,
     rendu: (o) =>
       (o.montants?.remisePercent ?? 0) > 0 ? (

@@ -5,8 +5,7 @@ import type { HistoriqueDto, ProspectionDetailDto } from '../types';
 export const CODE_PRE_PROSPECTION = 'ComPreProspection';
 export const CODE_PROSPECTION = 'ComProspection';
 
-/** Route de la fiche d'une prospection selon son **code** de type, jamais son
- * libellé. Code absent ou autre (location…) : la route `defaut`. */
+/** Selon le **code** de type, jamais son libellé. */
 export function routeFicheProspection(
   id: string,
   typeProspectionCode: string | null | undefined,
@@ -25,7 +24,7 @@ export interface EtapeParcours {
   libelleCourt: string;
   statut: StatutEtapeParcours;
   date: string | null;
-  /** Fiche ouverte en aperçu (dialogue) au clic — jamais une navigation. */
+  /** Ouverte en dialogue, jamais par navigation. */
   cible: CibleEtapeParcours | null;
 }
 
@@ -33,19 +32,17 @@ export interface CibleEtapeParcours {
   type: 'prospect' | 'dossier';
   id: string;
   libelle: string;
-  /** Code du dossier, pour l'`aria-label` ; `null` pour un prospect. */
   code: string | null;
 }
 
-// Débuts des descriptions écrites par ProspectionService.enregistrerHistorique.
+// Doivent suivre les descriptions écrites par ProspectionService.enregistrerHistorique.
 const PREFIXES = {
   pre: ['Pré-prospection créée : '],
   prospect: ['Prospect créé et lié : ', 'Prospect existant rattaché : '],
   prospection: ['Transformée en prospection : ', 'Prospection créée : '],
 } as const;
 
-/** Le plus ancien événement dont la description commence par l'un des
- * préfixes (l'historique arrive du plus récent au plus ancien). */
+/** L'historique arrive du plus récent au plus ancien : la dernière trouvée est la plus ancienne. */
 function dateEvenement(historique: readonly HistoriqueDto[], prefixes: readonly string[]): string | null {
   let trouvee: string | null = null;
   for (const h of historique) {
@@ -55,8 +52,6 @@ function dateEvenement(historique: readonly HistoriqueDto[], prefixes: readonly 
   return trouvee;
 }
 
-/** Les quatre étapes du parcours de vente d'une fiche, ou `null` quand la
- * barre ne s'affiche pas (type `null`, location ou autre — R9). */
 export function calculerParcours(
   fiche: {
     typeProspectionCode?: string | null;
@@ -72,8 +67,8 @@ export function calculerParcours(
 
   const datePre = dateEvenement(h, PREFIXES.pre);
   const preFaite = datePre !== null || code === CODE_PRE_PROSPECTION;
-  // R7 : seul ce CRM écrit l'historique — sans événement d'origine, une fiche
-  // OMRAN a une origine inconnue et l'étape n'est pas montrée.
+  // Seul ce CRM écrit l'historique : sans événement d'origine, une fiche OMRAN a
+  // une origine inconnue et l'étape n'est pas montrée.
   const creeeDirectement = dateEvenement(h, ['Prospection créée : ']) !== null;
   const brut: (Omit<EtapeParcours, 'statut'> & { faite: boolean })[] = [
     {
@@ -116,7 +111,6 @@ export function calculerParcours(
   let derniere = -1;
   affichees.forEach((e, i) => { if (e.faite) derniere = i; });
 
-  // Une étape non faite *avant* l'étape courante a été sautée (grisée « — »).
   return affichees.map(({ faite, ...e }, i) => ({
     ...e,
     statut: statutEtape(i, derniere, faite),
@@ -129,8 +123,6 @@ function statutEtape(i: number, derniere: number, faite: boolean) {
   return i < derniere ? ('sautee' as const) : ('a-venir' as const);
 }
 
-/** Toast après « Transformer en prospect » (création ou rattachement). Le
- * `prospectId` vient de la réponse ; s'il manque, la fiche est relue. */
 export async function toastProspectLie(
   nom: string,
   maj: ProspectionDetailDto,

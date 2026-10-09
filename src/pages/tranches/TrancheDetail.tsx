@@ -132,10 +132,6 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
       accentBg="var(--sec-tranche-bg)"
       fullHeight
     >
-      {/* Redesign 20/09 : le bouton « Retour à la liste » et le bloc titre
-          hero redisaient le fil d'Ariane du PageShell (~90px) ; l'identité
-          tient sur une ligne, l'aperçu reste épinglé, et seules les règles
-          de gestion + les articles défilent. */}
       <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">
         <div className="flex shrink-0 flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="text-title font-semibold tracking-tight text-foreground">{t.description}</h2>

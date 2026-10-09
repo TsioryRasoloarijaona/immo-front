@@ -6,31 +6,17 @@ import { ElementResume, LigneActivite } from './FicheShell';
 import { formatDate, formatDateTime } from '../lib/format';
 import type { ActiviteProspectionDto, BadgeTone } from '../types';
 
-/** Seuils de la pastille d'inactivité, en jours.
- *
- * `GUIDE-FRONT-fiche-prospection.md` §1 les propose (vert < 30 j, orange
- * < 90 j, rouge au-delà) en précisant qu'ils sont **à valider avec le métier** :
- * le backend n'en impose aucun et ne renvoie que le nombre de jours brut. Ils
- * vivent donc ici, en un point unique, pour qu'un arbitrage métier soit une
- * modification de deux nombres et non une chasse à travers les composants. */
+// Seuils en jours, à valider avec le métier : le backend n'en impose aucun.
 export const SEUIL_INACTIVITE_TIEDE = 30;
 export const SEUIL_INACTIVITE_FROID = 90;
 
-/** `--warning` est le rouge de la palette (#b02012) et `--amber` son orange
- * (#92580a) — la correspondance avec le vert/orange/rouge du guide n'est donc
- * pas celle que les noms laissent croire. */
+// Piège de nommage : `warning` est le rouge de la palette, `amber` son orange.
 function toneInactivite(jours: number): BadgeTone {
   if (jours < SEUIL_INACTIVITE_TIEDE) return 'success';
   if (jours < SEUIL_INACTIVITE_FROID) return 'amber';
   return 'warning';
 }
 
-/** Pastille « N j sans action ».
- *
- * `joursInactivite` est renseigné sur **100 %** des prospections de vente et
- * c'est le critère de tri des relances du logiciel de bureau : il ne mérite
- * aucun affichage conditionnel. Le seul cas d'absence est celui du bloc
- * `activite` entier, traité par `ResumeActivite`. */
 export function InactiviteBadge({ jours }: { jours: number }) {
   return (
     <Badge tone={toneInactivite(jours)}>
@@ -39,13 +25,6 @@ export function InactiviteBadge({ jours }: { jours: number }) {
   );
 }
 
-/** Bandeau de conversion.
- *
- * `dossierId` n'est renseigné que sur **2 %** des prospections — mais c'est
- * précisément parce qu'il est rare qu'il mérite un bandeau plutôt qu'une ligne
- * de plus dans une grille (guide §1 rang 3). Les 98 % restants ne sont pas une
- * donnée manquante : c'est le taux de conversion réel, 358 dossiers pour
- * 14 118 prospections. D'où le rendu `null` pur, sans « aucun dossier ». */
 export function DossierIssuBanner({
   dossierId,
   dossierCode,
@@ -74,15 +53,7 @@ export function DossierIssuBanner({
   );
 }
 
-/** Le résumé d'activité en **une ligne** au-dessus du journal des actions
- * (rangs 2 à 4 du guide : relance, visites, contexte), suivi de l'action la
- * plus fréquente de l'onglet. Le rang 1 (`joursInactivite`) est dans la ligne
- * d'identité, le nombre d'interactions sur l'onglet.
- *
- * Doublons stricts écartés, et seulement quand ils le sont : « Dernier
- * échange » s'il redit la note de la 1re ligne du journal, « Projet » s'il
- * redit la tranche. Les chaînes vides sont déjà normalisées en `null` par le
- * backend. */
+// Les chaînes vides arrivent déjà en `null` (normalisées par le backend).
 export function ResumeActivite({
   activite,
   tranche,
@@ -90,9 +61,7 @@ export function ResumeActivite({
   action,
 }: {
   activite?: ActiviteProspectionDto | null;
-  /** Libellé de la tranche de la fiche, pour écarter un « Projet » identique. */
   tranche?: string | null;
-  /** Note de la ligne la plus récente du journal affiché, s'il est chargé. */
   premiereNote?: string | null;
   action?: ReactNode;
 }) {
@@ -126,7 +95,7 @@ export function ResumeActivite({
         {a.derniereCommunicationResultat && (
           <ElementResume libelle="Résultat">{a.derniereCommunicationResultat}</ElementResume>
         )}
-        {/* Un compteur à zéro dit bien « aucune visite » ici : le bloc existe (guide §2.2). */}
+        {/* Le bloc existe, donc un zéro signifie bien « aucune visite », pas une donnée manquante. */}
         <ElementResume libelle="Visites">
           {nbVisites}
           {nbVisites > 0 && (
@@ -137,7 +106,6 @@ export function ResumeActivite({
           )}
         </ElementResume>
         {projet && projet !== tranche && <ElementResume libelle="Projet">{projet}</ElementResume>}
-        {/* 2,7 % seulement : jamais de « CIN — » sur les autres fiches. */}
         {a.cin && <ElementResume libelle="CIN">{a.cin}</ElementResume>}
         {a.alerteActiveDate && (
           <span className="inline-flex flex-wrap items-center gap-x-1.5">

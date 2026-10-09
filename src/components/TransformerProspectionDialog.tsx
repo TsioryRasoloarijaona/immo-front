@@ -11,19 +11,9 @@ import { useApi } from '../lib/useApi';
 import { referentielItems } from '../lib/referentiels';
 import type { ProspectionExistanteDto, TransformerProspectionRequest } from '../types';
 
-/** La transformation pré-prospection → prospection, en boîte.
- *
- * Avant (barre d'actions) : un seul choix, le commercial. Or la spec du 21/09
- * a ajouté `trancheId`/`articleId` à `TransformerProspectionRequest` — et si
- * la prospection ne porte pas encore de tranche, l'appel sans `trancheId`
- * renvoie 400. La tranche doit donc être **choisie (ou confirmée) au moment
- * de transformer**, comme sur l'écran légataire : c'est tout l'objet de cette
- * boîte.
- *
- * Référentiels : toutes les tranches (`GET /api/referentiels/tranches`), puis
- * les articles de la tranche choisie — la cascade garantit côté client la
- * règle serveur « l'article DOIT appartenir à la tranche » (400 sinon).
- * Changer de tranche remet donc l'article à zéro. */
+/** Sans `trancheId` le serveur renvoie 400, d'où la tranche à confirmer ici. La
+ * cascade tranche → articles applique la règle serveur « l'article appartient à
+ * la tranche » (400 sinon). */
 export default function TransformerProspectionDialog({
   initialCommercialId,
   initialTrancheId,
@@ -44,9 +34,8 @@ export default function TransformerProspectionDialog({
   const [articleId, setArticleId] = useState<string | null>(initialArticleId ?? null);
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
-  // 409 « un prospect, un projet, une prospection » : le prospect lié a déjà
-  // une prospection ouverte sur le projet de la tranche choisie. Pas une
-  // erreur de saisie — une redirection, voir `ProspectionExistanteNotice`.
+  // 409 « un prospect, un projet, une prospection » : une redirection, pas une
+  // erreur de saisie (voir `ProspectionExistanteNotice`).
   const [existante, setExistante] = useState<ProspectionExistanteDto | null>(null);
 
   const tranches = useApi(() => getTranchesReferentiel(), [], 'referentiel-tranches');
@@ -94,8 +83,7 @@ export default function TransformerProspectionDialog({
             onValueChange={(v) => {
               const next = (v as string) || null;
               setTrancheId(next);
-              // Retour à la tranche d'origine : l'article d'origine redevient
-              // valide. Toute autre tranche : l'article n'y appartient plus.
+              // Autre tranche : l'article n'y appartient plus ; retour à l'origine : il redevient valide.
               setArticleId(next === (initialTrancheId ?? null) ? (initialArticleId ?? null) : null);
             }}
           >

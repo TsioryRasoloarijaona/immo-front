@@ -32,8 +32,7 @@ function Vignette({ s }: Readonly<{ s: Societe }>) {
   return <span className="text-micro text-muted-foreground">{texte}</span>;
 }
 
-/** Sociétés émettrices (§10), admin seulement. L'ordre est celui du
- * serveur : la société par défaut d'abord, puis par nom. */
+/** L'ordre est celui du serveur (société par défaut d'abord, puis par nom) : ne pas retrier. */
 function ListeSocietes({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   const toasts = useNotification();
   const [confirmation, demander] = useConfirmation();
@@ -51,8 +50,7 @@ function ListeSocietes({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
     try {
       await supprimerSociete(s.id);
     } catch (e) {
-      // Deux 409 (§10.2) : la dernière société (refus définitif), ou une
-      // société qui a émis des ordres (second temps de confirmation).
+      // Deux 409 : la dernière société (refus définitif), ou une société qui a émis des ordres (seconde confirmation).
       if (!(e instanceof ErreurVirement && e.status === 409 && e.erreur.includes('ordre(s)'))) {
         toasts.notifierErreur(e, 'Impossible de supprimer la société');
         return;

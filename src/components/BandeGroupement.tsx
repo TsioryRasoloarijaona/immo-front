@@ -20,18 +20,6 @@ import { GRANULARITES, LIBELLES_FONCTION, TRIS, jetonAgregat, libelleTri } from 
 import type { EtatGroupement } from '../lib/groupement';
 import type { GranulariteGroupe, TriGroupes } from '../types';
 
-/** La bande de groupement de la grille légataire, rendue réelle.
- *
- * Omran fait poser un en-tête de colonne dans cette bande pour regrouper. Le
- * glisser-déposer n'existe pas ici, et un menu explicite est de toute façon
- * l'équivalent accessible : il s'atteint au clavier, ce qu'une cible de dépôt
- * ne fait pas. La bande énonce donc ce qu'elle sait faire au lieu de mimer un
- * geste qu'elle ne recevrait pas.
- *
- * Elle ne s'affiche que sur les trois listes qui ont un endpoint `/groupes`.
- * Les autres gardent la bande inerte de `DataGrid`, qui dit « Bientôt » — ce
- * qui reste exact : le serveur n'y sait pas grouper. */
-
 const CLASSE_DECLENCHEUR =
   'flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 outline-none select-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50';
 
@@ -40,12 +28,6 @@ export default function BandeGroupement({
   bloque,
 }: {
   etat: EtatGroupement;
-  /** Raison pour laquelle le groupement est indisponible, le cas échéant.
-   *
-   * Affichée telle quelle à la place des commandes. Une bande simplement
-   * grisée dirait « indisponible » sans dire pourquoi, et le seul cas réel —
-   * le filtre statut des dossiers — a une cause que l'utilisateur peut lever
-   * lui-même en retirant ce filtre. Autant le lui dire. */
   bloque?: string;
 }) {
   const { groupables, agregeables, colonneGroupee, actif, estDate, granularite, tri, agregats } = etat;
@@ -54,8 +36,6 @@ export default function BandeGroupement({
   const [sigmaOuvert, setSigmaOuvert] = useState(false);
   const [requeteSigma, setRequeteSigma] = useState('');
 
-  // Catalogue pas encore arrivé, ou serveur sans colonne groupable : il n'y a
-  // rien à proposer, et une bande vide vaut mieux qu'un menu vide.
   if (groupables.length === 0) return null;
 
   if (bloque) {
@@ -67,24 +47,9 @@ export default function BandeGroupement({
     );
   }
 
-  /* Même recherche que le sélecteur de colonnes, et pour la même raison, en
-     plus marquée : ce menu liste **35 colonnes sur les encaissements**, 21 sur
-     les prospections, 22 sur les dossiers. Parcourir cinq sections à l'œil y
-     coûte plus cher que taper trois lettres.
-
-     `filtrerColonnes` est multi-mots et cherche dans le libellé, le **nom
-     technique** — qui a lu la spec cherchera `dateDocument` avant « Date
-     pièce » — et le libellé de section, ce qui fait de « suivi » un moyen
-     d'afficher le bloc entier. */
   const filtre = filtrerColonnes(groupables, requete);
-  /* Le menu Σ liste désormais **toute colonne agrégeable d'une façon ou d'une
-     autre**, pas seulement les sommables : 21 colonnes sur les dossiers au lieu
-     de 6, puisque n'importe quel texte accepte au moins COUNT. D'où la même
-     recherche que les deux autres menus. */
   const nomsSigma = new Set(filtrerColonnes(agregeables.map((x) => x.colonne), requeteSigma).map((c) => c.nom));
   const sigma = agregeables.filter((x) => nomsSigma.has(x.colonne.nom));
-  // Ordre de première apparition, pour que les sections du menu suivent
-  // l'ordre du catalogue — même règle que le sélecteur de colonnes.
   const sections = [...new Set(filtre.map((c) => c.groupe))];
 
   return (
@@ -95,8 +60,7 @@ export default function BandeGroupement({
         open={menuOuvert}
         onOpenChange={(o) => {
           setMenuOuvert(o);
-          // Une recherche laissée en place rouvrirait le menu amputé de la
-          // plupart de ses colonnes, sans que rien n'explique pourquoi.
+          // Recherche vidée à la fermeture : sinon le menu rouvrirait amputé, sans explication.
           if (!o) setRequete('');
         }}
       >
@@ -136,9 +100,7 @@ export default function BandeGroupement({
                       <DropdownMenuCheckboxItem
                         key={c.nom}
                         checked={etat.colonne === c.nom}
-                        // Un seul niveau de groupement est supporté côté serveur :
-                        // choisir une colonne remplace la précédente, et re-cocher
-                        // celle qui est active dégroupe.
+                        // Le serveur ne groupe que sur un niveau : re-cocher la colonne active dégroupe.
                         onCheckedChange={() => etat.choisirColonne(etat.colonne === c.nom ? null : c.nom)}
                       >
                         {c.libelle}
@@ -153,10 +115,7 @@ export default function BandeGroupement({
 
       {actif && (
         <>
-          {/* La granularité n'apparaît que sur une colonne DATE — ailleurs le
-              serveur l'ignore, et l'offrir laisserait croire qu'elle agit.
-              Grouper sur la date exacte rendrait 214 groupes pour 358 dossiers,
-              d'où le défaut mensuel. */}
+          {/* Granularité sur colonne DATE seulement : ailleurs le serveur l'ignore. */}
           {estDate && (
             <DropdownMenu>
               <DropdownMenuTrigger className={CLASSE_DECLENCHEUR}>
@@ -194,10 +153,8 @@ export default function BandeGroupement({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Les bandes « Total : » sous chaque en-tête de groupe. Le serveur
-              les calcule sur tout le périmètre filtré ; le Σ des en-têtes de
-              colonne, lui, ne somme que la page chargée. Deux totaux
-              différents, deux questions différentes. */}
+          {/* Totaux de groupe calculés par le serveur sur tout le périmètre filtré,
+              alors que le Σ des en-têtes ne somme que la page chargée : ne pas les unifier. */}
           {agregeables.length > 0 && (
             <DropdownMenu
               open={sigmaOuvert}
@@ -227,12 +184,8 @@ export default function BandeGroupement({
                     <DropdownMenuLabel className="text-micro text-muted-foreground">
                       Totaux par groupe
                     </DropdownMenuLabel>
-                    {/* Un sous-menu par colonne, et **les fonctions viennent du
-                        catalogue**. Elles ne se déduisent pas du type : mesuré,
-                        `montantBrut` en accepte cinq mais `montantBrutRestant`,
-                        MONTANT lui aussi, n'accepte ni MIN ni MAX puisqu'il est
-                        calculé par différence. L'ordre est celui que le serveur
-                        publie — ne pas le retrier. */}
+                    {/* Les fonctions viennent du catalogue, pas du type : une colonne calculée
+                        par différence refuse MIN/MAX. Ordre du serveur, ne pas retrier. */}
                     {sigma.map(({ colonne, fonctions }) => {
                       const actives = fonctions.filter((f) => agregats.includes(jetonAgregat(colonne.nom, f)));
                       return (

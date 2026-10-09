@@ -10,21 +10,9 @@ import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { useColonnesProspections } from '../../lib/referentiels';
 import { useApi } from '../../lib/useApi';
 
-/**
- * La liste complète d'un couloir du tableau de bord, dans un dialogue — ce que
- * « Voir tout » ouvrait auparavant en quittant l'écran.
- *
- * **Les filtres sont ceux du couloir, mot pour mot** : le total annoncé ici
- * doit être le compte affiché sur le couloir. Ni période ni commercial par
- * défaut, contrairement à l'écran Prospections — ce dialogue prolonge le
- * couloir, il ne remplace pas la liste.
- *
- * Même grille que les écrans de liste (`ProspectionTable`, colonnes par défaut
- * du catalogue) : mêmes badges, même fond rouge sur une relance en retard.
- *
- * Cliquer une ligne ouvre la fiche **par-dessus**, sans fermer la liste : le
- * dialogue de fiche est rendu dans les enfants de celui-ci.
- */
+/** Filtres du couloir mot pour mot, sans défaut de période ni de commercial : le
+ * total doit égaler le compte du couloir. La fiche est rendue dans les enfants
+ * pour s'ouvrir par-dessus sans fermer la liste. */
 export default function ListeProspectionsDialog({
   titre,
   pre,
@@ -32,7 +20,6 @@ export default function ListeProspectionsDialog({
   onClose,
 }: {
   titre: string;
-  /** `true` : le couloir Pré-prospection — autre endpoint, autre habillage. */
   pre: boolean;
   filtres: ProspectionFilterParams;
   onClose: () => void;
@@ -41,8 +28,7 @@ export default function ListeProspectionsDialog({
   const [fiche, setFiche] = useState<FicheOuverte | null>(null);
 
   const catalogue = useColonnesProspections();
-  /* Les groupes ACTIVITE et CONVERSION viennent d'une vue qui exclut les
-     pré-prospections — voir PreProspectionsList, même filtre. */
+  /* ACTIVITE et CONVERSION viennent d'une vue qui exclut les pré-prospections. */
   const catalogueUtile = pre
     ? catalogue.data.filter((c) => c.groupe !== 'ACTIVITE' && c.groupe !== 'CONVERSION')
     : catalogue.data;
@@ -52,8 +38,7 @@ export default function ListeProspectionsDialog({
     DISPOSITION_PROSPECTIONS,
   );
 
-  /* Même tri que les couloirs : propriété d'entité (`docDate`), départagée par
-     `id` pour que la pagination soit stable. */
+  /* Même tri que les couloirs, départagé par `id` pour une pagination stable. */
   const pageable = { page, size: DEFAULT_PAGE_SIZE, sort: ['docDate,desc', 'id,asc'] };
   const liste = useApi(
     () =>

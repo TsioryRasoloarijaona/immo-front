@@ -9,20 +9,16 @@ import { ApiError, reinitialiserMotDePasse } from '../../lib/api';
 import type { ReinitialiserMotDePasseResponse } from '../../types';
 import AdminGuard from './AdminGuard';
 
-/** Adresse publique d'Arpent, reprise dans le bloc « Copier les identifiants »
- * — la même que le lien du mail (app.arpent.url côté backend). */
+// Doit rester la même que le lien du mail (`app.arpent.url` côté backend).
 const ARPENT_URL = 'https://arpent.ayaddeveloppement.com';
 
-/** Ce que la liste des comptes transmet en naviguant ici (UtilisateursList),
- * pour afficher le compte sans requête supplémentaire. Absent si l'on arrive
- * par le menu ou par une URL saisie : on retombe alors sur l'id à saisir. */
+// État de navigation venu de la liste ; absent par le menu ou une URL saisie.
 export interface CompteAReinitialiser {
   username?: string;
   description?: string;
   email?: string;
 }
 
-/** Bouton de copie avec retour visuel « Copié » pendant 1,5 s. */
 function CopierBouton({ texte, libelle, compact }: Readonly<{ texte: string; libelle: string; compact?: boolean }>) {
   const [etat, setEtat] = useState<'repos' | 'copie' | 'echec'>('repos');
   const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -94,8 +90,6 @@ function Identifiants({ result }: Readonly<{ result: ReinitialiserMotDePasseResp
 function ReinitialiserMotDePasseCard() {
   const [searchParams] = useSearchParams();
   const compte = (useLocation().state as CompteAReinitialiser | null) ?? null;
-  // Pré-rempli depuis l'action « Réinitialiser » d'une ligne de /utilisateurs
-  // (UtilisateursList.tsx) — saisissable à la main sinon.
   const idDepuisListe = searchParams.get('admUserId') ?? '';
   const [admUserId, setAdmUserId] = useState(idDepuisListe);
   const [email, setEmail] = useState('');

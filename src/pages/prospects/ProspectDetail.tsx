@@ -40,22 +40,13 @@ const NouvelleProspectionDialog = lazy(() => import('../prospections/NewProspect
 
 type ProspectTab = 'general' | 'contacts' | 'prospections' | 'dossiers' | 'reglements' | 'historique';
 
-/** La page routée : elle lit l'URL et la passe à la fiche.
- *
- * Reused verbatim for both `/prospects/:id` and `/clients/:id` — GET
- * /api/clients/{id} returns the same ProspectDetailDto shape as
- * /api/prospects/{id} (see ClientsList.tsx's comment), so rather than
- * duplicating this whole page for "Clients", detect the entry point from
- * the URL and swap only the fetch call + breadcrumb/back-link labels. */
+// Sert `/prospects/:id` et `/clients/:id` : `GET /api/clients/{id}` renvoie le même `ProspectDetailDto`.
 export default function ProspectDetail() {
   const { id } = useParams();
   const location = useLocation();
   return <FicheProspect key={id} id={id!}client={location.pathname.startsWith('/clients')} />;
 }
 
-/** La fiche elle-même, indépendante de l'URL — ce qui permet de l'ouvrir en
- * dialogue (`FicheProspectDialog`) à l'identique de la page, comme
- * `FicheProspection`. `client` choisit l'endpoint et les libellés. */
 export function FicheProspect({
   id,
   client: isClientContext,
@@ -87,10 +78,6 @@ export function FicheProspect({
   const reglements = useApi(() => listProspectReglements(id, { page: reglementsPage, size: 20 }), [id, reglementsPage]);
   const [historiquePage, setHistoriquePage] = useState(0);
   const historique = useApi(() => listProspectHistorique(id, { page: historiquePage, size: 20 }), [id, historiquePage]);
-  // Prospections/Dossiers rows expand in place instead of navigating away —
-  // this page is reached from Clients as much as from Prospects, and
-  // leaving it to open /prospections/:id or /dossiers/:id was reported as
-  // an unwanted "redirect" out of the client's fiche.
   const [expandedProspectionId, setExpandedProspectionId] = useState<string | null>(null);
   const [expandedDossierId, setExpandedDossierId] = useState<string | null>(null);
   const [nouvelleProspection, setNouvelleProspection] = useState(false);
@@ -125,9 +112,8 @@ export function FicheProspect({
       prenom: fiche.prenom,
       nom: fiche.nom,
       telephone: fiche.telephone,
-      // Reconduits explicitement : le formulaire renvoie tout le corps, donc
-      // un indicatif omis ici serait absent de la requête et risquerait
-      // d’effacer celui déjà enregistré.
+      // Reconduits explicitement : le corps est envoyé en entier, un indicatif omis
+      // risquerait d'effacer celui enregistré.
       indicatifTelephone: fiche.indicatifTelephone,
       mobile: fiche.mobile,
       indicatifMobile: fiche.indicatifMobile,
@@ -165,8 +151,6 @@ export function FicheProspect({
       accent={isClientContext ? 'var(--sec-client)' : 'var(--sec-prospect)'}
       accentBg={isClientContext ? 'var(--sec-client-bg)' : 'var(--sec-prospect-bg)'}
       fullHeight
-      /* Ligne 1 — l'identité, dans la ligne de titre. « Nouvelle prospection »
-         est descendue dans l'onglet Prospections, au-dessus du tableau. */
       entete={
         <EnteteFiche code={person.code} nom={personDisplayName(person)}>
           <span className="text-body text-muted-foreground">
@@ -342,8 +326,6 @@ export function FicheProspect({
         </TabsContent>
 
         <TabsContent value="prospections" className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-          {/* L'onglet d'activité du prospect : l'action la plus fréquente en
-              tête, au-dessus du tableau ; le total est sur l'onglet. */}
           <div className="flex flex-col gap-2.5 p-3">
             <LigneActivite
               action={
@@ -481,12 +463,6 @@ export function FicheProspect({
   );
 }
 
-/** One row of the "Prospections" tab — clicking toggles a detail panel open
- * in place instead of navigating to `/prospections/:id` (this page's own
- * list rows already do that; the Prospect/Client fiche is meant to stay put
- * while browsing what's linked to it). The list row (`ProspectionListItemDto`)
- * only carries a handful of fields, so the full detail (`ProspectionDetailDto`)
- * is fetched lazily via `getProspection`, once, the first time the row opens. */
 function ProspectionRow({
   prospection: p,
   expanded,
@@ -557,9 +533,6 @@ function ProspectionRow({
   );
 }
 
-/** One row of the "Dossiers" tab — same expand-in-place pattern as
- * `ProspectionRow` above, fetching the full `DossierDetailDto` (articles,
- * pricing breakdown) lazily via `getDossier` on first expand. */
 function DossierRow({
   dossier: d,
   expanded,
@@ -635,8 +608,7 @@ function DossierRow({
   );
 }
 
-/** Lien « Ouvrir → » dans une ligne qui se déplie au clic : il ne doit pas
- * déclencher le dépliage (clic ni Entrée/Espace). */
+// Dans une ligne dépliable : ne doit pas déclencher le dépliage (clic ni Entrée/Espace).
 function LienOuvrir({ vers, cible }: Readonly<{ vers: string; cible: string }>) {
   return (
     <Link

@@ -46,18 +46,12 @@ import type {
   ProspectionExistanteDto,
 } from '../../types';
 
-// Indicatifs pré-remplis, comme sur les autres formulaires de création : c'est
-// leur absence qui produit les numéros que le canal WhatsApp rejette.
+// Indicatifs pré-remplis : leur absence produit des numéros que le canal WhatsApp rejette.
 const EMPTY_NEW_PROSPECT: CreerProspectRequest = {
   indicatifTelephone: INDICATIF_MAROC,
   indicatifMobile: INDICATIF_MAROC,
 };
 
-/** "Prospect" half of the combined form — either pick an existing prospect
- * (search + click a row, same pattern as NewDossier.tsx's article picker)
- * or fill in the same minimal fields as NewProspect.tsx's quick-add form.
- * `onProspectReady` reports the currently usable id/creation-payload up to
- * the parent so it knows whether the "Créer" button can be enabled. */
 function ProspectPicker({
   onSelectExisting,
   onNewFormChange,
@@ -211,26 +205,8 @@ function ProspectPicker({
   );
 }
 
-/** `POST /api/prospections` (from_front.md demande #9, livré) — combine les
- * deux moitiés du formulaire legacy Omran "Prospection :"/"Prospect :" en
- * une seule page : le prospect doit exister avant la prospection (contrainte
- * métier confirmée), donc soit on en choisit un existant, soit on en crée un
- * nouveau juste avant d'appeler cet endpoint, dans le même clic "Créer". */
-/* La saisie d'une nouvelle prospection, en boîte plutôt qu'en page pleine.
- *
- * Ce n'était pas une page : une page est une destination, alors que ceci est
- * une **interruption** du travail en cours — on regarde sa liste, on crée, on
- * revient à sa liste. La page pleine faisait perdre ce contexte pour rien, et
- * c'est précisément ce qu'une modale existe pour éviter.
- *
- * La route `/prospections/nouveau` est conservée et ouvre désormais cette boîte
- * **au-dessus de la liste** : l'URL reste partageable, le bouton Retour ferme,
- * et la liste reste visible derrière le voile — ce qui est justement le sens du
- * geste. Le bouton de la liste n'a pas changé, il navigue toujours.
- *
- * Depuis la liste, la création réussie navigue vers la fiche créée. Depuis une
- * fiche prospect (`prospectInitial`), rien ne navigue : `onCree` reçoit la
- * prospection et l'appelant décide (voir FEATURE-prospection-depuis-prospect.md). */
+// Le prospect doit exister avant la prospection : un nouveau prospect est créé juste avant, dans le
+// même clic « Créer ».
 export default function NouvelleProspectionDialog({
   onClose,
   prospectInitial,
@@ -296,28 +272,18 @@ export default function NouvelleProspectionDialog({
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // 409 `doublons` de la création du prospect (mode « Nouveau prospect ») :
-  // des fiches au même nom, téléphone ou email existent. Une question, pas
-  // une erreur — voir `DoublonsProspectPanel`.
+  // 409 `doublons` à la création du prospect : une question, pas une erreur.
   const [doublons, setDoublons] = useState<ProspectDoublonDto[] | null>(null);
-  // 409 `prospectionExistante` de la création de la prospection : ce prospect
-  // a déjà une prospection ouverte sur ce projet. Une redirection, pas une
-  // erreur — voir `ProspectionExistanteNotice`.
+  // 409 `prospectionExistante` : prospection déjà ouverte sur ce projet. Une redirection, pas une erreur.
   const [existante, setExistante] = useState<ProspectionExistanteDto | null>(null);
 
   const isMorale = !!newProspectForm.raisonSociale?.trim();
   const newProspectReady = (newProspectForm.prenom?.trim() && newProspectForm.nom?.trim()) || isMorale;
   const prospectReady = prospectMode === 'existing' ? !!selectedProspect : !!newProspectReady;
-  // Champs obligatoires du POST /api/prospections (spec du 21/09, alignés sur
-  // l'écran légataire) : tranche, nature, type, source de contact et notes non
-  // vides — le backend renvoie 400 sans eux, autant griser le bouton avant.
+  // Obligatoires côté serveur (400 sinon) : tranche, nature, type, source de contact, notes non vides.
   const champsObligatoiresOk = !!trancheId && !!etapeId && !!typeContactId && !!origineId && !!notes.trim();
   const canCreate = prospectReady && champsObligatoiresOk;
 
-  /** Choisit une fiche existante à la place du nouveau prospect saisi — la
-   * réponse « c'est cette personne » à la liste de doublons. La bascule en
-   * mode « existant » rend la sélection visible dans le sélecteur, comme si
-   * l'utilisateur l'avait cherchée lui-même. */
   function choisirDoublon(d: ProspectDoublonDto) {
     setDoublons(null);
     setSubmitError(null);
@@ -348,10 +314,8 @@ export default function NouvelleProspectionDialog({
       try {
         const cree = await createProspect({ ...newProspectForm, ignorerDoublons: ignorerDoublons || undefined });
         prospectId = cree.id;
-        // La fiche existe désormais : si la prospection échoue juste après,
-        // un second clic ne doit pas la recréer (et retomber sur le 409
-        // doublon qu'elle produirait contre elle-même). On bascule donc en
-        // mode « existant » sur la fiche créée.
+        // Bascule en mode « existant » : si la prospection échoue, un second clic ne doit pas
+        // recréer la fiche (409 doublon contre elle-même).
         setDoublons(null);
         choisirDoublon({
           id: cree.id,
@@ -403,10 +367,6 @@ export default function NouvelleProspectionDialog({
   }
 
   return (
-    /* 920 : le formulaire tient une grille de trois colonnes et le tableau de
-       résultats du sélecteur de prospect. Plus étroit, la grille retombe à deux
-       colonnes et la boîte dépasse la hauteur d'écran. `Modal` borne déjà à
-       88vh et fait défiler au-delà. */
     <Modal title="Nouvelle prospection" onClose={onClose} width={920}>
       <div className="flex flex-col gap-3">
         <ProspectPicker
@@ -525,9 +485,6 @@ export default function NouvelleProspectionDialog({
         )}
       </div>
 
-      {/* La sortie explicite, que la page pleine n'avait pas : elle comptait
-          sur le fil d'Ariane. Une boîte se ferme aussi par Échap et par le
-          voile, mais un bouton reste ce qu'on cherche des yeux. */}
       <DialogFooter className="mt-5">
         <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
           Annuler

@@ -2,34 +2,11 @@ import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { Button } from './ui/button';
 
-/* ---------------------------------------------------------------------------
-   Filet sous les routes chargées à la demande.
+/* `<Suspense>` couvre l'attente d'un `React.lazy`, jamais son échec : sans ce
+   filet, un module introuvable (déploiement pendant qu'un onglet est ouvert,
+   coupure réseau) démonte tout l'arbre. */
 
-   Chaque page est derrière un `React.lazy`, donc son code n'arrive qu'au moment
-   où l'on y navigue. `<Suspense>` couvre l'attente, **jamais l'échec** : quand
-   le téléchargement du module échoue, l'erreur remonte sans être attrapée et
-   React démonte tout l'arbre — écran blanc, et une seule ligne dans la console
-   (« Failed to fetch dynamically imported module »).
-
-   Deux causes, l'une inévitable :
-
-   1. **Un déploiement pendant qu'un onglet est ouvert.** Les noms de fichiers
-      portent un hachage : après publication, celui que l'onglet connaît n'existe
-      plus. La page suivante visitée casse. Cela arrivera à chaque mise en ligne,
-      quel que soit l'état du réseau.
-   2. Une coupure réseau passagère.
-
-   Dans les deux cas le remède est le même — recharger complètement, ce qui
-   récupère un `index.html` neuf et donc les bons noms de fichiers. D'où le
-   rechargement dur plutôt qu'un simple `retry` React, qui réessaierait le même
-   nom disparu.
---------------------------------------------------------------------------- */
-
-/** Un échec d'import dynamique, par opposition à une vraie erreur de rendu.
- * Les navigateurs ne partagent pas un type d'erreur commun ici : Chrome dit
- * « Failed to fetch dynamically imported module », Firefox « error loading
- * dynamically imported module », Safari « Importing a module script failed ».
- * On reconnaît donc sur le message, faute de mieux. */
+/** Reconnu sur le message : chaque navigateur formule l'échec d'import à sa façon. */
 function estEchecDeChargement(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error ?? '');
   return /dynamically imported module|importing a module script|failed to fetch|load failed|chunk/i.test(message);
@@ -37,8 +14,7 @@ function estEchecDeChargement(error: unknown): boolean {
 
 interface Props {
   children: ReactNode;
-  /** Change à chaque navigation : remet la frontière à zéro pour que l'erreur
-   * d'une page n'emprisonne pas les suivantes. */
+  /** Change à chaque navigation, pour que l'erreur d'une page n'emprisonne pas les suivantes. */
   resetKey?: string;
 }
 
@@ -60,8 +36,7 @@ export default class RouteErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // Laisser une trace : sans cela l'erreur disparaît complètement de la
-    // console, la frontière l'ayant absorbée.
+    // Sans ce log, l'erreur absorbée par la frontière disparaît de la console.
     console.error('[route] rendu interrompu', error, info.componentStack);
   }
 
@@ -89,9 +64,8 @@ export default class RouteErrorBoundary extends Component<Props, State> {
             <>Le reste de l'application continue de fonctionner ; vous pouvez changer de page.</>
           )}
         </p>
-        {/* Rechargement complet, et non un simple nouvel essai de rendu : après
-            un déploiement, le fichier que cet onglet réclame n'existe plus.
-            Seul un aller-retour complet récupère les noms à jour. */}
+        {/* Rechargement complet, pas un nouvel essai de rendu : après un déploiement,
+            seul un `index.html` neuf donne les noms de fichiers à jour. */}
         <Button type="button" onClick={() => window.location.reload()}>
           <RotateCcw data-icon="inline-start" /> Recharger la page
         </Button>

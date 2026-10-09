@@ -5,9 +5,6 @@ import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
 import { formatDateTime } from '../lib/format';
 import type { HistoriqueDto } from '../types';
 
-/** Historique d'un tiers (Hotline, fiche prospect), dans l'ordre des colonnes
- * d'OMRAN : Utilisateur, Date, État, N° Dossier, Article, Détails.
- * Voir FIX-hotline-historique-bandeau-grille.md §1. */
 export default function HistoriqueTiersTable({ lignes }: { lignes: readonly HistoriqueDto[] }) {
   return (
     <div className="overflow-x-auto">

@@ -36,8 +36,7 @@ export default function HistoriqueVirements() {
   );
 }
 
-/** Historique (§6) : chiffres, ventilation par société et tableau — tous
- * tirés de la réponse du serveur, qui les calcule sous les mêmes filtres. */
+/** Chiffres et ventilation viennent de la réponse serveur, calculés sous les mêmes filtres : ne pas les recalculer. */
 function Historique({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   const { meta, moi, revision } = ctx;
   const toasts = useNotification();

@@ -2,25 +2,10 @@ import type { ComponentProps, ReactNode } from 'react';
 import PageShell from './PageShell';
 import { Badge } from './ui';
 
-/** Où une fiche est rendue : dans sa page, ou dans un dialogue ouvert
- * par-dessus un autre écran (le tableau de bord). */
 export type VarianteFiche = 'page' | 'dialogue';
 
-/**
- * Le cadre d'une fiche de détail, pour qu'une même fiche serve à la fois de
- * page et de contenu de dialogue. Le haut tient en **deux lignes** :
- *
- * 1. `entete` — l'identité (code, nom, statut, badges d'état). En page, dans
- *    l'en-tête de `PageShell` après le fil d'Ariane ; en dialogue, à la place
- *    de la barre de titre du `Modal` (`titreMasque`).
- * 2. `parcours` à gauche, `actions` à droite. Sans parcours, les actions
- *    remontent sur la ligne 1 — l'en-tête de page, ou la ligne d'identité du
- *    dialogue — et la ligne 2 n'existe pas.
- *
- * Le corps est un conteneur flex à hauteur bornée : `FicheShell` est en
- * `h-full` et compte dessus pour que seul l'onglet actif défile. C'est au
- * dialogue de fournir cette hauteur (`Modal pleineHauteur`).
- */
+/** `FicheShell` (en `h-full`) compte sur un corps à hauteur bornée pour que seul
+ * l'onglet actif défile : en dialogue, c'est `Modal pleineHauteur` qui la fournit. */
 export default function CadreFiche({
   variante = 'page',
   entete,
@@ -31,10 +16,7 @@ export default function CadreFiche({
   ...props
 }: ComponentProps<typeof PageShell> & {
   variante?: VarianteFiche;
-  /** Ligne 2, à gauche des actions. */
   parcours?: ReactNode;
-  /** Type de fiche (« Dossier de vente », « Prospection »…), petit libellé gris
-   * en tête de ligne 1 en dialogue : le titre du `Modal` qui le portait est masqué. */
   typeFiche?: string;
 }) {
   const ligneParcours = parcours ? (
@@ -75,8 +57,6 @@ export default function CadreFiche({
   );
 }
 
-/** Le contenu type de la ligne d'identité : code, nom, puis les pastilles
- * propres à la fiche (`children`). */
 export function EnteteFiche({
   code,
   aideCode,

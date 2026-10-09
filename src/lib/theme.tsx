@@ -8,8 +8,7 @@ function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return 'light';
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (stored === 'light' || stored === 'dark') return stored;
-  // First visit, no stored preference yet — fall back to the OS setting
-  // (matches the inline script in index.html that avoids a flash on load).
+  // Doit rester aligné sur le script inline d'index.html, qui évite le flash au chargement.
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 

@@ -11,10 +11,6 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 
-// Matches the real system's short, direct Oui/Non confirm pattern (e.g. "Vous
-// devez enregistrer vos modifications avant cette opération. Voulez-vous
-// continuer ?") for the pipeline's meaningful transitions — see
-// instructions/FIX-mock-actions-state.md.
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState<ConfirmOptions | null>(null);
   const resolver = useRef<((value: boolean) => void) | null>(null);

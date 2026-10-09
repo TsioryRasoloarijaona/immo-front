@@ -3,14 +3,8 @@ import { ChevronDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { cn } from '../lib/utils';
 
-/**
- * A dropdown-trigger multi-select filter: a compact single-line button that
- * opens a checkbox list on click, instead of an always-open box — keeps the
- * filter bar to one row so the table underneath gets the vertical space
- * back. Built on the shadcn/base-ui dropdown menu's `CheckboxItem` (stays
- * open across clicks by default — `closeOnClick` defaults to `false` for
- * checkbox items, so multiple boxes can be ticked in one open menu).
- */
+/** `CheckboxItem` garde le menu ouvert entre deux clics (`closeOnClick` vaut
+ * `false` par défaut) : plusieurs cases se cochent d'un coup. */
 export default function MultiSelectDropdown({
   label,
   ariaLabel,
@@ -22,10 +16,7 @@ export default function MultiSelectDropdown({
   badge,
   className,
 }: {
-  /** Préfixe « Étiquette : » dans le déclencheur, pour une barre de filtres
-   * où le contrôle doit se nommer lui-même. À omettre quand l'étiquette est
-   * déjà posée à côté — dans le volet de filtres avancés, la répéter donnait
-   * « Projet » au-dessus de « Projet : Tous ». */
+  /** À omettre quand l'étiquette est déjà posée à côté, sinon elle est répétée. */
   label?: string;
   /** Nom accessible du déclencheur, quand `label` est omis : sans lui un
    * lecteur d'écran n'annoncerait que « Tous ». */

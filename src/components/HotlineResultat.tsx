@@ -14,26 +14,9 @@ import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
 import { formatCurrency, formatDate, formatDateTime, formatFourchetteSurface, formatPercent, formatTelephone } from '../lib/format';
 import type { DossierListItemDto, HotlineFicheDto, HotlineResultDto, ProspectionListItemDto } from '../types';
 
-/* Le rendu du résultat de `GET /api/hotline/recherche`, extrait de la page
- * Hotline pour être montré ailleurs **à l'identique** — d'abord dans le
- * dialogue « Voir hotline » du suivi des actions. La page garde le
- * formulaire et l'état de recherche ; ce composant ne reçoit que le résultat.
- *
- * `onCreerFiche` est optionnel : le bouton « Créer une fiche » des appels
- * sans fiche n'a de sens que là où la création est un geste attendu (la page
- * Hotline). Sans lui, la carte reste informative. */
-
 type HotlineTab = 'general' | 'prospections' | 'dossiers' | 'reglements' | 'interactions' | 'historique';
 
-/** One row of the fiche's "Prospections" tab — expands in place instead of
- * navigating away (the agent is on a live call, they shouldn't lose the
- * fiche to look at one linked prospection). The full detail
- * (`ProspectionDetailDto`) is fetched lazily via `getProspection` on first
- * expand, same pattern as `ProspectDetail.tsx`'s equivalent row. A separate
- * explicit "Fiche complète" button still lets the agent jump to the full
- * page when they actually need to act on it (change étape, log an
- * interaction, etc.) — expanding in place only covers "let me see what
- * this is about". */
+// Dépliée sur place plutôt que navigation : l'agent est en ligne, il ne doit pas perdre la fiche.
 function HotlineProspectionRow({ prospection: p, expanded, onToggle }: { prospection: ProspectionListItemDto; expanded: boolean; onToggle: () => void }) {
   const navigate = useNavigate();
   const detail = useApi(() => (expanded ? getProspection(p.id) : Promise.resolve(null)), [expanded, p.id]);
@@ -95,8 +78,6 @@ function HotlineProspectionRow({ prospection: p, expanded, onToggle }: { prospec
   );
 }
 
-/** Same expand-in-place pattern as `HotlineProspectionRow`, for the fiche's
- * "Dossiers" tab — full `DossierDetailDto` fetched lazily via `getDossier`. */
 function HotlineDossierRow({ dossier: d, expanded, onToggle }: { dossier: DossierListItemDto; expanded: boolean; onToggle: () => void }) {
   const navigate = useNavigate();
   const detail = useApi(() => (expanded ? getDossier(d.id) : Promise.resolve(null)), [expanded, d.id]);
@@ -172,9 +153,6 @@ function FicheCard({ fiche }: { fiche: HotlineFicheDto }) {
   const reglements = fiche.reglements ?? [];
   const interactions = fiche.interactions ?? [];
   const historique = fiche.historique ?? [];
-  // Tabs instead of one long stacked page — an agent mid-call needs to jump
-  // straight to "Dossiers" or "Prospections" without scrolling past
-  // identity fields and a full historique first.
   const [tab, setTab] = useState<HotlineTab>('general');
   const [expandedProspectionId, setExpandedProspectionId] = useState<string | null>(null);
   const [expandedDossierId, setExpandedDossierId] = useState<string | null>(null);
@@ -412,12 +390,7 @@ export default function HotlineResultat({
   onCreerFiche,
 }: {
   data: HotlineResultDto;
-  /** La saisie qui a produit ce résultat — titre de repli quand le serveur
-   * ne renvoie ni nom ni numéro recherché. */
   query: string;
-  /** Présent sur la page Hotline seulement : là, proposer une fiche à un
-   * appelant déjà démarché est le geste attendu. Absent, la carte des
-   * appels sans fiche reste informative. */
   onCreerFiche?: (prospectionId: string) => void;
 }) {
   const fiches = data.fiches ?? [];
@@ -437,10 +410,7 @@ export default function HotlineResultat({
               <div className="text-title font-semibold text-foreground">
                 {data.nomRecherche || data.telephoneRecherche || query}
               </div>
-              {/* Sur une recherche par nom le serveur renvoie
-                  telephoneNormalise: null — afficher « Numéro normalisé : — »
-                  laisserait croire à une donnée manquante alors qu'il n'y a
-                  simplement pas de numéro dans cette recherche. */}
+              {/* Recherche par nom : `telephoneNormalise` est toujours null, ce n'est pas une donnée manquante. */}
               {data.critere !== 'NOM' && (
                 <div className="text-micro text-muted-foreground">
                   Numéro normalisé : {data.telephoneNormalise || '—'}
@@ -460,9 +430,7 @@ export default function HotlineResultat({
         </div>
       </Card>
 
-      {/* Explicitement demandé par la spec. Le plafond de 20 est invisible
-          autrement : l'agent lit une liste complète, n'y trouve pas sa
-          personne et en conclut qu'elle n'existe pas. */}
+      {/* Sans ce bandeau le plafond serveur est invisible : l'agent conclurait que la personne n'existe pas. */}
       {data.tronque && (
         <p
           role="status"

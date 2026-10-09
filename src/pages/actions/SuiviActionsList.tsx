@@ -36,36 +36,19 @@ const SYSTEME_ITEMS: { label: string; value: SystemeFilter }[] = [
   { label: 'Système seules', value: 'systeme' },
 ];
 
-/** Le lendemain d'une date `YYYY-MM-DD`, en `YYYY-MM-DD`. Calculé en UTC pour
- * ne pas dépendre du fuseau : on ne manipule que des jours. */
+// En UTC pour ne pas dépendre du fuseau : on ne manipule que des jours.
 function lendemain(jour: string): string {
   const d = new Date(`${jour}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + 1);
   return d.toISOString().slice(0, 10);
 }
 
-/* L'écran OMRAN « Suivi des actions » (FEATURE-suivi-actions.md) : les
- * appels, visites, messages saisis par chaque commercial, jour par jour.
- * Consultation seule — l'écran sert d'abord à **compter** (téléphone sortant :
- * 5 258 sur 12 mois), d'où la bande de groupement par jour, par utilisateur,
- * par type.
- *
- * Même mécanique que les autres listes à catalogue : `?colonnes=` piloté par
- * le sélecteur, `/groupes` pour la bande, `useLignesGroupes` pour déplier un
- * groupe sur place. Aucune colonne n'est agrégeable ici — la mesure d'un
- * groupe est son effectif — et la bande n'offre donc pas de Σ.
- *
- * **Période fin exclue**, comme OMRAN : l'utilisateur choisit un « Au »
- * inclusif, et c'est le lendemain à minuit qui part en `dateFin`. Par défaut,
- * le mois courant — décision utilisateur du 23/09. */
+// `dateFin` est exclusive côté serveur : le « Au » saisi est inclusif, c'est le lendemain à minuit qui part.
 export default function SuiviActionsList() {
   const { user } = useAuth();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
-  /* FEATURE-suivi-actions.md §3bis (23/09) : l'administrateur voit le suivi
-     général ; tout autre rôle ne reçoit que **ses propres actions**, liste et
-     groupes — le serveur l'impose, l'écran s'y conforme en masquant le
-     sélecteur d'utilisateur (demander quelqu'un d'autre rendrait une page
-     vide, sans 403) et en le disant. Même rôle que `GET /api/kpi/commerciaux`. */
+  /* Hors administrateur, le serveur ne renvoie que ses propres actions : demander
+     quelqu'un d'autre rendrait une page vide, sans 403. D'où le sélecteur masqué. */
   const isAdmin = estAdministrateur(user);
   const typesAction = useTypesContactProspection();
 
@@ -79,12 +62,9 @@ export default function SuiviActionsList() {
 
   const catalogue = useColonnesSuiviActions();
   const colonnes = useColonnesVisibles('suivi-actions', catalogue.data, DISPOSITION_SUIVI_ACTIONS);
-  /* Contrairement aux autres écrans, `?colonnes=` part **toujours** : le clic
-     sur une ligne ouvre la prospection (à défaut le dossier), et ces deux clés
-     sont hors défaut côté serveur. Sans elles dans la requête, la ligne
-     n'ouvrirait rien, sans erreur ni explication. Tant que le catalogue n'est
-     pas arrivé (`visibles` vide), rien n'est envoyé : la première page vient
-     avec les défauts serveur et se recharge une fois avec les clés. */
+  /* `?colonnes=` part toujours ici : les clés d'ouverture (prospection, dossier) sont
+     hors défaut côté serveur, sans elles une ligne n'ouvrirait rien. Rien n'est
+     envoyé tant que le catalogue n'est pas arrivé. */
   const colonnesDemandees = useMemo(
     () =>
       colonnes.visibles.length > 0
@@ -118,10 +98,6 @@ export default function SuiviActionsList() {
   const hasActiveFilters =
     dateDebut !== premierDuMois() || dateFin !== todayISO() || utilisateur.length > 0 || typeId.length > 0 || trancheId.length > 0 || systeme !== 'all';
 
-  /* Deux raccourcis de période, parce que l'écran sert d'abord à répondre à
-     « qu'a-t-on fait aujourd'hui ? » et « ce mois-ci ? ». Ils posent les deux
-     dates, et s'allument quand les champs y correspondent — saisir la même
-     plage à la main allume donc le même bouton. */
   const aujourdhui = todayISO();
   const estAujourdhui = dateDebut === aujourdhui && dateFin === aujourdhui;
   const estCeMois = dateDebut === premierDuMois() && dateFin === aujourdhui;
@@ -131,8 +107,7 @@ export default function SuiviActionsList() {
     setDateFin(fin);
   }
 
-  /* Les filtres serveur, mot pour mot les mêmes pour la liste et les groupes :
-     la somme des effectifs des groupes égale le total de la liste. */
+  // Mêmes filtres pour la liste et les groupes : la somme des effectifs doit égaler le total.
   const filtresServeur: SuiviActionsFilterParams = {
     dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
     dateFin: dateFin ? `${lendemain(dateFin)}T00:00:00` : undefined,
@@ -168,8 +143,8 @@ export default function SuiviActionsList() {
     (cle, taille) =>
       listSuiviActions(
         filtresServeur,
-        /* Tri déterministe : « en charger davantage » redemande la page 0 avec
-           une taille plus grande — le lot précédent doit en être le préfixe. */
+        /* `id,asc` départage les dates ex æquo : « en charger davantage » redemande
+           la page 0 plus grande et suppose que le lot précédent en soit le préfixe. */
         { page: 0, size: taille, sort: ['docDate,desc', 'id,asc'] },
         { colonnes: colonnesDemandees, depliage: groupement.depliagePour(cle) },
       ),
@@ -183,10 +158,7 @@ export default function SuiviActionsList() {
   const error = enGroupes ? groupes.error : liste.error;
   const vide = enGroupes ? (groupes.data?.content.length ?? 0) === 0 : rows.length === 0;
 
-  /* Ouvrir une ligne : une boîte de détail, pas une navigation — l'action
-     n'a pas de fiche à elle, et la liste (page, filtres, groupe déplié) doit
-     rester derrière. `DataGrid` ne rend que l'id, d'où la table id → ligne
-     sur ce qui est à l'écran : la page à plat ou les groupes dépliés. */
+  // `DataGrid` ne rend que l'id : table id → ligne sur la page à plat et les groupes dépliés.
   const lignesParId = useMemo(() => {
     const m = new Map<string, SuiviActionDto>();
     for (const r of data?.content ?? []) m.set(r.id, r);
@@ -199,11 +171,8 @@ export default function SuiviActionsList() {
     if (r) setActionOuverte(r);
   }
 
-  /* Le filtre Utilisateur, comme la spec le prescrit : les valeurs réellement
-     présentes (`UserName` de l'action, égalité exacte), avec leur effectif —
-     un référentiel des comptes en offrirait qui n'ont jamais rien saisi.
-     Hors période, exprès : un utilisateur sans action ce mois-ci doit rester
-     choisissable pour élargir la période ensuite. */
+  /* Valeurs réellement présentes (`UserName`, égalité exacte), pas un référentiel des
+     comptes. Hors période exprès : un utilisateur sans action ce mois-ci reste choisissable. */
   const utilisateurs = useApi(
     () =>
       isAdmin

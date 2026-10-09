@@ -20,20 +20,12 @@ import type {
   TypeBeneficiaire,
 } from '../pages/outils/virements/types';
 
-/** Client du service `generateur-virement` (GUIDE-FRONTEND.md §1).
- *
- * Distinct d'`api.ts` : les erreurs sont `{ erreur }` et non des ProblemDetail,
- * et rien n'est mis en cache — chaque écran relit après une action.
- *
- * En production l'appel passe par Caddy sur le même hôte que `/api/*`
- * (`forward_auth`, cookie compris), qui retire le préfixe `/svc/virement` et
- * pose les en-têtes d'identité. En développement, le proxy de `vite.config.ts`
- * joue ce rôle. */
+/** Distinct d'`api.ts` : erreurs `{ erreur }` et non ProblemDetail, aucun cache. En production, Caddy
+ * (`forward_auth`) retire le préfixe `/svc/virement` et pose les en-têtes d'identité ; en développement, c'est le
+ * proxy de `vite.config.ts`. */
 export const BASE_VIREMENT = import.meta.env.DEV ? '/svc/virement' : `${API_BASE_URL}/svc/virement`;
 
-/** Erreur non 2xx du service. `erreur` est son message, à afficher tel quel ;
- * `message` y ajoute ce qu'impose le code (référence d'un 500, « accès
- * refusé »…). `corps` garde les champs en plus (`nb_ordres`, `reference`…). */
+/** `erreur` est le message brut du service ; `message` y ajoute ce qu'impose le code HTTP. */
 export class ErreurVirement extends Error {
   status: number;
   erreur: string;
@@ -58,10 +50,8 @@ function messageSelonCode(status: number, erreur: string, corps: Record<string, 
   return erreur;
 }
 
-/** Un 403 peut vouloir dire que les droits ont changé pendant la session :
- * qui affiche les droits (`contexte.ts`) s'abonne ici et décide s'il faut
- * relire `/moi` (jamais pour un 403 venu de `/moi` lui-même). Jamais de
- * déconnexion sur un 403. */
+/** Un 403 peut signaler des droits changés en cours de session : `contexte.ts` s'abonne et relit `/moi` (sauf
+ * pour un 403 venu de `/moi`). Jamais de déconnexion sur un 403. */
 const ecouteursAccesRefuse = new Set<(err: ErreurVirement, chemin: string) => void>();
 export function surAccesRefuse(f: (err: ErreurVirement, chemin: string) => void): () => void {
   ecouteursAccesRefuse.add(f);
@@ -88,8 +78,6 @@ function messageErreur(corps: Record<string, unknown>, status: number): string {
   return `le service a répondu ${status}`;
 }
 
-/** Envoie la requête et rend la réponse brute (2xx), ou lève une
- * `ErreurVirement`. Toujours `credentials: 'include'`. */
 async function envoyer(chemin: string, r: Requete = {}): Promise<Response> {
   let res: Response;
   try {
@@ -130,8 +118,6 @@ function fichier(f: File, champs: Record<string, string> = {}): FormData {
   return fd;
 }
 
-// ---- Liens de fichiers : de simples `href`, le cookie part tout seul ----
-
 export const lienPdfOrdre = (id: number, telecharger = false) =>
   `${BASE_VIREMENT}/ordres/${id}/pdf${telecharger ? '?download=1' : ''}`;
 export const lienPiece = (id: number) => `${BASE_VIREMENT}/pieces/${id}/fichier`;
@@ -140,20 +126,15 @@ export const lienLogoSociete = (id: number, version?: string) =>
   `${BASE_VIREMENT}/societes/${id}/logo${version ? `?t=${encodeURIComponent(version)}` : ''}`;
 export const LIEN_LOGO_DEFAUT = `${BASE_VIREMENT}/societes/logo-defaut`;
 
-// ---- Identité et référentiel ----
-
 export const lireMoi = () => appel<Moi>('/moi');
 export const lireMeta = () => appel<Meta>('/meta');
 export const lireJournal = (limite: number) => appel<LigneJournal[]>(`/journal${requete({ limite })}`);
-
-// ---- Bénéficiaires ----
 
 export const listerBeneficiaires = () => appel<Beneficiaire[]>('/fournisseurs');
 export const listerDossiers = () => appel<LigneDossier[]>('/dossiers');
 export const lireDossierBeneficiaire = (id: number) => appel<DossierBeneficiaire>(`/fournisseurs/${id}/dossier`);
 
-/** Upsert sur le nom : `cree` est faux quand un nom existant a seulement vu
- * son RIB mis à jour (200 au lieu de 201). */
+/** Upsert sur le nom : `cree` est faux (200 au lieu de 201) quand un nom existant a seulement vu son RIB mis à jour. */
 export async function creerBeneficiaire(corps: { nom: string; rib: string; type: TypeBeneficiaire }) {
   const res = await envoyer('/fournisseurs', { methode: 'POST', json: corps });
   return { fiche: (await res.json()) as Beneficiaire, cree: res.status === 201 };
@@ -166,8 +147,6 @@ export const supprimerBeneficiaire = (id: number, force = false) =>
 export const importerBeneficiaires = (f: File, typeDefaut: TypeBeneficiaire) =>
   appel<ResultatImport>('/fournisseurs/import', { methode: 'POST', formulaire: fichier(f, { type_defaut: typeDefaut }) });
 
-// ---- Sociétés ----
-
 export const listerSocietes = () => appel<Societe[]>('/societes');
 export const creerSociete = (corps: SocieteSaisie) => appel<Societe>('/societes', { methode: 'POST', json: corps });
 export const modifierSociete = (id: number, corps: SocieteSaisie) =>
@@ -179,8 +158,6 @@ export const deposerLogo = (id: number, f: File) =>
   appel<Societe>(`/societes/${id}/logo`, { methode: 'POST', formulaire: fichier(f) });
 export const retirerLogo = (id: number) => appel<Societe>(`/societes/${id}/logo`, { methode: 'DELETE' });
 
-// ---- Ordres ----
-
 export const listerOrdres = (f: FiltresOrdres) => appel<ListeOrdres>(`/ordres${requete({ ...f })}`);
 export const lireOrdre = (id: number) => appel<Ordre>(`/ordres/${id}`);
 /** Un seul appel : le service construit et archive le PDF dans la même transaction. */
@@ -189,12 +166,9 @@ export const creerOrdreGroupe = (corps: CreerOrdreGroupe) =>
   appel<OrdreGroupeCree>('/ordres/groupe', { methode: 'POST', json: corps });
 export const modifierOrdre = (id: number, corps: ModifierOrdre) =>
   appel<Ordre>(`/ordres/${id}`, { methode: 'PATCH', json: corps });
-/** `force=1` toujours : sans lui le service répond un 409 volontaire (§8.2) ;
- * la confirmation est faite à l'écran avant l'appel. */
+/** `force=1` toujours : sans lui le service répond un 409 volontaire ; la confirmation est faite à l'écran avant. */
 export const supprimerOrdre = (id: number) => appel<void>(`/ordres/${id}?force=1`, { methode: 'DELETE' });
 export const regenererPdf = (id: number) => appel<Ordre>(`/ordres/${id}/pdf`, { methode: 'POST' });
-
-// ---- Pièces ----
 
 export const ajouterPiece = (ordreId: number, f: File, type: string) =>
   appel<PieceAjoutee>(`/ordres/${ordreId}/pieces`, { methode: 'POST', formulaire: fichier(f, { type }) });

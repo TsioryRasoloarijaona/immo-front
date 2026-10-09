@@ -10,22 +10,13 @@ import SearchableSelect from './SearchableSelect';
 import { toApiDateTime } from '../lib/format';
 import { referentielItems, useResultatsInteraction, useTypesContactProspection } from '../lib/referentiels';
 
-// Reproduit la boîte de dialogue "Action" de l'ancien système (Action /
-// Résultat / Date alerte, + un sélecteur de date de RDV quand le résultat
-// en implique un). Champs obligatoires selon la règle OMRAN GEN0005, la même
-// que le serveur (POST /api/prospections/{id}/interactions) : action toujours,
-// message pour une Note, résultat pour toute autre action, date d'alerte pour
-// un résultat « avec alerte » (alerteRecommandee), date de RDV pour un RDV.
+// Champs obligatoires : règle OMRAN GEN0005, la même que le serveur — les garder alignés.
 
-// Sens de l'échange déduit du libellé de l'action choisie, pour continuer à
-// alimenter le champ directionnel `entrante` (et donc la bonne icône dans
-// la timeline via interactionIcon()) — le référentiel ne porte pas cette
-// info explicitement.
+// Le référentiel ne porte pas le sens de l'échange : on le déduit du libellé.
 function entranteFromActionLabel(label: string | undefined): boolean {
   return /entrant/i.test(label ?? '');
 }
 
-/** Le type Note se reconnaît à son code, comme côté serveur (insensible à la casse). */
 function estUneNote(code: string | undefined): boolean {
   return (code ?? '').trim().toLowerCase() === 'note';
 }
@@ -138,8 +129,7 @@ export default function InteractionForm({
                 Date et heure du rendez-vous
                 <Exigence requis />
               </FieldLabel>
-              {/* `datetime-local`, plus `date` : un RDV se prend à une heure,
-                  et le calendrier l'affiche (formatHeure). */}
+              {/* `datetime-local` et non `date` : le calendrier affiche l'heure du RDV. */}
               <Input id="action-date-rdv" type="datetime-local" value={dateRdv} onChange={(e) => setDateRdv(e.target.value)} required />
             </FormField>
           )}

@@ -16,11 +16,7 @@ import AdminGuard from './AdminGuard';
 import AffecterProjetsDialog from './AffecterProjetsDialog';
 import type { CompteAReinitialiser } from './ReinitialiserMotDePasse';
 
-/** Badge for the "Périmètre" column — mirrors the exempt/unrestricted/
- * restricted read-out `AffecterProjetsDialog` itself shows, so an admin sees
- * the same story on the list row and inside the dialog. `count === 0` is
- * "unrestricted", not "broken" (FEATURE-perimetre-commercial.md §6.3) — it
- * must never be styled to look like an empty/error state. */
+// `count === 0` veut dire « sans restriction », jamais un état vide ou d'erreur (FEATURE-perimetre-commercial.md §6.3).
 function perimetreBadge(count: number, roles?: string[]) {
   if (estExempte({ roles })) return <Badge tone="amber">Exempté</Badge>;
   if (count === 0) return <Badge tone="neutral">Tous les projets</Badge>;
@@ -42,10 +38,8 @@ function employeeName(row: { employeePrenom?: string; employeeNom?: string }): s
   return name || '—';
 }
 
-// No `roles`/type-employé filter here — GET /api/utilisateurs only exposes
-// `search` and `disabled` server-side (confirmed against docs/api-docsV4.json);
-// filtering by role client-side would silently only affect the current page,
-// not the real total, so it's deliberately left out.
+// Pas de filtre par rôle : le serveur n'expose que `search` et `disabled`, un filtre client
+// ne porterait que sur la page courante.
 export default function UtilisateursList() {
   const navigate = useNavigate();
 
@@ -75,10 +69,6 @@ export default function UtilisateursList() {
   );
   const rows = data?.content ?? [];
 
-  /* Les lignes ne sont pas cliquables ici : l'écran agit par ses boutons
-     « Affecter » et « Réinitialiser », il n'y a pas de fiche à ouvrir. On ne
-     passe donc ni `onOuvrir` ni `libelleLigne` — DataGrid retire alors le
-     curseur et le focus de ligne. */
   const colonnes = useMemo<ColonneGrille<UtilisateurListItemDto>[]>(
     () => [
       {
@@ -120,8 +110,6 @@ export default function UtilisateursList() {
         nom: 'roles',
         libelle: 'Rôles',
         largeur: 12,
-        // Tri et filtre sur les rôles concaténés : taper « admin » doit
-        // trouver la ligne, même si le rôle est un parmi plusieurs.
         valeur: (r) => (r.roles ?? []).join(', '),
         rendu: (r) =>
           r.roles && r.roles.length > 0 ? (
@@ -144,9 +132,8 @@ export default function UtilisateursList() {
         rendu: (r) => (
           <div className="flex flex-col items-start gap-1">
             <Badge tone={r.disabled ? 'neutral' : 'success'}>{r.disabled ? 'Désactivé' : 'Actif'}</Badge>
-            {/* mustChangePassword/profileCompleted sont des drapeaux hérités, ignorés
-                depuis FEATURE-acces-arpent-depuis-omran : seul compte l'absence
-                d'accès web, qu'ouvre « Réinitialiser ». */}
+            {/* mustChangePassword/profileCompleted sont des drapeaux hérités ignorés : seul
+                compte l'absence d'accès web (FEATURE-acces-arpent-depuis-omran). */}
             {!r.compteWebInitialise && <Badge tone="warning">Non initialisé</Badge>}
           </div>
         ),

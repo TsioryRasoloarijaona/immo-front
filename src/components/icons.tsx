@@ -1,5 +1,3 @@
-// Minimal hand-rolled icon set (24x24 viewBox, stroke-based) — keeps the
-// prototype dependency-light instead of pulling in a full icon package.
 import type { SVGProps } from 'react';
 
 type IconProps = SVGProps<SVGSVGElement>;

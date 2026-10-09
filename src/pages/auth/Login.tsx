@@ -34,9 +34,6 @@ export default function Login() {
     <AuthScreen title="Connexion" description="Accédez à votre espace Arpent.">
       <form onSubmit={handleSubmit}>
         <FieldGroup>
-          {/* Sans ce mot, une session expirée renvoie au formulaire sans dire
-              pourquoi — et l'utilisateur croit avoir perdu son travail sur un
-              bug plutôt que sur un délai. */}
           {sessionExpiree && !error && (
             <p role="status" className="rounded-md border border-(--amber-border) bg-(--amber-bg) px-3 py-2 text-body text-(--amber)">
               Votre session a expiré. Reconnectez-vous pour continuer.

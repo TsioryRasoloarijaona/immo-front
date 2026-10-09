@@ -28,12 +28,8 @@ export default function Layout({ children }: { children: ReactNode }) {
   const activeModule = moduleForPath(location.pathname);
   const { user, logout } = useAuth();
   const isAdmin = estAdministrateur(user);
-  // Commercial accounts only ever touch Ventes/Patrimoine/Profil — for this
-  // role the sidebar skips the module-switcher concept entirely (no picking
-  // one module at a time) and instead lists all three sections at once,
-  // each under its own group label. Every other role keeps the normal
-  // module-scoped sidebar (one section shown at a time, driven by the
-  // current route) plus the module switcher in the header.
+  // Le commercial voit Ventes, Patrimoine et Profil ensemble, hors du découpage
+  // par module que suivent les autres rôles.
   const isCommercial = user?.roles?.includes('Commercial') ?? false;
   const activeSoonModule = activeModule && activeModule !== 'vente' && activeModule !== 'patrimoine' && activeModule !== 'administration' && activeModule !== 'outils'
     ? APP_MODULES.find((m) => m.slug === activeModule)
@@ -41,11 +37,8 @@ export default function Layout({ children }: { children: ReactNode }) {
 
   return (
     <SidebarProvider>
-      {/* variant="inset" (redesign 20/09, référence Uxerflow) : le fond de
-          fenêtre prend la couleur canvas (--sidebar, greige chaud), la
-          sidebar y vit à nu, et SidebarInset devient une FEUILLE flottante
-          (m-2 rounded-xl shadow) qui porte tout le contenu. PageShell
-          compense la marge : fullHeight y vaut calc(100svh - 1rem). */}
+      {/* variant="inset" : SidebarInset est une feuille à marge (m-2) que PageShell
+          compense — fullHeight y vaut calc(100svh - 1rem). */}
       <Sidebar collapsible="icon" variant="inset">
         <SidebarHeader>
           <div className="flex items-center gap-1 px-1 py-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
@@ -54,12 +47,8 @@ export default function Layout({ children }: { children: ReactNode }) {
               className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-1 no-underline group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:px-0"
               title="Arpent"
             >
-              {/* La marque Arpent (adoptée le 20/09) : le « A »-pignon aux
-                  pieds d'arpentage, encre + sommet orange. Deux <img> plutôt
-                  qu'un filtre CSS : la variante inverse (crème) porte le
-                  sombre, la normale (encre) le clair. Le mot-symbole passe en
-                  encre — c'est le sommet orange de la marque qui porte
-                  l'accent, pas le texte. Rail replié : la marque seule. */}
+              {/* Deux <img> plutôt qu'un filtre CSS : la variante inverse (crème)
+                  porte le thème sombre, la normale (encre) le clair. */}
               <img src="/brand/arpent-mark.svg" alt="" aria-hidden className="size-9 shrink-0 dark:hidden" />
               <img src="/brand/arpent-mark-inverse.svg" alt="" aria-hidden className="hidden size-9 shrink-0 dark:block" />
               <span
@@ -92,13 +81,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             </SidebarMenu>
           </SidebarGroup>
 
-          {/* Only the active module's own submenu shows — the sidebar is
-              module-scoped, driven purely by the current route, so switching
-              modules (via the launcher or a direct link) swaps the section
-              instead of stacking every module's links at once. Commercial
-              accounts are the one exception: `isCommercial` short-circuits
-              the route gate so Ventes/Patrimoine both render together,
-              always — see the `isCommercial` comment above. */}
           {(isCommercial || activeModule === 'vente') && (
             <SidebarGroup>
               <SidebarGroupLabel>Ventes</SidebarGroupLabel>
@@ -187,11 +169,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             </SidebarGroup>
           )}
 
-          {/* Commercial's third and last section — always shown alongside
-              Ventes/Patrimoine above, not route-gated either. Just the
-              profile page for now; the footer's own "Mon profil" link
-              (below) still works for every other role, this is purely
-              about surfacing it as a proper nav item for Commercial. */}
           {isCommercial && (
             <SidebarGroup>
               <SidebarGroupLabel>Profil</SidebarGroupLabel>
@@ -213,9 +190,6 @@ export default function Layout({ children }: { children: ReactNode }) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  {/* Pour le commercial, le suivi de ses propres actions est
-                      une vue de soi, à côté de ses performances — pas une
-                      liste d'entités de vente. Décision utilisateur du 23/09. */}
                   <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip="Mes actions">
                     <ListChecks />
                     Mes actions
@@ -225,11 +199,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             </SidebarGroup>
           )}
 
-          {/* Section « Suivi » des autres rôles, dans le module Vente : le
-              pilotage de l'activité — le classement des commerciaux, sorti
-              d'Administration où il n'avait rien d'administratif, et le
-              suivi des actions. Route-gated comme Ventes ; le commercial a
-              les siens dans Profil. */}
           {!isCommercial && activeModule === 'vente' && (
             <SidebarGroup>
               <SidebarGroupLabel>Suivi</SidebarGroupLabel>
@@ -247,9 +216,8 @@ export default function Layout({ children }: { children: ReactNode }) {
                   </SidebarMenuItem>
                 )}
                 <SidebarMenuItem>
-                  {/* Le serveur ne sert le suivi général qu'à l'administrateur
-                      (FEATURE-suivi-actions.md §3bis) ; les autres rôles y
-                      voient leurs propres actions, et le libellé le dit. */}
+                  {/* Le serveur ne sert le suivi général qu'à l'administrateur ;
+                      les autres rôles n'y voient que leurs propres actions. */}
                   <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip={isAdmin ? 'Suivi des actions' : 'Mes actions'}>
                     <ListChecks />
                     {isAdmin ? 'Suivi des actions' : 'Mes actions'}
@@ -259,10 +227,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             </SidebarGroup>
           )}
 
-          {/* Everything below (Bientôt placeholders, Administration) stays
-              route-gated as before — Commercial never routes there in the
-              first place (no module switcher to get to it from), so no
-              extra guard is needed beyond the existing activeModule check. */}
           {activeSoonModule && (
             <SidebarGroup>
               <SidebarGroupLabel>{activeSoonModule.label}</SidebarGroupLabel>
@@ -319,9 +283,6 @@ export default function Layout({ children }: { children: ReactNode }) {
             </SidebarGroup>
           )}
 
-          {/* Outils — réservé à l'administrateur, comme Administration. Pour
-              l'instant le seul outil est le générateur d'ordres de virement,
-              repris de l'application autonome en maquette statique. */}
           {activeModule === 'outils' && !isAdmin && (
             <SidebarGroup>
               <SidebarGroupLabel>Outils</SidebarGroupLabel>
@@ -366,7 +327,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 {/* Sociétés et Journal : selon `admin` de `GET /moi` du service,
-                    pas selon les rôles CRM (FEATURE-virements-api R1). */}
+                    pas selon les rôles CRM. */}
                 <EntreesAdminVirements pathname={location.pathname} />
               </SidebarMenu>
             </SidebarGroup>
@@ -374,11 +335,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         </SidebarContent>
 
         <SidebarFooter>
-          {/* Synchronisation manuelle (MB4) — pleine largeur au-dessus du
-              profil, visible sur toutes les pages sans rien recouvrir (la
-              pilule flottante essayée d'abord cachait la pagination). Le
-              composant se cache lui-même pour les rôles auxquels le backend
-              refuse l'appel. */}
+          {/* SyncButton se cache lui-même pour les rôles auxquels le backend refuse l'appel. */}
           <ActionsRecentes />
           <SyncButton />
           <div className="flex items-center gap-2 px-2 pt-3 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
@@ -405,17 +362,9 @@ export default function Layout({ children }: { children: ReactNode }) {
         <SidebarRail />
       </Sidebar>
 
-      {/* `min-w-0` : `SidebarProvider` est un conteneur flex en ligne, et
-          `SidebarInset` y est un élément flex sans largeur minimale déclarée —
-          sa `min-width: auto` vaut donc la largeur minimale de son *contenu*.
-          Un tableau large (les listes de prospection montent à ~108rem toutes
-          colonnes cochées) remonte ainsi jusqu'ici, empêche le volet principal
-          de rétrécir, et c'est la **fenêtre** qui se met à défiler
-          horizontalement : en-tête et barre de filtres coupés au bord droit.
-          Ni un `overflow` ni un `min-w-0` posés plus bas n'y changent quoi que
-          ce soit — la contrainte doit être cassée sur l'élément flex de l'axe
-          concerné, et c'est celui-ci. Avec, chaque page garde sa largeur et le
-          débordement est absorbé par son propre conteneur de défilement. */}
+      {/* `min-w-0` obligatoire ici : sans lui, un tableau large impose sa largeur
+          à cet élément flex et c'est la fenêtre qui défile horizontalement. Le
+          poser plus bas ne suffit pas. */}
       <SidebarInset className="min-w-0">{children}</SidebarInset>
     </SidebarProvider>
   );

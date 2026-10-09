@@ -28,7 +28,6 @@ const MODE_ITEMS: { value: Mode; label: string }[] = [
 let compteurLignes = 0;
 const ligne = (nom = '', montant = ''): Ligne => ({ cle: ++compteurLignes, nom, montant });
 
-/** Montant saisi → nombre > 0, ou `null`. */
 function montantSaisi(v: string): number | null {
   const n = Number(v.replace(',', '.'));
   return Number.isFinite(n) && n > 0 ? n : null;
@@ -48,9 +47,7 @@ function libelleGenerer(enCours: boolean, groupe: boolean): string {
   return groupe ? 'Générer le PDF groupé' : 'Générer le PDF';
 }
 
-/** « Nouvel ordre » (§4) : le formulaire à gauche, l'aperçu du courrier à
- * droite, recalculé à chaque frappe. Générer = **un seul appel** ; le service
- * construit et archive le PDF dans la même transaction que l'ordre. */
+/** Générer = un seul appel : le service construit et archive le PDF dans la même transaction que l'ordre. */
 function Formulaire({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   const { meta, revision } = ctx;
   const navigate = useNavigate();
@@ -77,8 +74,6 @@ function Formulaire({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   const societe =
     societes.find((s) => s.id === choixSociete) ?? societes.find((s) => s.par_defaut) ?? societes[0];
 
-  // RIB : rempli quand le nom correspond exactement (casse ignorée) à un
-  // bénéficiaire connu, vidé sinon.
   const parNom = useMemo(() => {
     const m = new Map<string, Beneficiaire>();
     for (const b of beneficiairesApi.data ?? []) m.set(b.nom.trim().toLowerCase(), b);
@@ -94,8 +89,8 @@ function Formulaire({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
     .map((t) => (meta.types_pieces[t]?.libelle ?? t).toLowerCase())
     .join(', ');
 
-  // Les lignes entièrement vides sont ignorées (§4.2), à l'envoi comme dans
-  // l'aperçu ; leur total n'est qu'un aperçu de saisie (exception R2).
+  // Lignes entièrement vides ignorées, à l'envoi comme dans l'aperçu. Ce total n'est qu'un aperçu de saisie :
+  // le seul chiffre calculé à l'écran, les autres viennent du serveur.
   const lignesRemplies = lignes.filter((l) => l.nom.trim() || l.montant.trim());
   const lignesCourrier =
     mode === 'seul'
@@ -105,7 +100,6 @@ function Formulaire({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
 
   function changerMode(m: Mode) {
     if (m === mode) return;
-    // Passage en groupé : la 1re ligne reprend la saisie du mode seul.
     if (m === 'groupe') setLignes([ligne(nom, montant), ligne()]);
     else {
       const premiere = lignes.find((l) => l.nom.trim() || l.montant.trim());
@@ -121,7 +115,7 @@ function Formulaire({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
     setLignes((ls) => ls.map((l) => (l.cle === cle ? { ...l, ...patch } : l)));
   }
 
-  /** Contrôles avant envoi (§4.2) — le serveur les refait. */
+  /** Le serveur refait ces contrôles. */
   function controler(): string | null {
     setLignesFautives(new Set());
     if (!societe) return 'Aucune société émettrice : ajoutez-en une dans l\'écran « Sociétés ».';
@@ -171,7 +165,6 @@ function Formulaire({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
         });
         setGenere({ ordres: r.ordres, groupe: r.groupe });
       }
-      // Le formulaire repart à vide ; société, type, date restent.
       setNom('');
       setMontant('');
       setLignes([ligne(), ligne()]);

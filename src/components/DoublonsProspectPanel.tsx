@@ -5,9 +5,6 @@ import { Button } from './ui/button';
 import { formatDate } from '../lib/format';
 import type { CritereDoublon, ProspectDoublonDto } from '../types';
 
-/** Libellés des critères de correspondance, dans l'ordre où le serveur les
- * pèse (un `NOM` seul est un homonyme ; un `TELEPHONE` ou un `EMAIL` est
- * presque sûrement la même personne). */
 const CRITERE_LIBELLE: Record<CritereDoublon, string> = {
   NOM: 'Même nom',
   TELEPHONE: 'Même téléphone',
@@ -21,19 +18,8 @@ const TYPE_LIBELLE: Record<string, string> = {
   CLIRNT: 'Client location',
 };
 
-/** « Est-ce l'une de ces personnes ? » — la réponse 409 `doublons` de
- * `POST /api/prospects` et `creer-prospect`, rendue comme une question et
- * non comme une erreur. Rien n'a échoué : le serveur a trouvé des fiches au
- * même nom, téléphone ou email et attend que l'utilisateur tranche.
- *
- * Amber, pas rouge, pour la même raison que l'avertissement de
- * `NewPreProspection` : un homonyme au contact différent est le cas courant
- * (237 groupes sur 244 dans les données réelles), et le bouton « Nouveau
- * contact » est une réponse légitime, pas un contournement.
- *
- * Les critères sont portés par un badge **avec glyphe** : un `TELEPHONE` ou
- * un `EMAIL` (tons `warning`) pèse plus qu'un simple `NOM` (ton `amber`), et
- * cette hiérarchie doit rester lisible sans la couleur. */
+/** Le 409 `doublons` est une question, pas une erreur : ambre et non rouge, les homonymes
+ * sont le cas courant. Un `TELEPHONE` ou `EMAIL` (`warning`) pèse plus qu'un `NOM` (`amber`). */
 export default function DoublonsProspectPanel({
   doublons,
   libelleChoisir,
@@ -42,9 +28,6 @@ export default function DoublonsProspectPanel({
   busy,
 }: {
   doublons: ProspectDoublonDto[];
-  /** Verbe du bouton de ligne : « Rattacher » depuis une pré-prospection,
-   * « Choisir » dans le sélecteur d'une prospection, « Ouvrir la fiche » en
-   * création directe. */
   libelleChoisir: string;
   onChoisir: (doublon: ProspectDoublonDto) => void;
   /** Renvoyer la même création avec `ignorerDoublons: true`. */

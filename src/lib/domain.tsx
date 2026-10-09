@@ -9,10 +9,7 @@ import type {
   ProspectionListItemDto,
 } from '../types';
 
-// Best-effort ordered pipeline read off the real étape labels migrated from
-// the legacy Omran export (see CLAUDE.md) — the API only ever gives us a
-// free-text `etape` string (ProspectionListItemDto/DetailDto), no explicit
-// ordered enum, so this is a display convention, not a contract.
+// L'API ne sert qu'un libellé `etape` libre, sans ordre : cet ordre est une convention d'affichage, pas un contrat.
 export const PIPELINE_STAGES = [
   '1 A TRAITER',
   '2 EN COURS DE TRAITEMENT',
@@ -29,46 +26,9 @@ export const PIPELINE_STAGE_SHORT: Record<string, string> = {
   '5 AVANT CONCRETISATION': 'Avant concrétisation',
 };
 
-/** Une relance dont l'échéance est passée, sur un lead encore ouvert : ce que
- * le fond rouge des listes signale.
- *
- * **Même critère que le badge de la colonne Alerte** — échéance `<= aujourd'hui`
- * — pour que les deux signaux s'allument ensemble. Une ligne qui porterait un
- * badge d'alerte sans fond rouge se lirait comme une contradiction.
- *
- * ### Un seuil a été essayé, puis retiré
- *
- * Sans seuil, **336 prospections sur 500 sont en retard** (67 %), soit 17
- * lignes sur 20 en page 1 : un repère qui s'allume sur deux tiers des lignes
- * paraît ne plus rien repérer. Un seuil de 30 jours a donc été livré, ramenant
- * la part à 267 sur 500 (53 %).
- *
- * **Il a été annulé, et pour une raison mesurée, pas d'opinion** : la liste
- * sort triée par date d'alerte décroissante, si bien que le seuil ne
- * répartissait pas le rouge, il le **déplaçait vers le fond de la liste**.
- * Relevé par page : 0 ligne rouge sur les pages 1 à 4, 1 en page 5, puis 9 à
- * 14 à partir de la page 6. À l'ouverture de l'écran, plus rien n'était rouge —
- * exactement l'inverse de ce qu'un repère « au premier coup d'œil » doit faire.
- *
- * C'est aussi le comportement du logiciel de bureau, dont la colonne Alerte
- * porte une icône rouge sur presque chaque ligne. Que la majorité des relances
- * soient en retard est un fait du métier, pas un défaut d'affichage : le
- * repère le constate, et c'est aux filtres de la page de trier.
- *
- * **Ne pas réintroduire de seuil sans remesurer la répartition par page.**
- *
- * ### Ce que la condition contient, et pourquoi
- *
- * `fermee` en fait partie, et ce n'est pas un détail : une prospection perdue
- * garde son alerte, mais plus personne ne la rappellera. Mesuré, 16 lignes sur
- * 500 sont échues **et** fermées. C'est la règle que le tableau de bord
- * applique déjà pour sa liste de relances.
- *
- * **Les deux champs doivent être présents dans la charge utile.** `?colonnes=`
- * est une liste close : sans `derniereAlerteDate` la fonction rend toujours
- * faux, et sans `fermee` elle traiterait les leads perdus comme à relancer.
- * D'où `toujoursDemandees` dans `DISPOSITION_PROSPECTIONS` — les deux colonnes
- * sont demandées au serveur même décochées de la grille. */
+/** Même critère (`<=` aujourd'hui) que le badge Alerte. Pas de seuil en jours : la liste étant triée par alerte
+ * décroissante, il repousserait tout le rouge en fin de liste. `derniereAlerteDate` et `fermee` doivent figurer
+ * dans `?colonnes=` (liste close), sinon faux résultat : d'où `toujoursDemandees` dans `DISPOSITION_PROSPECTIONS`. */
 export function relanceEnRetard(p: {
   derniereAlerteDate?: string | null;
   fermee?: boolean;
@@ -94,11 +54,8 @@ export function etapeBadgeTone(etape: string | undefined, fermee?: boolean): Bad
   return 'success';
 }
 
-// StlSettlement.Status confirmed on real /api/encaissements data (see
-// instructions/from_front.md, backend repo) — IN_WORK/POINTED/CANCELED.
-// The legacy screen also offers Impayé(e)/Perdu(e) as filter checkboxes,
-// but no real row carries either code today, so no label/tone is guessed
-// for them here; unmapped codes fall back to the raw string, neutral tone.
+// Impayé/Perdu existent comme filtres legacy mais aucune ligne réelle ne les porte : pas de libellé inventé,
+// un code inconnu s'affiche brut, ton neutre.
 export const ENCAISSEMENT_ETAT_LABELS: Record<string, string> = {
   IN_WORK: 'En cours',
   POINTED: 'Pointé',
@@ -120,27 +77,18 @@ export function encaissementEtatTone(etat: string | undefined): BadgeTone {
   }
 }
 
-// `ReglementDto.statut` et `EncaissementDto.etat` lisent la même colonne
-// `StlSettlement.Status` — un encaissement *est* un règlement, vu depuis le
-// catalogue transverse plutôt que depuis son échéance. Ces alias existent
-// pour que le code de la fiche dossier se lise dans son propre vocabulaire
-// sans dupliquer le mapping (ni renommer les originaux, utilisés par les
-// écrans Encaissements).
+// `ReglementDto.statut` et `EncaissementDto.etat` lisent la même colonne `StlSettlement.Status` : alias, pas de
+// second mapping.
 export const reglementStatutLabel = encaissementEtatLabel;
 export const reglementStatutTone = encaissementEtatTone;
 
-/** Un règlement n'est modifiable (pointage/annulation) que depuis `IN_WORK` :
- * `POINTED` et `CANCELED` sont terminaux. Un statut absent (DTO legacy servi
- * sans la colonne) est traité comme non modifiable — mieux vaut masquer une
- * action possible que d'en proposer une qui finira en 409. */
+/** Statut absent (DTO servi sans la colonne) = non modifiable : mieux vaut masquer une action possible que d'en
+ * proposer une qui finira en 409. */
 export function reglementModifiable(statut: string | undefined): boolean {
   return statut?.toUpperCase() === 'IN_WORK';
 }
 
-// `PieceJointeDto.type` is free-text off the legacy `AdmAttachedFileType`
-// référentiel (no stable enum/id exposed by the API) — keyword-matched
-// here purely for a scannable badge color per document family, not a
-// business rule. Unmatched/null types fall back to neutral.
+// Type libre du référentiel legacy, sans id stable exposé : couleur par mot-clé, pas une règle métier.
 export function pieceJointeTypeTone(type: string | null | undefined): BadgeTone {
   const t = (type ?? '').toUpperCase();
   if (!t) return 'neutral';
@@ -152,11 +100,7 @@ export function pieceJointeTypeTone(type: string | null | undefined): BadgeTone 
   return 'neutral';
 }
 
-// `EcheanceDto.categorie` is free-text off the legacy référentiel
-// (`GET /api/referentiels/categories-echeance`) — keyword-matched here for
-// a scannable badge color per line type on the "Schéma de financement"
-// table, same convention as `pieceJointeTypeTone` above. Unmatched/null
-// falls back to neutral.
+// Catégorie libre du référentiel legacy : même convention par mot-clé que `pieceJointeTypeTone`.
 export function echeanceCategorieTone(categorie: string | null | undefined): BadgeTone {
   const c = (categorie ?? '').toUpperCase();
   if (!c) return 'neutral';
@@ -185,12 +129,6 @@ export function echeanceStatutTone(statut: EcheanceStatut): BadgeTone {
   }
 }
 
-// Real business signal, not decoration: a fully-paid line is "Soldée", a
-// partly-paid one is "Partielle", and an unpaid line past its own
-// `dateEcheance` is "En retard" (the same "make overdue reminders
-// prominent" principle CLAUDE.md asks for on prospection alerts, applied
-// here to the financing schedule) — everything else unpaid but not yet due
-// is plain "À régler".
 export function echeanceStatut(e: {
   montant?: number | null;
   montantRegle?: number | null;
@@ -206,9 +144,7 @@ export function echeanceStatut(e: {
   return 'aregler';
 }
 
-// Shared filter-bar state for ProspectionsList/PreProspectionsList — kept
-// here rather than in the component file so ProspectionFilterBar.tsx only
-// exports the component (react-refresh requirement).
+// Ici et non dans ProspectionFilterBar.tsx : react-refresh veut qu'un fichier de composant n'exporte que lui.
 export interface ProspectionFilterBarState {
   search: string;
   etape: string[];
@@ -221,13 +157,8 @@ export interface ProspectionFilterBarState {
   archive: 'non' | 'oui' | 'tous';
 }
 
-/** L'état **par défaut** de la barre, pas un état vide : archivées exclues et
- * période posée sur le mois courant (décision utilisateur du 28/09). C'est
- * aussi ce que rend « Réinitialiser ».
- *
- * `commercialParDefaut` pré-remplit le filtre Commercial — la liste des
- * prospections y passe le commercial du compte connecté. Sans lui, aucun
- * commercial n'est choisi (pré-prospections). */
+/** L'état par défaut, pas un état vide : archivées exclues, période = mois courant. C'est aussi ce que rend
+ * « Réinitialiser ». */
 export function emptyProspectionFilters(commercialParDefaut?: string): ProspectionFilterBarState {
   return {
     search: '',
@@ -249,24 +180,8 @@ export function ouvertesDepuisArchive(archive: ProspectionFilterBarState['archiv
   return undefined;
 }
 
-/** True when the user has narrowed the list away from its default state.
- *
- * Compared field-by-field against `emptyProspectionFilters()` rather than a
- * hand-written list of conditions, so a filter added to
- * `ProspectionFilterBarState` later is covered automatically instead of
- * silently falling out of the check. Note the defaults are not blank:
- * `archive` is `'non'` and the period is the current month — switching to
- * "Tous"/"Oui", or clearing the dates, counts as an active filter, which is
- * what makes an empty result explainable.
- *
- * Used by Prospections/Pré-prospections to decide whether an empty result
- * means "your filters excluded everything" (offer a reset) or "there's
- * genuinely nothing here".
- *
- * `defauts` lets a screen whose defaults depend on the session (the connected
- * commercial) say what "untouched" means for it. Lists are compared by
- * content, not length: a default of one commercial swapped for another is an
- * active filter even though both lists hold one id. */
+/** Comparé aux défauts, qui ne sont pas vides (`archive: 'non'`, mois courant) : les vider est un filtre actif.
+ * Listes comparées par contenu, pas par longueur : un commercial remplacé par un autre est un filtre actif. */
 export function hasActiveProspectionFilters(
   state: ProspectionFilterBarState,
   defauts: ProspectionFilterBarState = emptyProspectionFilters(),
@@ -280,18 +195,9 @@ export function hasActiveProspectionFilters(
   });
 }
 
-/** État d'écran des filtres avancés.
- *
- * Distinct de `FiltresAvancesProspection`, qui est le contrat réseau : ici les
- * nombres et les dates sont des chaînes, parce qu'ils viennent d'`<input>` et
- * qu'un champ vidé doit valoir « pas de filtre » et non `NaN`. Les booléens
- * sont ternaires pour la même raison — une case à cocher ne sait pas dire
- * « indifférent », alors que `avecAlerteActive: false` veut dire « uniquement
- * celles sans relance », ce qui n'est pas la même chose que ne pas filtrer.
- *
- * `origineSupportId` n'y figure pas : il n'existe pas de référentiel plat des
- * supports, seulement une cascade sous une origine. Le champ reste dans le DTO
- * réseau, sans écran pour l'alimenter. */
+/** État d'écran, distinct du contrat réseau : nombres et dates en chaînes (champ vidé = pas de filtre, pas `NaN`),
+ * booléens ternaires car `avecAlerteActive: false` veut dire « uniquement sans relance », pas « indifférent ».
+ * Pas d'`origineSupportId` : aucun référentiel plat des supports n'existe, seulement une cascade sous l'origine. */
 export interface FiltresAvancesState {
   projetId: string[];
   societeId: string[];
@@ -300,9 +206,6 @@ export interface FiltresAvancesState {
   raisonFermetureId: string[];
   paysId: string[];
   actionId: string[];
-  /** Codes `StrEntity.Code`. Le seul filtre du lot avec des valeurs **connues
-   * d'avance** plutôt qu'un référentiel à charger — d'où `TYPES_PROSPECTION`
-   * ci-dessous et non un `use*Referentiel`. */
   typeProspection: string[];
   ancienClient: 'all' | 'oui' | 'non';
   avecAlerteActive: 'all' | 'oui' | 'non';
@@ -333,9 +236,6 @@ export function emptyFiltresAvances(): FiltresAvancesState {
   };
 }
 
-/** Comparaison champ par champ contre l'état vide, comme
- * `hasActiveProspectionFilters` : un filtre ajouté plus tard est couvert sans
- * qu'on pense à modifier cette fonction. */
 export function countActiveFiltresAvances(state: FiltresAvancesState): number {
   const empty = emptyFiltresAvances();
   return (Object.keys(empty) as (keyof FiltresAvancesState)[]).filter((key) => {
@@ -345,8 +245,7 @@ export function countActiveFiltresAvances(state: FiltresAvancesState): number {
   }).length;
 }
 
-/** Conversion vers le contrat réseau. Un champ inactif est **omis**, jamais
- * envoyé à vide : le backend distingue « absent » de `false`. */
+/** Un champ inactif est omis, jamais envoyé à vide : le backend distingue « absent » de `false`. */
 export function toFiltresAvances(state: FiltresAvancesState): FiltresAvancesProspection | undefined {
   if (countActiveFiltresAvances(state) === 0) return undefined;
   const nombre = (v: string) => (v.trim() === '' ? undefined : Number(v));
@@ -371,18 +270,8 @@ export function toFiltresAvances(state: FiltresAvancesState): FiltresAvancesPros
   };
 }
 
-/** Types de document légataire (`StrEntity.Code`) proposés par le filtre.
- *
- * En dur, et non chargés d'un référentiel : la spec énumère les valeurs
- * connues, il n'existe pas d'endpoint qui les serve, et un code inconnu **ne
- * lève pas d'erreur** — il ne correspond à rien et le résultat est vide, ce
- * qui se confond avec « aucun résultat ». Une liste fermée évite donc de
- * fabriquer ce faux négatif à la saisie.
- *
- * Les trois premiers sont ceux réellement observés sur cet écran ; les deux
- * derniers existent dans la base mais relèvent d'autres modules (promotion,
- * gestion locative) et ne devraient jamais rien ramener ici — ils restent
- * proposés parce que les trouver vides *est* l'information utile. */
+/** Codes `StrEntity.Code` en dur : aucun endpoint ne les sert, et un code inconnu rend une liste vide sans erreur.
+ * Les deux derniers relèvent d'autres modules et ne ramènent rien ici : les garder, ce vide est l'information. */
 export const TYPES_PROSPECTION: { label: string; value: string }[] = [
   { label: 'Prospection vente', value: 'ComProspection' },
   { label: 'Pré-prospection', value: 'ComPreProspection' },
@@ -400,37 +289,25 @@ export function standingClass(standing: string): string {
   return 'bg-(--neutral-bg) text-foreground';
 }
 
-/** Display name for a prospection row/detail — prefers the linked prospect's
- * name, falls back to the free-text lead description captured before a
- * Prospect record exists (pré-prospection), then the code. */
 export function prospectionDisplayName(
   p: Pick<ProspectionListItemDto | ProspectionDetailDto, 'prospectNom' | 'code'> & { tempDescription?: string },
 ): string {
   return p.prospectNom?.trim() || p.tempDescription?.trim() || p.code?.trim() || 'Sans nom';
 }
 
-/** Full name from a Prospect/Client DTO's prenom+nom (or raisonSociale for a
- * company record). */
 export function personDisplayName(p: { prenom?: string; nom?: string; raisonSociale?: string }): string {
   const full = `${p.prenom ?? ''} ${p.nom ?? ''}`.trim();
   return full || p.raisonSociale?.trim() || 'Sans nom';
 }
 
-// InteractionDto only carries `entrante` (incoming/outgoing) — no
-// actionType/channel field like the legacy export had — so the icon can only
-// reflect direction, not medium (call vs visit vs note).
+// `InteractionDto` ne porte que la direction (`entrante`), pas le canal : l'icône ne distingue pas appel et visite.
 export function interactionIcon(entrante: boolean | undefined): ReactNode {
   const Icon = entrante ? IconPhoneIn : IconPhoneOut;
   return <Icon />;
 }
 
-// EvenementCalendrierDto.resultatCode carries the same text as the
-// resultats-interaction référentiel's `code` (a real, stable value, not a
-// display-only label) — comparing against it distinguishes a visite from a
-// simple rendez-vous without inventing a business enum on the front. Only
-// "Le prospect veut faire une visite du projet" behaves as a visite today;
-// match loosely on "visite" so a future référentiel entry phrased
-// differently (e.g. "Visite du projet demandée") keeps working.
+// `resultatCode` est le code stable du référentiel résultats-interaction ; « visite » cherché en sous-chaîne pour
+// qu'une entrée future formulée autrement reste reconnue.
 export function isVisiteEvenement(ev: Pick<EvenementCalendrierDto, 'resultatCode'>): boolean {
   return (ev.resultatCode ?? '').toLowerCase().includes('visite');
 }

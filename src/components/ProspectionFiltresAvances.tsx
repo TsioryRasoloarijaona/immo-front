@@ -42,19 +42,9 @@ function Section({ titre, children }: { titre: string; children: ReactNode }) {
   );
 }
 
-/** Panneau des filtres avancés de `GET /api/prospections`.
- *
- * Quatorze critères ne tiennent pas dans la barre de filtres, qui en porte
- * déjà huit : ils vivent donc dans un volet, avec le nombre d'actifs sur le
- * bouton pour qu'un résultat étroit reste explicable sans l'ouvrir.
- *
- * **Réservé aux prospections** : `/api/pre-prospections` n'accepte pas ces
- * paramètres. Le volet n'est pas monté sur cet écran plutôt que d'y être
- * affiché sans effet.
- *
- * Le quinzième filtre de la spec, `origineSupportId`, n'a pas de contrôle :
- * il n'existe pas de référentiel plat des supports, seulement une cascade
- * sous une origine. */
+/** Réservé aux prospections : `/api/pre-prospections` n'accepte pas ces paramètres.
+ * `origineSupportId` n'a pas de contrôle : pas de référentiel plat des supports,
+ * seulement une cascade sous une origine. */
 export default function ProspectionFiltresAvances({
   state,
   onChange,
@@ -157,9 +147,6 @@ export default function ProspectionFiltresAvances({
         </SheetHeader>
 
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4">
-          {/* En premier parce que c'est le plus exploitable : `joursInactivite`
-              est renseigné sur 100 % des lignes et c'est le critère de relance
-              du logiciel de bureau. */}
           <Section titre="Activité et relance">
             {seuil('inactiviteMin', 'Inactives depuis au moins (jours)')}
             {ternaire('avecAlerteActive', 'Relance active')}

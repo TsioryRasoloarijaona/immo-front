@@ -4,30 +4,11 @@ import { Input } from './ui/input';
 import { Field as FormField, FieldLabel } from './ui/field';
 import { usePays } from '../lib/referentiels';
 
-/** Indicatif du Maroc — proposé par défaut à la création.
- *
- * Ce n'est pas un raccourci de confort : 99 % des prospections avec rendez-vous
- * portent un numéro marocain, et c'est l'absence d'indicatif qui produit les
- * numéros que le canal WhatsApp rejette. Un défaut qui couvre la quasi-totalité
- * des cas vaut mieux qu'un champ vide que personne ne remplit. */
+/** Défaut voulu, pas de confort : sans indicatif, le canal WhatsApp rejette le numéro. */
 export const INDICATIF_MAROC = '212';
 
-/**
- * Un numéro de téléphone : indicatif pays + numéro.
- *
- * Le back a séparé les deux (`indicatifTelephone` / `telephone`) parce qu'un
- * numéro sans indicatif n'est pas expédiable par WhatsApp — 43 fiches réelles
- * portent aujourd'hui un numéro inexploitable, et le canal les rejette avec
- * `NUMERO_INEXPLOITABLE`.
- *
- * **Ce composant ne reformate rien.** Il transmet l'indicatif choisi et le
- * numéro saisi tels quels. Les champs `telephone`/`indicatifTelephone` n'ont
- * aucune annotation dans la spec : rien n'y dit si le numéro doit perdre son
- * zéro initial une fois l'indicatif renseigné. Inventer cette règle ici
- * risquerait de fabriquer les `+2120612…` que l'on cherche justement à
- * éliminer. La composition reste au serveur ; le jour où la règle est
- * documentée, elle s'ajoute à un seul endroit.
- */
+/** Ne reformate rien (zéro initial compris) : la composition reste au serveur,
+ * sinon on fabriquerait des `+2120612…`. */
 export default function TelephoneField({
   id,
   label,
@@ -47,10 +28,8 @@ export default function TelephoneField({
 }) {
   const pays = usePays();
 
-  // Plusieurs pays partagent un même indicatif (+1 pour les États-Unis et le
-  // Canada, +212 pour le Maroc et le Sahara occidental…). La valeur d'un
-  // <option> devant rester unique, on replie sur l'indicatif et on garde le
-  // premier pays rencontré comme libellé.
+  // Plusieurs pays partagent un indicatif (+1…) : la valeur d'option devant être
+  // unique, on replie sur l'indicatif avec le premier pays comme libellé.
   const indicatifs = useMemo(() => {
     const vus = new Map<string, string>();
     for (const p of pays.data) {

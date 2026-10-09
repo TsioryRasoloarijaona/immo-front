@@ -12,17 +12,13 @@ import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import { pieceJointeTypeTone } from '../../lib/domain';
 import type { PieceJointeDto } from '../../types';
 
-/** Read-only counterpart of `PieceJointeRow` in `DossierDetail.tsx` — same
- * row shape (Fichier/Déposé par/Type/Date/Actions), but no upload endpoint
- * exists for articles, so no add-row/delete affordance — and a single open
- * action rather than a view/download pair, for the reason spelled out on
- * `PieceJointeRow`. */
+// Lecture seule : aucun endpoint d'envoi ni de suppression pour les pièces d'un article.
 function ArticlePieceJointeRow({ articleId, piece }: Readonly<{ articleId: string; piece: PieceJointeDto }>) {
   const [error, setError] = useState<string | null>(null);
   const ext = piece.extension?.replace(/^\./, '') || '';
   const filename = `${piece.description || 'document'}${ext ? `.${ext}` : ''}`;
 
-  // Cf. PieceJointeRow (DossierDetail) : navigation vers le stockage.
+  // URL présignée servie en `inline` : une seule action « Ouvrir », cf. PieceJointeRow (DossierDetail).
   function handle() {
     setError(null);
     try {
@@ -66,9 +62,6 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
   const { data: a, loading, error } = useApi(() => getArticle(id), [id]);
   const navigate = useNavigate();
 
-  // "Dossier de vente" card only fetches/renders when the article is
-  // actually reserved/sold (a.dossierId set via the reverse Article→Dossier
-  // link on ArticleDetailDto).
   const dossier = useApi(
     () => (a?.dossierId ? getDossier(a.dossierId) : Promise.resolve(null)),
     [a?.dossierId],

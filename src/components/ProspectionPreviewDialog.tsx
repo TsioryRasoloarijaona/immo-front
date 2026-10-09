@@ -9,10 +9,6 @@ import { getProspection } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { routeFicheProspection } from '../lib/parcours';
 
-// Reciprocal-access preview: lets any list row or linked-record button in
-// the app show a Prospection's key facts without leaving the current page.
-// See DossierPreviewDialog for the mirror direction and lib/previewContext.ts
-// for how the swap works.
 export default function ProspectionPreviewDialog({ id, onClose }: { id: string; onClose: () => void }) {
   const { data: p, loading, error } = useApi(() => getProspection(id), [id]);
 

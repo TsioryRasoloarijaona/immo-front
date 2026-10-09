@@ -14,8 +14,6 @@ import { personDisplayName } from '../lib/domain';
 import { formatDateTime, formatNumber, formatTelephone } from '../lib/format';
 import type { ColonneDto, SuiviActionDto } from '../types';
 
-/** Formatage d'une valeur d'après le `type` du catalogue — la même règle
- * que la grille, pour qu'un champ se lise pareil en cellule et en boîte. */
 function formater(c: ColonneDto, v: unknown): string {
   if (v === null || v === undefined || v === '') return '';
   switch (c.type) {
@@ -31,63 +29,36 @@ function formater(c: ColonneDto, v: unknown): string {
   }
 }
 
-/** `tel:` composable : indicatif + chiffres nus. Sans indicatif, le numéro
- * tel que stocké, chiffres seuls — le téléphone du poste saura l'appeler
- * localement. */
 function hrefTel(numero: string, indicatif?: string | null): string {
   const chiffres = numero.replace(/\D/g, '');
   return indicatif ? `tel:+${indicatif.replace(/\D/g, '')}${chiffres.replace(/^0/, '')}` : `tel:${chiffres}`;
 }
 
-/* Le détail d'une action du suivi, en boîte plutôt qu'en navigation : une
- * action n'a pas de fiche à elle, et quitter la liste pour lire une note fait
- * perdre la page, les filtres et le groupe déplié. La boîte montre **ce que
- * la ligne porte** — les colonnes demandées à la liste, groupées comme le
- * sélecteur les groupe — et propose d'ouvrir la prospection ou le dossier
- * rattaché, sans l'imposer. Décision utilisateur du 23/09.
- *
- * Réorganisée (lot « suivi-action-detail-hotline ») : les valeurs ne sont
- * plus tronquées — une note ou un libellé long se lit en entier, c'est le
- * reproche qui a motivé le lot — et la personne prend la tête de la boîte,
- * avec son téléphone et son email. `SuiviActionDto` ne les porte pas : ils
- * viennent de la fiche prospect (`GET /api/prospects/{tiersId}`), chargée à
- * l'ouverture. Le bouton « Voir hotline » lance la même recherche que la
- * page Hotline et en montre le même résultat, en boîte par-dessus. */
 export default function ActionDetailDialog({
   action,
   catalogue,
   onClose,
 }: {
   action: SuiviActionDto;
-  /** Le catalogue serveur : libellés, types et groupes des champs. */
   catalogue: ColonneDto[];
   onClose: () => void;
 }) {
   const navigate = useNavigate();
   const [critereHotline, setCritereHotline] = useState<CritereHotline | null>(null);
 
-  /* La fiche de la personne, pour ses coordonnées. `tiersId` est demandé à
-     chaque appel de la liste (`CLES_OUVERTURE_SUIVI_ACTION`) ; absent, l'action
-     n'a pas de tiers rattaché et la boîte le dit. */
+  // `tiersId` n'arrive que parce que la liste le demande (`CLES_OUVERTURE_SUIVI_ACTION`).
   const prospect = useApi(() => (action.tiersId ? getProspect(action.tiersId) : Promise.resolve(null)), [action.tiersId]);
   const fiche = prospect.data ?? null;
   const nom = action.tiersNom || (fiche ? personDisplayName(fiche) : '') || 'Personne non identifiée';
-  // Le mobile d'abord : c'est le numéro qu'un commercial compose, et celui
-  // que la hotline retrouve le plus sûrement.
+  // Le mobile d'abord : c'est le numéro que la hotline retrouve le plus sûrement.
   const numero = fiche?.mobile || fiche?.telephone || null;
   const indicatif = fiche?.mobile ? fiche.indicatifMobile : fiche?.indicatifTelephone;
   const telephoneAffiche = numero ? formatTelephone(numero, indicatif) : null;
 
-  /* Le critère hotline : **le numéro, jamais le nom** (décision utilisateur
-     du 25/09) — un homonyme est le cas courant, un numéro identifie. Sans
-     numéro, le bouton reste désactivé et dit pourquoi. Tant que la fiche
-     charge, on attend. */
+  // Hotline cherchée par numéro, jamais par nom : les homonymes sont courants.
   const critereDisponible: CritereHotline | null = numero ? { telephone: numero } : null;
   const hotlineEnAttente = !!action.tiersId && prospect.loading && !fiche;
 
-  /* Les champs renseignés sur la ligne, dans l'ordre de la disposition puis
-     du catalogue, répartis par groupe. Les identifiants sont masqués (ce sont
-     les boutons du pied qui les portent), `message` est traité à part. */
   const sections = useMemo(() => {
     const rang = new Map(DISPOSITION_SUIVI_ACTIONS.ordre.map((n, i) => [n, i]));
     const masquees = DISPOSITION_SUIVI_ACTIONS.masquees ?? new Set<string>();
@@ -118,7 +89,6 @@ export default function ActionDetailDialog({
           {action.impaye && <Badge tone="amber">Impayé</Badge>}
         </div>
 
-        {/* La personne : qui, et comment la joindre — avant le quoi. */}
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2.5 rounded-lg border border-border bg-muted/30 px-3.5 py-3">
           <div className="flex min-w-0 flex-1 items-start gap-3">
             <Avatar name={nom} />
@@ -199,9 +169,6 @@ export default function ActionDetailDialog({
           </section>
         )}
 
-        {/* Libellé à gauche, valeur à droite, et la valeur passe à la ligne
-            au lieu d'être coupée : c'est ce qui rend les détails lisibles.
-            Deux sections côte à côte dès qu'il y a la place. */}
         {sections.length > 0 && (
           <div className="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
             {sections.map(([groupe, champs]) => (

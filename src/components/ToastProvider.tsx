@@ -8,18 +8,13 @@ const DUREE_SANS_ACTION_MS = 3600;
 const CLASSE_ACTION =
   'shrink-0 rounded font-semibold whitespace-nowrap underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2 focus-visible:ring-current';
 
-/** Le toast partagé, monté une fois autour du layout : il survit donc à une
- * navigation (R3). Un seul message à la fois — le suivant remplace le
- * précédent, comme les copies locales qu'il remplace.
- *
- * Un dialogue modal rend le reste de la page `aria-hidden` et inerte : il
- * monte alors son propre fournisseur, dont la région vit dans son portail. */
+/** Monté autour du layout pour survivre à la navigation. Un dialogue modal rend
+ * la page `aria-hidden` et inerte : il monte alors son propre fournisseur. */
 export function ToastProvider({
   children,
   onAction,
 }: {
   children: ReactNode;
-  /** Appelé après un clic sur l'action (ex. fermer le dialogue hôte). */
   onAction?: () => void;
 }) {
   const [toast, setToast] = useState<(ToastOptions & { cle: number }) | null>(null);

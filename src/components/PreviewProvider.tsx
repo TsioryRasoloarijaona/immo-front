@@ -12,10 +12,6 @@ const FicheProspectDialog = lazy(() => import('./FicheProspectDialog'));
 
 type FicheEmpilee = FicheCible & { cle: number };
 
-// Single global host for "origine" popups — rendered once around the whole
-// app (see App.tsx) so a detail page's small origin-chain list can call
-// usePreview() and open a peek dialog without re-implementing dialog state
-// itself. Each dialog fetches its own record by id — see lib/previewContext.ts.
 export function PreviewProvider({ children }: { children: ReactNode }) {
   const [target, setTarget] = useState<PreviewTarget | null>(null);
   const [pile, setPile] = useState<FicheEmpilee[]>([]);

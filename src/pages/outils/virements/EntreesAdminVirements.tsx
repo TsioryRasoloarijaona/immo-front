@@ -3,9 +3,8 @@ import { Landmark, ScrollText } from 'lucide-react';
 import { SidebarMenuButton, SidebarMenuItem } from '../../../components/ui/sidebar';
 import { useContexteVirement } from './contexte';
 
-/** Entrées de barre latérale réservées aux administrateurs **du service**
- * (`GET /moi` → `admin`) : Sociétés et Journal. Rendu par `Layout` seulement
- * quand le module Outils est actif, donc `/moi` n'est chargé que là. */
+/** Réservé aux administrateurs du service (`moi.admin`), pas aux rôles CRM. `Layout` ne le rend que dans le
+ * module Outils, pour que `/moi` ne soit chargé que là. */
 export default function EntreesAdminVirements({ pathname }: Readonly<{ pathname: string }>) {
   const { moi } = useContexteVirement();
   if (!moi?.admin) return null;

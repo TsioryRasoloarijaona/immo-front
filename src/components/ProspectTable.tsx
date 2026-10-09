@@ -5,15 +5,8 @@ import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_PROSPECTS } from '../lib/dispositions';
 import type { ColonneDto, ProspectListItemDto } from '../types';
 
-/** Classes propres à une colonne, en plus de `truncate` et de l'alignement
- * déduit du type.
- *
- * Pas de map `RENDUS` ni `VALEURS` : cet écran suit le catalogue **à la
- * lettre**. La liste composait jusqu'ici deux colonnes que le serveur nomme
- * séparément — « Nom » agrégeait prénom + nom + raison sociale, « Téléphone »
- * repliait le mobile sur le fixe. Les deux compositions ont disparu avec le
- * sélecteur : un utilisateur qui coche « Prénom » doit voir la colonne prénom,
- * pas une agrégation qui ne correspond à aucune case du menu. */
+/** Pas de `RENDUS` ni `VALEURS` : l'écran suit le catalogue à la lettre — qui
+ * coche « Prénom » doit voir la colonne prénom, pas une agrégation. */
 const CLASSES: Record<string, string> = {
   code: 'text-muted-foreground',
   nom: 'font-medium text-foreground',
@@ -59,9 +52,6 @@ const CLASSES: Record<string, string> = {
   modifieLe: 'text-muted-foreground',
 };
 
-/** Infobulle : le texte complet de ce que `truncate` a coupé. Limitée aux
- * colonnes dont la valeur déborde vraiment — un code postal n'a jamais besoin
- * d'être réaffiché au survol. */
 const TITRES: Record<string, (r: ProspectListItemDto) => string | undefined> = {
   code: (r) => r.code || undefined,
   nom: (r) => r.nom || undefined,
@@ -83,12 +73,6 @@ const TITRES: Record<string, (r: ProspectListItemDto) => string | undefined> = {
   etDe: (r) => r.etDe || undefined,
 };
 
-/** Tableau de la liste des prospects.
- *
- * Adaptateur au-dessus de `DataGrid`, sur le patron de `ProspectionTable`. Le
- * plus léger des trois : le catalogue des prospects ne sert que des champs
- * bruts, donc `type` suffit à aligner et formater chaque colonne, y compris
- * `estAncienClient` (`BOOLEEN` → Oui/Non) et les quatre dates. */
 export default function ProspectTable({
   rows,
   colonnes,
@@ -98,8 +82,6 @@ export default function ProspectTable({
   rows: ProspectListItemDto[];
   colonnes: ColonneDto[];
   onOuvrir: (id: string) => void;
-  /** Identité d'écran pour la persistance de l'ordre des colonnes.
-   * Passe-plat vers `DataGrid.cleOrdre`. */
   cleOrdre?: string;
 }) {
   const grille = useMemo<ColonneGrille<ProspectListItemDto>[]>(
@@ -121,10 +103,8 @@ export default function ProspectTable({
       rows={rows}
       colonnes={grille}
       onOuvrir={onOuvrir}
-      /* `personDisplayName` lit `prenom`/`nom`/`raisonSociale`, tous
-         décochables : non demandés, ils ne sont pas dans la charge utile et la
-         fonction rendrait « Sans nom » à chaque ligne. Repli sur le code, puis
-         sur l'id, que le serveur sert toujours. */
+      /* `prenom`/`nom`/`raisonSociale` sont décochables, donc absents de la charge
+         utile : sans ce repli sur le code puis l'id, chaque ligne dirait « Sans nom ». */
       libelleLigne={(r) =>
         `Ouvrir la fiche de ${r.prenom || r.nom || r.raisonSociale ? personDisplayName(r) : r.code || r.id}`
       }
