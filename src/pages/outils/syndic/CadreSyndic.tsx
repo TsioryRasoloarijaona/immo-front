@@ -9,6 +9,8 @@ import { rechargerContexte, useContexteVirement } from '../virements/contexte';
 export interface ContexteSyndic {
   /** Avance après chaque écriture (`rafraichir()` de `virements/contexte`) : à mettre dans les deps des `useApi`. */
   revision: number;
+  /** Administrateur du service : seul à voir et enregistrer les réglages. */
+  admin: boolean;
 }
 
 /** Même service, même identité que les virements : on réutilise leur contexte (`/moi`). */
@@ -32,7 +34,7 @@ export default function CadreSyndic({
       </div>
     );
   } else if (moi) {
-    contenu = children({ revision });
+    contenu = children({ revision, admin: moi.admin });
   } else {
     contenu = <LoadingState />;
   }

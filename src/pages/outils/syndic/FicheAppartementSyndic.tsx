@@ -1,13 +1,18 @@
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, FileText, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { Link, useLocation, useParams } from 'react-router-dom';
+import { ArrowLeft, CalendarPlus, FileText, Pencil, Plus } from 'lucide-react';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../../components/ui';
-import { buttonVariants } from '../../../components/ui/button';
+import { Button, buttonVariants } from '../../../components/ui/button';
 import { formatCurrency, formatDate } from '../../../lib/format';
 import { lienRecuSyndic, lireAppartementSyndic } from '../../../lib/syndic';
 import { useApi } from '../../../lib/useApi';
 import { cn } from '../../../lib/utils';
+import { useNotification } from '../virements/useNotification';
 import CadreSyndic from './CadreSyndic';
 import { MODE_PAIEMENT, PASTILLE } from './donnees';
+import ExerciceDialog from './ExerciceDialog';
+import InfosAppartementDialog from './InfosAppartementDialog';
+import ProprietairesAppartement from './ProprietairesAppartement';
 import type { Appartement, ExerciceAppartement } from './types';
 
 export default function FicheAppartementSyndic() {
@@ -22,7 +27,16 @@ function Fiche({ code, revision }: Readonly<{ code: string; revision: number }>)
   return <Contenu appartement={data} />;
 }
 
+type Edition = { quoi: 'infos' } | { quoi: 'exercice'; exercice: ExerciceAppartement } | null;
+
 function Contenu({ appartement: a }: Readonly<{ appartement: Appartement }>) {
+  // Phrase de la création (NouvelAppartementSyndic la passe dans l'état de navigation).
+  const etat = useLocation().state as { phrase?: string } | null;
+  const toasts = useNotification();
+  const [edition, setEdition] = useState<Edition>(null);
+  const notifier = (phrase: string, erreur?: boolean) => toasts.notifier(phrase, erreur ? 'erreur' : 'succes');
+  const lienExercice = `/outils/syndic/exercices/nouveau?appartement=${encodeURIComponent(a.code)}`;
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -30,39 +44,52 @@ function Contenu({ appartement: a }: Readonly<{ appartement: Appartement }>) {
           <ArrowLeft data-icon="inline-start" /> Appartements
         </Link>
         <Badge tone={PASTILLE[a.pastille].ton}>{PASTILLE[a.pastille].libelle}</Badge>
-        <Link
-          to={`/outils/syndic/paiement/nouveau?appartement=${encodeURIComponent(a.code)}`}
-          className={cn(buttonVariants({ size: 'sm' }), 'ml-auto')}
-        >
-          <Plus data-icon="inline-start" /> Enregistrer un paiement
-        </Link>
+        <span className="ml-auto flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setEdition({ quoi: 'infos' })}>
+            <Pencil data-icon="inline-start" /> Modifier l’appartement
+          </Button>
+          <Link to={lienExercice} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+            <CalendarPlus data-icon="inline-start" /> Ouvrir un exercice
+          </Link>
+          <Link to={`/outils/syndic/paiement/nouveau?appartement=${encodeURIComponent(a.code)}`} className={buttonVariants({ size: 'sm' })}>
+            <Plus data-icon="inline-start" /> Enregistrer un paiement
+          </Link>
+        </span>
       </div>
+      {etat?.phrase && <p className="text-body text-(--success)">{etat.phrase}</p>}
 
-      <Card title="Propriétaires">
-        {a.proprietaires.length === 0 ? (
-          <p className="text-body text-muted-foreground">Aucun propriétaire rattaché.</p>
-        ) : (
-          <FieldGrid>
-            {a.proprietaires.map((p) => (
-              <Field key={p.id} label={p.est_societe ? 'Société' : 'Propriétaire'} value={[p.nom, p.telephone].filter(Boolean).join(' · ')} />
-            ))}
-            <Field label="N° de dossier" value={a.numero_dossier} />
-            <Field label="Date du contrat" value={formatDate(a.date_contrat)} />
-          </FieldGrid>
-        )}
-        {a.manque && <p className="mt-2 text-body text-(--amber)">{a.manque}</p>}
+      <ProprietairesAppartement appartement={a} onPhrase={notifier} />
+
+      <Card title="L’appartement">
+        <FieldGrid>
+          <Field label="N° de dossier" value={a.numero_dossier} />
+          <Field label="Date du contrat" value={formatDate(a.date_contrat)} />
+          <Field label="Remise des clés" value={formatDate(a.date_remise_cles)} />
+        </FieldGrid>
       </Card>
 
       {a.exercices.length === 0 ? (
-        <EmptyState title="Aucun exercice" message="Cet appartement n’a pas encore d’année de syndic." />
+        <EmptyState
+          title="Aucun exercice"
+          message="Tant que son exercice n’est pas ouvert, aucun paiement ne peut être enregistré."
+          action={
+            <Link to={lienExercice} className={buttonVariants({ size: 'sm' })}>
+              <CalendarPlus data-icon="inline-start" /> Ouvrir son exercice
+            </Link>
+          }
+        />
       ) : (
-        a.exercices.map((e) => <CarteExercice key={e.id} exercice={e} />)
+        a.exercices.map((e) => <CarteExercice key={e.id} exercice={e} onCorriger={() => setEdition({ quoi: 'exercice', exercice: e })} />)
       )}
+
+      {edition?.quoi === 'infos' && <InfosAppartementDialog appartement={a} onClose={() => setEdition(null)} onPhrase={notifier} />}
+      {edition?.quoi === 'exercice' && <ExerciceDialog code={a.code} exercice={edition.exercice} onClose={() => setEdition(null)} onPhrase={notifier} />}
+      {toasts.noeud}
     </div>
   );
 }
 
-function CarteExercice({ exercice: e }: Readonly<{ exercice: ExerciceAppartement }>) {
+function CarteExercice({ exercice: e, onCorriger }: Readonly<{ exercice: ExerciceAppartement; onCorriger: () => void }>) {
   const s = e.situation;
   const titre = (
     <span className="flex flex-wrap items-center gap-2">
@@ -71,11 +98,17 @@ function CarteExercice({ exercice: e }: Readonly<{ exercice: ExerciceAppartement
       {e.repris_en_bloc && <Badge tone="neutral">Repris en bloc</Badge>}
     </span>
   );
+  // Un exercice repris en bloc ne se modifie pas.
+  const action = e.repris_en_bloc ? undefined : (
+    <Button type="button" variant="ghost" size="sm" onClick={onCorriger}>
+      <Pencil data-icon="inline-start" /> Corriger
+    </Button>
+  );
   return (
-    <Card title={titre}>
+    <Card title={titre} action={action}>
       <FieldGrid>
         <Field label="Période" value={`du ${formatDate(e.debut)} au ${formatDate(e.fin)}`} />
-        <Field label="Dû" value={formatCurrency(s.du)} />
+        <Field label="Dû" value={`${formatCurrency(s.du)} (${e.duree_mois} mois × ${formatCurrency(e.tarif_mensuel)})`} />
         <Field label="Payé" value={formatCurrency(s.paye)} />
         <Field label={s.trop_percu > 0 ? 'Payé d’avance' : 'Reste à payer'} value={formatCurrency(s.trop_percu > 0 ? s.trop_percu : s.reste)} />
       </FieldGrid>

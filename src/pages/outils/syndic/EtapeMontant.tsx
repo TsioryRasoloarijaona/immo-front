@@ -37,10 +37,32 @@ export default function EtapeMontant({
   // Frais bancaires : virement ou chèque d'un seul appartement ; jamais envoyés quand les champs sont cachés.
   const fraisVisibles = !groupe && mode !== 'ESPECES';
 
+  // RM-09 : l'avertissement de dépassement vaut pour la saisie qui l'a provoqué ; il tombe dès qu'elle change.
+  function changerMontant(v: string) {
+    setMontant(v);
+    setAConfirmer(null);
+  }
+
+  function changerDetail(d: Record<string, string>) {
+    setDetail(d);
+    setAConfirmer(null);
+  }
+
+  function changerFrais(v: string) {
+    setFrais(v);
+    setAConfirmer(null);
+  }
+
+  function changerAbsorbes(v: boolean) {
+    setFraisAbsorbes(v);
+    setAConfirmer(null);
+  }
+
   function changerMode(m: ModePaiement) {
     setMode(m);
     setFrais('');
     setFraisAbsorbes(false);
+    setAConfirmer(null);
   }
 
   function saisie(confirmer: boolean): SaisiePaiement {
@@ -101,7 +123,7 @@ export default function EtapeMontant({
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField>
               <FieldLabel htmlFor="sy-montant">{groupe ? 'Montant total reçu (DH)' : 'Montant reçu (DH)'}</FieldLabel>
-              <Input id="sy-montant" inputMode="decimal" placeholder="0,00" value={montant} onChange={(e) => setMontant(e.target.value)} />
+              <Input id="sy-montant" inputMode="decimal" placeholder="0,00" value={montant} onChange={(e) => changerMontant(e.target.value)} />
             </FormField>
             <FormField>
               <FieldLabel htmlFor="sy-date">Date du paiement</FieldLabel>
@@ -125,16 +147,16 @@ export default function EtapeMontant({
             )}
           </div>
 
-          {groupe && <DetailGroupe lots={lots} total={total} detail={detail} onDetail={setDetail} />}
+          {groupe && <DetailGroupe lots={lots} total={total} detail={detail} onDetail={changerDetail} />}
 
           {fraisVisibles && (
             <div className="grid gap-3 sm:grid-cols-2">
               <FormField>
                 <FieldLabel htmlFor="sy-frais">Frais retenus par la banque (facultatif)</FieldLabel>
-                <Input id="sy-frais" inputMode="decimal" placeholder="0,00" value={frais} onChange={(e) => setFrais(e.target.value)} />
+                <Input id="sy-frais" inputMode="decimal" placeholder="0,00" value={frais} onChange={(e) => changerFrais(e.target.value)} />
               </FormField>
               <label className="flex items-center gap-2 self-end text-body">
-                <input type="checkbox" checked={fraisAbsorbes} onChange={(e) => setFraisAbsorbes(e.target.checked)} className="size-4 accent-(--primary)" />
+                <input type="checkbox" checked={fraisAbsorbes} onChange={(e) => changerAbsorbes(e.target.checked)} className="size-4 accent-(--primary)" />
                 Le syndic prend les frais à sa charge
               </label>
             </div>
