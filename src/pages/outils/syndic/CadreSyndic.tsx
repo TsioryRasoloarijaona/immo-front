@@ -7,8 +7,6 @@ import { cn } from '../../../lib/utils';
 import { rechargerContexte, useContexteVirement } from '../virements/contexte';
 
 export interface ContexteSyndic {
-  /** `admin` du service (`GET /moi`), pas les rôles CRM : il ouvre correction et annulation. */
-  admin: boolean;
   /** Avance après chaque écriture (`rafraichir()` de `virements/contexte`) : à mettre dans les deps des `useApi`. */
   revision: number;
 }
@@ -34,7 +32,7 @@ export default function CadreSyndic({
       </div>
     );
   } else if (moi) {
-    contenu = children({ admin: moi.admin, revision });
+    contenu = children({ revision });
   } else {
     contenu = <LoadingState />;
   }

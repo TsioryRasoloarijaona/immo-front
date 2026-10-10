@@ -22,7 +22,7 @@ const SENS_ITEMS: { value: Sens; label: string }[] = [
 ];
 
 /** RM-10 : rien ne s'efface. Corriger = une correction motivée (le reçu ne change pas) ; annuler = statut ANNULE,
- * et un reçu groupé s'annule en entier. Réservé aux administrateurs du service. */
+ * et un reçu groupé s'annule en entier. Ouvert à tout utilisateur du syndic, motif obligatoire. */
 export default function ActionPaiementDialog({
   paiement: p,
   action,

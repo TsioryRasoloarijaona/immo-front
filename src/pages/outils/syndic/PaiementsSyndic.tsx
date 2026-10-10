@@ -71,7 +71,7 @@ function Liste({ ctx }: Readonly<{ ctx: ContexteSyndic }>) {
               <FileText className="size-3.5" />
             </a>
           )}
-          {ctx.admin && !p.annule && (
+          {!p.annule && (
             <>
               <Button type="button" variant="ghost" size="icon-xs" title="Corriger" aria-label={`Corriger ${p.numero}`} onClick={() => setAction({ paiement: p, action: 'corriger' })}>
                 <Pencil />
