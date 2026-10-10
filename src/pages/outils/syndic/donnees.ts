@@ -24,6 +24,12 @@ export const RAISON_APPEL: Record<RaisonAppel, { libelle: string; ton: BadgeTone
   BIENTOT: { libelle: 'Bientôt dû', ton: 'info' },
 };
 
+/** La phrase d'un refus du service (`ErreurVirement` porte la sienne), sinon un message générique. */
+export const texteErreur = (e: unknown) => (e instanceof Error ? e.message : 'Erreur inconnue.');
+
+/** Code d'appartement tel que le service le normalise : majuscules, sans espaces. */
+export const codeNormalise = (v: string) => v.trim().toUpperCase().replace(/\s+/g, '');
+
 /** Recherche sans accents ni casse. */
 export const sansAccents = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 

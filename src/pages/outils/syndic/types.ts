@@ -174,6 +174,112 @@ export interface SaisiePaiement {
   confirmerDepassement?: boolean;
 }
 
+// ------------------------------------------------ Référentiel (GUIDE §16.6–16.9) ----
+
+export type TypeProprietaire = 'PERSONNE' | 'SOCIETE';
+
+export interface ProprietaireSaisi {
+  type: TypeProprietaire;
+  civilite: string | null;
+  nom: string | null;
+  prenom: string | null;
+  cin: string | null;
+  nom_usage: string | null;
+  societe_nom: string | null;
+  societe_ice: string | null;
+  societe_rc: string | null;
+  representant: string | null;
+  telephone: string | null;
+}
+
+export interface Proprietaire extends ProprietaireSaisi {
+  id: string;
+  nom_affiche: string;
+  manque: string | null;
+  appartements: string[];
+}
+
+export interface AppartementCree {
+  phrase: string;
+  appartement: { id: string; code: string; numero_dossier: string | null };
+}
+
+export interface InfosAppartement {
+  numero_dossier?: string | null;
+  date_contrat?: string | null;
+  date_remise_cles?: string | null;
+}
+
+export interface Phrase {
+  phrase: string;
+}
+
+export interface ProprietaireEnregistre {
+  phrase: string;
+  proprietaire: Proprietaire;
+  rattache_a?: string | null;
+}
+
+export interface Obstacle {
+  appartement: string;
+  raison: string;
+}
+
+export interface PropositionExercice {
+  appartement: string | null;
+  dernier: { label: string; fin: string } | null;
+  tarif_mensuel_defaut: number;
+  duree_mois_defaut: number;
+  debut: string;
+  fin: string;
+  duree_mois: number;
+  tarif_mensuel: number;
+  du: number;
+  label: string;
+  lots: number;
+  obstacles: Obstacle[];
+}
+
+export interface PeriodeSaisie {
+  debut: string;
+  duree_mois: number;
+  tarif_mensuel: number;
+}
+
+export interface ExerciceOuvert {
+  phrase: string;
+  label: string;
+  debut: string;
+  fin: string;
+  du: number;
+  crees: { id: string; appartement: string }[];
+  ignores: Obstacle[];
+}
+
+export interface ReglagesSyndic {
+  societe_nom: string;
+  adresse: string;
+  telephone: string | null;
+  email: string | null;
+  ice: string | null;
+  rc: string | null;
+  identifiant_fiscal: string | null;
+  patente: string | null;
+  banque_nom: string;
+  rib: string;
+  iban: string;
+  bic: string;
+  responsable_commercial: string | null;
+  texte_pied_recu: string;
+  tarif_mensuel_defaut: number;
+  duree_mois_defaut: number;
+  releve_depart: number | null;
+  releve_depart_date: string | null;
+  a_completer: string[];
+}
+
+export type GroupeReglages = 'societe' | 'mentions' | 'banque' | 'signature' | 'textes' | 'tarifs' | 'depart';
+
 export interface PaiementEnregistre {
   phrase: string;
   recu: { numero: string; pdf: string };

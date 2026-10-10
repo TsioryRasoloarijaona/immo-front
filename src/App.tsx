@@ -52,6 +52,10 @@ const FicheAppartementSyndic = lazy(() => import('./pages/outils/syndic/FicheApp
 const NouveauPaiementSyndic = lazy(() => import('./pages/outils/syndic/NouveauPaiementSyndic'));
 const PaiementsSyndic = lazy(() => import('./pages/outils/syndic/PaiementsSyndic'));
 const QuiDoitSyndic = lazy(() => import('./pages/outils/syndic/QuiDoitSyndic'));
+const NouvelAppartementSyndic = lazy(() => import('./pages/outils/syndic/NouvelAppartementSyndic'));
+const ProprietaireSyndic = lazy(() => import('./pages/outils/syndic/ProprietaireSyndic'));
+const OuvrirExerciceSyndic = lazy(() => import('./pages/outils/syndic/OuvrirExerciceSyndic'));
+const ReglagesSyndic = lazy(() => import('./pages/outils/syndic/ReglagesSyndic'));
 const ComingSoon = lazy(() => import('./pages/ComingSoon'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -116,7 +120,11 @@ function AuthenticatedApp() {
                   <Route path="/outils/syndic" element={<Navigate to="/outils/syndic/tableau-de-bord" replace />} />
                   <Route path="/outils/syndic/tableau-de-bord" element={<TableauDeBordSyndic />} />
                   <Route path="/outils/syndic/appartements" element={<AppartementsSyndic />} />
+                  <Route path="/outils/syndic/appartements/nouveau" element={<NouvelAppartementSyndic />} />
                   <Route path="/outils/syndic/appartements/:code" element={<FicheAppartementSyndic />} />
+                  <Route path="/outils/syndic/proprietaires/:id" element={<ProprietaireSyndic />} />
+                  <Route path="/outils/syndic/exercices/nouveau" element={<OuvrirExerciceSyndic />} />
+                  <Route path="/outils/syndic/reglages" element={<ReglagesSyndic />} />
                   <Route path="/outils/syndic/paiement/nouveau" element={<NouveauPaiementSyndic />} />
                   <Route path="/outils/syndic/paiements" element={<PaiementsSyndic />} />
                   <Route path="/outils/syndic/qui-doit" element={<QuiDoitSyndic />} />

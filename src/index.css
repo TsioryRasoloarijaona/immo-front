@@ -290,8 +290,11 @@ p {
   margin: 0;
 }
 
-a {
-  color: inherit;
+/* Dans `@layer base` : hors couche, elle battait `text-primary-foreground` des liens stylés en bouton. */
+@layer base {
+  a {
+    color: inherit;
+  }
 }
 
 button {

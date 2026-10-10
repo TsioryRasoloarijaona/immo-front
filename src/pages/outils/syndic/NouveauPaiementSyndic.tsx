@@ -20,20 +20,31 @@ export default function NouveauPaiementSyndic() {
 /** En deux temps (syndic-admod) : quel appartement, puis combien / comment ; une phrase et le reçu à la fin. */
 function Saisie({ ctx }: Readonly<{ ctx: ContexteSyndic }>) {
   const [params] = useSearchParams();
-  const initial = params.get('appartement');
+  const initial = params.get('appartement')?.trim().toUpperCase() || null;
   const exercicesApi = useApi(lireExercicesSyndic, [ctx.revision]);
   const [choixExercice, setChoixExercice] = useState<string | null>(null);
   const payables = exercicesApi.data?.payables ?? [];
   const parDefaut = exercicesApi.data?.par_defaut ?? null;
   const exercice = choixExercice ?? (parDefaut && payables.includes(parDefaut) ? parDefaut : payables[0] ?? null);
 
-  const appartementsApi = useApi(() => (exercice ? listerAppartementsSyndic(exercice) : Promise.resolve([])), [exercice, ctx.revision]);
-  const lots = useMemo(
-    () => (exercice ? (appartementsApi.data ?? []).flatMap((a) => lotDe(a, exercice) ?? []) : []),
-    [appartementsApi.data, exercice],
+  // `pour` : useApi garde l'ancienne réponse pendant le rechargement ; seule celle de l'exercice affiché compte.
+  const appartementsApi = useApi(
+    async () => ({ pour: exercice, liste: exercice ? await listerAppartementsSyndic(exercice) : [] }),
+    [exercice, ctx.revision],
   );
+  const pret = !appartementsApi.error && appartementsApi.data?.pour === exercice;
+  const liste = pret ? appartementsApi.data?.liste : undefined;
+  const lots = useMemo(() => (exercice && liste ? liste.flatMap((a) => lotDe(a, exercice) ?? []) : []), [liste, exercice]);
   const [choisis, setChoisis] = useState<Lot[] | null>(null);
   const [fait, setFait] = useState<PaiementEnregistre | null>(null);
+
+  // Venu de la fiche (`?appartement=`) : l'appartement est choisi, on passe directement à « combien, comment ».
+  const lotInitial = initial ? (lots.find((l) => l.code === initial) ?? null) : null;
+  const [initialTraite, setInitialTraite] = useState(false);
+  if (pret && initial && !initialTraite) {
+    setInitialTraite(true);
+    if (lotInitial) setChoisis([lotInitial]);
+  }
 
   function enregistre(r: PaiementEnregistre) {
     setFait(r);
@@ -82,10 +93,13 @@ function Saisie({ ctx }: Readonly<{ ctx: ContexteSyndic }>) {
         />
       )}
       {appartementsApi.error && <ErrorState message={appartementsApi.error} />}
-      {!appartementsApi.error && !appartementsApi.data && <LoadingState />}
-      {!appartementsApi.error && appartementsApi.data && !choisis && (
-        <EtapeAppartement key={exercice} lots={lots} initial={initial} onValider={setChoisis} />
+      {!appartementsApi.error && !pret && <LoadingState />}
+      {pret && !choisis && initial && !lotInitial && (
+        <p className="text-body text-muted-foreground">
+          {initial} n’a pas d’exercice {exercice} qui reçoive un paiement : choisissez l’appartement ci-dessous.
+        </p>
       )}
+      {pret && !choisis && <EtapeAppartement key={exercice} lots={lots} initial={initial} onValider={setChoisis} />}
       {choisis && <EtapeMontant lots={choisis} onRetour={() => setChoisis(null)} onEnregistre={enregistre} />}
     </div>
   );

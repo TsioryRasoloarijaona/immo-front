@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { CalendarPlus, Plus, Search } from 'lucide-react';
+import { buttonVariants } from '../../../components/ui/button';
 import DataGrid, { type ColonneGrille } from '../../../components/DataGrid';
 import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../../components/ui';
 import { Input } from '../../../components/ui/input';
@@ -58,6 +59,14 @@ function Liste({ ctx }: Readonly<{ ctx: ContexteSyndic }>) {
           <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Code, propriétaire…" aria-label="Rechercher un appartement" className="pl-8" />
         </div>
         {exercice && items.length > 0 && <ChoixSimple items={items} value={exercice} onChange={setExercice} className="w-52" />}
+        <span className="ml-auto flex flex-wrap gap-2">
+          <Link to="/outils/syndic/exercices/nouveau" className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+            <CalendarPlus data-icon="inline-start" /> Ouvrir un exercice
+          </Link>
+          <Link to="/outils/syndic/appartements/nouveau" className={buttonVariants({ size: 'sm' })}>
+            <Plus data-icon="inline-start" /> Nouvel appartement
+          </Link>
+        </span>
       </div>
 
       {!data && (error ? <ErrorState message={error} /> : <LoadingState />)}
