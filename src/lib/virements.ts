@@ -97,14 +97,15 @@ async function envoyer(chemin: string, r: Requete = {}): Promise<Response> {
   throw err;
 }
 
-async function appel<T>(chemin: string, r?: Requete): Promise<T> {
+/** Partagé avec `lib/syndic.ts` : même service, même passerelle, mêmes erreurs. */
+export async function appel<T>(chemin: string, r?: Requete): Promise<T> {
   const res = await envoyer(chemin, r);
   if (res.status === 204) return undefined as T;
   const texte = await res.text();
   return (texte ? JSON.parse(texte) : undefined) as T;
 }
 
-function requete(params: Record<string, string | number | undefined>): string {
+export function requete(params: Record<string, string | number | undefined>): string {
   const usp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== '') usp.set(k, String(v));
   const qs = usp.toString();

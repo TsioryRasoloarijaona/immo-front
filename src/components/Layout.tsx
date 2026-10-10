@@ -19,6 +19,7 @@ import { Button } from './ui/button';
 import SyncButton from './SyncButton';
 import ActionsRecentes from './ActionsRecentes';
 import EntreesAdminVirements from '../pages/outils/virements/EntreesAdminVirements';
+import EntreesSyndic from '../pages/outils/syndic/EntreesSyndic';
 import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
 import { estAdministrateur } from '../lib/roles';
@@ -332,6 +333,8 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
               </SidebarMenu>
             </SidebarGroup>
           )}
+
+          {activeModule === 'outils' && isAdmin && <EntreesSyndic pathname={location.pathname} />}
         </SidebarContent>
 
         <SidebarFooter>
