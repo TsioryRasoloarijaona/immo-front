@@ -34,6 +34,14 @@ export default function EtapeMontant({
   const [enCours, setEnCours] = useState(false);
 
   const total = montantSaisi(montant);
+  // Frais bancaires : virement ou chèque d'un seul appartement ; jamais envoyés quand les champs sont cachés.
+  const fraisVisibles = !groupe && mode !== 'ESPECES';
+
+  function changerMode(m: ModePaiement) {
+    setMode(m);
+    setFrais('');
+    setFraisAbsorbes(false);
+  }
 
   function saisie(confirmer: boolean): SaisiePaiement {
     const detailUtile = groupe && total !== null && !soldeChaqueReste(total, lots);
@@ -48,8 +56,8 @@ export default function EtapeMontant({
       date,
       numero_cheque: mode === 'CHEQUE' ? cheque.trim() : undefined,
       verse_a_la_banque: mode === 'ESPECES' ? verse : undefined,
-      frais: !groupe && frais ? (montantSaisi(frais) ?? undefined) : undefined,
-      frais_absorbes: !groupe && fraisAbsorbes,
+      frais: fraisVisibles && frais ? (montantSaisi(frais) ?? undefined) : undefined,
+      frais_absorbes: fraisVisibles && fraisAbsorbes,
       payeur: payeur.trim() || undefined,
       confirmerDepassement: confirmer,
     };
@@ -101,7 +109,7 @@ export default function EtapeMontant({
             </FormField>
             <FormField>
               <FieldLabel htmlFor="sy-mode">Comment a-t-il payé ?</FieldLabel>
-              <ChoixSimple id="sy-mode" items={MODE_ITEMS} value={mode} onChange={setMode} />
+              <ChoixSimple id="sy-mode" items={MODE_ITEMS} value={mode} onChange={changerMode} />
             </FormField>
             {mode === 'CHEQUE' && (
               <FormField>
@@ -119,7 +127,7 @@ export default function EtapeMontant({
 
           {groupe && <DetailGroupe lots={lots} total={total} detail={detail} onDetail={setDetail} />}
 
-          {!groupe && mode !== 'ESPECES' && (
+          {fraisVisibles && (
             <div className="grid gap-3 sm:grid-cols-2">
               <FormField>
                 <FieldLabel htmlFor="sy-frais">Frais retenus par la banque (facultatif)</FieldLabel>
