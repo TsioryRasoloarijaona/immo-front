@@ -2171,26 +2171,6 @@ export interface PerformanceCommercialDto {
 
 // « Mon équipe » (/api/equipe/*) : Commercial Chef, Administrateur, Direction Générale.
 
-export type CodeEtapeEntonnoir = 'ARRIVES' | 'PRIS_EN_CHARGE' | 'QUALIFIES' | 'VISITES' | 'OFFRES' | 'DOSSIERS';
-
-export interface EtapeEntonnoirDto {
-  code: CodeEtapeEntonnoir;
-  libelle?: string;
-  /** Leads de la cohorte ayant atteint au moins cette étape : ≤ l'étape précédente. */
-  nombre: number;
-  /** Ratio 0–1 sur l'étape précédente ; `null` pour la première ou si la précédente vaut 0. */
-  tauxPassage?: number | null;
-}
-
-/** Cohorte : leads créés sur la période, et jusqu'où chacun est allé à ce jour. */
-export interface EntonnoirDto {
-  du?: string;
-  au?: string;
-  projetId?: UUID | null;
-  etapes: EtapeEntonnoirDto[];
-  delaiMedianJours?: number | null;
-}
-
 export interface CommercialEquipeDto {
   admUserId: UUID;
   code?: string;
