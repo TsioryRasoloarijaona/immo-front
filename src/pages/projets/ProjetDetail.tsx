@@ -4,6 +4,7 @@ import { ArrowLeft, LayoutGrid, Pencil, Plus, Trash2 } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ChampsTrace from '../../components/patrimoine/ChampsTrace';
 import { BlocFiche } from '../../components/patrimoine/FicheDeclaree';
+import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import { useAuth } from '../../lib/auth';
 import { estAdministrateur } from '../../lib/roles';
 import { Card, EmptyState, ErrorState, Field, LoadingState } from '../../components/ui';
@@ -69,6 +70,7 @@ function FicheProjet({ id }: Readonly<{ id: string }>) {
         />
         <ZonesProjet projetId={projet.id} admin={admin} />
         <TranchesProjet projetId={projet.id} />
+        <OngletsTransverses porteur="projet" id={projet.id} />
       </div>
     </PageShell>
   );

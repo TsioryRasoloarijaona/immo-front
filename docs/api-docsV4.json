@@ -20,6 +20,34 @@
       "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. Sans filtre `categorieId`, les **annexes** (`IsUnderItem` — parkings, terrasses, jardins, mêmes racines sans parent) sont écartées, comme dans l'écran Articles du logiciel de bureau ; cocher explicitement leur catégorie les fait réapparaître. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
     },
     {
+      "name": "Synchronisation",
+      "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
+    },
+    {
+      "name": "Hotline",
+      "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
+    },
+    {
+      "name": "Mon compte",
+      "description": "Profil de l'utilisateur authentifié et changement volontaire de son mot de passe. Aucun portail de première connexion : mustChangePassword/profileCompleted ne bloquent plus aucune route."
+    },
+    {
+      "name": "Référentiels patrimoine",
+      "description": "Listes déroulantes des fiches programme et tranche (standings, niveaux, personnels, comptes…)."
+    },
+    {
+      "name": "Prospections",
+      "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
+    },
+    {
+      "name": "Pré-prospections",
+      "description": "Leads bruts non encore qualifiés : ComProspection de type légataire `ComPreProspection` (`StrEntity`), le discriminant d'OMRAN lui-même — une pré-prospection peut donc déjà porter un prospect ou un commercial tant qu'elle n'a pas été transformée. Même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
+    },
+    {
+      "name": "Audit",
+      "description": "Journal d'audit au format OMRAN (`AdmWebHistorics`, écran « Audit »). Le CRM y écrit une ligne pour chaque création,\nmodification ou suppression d'un programme, d'une tranche, d'un article, d'une entité juridique ou d'un terrain de\ntranche, dans la même transaction que l'écriture ; OMRAN y écrit les siennes. Lecture : tout utilisateur authentifié."
+    },
+    {
       "name": "Articles",
       "description": "Articles et sous-articles (StkItem) — lots vendables d'une tranche, avec leur disponibilité et leurs éventuels sous-lots (cave/parking annexés)."
     },
@@ -40,16 +68,8 @@
       "description": "L'écran OMRAN « Suivi des actions » : les actions commerciales (appels, visites, messages, notes…) saisies par chaque utilisateur, sur une période. Doc OMRAN : https://help.omranestate.com/SUIVIDESACTIONS.html — détail dans `instructions/FEATURE-suivi-actions.md`.\n\n**Même requête qu'OMRAN**, relevée dans sa trace d'audit : `ComActionMessageView WHERE CfgTrancheId IN (…) AND DocDate >= début AND DocDate < fin [AND UserName = …]`. Mêmes colonnes, même tranche résolue (catégorie Prospection → tranche de la prospection, sinon de l'article), même rang, même état — construits sur la table plutôt que sur la vue, qui coûte 6,6 s la page.\n\n**Compter les appels d'un commercial jour par jour** — le cas d'usage principal (94 % des actions de l'année sont des appels sortants) : `GET /api/suivi-actions/groupes?utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR&dateDebut=…&dateFin=…`. L'effectif de chaque groupe est le nombre d'actions ; la somme des effectifs égale le `totalElements` de la liste aux mêmes filtres.\n\n**Qui voit quoi.** Le suivi **général** est réservé au rôle `Administrateur`. Tout autre utilisateur ne voit que **ses propres actions** — sur la liste comme dans les groupes : celles écrites à son nom (`UserName`), plus celles de son compte hors lignes « Système » (actions générées pendant sa session, qu'OMRAN attribue à « Système »). Pour lui, le filtre `utilisateur` ne peut que restreindre : demander quelqu'un d'autre rend une page vide, jamais un 403 qui confirmerait l'existence de ses actions. Le front masque donc le sélecteur d'utilisateur hors administrateur.\n\n**Périmètre commercial** : appliqué par le service, liste et groupes — une action dont le projet (par la prospection, puis par le dossier) est hors périmètre n'apparaît ni dans la liste ni dans un effectif. Actions d'entités juridiques inactives exclues, comme partout."
     },
     {
-      "name": "Synchronisation",
-      "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
-    },
-    {
-      "name": "Hotline",
-      "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
-    },
-    {
-      "name": "Mon compte",
-      "description": "Profil de l'utilisateur authentifié et changement volontaire de son mot de passe. Aucun portail de première connexion : mustChangePassword/profileCompleted ne bloquent plus aucune route."
+      "name": "Notes",
+      "description": "Notes OMRAN (`AdmMessage`, bouton « Notes » des fiches) d'un programme, d'une tranche ou d'un article.\n`CategoryId` = PKey de la fiche porteuse, sans clé étrangère. Lecture : tout utilisateur authentifié ; écriture et\nsuppression : rôle `Administrateur`."
     },
     {
       "name": "Passerelle",
@@ -64,6 +84,10 @@
       "description": "Clés d'API des clients machine (n8n, agents), réservées au rôle Administrateur. Une clé s'envoie dans l'en-tête `X-Api-Key` ; elle authentifie un compte de service et n'autorise que les routes de ses portées. Le secret n'est montré qu'à la création et à la régénération. Voir `FEATURE-cle-api-n8n.md`."
     },
     {
+      "name": "Actions d'un article",
+      "description": "Panneau « Actions » d'une fiche article (règle OMRAN GEN0005) : actions, notes et alertes enregistrées dans\n`ComActionMessage` avec `StkItemId` = l'article. Lecture : tout utilisateur authentifié ; écriture : rôle\n`Administrateur`. **Programme et tranche n'ont pas de panneau Actions** : `ComActionMessage` n'a aucune colonne\nprogramme ni tranche."
+    },
+    {
       "name": "Utilisateurs (admin)",
       "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur : liste des comptes, réinitialisation du mot de passe Arpent, et affectation des projets qui composent le périmètre commercial d'un utilisateur. Les comptes eux-mêmes se créent dans Omran, jamais ici."
     },
@@ -74,10 +98,6 @@
     {
       "name": "Encaissements",
       "description": "Règlements (StlSettlement) rattachés à un Dossier de vente — reproduit l'écran legacy \"Encaissements Vente\" (module Vente d'OMRAN Estate). Pour l'historique des règlements d'une seule échéance, voir plutôt `GET /api/dossiers/{id}/echeancier/{echeanceId}/reglements`, endpoint plus léger et déjà scopé à un dossier — celui-ci est la vue transverse \"tous les encaissements\" avec les mêmes filtres que le tableau legacy (entité, type, état, période, compte, dépôt...).\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, un encaissement hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les règlements portés par une entité juridique active (`StlSettlement.CfgCompanyId` → `CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Un règlement masqué renvoie 404 sur toutes les routes portant son identifiant."
-    },
-    {
-      "name": "Référentiels patrimoine",
-      "description": "Listes déroulantes des fiches programme et tranche (standings, niveaux, personnels, comptes…)."
     },
     {
       "name": "Chantier",
@@ -94,14 +114,6 @@
     {
       "name": "Actions récentes",
       "description": "Le panneau « Actions récentes » : ce qui vient d'être fait sur les prospections, pré-prospections et dossiers, avec de quoi rouvrir la fiche. Détail : `instructions/FEATURE-actions-recentes.md`."
-    },
-    {
-      "name": "Prospections",
-      "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
-    },
-    {
-      "name": "Pré-prospections",
-      "description": "Leads bruts non encore qualifiés : ComProspection de type légataire `ComPreProspection` (`StrEntity`), le discriminant d'OMRAN lui-même — une pré-prospection peut donc déjà porter un prospect ou un commercial tant qu'elle n'a pas été transformée. Même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
     {
       "name": "Clients",
@@ -2627,6 +2639,142 @@
         }
       }
     },
+    "/api/notes": {
+      "get": {
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Notes d'une fiche, plus récentes d'abord",
+        "operationId": "lister",
+        "parameters": [
+          {
+            "name": "porteur",
+            "in": "query",
+            "description": "Type de fiche.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "projet",
+                "tranche",
+                "article"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "description": "PKey de la fiche.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notes de la fiche (éventuellement aucune).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoteDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "porteur hors de projet, tranche, article ; id mal formé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoteDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune fiche de ce type avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoteDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Ajoute une note à une fiche",
+        "description": "`texteHtml` est assaini par liste blanche (`p`, `br`, `b`, `strong`, `i`, `em`, `u`, `ul`, `ol`, `li`, `div`,\n`span`, sans aucun attribut ; scripts et styles supprimés, tout autre texte échappé). Une note vide après\nassainissement est refusée avec le message d'OMRAN « veuillez saisir une note ! ». Le serveur pose la date, l'auteur\n(`UserName`), le libellé « jj/MM/aaaa HH:mm Nom » et `Origin` vide.",
+        "operationId": "creer_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Note créée ; renvoie la note.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`champ` = `texteHtml` (note vide), `porteur` (hors des trois valeurs) ou `id` (absent).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune fiche de ce type avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/mon-compte/changer-mot-de-passe": {
       "post": {
         "tags": [
@@ -3809,7 +3957,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister",
+        "operationId": "lister_1",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -3845,7 +3993,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_1",
+        "operationId": "creer_2",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4573,6 +4721,130 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}/actions": {
+      "get": {
+        "tags": [
+          "Actions d'un article"
+        ],
+        "summary": "Actions et alertes d'un article, plus récentes d'abord",
+        "description": "Toutes les actions rattachées à l'article (`StkItemId`), y compris celles saisies depuis une prospection ou un dossier\nqui citent l'article, avec la visibilité par entité du suivi des actions mais sans sa portée « mes actions ». Lignes\nau format de `GET /api/suivi-actions` (colonnes par défaut). Tri par défaut : `docDate` décroissante.",
+        "operationId": "lister_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page d'actions (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoSuiviActionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun article avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoSuiviActionDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Actions d'un article"
+        ],
+        "summary": "Ajoute une action ou une alerte à un article",
+        "description": "Corps identique à une interaction de prospection. Règles GEN0005 : `actionTypeId` obligatoire ; action « Note » ⇒\n`description` obligatoire ; autre action ⇒ `resultatId` obligatoire ; résultat « avec alerte » ⇒ `dateAlerte`\nobligatoire ; résultat de rendez-vous ⇒ `dateRdv` obligatoire (un `AdmEvent` est créé). Catégorie : celle du résultat,\nsinon « Prospection ». Auteur, date, `UserName` et libellé « jj/MM/aaaa HH:mm Nom » posés par le serveur. Une\n`dateAlerte` pose une alerte (`AdmAlertData`) et **désactive** les alertes des autres actions propres de l'article\n(sans prospection ni dossier) : c'est ainsi qu'OMRAN désactive une alerte.",
+        "operationId": "creer_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerInteractionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Action créée ; renvoie sa ligne.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuiviActionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Type ou résultat introuvable ; champ obligatoire manquant selon les règles ci-dessus.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuiviActionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuiviActionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun article avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuiviActionDto"
                 }
               }
             }
@@ -11754,6 +12026,84 @@
         }
       }
     },
+    "/api/audit": {
+      "get": {
+        "tags": [
+          "Audit"
+        ],
+        "summary": "Journal d'audit OMRAN d'un objet et de ses lignes enfants, du plus récent au plus ancien",
+        "description": "Lignes dont `ObjectId` **ou** `ParentObjectId` vaut `objetId`, comme l'écran OMRAN : la fiche d'une tranche montre\naussi les lignes de ses terrains. Tri : date décroissante. `action` reste le code brut (`Added`, `Modified`,\n`Deleted`) ; `details` liste les propriétés écrites (création : valeurs non vides ; modification : seulement celles\nqui changent ; suppression : une entrée `[classe, \"\", libellé]`). Un `Details` illisible donne `details` vide, jamais\nune erreur.\n\nSeules les lignes d'un type d'objet que le CRM journalise (programme, tranche, article, sous-article, terrain, entité\njuridique, terrain de tranche) sont servies : les lignes OMRAN d'autres objets (prospections, factures…) ne le sont\njamais, même si l'on connaît leur id. `objetId` doit désigner un programme, une tranche, un article ou une entité\njuridique existant ; sinon 404. Une fiche sans ligne renvoie une page vide.",
+        "operationId": "lignes",
+        "parameters": [
+          {
+            "name": "objetId",
+            "in": "query",
+            "description": "PKey de l'objet (programme, tranche, article…).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Numéro de page, à partir de 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            },
+            "example": 0
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Lignes par page, 1 à 200.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            },
+            "example": 50
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lignes (éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneAuditDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "objetId absent ou mal formé ; page ou size hors bornes.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneAuditDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "objetId ne désigne ni un programme, ni une tranche, ni un article, ni une entité.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneAuditDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/articles/{id}/pieces-jointes": {
       "get": {
         "tags": [
@@ -11851,7 +12201,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_1",
+        "operationId": "lister_3",
         "parameters": [
           {
             "name": "portee",
@@ -12140,6 +12490,38 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/notes/{id}": {
+      "delete": {
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Supprime une note",
+        "operationId": "supprimer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "AdmMessage.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Note supprimée."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Aucune note avec cet id."
           }
         }
       }
@@ -15640,6 +16022,76 @@
           }
         }
       },
+      "CreerNoteRequest": {
+        "type": "object",
+        "description": "Création d'une note sur une fiche.",
+        "properties": {
+          "porteur": {
+            "type": "string",
+            "description": "Fiche porteuse.",
+            "enum": [
+              "projet",
+              "tranche",
+              "article"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du programme, de la tranche ou de l'article."
+          },
+          "texteHtml": {
+            "type": "string",
+            "description": "Contenu HTML ; assaini (liste blanche) avant enregistrement.",
+            "example": "<p>Bornage prévu le 20/10</p>"
+          },
+          "rappel": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de rappel facultative (ReminderDate)."
+          }
+        },
+        "required": [
+          "id",
+          "porteur",
+          "texteHtml"
+        ]
+      },
+      "NoteDto": {
+        "type": "object",
+        "description": "Une note OMRAN (AdmMessage) d'un programme, d'une tranche ou d'un article.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "AdmMessage.PKey."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de saisie (DocDate)."
+          },
+          "auteur": {
+            "type": "string",
+            "description": "Nom affiché de l'auteur (UserName).",
+            "example": "Khadija ELKORRI"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé OMRAN « jj/MM/aaaa HH:mm Nom ».",
+            "example": "12/10/2026 09:30 Khadija ELKORRI"
+          },
+          "texteHtml": {
+            "type": "string",
+            "description": "Contenu HTML, assaini côté serveur (balises simples, aucun attribut)."
+          },
+          "rappel": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de rappel (ReminderDate), null si aucune."
+          }
+        }
+      },
       "ChangerMotDePasseRequest": {
         "type": "object",
         "description": "Corps de changement de mot de passe — utilisé aussi bien pour la régularisation d'un mot de passe\ntemporaire (première connexion) qu'un changement volontaire ultérieur.",
@@ -17169,6 +17621,171 @@
           }
         }
       },
+      "SuiviActionDto": {
+        "type": "object",
+        "description": "Une action commerciale (appel, visite, message, note…) telle que l'affiche l'écran OMRAN « Suivi des\nactions ». Seules les colonnes demandées par `?colonnes=` sont présentes — catalogue : `GET\n/api/referentiels/colonnes/suivi-actions`.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de l'action (ComActionMessage.PKey). Toujours servi."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Auteur de l'action tel qu'écrit sur la ligne (`UserName`) — la colonne sur laquelle filtre l'écran\nOMRAN. « Système » ou vide pour une action générée.",
+            "example": "Khadija ELKORRI"
+          },
+          "typeAction": {
+            "type": "string",
+            "description": "Type d'action (ComActionMessageType).",
+            "example": "Téléphone Sortant"
+          },
+          "rang": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang de l'action parmi celles du même type pour le même tiers, **1 = la plus récente** (hors actions\nsystème et impayées) — la règle de la vue OMRAN. Calculé pour la page servie : ni triable ni\ngroupable.",
+            "example": 1
+          },
+          "dateAction": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'action (`DocDate`)."
+          },
+          "dateAlerte": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'alerte / de la relance (`AlertValidityDate`). Null si aucune."
+          },
+          "alerteActive": {
+            "type": "boolean",
+            "description": "L'alerte de cette action est-elle encore active (`AdmAlertData.Active`) ? `false` si aucune alerte.\nCalculé pour la page servie."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Catégorie (Prospection, Dossier de vente…).",
+            "example": "Prospection"
+          },
+          "resultat": {
+            "type": "string",
+            "description": "Résultat (sous-catégorie).",
+            "example": "Rendez vous pris"
+          },
+          "message": {
+            "type": "string",
+            "description": "Note saisie (`AlertMessage`)."
+          },
+          "impaye": {
+            "type": "boolean",
+            "description": "Action marquée impayé (`IsUnpaid`)."
+          },
+          "systeme": {
+            "type": "boolean",
+            "description": "Action générée par le système (`IsSystem`) — relance, événement… Listée comme dans OMRAN ; filtrable\npar `?systeme=false`."
+          },
+          "entrante": {
+            "type": "boolean",
+            "description": "Action entrante (`IsIn`). Rarement renseigné : le type porte le sens."
+          },
+          "commercial": {
+            "type": "string",
+            "description": "Commercial concerné (`CfgEmployeeId` → `CfgTier.Description`) — pas l'auteur, qui est `utilisateur`.\nVide sur 23 % des actions réelles."
+          },
+          "personnel": {
+            "type": "string",
+            "description": "Personnel : employé du compte auteur, sinon le compte, sinon le commercial — règle de la vue OMRAN.\nCalculé pour la page servie."
+          },
+          "tiersNom": {
+            "type": "string",
+            "description": "Tiers (prospect/client) de l'action : `CfgTier.Description` du tiers posé sur l'action, à défaut la\nfiche prospect de la prospection rattachée, à défaut le nom saisi au premier contact\n(`TempDescription`, cas des pré-prospections). Premier texte non blanc, nettoyé ; `null` si aucun.\nLe groupement (`groupBy=tiersNom`) et son dépliage suivent la même cascade. `tiersId` reste l'id du\nseul tiers de l'action."
+          },
+          "prospectionCode": {
+            "type": "string",
+            "description": "Code de la prospection rattachée.",
+            "example": "26/05947"
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code du dossier de vente rattaché."
+          },
+          "etat": {
+            "type": "string",
+            "description": "État : statut du dossier de l'action, sinon du dossier né de sa prospection, sinon sa catégorie —\nrègle de la vue OMRAN. Calculé pour la page servie."
+          },
+          "articleCode": {
+            "type": "string",
+            "description": "Code de l'article rattaché."
+          },
+          "articleLibelle": {
+            "type": "string",
+            "description": "Libellé de l'article rattaché."
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Tranche **résolue comme OMRAN** : catégorie Prospection → tranche de la prospection, sinon tranche de l'article.",
+            "example": "APF"
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Libellé de la tranche résolue."
+          },
+          "programme": {
+            "type": "string",
+            "description": "Programme (projet) de la tranche résolue."
+          },
+          "entite": {
+            "type": "string",
+            "description": "Entité juridique du programme."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du type d'action."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la catégorie."
+          },
+          "tiersId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du tiers — ouvrir la fiche prospect/client."
+          },
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la prospection — `GET /api/prospections/{id}`."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du dossier — `GET /api/dossiers/{id}`."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la tranche résolue."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Créé par (`UserCreate`)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Créé le (`UserCreateDateTime`)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Modifié par (`UserUpdate`)."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Modifié le (`UserUpdateDateTime`)."
+          }
+        }
+      },
       "ModifierProspectRequest": {
         "type": "object",
         "properties": {
@@ -18151,171 +18768,6 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
-          }
-        }
-      },
-      "SuiviActionDto": {
-        "type": "object",
-        "description": "Une action commerciale (appel, visite, message, note…) telle que l'affiche l'écran OMRAN « Suivi des\nactions ». Seules les colonnes demandées par `?colonnes=` sont présentes — catalogue : `GET\n/api/referentiels/colonnes/suivi-actions`.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Identifiant de l'action (ComActionMessage.PKey). Toujours servi."
-          },
-          "utilisateur": {
-            "type": "string",
-            "description": "Auteur de l'action tel qu'écrit sur la ligne (`UserName`) — la colonne sur laquelle filtre l'écran\nOMRAN. « Système » ou vide pour une action générée.",
-            "example": "Khadija ELKORRI"
-          },
-          "typeAction": {
-            "type": "string",
-            "description": "Type d'action (ComActionMessageType).",
-            "example": "Téléphone Sortant"
-          },
-          "rang": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Rang de l'action parmi celles du même type pour le même tiers, **1 = la plus récente** (hors actions\nsystème et impayées) — la règle de la vue OMRAN. Calculé pour la page servie : ni triable ni\ngroupable.",
-            "example": 1
-          },
-          "dateAction": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de l'action (`DocDate`)."
-          },
-          "dateAlerte": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de l'alerte / de la relance (`AlertValidityDate`). Null si aucune."
-          },
-          "alerteActive": {
-            "type": "boolean",
-            "description": "L'alerte de cette action est-elle encore active (`AdmAlertData.Active`) ? `false` si aucune alerte.\nCalculé pour la page servie."
-          },
-          "categorie": {
-            "type": "string",
-            "description": "Catégorie (Prospection, Dossier de vente…).",
-            "example": "Prospection"
-          },
-          "resultat": {
-            "type": "string",
-            "description": "Résultat (sous-catégorie).",
-            "example": "Rendez vous pris"
-          },
-          "message": {
-            "type": "string",
-            "description": "Note saisie (`AlertMessage`)."
-          },
-          "impaye": {
-            "type": "boolean",
-            "description": "Action marquée impayé (`IsUnpaid`)."
-          },
-          "systeme": {
-            "type": "boolean",
-            "description": "Action générée par le système (`IsSystem`) — relance, événement… Listée comme dans OMRAN ; filtrable\npar `?systeme=false`."
-          },
-          "entrante": {
-            "type": "boolean",
-            "description": "Action entrante (`IsIn`). Rarement renseigné : le type porte le sens."
-          },
-          "commercial": {
-            "type": "string",
-            "description": "Commercial concerné (`CfgEmployeeId` → `CfgTier.Description`) — pas l'auteur, qui est `utilisateur`.\nVide sur 23 % des actions réelles."
-          },
-          "personnel": {
-            "type": "string",
-            "description": "Personnel : employé du compte auteur, sinon le compte, sinon le commercial — règle de la vue OMRAN.\nCalculé pour la page servie."
-          },
-          "tiersNom": {
-            "type": "string",
-            "description": "Tiers (prospect/client) de l'action : `CfgTier.Description` du tiers posé sur l'action, à défaut la\nfiche prospect de la prospection rattachée, à défaut le nom saisi au premier contact\n(`TempDescription`, cas des pré-prospections). Premier texte non blanc, nettoyé ; `null` si aucun.\nLe groupement (`groupBy=tiersNom`) et son dépliage suivent la même cascade. `tiersId` reste l'id du\nseul tiers de l'action."
-          },
-          "prospectionCode": {
-            "type": "string",
-            "description": "Code de la prospection rattachée.",
-            "example": "26/05947"
-          },
-          "dossierCode": {
-            "type": "string",
-            "description": "Code du dossier de vente rattaché."
-          },
-          "etat": {
-            "type": "string",
-            "description": "État : statut du dossier de l'action, sinon du dossier né de sa prospection, sinon sa catégorie —\nrègle de la vue OMRAN. Calculé pour la page servie."
-          },
-          "articleCode": {
-            "type": "string",
-            "description": "Code de l'article rattaché."
-          },
-          "articleLibelle": {
-            "type": "string",
-            "description": "Libellé de l'article rattaché."
-          },
-          "trancheCode": {
-            "type": "string",
-            "description": "Tranche **résolue comme OMRAN** : catégorie Prospection → tranche de la prospection, sinon tranche de l'article.",
-            "example": "APF"
-          },
-          "trancheLibelle": {
-            "type": "string",
-            "description": "Libellé de la tranche résolue."
-          },
-          "programme": {
-            "type": "string",
-            "description": "Programme (projet) de la tranche résolue."
-          },
-          "entite": {
-            "type": "string",
-            "description": "Entité juridique du programme."
-          },
-          "typeId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id du type d'action."
-          },
-          "categorieId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id de la catégorie."
-          },
-          "tiersId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id du tiers — ouvrir la fiche prospect/client."
-          },
-          "prospectionId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id de la prospection — `GET /api/prospections/{id}`."
-          },
-          "dossierId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id du dossier — `GET /api/dossiers/{id}`."
-          },
-          "trancheId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id de la tranche résolue."
-          },
-          "creePar": {
-            "type": "string",
-            "description": "Créé par (`UserCreate`)."
-          },
-          "creeLe": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Créé le (`UserCreateDateTime`)."
-          },
-          "modifiePar": {
-            "type": "string",
-            "description": "Modifié par (`UserUpdate`)."
-          },
-          "modifieLe": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Modifié le (`UserUpdateDateTime`)."
           }
         }
       },
@@ -22732,6 +23184,106 @@
           },
           "commercialNom": {
             "type": "string"
+          }
+        }
+      },
+      "ChangementAuditDto": {
+        "type": "object",
+        "description": "Une propriété modifiée, telle qu'écrite dans le JSON Details d'OMRAN.",
+        "properties": {
+          "propriete": {
+            "type": "string",
+            "description": "Nom de colonne OMRAN, ou nom de navigation pour une clé étrangère.",
+            "example": "ComSalePriceHT"
+          },
+          "ancienneValeur": {
+            "type": "string",
+            "description": "Valeur avant ; chaîne vide pour une création.",
+            "example": "0"
+          },
+          "nouvelleValeur": {
+            "type": "string",
+            "description": "Valeur après, en texte OMRAN (dates jj/MM/aaaa HH:mm:ss, décimaux à point).",
+            "example": "845000.000000"
+          }
+        }
+      },
+      "LigneAuditDto": {
+        "type": "object",
+        "description": "Une ligne du journal d'audit OMRAN (AdmWebHistorics), qu'elle vienne d'OMRAN ou du CRM.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "AdmWebHistorics.PKey."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'écriture (ActionDateTime)."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Nom affiché de l'auteur (UserDescription).",
+            "example": "Khadija ELKORRI"
+          },
+          "action": {
+            "type": "string",
+            "description": "Code brut : Added, Modified ou Deleted (traduit par le front).",
+            "example": "Modified"
+          },
+          "typeObjet": {
+            "type": "string",
+            "description": "Classe OMRAN de l'objet (ObjectType).",
+            "example": "Yes.Stk.Building.Item"
+          },
+          "libelleTypeObjet": {
+            "type": "string",
+            "description": "Libellé de la classe (ObjectTypeLabel).",
+            "example": "Article"
+          },
+          "libelleObjet": {
+            "type": "string",
+            "description": "Libellé de l'objet au moment de l'écriture (ObjectLabel).",
+            "example": "ARS1141"
+          },
+          "parentTypeObjet": {
+            "type": "string",
+            "description": "Classe du parent pour une ligne enfant (ex. terrain d'une tranche), sinon null."
+          },
+          "details": {
+            "type": "array",
+            "description": "Propriétés modifiées ; vide si le JSON Details est absent ou illisible.",
+            "items": {
+              "$ref": "#/components/schemas/ChangementAuditDto"
+            }
+          }
+        }
+      },
+      "PageDtoLigneAuditDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneAuditDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

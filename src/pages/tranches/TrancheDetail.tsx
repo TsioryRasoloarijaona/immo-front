@@ -5,6 +5,7 @@ import PageShell from '../../components/PageShell';
 import ChampsTrace from '../../components/patrimoine/ChampsTrace';
 import { BlocFiche } from '../../components/patrimoine/FicheDeclaree';
 import { OngletsLigne } from '../../components/FicheShell';
+import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import { Button } from '../../components/ui/button';
 import { Tabs, TabsContent } from '../../components/ui/tabs';
 import { Badge, ErrorState, Field, LoadingState } from '../../components/ui';
@@ -74,6 +75,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
             </div>
           </TabsContent>
         </Tabs>
+        <OngletsTransverses porteur="tranche" id={t.id} />
       </div>
     </PageShell>
   );

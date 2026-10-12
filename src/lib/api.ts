@@ -126,6 +126,10 @@ import type {
   VilleDto,
   ZoneProjetDto,
   ZoneProjetEcritureDto,
+  LigneAuditDto,
+  NoteDto,
+  CreerNoteRequest,
+  PorteurNote,
 } from '../types';
 
 export const DEFAULT_PAGE_SIZE = 20;
@@ -1469,6 +1473,36 @@ export function desaffecterSousArticle(articleId: UUID, sousArticleId: UUID): Pr
 
 export function listSousArticlesLibres(trancheId: UUID, pageable?: Pageable): Promise<PageDto<ArticleListItemDto>> {
   return request('GET', `/api/tranches/${trancheId}/sous-articles-libres`, { query: withPageable(undefined, pageable) });
+}
+
+// --- Audit, actions d'article, notes (FEATURE-patrimoine-audit-actions.md) ---
+
+/** Lignes de l'objet **et** de ses lignes enfants, plus récentes d'abord. Pas de `sort` : ordre fixé par le serveur. */
+export function listAudit(objetId: UUID, page = 0, size = 50): Promise<PageDto<LigneAuditDto>> {
+  return request('GET', '/api/audit', { query: { objetId, page, size } });
+}
+
+/** Lignes au format du suivi des actions (colonnes par défaut). */
+export function listActionsArticle(articleId: UUID, pageable?: Pageable): Promise<PageDto<SuiviActionDto>> {
+  return request('GET', `/api/articles/${articleId}/actions`, { query: withPageable(undefined, pageable) });
+}
+
+/** Administrateur. Mêmes règles GEN0005 qu'une interaction de prospection. */
+export function createActionArticle(articleId: UUID, body: CreerInteractionRequest): Promise<SuiviActionDto> {
+  return request('POST', `/api/articles/${articleId}/actions`, { body });
+}
+
+export function listNotes(porteur: PorteurNote, id: UUID): Promise<NoteDto[]> {
+  return request('GET', '/api/notes', { query: { porteur, id } });
+}
+
+/** Administrateur. 400 `champ = texteHtml` (« veuillez saisir une note ! ») si la note est vide une fois assainie. */
+export function createNote(body: CreerNoteRequest): Promise<NoteDto> {
+  return request('POST', '/api/notes', { body });
+}
+
+export function deleteNote(id: UUID): Promise<void> {
+  return request('DELETE', `/api/notes/${id}`);
 }
 
 export const getImmeubles = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/immeubles');
