@@ -12,6 +12,14 @@ import type {
   ArticleDetailDto,
   ArticleListItemDto,
   ArticleStatut,
+  BordereauDto,
+  DecompteDetailDto,
+  DecompteListItemDto,
+  LotDetailDto,
+  LotListItemDto,
+  ProjetChantierDetailDto,
+  ProjetChantierListItemDto,
+  ReferentielsChantierDto,
   ChangerEtapeRequest,
   ChangerMotDePasseRequest,
   ChangerStatutRequest,
@@ -1228,6 +1236,81 @@ export const getComptesReferentiel = (): Promise<ReferentielItemDto[]> => reques
 export const getDepotsReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/depots');
 export const getNatures = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/natures');
 export const getEtages = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/etages');
+
+// ---------------------------------------------------------------- Module Chantier (lecture seule)
+
+/** Une fiche hors périmètre répond 404 comme un id inconnu : `null` pour rendre la page `NotFound`. */
+export function nullSiIntrouvable<T>(promesse: Promise<T>): Promise<T | null> {
+  return promesse.catch((err: unknown) => {
+    if (err instanceof ApiError && err.status === 404) return null;
+    throw err;
+  });
+}
+
+export function getReferentielsChantier(): Promise<ReferentielsChantierDto> {
+  return request('GET', '/api/chantier/referentiels');
+}
+
+export function listProjetsChantier(): Promise<ProjetChantierListItemDto[]> {
+  return request('GET', '/api/chantier/projets');
+}
+
+export function getProjetChantier(id: UUID): Promise<ProjetChantierDetailDto> {
+  return request('GET', `/api/chantier/projets/${id}`);
+}
+
+export interface FiltresLotsChantier {
+  statutId?: UUID;
+  typeId?: UUID;
+  fournisseurId?: UUID;
+  search?: string;
+}
+
+/** Tri admis : code, description, dateDebut, dateFin, statutOrdre, typeCode, fournisseurNom (sinon 400). */
+export function listLotsProjetChantier(
+  projetId: UUID,
+  filtres?: FiltresLotsChantier,
+  pageable?: Pageable,
+): Promise<PageDto<LotListItemDto>> {
+  return request('GET', `/api/chantier/projets/${projetId}/lots`, { query: withPageable({ ...filtres }, pageable) });
+}
+
+export function getLotChantier(id: UUID): Promise<LotDetailDto> {
+  return request('GET', `/api/chantier/lots/${id}`);
+}
+
+export function getBordereauLot(id: UUID): Promise<BordereauDto> {
+  return request('GET', `/api/chantier/lots/${id}/bordereau`);
+}
+
+export function listDecomptesLot(id: UUID): Promise<DecompteListItemDto[]> {
+  return request('GET', `/api/chantier/lots/${id}/decomptes`);
+}
+
+export interface FiltresDecomptesChantier {
+  projetId?: UUID;
+  lotId?: UUID;
+  fournisseurId?: UUID;
+  /** `YYYY-MM-DD`, bornes incluses. */
+  du?: string;
+  au?: string;
+  statutFactureId?: UUID;
+  /** `true` = seulement les non facturés ; absent = pas de filtre. */
+  sansFacture?: boolean;
+  search?: string;
+}
+
+/** Tri admis : dateDocument, code, numero, montantHT, montantTTC, netAPayer, lotCode, projetCode, fournisseurNom. */
+export function listDecomptesChantier(
+  filtres?: FiltresDecomptesChantier,
+  pageable?: Pageable,
+): Promise<PageDto<DecompteListItemDto>> {
+  return request('GET', '/api/chantier/decomptes', { query: withPageable({ ...filtres }, pageable) });
+}
+
+export function getDecompteChantier(id: UUID): Promise<DecompteDetailDto> {
+  return request('GET', `/api/chantier/decomptes/${id}`);
+}
 
 export function getTranche(id: UUID): Promise<TrancheDetailDto> {
   return request('GET', `/api/tranches/${id}`);

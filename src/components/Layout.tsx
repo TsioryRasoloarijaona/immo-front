@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, Calendar, Contact, FilePlus2, FileText, Folder, Gauge, History, Home, KeyRound, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
+import { BookUser, Bot, Building2, Calendar, Contact, FilePlus2, FileText, Folder, Gauge, HardHat, History, Home, KeyRound, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, ReceiptText, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +24,8 @@ import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
 import { estAdministrateur } from '../lib/roles';
 
+const MODULES_AVEC_MENU = new Set(['vente', 'patrimoine', 'chantier', 'administration', 'outils']);
+
 export default function Layout({ children }: Readonly<{ children: ReactNode }>) {
   const location = useLocation();
   const activeModule = moduleForPath(location.pathname);
@@ -32,7 +34,7 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
   // Le commercial voit Ventes, Patrimoine et Profil ensemble, hors du découpage
   // par module que suivent les autres rôles.
   const isCommercial = user?.roles?.includes('Commercial') ?? false;
-  const activeSoonModule = activeModule && activeModule !== 'vente' && activeModule !== 'patrimoine' && activeModule !== 'administration' && activeModule !== 'outils'
+  const activeSoonModule = activeModule && !MODULES_AVEC_MENU.has(activeModule)
     ? APP_MODULES.find((m) => m.slug === activeModule)
     : undefined;
 
@@ -164,6 +166,35 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                   <SidebarMenuButton render={<NavLink to="/articles" />} isActive={location.pathname.startsWith('/articles')} tooltip="Articles">
                     <Home style={{ color: 'var(--sec-tranche)' }} />
                     Articles
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroup>
+          )}
+
+          {activeModule === 'chantier' && (
+            <SidebarGroup>
+              <SidebarGroupLabel>Chantier</SidebarGroupLabel>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  {/* Une fiche lot appartient à son projet : l'entrée Projets reste active dessus. */}
+                  <SidebarMenuButton
+                    render={<NavLink to="/chantier/projets" />}
+                    isActive={location.pathname.startsWith('/chantier/projets') || location.pathname.startsWith('/chantier/lots')}
+                    tooltip="Projets"
+                  >
+                    <HardHat style={{ color: 'var(--sec-chantier-projet)' }} />
+                    Projets
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/chantier/decomptes" />}
+                    isActive={location.pathname.startsWith('/chantier/decomptes')}
+                    tooltip="Décomptes"
+                  >
+                    <ReceiptText style={{ color: 'var(--sec-chantier-decompte)' }} />
+                    Décomptes
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

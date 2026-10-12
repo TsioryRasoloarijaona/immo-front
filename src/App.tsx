@@ -41,6 +41,11 @@ const TranchesList = lazy(() => import('./pages/tranches/TranchesList'));
 const TrancheDetail = lazy(() => import('./pages/tranches/TrancheDetail'));
 const ArticlesList = lazy(() => import('./pages/articles/ArticlesList'));
 const ArticleDetail = lazy(() => import('./pages/articles/ArticleDetail'));
+const ProjetsChantierList = lazy(() => import('./pages/chantier/ProjetsChantierList'));
+const ProjetChantierDetail = lazy(() => import('./pages/chantier/ProjetChantierDetail'));
+const LotDetail = lazy(() => import('./pages/chantier/LotDetail'));
+const DecomptesList = lazy(() => import('./pages/chantier/DecomptesList'));
+const DecompteDetail = lazy(() => import('./pages/chantier/DecompteDetail'));
 const NouvelOrdre = lazy(() => import('./pages/outils/virements/NouvelOrdre'));
 const HistoriqueVirements = lazy(() => import('./pages/outils/virements/HistoriqueVirements'));
 const BeneficiairesVirement = lazy(() => import('./pages/outils/virements/Beneficiaires'));
@@ -110,6 +115,12 @@ function AuthenticatedApp() {
                   <Route path="/tranches/:id" element={<TrancheDetail />} />
                   <Route path="/articles" element={<ArticlesList />} />
                   <Route path="/articles/:id" element={<ArticleDetail />} />
+                  <Route path="/chantier" element={<Navigate to="/chantier/projets" replace />} />
+                  <Route path="/chantier/projets" element={<ProjetsChantierList />} />
+                  <Route path="/chantier/projets/:id" element={<ProjetChantierDetail />} />
+                  <Route path="/chantier/lots/:id" element={<LotDetail />} />
+                  <Route path="/chantier/decomptes" element={<DecomptesList />} />
+                  <Route path="/chantier/decomptes/:id" element={<DecompteDetail />} />
                   <Route path="/outils" element={<Navigate to="/outils/virements/nouveau" replace />} />
                   <Route path="/outils/virements" element={<Navigate to="/outils/virements/nouveau" replace />} />
                   <Route path="/outils/virements/nouveau" element={<NouvelOrdre />} />

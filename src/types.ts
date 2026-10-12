@@ -2217,3 +2217,297 @@ export interface CreerCleApiRequest {
    * sa seule limite. 400 si inconnu. */
   compteCode?: string;
 }
+
+// ---------------------------------------------------------------- Module Chantier (lecture seule)
+// Montants : nombres bruts du serveur (BigDecimal), à formater par `formatCurrency`.
+// Taux : déjà en pourcentage 0–100 → `formatPercentValue`, jamais `formatPercent`.
+
+export interface ReferentielChantierDto {
+  id: UUID;
+  code: string | null;
+  description: string | null;
+  /** null pour les types de lot : la table n'a pas d'ordre. */
+  ordre: number | null;
+}
+
+export interface StatutLotDto {
+  id: UUID;
+  code: string | null;
+  description: string | null;
+  ordre: number | null;
+  typeCode: string | null;
+  entiteCode: string | null;
+}
+
+export interface ReferentielsChantierDto {
+  typesLot: ReferentielChantierDto[];
+  statutsLot: StatutLotDto[];
+  statutsFacture: ReferentielChantierDto[];
+  /** Seulement celles des lots visibles de l'appelant. */
+  categories: ReferentielChantierDto[];
+}
+
+export interface ProjetChantierListItemDto {
+  id: UUID;
+  code: string | null;
+  description: string | null;
+  societeCode: string | null;
+  societeDescription: string | null;
+  statutCode: string | null;
+  statutDescription: string | null;
+  nbLots: number;
+  totalMarchesHT: number;
+  totalMarchesTTC: number;
+  nbDecomptes: number;
+  totalDecomptesTTC: number;
+  totalFacture: number;
+  totalRegle: number;
+  totalResteARegler: number;
+  /** Aucun lot et code « AAAA-… » : centre de coûts annuel, rangé à part. */
+  estCentreDeCouts: boolean;
+}
+
+export interface ProjetChantierDetailDto extends ProjetChantierListItemDto {
+  descriptionLongue: string | null;
+  notes: string | null;
+  adresse: string | null;
+  responsableId: UUID | null;
+  responsableNom: string | null;
+  dateDebut: string | null;
+  delaiJours: number | null;
+  dateFin: string | null;
+  dateDebutTravauxPrevue: string | null;
+  dateFinTravauxPrevue: string | null;
+  dateDebutTravauxReelle: string | null;
+  dateFinTravauxReelle: string | null;
+  dateCreation: string | null;
+  creePar: string | null;
+}
+
+export interface LotListItemDto {
+  id: UUID;
+  code: string | null;
+  description: string | null;
+  typeCode: string | null;
+  typeDescription: string | null;
+  statutCode: string | null;
+  statutDescription: string | null;
+  statutOrdre: number | null;
+  fournisseurId: UUID | null;
+  fournisseurNom: string | null;
+  categorieCode: string | null;
+  categorieDescription: string | null;
+  dateDebut: string | null;
+  dateFin: string | null;
+  delaiJours: number | null;
+  multiFournisseur: boolean;
+  montantHT: number;
+  montantTVA: number;
+  montantTTC: number;
+  /** false : montants du forfait saisi (lot sans bordereau). */
+  montantsDepuisBordereau: boolean;
+  tauxRetenueGarantie: number | null;
+  nbDecomptes: number;
+  cumulDecomptesHT: number;
+  cumulDecomptesTTC: number;
+  cumulTravauxSupplementaires: number;
+  cumulRetenueGarantie: number;
+  /** null si marché TTC nul ; peut dépasser 100 (plafonner l'affichage seulement). */
+  avancementPct: number | null;
+  totalFacture: number;
+  totalRegle: number;
+  resteARegler: number;
+}
+
+export interface LotDetailDto extends LotListItemDto {
+  projetId: UUID | null;
+  projetCode: string | null;
+  projetDescription: string | null;
+  societeCode: string | null;
+  entiteCode: string | null;
+  entiteDescription: string | null;
+  descriptionLongue: string | null;
+  notes: string | null;
+  estimationHT: number;
+  estimationTVA: number;
+  estimationTTC: number;
+  estimationDepuisBordereau: boolean;
+  montantForfaitaireHT: number;
+  montantForfaitaireTVA: number;
+  montantForfaitaireTTC: number;
+  retenueGarantieTheorique: number;
+  avanceTheorique: number;
+  tauxAvance: number | null;
+  tauxCompteProrata: number | null;
+  tauxAssuranceDEC: number | null;
+  tauxAssuranceTRC: number | null;
+  tvaDefaut: number | null;
+  delaiPaiementJours: number | null;
+  garantieMois: number | null;
+  restitutionGarantieBloquee: boolean;
+  avecDecomposition: boolean;
+  clos: boolean;
+  cumulNetAPayer: number;
+  dateDebutPrevisionnelle: string | null;
+  delaiPrevisionnelJours: number | null;
+  dateFinPrevisionnelle: string | null;
+  dateLancementAppelOffres: string | null;
+  dateRetraitDossiers: string | null;
+  dateRemiseOffres: string | null;
+  dateReportAppelOffres: string | null;
+  dateOuverturePlis: string | null;
+  dateReportDepouillement: string | null;
+  dateAdjudication: string | null;
+  dateSignatureMarche: string | null;
+  dateOrdreService: string | null;
+  dateLancementTravaux: string | null;
+  dateAchevementTravaux: string | null;
+  dateRecolement: string | null;
+  dateAnnulation: string | null;
+  motifAnnulation: string | null;
+  dateCreation: string | null;
+  creePar: string | null;
+  dateModification: string | null;
+  modifiePar: string | null;
+}
+
+export interface LigneBordereauDto {
+  id: UUID;
+  ordre: number | null;
+  groupe: string | null;
+  code: string | null;
+  designation: string | null;
+  unite: string | null;
+  quantite: number | null;
+  prixUnitaireHT: number | null;
+  tauxTVA: number | null;
+  totalHT: number;
+  totalTTC: number;
+}
+
+export interface TotauxBordereauDto {
+  totalHT: number;
+  totalTVA: number;
+  totalTTC: number;
+  nbLignes: number;
+}
+
+export interface BordereauDto {
+  lotId: UUID;
+  lignes: LigneBordereauDto[];
+  totaux: TotauxBordereauDto;
+}
+
+export interface DecompteListItemDto {
+  id: UUID;
+  code: string | null;
+  numero: number | null;
+  dateDocument: string | null;
+  lotId: UUID | null;
+  lotCode: string | null;
+  lotDescription: string | null;
+  projetId: UUID | null;
+  projetCode: string | null;
+  fournisseurId: UUID | null;
+  fournisseurNom: string | null;
+  montantHT: number | null;
+  montantTTC: number | null;
+  travauxSupplementaires: number | null;
+  retenueGarantie: number | null;
+  netAPayer: number | null;
+  cumulNetRetenueGarantie: number | null;
+  dernier: boolean;
+  factureId: UUID | null;
+  factureCode: string | null;
+  factureStatutCode: string | null;
+  factureStatutDescription: string | null;
+  montantRegle: number;
+  resteARegler: number;
+}
+
+export interface FactureDecompteDto {
+  id: UUID;
+  code: string | null;
+  dateDocument: string | null;
+  dateEcheance: string | null;
+  montantHT: number | null;
+  montantTTC: number | null;
+  montantAPayer: number | null;
+  regularisation: number | null;
+  statutCode: string | null;
+  statutDescription: string | null;
+  okPourPaiement: boolean;
+}
+
+export interface ReglementFactureDto {
+  id: UUID;
+  code: string | null;
+  dateDocument: string | null;
+  dateEcheance: string | null;
+  montant: number | null;
+  typeCode: string | null;
+  typeDescription: string | null;
+  /** Listé mais exclu de `montantRegle`. */
+  annule: boolean;
+}
+
+export interface LigneDecompteDto {
+  id: UUID;
+  ordre: number | null;
+  code: string | null;
+  designation: string | null;
+  unite: string | null;
+  quantiteMarche: number | null;
+  prixUnitaireHT: number | null;
+  quantiteAnterieure: number | null;
+  quantitePeriode: number | null;
+  quantiteCumulee: number;
+  coefficient: number | null;
+  montantHTPeriode: number;
+  avancementLignePct: number | null;
+}
+
+export interface ExtraDecompteDto {
+  id: UUID;
+  code: string | null;
+  designation: string | null;
+  unite: string | null;
+  quantite: number | null;
+  prixUnitaire: number | null;
+  tauxTVA: number | null;
+  montantHT: number;
+  montantTTC: number;
+}
+
+export interface RetenueDecompteDto {
+  id: UUID;
+  libelle: string | null;
+  montant: number | null;
+}
+
+export interface DecompteDetailDto extends DecompteListItemDto {
+  montantTVA: number | null;
+  tauxRetenueGarantie: number | null;
+  montantNetRetenueGarantie: number | null;
+  fluctuationsAPayer: number | null;
+  avanceAmortie: number | null;
+  avanceSurDecompte: number | null;
+  compteProrata: number | null;
+  assuranceDEC: number | null;
+  assuranceTRC: number | null;
+  retenuesNonRemboursables: number | null;
+  retenuesRemboursables: number | null;
+  fluctuations: number | null;
+  montantBrut: number | null;
+  cumulTTC: number;
+  notes: string | null;
+  dateCreation: string | null;
+  creePar: string | null;
+  dateModification: string | null;
+  modifiePar: string | null;
+  facture: FactureDecompteDto | null;
+  reglements: ReglementFactureDto[];
+  lignes: LigneDecompteDto[];
+  extras: ExtraDecompteDto[];
+  retenues: RetenueDecompteDto[];
+}

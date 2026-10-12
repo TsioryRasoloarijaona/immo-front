@@ -69,6 +69,8 @@
   --sec-offre: var(--sec-accent);
   --sec-tranche: var(--sec-accent);
   --sec-projet: var(--sec-accent);
+  --sec-chantier-projet: var(--sec-accent);
+  --sec-chantier-decompte: var(--sec-accent);
   --sec-prospection-bg: var(--sec-accent-bg);
   --sec-preprospection-bg: var(--sec-accent-bg);
   --sec-prospect-bg: var(--sec-accent-bg);
@@ -77,6 +79,8 @@
   --sec-offre-bg: var(--sec-accent-bg);
   --sec-tranche-bg: var(--sec-accent-bg);
   --sec-projet-bg: var(--sec-accent-bg);
+  --sec-chantier-projet-bg: var(--sec-accent-bg);
+  --sec-chantier-decompte-bg: var(--sec-accent-bg);
 
   --shadow-sm: 0 1px 2px rgba(32, 29, 23, 0.04);
   --shadow-md: 0 4px 16px rgba(32, 29, 23, 0.07), 0 1px 3px rgba(32, 29, 23, 0.05);
@@ -198,6 +202,8 @@
   --sec-offre: var(--sec-accent);
   --sec-tranche: var(--sec-accent);
   --sec-projet: var(--sec-accent);
+  --sec-chantier-projet: var(--sec-accent);
+  --sec-chantier-decompte: var(--sec-accent);
   --sec-prospection-bg: var(--sec-accent-bg);
   --sec-preprospection-bg: var(--sec-accent-bg);
   --sec-prospect-bg: var(--sec-accent-bg);
@@ -206,6 +212,8 @@
   --sec-offre-bg: var(--sec-accent-bg);
   --sec-tranche-bg: var(--sec-accent-bg);
   --sec-projet-bg: var(--sec-accent-bg);
+  --sec-chantier-projet-bg: var(--sec-accent-bg);
+  --sec-chantier-decompte-bg: var(--sec-accent-bg);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.32), 0 1px 3px rgba(0, 0, 0, 0.24);
