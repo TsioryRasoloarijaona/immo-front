@@ -1,6 +1,22 @@
 // « Mon équipe » : phrases de confirmation et listes de choix partagées par les dialogues.
-import { pluriel } from './format';
+import { jourISO, pluriel } from './format';
 import type { CommercialEquipeDto, ResultatLotDto, UUID } from '../types';
+
+const JOURS_PAR_DEFAUT = 30;
+
+/**
+ * Bornes date-heure de la période de « Mon équipe », avec le défaut du serveur (`PeriodeEquipe` : 30 jours jusqu'à
+ * aujourd'hui) : la liste du dialogue Distribuer doit compter les mêmes lignes que le bloc « À distribuer ».
+ */
+export function bornesPeriodeEquipe(periode: { du: string; au: string }): { dateDebut: string; dateFin: string } {
+  const au = periode.au || jourISO(new Date());
+  let du = periode.du;
+  if (!du) {
+    const [y, m, d] = au.split('-').map(Number);
+    du = jourISO(new Date(y, m - 1, d - (JOURS_PAR_DEFAUT - 1)));
+  }
+  return { dateDebut: `${du}T00:00:00`, dateFin: `${au}T23:59:59` };
+}
 
 export interface ChoixCommercial {
   label: string;

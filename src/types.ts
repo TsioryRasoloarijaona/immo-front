@@ -3247,3 +3247,113 @@ export interface GroupeActionnairesDto {
   modifiePar?: string | null;
   modifieLe?: string | null;
 }
+
+// ---------------------------------------------------------------- Parcours commercial
+// FEATURE-parcours-commercial.md : « Ma journée », Boîte de tri, Kanban.
+
+export interface LeadJourneeDto {
+  prospectionId: UUID;
+  code?: string;
+  nom?: string | null;
+  telephone?: string | null;
+  /** Seulement pour le mobile de la fiche ; `null` pour le numéro du formulaire. */
+  indicatif?: string | null;
+  projetCode?: string | null;
+  trancheCode?: string | null;
+  recuLe?: string | null;
+  ageJours: number;
+  message?: string | null;
+  source?: string | null;
+}
+
+export interface RelanceJourneeDto {
+  interactionId: UUID;
+  prospectionId: UUID;
+  /** Encore une pré-prospection : sa fiche est sous `/pre-prospections/:id`. */
+  preProspection: boolean;
+  nom?: string | null;
+  telephone?: string | null;
+  indicatif?: string | null;
+  projetCode?: string | null;
+  trancheCode?: string | null;
+  etape?: string | null;
+  echeance?: string | null;
+  joursDeRetard: number;
+  message?: string | null;
+  /** Résultat du dernier contact : l'intention (visite, rappel…). */
+  resultat?: string | null;
+}
+
+export interface BlocLeadsDto {
+  /** Au-delà des 20 lignes servies. */
+  total: number;
+  lignes: LeadJourneeDto[];
+}
+
+export interface BlocRelancesDto {
+  total: number;
+  lignes: RelanceJourneeDto[];
+}
+
+export interface JourneeDto {
+  date: string;
+  /** `null` : le compte n'a pas d'employé, donc aucune ligne. */
+  commercialId?: UUID | null;
+  prenom?: string | null;
+  nouveauxLeads: BlocLeadsDto;
+  relancesDuJour: BlocRelancesDto;
+  visitesDuJour: BlocRelancesDto;
+  /** Même règle que le tableau de bord RETARD (prospections du mois civil). */
+  enRetard: BlocRelancesDto;
+}
+
+export type NatureDoublon = 'PROSPECT' | 'PROSPECTION';
+
+export interface DoublonTriDto {
+  nature: NatureDoublon;
+  id: UUID;
+  code?: string | null;
+  nom?: string | null;
+  criteres: CritereDoublon[];
+  /** Toujours `null` pour une fiche prospect. */
+  fermee?: boolean | null;
+}
+
+export interface LigneTriDto {
+  prospectionId: UUID;
+  code?: string | null;
+  nom?: string | null;
+  /** Requis pour qualifier ; sinon « Créer le prospect » d'abord. */
+  prospectId?: UUID | null;
+  telephone?: string | null;
+  indicatif?: string | null;
+  email?: string | null;
+  recuLe?: string | null;
+  ageJours: number;
+  message?: string | null;
+  source?: string | null;
+  sourceSupport?: string | null;
+  campagne?: string | null;
+  trancheId?: UUID | null;
+  trancheCode?: string | null;
+  projetCode?: string | null;
+  etape?: string | null;
+  /** Après « Pas joignable » : demain 10:00. */
+  prochaineRelance?: string | null;
+  doublons: DoublonTriDto[];
+}
+
+export interface ProchaineActionRequest {
+  typeId: UUID;
+  /** Obligatoire sauf pour une Note (400). */
+  sousCategorieId?: UUID;
+  /** Aujourd'hui ou plus tard (400 sinon). */
+  date: string;
+  message?: string;
+}
+
+/** 409 : prospection archivée, pré-prospection, ou étape exigeant un projet sur une ligne sans tranche. */
+export interface AvancerProspectionRequest {
+  etapeId: UUID;
+  prochaineAction: ProchaineActionRequest;
+}
