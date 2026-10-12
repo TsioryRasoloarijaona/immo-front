@@ -31,7 +31,7 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
   const activeModule = moduleForPath(location.pathname);
   const { user, logout } = useAuth();
   const isAdmin = estAdministrateur(user);
-  // Le commercial voit Ventes, Patrimoine et Profil ensemble, hors du découpage
+  // Le commercial voit Ventes, Patrimoine, Chantier et Profil ensemble, hors du découpage
   // par module que suivent les autres rôles.
   const isCommercial = user?.roles?.includes('Commercial') ?? false;
   const activeSoonModule = activeModule && !MODULES_AVEC_MENU.has(activeModule)
@@ -172,7 +172,7 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
             </SidebarGroup>
           )}
 
-          {activeModule === 'chantier' && (
+          {(isCommercial || activeModule === 'chantier') && (
             <SidebarGroup>
               <SidebarGroupLabel>Chantier</SidebarGroupLabel>
               <SidebarMenu>
