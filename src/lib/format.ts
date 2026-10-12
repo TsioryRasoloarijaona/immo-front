@@ -152,6 +152,24 @@ export function formatJourRelatif(value: string | null | undefined): string {
   return formatDate(jour);
 }
 
+const JOURS_SEMAINE = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+
+/** « mardi 13/10 » : jour lu sur la date locale saisie (`YYYY-MM-DD…`), sans conversion de fuseau. */
+export function formatJourSemaine(value: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value ?? '');
+  if (!m) return '—';
+  const [, y, mo, d] = m;
+  const jour = new Date(Number(y), Number(mo) - 1, Number(d)).getDay();
+  return `${JOURS_SEMAINE[jour]} ${d}/${mo}`;
+}
+
+/** « reçu aujourd'hui », « reçu hier », « reçu il y a 3 jours ». */
+export function formatRecuIlYa(ageJours: number): string {
+  if (ageJours <= 0) return "reçu aujourd'hui";
+  if (ageJours === 1) return 'reçu hier';
+  return `reçu il y a ${formatNumber(ageJours)} jours`;
+}
+
 export function debutMoisISO(): string {
   const d = new Date();
   return jourISO(new Date(d.getFullYear(), d.getMonth(), 1));

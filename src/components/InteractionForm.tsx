@@ -32,9 +32,12 @@ function Indication({ children }: Readonly<{ children: string }>) {
 }
 
 export default function InteractionForm({
+  initialActionTypeId,
   onClose,
   onSubmit,
 }: Readonly<{
+  /** Action présélectionnée (« Visite faite » de Ma journée). */
+  initialActionTypeId?: string;
   onClose: () => void;
   /** Rejette en cas d'échec : le formulaire reste ouvert, saisie conservée, et affiche le message. */
   onSubmit: (input: CreerInteractionRequest) => Promise<void>;
@@ -42,7 +45,7 @@ export default function InteractionForm({
   const actionTypes = useTypesContactProspection();
   const resultats = useResultatsInteraction();
 
-  const [actionTypeId, setActionTypeId] = useState('');
+  const [actionTypeId, setActionTypeId] = useState(initialActionTypeId ?? '');
   const [resultatId, setResultatId] = useState('');
   const [dateAlerte, setDateAlerte] = useState('');
   const [dateRdv, setDateRdv] = useState('');
