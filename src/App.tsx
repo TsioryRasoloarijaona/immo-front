@@ -37,7 +37,9 @@ const DossiersList = lazy(() => import('./pages/dossiers/DossiersList'));
 const DossierDetail = lazy(() => import('./pages/dossiers/DossierDetail'));
 const ProjetsList = lazy(() => import('./pages/projets/ProjetsList'));
 const ProjetDetail = lazy(() => import('./pages/projets/ProjetDetail'));
+const ProjetForm = lazy(() => import('./pages/projets/ProjetForm'));
 const TranchesList = lazy(() => import('./pages/tranches/TranchesList'));
+const TrancheForm = lazy(() => import('./pages/tranches/TrancheForm'));
 const TrancheDetail = lazy(() => import('./pages/tranches/TrancheDetail'));
 const ArticlesList = lazy(() => import('./pages/articles/ArticlesList'));
 const ArticleDetail = lazy(() => import('./pages/articles/ArticleDetail'));
@@ -46,6 +48,8 @@ const ProjetChantierDetail = lazy(() => import('./pages/chantier/ProjetChantierD
 const LotDetail = lazy(() => import('./pages/chantier/LotDetail'));
 const DecomptesList = lazy(() => import('./pages/chantier/DecomptesList'));
 const DecompteDetail = lazy(() => import('./pages/chantier/DecompteDetail'));
+const ArticleForm = lazy(() => import('./pages/articles/ArticleForm'));
+const SousArticleForm = lazy(() => import('./pages/articles/SousArticleForm'));
 const NouvelOrdre = lazy(() => import('./pages/outils/virements/NouvelOrdre'));
 const HistoriqueVirements = lazy(() => import('./pages/outils/virements/HistoriqueVirements'));
 const BeneficiairesVirement = lazy(() => import('./pages/outils/virements/Beneficiaires'));
@@ -110,11 +114,18 @@ function AuthenticatedApp() {
                   <Route path="/dossiers" element={<DossiersList />} />
                   <Route path="/dossiers/:id" element={<DossierDetail />} />
                   <Route path="/projets" element={<ProjetsList />} />
+                  <Route path="/projets/nouveau" element={<ProjetForm />} />
                   <Route path="/projets/:id" element={<ProjetDetail />} />
+                  <Route path="/projets/:id/modifier" element={<ProjetForm />} />
                   <Route path="/tranches" element={<TranchesList />} />
+                  <Route path="/tranches/nouveau" element={<TrancheForm />} />
                   <Route path="/tranches/:id" element={<TrancheDetail />} />
+                  <Route path="/tranches/:id/modifier" element={<TrancheForm />} />
                   <Route path="/articles" element={<ArticlesList />} />
+                  <Route path="/articles/nouveau" element={<ArticleForm />} />
                   <Route path="/articles/:id" element={<ArticleDetail />} />
+                  <Route path="/articles/:id/modifier" element={<ArticleForm />} />
+                  <Route path="/articles/:id/sous-articles/nouveau" element={<SousArticleForm />} />
                   <Route path="/chantier" element={<Navigate to="/chantier/projets" replace />} />
                   <Route path="/chantier/projets" element={<ProjetsChantierList />} />
                   <Route path="/chantier/projets/:id" element={<ProjetChantierDetail />} />

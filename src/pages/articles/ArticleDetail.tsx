@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Eye, FileText, Folder, Home } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Eye, FileText, Folder, Home, Pencil } from 'lucide-react';
 import PageShell from '../../components/PageShell';
+import ChampsTrace from '../../components/patrimoine/ChampsTrace';
+import { useAuth } from '../../lib/auth';
+import { estAdministrateur } from '../../lib/roles';
+import SousArticlesArticle from './SousArticlesArticle';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { getArticle, getDossier, listArticlePiecesJointes, openArticlePieceJointeFichier } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { formatCurrency, formatDate, formatPercent, formatSurface, libellePrix } from '../../lib/format';
+import { formatCurrency, formatDate, formatMontantOptionnel, formatPercent, formatSurface, libellePrix } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import { pieceJointeTypeTone } from '../../lib/domain';
-import type { PieceJointeDto } from '../../types';
+import type { ArticleDetailDto, PieceJointeDto } from '../../types';
 
 // Lecture seule : aucun endpoint d'envoi ni de suppression pour les pièces d'un article.
 function ArticlePieceJointeRow({ articleId, piece }: Readonly<{ articleId: string; piece: PieceJointeDto }>) {
@@ -53,14 +57,83 @@ function ArticlePieceJointeRow({ articleId, piece }: Readonly<{ articleId: strin
   );
 }
 
+function EnteteArticle({ a, onParent }: Readonly<{ a: ArticleDetailDto; onParent: () => void }>) {
+  const libre = a.statut === 'DISPONIBLE';
+  return (
+    <>
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <h2 className="text-hero font-semibold tracking-tight text-foreground">{a.code}</h2>
+        {a.dossierId ? (
+          <Badge tone={toneForStatus(canonicalStatusLabel(a.dossierStatut))}>{canonicalStatusLabel(a.dossierStatut)}</Badge>
+        ) : (
+          <Badge tone={libre ? 'success' : 'neutral'}>{libre ? 'Libre' : 'Occupé'}</Badge>
+        )}
+        {a.lotParentId && <Badge tone="neutral">Sous-article</Badge>}
+      </div>
+      {a.lotParentId && (
+        <button
+          type="button"
+          onClick={onParent}
+          className="mb-3 flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Fait partie de <span className="font-medium text-foreground">{a.lotParentCode || a.lotParentDescription}</span>
+        </button>
+      )}
+    </>
+  );
+}
+
+function DetailsArticle({ a }: Readonly<{ a: ArticleDetailDto }>) {
+  return (
+    <Card title="Détails" accent="var(--sec-tranche)">
+      <FieldGrid>
+        <Field label="Description" value={a.description} />
+        <Field label="Adresse" value={a.adresse} />
+        <Field label="Tranche" value={a.trancheDescription || a.trancheCode} />
+        <Field label="Type" value={a.typeLibelle} />
+        <Field label="Catégorie" value={a.categorieLibelle} />
+        <Field label="Type présentation" value={a.presentationTypeLibelle || a.presentationTypeCode} />
+        <Field label="Nature" value={a.natureLibelle} />
+        <Field label="Immeuble" value={a.immeubleLibelle} />
+        <Field label="Étage" value={a.etageLibelle} />
+        <Field label="Superficie" value={a.area ? formatSurface(a.area) : undefined} />
+        <Field label="Superficie sous-articles" value={a.superficieSousArticles ? formatSurface(a.superficieSousArticles) : undefined} />
+        <Field label="TVA" value={a.tauxTVA != null ? formatPercent(a.tauxTVA) : undefined} />
+        <Field label="Vocation" value={a.vocationLibelle} />
+        <Field label="Titre foncier" value={a.titreFoncier} />
+        <Field label="Titré" value={a.estTitre ? 'Oui' : 'Non'} />
+        <ChampsTrace creePar={a.creePar} creeLe={a.creeLe} modifiePar={a.modifiePar} modifieLe={a.modifieLe} />
+      </FieldGrid>
+    </Card>
+  );
+}
+
+function PrixArticle({ a }: Readonly<{ a: ArticleDetailDto }>) {
+  return (
+    <Card title="Prix">
+      <FieldGrid>
+        <Field label="Superficie provisoire" value={a.surfaceProvisoire ? formatSurface(a.surfaceProvisoire) : undefined} />
+        <Field label="Prix article provisoire HT" value={formatMontantOptionnel(a.prixArticleProvisoireHT)} />
+        <Field label="Prix article provisoire TTC" value={formatMontantOptionnel(a.prixArticleProvisoireTTC)} />
+        <Field label="Superficie définitive" value={a.area ? formatSurface(a.area) : undefined} />
+        <Field label="Prix article définitif HT" value={formatMontantOptionnel(a.prixArticleDefinitifHT)} />
+        <Field label="Prix article définitif TTC" value={formatMontantOptionnel(a.prixArticleDefinitifTTC)} />
+        <Field label="Prix de vente (article + sous-articles)" value={libellePrix(a.comSalePrice, a.comSalePriceFloor)} />
+        <Field label="Niveaux de remise" value={`${formatPercent(a.remiseMax1 ?? 0)} / ${formatPercent(a.remiseMax2 ?? 0)}`} />
+      </FieldGrid>
+    </Card>
+  );
+}
+
 export default function ArticleDetail() {
   const { id = '' } = useParams();
   return <FicheArticle key={id} id={id} />;
 }
 
 function FicheArticle({ id }: Readonly<{ id: string }>) {
-  const { data: a, loading, error } = useApi(() => getArticle(id), [id]);
+  const { data: a, loading, error, refetch } = useApi(() => getArticle(id), [id]);
   const navigate = useNavigate();
+  const admin = estAdministrateur(useAuth().user);
 
   const dossier = useApi(
     () => (a?.dossierId ? getDossier(a.dossierId) : Promise.resolve(null)),
@@ -92,56 +165,22 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
     >
-      <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate(-1)}>
-        <ArrowLeft data-icon="inline-start" /> Retour
-      </Button>
-
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-hero font-semibold tracking-tight text-foreground">{a.code}</h2>
-        {a.dossierId ? (
-          <Badge tone={toneForStatus(canonicalStatusLabel(a.dossierStatut))}>{canonicalStatusLabel(a.dossierStatut)}</Badge>
-        ) : (
-          <Badge tone={a.statut === 'DISPONIBLE' ? 'success' : 'neutral'}>{a.statut === 'DISPONIBLE' ? 'Libre' : 'Occupé'}</Badge>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+          <ArrowLeft data-icon="inline-start" /> Retour
+        </Button>
+        {admin && (
+          <Button variant="outline" size="sm" className="ml-auto" onClick={() => navigate(`/articles/${a.id}/modifier`)}>
+            <Pencil data-icon="inline-start" /> Modifier
+          </Button>
         )}
-        {a.lotParentId && <Badge tone="neutral">Sous-article</Badge>}
       </div>
 
-      {a.lotParentId && (
-        <button
-          type="button"
-          onClick={() => navigate(`/articles/${a.lotParentId}`)}
-          className="mb-3 flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground hover:underline"
-        >
-          Fait partie de <span className="font-medium text-foreground">{a.lotParentCode || a.lotParentDescription}</span>
-        </button>
-      )}
+      <EnteteArticle a={a} onParent={() => navigate(`/articles/${a.lotParentId}`)} />
 
       <div className="flex flex-col gap-3">
-        <Card title="Détails" accent="var(--sec-tranche)">
-          <FieldGrid>
-            <Field label="Description" value={a.description} />
-            <Field label="Adresse" value={a.adresse} />
-            <Field label="Tranche" value={a.trancheDescription || a.trancheCode} />
-            <Field label="Type" value={a.typeLibelle} />
-            <Field label="Catégorie" value={a.categorieLibelle} />
-            <Field label="Type présentation" value={a.presentationTypeLibelle || a.presentationTypeCode} />
-            <Field label="Nature" value={a.natureLibelle} />
-            <Field label="Immeuble" value={a.immeubleLibelle} />
-            <Field label="Étage" value={a.etageLibelle} />
-            <Field label="Superficie" value={a.area ? formatSurface(a.area) : undefined} />
-            <Field label="Superficie sous-articles" value={a.superficieSousArticles ? formatSurface(a.superficieSousArticles) : undefined} />
-            <Field label="TVA" value={a.tauxTVA != null ? formatPercent(a.tauxTVA) : undefined} />
-            <Field
-              label="Prix de vente"
-              value={libellePrix(a.salePrice, a.salePriceFloor)}
-            />
-            <Field
-              label="Prix de vente commercial"
-              value={libellePrix(a.comSalePrice, a.comSalePriceFloor)}
-            />
-            <Field label="Titre foncier" value={a.titreFoncier} />
-          </FieldGrid>
-        </Card>
+        <DetailsArticle a={a} />
+        <PrixArticle a={a} />
 
         {a.dossierId && (
           <Card
@@ -170,19 +209,7 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
           </Card>
         )}
 
-        {a.sousLots && a.sousLots.length > 0 && (
-          <Card title={`Sous-lots (${a.sousLots.length})`}>
-            <div className="flex flex-col gap-2">
-              {a.sousLots.map((s) => (
-                <div key={s.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-muted/30 px-3 py-2 text-label">
-                  <span className="font-medium text-foreground">{s.code}</span>
-                  <span className="text-muted-foreground">{s.description}</span>
-                  <span className="font-medium tabular-nums text-foreground">{formatCurrency(s.salePrice)}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
+        <SousArticlesArticle article={a} admin={admin} onModifie={() => void refetch()} />
 
         <Card title={`Pièces jointes (${pieces.data?.length ?? 0})`}>
           {pieces.loading && <LoadingState />}

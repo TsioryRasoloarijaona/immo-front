@@ -92,6 +92,10 @@
       "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
     {
+      "name": "Programmes",
+      "description": "Programmes immobiliers (CfgProject) : lecture, création et modification."
+    },
+    {
       "name": "Pré-prospections",
       "description": "Leads bruts non encore qualifiés : ComProspection de type légataire `ComPreProspection` (`StrEntity`), le discriminant d'OMRAN lui-même — une pré-prospection peut donc déjà porter un prospect ou un commercial tant qu'elle n'a pas été transformée. Même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
@@ -322,6 +326,108 @@
         }
       }
     },
+    "/api/tranches": {
+      "get": {
+        "tags": [
+          "Tranches"
+        ],
+        "summary": "Liste paginée des tranches, à plat",
+        "description": "Toutes les tranches, tous projets confondus, ou filtrées sur un seul projet via `projetId`. Évite le\ncontournement N+1 (GET /api/projets puis GET /api/projets/{id}/tranches pour chacun) pour peupler\nune checklist de filtre côté front — voir instructions/filtres-avances.md point 2.",
+        "operationId": "findAll",
+        "parameters": [
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (Entité, CfgProject.id) pour ne renvoyer que ses tranches. Absent = toutes les tranches.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoTrancheListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tranches"
+        ],
+        "summary": "Crée une tranche",
+        "description": "Réservé au rôle `Administrateur`. Obligatoires : `projetId` (programme existant), `code`, `description`. Le code\nest saisi, débarrassé de ses espaces de bord et **unique sur toute la table**, pas par programme (règle d'OMRAN),\ncasse ignorée. Valeurs initiales d'OMRAN pour tout champ absent : délais 60/30 (engagements), 48 (rétractation),\n2 (intervention), 4 (visites), 60/30 (minutes notaire / tout soldé), écarts-types 5/3, pénalité d'annulation sur le\nprix de l'article, tout autre nombre à 0, cases à décocher, textes vides. Exception : `estEnVente` vaut **true** par\ndéfaut (le module Vente n'affiche que ces tranches). `concretisationPercent` est toujours recopié de\n`advancePercent`. Le créateur reçoit l'habilitation OMRAN sur la tranche (`AdmUserHabilitation`).",
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrancheEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Tranche créée ; renvoie sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent ou vide ; programme ou pays introuvable ; taux hors de [0 ; 1] (dont « Le crédit max ne\ndoit pas dépasser 100% ! ») ; montant ou délai négatif ; date de fin (travaux, commercialisation) antérieure au\ndébut ; texte trop long. Le ProblemDetail porte `champ` = nom du champ en faute.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par une autre tranche, tous programmes confondus.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/synchronisation": {
       "post": {
         "tags": [
@@ -369,7 +475,7 @@
         "tags": [
           "prospect-controller"
         ],
-        "operationId": "findAll",
+        "operationId": "findAll_1",
         "parameters": [
           {
             "name": "search",
@@ -431,7 +537,7 @@
         ],
         "summary": "Crée un prospect",
         "description": "`nom` ou `raisonSociale` est requis ; tout le reste est optionnel.\n\n**Un numéro de téléphone ne s'enregistre jamais seul.** Fournir `mobile` impose `indicatifMobile`,\nfournir `telephone` impose `indicatifTelephone` — sinon **400**. L'indicatif est l'indicatif pays\nsans le `+` (`\"212\"`, le `+` étant toléré et retiré), et il doit exister dans le référentiel : voir\nGET /api/referentiels/pays, champ `indicatifTelephone`. C'est ce contrôle qui rend l'envoi WhatsApp\nfiable en aval — un numéro sans indicatif est inenvoyable, un indicatif fautif expédie le message à\nun inconnu.\n\n**Le numéro est normalisé avant écriture**, au format que porte déjà la base : 9 chiffres deviennent\n`6 98 29 80 95` (espacé, zéro initial retiré) — la forme de 98,8 % des fiches existantes ; toute\nautre longueur est stockée en chiffres nus, comme le sont déjà les mobiles nord-américains à 10\nchiffres. La valeur relue peut donc différer de celle envoyée.\n\n**Contrôle de doublon d'identité.** Avant toute écriture, les fiches prospect/client au même nom,\ntéléphone ou email sont recherchées (règles de `GET /api/prospects/doublons`) ; s'il y en a et que\n`ignorerDoublons` n'est pas `true`, **409** avec la liste `doublons`.",
-        "operationId": "create",
+        "operationId": "create_1",
         "requestBody": {
           "content": {
             "application/json": {
@@ -580,7 +686,7 @@
         ],
         "summary": "Liste paginée des prospections",
         "description": "Filtre optionnellement par étape/origine/commercial (multi-sélection, une valeur pour un seul choix\nse comporte comme avant), tranche(s) visée(s), plage de dates sur la date du document, et recherche\nlibre. Exclut les pré-prospections (voir GET /api/pre-prospections). Voir\ninstructions/filtres-avances.md pour le détail des filtres avancés.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), cette liste ne contient que les prospections de ses projets affectés — filtrage côté\nserveur, en plus des filtres ci-dessus. Le projet d'une prospection est celui de sa tranche visée ;\ncelles sans tranche restent visibles de tous.",
-        "operationId": "findAll_1",
+        "operationId": "findAll_2",
         "parameters": [
           {
             "name": "etape",
@@ -1746,6 +1852,98 @@
         }
       }
     },
+    "/api/projets": {
+      "get": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Liste paginée des programmes des entités actives",
+        "description": "Restreinte aux programmes dont l'entité juridique est active (`CfgCompany.IsActive = 1`). `entiteCode` donne\nl'entité de chaque ligne.",
+        "operationId": "findAll_3",
+        "parameters": [
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoProjetListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Crée un programme",
+        "description": "Réservé au rôle `Administrateur`. Obligatoires : `entiteId` (entité existante **et active**), `code`, `description`.\nLe code est saisi (aucune numérotation automatique, comme OMRAN), débarrassé de ses espaces de bord et **unique sur\ntoute la table**, casse ignorée. Les textes non saisis sont enregistrés vides (`\"\"`), jamais `null`, pour rester\nlisibles par OMRAN. Le créateur reçoit l'habilitation OMRAN sur le programme (ligne `AdmUserHabilitation`), sans\nlaquelle OMRAN ne l'affiche à personne. Trace : `creePar`/`creeLe` et `modifiePar`/`modifieLe` posés au même instant.",
+        "operationId": "create_2",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjetEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Programme créé ; renvoie sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent ou vide ; entité ou pays introuvable ; entité inactive ; texte trop long ; date de fin\n(travaux ou commercialisation) antérieure à la date de début. Le corps ProblemDetail porte `champ` = nom du champ en\nfaute.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par un autre programme.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pre-prospections": {
       "get": {
         "tags": [
@@ -1753,7 +1951,7 @@
         ],
         "summary": "Liste paginée des pré-prospections",
         "description": "Mêmes filtres que GET /api/prospections (étape, origine, commercial, tranche(s), plage de dates,\nrecherche libre, ouvertes) appliqués aux leads non encore qualifiés. Voir\ninstructions/filtres-avances.md point 5.\n\n**Périmètre commercial** : si l'appelant est restreint, cette liste ne contient que les\npré-prospections de ses projets affectés, scopées par le projet de leur tranche visée. Les\npré-prospections sans tranche restent visibles de tous. Le filtre `commercial` s'applique : une\npré-prospection saisie dans OMRAN peut déjà porter un commercial (~780 en base réelle).",
-        "operationId": "findAll_2",
+        "operationId": "findAll_4",
         "parameters": [
           {
             "name": "etape",
@@ -2303,7 +2501,7 @@
         ],
         "summary": "Liste paginée des dossiers de vente",
         "description": "Filtre optionnellement par statut (multi-sélection, une valeur pour un seul statut se comporte comme\navant), commercial, entité (projet), tranche(s), plage de dates sur un jalon au choix, et recherche\nlibre sur le code du dossier OU le nom/prénom/raison sociale du client lié. Voir\ninstructions/filtres-avances.md pour le détail des filtres avancés.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), cette liste ne contient que les dossiers de ses projets affectés — filtrage côté serveur,\nappliqué en plus des filtres ci-dessus. Le front ne doit pas refiltrer par projet lui-même. Les\ndossiers dont le projet ne se résout pas restent visibles de tous.",
-        "operationId": "findAll_3",
+        "operationId": "findAll_5",
         "parameters": [
           {
             "name": "statut",
@@ -2478,8 +2676,8 @@
           "Dossiers"
         ],
         "summary": "Crée un dossier de vente à partir d'une prospection",
-        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\nDans les deux modes, la base est écrite comme le logiciel de bureau l'écrit : `ComFolder.Discount`\nen ratio 0–1 du HT avant remise, `ComFolder.DiscountAmount` en HT. L'API relit `remise` en\npourcentage (0–100) et `remiseMontant` en HT.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Prospect → client** : si le statut initial porte l'indicateur OMRAN « Transforme le prospect en\nclient », le tiers passe au type client (voir `PATCH /api/dossiers/{id}/statut`).",
-        "operationId": "create_1",
+        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\nDans les deux modes, la base est écrite comme le logiciel de bureau l'écrit : `ComFolder.Discount`\nen ratio 0–1 du HT avant remise, `ComFolder.DiscountAmount` en HT. L'API relit `remise` en\npourcentage (0–100) et `remiseMontant` en HT.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Prospect → client** : si le statut initial porte l'indicateur OMRAN « Transforme le prospect en\nclient », le tiers passe au type client (voir `PATCH /api/dossiers/{id}/statut`).\n\n**Sans `prix`** : les montants du dossier sont quand même écrits, au prix de référence cumulé des\narticles demandés (remise nulle) ; aucun schéma de financement n'est généré.\n\n**Écrit comme OMRAN** (le dossier apparaît dans les listes du logiciel de bureau) : statut initial\n`RESERVATION` (obligatoire), date du dossier **à minuit** (`dateDocument` sans heure), libellé\n« `<code>` du jj/mm/aaaa », surfaces, constantes et prix contractuel / montant du contrat calculés\ndepuis l'échéancier. Les sous-articles du lot principal encore libres (`StkItem.ParentId`) sont\nrattachés au dossier avec les annexes de la requête (une ligne `ComFolderItem` et une ligne\nd'historique « AFFECTATION » chacun) et figurent dans `articles` ; le prix, lui, ne compte que les\narticles de `articleIds`. Voir `FEATURE-interop-omran-ecritures.md` §3.",
+        "operationId": "create_3",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2513,6 +2711,16 @@
           },
           "403": {
             "description": "Le projet de l'article n'est pas dans le périmètre commercial de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Configuration incomplète : le statut `RESERVATION` des dossiers de vente est introuvable. Rien n'est\nécrit (comme OMRAN, qui refuse un dossier sans statut) ; le `detail` le dit explicitement.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2861,6 +3069,8 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Ajoute une échéance à l'échéancier du dossier",
+        "description": "Ajoute une échéance (`ComDocument`). `categorieId` est **obligatoire** : sans catégorie, l'échéance\nest invisible des écrans d'impayés d'OMRAN. Sans `description`, celle de la catégorie ; sans\n`dateEcheance`, aujourd'hui. La date est enregistrée **à minuit**. Société, module, TVA de la\ncatégorie, montants HT/TTC (HT = montant ÷ (1 + TVA), 6 décimales) sont complétés comme OMRAN.",
         "operationId": "addEcheance",
         "parameters": [
           {
@@ -2884,8 +3094,28 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Échéance créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`categorieId` absent, ou catégorie introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2903,7 +3133,7 @@
           "Dossiers"
         ],
         "summary": "Historique complet des règlements d'une échéance",
-        "description": "Contrepartie en lecture du `POST` ci-dessus — tous les versements déjà enregistrés sur cette\néchéance, plus récent d'abord, avec le détail complet de chacun : type de règlement\n(`typeId`/`typeCode`/`typeLibelle`, voir `GET /api/referentiels/types-reglement`), banque\n(`banqueId`/`banqueNom`, pertinent seulement si le type le requiert), tiers réglant\n(`payeurId`/`payeurNom` — peut différer de l'acquéreur principal), date du document (saisie), date\nd'échéance, date de règlement effectif (souvent absente), référence (n° de chèque...) et notes. `GET\n/api/dossiers/{id}/echeancier` ne renvoie que le total réglé/reste par échéance\n(`montantRegle`/`reste`) — cet endpoint donne le détail ligne par ligne derrière ce total.",
+        "description": "Contrepartie en lecture du `POST` ci-dessus — tous les versements déjà enregistrés sur cette\néchéance, plus récent d'abord, avec le détail complet de chacun : type de règlement\n(`typeId`/`typeCode`/`typeLibelle`, voir `GET /api/referentiels/types-reglement`), banque\n(`banqueId`/`banqueNom`, pertinent seulement si le type le requiert), tiers réglant\n(`payeurId`/`payeurNom` : `TierPayerId`, à défaut `TierId` — peut différer de l'acquéreur\nprincipal), date du document (saisie), date\nd'échéance, date de règlement effectif (souvent absente), référence (n° de chèque...) et notes. `GET\n/api/dossiers/{id}/echeancier` ne renvoie que le total réglé/reste par échéance\n(`montantRegle`/`reste`) — cet endpoint donne le détail ligne par ligne derrière ce total.",
         "operationId": "getReglements",
         "parameters": [
           {
@@ -2959,7 +3189,7 @@
           "Dossiers"
         ],
         "summary": "Enregistre un règlement sur une échéance",
-        "description": "Crée un `StlSettlement` + sa `StlSettlementLine` de rattachement à l'échéance `echeanceId`. Le\nrèglement naît toujours au statut `IN_WORK`.\n\n**Saisie complète obligatoire** (400 sur chaque manquement) : `montant` (strictement positif et au\nplus égal au reste à payer de l'échéance), `dateEcheance`, `typeId` et `payeurId`. `reference` (n°\nde chèque...) est requise dès que le type choisi a `TypeReglementDto.referenceObligatoire=true`\n(CHÈQUE, EFFET...) ; `banqueId` est requise dès que `TypeReglementDto.banqueObligatoire=true` — ce\nflag était annoncé mais pas appliqué jusqu'ici.\n\n`typeId` et `payeurId` sont exigés parce qu'ils alimentent le « Mode de versement » et le «\nVersement effectué par » de l'**autorisation d'encaissement**, à ouvrir juste après création via\n`GET /api/dossiers/{id}/reglements/{reglementId}/documents/autorisation-versement` (le `reglementId`\nest l'`id` renvoyé ici).\n\n`dateReglement` et `statut=POINTED` sont **refusés** (400) : pointer un règlement exige une preuve\nde paiement, impossible à fournir avant que le règlement existe. Pour saisir un règlement déjà\nencaissé, enchaîner : ce `POST`, puis `POST .../reglements/{reglementId}/pieces-jointes`, puis\n`PATCH .../reglements/{reglementId}/statut`.",
+        "description": "Crée un `StlSettlement` + sa `StlSettlementLine` de rattachement à l'échéance `echeanceId`. Le\nrèglement naît toujours au statut `IN_WORK`.\n\n**Saisie complète obligatoire** (400 sur chaque manquement) : `montant` (strictement positif et au\nplus égal au reste à payer de l'échéance), `dateEcheance`, `typeId` et `payeurId`. `reference` (n°\nde chèque...) est requise dès que le type choisi a `TypeReglementDto.referenceObligatoire=true`\n(CHÈQUE, EFFET...) ; `banqueId` est requise dès que `TypeReglementDto.banqueObligatoire=true` — ce\nflag était annoncé mais pas appliqué jusqu'ici.\n\n`typeId` et `payeurId` sont exigés parce qu'ils alimentent le « Mode de versement » et le «\nVersement effectué par » de l'**autorisation d'encaissement**, à ouvrir juste après création via\n`GET /api/dossiers/{id}/reglements/{reglementId}/documents/autorisation-versement` (le `reglementId`\nest l'`id` renvoyé ici).\n\n**Tiers** : comme OMRAN, `StlSettlement.TierId` reçoit le **client du dossier** et le payeur saisi\n(`payeurId`) va dans `TierPayerId` ; c'est lui que renvoient `payeurId`/`payeurNom` et qu'impriment\nle reçu et l'autorisation d'encaissement. La date du règlement est celle du jour, **à minuit** ; le\nlibellé suit le format OMRAN « `<type> <code banque> N° <référence> du jj/mm/aaaa` ».\n\n`dateReglement` et `statut=POINTED` sont **refusés** (400) : pointer un règlement exige une preuve\nde paiement, impossible à fournir avant que le règlement existe. Pour saisir un règlement déjà\nencaissé, enchaîner : ce `POST`, puis `POST .../reglements/{reglementId}/pieces-jointes`, puis\n`PATCH .../reglements/{reglementId}/statut`.",
         "operationId": "addReglement",
         "parameters": [
           {
@@ -3616,12 +3846,696 @@
         }
       }
     },
+    "/api/articles": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Catalogue transverse des articles",
+        "description": "Liste paginée de tous les articles racine et sous-articles, toutes tranches confondues — pour\nparcourir/rechercher le patrimoine sans devoir d'abord choisir une Tranche (contrairement à `GET\n/api/tranches/{id}/articles`, point d'entrée à privilégier quand la tranche est déjà connue).\n`search` filtre en sous-chaîne sur `code` OU `description` (insensible à la casse). `trancheId`\nrestreint à une ou plusieurs tranches (OR) sans changer d'écran. `statut` filtre sur la\ndisponibilité mais, à la différence des autres endpoints Article, **n'a pas de valeur par défaut\nici** : absent = tous les statuts (DISPONIBLE + OCCUPE), pour une vraie vue catalogue. Restreint aux\nentités juridiques actives (ADMOD/GHRIZA), comme les autres listings Projet/Tranche/Article. Filtres\nde parité avec la grille legacy \"Articles\" (instructions/from_front.md #4) : `entiteId` (CfgCompany,\nvoir `GET /api/referentiels/entites`), `natureId` (StkKind, voir `GET /api/referentiels/natures`),\n`vocationId` (StkVocation, voir `GET /api/referentiels/vocations`), `etageId` (StkFloor, voir `GET\n/api/referentiels/etages`), et les plages `prixDe`/`prixA` (sur `comSalePrice`) et\n`surfaceDe`/`surfaceA` (sur `area`), bornes inclusives et indépendamment optionnelles.",
+        "operationId": "findAll_6",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Sous-chaîne recherchée dans le code ou la description de l'article.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "A-204"
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de CfgTranche. Répétable, correspondance OR. Absent = toutes les tranches (des entités actives).",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Filtre sur la disponibilité. Absent = DISPONIBLE et OCCUPE.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DISPONIBLE",
+                "OCCUPE"
+              ]
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de StkItemType. Répétable, correspondance OR. Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id de CfgCompany (entité juridique). Absent = toutes (parmi les entités actives).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "natureId",
+            "in": "query",
+            "description": "Id de StkKind (nature du bien). Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vocationId",
+            "in": "query",
+            "description": "Id de StkVocation. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "etageId",
+            "in": "query",
+            "description": "Id de StkFloor (étage). Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "prixDe",
+            "in": "query",
+            "description": "Borne basse (incluse) sur le prix de vente (StkItem.ComSalePrice).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "prixA",
+            "in": "query",
+            "description": "Borne haute (incluse) sur le prix de vente (StkItem.ComSalePrice).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "surfaceDe",
+            "in": "query",
+            "description": "Borne basse (incluse) sur la superficie (StkItem.Area).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "surfaceA",
+            "in": "query",
+            "description": "Borne haute (incluse) sur la superficie (StkItem.Area).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Crée un article principal",
+        "description": "Réservé au rôle `Administrateur`. Crée un **article principal** (lot bâti). Obligatoires : `trancheId`, `code`\n(unique **dans la tranche**, sous-articles compris, casse ignorée — le même code dans une autre tranche est permis),\n`description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « Pour les sous articles »), `immeubleId`,\n`etageId`. `vocationId` vaut VENTE par défaut ; PROJET est refusée. Surfaces : provisoire 1 par défaut, définitive =\nprovisoire par défaut, toutes deux > 0. Le serveur pose la nature Bâtiment, le type de document OMRAN « StkItem »\n(sans lui l'article est invisible dans OMRAN), laisse les colonnes d'affectation vides, met à 0 les nombres et à vide\nles textes non saisis, et **calcule les prix stockés** : prix du m² TTC = HT × (1 + TVA) arrondi à 6 décimales, prix\narticle = prix du m² × surface (provisoire sur `surfaceProvisoire`, définitif sur `surfaceDefinitive`), prix de vente =\nprix article + sous-articles rattachés.",
+        "operationId": "create_4",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Article créé ; renvoie sa fiche, prix calculés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent ; tranche, vocation, catégorie, type, immeuble ou étage introuvable ; catégorie ou type hors\nnature Bâtiment ou paramétré pour les sous-articles ; vocation PROJET ; surface ≤ 0 (« La valeur de la supérficie\nprovisoire doit être strictement supérieure à 0 ! ») ; prix négatif ; TVA ou remise hors de [0 ; 1] ; texte trop long.\nLe ProblemDetail porte `champ`.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé dans la tranche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}/sous-articles": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Sous-articles disponibles (ou occupés) d'un article",
+        "description": "Liste paginée des sous-articles (StkItem.ParentId) d'un article donné — ex. les places de parking ou\ncaves annexées à un lot. `statut` filtre sur la disponibilité (défaut: DISPONIBLE) ;\n`categorieId`/`typeId` filtrent comme sur `GET /api/tranches/{id}/articles`. Chaque sous-article\nrenvoyé porte son propre `description` (son nom), pas seulement son `code`.",
+        "operationId": "findSousArticles",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Filtre sur la disponibilité du sous-article. Absent = DISPONIBLE.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DISPONIBLE",
+                "OCCUPE"
+              ]
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de StkItemType. Répétable, correspondance OR. Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Crée un sous-article rattaché à l'article",
+        "description": "Réservé au rôle `Administrateur`. Crée un lot annexe (parking, jardin, terrasse) **rattaché** à l'article `id` : même\ntranche, même vocation et même nature que lui ; immeuble de l'article par défaut ; catégorie et type paramétrés « Pour\nles sous articles » ; non titré par défaut. Le prix de vente de l'article est recalculé.",
+        "operationId": "createSousArticle",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SousArticleEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Sous-article créé ; renvoie sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "L'article `id` est lui-même un sous-article ; sinon mêmes causes qu'à la création d'un article.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun article avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris dans la tranche, ou article affecté à un dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}/sous-articles/{sousArticleId}/desaffecter": {
+      "post": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Détache un sous-article de l'article (il redevient libre)",
+        "description": "Réservé au rôle `Administrateur`. Le sous-article redevient libre (`toujoursAffecte` remis à faux) ; le prix de vente de\nl'article est recalculé.",
+        "operationId": "desaffecter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sousArticleId",
+            "in": "path",
+            "description": "Identifiant du sous-article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Détaché ; renvoie la fiche de l'article, prix de vente recalculé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Article ou sous-article introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Le sous-article n'est pas rattaché à cet article ; il a un dossier (« Vous ne pouvez pas désaffecter un sous article\nayant un dossier de vente ! », idem location) ; ou l'article est affecté à un dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}/sous-articles/{sousArticleId}/affecter": {
+      "post": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Rattache un sous-article libre de la tranche à l'article",
+        "description": "Réservé au rôle `Administrateur`. Le sous-article doit être **libre** dans la même tranche (voir\n`GET /api/tranches/{id}/sous-articles-libres`). Corps facultatif `{ \"toujoursAffecte\": true }`.",
+        "operationId": "affecter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sousArticleId",
+            "in": "path",
+            "description": "Identifiant du sous-article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AffectationSousArticleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rattaché ; renvoie la fiche de l'article, prix de vente recalculé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "L'article cible est lui-même un sous-article.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Article ou sous-article introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "« Ce sous article n'est pas libre » : déjà rattaché, toujours affecté, affecté à un dossier, pas un sous-article, ou dans\nune autre tranche ; ou article cible affecté à un dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}": {
+      "get": {
+        "tags": [
+          "Tranches"
+        ],
+        "summary": "Fiche d'une tranche",
+        "operationId": "findById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche de la tranche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune tranche avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Tranches"
+        ],
+        "summary": "Modifie une tranche (champs absents inchangés)",
+        "description": "Réservé au rôle `Administrateur`. PATCH : un champ absent ou `null` reste inchangé ; `\"\"` vide un texte facultatif\n(refusé pour `code` et `description`). `projetId` ne se modifie pas : une valeur différente du programme actuel\ndonne 400 « Le programme d'une tranche ne se modifie pas ». `concretisationPercent` suit `advancePercent`.",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrancheEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Tranche modifiée ; renvoie sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Mêmes causes qu'à la création, plus un `projetId` différent du programme actuel.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune tranche avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par une autre tranche, tous programmes confondus.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prospects/{id}": {
       "get": {
         "tags": [
           "prospect-controller"
         ],
-        "operationId": "findById",
+        "operationId": "findById_1",
         "parameters": [
           {
             "name": "id",
@@ -3652,7 +4566,7 @@
         ],
         "summary": "Modifie un prospect",
         "description": "Mise à jour partielle : un champ absent ou `null` est laissé inchangé.\n\n**Les mêmes règles de téléphone qu'à la création s'appliquent** (voir POST /api/prospects), avec une\nconséquence propre à la modification : l'indicatif **n'est jamais repris implicitement** de la fiche\nexistante. Modifier `mobile` sans envoyer `indicatifMobile` renvoie 400 même si la fiche en portait\ndéjà un — un numéro qui change peut changer de pays, et hériter de l'ancien indicatif fabriquerait\nun numéro qui n'existe pas.\n\nEn revanche, une modification qui **ne touche pas** au téléphone ne demande aucun indicatif : les\nfiches historiques dont l'indicatif manque restent modifiables sur leurs autres champs.",
-        "operationId": "update",
+        "operationId": "update_1",
         "parameters": [
           {
             "name": "id",
@@ -3715,7 +4629,7 @@
         ],
         "summary": "Détail d'une prospection (ou d'une pré-prospection)",
         "description": "Sert aussi bien une prospection qualifiée qu'une pré-prospection : `GET /api/pre-prospections`\nn'expose pas de route de détail propre, les deux partagent cette fiche.\n\n**Périmètre commercial** : une prospection hors du périmètre de l'appelant renvoie **404**, et non\n403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants. Même règle pour\ntoutes les routes imbriquées (interactions, devis, qualification, documents).\n\n**Deux origines de données, deux comportements** :\n- les champs issus de `ComProspection` et de ses associations (société, type de tiers, coordonnées,\ncodes de référentiel, audit) sont servis **dans tous les cas**, pré-prospection comprise ;\n- le bloc `activite` vient de `ComSaleProspectionView`, qui exclut les pré-prospections : il vaut\nalors `null` **en entier**. `null` signifie « non disponible », jamais « zéro ».\n\nLes champs mesurés morts (`prix`, `surface`, avance, financement, `proposeur*`) restent exposés pour\nne pas rompre le contrat existant, mais ne doivent pas être affichés — voir leur `@Schema`.\n\n**Tri manuel et déduplication** : `marqueurTri` (`DOUBLON`, `SPAM`, `TRAITE`) et `doublonDe*`\nexposent un mécanisme que l'équipe tenait dans des champs libres. **L'endpoint les expose sans rien\nfiltrer** — 798 pré-prospections sont marquées doublon ou spam et 795 d'entre elles sont encore à\nl'étape `1 A TRAITER` : c'est au client de décider du traitement. Voir\n`instructions/FEATURE-marqueurs-tri-pre-prospection.md`.\n\n**Sur une pré-prospection**, `fermee` (0 %), les champs `article*` (0,2 %) et `proposeur*` (0 %)\nsont structurellement vides — ne pas les attendre.",
-        "operationId": "findById_1",
+        "operationId": "findById_2",
         "parameters": [
           {
             "name": "id",
@@ -4034,6 +4948,131 @@
         }
       }
     },
+    "/api/projets/{id}": {
+      "get": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Fiche d'un programme",
+        "operationId": "findById_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du programme (CfgProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche du programme.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun programme avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Modifie un programme (champs absents inchangés)",
+        "description": "Réservé au rôle `Administrateur`. PATCH : un champ absent ou `null` reste inchangé ; une chaîne vide `\"\"` vide un\ntexte facultatif mais est refusée (400) pour `code` et `description`. Les dates sont contrôlées sur les valeurs\nrésultantes (fin ≥ début). Pose `modifiePar`/`modifieLe`.",
+        "operationId": "update_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du programme (CfgProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjetEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Programme modifié ; renvoie sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Mêmes causes qu'à la création.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun programme avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par un autre programme.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/mon-compte/profil": {
       "patch": {
         "tags": [
@@ -4082,7 +5121,7 @@
           "Dossiers"
         ],
         "summary": "Change le statut du dossier de vente",
-        "description": "Change le statut du dossier. La transition doit figurer dans la table des transitions validées\n(sinon **409**, avec `transitionsAutorisees`) ; un dossier sans statut courant accepte tout statut.\n\n**Prospect → client, comme OMRAN** : si le statut cible porte l'indicateur « Transforme le prospect\nen client » (`StrStatus.BoolField011` : CONCRETISATION, COMPROMIS, FORMALISE…), et que le client du\ndossier est de type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`), son type devient le type client\ncorrespondant (`CLI`, `CLIRNT`, `CLIPRM`, `CLIROM`), dans la même transaction. Une ligne\nd'historique distincte « Prospect transformé en client » (type `STATUT`) s'ajoute alors à celle du\nchangement de statut, dont la note reste intacte.\nDéjà client, type absent ou inconnu : rien ne change. Jamais de retour client → prospect.",
+        "description": "Change le statut du dossier. La transition doit figurer dans la table des transitions validées\n(sinon **409**, avec `transitionsAutorisees`). Un dossier **sans statut** (lignes anciennes, à\nreprendre par le script 015) est refusé en **409** ; un statut à code inconnu accepte tout statut.\nLa modification signe `UserUpdate`/`UserUpdateDateTime` (`modifiePar`/`modifieLe`).\n\n**Prospect → client, comme OMRAN** : si le statut cible porte l'indicateur « Transforme le prospect\nen client » (`StrStatus.BoolField011` : CONCRETISATION, COMPROMIS, FORMALISE…), et que le client du\ndossier est de type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`), son type devient le type client\ncorrespondant (`CLI`, `CLIRNT`, `CLIPRM`, `CLIROM`), dans la même transaction. Une ligne\nd'historique distincte « Prospect transformé en client » (type `STATUT`) s'ajoute alors à celle du\nchangement de statut, dont la note reste intacte.\nDéjà client, type absent ou inconnu : rien ne change. Jamais de retour client → prospect.",
         "operationId": "changerStatut",
         "parameters": [
           {
@@ -4137,7 +5176,7 @@
             }
           },
           "409": {
-            "description": "Transition non autorisée depuis le statut courant ; le corps liste `transitionsAutorisees`.",
+            "description": "Transition non autorisée depuis le statut courant ; le corps liste `transitionsAutorisees`. Ou\ndossier sans statut : « Dossier sans statut : reprise nécessaire (script 015) ».",
             "content": {
               "*/*": {
                 "schema": {
@@ -4238,6 +5277,8 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Modifie une échéance (seuls les champs fournis changent)",
+        "description": "Mise à jour partielle : seuls les champs fournis changent ; les montants HT/TTC sont recalculés et\nla modification est signée (`UserUpdate`). Une échéance sans catégorie exige `categorieId`.",
         "operationId": "updateEcheance",
         "parameters": [
           {
@@ -4271,11 +5312,146 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Échéance modifiée.",
             "content": {
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Catégorie introuvable, ou échéance sans catégorie et `categorieId` absent.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou échéance introuvable (ou l'échéance n'appartient pas à ce dossier).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Détail d'un article ou sous-article",
+        "description": "Fonctionne indifféremment pour un article racine ou un sous-article (même table StkItem) — la\n\"recherche inverse\" (partir d'un sous-article pour retrouver sa tranche et son article parent) passe\npar ce même endpoint : `trancheId`/`trancheCode`/`trancheDescription` et\n`lotParentId`/`lotParentCode`/`lotParentDescription` sont toujours renseignés quand applicable, sans\nappel supplémentaire. `sousLots` liste tous les sous-articles de cet article, quel que soit leur\nstatut. `immeubleId`/`immeubleCode`/`immeubleLibelle` (StkBuilding),\n`etageId`/`etageCode`/`etageLibelle` (StkFloor) et `natureId`/`natureCode`/`natureLibelle` (StkKind)\nsont chacun des référentiels distincts de Catégorie/Type — tous null si l'article n'est rattaché à\naucune valeur (ex. un terrain n'a ni immeuble ni étage). `salePriceFloor`/`comSalePriceFloor` (prix\nplancher) sont distincts de `salePrice`/`comSalePrice` (prix commercial) — ce dernier peut valoir 0\nsur un article dont le prix commercial n'a jamais été saisi alors qu'un prix plancher existe déjà\n(confirmé sur données réelles) ; au front de décider s'il affiche le plancher en repli dans ce cas.\n`tauxTVA` (StkItem.Vat, ratio brut) et\n`presentationTypeId`/`presentationTypeCode`/`presentationTypeLibelle` (StkPresentationType, \"Type\nPrésentation\" de la grille legacy — codes courts F/C/D/H..., scopés par tranche) répondent à\ninstructions/from_front.md #4. `superficieSousArticles` est la somme des superficies des\nsous-articles rattachés (0 si aucun), distincte de `area` (superficie de l'article lui-même).",
+        "operationId": "findById_4",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Modifie un article ou un sous-article (champs absents inchangés)",
+        "description": "Réservé au rôle `Administrateur`. Vaut pour un article comme pour un sous-article. PATCH : absent ou `null` = inchangé,\n`\"\"` = vider un texte facultatif. `trancheId` ne se modifie pas (400). Un sous-article garde la vocation de son article\n(400 si elle change) et ses listes sont celles « Pour les sous articles ». Les prix stockés ne sont recalculés que si\nune surface, un prix au m² ou la TVA change ; le prix de vente de l'article parent suit alors.",
+        "operationId": "update_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Article modifié ; renvoie sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Mêmes causes qu'à la création, plus un changement de `trancheId`, ou de vocation sur un sous-article.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun article avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris dans la tranche ; ou **article occupé** (dossier de vente ou de location, ou parent qui en a un) dont la\ndemande change un champ protégé — code, vocation, catégorie, type, surfaces, prix au m², TVA, remises : « L'article X\nest affecté au dossier Y : ses prix, surfaces et classification ne se modifient plus ». Description, notes, adresse,\ntitre foncier, titré, surfaces intérieure/murs/parties communes, immeuble et étage restent modifiables. `champ` nomme\nle premier champ protégé changé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
                 }
               }
             }
@@ -4290,7 +5466,7 @@
         ],
         "summary": "Liste les comptes utilisateurs",
         "description": "Tous les comptes (AdmUser) avec leurs informations (identifiant, coordonnées, statut\nactivé/désactivé), la fiche employé (CfgTier) liée et les rôles (AdmRole) assignés — écran\nd'administration des comptes. `search` filtre (insensible à la casse, sous-chaîne) sur\nidentifiant/description/email. `disabled` filtre sur le statut activé/désactivé ; absent = tous les\ncomptes. Réservé au rôle Administrateur.",
-        "operationId": "findAll_4",
+        "operationId": "findAll_7",
         "parameters": [
           {
             "name": "search",
@@ -4343,20 +5519,20 @@
         }
       }
     },
-    "/api/tranches": {
+    "/api/tranches/{id}/sous-articles-libres": {
       "get": {
         "tags": [
           "Tranches"
         ],
-        "summary": "Liste paginée des tranches, à plat",
-        "description": "Toutes les tranches, tous projets confondus, ou filtrées sur un seul projet via `projetId`. Évite le\ncontournement N+1 (GET /api/projets puis GET /api/projets/{id}/tranches pour chacun) pour peupler\nune checklist de filtre côté front — voir instructions/filtres-avances.md point 2.",
-        "operationId": "findAll_5",
+        "summary": "Sous-articles libres de la tranche, à affecter à un article",
+        "description": "Lots annexes de la tranche qu'on peut rattacher à un article (`POST /api/articles/{id}/sous-articles/{sousArticleId}/affecter`) :\n`IsUnderItem = 1`, non « toujours affecté », sans article parent, sans dossier de vente ni de location — le filtre\nd'OMRAN plus les deux garde-fous d'occupation. Triés par code par défaut.",
+        "operationId": "findSousArticlesLibres",
         "parameters": [
           {
-            "name": "projetId",
-            "in": "query",
-            "description": "Id du projet (Entité, CfgProject.id) pour ne renvoyer que ses tranches. Absent = toutes les tranches.",
-            "required": false,
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la tranche (CfgTranche.PKey).",
+            "required": true,
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -4373,42 +5549,21 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Sous-articles libres (éventuellement aucun).",
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/PageDtoTrancheListItemDto"
+                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/api/tranches/{id}": {
-      "get": {
-        "tags": [
-          "Tranches"
-        ],
-        "operationId": "findById_2",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
+          },
+          "404": {
+            "description": "Aucune tranche avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/TrancheDetailDto"
+                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
                 }
               }
             }
@@ -4579,7 +5734,7 @@
         ],
         "summary": "Liste des actions commerciales, colonnes au choix",
         "description": "La grille de l'écran OMRAN. Tous les filtres sont optionnels et se combinent en ET.\n\n**Période fin exclue**, comme OMRAN : `dateDebut <= DocDate < dateFin`. Un jour J = `dateDebut=J\nT00:00` et `dateFin=J+1 T00:00`.\n\n**Colonnes** : `?colonnes=` choisit les champs servis (catalogue et liste blanche : `GET\n/api/referentiels/colonnes/suivi-actions`). `rang`, `alerteActive`, `etat` et `personnel` sont\ncalculées pour la page servie, et seulement quand elles sont demandées : ni triables ni groupables.\n\n**Tri** : `sort=docDate,desc` par défaut ; seules les propriétés de l'action (`docDate`, `userName`,\n`alertValidityDate`…) sont triables.\n\nLes actions **système** (relances, événements générés) sont listées, comme dans OMRAN —\n`systeme=false` pour ne garder que les saisies.",
-        "operationId": "findAll_6",
+        "operationId": "findAll_8",
         "parameters": [
           {
             "name": "dateDebut",
@@ -4911,7 +6066,19 @@
         "tags": [
           "Référentiels"
         ],
+        "summary": "Vocations d'article (StkVocation)",
         "operationId": "getVocations",
+        "parameters": [
+          {
+            "name": "pourArticle",
+            "in": "query",
+            "description": "true : sans la vocation PROJET, réservée aux terrains (formulaire article). Absent : toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -5148,7 +6315,19 @@
         "tags": [
           "Référentiels"
         ],
+        "summary": "Types de bien (StkItemType)",
         "operationId": "getTypesBien_1",
+        "parameters": [
+          {
+            "name": "pourSousArticle",
+            "in": "query",
+            "description": "Présent : nature Bâtiment seulement, paramétrées « Pour les sous articles » (true) ou non (false). Absent : toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -5746,6 +6925,30 @@
         }
       }
     },
+    "/api/referentiels/immeubles": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Immeubles (StkBuilding), triés par ordre d'affichage puis code",
+        "operationId": "getImmeubles",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/etapes-prospection": {
       "get": {
         "tags": [
@@ -6022,7 +7225,19 @@
         "tags": [
           "Référentiels"
         ],
+        "summary": "Catégories de bien (StkItemCategory)",
         "operationId": "getCategoriesBien",
+        "parameters": [
+          {
+            "name": "pourSousArticle",
+            "in": "query",
+            "description": "Présent : nature Bâtiment seulement, paramétrées « Pour les sous articles » (true) ou non (false). Absent : toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -6895,77 +8110,18 @@
         }
       }
     },
-    "/api/projets": {
-      "get": {
-        "tags": [
-          "projet-controller"
-        ],
-        "operationId": "findAll_7",
-        "parameters": [
-          {
-            "name": "pageable",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Pageable"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoProjetListItemDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/projets/{id}": {
-      "get": {
-        "tags": [
-          "projet-controller"
-        ],
-        "operationId": "findById_3",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProjetDetailDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/projets/{id}/tranches": {
       "get": {
         "tags": [
-          "projet-controller"
+          "Programmes"
         ],
+        "summary": "Tranches d'un programme",
         "operationId": "findTranches",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant du programme (CfgProject.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -6983,7 +8139,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Tranches du programme (éventuellement aucune).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoTrancheListItemDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun programme avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -7435,7 +8601,7 @@
         ],
         "summary": "Liste paginée des encaissements (règlements de Dossiers de vente)",
         "description": "Toujours restreint aux règlements liés à au moins une échéance de Dossier de vente (les règlements\nd'achat/location, s'il y en a, ne remontent jamais ici), et aux **encaissements** : un décaissement\n(`StlSettlement.IsCredit` faux, typiquement un remboursement à montant négatif) ne remonte jamais,\ncomme sur l'écran legacy. `montantBrutRestant` (calculé : montant brut moins la part déjà affectée à\nune échéance) et `montantNet` (montant brut moins retenue source/timbre) sont calculés côté serveur,\njamais stockés. `etat` accepte les 3 valeurs confirmées sur données réelles (IN_WORK, POINTED,\nCANCELED) — l'écran legacy propose aussi \"Impayé(e)\"/\"Perdu(e)\" comme filtres mais aucune ligne\nréelle ne les porte à ce jour ; passés tel quel (comparaison insensible à la casse), donc\nutilisables dès qu'un vrai code sera confirmé, sans changement d'API.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), cette liste ne contient que les règlements portant au moins une ligne rattachée à un dossier\nd'un de ses projets affectés. Les règlements dont aucune ligne ne résout de projet restent visibles\nde tous.\n\n**Encaissements non affectés : volontairement absents.** Un règlement encaissé mais pas encore\nimputé à une échéance n'a aucune ligne, donc ne remonte pas ici. L'écran legacy les affiche (il les\nreconnaît sous `StlSettlementRelationView.Origin = 'StlSettlement-NonAffecte'`) : 16 pièces pour\n6 435 400 DH sur les données réelles, toutes à l'état IN_WORK. Les servir suppose de changer le\ncritère \"Vente\" — décision produit en attente, voir\n`instructions/FEATURE-encaissements-conformite-legataire.md` §4. Ne pas confondre avec un filtre\ntrop strict : c'est un choix assumé.",
-        "operationId": "findAll_8",
+        "operationId": "findAll_9",
         "parameters": [
           {
             "name": "entiteId",
@@ -7689,7 +8855,7 @@
         ],
         "summary": "Fiche d'un encaissement (règlement) et ses affectations",
         "description": "Alimente le panneau détail \"Pièce de règlement\" côté front (`EncaissementDetail.tsx`).\n`montantBrutRestant` et `montantNet` sont recalculés côté serveur, jamais stockés, comme sur la\nliste.\n\n**`affectations` : les échéances que ce règlement solde**, montant croissant — l'ordre de l'écran\nlégataire. C'est la réponse à « ce règlement, il a payé quoi ? », que la liste ne sait pas donner :\nelle n'expose qu'un `dossierCode`, celui de la *première* ligne, et masque donc les autres sur les 8\nrèglements réels qui couvrent plusieurs dossiers. La somme des `montantAffecte` vaut `montantBrut -\nmontantBrutRestant`. Tableau vide = règlement encaissé mais pas encore imputé.\n\n**Cette réponse n'est pas filtrée par `?colonnes=`** — une fiche dit tout, là où une grille laisse\nchoisir ses colonnes. Elle porte donc plus de clés que les lignes de la liste : celles hors\nsélection par défaut, plus `affectations`. Aucune clé ne disparaît et aucune ne change de type.\n\n**Périmètre commercial** : un encaissement hors du périmètre de l'appelant renvoie **404**, et non\n403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants.",
-        "operationId": "findById_4",
+        "operationId": "findById_5",
         "parameters": [
           {
             "name": "id",
@@ -7985,7 +9151,7 @@
         ],
         "summary": "Détail d'un dossier de vente",
         "description": "Fiche complète du dossier : statut courant et étapes atteignables, client/commercial/notaire,\narticles liés, ventilation des montants et prospection d'origine.\n\n**Périmètre commercial** : un dossier hors du périmètre de l'appelant renvoie **404**, et non 403 —\nun 403 confirmerait son existence et permettrait d'énumérer les identifiants. La même règle\ns'applique à *toutes* les routes imbriquées de ce dossier (échéancier, règlements, pièces jointes,\nhistorique, générateurs de documents).",
-        "operationId": "findById_5",
+        "operationId": "findById_6",
         "parameters": [
           {
             "name": "id",
@@ -8837,7 +10003,7 @@
         ],
         "summary": "Liste paginée de toutes les offres (devis), tous prospections confondues",
         "description": "Filtre optionnellement par recherche libre sur le code de l'offre, tranche(s), commercial, et plage\nde dates sur la date de l'offre (dateDocument). Chaque ligne porte prospectionId/prospectionCode\npour la colonne \"Prospection\" et le lien cliquable vers la prospection d'origine.\nsommePrixVenteTTCPage est calculé uniquement sur la page renvoyée, pas sur l'ensemble des résultats\nfiltrés — voir la description du champ.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), seules les offres portant une tranche d'un de ses projets affectés sont renvoyées (plus\ncelles sans tranche, dont le projet ne se résout pas). Ce filtre s'ajoute aux filtres ci-dessus :\ndemander explicitement une `trancheId` hors périmètre renvoie une page vide, pas une erreur.\n`sommePrixVenteTTCPage` porte donc sur les seules lignes visibles.",
-        "operationId": "findAll_9",
+        "operationId": "findAll_10",
         "parameters": [
           {
             "name": "search",
@@ -9188,7 +10354,7 @@
         "tags": [
           "commercial-controller"
         ],
-        "operationId": "findAll_10",
+        "operationId": "findAll_11",
         "parameters": [
           {
             "name": "pageable",
@@ -9220,7 +10386,7 @@
         ],
         "summary": "Liste des clients",
         "description": "Les tiers portant au moins un dossier de vente sur une entité juridique en exploitation, avec leurs\nagrégats calculés côté serveur (nombre de dossiers, total à payer, total réglé). Une page vide\nsignifie qu'aucun client ne correspond, pas une erreur.\n\n**Filtre par tranche** (`trancheId`, réservé aux administrateurs) : seuls les clients ayant au moins\nun dossier dans cette tranche — même règle d'appartenance que `GET /api/dossiers?trancheId=` (un\narticle lié ou l'article principal du dossier dans la tranche). Les agrégats (`nombreDossiers`,\n`totalAPayer`, `totalRegle`) restent calculés sur **tous** les dossiers du client, pas sur ceux de\nla tranche seule.",
-        "operationId": "findAll_11",
+        "operationId": "findAll_12",
         "parameters": [
           {
             "name": "search",
@@ -9291,7 +10457,7 @@
         "tags": [
           "Clients"
         ],
-        "operationId": "findById_6",
+        "operationId": "findById_7",
         "parameters": [
           {
             "name": "id",
@@ -9980,289 +11146,6 @@
         }
       }
     },
-    "/api/articles": {
-      "get": {
-        "tags": [
-          "Articles"
-        ],
-        "summary": "Catalogue transverse des articles",
-        "description": "Liste paginée de tous les articles racine et sous-articles, toutes tranches confondues — pour\nparcourir/rechercher le patrimoine sans devoir d'abord choisir une Tranche (contrairement à `GET\n/api/tranches/{id}/articles`, point d'entrée à privilégier quand la tranche est déjà connue).\n`search` filtre en sous-chaîne sur `code` OU `description` (insensible à la casse). `trancheId`\nrestreint à une ou plusieurs tranches (OR) sans changer d'écran. `statut` filtre sur la\ndisponibilité mais, à la différence des autres endpoints Article, **n'a pas de valeur par défaut\nici** : absent = tous les statuts (DISPONIBLE + OCCUPE), pour une vraie vue catalogue. Restreint aux\nentités juridiques actives (ADMOD/GHRIZA), comme les autres listings Projet/Tranche/Article. Filtres\nde parité avec la grille legacy \"Articles\" (instructions/from_front.md #4) : `entiteId` (CfgCompany,\nvoir `GET /api/referentiels/entites`), `natureId` (StkKind, voir `GET /api/referentiels/natures`),\n`vocationId` (StkVocation, voir `GET /api/referentiels/vocations`), `etageId` (StkFloor, voir `GET\n/api/referentiels/etages`), et les plages `prixDe`/`prixA` (sur `comSalePrice`) et\n`surfaceDe`/`surfaceA` (sur `area`), bornes inclusives et indépendamment optionnelles.",
-        "operationId": "findAll_12",
-        "parameters": [
-          {
-            "name": "search",
-            "in": "query",
-            "description": "Sous-chaîne recherchée dans le code ou la description de l'article.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "example": "A-204"
-          },
-          {
-            "name": "trancheId",
-            "in": "query",
-            "description": "Id(s) de CfgTranche. Répétable, correspondance OR. Absent = toutes les tranches (des entités actives).",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "statut",
-            "in": "query",
-            "description": "Filtre sur la disponibilité. Absent = DISPONIBLE et OCCUPE.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "DISPONIBLE",
-                "OCCUPE"
-              ]
-            }
-          },
-          {
-            "name": "categorieId",
-            "in": "query",
-            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR. Absent = toutes.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "typeId",
-            "in": "query",
-            "description": "Id(s) de StkItemType. Répétable, correspondance OR. Absent = tous.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "entiteId",
-            "in": "query",
-            "description": "Id de CfgCompany (entité juridique). Absent = toutes (parmi les entités actives).",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "natureId",
-            "in": "query",
-            "description": "Id de StkKind (nature du bien). Absent = toutes.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "vocationId",
-            "in": "query",
-            "description": "Id de StkVocation. Absent = toutes.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "etageId",
-            "in": "query",
-            "description": "Id de StkFloor (étage). Absent = tous.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "prixDe",
-            "in": "query",
-            "description": "Borne basse (incluse) sur le prix de vente (StkItem.ComSalePrice).",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "prixA",
-            "in": "query",
-            "description": "Borne haute (incluse) sur le prix de vente (StkItem.ComSalePrice).",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "surfaceDe",
-            "in": "query",
-            "description": "Borne basse (incluse) sur la superficie (StkItem.Area).",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "surfaceA",
-            "in": "query",
-            "description": "Borne haute (incluse) sur la superficie (StkItem.Area).",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "pageable",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Pageable"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/articles/{id}": {
-      "get": {
-        "tags": [
-          "Articles"
-        ],
-        "summary": "Détail d'un article ou sous-article",
-        "description": "Fonctionne indifféremment pour un article racine ou un sous-article (même table StkItem) — la\n\"recherche inverse\" (partir d'un sous-article pour retrouver sa tranche et son article parent) passe\npar ce même endpoint : `trancheId`/`trancheCode`/`trancheDescription` et\n`lotParentId`/`lotParentCode`/`lotParentDescription` sont toujours renseignés quand applicable, sans\nappel supplémentaire. `sousLots` liste tous les sous-articles de cet article, quel que soit leur\nstatut. `immeubleId`/`immeubleCode`/`immeubleLibelle` (StkBuilding),\n`etageId`/`etageCode`/`etageLibelle` (StkFloor) et `natureId`/`natureCode`/`natureLibelle` (StkKind)\nsont chacun des référentiels distincts de Catégorie/Type — tous null si l'article n'est rattaché à\naucune valeur (ex. un terrain n'a ni immeuble ni étage). `salePriceFloor`/`comSalePriceFloor` (prix\nplancher) sont distincts de `salePrice`/`comSalePrice` (prix commercial) — ce dernier peut valoir 0\nsur un article dont le prix commercial n'a jamais été saisi alors qu'un prix plancher existe déjà\n(confirmé sur données réelles) ; au front de décider s'il affiche le plancher en repli dans ce cas.\n`tauxTVA` (StkItem.Vat, ratio brut) et\n`presentationTypeId`/`presentationTypeCode`/`presentationTypeLibelle` (StkPresentationType, \"Type\nPrésentation\" de la grille legacy — codes courts F/C/D/H..., scopés par tranche) répondent à\ninstructions/from_front.md #4. `superficieSousArticles` est la somme des superficies des\nsous-articles rattachés (0 si aucun), distincte de `area` (superficie de l'article lui-même).",
-        "operationId": "findById_7",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArticleDetailDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/articles/{id}/sous-articles": {
-      "get": {
-        "tags": [
-          "Articles"
-        ],
-        "summary": "Sous-articles disponibles (ou occupés) d'un article",
-        "description": "Liste paginée des sous-articles (StkItem.ParentId) d'un article donné — ex. les places de parking ou\ncaves annexées à un lot. `statut` filtre sur la disponibilité (défaut: DISPONIBLE) ;\n`categorieId`/`typeId` filtrent comme sur `GET /api/tranches/{id}/articles`. Chaque sous-article\nrenvoyé porte son propre `description` (son nom), pas seulement son `code`.",
-        "operationId": "findSousArticles",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "statut",
-            "in": "query",
-            "description": "Filtre sur la disponibilité du sous-article. Absent = DISPONIBLE.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "DISPONIBLE",
-                "OCCUPE"
-              ]
-            }
-          },
-          {
-            "name": "categorieId",
-            "in": "query",
-            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR. Absent = toutes.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "typeId",
-            "in": "query",
-            "description": "Id(s) de StkItemType. Répétable, correspondance OR. Absent = tous.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "pageable",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Pageable"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/articles/{id}/pieces-jointes": {
       "get": {
         "tags": [
@@ -10864,6 +11747,590 @@
             ],
             "description": "Adresse de destination, masquée. Adresse du corps si fournie, sinon `AdmUser.Email`, à défaut\nl'email de la fiche employé (`CfgTier`). `null` si aucun destinataire n'existe (aucun email publié).",
             "example": "j***@exemple.ma"
+          }
+        }
+      },
+      "TrancheEcritureDto": {
+        "type": "object",
+        "description": "Création (POST) ou modification partielle (PATCH) d'une tranche (CfgTranche). Taux en fraction : 0.2 = 20 %.",
+        "properties": {
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Programme (CfgProject.id). Obligatoire à la création, non modifiable ensuite."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code saisi, unique sur toute la table (pas par programme). Obligatoire à la création."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé de la tranche. Obligatoire à la création."
+          },
+          "descriptionLongue": {
+            "type": "string",
+            "description": "Description détaillée (500 caractères au plus)."
+          },
+          "estEnVente": {
+            "type": "boolean",
+            "description": "Visible dans le module Vente (IsForSale). Défaut true."
+          },
+          "estEnLocation": {
+            "type": "boolean",
+            "description": "Visible dans le module Location (IsForRent). Défaut false."
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "adresse2": {
+            "type": "string"
+          },
+          "adresse3": {
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string",
+            "description": "Ville, texte libre."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pays (AdmCountry.id)."
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "fax": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "siteWeb": {
+            "type": "string"
+          },
+          "dateDebutTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fin des travaux, postérieure ou égale au lancement."
+          },
+          "dateDebutCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinCommercialisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fin de commercialisation, postérieure ou égale au début."
+          },
+          "dateOctroiTitresFonciers": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'octroi des titres fonciers (DeliveryDate)."
+          },
+          "datePermisHabiter": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du permis d'habiter (OccupancyPermitsDate)."
+          },
+          "dateReception": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de réception (ReceptionDate)."
+          },
+          "datePremiereRelance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la première relance (Revival1Date)."
+          },
+          "dateFinConcretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fin des concrétisations (EndDateConcretisation)."
+          },
+          "dateDebutFinalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de début des finalisations (StartDateFinalisation)."
+          },
+          "montantPreReservation": {
+            "type": "number",
+            "description": "Montant de pré-réservation (BeforeReservationAmount), ≥ 0."
+          },
+          "montantPreReservationRemise": {
+            "type": "number",
+            "description": "Montant de pré-réservation pour anciens clients, ≥ 0."
+          },
+          "avanceSurMontant": {
+            "type": "boolean",
+            "description": "Avance calculée sur un montant fixe plutôt qu'un pourcentage (AdvanceBasedOnAmount)."
+          },
+          "montantAvance": {
+            "type": "number",
+            "description": "Montant d'avance (AdvanceAmount), ≥ 0."
+          },
+          "advancePercent": {
+            "type": "number",
+            "description": "« Concrétisation » d'OMRAN, fraction ∈ [0 ; 1]. Recopiée dans concretisationPercent."
+          },
+          "advancePercentRemise": {
+            "type": "number",
+            "description": "Concrétisation pour anciens clients, fraction ∈ [0 ; 1]."
+          },
+          "advancePercentRemiseActive": {
+            "type": "boolean",
+            "description": "Active la concrétisation anciens clients (IsActiveAdvancePercentDiscount)."
+          },
+          "fraisDossier": {
+            "type": "number",
+            "description": "Frais de dossier (DefaultExpenseAmount), ≥ 0."
+          },
+          "fraisDossierRemise": {
+            "type": "number",
+            "description": "Frais de dossier anciens clients, ≥ 0."
+          },
+          "tauxPenaliteAnnulation": {
+            "type": "number",
+            "description": "Taux de pénalité d'annulation, fraction ∈ [0 ; 1]."
+          },
+          "tauxPenaliteAnnulationRemise": {
+            "type": "number",
+            "description": "Taux de pénalité d'annulation anciens clients, fraction ∈ [0 ; 1]."
+          },
+          "penaliteAnnulationSurPrixArticle": {
+            "type": "boolean",
+            "description": "Pénalité d'annulation calculée sur le prix de l'article. Défaut true."
+          },
+          "penaliteTransfertArticle": {
+            "type": "number",
+            "description": "Pénalité de transfert d'article, ≥ 0."
+          },
+          "penaliteTransfertArticleRemise": {
+            "type": "number",
+            "description": "Pénalité de transfert d'article anciens clients, ≥ 0."
+          },
+          "penaliteTransfertTranche": {
+            "type": "number",
+            "description": "Pénalité de transfert de tranche, ≥ 0."
+          },
+          "penaliteTransfertTrancheRemise": {
+            "type": "number",
+            "description": "Pénalité de transfert de tranche anciens clients, ≥ 0."
+          },
+          "penaliteTransfertClient": {
+            "type": "number",
+            "description": "Pénalité de transfert de client, ≥ 0."
+          },
+          "penaliteTransfertClientRemise": {
+            "type": "number",
+            "description": "Pénalité de transfert de client anciens clients, ≥ 0."
+          },
+          "autresFrais": {
+            "type": "number",
+            "description": "Autres frais (OtherExpenseAmount), ≥ 0."
+          },
+          "autresFraisRemise": {
+            "type": "number",
+            "description": "Autres frais anciens clients, ≥ 0."
+          },
+          "montantSyndic": {
+            "type": "number",
+            "description": "Montant du syndic, ≥ 0."
+          },
+          "montantSyndicRemise": {
+            "type": "number",
+            "description": "Montant du syndic anciens clients, ≥ 0."
+          },
+          "periodeSyndic": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Période du syndic (SyndicPeriod), entier ≥ 0."
+          },
+          "delaiPremierEngagement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai du premier engagement, en jours. Défaut 60."
+          },
+          "delaiDeuxiemeEngagement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai du deuxième engagement, en jours. Défaut 30."
+          },
+          "tauxPenalitePremierEngagement": {
+            "type": "number",
+            "description": "Taux de pénalité du premier engagement, fraction ∈ [0 ; 1]."
+          },
+          "tauxPenaliteDeuxiemeEngagement": {
+            "type": "number",
+            "description": "Taux de pénalité du deuxième engagement, fraction ∈ [0 ; 1]."
+          },
+          "delaiSoldePaiement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de solde du paiement (PaymentBalanceDelay), ≥ 0."
+          },
+          "delaiGarantie": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de garantie (WarrantyDelay), ≥ 0."
+          },
+          "delaiGarantieSupplement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de garantie supplémentaire (WarrantyDelayAdded), ≥ 0."
+          },
+          "codeDroitRetractation": {
+            "type": "string",
+            "description": "Code du droit de rétractation (CancellationRightCode), texte."
+          },
+          "tribunalCommerce": {
+            "type": "string",
+            "description": "Tribunal de commerce (CommerceTribunal), texte."
+          },
+          "delaiMinimumIntervention": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai minimum d'intervention (InterventionMinimumDelai). Défaut 2."
+          },
+          "maxVisitNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre maximum de visites (MaxVisitNumber). Défaut 4."
+          },
+          "delaiRetractation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de rétractation en heures (WithdrawalDelay). Défaut 48."
+          },
+          "delaiMaxEcheance": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai maximum d'échéance (MaxEcheanceDelai), ≥ 0."
+          },
+          "verifierDelaiMaxEcheance": {
+            "type": "boolean",
+            "description": "Contrôler le délai maximum d'échéance (IsWithVerifMaxEcheanceDelai)."
+          },
+          "creditPercent": {
+            "type": "number",
+            "description": "Crédit maximum, fraction ∈ [0 ; 1] (« le crédit max ne doit pas dépasser 100% »)."
+          },
+          "isWithVerifCredit": {
+            "type": "boolean",
+            "description": "Contrôler le crédit maximum (IsWithVerifCredit)."
+          },
+          "delaiNotaireMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai notaire en minutes (DelayLawyerMinute). Défaut 60."
+          },
+          "delaiToutSoldeMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai « tout soldé » en minutes (DelayMinuteAllSettled). Défaut 30."
+          },
+          "ecartTypeConcretisation": {
+            "type": "number",
+            "description": "Écart-type des concrétisations (EcarttypeConcretisation), ≥ 0. Défaut 5."
+          },
+          "ecartTypeFinalisation": {
+            "type": "number",
+            "description": "Écart-type des finalisations (EcarttypeFinalisation), ≥ 0. Défaut 3."
+          }
+        }
+      },
+      "TrancheDetailDto": {
+        "type": "object",
+        "description": "Fiche d'une tranche (CfgTranche). Taux en fraction : 0.2 = 20 %.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "descriptionLongue": {
+            "type": "string"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "adresse2": {
+            "type": "string"
+          },
+          "adresse3": {
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "fax": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "siteWeb": {
+            "type": "string"
+          },
+          "dateDebutTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDebutCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateOctroiTitresFonciers": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'octroi des titres fonciers (DeliveryDate, « Date octroi des T.F » d'OMRAN)."
+          },
+          "estEnVente": {
+            "type": "boolean"
+          },
+          "estEnLocation": {
+            "type": "boolean"
+          },
+          "tauxPenaliteAnnulation": {
+            "type": "number"
+          },
+          "tauxPenaliteAnnulationRemise": {
+            "type": "number"
+          },
+          "penaliteTransfertArticle": {
+            "type": "number"
+          },
+          "penaliteTransfertArticleRemise": {
+            "type": "number"
+          },
+          "penaliteTransfertTranche": {
+            "type": "number"
+          },
+          "penaliteTransfertTrancheRemise": {
+            "type": "number"
+          },
+          "penaliteTransfertClient": {
+            "type": "number"
+          },
+          "penaliteTransfertClientRemise": {
+            "type": "number"
+          },
+          "tauxPenalitePremierEngagement": {
+            "type": "number"
+          },
+          "tauxPenaliteDeuxiemeEngagement": {
+            "type": "number"
+          },
+          "delaiGarantie": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiGarantieSupplement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiPremierEngagement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiDeuxiemeEngagement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiSoldePaiement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiNotaireMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiToutSoldeMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiRetractation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiMinimumIntervention": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiMaxEcheance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "advancePercent": {
+            "type": "number"
+          },
+          "concretisationPercent": {
+            "type": "number",
+            "description": "Toujours égal à advancePercent (OMRAN l'écrit par accesseur) ; non saisissable."
+          },
+          "maxVisitNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isWithVerifCredit": {
+            "type": "boolean"
+          },
+          "creditPercent": {
+            "type": "number"
+          },
+          "datePermisHabiter": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateReception": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "datePremiereRelance": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinConcretisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDebutFinalisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "montantPreReservation": {
+            "type": "number"
+          },
+          "montantPreReservationRemise": {
+            "type": "number"
+          },
+          "avanceSurMontant": {
+            "type": "boolean"
+          },
+          "montantAvance": {
+            "type": "number"
+          },
+          "advancePercentRemise": {
+            "type": "number"
+          },
+          "advancePercentRemiseActive": {
+            "type": "boolean"
+          },
+          "fraisDossier": {
+            "type": "number"
+          },
+          "fraisDossierRemise": {
+            "type": "number"
+          },
+          "penaliteAnnulationSurPrixArticle": {
+            "type": "boolean"
+          },
+          "autresFrais": {
+            "type": "number"
+          },
+          "autresFraisRemise": {
+            "type": "number"
+          },
+          "montantSyndic": {
+            "type": "number"
+          },
+          "montantSyndicRemise": {
+            "type": "number"
+          },
+          "periodeSyndic": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "codeDroitRetractation": {
+            "type": "string"
+          },
+          "tribunalCommerce": {
+            "type": "string"
+          },
+          "verifierDelaiMaxEcheance": {
+            "type": "boolean"
+          },
+          "ecartTypeConcretisation": {
+            "type": "number"
+          },
+          "ecartTypeFinalisation": {
+            "type": "number"
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du programme de la tranche."
+          },
+          "entiteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Entité juridique du programme (CfgCompany.id)."
+          },
+          "entiteCode": {
+            "type": "string",
+            "description": "Code de l'entité juridique du programme."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pays (AdmCountry.id) ; null si non renseigné."
+          },
+          "paysLibelle": {
+            "type": "string",
+            "description": "Libellé du pays."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création (UserCreate)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création (UserCreateDateTime)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification (UserUpdate)."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification (UserUpdateDateTime)."
           }
         }
       },
@@ -12613,6 +14080,209 @@
           }
         }
       },
+      "ProjetEcritureDto": {
+        "type": "object",
+        "description": "Création (POST) ou modification partielle (PATCH) d'un programme (CfgProject).",
+        "properties": {
+          "entiteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Entité juridique (CfgCompany.id), active. Obligatoire à la création."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code saisi, unique sur toute la table (casse ignorée). Obligatoire à la création.",
+            "example": "LAZ"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé du programme. Obligatoire à la création.",
+            "example": "VILLA LAZRAK"
+          },
+          "descriptionLongue": {
+            "type": "string",
+            "description": "Description détaillée (500 caractères au plus)."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Adresse, ligne 1."
+          },
+          "adresse2": {
+            "type": "string",
+            "description": "Adresse, ligne 2."
+          },
+          "adresse3": {
+            "type": "string",
+            "description": "Adresse, ligne 3."
+          },
+          "codePostal": {
+            "type": "string",
+            "description": "Code postal."
+          },
+          "ville": {
+            "type": "string",
+            "description": "Ville, texte libre (pas de référentiel, comme OMRAN)."
+          },
+          "villeSignature": {
+            "type": "string",
+            "description": "« Courrier fait à » : ville des courriers."
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Téléphone fixe."
+          },
+          "mobile": {
+            "type": "string",
+            "description": "Téléphone mobile."
+          },
+          "fax": {
+            "type": "string",
+            "description": "Fax."
+          },
+          "email": {
+            "type": "string",
+            "description": "Adresse email."
+          },
+          "siteWeb": {
+            "type": "string",
+            "description": "Site web."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pays (AdmCountry.id, voir GET /api/referentiels/pays)."
+          },
+          "dateDebutTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de lancement des travaux."
+          },
+          "dateFinTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fin des travaux, postérieure ou égale au lancement."
+          },
+          "dateDebutCommercialisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de début de commercialisation."
+          },
+          "dateFinCommercialisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fin de commercialisation, postérieure ou égale au début."
+          }
+        }
+      },
+      "ProjetDetailDto": {
+        "type": "object",
+        "description": "Fiche d'un programme (CfgProject).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "descriptionLongue": {
+            "type": "string"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "adresse2": {
+            "type": "string"
+          },
+          "adresse3": {
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "villeSignature": {
+            "type": "string",
+            "description": "« Courrier fait à » (CfgProject.SignatureCity)."
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "fax": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "siteWeb": {
+            "type": "string"
+          },
+          "dateDebutTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDebutCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "entiteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Entité juridique (CfgCompany.id) ; null si non renseignée."
+          },
+          "entiteCode": {
+            "type": "string",
+            "description": "Code de l'entité juridique."
+          },
+          "entiteLibelle": {
+            "type": "string",
+            "description": "Libellé de l'entité juridique."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pays (AdmCountry.id) ; null si non renseigné."
+          },
+          "paysLibelle": {
+            "type": "string",
+            "description": "Libellé du pays."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création (UserCreate, libellé du compte)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création (UserCreateDateTime)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification (UserUpdate)."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification (UserUpdateDateTime)."
+          }
+        }
+      },
       "CreerPreProspectionRequest": {
         "type": "object",
         "description": "Création d'une pré-prospection (lead brut, non qualifié). Seul `nom` est obligatoire ; le prospect\n(`CfgTier`) et le commercial ne se posent pas ici mais par `POST\n/api/pre-prospections/{id}/creer-prospect` puis `POST /api/prospections/{id}/transformer`.",
@@ -13380,28 +15050,39 @@
       },
       "CreerEcheanceRequest": {
         "type": "object",
+        "description": "Nouvelle échéance (`ComDocument`) ; complétée comme OMRAN (société, module, TVA, HT/TTC).",
         "properties": {
           "dateEcheance": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Date de l'échéance, enregistrée à minuit. Absente : aujourd'hui."
           },
           "montant": {
-            "type": "number"
+            "type": "number",
+            "description": "Montant TTC de l'échéance.",
+            "example": 100000
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "description": "Libellé. Absent : la description de la catégorie."
           },
           "categorieId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Catégorie (`ComSettlementCategory.PKey`). **Requise** (400 sinon)."
           },
           "exclureDuPrix": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Exclue du prix contractuel. Absent : la valeur de la catégorie."
           },
           "notes": {
-            "type": "string"
+            "type": "string",
+            "description": "Commentaire libre."
           }
-        }
+        },
+        "required": [
+          "categorieId"
+        ]
       },
       "EcheanceDto": {
         "type": "object",
@@ -13497,7 +15178,7 @@
           "payeurId": {
             "type": "string",
             "format": "uuid",
-            "description": "Tiers ayant effectivement réglé (`StlSettlement.TierId`) — « réglé par », peut différer de\nl'acquéreur principal (co-acquéreur, tiers payeur...). **Requis** : alimente le bloc « Versement\neffectué par » de l'autorisation d'encaissement. Confirmé renseigné sur >99% des règlements réels."
+            "description": "Tiers ayant effectivement réglé (`StlSettlement.TierPayerId`) — « réglé par », peut différer de\nl'acquéreur principal (co-acquéreur, tiers payeur...). `TierId` reçoit, comme dans OMRAN, le client\ndu dossier. **Requis** : alimente le bloc « Versement effectué par » de l'autorisation\nd'encaissement et le bénéficiaire du reçu."
           },
           "notes": {
             "type": "string",
@@ -13792,6 +15473,629 @@
           "password",
           "username"
         ]
+      },
+      "ArticleEcritureDto": {
+        "type": "object",
+        "description": "Création (POST) d'un article principal ou modification partielle (PATCH) d'un article ou sous-article (StkItem).",
+        "properties": {
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche (CfgTranche.id). Obligatoire à la création, non modifiable ensuite."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code saisi, unique dans la tranche (sous-articles compris). Obligatoire à la création."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé. Obligatoire à la création."
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Vocation (StkVocation.id) ; défaut VENTE ; PROJET refusée. Celle du parent pour un sous-article."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie (StkItemCategory.id), nature Bâtiment, hors « Pour les sous articles »."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type (StkItemType.id), même filtre que la catégorie."
+          },
+          "immeubleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Immeuble (StkBuilding.id), obligatoire."
+          },
+          "etageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Étage (StkFloor.id), obligatoire."
+          },
+          "surfaceProvisoire": {
+            "type": "number",
+            "description": "Superficie provisoire en m² (AreaFloor), > 0, défaut 1."
+          },
+          "surfaceDefinitive": {
+            "type": "number",
+            "description": "Superficie définitive en m² (Area), > 0, défaut = surfaceProvisoire."
+          },
+          "prixM2ProvisoireHT": {
+            "type": "number",
+            "description": "Prix du m² provisoire HT (ComSaleUnitCostFloorHT), ≥ 0."
+          },
+          "prixM2DefinitifHT": {
+            "type": "number",
+            "description": "Prix du m² définitif HT (ComSaleUnitCostHT), ≥ 0."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "TVA en fraction ∈ [0 ; 1] (Vat), défaut 0."
+          },
+          "titreFoncier": {
+            "type": "string",
+            "description": "Numéro du titre foncier (TitleNumber)."
+          },
+          "estTitre": {
+            "type": "boolean",
+            "description": "Titré (IsTitled) ; défaut true pour un article, false pour un sous-article."
+          },
+          "remiseMax1": {
+            "type": "number",
+            "description": "Niveau de remise 1 (DiscountMax), fraction ∈ [0 ; 1]."
+          },
+          "remiseMax2": {
+            "type": "number",
+            "description": "Niveau de remise 2 (DiscountMax2), fraction ∈ [0 ; 1]."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Adresse (500 caractères au plus)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1000 caractères au plus)."
+          },
+          "surfaceInterieure": {
+            "type": "number",
+            "description": "Superficie intérieure en m², ≥ 0."
+          },
+          "surfaceMurs": {
+            "type": "number",
+            "description": "Superficie des murs en m², ≥ 0."
+          },
+          "surfacePartiesCommunes": {
+            "type": "number",
+            "description": "Superficie des parties communes en m², ≥ 0."
+          }
+        }
+      },
+      "ArticleDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "area": {
+            "type": "number"
+          },
+          "salePrice": {
+            "type": "number"
+          },
+          "comSalePrice": {
+            "type": "number"
+          },
+          "salePriceFloor": {
+            "type": "number"
+          },
+          "comSalePriceFloor": {
+            "type": "number"
+          },
+          "statut": {
+            "type": "string",
+            "enum": [
+              "DISPONIBLE",
+              "OCCUPE"
+            ]
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trancheCode": {
+            "type": "string"
+          },
+          "trancheDescription": {
+            "type": "string"
+          },
+          "lotParentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lotParentCode": {
+            "type": "string"
+          },
+          "lotParentDescription": {
+            "type": "string"
+          },
+          "sousLots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArticleListItemDto"
+            }
+          },
+          "titreFoncier": {
+            "type": "string"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorieCode": {
+            "type": "string"
+          },
+          "categorieLibelle": {
+            "type": "string"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeCode": {
+            "type": "string"
+          },
+          "typeLibelle": {
+            "type": "string"
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dossierCode": {
+            "type": "string"
+          },
+          "dossierStatut": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientNom": {
+            "type": "string"
+          },
+          "immeubleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "immeubleCode": {
+            "type": "string"
+          },
+          "immeubleLibelle": {
+            "type": "string"
+          },
+          "etageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "etageCode": {
+            "type": "string"
+          },
+          "etageLibelle": {
+            "type": "string"
+          },
+          "natureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "natureCode": {
+            "type": "string"
+          },
+          "natureLibelle": {
+            "type": "string"
+          },
+          "tauxTVA": {
+            "type": "number"
+          },
+          "presentationTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "presentationTypeCode": {
+            "type": "string"
+          },
+          "presentationTypeLibelle": {
+            "type": "string"
+          },
+          "superficieSousArticles": {
+            "type": "number"
+          },
+          "prixSuggere": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Prix de référence TTC : comSalePrice s'il est > 0, sinon comSalePriceFloor s'il est > 0, sinon null."
+          },
+          "prixSuggereEstPlancher": {
+            "type": "boolean",
+            "description": "Vrai quand prixSuggere est le prix plancher (prix commercial à 0)."
+          },
+          "surfaceProvisoire": {
+            "type": "number",
+            "description": "Superficie provisoire en m² (AreaFloor) ; la définitive est `area`."
+          },
+          "prixM2ProvisoireHT": {
+            "type": "number",
+            "description": "Prix du m² provisoire HT (ComSaleUnitCostFloorHT)."
+          },
+          "prixM2ProvisoireTTC": {
+            "type": "number",
+            "description": "Prix du m² provisoire TTC (ComSaleUnitCostFloor), calculé."
+          },
+          "prixM2DefinitifHT": {
+            "type": "number",
+            "description": "Prix du m² définitif HT (ComSaleUnitCostHT)."
+          },
+          "prixM2DefinitifTTC": {
+            "type": "number",
+            "description": "Prix du m² définitif TTC (ComSaleUnitCost), calculé."
+          },
+          "prixArticleProvisoireHT": {
+            "type": "number",
+            "description": "Prix de l'article seul, provisoire HT (SalePriceFloorHT)."
+          },
+          "prixArticleProvisoireTTC": {
+            "type": "number",
+            "description": "Prix de l'article seul, provisoire TTC (SalePriceFloor)."
+          },
+          "prixArticleDefinitifHT": {
+            "type": "number",
+            "description": "Prix de l'article seul, définitif HT (SalePriceHT)."
+          },
+          "prixArticleDefinitifTTC": {
+            "type": "number",
+            "description": "Prix de l'article seul, définitif TTC (SalePrice)."
+          },
+          "prixVenteProvisoireHT": {
+            "type": "number",
+            "description": "Prix de vente provisoire HT = article + sous-articles rattachés (ComSalePriceFloorHT)."
+          },
+          "prixVenteDefinitifHT": {
+            "type": "number",
+            "description": "Prix de vente définitif HT = article + sous-articles rattachés (ComSalePriceHT)."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "TVA en fraction (Vat), même valeur que tauxTVA."
+          },
+          "remiseMax1": {
+            "type": "number",
+            "description": "Niveau de remise 1 (DiscountMax), fraction."
+          },
+          "remiseMax2": {
+            "type": "number",
+            "description": "Niveau de remise 2 (DiscountMax2), fraction."
+          },
+          "estTitre": {
+            "type": "boolean",
+            "description": "Titré (IsTitled)."
+          },
+          "toujoursAffecte": {
+            "type": "boolean",
+            "description": "Toujours affecté à son article (AlwaysAffected)."
+          },
+          "estSousArticle": {
+            "type": "boolean",
+            "description": "Lot annexe (IsUnderItem) ; peut être libre, sans parent."
+          },
+          "occupe": {
+            "type": "boolean",
+            "description": "Affecté à un dossier de vente ou de location, ou rattaché à un article qui l'est."
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Vocation (StkVocation.id)."
+          },
+          "vocationLibelle": {
+            "type": "string",
+            "description": "Libellé de la vocation."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (StkItem.Notes)."
+          },
+          "surfaceInterieure": {
+            "type": "number",
+            "description": "Superficie intérieure en m² (InteriorArea)."
+          },
+          "surfaceMurs": {
+            "type": "number",
+            "description": "Superficie des murs en m² (WallsArea)."
+          },
+          "surfacePartiesCommunes": {
+            "type": "number",
+            "description": "Superficie des parties communes en m² (CommonPartsArea)."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création (UserCreate)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création (UserCreateDateTime)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification (UserUpdate)."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification (UserUpdateDateTime)."
+          }
+        }
+      },
+      "ArticleListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "area": {
+            "type": "number"
+          },
+          "salePrice": {
+            "type": "number"
+          },
+          "comSalePrice": {
+            "type": "number"
+          },
+          "salePriceFloor": {
+            "type": "number"
+          },
+          "comSalePriceFloor": {
+            "type": "number"
+          },
+          "statut": {
+            "type": "string",
+            "enum": [
+              "DISPONIBLE",
+              "OCCUPE"
+            ]
+          },
+          "titreFoncier": {
+            "type": "string"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorieCode": {
+            "type": "string"
+          },
+          "categorieLibelle": {
+            "type": "string"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeCode": {
+            "type": "string"
+          },
+          "typeLibelle": {
+            "type": "string"
+          },
+          "sousArticle": {
+            "type": "boolean"
+          },
+          "lotParentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dossierCode": {
+            "type": "string"
+          },
+          "dossierStatut": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientNom": {
+            "type": "string"
+          },
+          "tauxTVA": {
+            "type": "number"
+          },
+          "presentationTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "presentationTypeCode": {
+            "type": "string"
+          },
+          "presentationTypeLibelle": {
+            "type": "string"
+          },
+          "superficieSousArticles": {
+            "type": "number"
+          },
+          "natureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "natureCode": {
+            "type": "string"
+          },
+          "natureLibelle": {
+            "type": "string"
+          },
+          "etageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "etageCode": {
+            "type": "string"
+          },
+          "etageLibelle": {
+            "type": "string"
+          },
+          "immeubleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "immeubleCode": {
+            "type": "string"
+          },
+          "immeubleLibelle": {
+            "type": "string"
+          },
+          "prixSuggere": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Prix de référence TTC : comSalePrice s'il est > 0, sinon comSalePriceFloor s'il est > 0, sinon null."
+          },
+          "prixSuggereEstPlancher": {
+            "type": "boolean",
+            "description": "Vrai quand prixSuggere est le prix plancher (prix commercial à 0)."
+          }
+        }
+      },
+      "SousArticleEcritureDto": {
+        "type": "object",
+        "description": "Création d'un sous-article (lot annexe : parking, jardin, terrasse) rattaché à un article.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code saisi, unique dans la tranche du parent. Obligatoire."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé. Obligatoire."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie (StkItemCategory.id), nature Bâtiment et « Pour les sous articles ». Obligatoire."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type (StkItemType.id), même filtre. Obligatoire."
+          },
+          "immeubleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Immeuble (StkBuilding.id) ; défaut = immeuble du parent."
+          },
+          "etageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Étage (StkFloor.id). Obligatoire."
+          },
+          "surfaceProvisoire": {
+            "type": "number",
+            "description": "Superficie provisoire en m², > 0, défaut 1."
+          },
+          "surfaceDefinitive": {
+            "type": "number",
+            "description": "Superficie définitive en m², > 0, défaut = surfaceProvisoire."
+          },
+          "prixM2ProvisoireHT": {
+            "type": "number",
+            "description": "Prix du m² provisoire HT, ≥ 0."
+          },
+          "prixM2DefinitifHT": {
+            "type": "number",
+            "description": "Prix du m² définitif HT, ≥ 0."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "TVA en fraction ∈ [0 ; 1], défaut 0."
+          },
+          "titreFoncier": {
+            "type": "string",
+            "description": "Numéro du titre foncier."
+          },
+          "estTitre": {
+            "type": "boolean",
+            "description": "Titré ; défaut false."
+          },
+          "remiseMax1": {
+            "type": "number",
+            "description": "Niveau de remise 1, fraction ∈ [0 ; 1]."
+          },
+          "remiseMax2": {
+            "type": "number",
+            "description": "Niveau de remise 2, fraction ∈ [0 ; 1]."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Adresse."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "surfaceInterieure": {
+            "type": "number",
+            "description": "Superficie intérieure en m², ≥ 0."
+          },
+          "surfaceMurs": {
+            "type": "number",
+            "description": "Superficie des murs en m², ≥ 0."
+          },
+          "surfacePartiesCommunes": {
+            "type": "number",
+            "description": "Superficie des parties communes en m², ≥ 0."
+          },
+          "toujoursAffecte": {
+            "type": "boolean",
+            "description": "Toujours affecté (AlwaysAffected) : suit l'article dans la vente. Défaut false."
+          }
+        }
+      },
+      "AffectationSousArticleDto": {
+        "type": "object",
+        "description": "Corps facultatif de l'affectation d'un sous-article libre à un article.",
+        "properties": {
+          "toujoursAffecte": {
+            "type": "boolean",
+            "description": "Toujours affecté (AlwaysAffected). Absent = false."
+          }
+        }
       },
       "ModifierProspectRequest": {
         "type": "object",
@@ -14258,6 +16562,7 @@
       },
       "TrancheListItemDto": {
         "type": "object",
+        "description": "Ligne d'une liste de tranches.",
         "properties": {
           "id": {
             "type": "string",
@@ -14272,314 +16577,19 @@
           "ville": {
             "type": "string"
           },
-          "dateLivraison": {
+          "dateOctroiTitresFonciers": {
             "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "TrancheDetailDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
+            "format": "date-time",
+            "description": "Date d'octroi des titres fonciers (CfgTranche.DeliveryDate, « Date octroi des T.F » d'OMRAN)."
           },
           "projetId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Programme de la tranche (CfgProject.id)."
           },
-          "code": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "descriptionLongue": {
-            "type": "string"
-          },
-          "adresse": {
-            "type": "string"
-          },
-          "adresse2": {
-            "type": "string"
-          },
-          "adresse3": {
-            "type": "string"
-          },
-          "codePostal": {
-            "type": "string"
-          },
-          "ville": {
-            "type": "string"
-          },
-          "telephone": {
-            "type": "string"
-          },
-          "mobile": {
-            "type": "string"
-          },
-          "fax": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "siteWeb": {
-            "type": "string"
-          },
-          "dateDebutTravaux": {
+          "projetCode": {
             "type": "string",
-            "format": "date-time"
-          },
-          "dateFinTravaux": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateDebutCommercialisation": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateFinCommercialisation": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateLivraison": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "estEnVente": {
-            "type": "boolean"
-          },
-          "estEnLocation": {
-            "type": "boolean"
-          },
-          "tauxPenaliteAnnulation": {
-            "type": "number"
-          },
-          "tauxPenaliteAnnulationRemise": {
-            "type": "number"
-          },
-          "penaliteTransfertArticle": {
-            "type": "number"
-          },
-          "penaliteTransfertArticleRemise": {
-            "type": "number"
-          },
-          "penaliteTransfertTranche": {
-            "type": "number"
-          },
-          "penaliteTransfertTrancheRemise": {
-            "type": "number"
-          },
-          "penaliteTransfertClient": {
-            "type": "number"
-          },
-          "penaliteTransfertClientRemise": {
-            "type": "number"
-          },
-          "tauxPenalitePremierEngagement": {
-            "type": "number"
-          },
-          "tauxPenaliteDeuxiemeEngagement": {
-            "type": "number"
-          },
-          "delaiGarantie": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiGarantieSupplement": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiPremierEngagement": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiDeuxiemeEngagement": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiSoldePaiement": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiNotaireMinutes": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiToutSoldeMinutes": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiRetractation": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiMinimumIntervention": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiMaxEcheance": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "advancePercent": {
-            "type": "number"
-          },
-          "concretisationPercent": {
-            "type": "number"
-          },
-          "maxVisitNumber": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "isWithVerifCredit": {
-            "type": "boolean"
-          },
-          "creditPercent": {
-            "type": "number"
-          }
-        }
-      },
-      "ArticleListItemDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "code": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "area": {
-            "type": "number"
-          },
-          "salePrice": {
-            "type": "number"
-          },
-          "comSalePrice": {
-            "type": "number"
-          },
-          "salePriceFloor": {
-            "type": "number"
-          },
-          "comSalePriceFloor": {
-            "type": "number"
-          },
-          "statut": {
-            "type": "string",
-            "enum": [
-              "DISPONIBLE",
-              "OCCUPE"
-            ]
-          },
-          "titreFoncier": {
-            "type": "string"
-          },
-          "categorieId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "categorieCode": {
-            "type": "string"
-          },
-          "categorieLibelle": {
-            "type": "string"
-          },
-          "typeId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "typeCode": {
-            "type": "string"
-          },
-          "typeLibelle": {
-            "type": "string"
-          },
-          "sousArticle": {
-            "type": "boolean"
-          },
-          "lotParentId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "dossierId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "dossierCode": {
-            "type": "string"
-          },
-          "dossierStatut": {
-            "type": "string"
-          },
-          "clientId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "clientNom": {
-            "type": "string"
-          },
-          "tauxTVA": {
-            "type": "number"
-          },
-          "presentationTypeId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "presentationTypeCode": {
-            "type": "string"
-          },
-          "presentationTypeLibelle": {
-            "type": "string"
-          },
-          "superficieSousArticles": {
-            "type": "number"
-          },
-          "natureId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "natureCode": {
-            "type": "string"
-          },
-          "natureLibelle": {
-            "type": "string"
-          },
-          "etageId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "etageCode": {
-            "type": "string"
-          },
-          "etageLibelle": {
-            "type": "string"
-          },
-          "immeubleId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "immeubleCode": {
-            "type": "string"
-          },
-          "immeubleLibelle": {
-            "type": "string"
-          },
-          "prixSuggere": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Prix de référence TTC : comSalePrice s'il est > 0, sinon comSalePriceFloor s'il est > 0, sinon null."
-          },
-          "prixSuggereEstPlancher": {
-            "type": "boolean",
-            "description": "Vrai quand prixSuggere est le prix plancher (prix commercial à 0)."
+            "description": "Code du programme de la tranche."
           }
         }
       },
@@ -16339,6 +18349,7 @@
       },
       "ProjetListItemDto": {
         "type": "object",
+        "description": "Ligne de la liste des programmes.",
         "properties": {
           "id": {
             "type": "string",
@@ -16352,73 +18363,10 @@
           },
           "ville": {
             "type": "string"
-          }
-        }
-      },
-      "ProjetDetailDto": {
-        "type": "object",
-        "properties": {
-          "id": {
+          },
+          "entiteCode": {
             "type": "string",
-            "format": "uuid"
-          },
-          "code": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "descriptionLongue": {
-            "type": "string"
-          },
-          "adresse": {
-            "type": "string"
-          },
-          "adresse2": {
-            "type": "string"
-          },
-          "adresse3": {
-            "type": "string"
-          },
-          "codePostal": {
-            "type": "string"
-          },
-          "ville": {
-            "type": "string"
-          },
-          "villeSignature": {
-            "type": "string"
-          },
-          "telephone": {
-            "type": "string"
-          },
-          "mobile": {
-            "type": "string"
-          },
-          "fax": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "siteWeb": {
-            "type": "string"
-          },
-          "dateDebutTravaux": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateFinTravaux": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateDebutCommercialisation": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateFinCommercialisation": {
-            "type": "string",
-            "format": "date-time"
+            "description": "Code de l'entité juridique (CfgCompany.Code)."
           }
         }
       },
@@ -19271,169 +21219,6 @@
           },
           "commercialNom": {
             "type": "string"
-          }
-        }
-      },
-      "ArticleDetailDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "code": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "adresse": {
-            "type": "string"
-          },
-          "area": {
-            "type": "number"
-          },
-          "salePrice": {
-            "type": "number"
-          },
-          "comSalePrice": {
-            "type": "number"
-          },
-          "salePriceFloor": {
-            "type": "number"
-          },
-          "comSalePriceFloor": {
-            "type": "number"
-          },
-          "statut": {
-            "type": "string",
-            "enum": [
-              "DISPONIBLE",
-              "OCCUPE"
-            ]
-          },
-          "trancheId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "trancheCode": {
-            "type": "string"
-          },
-          "trancheDescription": {
-            "type": "string"
-          },
-          "lotParentId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "lotParentCode": {
-            "type": "string"
-          },
-          "lotParentDescription": {
-            "type": "string"
-          },
-          "sousLots": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ArticleListItemDto"
-            }
-          },
-          "titreFoncier": {
-            "type": "string"
-          },
-          "categorieId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "categorieCode": {
-            "type": "string"
-          },
-          "categorieLibelle": {
-            "type": "string"
-          },
-          "typeId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "typeCode": {
-            "type": "string"
-          },
-          "typeLibelle": {
-            "type": "string"
-          },
-          "dossierId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "dossierCode": {
-            "type": "string"
-          },
-          "dossierStatut": {
-            "type": "string"
-          },
-          "clientId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "clientNom": {
-            "type": "string"
-          },
-          "immeubleId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "immeubleCode": {
-            "type": "string"
-          },
-          "immeubleLibelle": {
-            "type": "string"
-          },
-          "etageId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "etageCode": {
-            "type": "string"
-          },
-          "etageLibelle": {
-            "type": "string"
-          },
-          "natureId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "natureCode": {
-            "type": "string"
-          },
-          "natureLibelle": {
-            "type": "string"
-          },
-          "tauxTVA": {
-            "type": "number"
-          },
-          "presentationTypeId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "presentationTypeCode": {
-            "type": "string"
-          },
-          "presentationTypeLibelle": {
-            "type": "string"
-          },
-          "superficieSousArticles": {
-            "type": "number"
-          },
-          "prixSuggere": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Prix de référence TTC : comSalePrice s'il est > 0, sinon comSalePriceFloor s'il est > 0, sinon null."
-          },
-          "prixSuggereEstPlancher": {
-            "type": "boolean",
-            "description": "Vrai quand prixSuggere est le prix plancher (prix commercial à 0)."
           }
         }
       },
