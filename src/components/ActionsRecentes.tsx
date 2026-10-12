@@ -38,6 +38,7 @@ const ICONES: Partial<Record<TypeActionRecente, ComponentType<{ className?: stri
   ETAPE_CHANGEE: TrendingUp,
   ARCHIVEE: Archive,
   DESARCHIVEE: ArchiveRestore,
+  COMMERCIAL_ASSIGNE: UserRoundPlus,
   COMMERCIAL_REAFFECTE: ArrowRightLeft,
   DOSSIER_STATUT: Folder,
   INTERACTION: MessageSquare,

@@ -1973,6 +1973,7 @@ export type TypeActionRecente =
   | 'ETAPE_CHANGEE'
   | 'ARCHIVEE'
   | 'DESARCHIVEE'
+  | 'COMMERCIAL_ASSIGNE'
   | 'COMMERCIAL_REAFFECTE'
   | 'DOSSIER_STATUT'
   | 'INTERACTION'
@@ -2210,10 +2211,10 @@ export interface ADistribuerDto {
   agePlusAncienneJours?: number | null;
 }
 
+/** Pose le commercial sur la pré-prospection, sans la transformer (comme OMRAN). */
 export interface DistribuerRequest {
   preProspectionIds: UUID[];
   commercialId: UUID;
-  trancheId?: UUID | null;
 }
 
 export interface ReaffecterRequest {

@@ -5,9 +5,9 @@ import type { HistoriqueDto, ProspectionDetailDto } from '../types';
 export const CODE_PRE_PROSPECTION = 'ComPreProspection';
 export const CODE_PROSPECTION = 'ComProspection';
 
-/** Sans commercial et pas encore typée prospection : sinon le serveur refuse (409), le commercial se réaffecte. */
+/** Sans commercial, et pré-prospection ou ligne sans type : toute autre ligne typée (vente, location) = 409 serveur. */
 export function estTransformable(p: { commercialId?: string | null; typeProspectionCode?: string | null }): boolean {
-  return !p.commercialId && p.typeProspectionCode !== CODE_PROSPECTION;
+  return !p.commercialId && (!p.typeProspectionCode || p.typeProspectionCode === CODE_PRE_PROSPECTION);
 }
 
 /** Selon le **code** de type, jamais son libellé. */

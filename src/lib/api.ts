@@ -1516,7 +1516,7 @@ export function getADistribuer(projet?: UUID): Promise<ADistribuerDto> {
   return request('GET', '/api/equipe/a-distribuer', { query: { projet } });
 }
 
-/** Tout ou rien ; mêmes règles que `transformer` (prospect lié requis). */
+/** Tout ou rien ; la ligne reste une pré-prospection (ni prospect ni tranche exigés). */
 export function distribuerPreProspections(body: DistribuerRequest): Promise<ResultatLotDto> {
   return request('POST', '/api/equipe/distribuer', { body });
 }

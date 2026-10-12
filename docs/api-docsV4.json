@@ -2458,7 +2458,7 @@
           "Mon équipe"
         ],
         "summary": "Distribue des pré-prospections à un commercial de l'équipe",
-        "description": "Transforme chaque pré-prospection en prospection du commercial choisi, **avec les règles de\n`POST /api/prospections/{id}/transformer`** : prospect lié obligatoire, tranche obligatoire (fournie\nou déjà portée), une seule prospection ouverte par prospect et projet. Une ligne sans tranche se\ndistribue avec `trancheId`. Tout le lot ou rien.",
+        "description": "Pose le commercial choisi (`ComProspection.CfgCommercialId`) sur chaque pré-prospection, **comme le\nchamp « Commercial » de la fiche pré-prospection d'OMRAN** : la ligne reste une pré-prospection, aucun\nprospect ni tranche n'est exigé. La transformer reste le geste du commercial\n(`POST /api/prospections/{id}/transformer`). Une ligne qui avait déjà un commercial est redistribuée.\nHistorique : « Commercial assigné : B », ou « Commercial réaffecté : A → B ». Tout le lot ou rien.",
         "operationId": "distribuer",
         "requestBody": {
           "content": {
@@ -2472,7 +2472,7 @@
         },
         "responses": {
           "200": {
-            "description": "Toutes les lignes ont été transformées.",
+            "description": "Commercial posé (celles déjà à ce commercial sont ignorées).",
             "content": {
               "*/*": {
                 "schema": {
@@ -2482,7 +2482,7 @@
             }
           },
           "400": {
-            "description": "`preProspectionIds` vide, `commercialId` absent, tranche inconnue, ou une règle de `transformer`\nnon respectée (ligne sans prospect, sans tranche…) : rien n'est écrit.",
+            "description": "Liste vide ou `commercialId` absent.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2512,7 +2512,7 @@
             }
           },
           "409": {
-            "description": "Une ligne n'est plus une pré-prospection, le commercial n'est pas de l'équipe ou n'est pas affecté au\nprojet de la ligne, ou le prospect a déjà une prospection ouverte sur ce projet : rien n'est écrit.",
+            "description": "Une ligne n'est plus une pré-prospection ou est clôturée, ou le commercial n'est pas de l'équipe ou\nn'est pas affecté au projet de la ligne : rien n'est écrit.",
             "content": {
               "*/*": {
                 "schema": {
@@ -13021,7 +13021,7 @@
       },
       "DistribuerRequest": {
         "type": "object",
-        "description": "Distribution en lot : chaque pré-prospection est transformée comme par `POST /api/prospections/{id}/transformer`, dans une seule transaction.",
+        "description": "Distribution en lot : le commercial est posé sur chaque pré-prospection, qui reste une pré-prospection (comme OMRAN), dans une seule transaction.",
         "properties": {
           "preProspectionIds": {
             "type": "array",
@@ -13035,11 +13035,6 @@
             "type": "string",
             "format": "uuid",
             "description": "Employé (CfgTier) du commercial destinataire — `commercialId` de `GET /api/equipe/commerciaux`."
-          },
-          "trancheId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Tranche posée sur chaque ligne ; facultative si toutes en portent déjà une."
           }
         },
         "required": [
@@ -18191,7 +18186,7 @@
           },
           "type": {
             "type": "string",
-            "description": "Code stable de l'action. Historique de prospection : lu au début de la description\n(`PRE_PROSPECTION_CREEE`, `PROSPECT_CREE`, `PROSPECT_RATTACHE`, `TRANSFORMEE_EN_PROSPECTION`,\n`PROSPECTION_CREEE`, `ETAPE_CHANGEE`, `ARCHIVEE`, `DESARCHIVEE`, `COMMERCIAL_REAFFECTE` (écran « Mon\néquipe »), et `AUTRE` pour un début inconnu —\nservie, jamais rejetée). `DOSSIER_STATUT` : changement de statut d'un dossier. `INTERACTION` : note ou\ninteraction saisie.",
+            "description": "Code stable de l'action. Historique de prospection : lu au début de la description\n(`PRE_PROSPECTION_CREEE`, `PROSPECT_CREE`, `PROSPECT_RATTACHE`, `TRANSFORMEE_EN_PROSPECTION`,\n`PROSPECTION_CREEE`, `ETAPE_CHANGEE`, `ARCHIVEE`, `DESARCHIVEE`, `COMMERCIAL_ASSIGNE`,\n`COMMERCIAL_REAFFECTE` (écran « Mon équipe »), et `AUTRE` pour un début inconnu —\nservie, jamais rejetée). `DOSSIER_STATUT` : changement de statut d'un dossier. `INTERACTION` : note ou\ninteraction saisie.",
             "enum": [
               "PRE_PROSPECTION_CREEE",
               "PROSPECT_CREE",
@@ -18201,6 +18196,7 @@
               "ETAPE_CHANGEE",
               "ARCHIVEE",
               "DESARCHIVEE",
+              "COMMERCIAL_ASSIGNE",
               "COMMERCIAL_REAFFECTE",
               "DOSSIER_STATUT",
               "INTERACTION",
