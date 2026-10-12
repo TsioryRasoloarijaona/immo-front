@@ -1515,8 +1515,9 @@ export function listCommerciauxEquipe(params?: ParamsEquipe): Promise<Commercial
   return request('GET', '/api/equipe/commerciaux', { query: { du: params?.du, au: params?.au, projet: params?.projet } });
 }
 
-export function getADistribuer(projet?: UUID): Promise<ADistribuerDto> {
-  return request('GET', '/api/equipe/a-distribuer', { query: { projet } });
+/** Pré-prospections sans commercial reçues dans la période (30 jours par défaut) ; 400 si `du` > `au`. */
+export function getADistribuer(params?: ParamsEquipe): Promise<ADistribuerDto> {
+  return request('GET', '/api/equipe/a-distribuer', { query: { du: params?.du, au: params?.au, projet: params?.projet } });
 }
 
 /** Tout ou rien ; la ligne reste une pré-prospection (ni prospect ni tranche exigés). */

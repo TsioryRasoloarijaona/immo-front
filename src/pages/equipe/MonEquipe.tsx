@@ -18,12 +18,17 @@ import { estChefOuExempte } from '../../lib/roles';
 import { formatNumber } from '../../lib/format';
 import type { CommercialEquipeDto } from '../../types';
 
-function ADistribuer({ projet, onDistribuer }: Readonly<{ projet: string | null; onDistribuer: () => void }>) {
-  const { data, error } = useApi(() => getADistribuer(projet ?? undefined), [projet], 'equipe-a-distribuer');
+/** Suit la période de l'écran (FEATURE-equipe-commerciale.md §10). */
+function ADistribuer({ periode, projet, onDistribuer }: Readonly<{ periode: Periode; projet: string | null; onDistribuer: () => void }>) {
+  const { data, error } = useApi(
+    () => getADistribuer({ du: periode.du || undefined, au: periode.au || undefined, projet: projet ?? undefined }),
+    [periode.du, periode.au, projet],
+    'equipe-a-distribuer',
+  );
   let texte = '…';
   if (data) {
     texte = data.nombre === 0
-      ? 'Aucune pré-prospection en attente.'
+      ? 'Aucune pré-prospection en attente sur la période.'
       : `${formatNumber(data.nombre)} en attente · la plus ancienne depuis ${formatNumber(data.agePlusAncienneJours)} j`;
   }
   return (
@@ -67,11 +72,11 @@ function ContenuEquipe() {
       </div>
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[2fr_1fr]">
         <EntonnoirEquipe data={entonnoir.data} loading={entonnoir.loading} error={entonnoir.error} />
-        <ADistribuer projet={projet} onDistribuer={() => setDistribuer(true)} />
+        <ADistribuer periode={periode} projet={projet} onDistribuer={() => setDistribuer(true)} />
       </div>
       <TableauCommerciaux data={commerciaux.data} loading={commerciaux.loading} error={commerciaux.error} onOuvrir={setSource} />
       <AffectationsEquipe data={affectations.data} loading={affectations.loading} error={affectations.error} onFait={fait} />
-      {distribuer && <DistribuerDialog commerciaux={membres} onClose={() => setDistribuer(false)} onFait={fait} />}
+      {distribuer && <DistribuerDialog periode={periode} commerciaux={membres} onClose={() => setDistribuer(false)} onFait={fait} />}
       {source && <ReaffecterDialog source={source} commerciaux={membres} onClose={() => setSource(null)} onFait={fait} />}
     </div>
   );

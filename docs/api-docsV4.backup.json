@@ -1789,7 +1789,7 @@
             }
           },
           "403": {
-            "description": "Compte applicatif non identifiable.",
+            "description": "Compte applicatif non identifiable ; sur `/api/journee`, `commercialId` non autorisé.",
             "content": {
               "*/*": {
                 "schema": {
@@ -3907,7 +3907,7 @@
             }
           },
           "403": {
-            "description": "Compte applicatif non identifiable.",
+            "description": "Compte applicatif non identifiable ; sur `/api/journee`, `commercialId` non autorisé.",
             "content": {
               "*/*": {
                 "schema": {
@@ -7786,7 +7786,7 @@
             }
           },
           "403": {
-            "description": "Compte applicatif non identifiable.",
+            "description": "Compte applicatif non identifiable ; sur `/api/journee`, `commercialId` non autorisé.",
             "content": {
               "*/*": {
                 "schema": {
@@ -10132,7 +10132,7 @@
             }
           },
           "403": {
-            "description": "Compte applicatif non identifiable.",
+            "description": "Compte applicatif non identifiable ; sur `/api/journee`, `commercialId` non autorisé.",
             "content": {
               "*/*": {
                 "schema": {
