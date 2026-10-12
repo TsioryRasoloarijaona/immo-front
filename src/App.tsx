@@ -8,10 +8,13 @@ import { ToastProvider } from './components/ToastProvider';
 import { LoadingState } from './components/ui';
 import { AppDataProvider } from './lib/AppDataProvider';
 import { useAuth } from './lib/auth';
+import { estCommercialTerrain } from './lib/roles';
 import { AuthProvider } from './lib/AuthProvider';
 import Login from './pages/auth/Login';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const MaJournee = lazy(() => import('./pages/parcours/MaJournee'));
+const BoiteDeTri = lazy(() => import('./pages/parcours/BoiteDeTri'));
 const Profil = lazy(() => import('./pages/profil/Profil'));
 const UtilisateursList = lazy(() => import('./pages/utilisateurs/UtilisateursList'));
 const ReinitialiserMotDePasse = lazy(() => import('./pages/utilisateurs/ReinitialiserMotDePasse'));
@@ -74,6 +77,12 @@ const ReglagesSyndic = lazy(() => import('./pages/outils/syndic/ReglagesSyndic')
 const ComingSoon = lazy(() => import('./pages/ComingSoon'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
+/** Le commercial de terrain arrive sur « Ma journée » ; les autres rôles gardent le tableau de bord. */
+function Accueil() {
+  const { user } = useAuth();
+  return estCommercialTerrain(user) ? <Navigate to="/journee" replace /> : <Dashboard />;
+}
+
 // Monté seulement une fois la session ouverte : l'appel inconditionnel de `AppDataProvider` ferait 401 avant.
 function AuthenticatedApp() {
   const { pathname } = useLocation();
@@ -89,7 +98,10 @@ function AuthenticatedApp() {
             <RouteErrorBoundary resetKey={pathname}>
               <Suspense fallback={<LoadingState />}>
                 <Routes>
-                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/" element={<Accueil />} />
+                  <Route path="/tableau-de-bord" element={<Dashboard />} />
+                  <Route path="/journee" element={<MaJournee />} />
+                  <Route path="/tri" element={<BoiteDeTri />} />
                   <Route path="/profil" element={<Profil />} />
                   <Route path="/utilisateurs" element={<UtilisateursList />} />
                   <Route path="/utilisateurs/reinitialiser-mot-de-passe" element={<ReinitialiserMotDePasse />} />

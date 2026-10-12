@@ -11,6 +11,9 @@ import ProspectionFiltresAvances from '../../components/ProspectionFiltresAvance
 import ProspectionTable from '../../components/ProspectionTable';
 import BandeGroupement from '../../components/BandeGroupement';
 import { useActionsLigneProspection } from '../../components/ActionsLigneProspection';
+import BasculeVue from '../../components/parcours/BasculeVue';
+import KanbanProspections from '../../components/parcours/KanbanProspections';
+import { lireVueProspections, memoriserVueProspections, type VueProspections } from '../../lib/kanban';
 import { DEFAULT_PAGE_SIZE, listProspections, listProspectionsGroupes } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { pluriel } from '../../lib/format';
@@ -63,6 +66,8 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
     searchParams.get('periode') === 'toutes' ? { dateDebut: '', dateFin: '' } : {},
   );
   const [page, setPage] = useState(0);
+  const [vue, setVue] = useState<VueProspections>(lireVueProspections);
+  const kanban = vue === 'kanban';
   const filters: ProspectionFilterBarState = { ...defauts, ...modifs };
   const debouncedSearch = useDebouncedValue(filters.search);
   const catalogue = useColonnesProspections();
@@ -124,23 +129,23 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
 
   const liste = useApi(
     () =>
-      enGroupes || attenteDefaut
+      enGroupes || attenteDefaut || kanban
         ? Promise.resolve(null)
         : listProspections(
             filtresServeur,
             { page, size: DEFAULT_PAGE_SIZE },
             { colonnes: colonnesDemandees, filtres: filtresAvances },
           ),
-    [...clesFiltres, colonnesDemandees?.join(',') ?? '', enGroupes, groupement.cleDeps, attenteDefaut],
+    [...clesFiltres, colonnesDemandees?.join(',') ?? '', enGroupes, groupement.cleDeps, attenteDefaut, kanban],
     'prospections',
   );
 
   const groupes = useApi(
     () =>
-      enGroupes && groupement.paramsGroupes && !attenteDefaut
+      enGroupes && groupement.paramsGroupes && !attenteDefaut && !kanban
         ? listProspectionsGroupes(filtresServeur, groupement.paramsGroupes, { page, size: DEFAULT_PAGE_SIZE }, { filtres: filtresAvances })
         : Promise.resolve(null),
-    [...clesFiltres, enGroupes, groupement.cleDeps, attenteDefaut],
+    [...clesFiltres, enGroupes, groupement.cleDeps, attenteDefaut, kanban],
     'prospections-groupes',
   );
 
@@ -208,9 +213,18 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
       accent="var(--sec-prospection)"
       accentBg="var(--sec-prospection-bg)"
       actions={
-        <Button type="button" size="sm" onClick={() => navigate('/prospections/nouveau')}>
-          <Plus data-icon="inline-start" /> Nouvelle prospection
-        </Button>
+        <>
+          <BasculeVue
+            vue={vue}
+            onChange={(v) => {
+              memoriserVueProspections(v);
+              setVue(v);
+            }}
+          />
+          <Button type="button" size="sm" onClick={() => navigate('/prospections/nouveau')}>
+            <Plus data-icon="inline-start" /> Nouvelle prospection
+          </Button>
+        </>
       }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
@@ -236,6 +250,15 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
           }
         />
 
+        {/* En Kanban, liste et groupes ne chargent rien (`null`) : seul le tableau s'affiche. */}
+        {kanban && (
+          <KanbanProspections
+            filtres={filtresServeur}
+            avances={filtresAvances}
+            cle={clesFiltres.join('|')}
+            onOuvrir={(id) => navigate(`/prospections/${id}`)}
+          />
+        )}
         {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul, le
             chargement plein écran se rallumerait par-dessus les groupes. */}
         {(loading || attenteDefaut) && !pageAffichee && <LoadingState />}

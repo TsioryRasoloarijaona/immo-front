@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, Calendar, Contact, FilePlus2, FileText, Folder, Gauge, HardHat, History, Home, KeyRound, Landmark, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, ReceiptText, Trophy, UserCheck, UserCircle, UserPlus, Users, UsersRound, Wallet } from 'lucide-react';
+import { BookUser, Bot, Building2, Calendar, Contact, FilePlus2, FileText, Folder, Gauge, HardHat, History, Home, Inbox, KeyRound, Landmark, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, ReceiptText, Sun, Trophy, UserCheck, UserCircle, UserPlus, Users, UsersRound, Wallet } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -22,7 +22,8 @@ import EntreesAdminVirements from '../pages/outils/virements/EntreesAdminViremen
 import EntreesSyndic from '../pages/outils/syndic/EntreesSyndic';
 import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
-import { estAdministrateur, estChefOuExempte } from '../lib/roles';
+import { estAdministrateur, estChefOuExempte, estCommercialTerrain, voitParcoursCommercial } from '../lib/roles';
+import CompteurTri from './parcours/CompteurTri';
 
 const MODULES_AVEC_MENU = new Set(['vente', 'patrimoine', 'chantier', 'administration', 'outils']);
 
@@ -32,6 +33,9 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
   const { user, logout } = useAuth();
   const isAdmin = estAdministrateur(user);
   const chefOuExempte = estChefOuExempte(user);
+  const parcours = voitParcoursCommercial(user);
+  // Le commercial de terrain est renvoyé de `/` vers « Ma journée » : le tableau de bord a sa propre adresse.
+  const lienTableauDeBord = estCommercialTerrain(user) ? '/tableau-de-bord' : '/';
   // Le commercial voit Ventes, Patrimoine, Chantier et Profil ensemble, hors du découpage
   // par module que suivent les autres rôles.
   const isCommercial = user?.roles?.includes('Commercial') ?? false;
@@ -72,10 +76,18 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
         <SidebarContent>
           <SidebarGroup>
             <SidebarMenu>
+              {parcours && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton render={<NavLink to="/journee" />} isActive={location.pathname.startsWith('/journee')} tooltip="Ma journée">
+                    <Sun />
+                    Ma journée
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  render={<NavLink to="/" end />}
-                  isActive={location.pathname === '/'}
+                  render={<NavLink to={lienTableauDeBord} end />}
+                  isActive={location.pathname === lienTableauDeBord}
                   tooltip="Dashboard"
                 >
                   <LayoutDashboard />
@@ -101,6 +113,15 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                     Calendrier
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                {parcours && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton render={<NavLink to="/tri" />} isActive={location.pathname.startsWith('/tri')} tooltip="Boîte de tri">
+                      <Inbox style={{ color: 'var(--sec-preprospection)' }} />
+                      Boîte de tri
+                    </SidebarMenuButton>
+                    <CompteurTri />
+                  </SidebarMenuItem>
+                )}
                 <SidebarMenuItem>
                   <SidebarMenuButton render={<NavLink to="/prospections" />} isActive={location.pathname.startsWith('/prospections')} tooltip="Prospections">
                     <Users style={{ color: 'var(--sec-prospection)' }} />

@@ -9,7 +9,7 @@ import { Field as FormField, FieldLabel } from '../ui/field';
 import { EmptyState, ErrorState, LoadingState } from '../ui';
 import { distribuerPreProspections, listPreProspections } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { basculer, choixCommerciaux, phraseDistribution } from '../../lib/equipe';
+import { basculer, bornesPeriodeEquipe, choixCommerciaux, phraseDistribution } from '../../lib/equipe';
 import { useToast } from '../../lib/toastContext';
 import type { CommercialEquipeDto } from '../../types';
 
@@ -17,18 +17,22 @@ const TAILLE = 100;
 
 /** Les plus anciennes d'abord ; tout le lot ou rien (le serveur n'écrit rien si une ligne est refusée). */
 export default function DistribuerDialog({
+  periode,
   commerciaux,
   onClose,
   onFait,
 }: Readonly<{
+  /** Période de l'écran : mêmes lignes que le bloc « À distribuer » (FEATURE-equipe-commerciale.md §10). */
+  periode: { du: string; au: string };
   commerciaux: readonly CommercialEquipeDto[];
   onClose: () => void;
   onFait: () => void;
 }>) {
   const toast = useToast();
+  const { dateDebut, dateFin } = bornesPeriodeEquipe(periode);
   const liste = useApi(
-    () => listPreProspections({ ouvertes: true }, { page: 0, size: TAILLE, sort: ['docDate,asc'] }),
-    [],
+    () => listPreProspections({ ouvertes: true, dateDebut, dateFin }, { page: 0, size: TAILLE, sort: ['docDate,asc'] }),
+    [dateDebut, dateFin],
   );
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [commercialId, setCommercialId] = useState<string | null>(null);
@@ -64,7 +68,7 @@ export default function DistribuerDialog({
         {liste.error && <ErrorState message={liste.error} />}
         {!liste.error && liste.data && (
           lignes.length === 0 ? (
-            <EmptyState title="Rien à distribuer" message="Toutes les pré-prospections ouvertes ont déjà un commercial." />
+            <EmptyState title="Rien à distribuer" message="Toutes les pré-prospections ouvertes de la période ont déjà un commercial." />
           ) : (
             <LignesSelectionnables lignes={lignes} selection={selection} onBasculer={(id) => setSelection((s) => basculer(s, id))} />
           )
