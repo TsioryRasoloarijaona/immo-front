@@ -4,6 +4,7 @@ import {
   Calculator,
   Folder,
   Hammer,
+  HardHat,
   Key,
   Landmark,
   Settings,
@@ -40,6 +41,9 @@ export function moduleForPath(pathname: string): string | null {
   if (pathname.startsWith('/tranches') || pathname.startsWith('/articles') || pathname.startsWith('/projets')) {
     return 'patrimoine';
   }
+  if (pathname.startsWith('/chantier')) {
+    return 'chantier';
+  }
   // `/mes-performances` ne relève volontairement d'aucun module : la sidebar du
   // commercial ne dépend pas de la route.
   if (pathname.startsWith('/utilisateurs') || pathname.startsWith('/cles-api')) {
@@ -57,6 +61,7 @@ export function moduleForPath(pathname: string): string | null {
 export const APP_MODULES: AppModule[] = [
   { slug: 'vente', label: 'Vente', icon: Folder, active: true, path: '/prospections' },
   { slug: 'patrimoine', label: 'Patrimoine', icon: Building2, active: true, path: '/tranches' },
+  { slug: 'chantier', label: 'Chantier', icon: HardHat, active: true, path: '/chantier/projets' },
   { slug: 'achat', label: 'Achat', icon: ShoppingCart, active: false },
   { slug: 'location', label: 'Location', icon: Key, active: false },
   { slug: 'sav', label: 'Service Après Vente', icon: Wrench, active: false },
