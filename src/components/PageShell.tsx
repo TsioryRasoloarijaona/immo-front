@@ -14,7 +14,6 @@ import { SidebarTrigger } from './ui/sidebar';
 import { Button } from './ui/button';
 import ThemeToggle from './ThemeToggle';
 import ModuleSwitcher from './ModuleSwitcher';
-import { useAuth } from '../lib/auth';
 
 interface Crumb {
   label: string;
@@ -46,8 +45,6 @@ export default function PageShell({
   children: ReactNode;
 }>) {
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const { user } = useAuth();
-  const isCommercial = user?.roles?.includes('Commercial') ?? false;
 
   return (
     <div className={cn(fullHeight && 'flex h-svh flex-col overflow-hidden md:h-[calc(100svh-1rem)]')}>
@@ -115,23 +112,21 @@ export default function PageShell({
         <div className={cn('flex items-center gap-2', entete ? 'ml-auto max-w-full' : 'shrink-0')}>
           {actions && <div className="flex min-w-0 flex-wrap justify-end gap-2">{actions}</div>}
           <ThemeToggle />
-          {!isCommercial && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setSwitcherOpen(true)}
-              aria-label="Changer de module"
-              title="Changer de module"
-            >
-              <Grid2x2 />
-            </Button>
-          )}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setSwitcherOpen(true)}
+            aria-label="Changer de module"
+            title="Changer de module"
+          >
+            <Grid2x2 />
+          </Button>
         </div>
       </header>
       <div className={cn('page', fullHeight && 'flex min-h-0 flex-col overflow-hidden')}>{children}</div>
 
-      {!isCommercial && switcherOpen && <ModuleSwitcher onClose={() => setSwitcherOpen(false)} />}
+      {switcherOpen && <ModuleSwitcher onClose={() => setSwitcherOpen(false)} />}
     </div>
   );
 }
