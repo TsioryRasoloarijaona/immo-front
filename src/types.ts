@@ -485,9 +485,19 @@ export type GroupeColonne =
   | 'ACTION'
   | 'RATTACHEMENT'
   | 'IDENTIFIANTS'
-  | 'AUDIT';
+  | 'AUDIT'
+  // Catalogue des tranches (onglets de la fiche OMRAN).
+  | 'GENERAL'
+  | 'VISIBILITE'
+  | 'COORDONNEES'
+  | 'REGLES_1'
+  | 'REGLES_2'
+  | 'REMISES'
+  | 'AUTRES'
+  | 'FONCIER';
 
-export type TypeColonne = 'TEXTE' | 'NOMBRE' | 'MONTANT' | 'DATE' | 'BOOLEEN';
+/** `TAUX` : fraction (0.2 = 20 %), à formater en pourcentage. */
+export type TypeColonne = 'TEXTE' | 'NOMBRE' | 'MONTANT' | 'TAUX' | 'DATE' | 'BOOLEEN';
 
 /** Même source que la liste blanche de `?colonnes=` : ne pas coder de
  * catalogue en dur côté front. */
@@ -1558,20 +1568,61 @@ export interface PieceJointeDto {
 }
 
 
-export interface TrancheListItemDto {
+/** Champs ajoutés par FEATURE-patrimoine-tranche-fiche §4.1, mêmes noms en lecture et en écriture. */
+interface TrancheChampsFiche {
+  standingId?: UUID;
+  niveauTerrainId?: UUID;
+  rubriqueId?: UUID;
+  responsableSavId?: UUID;
+  adresseSav?: string;
+  visibleProjet?: boolean;
+  visibleAchat?: boolean;
+  visibleSav?: boolean;
+  visiblePrm?: boolean;
+  visibleRom?: boolean;
+  cadeauParrain?: boolean;
+  cadeauAncienClient?: boolean;
+  cadeauOrigineProspection?: boolean;
+  cadeauxCumules?: boolean;
+  tiersAutruiId?: UUID;
+  projetFacturationId?: UUID;
+  planComptableId?: UUID;
+  dateMainLeveeAfh?: string | null;
+  dateCertificatDefinitif1?: string | null;
+  dateMainLeveeBancaire?: string | null;
+  dateCertificatDefinitif2?: string | null;
+  dateDepotLotissementMunicipalite?: string | null;
+  dateRetraitLotissementMunicipalite?: string | null;
+  dateDepotLotissementNonApprouveOtc?: string | null;
+  dateReglementFraisOtc?: string | null;
+  dateDepotLotissementApprouveOtc?: string | null;
+  dateRetraitPlansMutationOtc?: string | null;
+  dateAchevementPartages?: string | null;
+  dateDepotPartageCpf?: string | null;
+  datePaiementFraisPartageCpf?: string | null;
+  dateRetraitPartageCpf?: string | null;
+  dateRetraitCertificatsIndividuels?: string | null;
+  dateVerificationCertificats?: string | null;
+  dateRepartitionCharges?: string | null;
+}
+
+/** Ligne de `GET /api/tranches` : seules les colonnes demandées (`?colonnes=`, catalogue
+ * `GET /api/tranches/colonnes`) sont présentes, `id` toujours. Mêmes noms que la fiche. */
+export interface TrancheListItemDto extends Partial<Omit<TrancheDetailDto, 'id'>> {
   id: UUID;
-  code?: string;
-  description?: string;
-  ville?: string;
-  /** `DeliveryDate` d'OMRAN = « Date octroi des T.F », pas une livraison. */
-  dateOctroiTitresFonciers?: string | null;
-  projetId?: UUID;
-  projetCode?: string;
+  adresseComplete?: string;
+  villeSignature?: string;
+  representantLegal?: string;
+  signataireLibelle?: string;
+  responsableTechniqueLibelle?: string;
+  responsableCommercialLibelle?: string;
 }
 
 /** Corps de POST / PATCH `/api/tranches`. Taux en fraction (0.2 = 20 %).
- * PATCH : absent = inchangé, `""` = vider un texte. */
-export interface TrancheEcritureDto {
+ * PATCH : absent = inchangé, `""` = vider un texte, `champsAVider` pour le reste
+ * (date et référence → null, nombre → 0). */
+export interface TrancheEcritureDto extends TrancheChampsFiche {
+  champsAVider?: string[];
   projetId?: UUID;
   code?: string;
   description?: string;
@@ -1644,8 +1695,20 @@ export interface TrancheEcritureDto {
   ecartTypeFinalisation?: number;
 }
 
-export interface TrancheDetailDto {
+export interface TrancheDetailDto extends TrancheChampsFiche {
   id: UUID;
+  projetLibelle?: string;
+  entiteLibelle?: string;
+  standingLibelle?: string;
+  niveauTerrainLibelle?: string;
+  rubriqueLibelle?: string;
+  responsableSavLibelle?: string;
+  tiersAutruiLibelle?: string;
+  projetFacturationLibelle?: string;
+  /** « code — libellé » du compte. */
+  planComptableLibelle?: string;
+  /** m², lecture seule (Σ des planchers couverts). */
+  plancherCouvert?: number;
   projetId?: UUID;
   code?: string;
   description?: string;
@@ -1922,16 +1985,44 @@ export interface AffectationSousArticleDto {
   toujoursAffecte?: boolean;
 }
 
+/** Les 23 colonnes de la liste PROGRAMMES d'OMRAN (`GET /api/projets`), plus id, ville, code entité. */
 export interface ProjetListItemDto {
   id: UUID;
   code?: string;
   description?: string;
   ville?: string;
   entiteCode?: string;
+  entiteLibelle?: string;
+  /** Ville, adresses, code postal et pays mis bout à bout (« Adresse » d'OMRAN). */
+  adresseComplete?: string;
+  villeSignature?: string;
+  signataireLibelle?: string;
+  representantLegal?: string;
+  responsableCommercialLibelle?: string;
+  responsableTechniqueLibelle?: string;
+  descriptionLongue?: string;
+  telephone?: string;
+  mobile?: string;
+  fax?: string;
+  email?: string;
+  siteWeb?: string;
+  dateDebutTravaux?: string | null;
+  dateFinTravaux?: string | null;
+  dateDebutCommercialisation?: string | null;
+  dateFinCommercialisation?: string | null;
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
 }
 
-/** Corps de POST / PATCH `/api/projets`. PATCH : absent = inchangé, `""` = vider un texte. */
+/** Corps de POST / PATCH `/api/projets` ; aussi la réponse de `GET /api/projets/defauts-entite/{entiteId}`.
+ * PATCH : absent = inchangé, `""` = vider un texte, `champsAVider` pour une date, le pays ou un personnel. */
 export interface ProjetEcritureDto {
+  signataireId?: UUID;
+  responsableTechniqueId?: UUID;
+  responsableCommercialId?: UUID;
+  champsAVider?: string[];
   entiteId?: UUID;
   code?: string;
   description?: string;
@@ -1983,6 +2074,40 @@ export interface ProjetDetailDto {
   creeLe?: string | null;
   modifiePar?: string;
   modifieLe?: string | null;
+  signataireId?: UUID;
+  signataireLibelle?: string;
+  responsableTechniqueId?: UUID;
+  responsableTechniqueLibelle?: string;
+  responsableCommercialId?: UUID;
+  responsableCommercialLibelle?: string;
+  /** Représentant de l'entité juridique, lecture seule. */
+  representantLegal?: string;
+}
+
+/** `GET /api/projets/{id}/zones` : à plat, l'arbre se reconstruit par `parentId`. */
+export interface ZoneProjetDto {
+  id: UUID;
+  parentId?: UUID | null;
+  code?: string;
+  description?: string;
+  notes?: string;
+  /** Profondeur, 0 à la racine (calculée par le serveur). */
+  niveau?: number;
+  ordre?: number;
+  aUneImage: boolean;
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
+}
+
+/** POST / PATCH d'une zone ; `parentId` à la création seulement. */
+export interface ZoneProjetEcritureDto {
+  parentId?: UUID;
+  code?: string;
+  description?: string;
+  notes?: string;
+  ordre?: number;
 }
 
 

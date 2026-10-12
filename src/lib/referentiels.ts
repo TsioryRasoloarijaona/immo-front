@@ -144,6 +144,16 @@ export const useColonnesEncaissements = makeCachedListHook(api.getColonnesEncais
 
 export const useColonnesSuiviActions = makeCachedListHook(api.getColonnesSuiviActions);
 
+export const useColonnesTranches = makeCachedListHook(api.getColonnesTranches);
+
+/* Fiches programme et tranche (FEATURE-patrimoine-tranche-fiche §2). */
+export const useStandings = makeCachedListHook(() => api.getReferentielPatrimoine('standings'));
+export const useNiveauxTerrain = makeCachedListHook(() => api.getReferentielPatrimoine('niveaux-terrain'));
+export const useRubriquesTranche = makeCachedListHook(() => api.getReferentielPatrimoine('rubriques-tranche'));
+export const usePersonnels = makeCachedListHook(() => api.getReferentielPatrimoine('personnels'));
+export const usePlansComptables = makeCachedListHook(() => api.getReferentielPatrimoine('plans-comptables'));
+export const useTiersAutrui = makeCachedListHook(() => api.getReferentielPatrimoine('tiers-autrui'));
+
 export function referentielItems(list: ReferentielItemDto[]): { label: string; value: string }[] {
   return list.map((r) => ({ label: r.description || r.code || r.id, value: r.id }));
 }
