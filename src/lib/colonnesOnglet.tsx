@@ -8,7 +8,7 @@ interface ItemReference {
   description?: string;
 }
 
-export const libelleReference = (code?: string, description?: string) =>
+const libelleReference = (code?: string, description?: string) =>
   [code, description].filter(Boolean).join(' — ') || '—';
 
 /**

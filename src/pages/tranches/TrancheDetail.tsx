@@ -50,13 +50,7 @@ const ONGLETS: { id: OngletTranche; libelle: string }[] = [
 function FicheTranche({ id }: Readonly<{ id: string }>) {
   const { data: t, loading, error, refetch } = useApi(() => getTranche(id), [id]);
   const [onglet, setOnglet] = useState<OngletTranche>('fiche');
-  // Après « Charger à partir d'une autre tranche », les onglets se relisent (remontés par leur `key`).
-  const [version, setVersion] = useState(0);
   const admin = estAdministrateur(useAuth().user);
-  const recharger = () => {
-    setVersion((v) => v + 1);
-    void refetch();
-  };
 
   if (loading && !t) return <PageShell title="Tranche"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Tranche"><ErrorState message={error} /></PageShell>;
@@ -77,23 +71,24 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
       accentBg="var(--sec-tranche-bg)"
     >
       <div className="flex flex-col gap-3 pt-1">
-        <EnteteTranche t={t} admin={admin} onCharge={recharger} />
+        <EnteteTranche t={t} admin={admin} />
         <Tabs value={onglet} onValueChange={(v) => setOnglet(v as OngletTranche)} className="flex flex-col gap-3">
           <OngletsLigne onglets={ONGLETS} />
           <TabsContent value="fiche">
             <BlocsTranche t={t} />
           </TabsContent>
           <TabsContent value="terrains">
-            <OngletTerrains key={version} trancheId={t.id} admin={admin} />
+            <OngletTerrains trancheId={t.id} admin={admin} />
           </TabsContent>
           <TabsContent value="etages">
-            <OngletEtages key={version} trancheId={t.id} admin={admin} />
+            <OngletEtages trancheId={t.id} admin={admin} />
           </TabsContent>
           <TabsContent value="plancher">
-            <OngletPlancherCouvert key={version} trancheId={t.id} admin={admin} apresEnregistrement={() => void refetch()} />
+            {/* Relire la fiche : son « Plancher couvert » vient d'être réécrit par le serveur. */}
+            <OngletPlancherCouvert trancheId={t.id} admin={admin} apresEnregistrement={() => void refetch()} />
           </TabsContent>
           <TabsContent value="frais">
-            <OngletFrais key={version} trancheId={t.id} admin={admin} />
+            <OngletFrais trancheId={t.id} admin={admin} />
           </TabsContent>
           <TabsContent value="articles">
             <div className="flex min-h-120 flex-col gap-3">
@@ -107,7 +102,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
   );
 }
 
-function EnteteTranche({ t, admin, onCharge }: Readonly<{ t: TrancheDetailDto; admin: boolean; onCharge: () => void }>) {
+function EnteteTranche({ t, admin }: Readonly<{ t: TrancheDetailDto; admin: boolean }>) {
   const navigate = useNavigate();
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -122,7 +117,7 @@ function EnteteTranche({ t, admin, onCharge }: Readonly<{ t: TrancheDetailDto; a
       </span>
       {admin && (
         <span className="ml-auto flex flex-wrap gap-2">
-          <ActionsTranche t={t} onCharge={onCharge} />
+          <ActionsTranche t={t} />
           <Button variant="outline" size="sm" onClick={() => void navigate(`/tranches/${t.id}/modifier`)}>
             <Pencil data-icon="inline-start" /> Modifier
           </Button>

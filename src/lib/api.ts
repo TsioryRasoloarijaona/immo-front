@@ -1462,11 +1462,6 @@ export function deleteTranche(id: UUID): Promise<void> {
   return request('DELETE', `/api/tranches/${id}`);
 }
 
-/** « Charger à partir d'une autre tranche ». 400 si `sourceId` = `id`. */
-export function chargerTrancheDepuis(id: UUID, sourceId: UUID): Promise<TrancheDetailDto> {
-  return request('POST', `/api/tranches/${id}/charger-depuis/${sourceId}`);
-}
-
 export function listTerrainsTranche(id: UUID): Promise<TerrainTrancheDto[]> {
   return request('GET', `/api/tranches/${id}/terrains`);
 }
