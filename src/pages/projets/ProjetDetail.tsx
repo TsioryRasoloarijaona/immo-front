@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, LayoutGrid, Pencil, Plus } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ChampsTrace from '../../components/patrimoine/ChampsTrace';
+import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import { useAuth } from '../../lib/auth';
 import { estAdministrateur } from '../../lib/roles';
 import { Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
@@ -103,6 +104,8 @@ function FicheProjet({ id }: Readonly<{ id: string }>) {
             />
           )}
         </Card>
+
+        <OngletsTransverses porteur="projet" id={projet.id} />
       </div>
     </PageShell>
   );
