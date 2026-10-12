@@ -3,13 +3,17 @@ import { APP_MODULES, type AppModule } from '../lib/modules';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { cn } from '../lib/utils';
 import { useAuth } from '../lib/auth';
-import { estAdministrateur } from '../lib/roles';
+import { estAdministrateur, estCommercialTerrain } from '../lib/roles';
+
+/** Le commercial de terrain ne voit que ses deux modules utiles. */
+const MODULES_TERRAIN: ReadonlySet<string> = new Set(['vente', 'patrimoine']);
 
 export default function ModuleSwitcher({ onClose }: Readonly<{ onClose: () => void }>) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = estAdministrateur(user);
-  const modules = APP_MODULES.filter((m) => !m.adminOnly || isAdmin);
+  const terrain = estCommercialTerrain(user);
+  const modules = APP_MODULES.filter((m) => (!m.adminOnly || isAdmin) && (!terrain || MODULES_TERRAIN.has(m.slug)));
 
   function handleSelect(mod: AppModule) {
     onClose();

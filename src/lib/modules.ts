@@ -22,7 +22,12 @@ export interface AppModule {
 }
 
 export function moduleForPath(pathname: string): string | null {
+  // Le tableau de bord n'existe que pour la vente ; profil et performances suivent le menu Vente.
   if (
+    pathname === '/' ||
+    pathname.startsWith('/tableau-de-bord') ||
+    pathname.startsWith('/profil') ||
+    pathname.startsWith('/mes-performances') ||
     pathname.startsWith('/hotline') ||
     pathname.startsWith('/calendrier') ||
     pathname.startsWith('/suivi-actions') ||
@@ -43,8 +48,6 @@ export function moduleForPath(pathname: string): string | null {
   if (pathname.startsWith('/tranches') || pathname.startsWith('/articles') || pathname.startsWith('/projets')) {
     return 'patrimoine';
   }
-  // `/mes-performances` ne relève volontairement d'aucun module : la sidebar du
-  // commercial ne dépend pas de la route.
   if (pathname.startsWith('/utilisateurs') || pathname.startsWith('/cles-api')) {
     return 'administration';
   }

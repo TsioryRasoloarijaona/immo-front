@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, Calendar, Contact, FilePlus2, FileText, Folder, Gauge, History, Home, Inbox, KeyRound, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, Sun, Trophy, UserCheck, UserCircle, UserPlus, Users, UsersRound, Wallet } from 'lucide-react';
+import { BookUser, Bot, Building2, FilePlus2, History, Home, KeyRound, LayoutGrid, LogOut, Users } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -22,21 +22,14 @@ import EntreesAdminVirements from '../pages/outils/virements/EntreesAdminViremen
 import EntreesSyndic from '../pages/outils/syndic/EntreesSyndic';
 import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
-import { estAdministrateur, estChefOuExempte, estCommercialTerrain, voitParcoursCommercial } from '../lib/roles';
-import CompteurTri from './parcours/CompteurTri';
+import { estAdministrateur } from '../lib/roles';
+import NavVente from './NavVente';
 
 export default function Layout({ children }: Readonly<{ children: ReactNode }>) {
   const location = useLocation();
   const activeModule = moduleForPath(location.pathname);
   const { user, logout } = useAuth();
   const isAdmin = estAdministrateur(user);
-  const chefOuExempte = estChefOuExempte(user);
-  const parcours = voitParcoursCommercial(user);
-  // Le commercial de terrain est renvoyé de `/` vers « Ma journée » : le tableau de bord a sa propre adresse.
-  const lienTableauDeBord = estCommercialTerrain(user) ? '/tableau-de-bord' : '/';
-  // Le commercial voit Ventes, Patrimoine et Profil ensemble, hors du découpage
-  // par module que suivent les autres rôles.
-  const isCommercial = user?.roles?.includes('Commercial') ?? false;
   const activeSoonModule = activeModule && activeModule !== 'vente' && activeModule !== 'patrimoine' && activeModule !== 'administration' && activeModule !== 'outils'
     ? APP_MODULES.find((m) => m.slug === activeModule)
     : undefined;
@@ -72,109 +65,9 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
         </SidebarHeader>
 
         <SidebarContent>
-          <SidebarGroup>
-            <SidebarMenu>
-              {parcours && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/journee" />} isActive={location.pathname.startsWith('/journee')} tooltip="Ma journée">
-                    <Sun />
-                    Ma journée
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  render={<NavLink to={lienTableauDeBord} end />}
-                  isActive={location.pathname === lienTableauDeBord}
-                  tooltip="Dashboard"
-                >
-                  <LayoutDashboard />
-                  Dashboard
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroup>
+          {activeModule === 'vente' && <NavVente pathname={location.pathname} />}
 
-          {(isCommercial || activeModule === 'vente') && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Ventes</SidebarGroupLabel>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/hotline" />} isActive={location.pathname.startsWith('/hotline')} tooltip="Hotline">
-                    <Phone />
-                    Hotline
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/calendrier" />} isActive={location.pathname.startsWith('/calendrier')} tooltip="Calendrier">
-                    <Calendar />
-                    Calendrier
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                {parcours && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton render={<NavLink to="/tri" />} isActive={location.pathname.startsWith('/tri')} tooltip="Boîte de tri">
-                      <Inbox style={{ color: 'var(--sec-preprospection)' }} />
-                      Boîte de tri
-                    </SidebarMenuButton>
-                    <CompteurTri />
-                  </SidebarMenuItem>
-                )}
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/prospections" />} isActive={location.pathname.startsWith('/prospections')} tooltip="Prospections">
-                    <Users style={{ color: 'var(--sec-prospection)' }} />
-                    Prospections
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/pre-prospections" />} isActive={location.pathname.startsWith('/pre-prospections')} tooltip="Pré-prospections">
-                    <UserPlus style={{ color: 'var(--sec-preprospection)' }} />
-                    Pré-prospections
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/prospects" />} isActive={location.pathname.startsWith('/prospects')} tooltip="Prospects">
-                    <Contact style={{ color: 'var(--sec-prospect)' }} />
-                    Prospects
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/clients" />} isActive={location.pathname.startsWith('/clients')} tooltip="Clients">
-                    <UserCheck style={{ color: 'var(--sec-client)' }} />
-                    Clients
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/dossiers" />} isActive={location.pathname.startsWith('/dossiers')} tooltip="Dossiers de vente">
-                    <Folder style={{ color: 'var(--sec-dossier)' }} />
-                    Dossiers de vente
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/offres" />} isActive={location.pathname.startsWith('/offres')} tooltip="Offres">
-                    <FileText style={{ color: 'var(--sec-offre)' }} />
-                    Offres
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/encaissements" />} isActive={location.pathname.startsWith('/encaissements')} tooltip="Encaissements">
-                    <Wallet style={{ color: 'var(--sec-dossier)' }} />
-                    Encaissements
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                {chefOuExempte && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton render={<NavLink to="/equipe" />} isActive={location.pathname.startsWith('/equipe')} tooltip="Mon équipe">
-                      <UsersRound />
-                      Mon équipe
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-              </SidebarMenu>
-            </SidebarGroup>
-          )}
-
-          {(isCommercial || activeModule === 'patrimoine') && (
+          {activeModule === 'patrimoine' && (
             <SidebarGroup>
               <SidebarGroupLabel>Patrimoine</SidebarGroupLabel>
               <SidebarMenu>
@@ -194,64 +87,6 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                   <SidebarMenuButton render={<NavLink to="/articles" />} isActive={location.pathname.startsWith('/articles')} tooltip="Articles">
                     <Home style={{ color: 'var(--sec-tranche)' }} />
                     Articles
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroup>
-          )}
-
-          {isCommercial && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Profil</SidebarGroupLabel>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/profil" />} isActive={location.pathname.startsWith('/profil')} tooltip="Mon profil">
-                    <UserCircle />
-                    Mon profil
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<NavLink to="/mes-performances" />}
-                    isActive={location.pathname.startsWith('/mes-performances')}
-                    tooltip="Mes performances"
-                  >
-                    <Gauge />
-                    Mes performances
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip="Mes actions">
-                    <ListChecks />
-                    Mes actions
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroup>
-          )}
-
-          {!isCommercial && activeModule === 'vente' && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Suivi</SidebarGroupLabel>
-              <SidebarMenu>
-                {isAdmin && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      render={<NavLink to="/performances" />}
-                      isActive={location.pathname.startsWith('/performances')}
-                      tooltip="Performances commerciales"
-                    >
-                      <Trophy />
-                      Performances commerciales
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                <SidebarMenuItem>
-                  {/* Le serveur ne sert le suivi général qu'à l'administrateur ;
-                      les autres rôles n'y voient que leurs propres actions. */}
-                  <SidebarMenuButton render={<NavLink to="/suivi-actions" />} isActive={location.pathname.startsWith('/suivi-actions')} tooltip={isAdmin ? 'Suivi des actions' : 'Mes actions'}>
-                    <ListChecks />
-                    {isAdmin ? 'Suivi des actions' : 'Mes actions'}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>
