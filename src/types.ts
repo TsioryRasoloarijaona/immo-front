@@ -1561,7 +1561,85 @@ export interface TrancheListItemDto {
   code?: string;
   description?: string;
   ville?: string;
-  dateLivraison?: string | null;
+  /** `DeliveryDate` d'OMRAN = « Date octroi des T.F », pas une livraison. */
+  dateOctroiTitresFonciers?: string | null;
+  projetId?: UUID;
+  projetCode?: string;
+}
+
+/** Corps de POST / PATCH `/api/tranches`. Taux en fraction (0.2 = 20 %).
+ * PATCH : absent = inchangé, `""` = vider un texte. */
+export interface TrancheEcritureDto {
+  projetId?: UUID;
+  code?: string;
+  description?: string;
+  descriptionLongue?: string;
+  estEnVente?: boolean;
+  estEnLocation?: boolean;
+  adresse?: string;
+  adresse2?: string;
+  adresse3?: string;
+  codePostal?: string;
+  ville?: string;
+  paysId?: UUID;
+  telephone?: string;
+  mobile?: string;
+  fax?: string;
+  email?: string;
+  siteWeb?: string;
+  dateDebutTravaux?: string;
+  dateFinTravaux?: string;
+  dateDebutCommercialisation?: string;
+  dateFinCommercialisation?: string;
+  dateOctroiTitresFonciers?: string;
+  datePermisHabiter?: string;
+  dateReception?: string;
+  datePremiereRelance?: string;
+  dateFinConcretisation?: string;
+  dateDebutFinalisation?: string;
+  montantPreReservation?: number;
+  montantPreReservationRemise?: number;
+  avanceSurMontant?: boolean;
+  montantAvance?: number;
+  advancePercent?: number;
+  advancePercentRemise?: number;
+  advancePercentRemiseActive?: boolean;
+  fraisDossier?: number;
+  fraisDossierRemise?: number;
+  tauxPenaliteAnnulation?: number;
+  tauxPenaliteAnnulationRemise?: number;
+  penaliteAnnulationSurPrixArticle?: boolean;
+  penaliteTransfertArticle?: number;
+  penaliteTransfertArticleRemise?: number;
+  penaliteTransfertTranche?: number;
+  penaliteTransfertTrancheRemise?: number;
+  penaliteTransfertClient?: number;
+  penaliteTransfertClientRemise?: number;
+  autresFrais?: number;
+  autresFraisRemise?: number;
+  montantSyndic?: number;
+  montantSyndicRemise?: number;
+  periodeSyndic?: number;
+  delaiPremierEngagement?: number;
+  delaiDeuxiemeEngagement?: number;
+  tauxPenalitePremierEngagement?: number;
+  tauxPenaliteDeuxiemeEngagement?: number;
+  delaiSoldePaiement?: number;
+  delaiGarantie?: number;
+  delaiGarantieSupplement?: number;
+  codeDroitRetractation?: string;
+  tribunalCommerce?: string;
+  delaiMinimumIntervention?: number;
+  maxVisitNumber?: number;
+  delaiRetractation?: number;
+  delaiMaxEcheance?: number;
+  verifierDelaiMaxEcheance?: boolean;
+  creditPercent?: number;
+  isWithVerifCredit?: boolean;
+  delaiNotaireMinutes?: number;
+  delaiToutSoldeMinutes?: number;
+  ecartTypeConcretisation?: number;
+  ecartTypeFinalisation?: number;
 }
 
 export interface TrancheDetailDto {
@@ -1584,7 +1662,7 @@ export interface TrancheDetailDto {
   dateFinTravaux?: string | null;
   dateDebutCommercialisation?: string | null;
   dateFinCommercialisation?: string | null;
-  dateLivraison?: string | null;
+  dateOctroiTitresFonciers?: string | null;
   estEnVente?: boolean;
   estEnLocation?: boolean;
   tauxPenaliteAnnulation?: number;
@@ -1608,10 +1686,44 @@ export interface TrancheDetailDto {
   delaiMinimumIntervention?: number;
   delaiMaxEcheance?: number;
   advancePercent?: number;
+  /** Toujours égal à `advancePercent`, non saisissable. */
   concretisationPercent?: number;
   maxVisitNumber?: number;
   isWithVerifCredit?: boolean;
   creditPercent?: number;
+  datePermisHabiter?: string | null;
+  dateReception?: string | null;
+  datePremiereRelance?: string | null;
+  dateFinConcretisation?: string | null;
+  dateDebutFinalisation?: string | null;
+  montantPreReservation?: number;
+  montantPreReservationRemise?: number;
+  avanceSurMontant?: boolean;
+  montantAvance?: number;
+  advancePercentRemise?: number;
+  advancePercentRemiseActive?: boolean;
+  fraisDossier?: number;
+  fraisDossierRemise?: number;
+  penaliteAnnulationSurPrixArticle?: boolean;
+  autresFrais?: number;
+  autresFraisRemise?: number;
+  montantSyndic?: number;
+  montantSyndicRemise?: number;
+  periodeSyndic?: number;
+  codeDroitRetractation?: string;
+  tribunalCommerce?: string;
+  verifierDelaiMaxEcheance?: boolean;
+  ecartTypeConcretisation?: number;
+  ecartTypeFinalisation?: number;
+  projetCode?: string;
+  entiteId?: UUID;
+  entiteCode?: string;
+  paysId?: UUID;
+  paysLibelle?: string;
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
 }
 
 export type ArticleStatut = 'DISPONIBLE' | 'OCCUPE';
@@ -1718,6 +1830,94 @@ export interface ArticleDetailDto {
   /** Voir `ArticleListItemDto.prixSuggere`. */
   prixSuggere?: number | null;
   prixSuggereEstPlancher?: boolean;
+  /** Superficie provisoire (`AreaFloor`) ; la définitive est `area`. */
+  surfaceProvisoire?: number;
+  prixM2ProvisoireHT?: number;
+  prixM2ProvisoireTTC?: number;
+  prixM2DefinitifHT?: number;
+  prixM2DefinitifTTC?: number;
+  /** Prix de l'article seul ; le prix de vente (avec sous-articles) est `comSalePrice*` / `prixVente*HT`. */
+  prixArticleProvisoireHT?: number;
+  prixArticleProvisoireTTC?: number;
+  prixArticleDefinitifHT?: number;
+  prixArticleDefinitifTTC?: number;
+  prixVenteProvisoireHT?: number;
+  prixVenteDefinitifHT?: number;
+  /** Fraction (0.20 = 20 %), = `tauxTVA`. */
+  tauxTva?: number;
+  remiseMax1?: number;
+  remiseMax2?: number;
+  estTitre?: boolean;
+  toujoursAffecte?: boolean;
+  /** `IsUnderItem` : lot annexe, rattaché ou libre. */
+  estSousArticle?: boolean;
+  /** Dossier de vente/location, ou parent qui en a un : prix, surfaces et classification figés. */
+  occupe?: boolean;
+  vocationId?: UUID;
+  vocationLibelle?: string;
+  notes?: string;
+  surfaceInterieure?: number;
+  surfaceMurs?: number;
+  surfacePartiesCommunes?: number;
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
+}
+
+/** Corps de POST `/api/articles` et PATCH `/api/articles/{id}`. Fractions pour TVA et remises. */
+export interface ArticleEcritureDto {
+  trancheId?: UUID;
+  code?: string;
+  description?: string;
+  vocationId?: UUID;
+  categorieId?: UUID;
+  typeId?: UUID;
+  immeubleId?: UUID;
+  etageId?: UUID;
+  surfaceProvisoire?: number;
+  surfaceDefinitive?: number;
+  prixM2ProvisoireHT?: number;
+  prixM2DefinitifHT?: number;
+  tauxTva?: number;
+  titreFoncier?: string;
+  estTitre?: boolean;
+  remiseMax1?: number;
+  remiseMax2?: number;
+  adresse?: string;
+  notes?: string;
+  surfaceInterieure?: number;
+  surfaceMurs?: number;
+  surfacePartiesCommunes?: number;
+}
+
+/** Corps de POST `/api/articles/{id}/sous-articles` : tranche, vocation et nature viennent du parent. */
+export interface SousArticleEcritureDto {
+  code?: string;
+  description?: string;
+  categorieId?: UUID;
+  typeId?: UUID;
+  immeubleId?: UUID;
+  etageId?: UUID;
+  surfaceProvisoire?: number;
+  surfaceDefinitive?: number;
+  prixM2ProvisoireHT?: number;
+  prixM2DefinitifHT?: number;
+  tauxTva?: number;
+  titreFoncier?: string;
+  estTitre?: boolean;
+  remiseMax1?: number;
+  remiseMax2?: number;
+  adresse?: string;
+  notes?: string;
+  surfaceInterieure?: number;
+  surfaceMurs?: number;
+  surfacePartiesCommunes?: number;
+  toujoursAffecte?: boolean;
+}
+
+export interface AffectationSousArticleDto {
+  toujoursAffecte?: boolean;
 }
 
 export interface ProjetListItemDto {
@@ -1725,6 +1925,31 @@ export interface ProjetListItemDto {
   code?: string;
   description?: string;
   ville?: string;
+  entiteCode?: string;
+}
+
+/** Corps de POST / PATCH `/api/projets`. PATCH : absent = inchangé, `""` = vider un texte. */
+export interface ProjetEcritureDto {
+  entiteId?: UUID;
+  code?: string;
+  description?: string;
+  descriptionLongue?: string;
+  adresse?: string;
+  adresse2?: string;
+  adresse3?: string;
+  codePostal?: string;
+  ville?: string;
+  villeSignature?: string;
+  telephone?: string;
+  mobile?: string;
+  fax?: string;
+  email?: string;
+  siteWeb?: string;
+  paysId?: UUID;
+  dateDebutTravaux?: string;
+  dateFinTravaux?: string;
+  dateDebutCommercialisation?: string;
+  dateFinCommercialisation?: string;
 }
 
 export interface ProjetDetailDto {
@@ -1747,6 +1972,15 @@ export interface ProjetDetailDto {
   dateFinTravaux?: string | null;
   dateDebutCommercialisation?: string | null;
   dateFinCommercialisation?: string | null;
+  entiteId?: UUID;
+  entiteCode?: string;
+  entiteLibelle?: string;
+  paysId?: UUID;
+  paysLibelle?: string;
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
 }
 
 

@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, RotateCcw, Search } from 'lucide-react';
+import { Home, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
+import { useAuth } from '../../lib/auth';
+import { estAdministrateur } from '../../lib/roles';
 import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
@@ -53,6 +55,7 @@ const M2 = (v: unknown) => (typeof v === 'number' && v ? formatSurface(v) : <spa
 
 export default function ArticlesList() {
   const navigate = useNavigate();
+  const admin = estAdministrateur(useAuth().user);
   const categories = useCategoriesBien();
   const types = useTypesBienReferentiel();
   const entites = useEntitesReferentiel();
@@ -267,6 +270,13 @@ export default function ArticlesList() {
     <PageShell
       title="Articles"
       crumbs={[{ label: 'Patrimoine' }, { label: 'Articles' }]}
+      actions={
+        admin ? (
+          <Button size="sm" onClick={() => void navigate('/articles/nouveau')}>
+            <Plus data-icon="inline-start" /> Nouvel article
+          </Button>
+        ) : undefined
+      }
       fullHeight
       icon={<Home />}
       accent="var(--sec-tranche)"

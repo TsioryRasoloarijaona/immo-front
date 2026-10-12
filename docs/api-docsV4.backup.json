@@ -88,6 +88,10 @@
       "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
     {
+      "name": "Programmes",
+      "description": "Programmes immobiliers (CfgProject) : lecture, création et modification."
+    },
+    {
       "name": "Pré-prospections",
       "description": "Leads bruts non encore qualifiés : ComProspection de type légataire `ComPreProspection` (`StrEntity`), le discriminant d'OMRAN lui-même — une pré-prospection peut donc déjà porter un prospect ou un commercial tant qu'elle n'a pas été transformée. Même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
@@ -318,6 +322,108 @@
         }
       }
     },
+    "/api/tranches": {
+      "get": {
+        "tags": [
+          "Tranches"
+        ],
+        "summary": "Liste paginée des tranches, à plat",
+        "description": "Toutes les tranches, tous projets confondus, ou filtrées sur un seul projet via `projetId`. Évite le\ncontournement N+1 (GET /api/projets puis GET /api/projets/{id}/tranches pour chacun) pour peupler\nune checklist de filtre côté front — voir instructions/filtres-avances.md point 2.",
+        "operationId": "findAll",
+        "parameters": [
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (Entité, CfgProject.id) pour ne renvoyer que ses tranches. Absent = toutes les tranches.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoTrancheListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tranches"
+        ],
+        "summary": "Crée une tranche",
+        "description": "Réservé au rôle `Administrateur`. Obligatoires : `projetId` (programme existant), `code`, `description`. Le code\nest saisi, débarrassé de ses espaces de bord et **unique sur toute la table**, pas par programme (règle d'OMRAN),\ncasse ignorée. Valeurs initiales d'OMRAN pour tout champ absent : délais 60/30 (engagements), 48 (rétractation),\n2 (intervention), 4 (visites), 60/30 (minutes notaire / tout soldé), écarts-types 5/3, pénalité d'annulation sur le\nprix de l'article, tout autre nombre à 0, cases à décocher, textes vides. Exception : `estEnVente` vaut **true** par\ndéfaut (le module Vente n'affiche que ces tranches). `concretisationPercent` est toujours recopié de\n`advancePercent`. Le créateur reçoit l'habilitation OMRAN sur la tranche (`AdmUserHabilitation`).",
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrancheEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Tranche créée ; renvoie sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent ou vide ; programme ou pays introuvable ; taux hors de [0 ; 1] (dont « Le crédit max ne\ndoit pas dépasser 100% ! ») ; montant ou délai négatif ; date de fin (travaux, commercialisation) antérieure au\ndébut ; texte trop long. Le ProblemDetail porte `champ` = nom du champ en faute.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par une autre tranche, tous programmes confondus.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/synchronisation": {
       "post": {
         "tags": [
@@ -365,7 +471,7 @@
         "tags": [
           "prospect-controller"
         ],
-        "operationId": "findAll",
+        "operationId": "findAll_1",
         "parameters": [
           {
             "name": "search",
@@ -427,7 +533,7 @@
         ],
         "summary": "Crée un prospect",
         "description": "`nom` ou `raisonSociale` est requis ; tout le reste est optionnel.\n\n**Un numéro de téléphone ne s'enregistre jamais seul.** Fournir `mobile` impose `indicatifMobile`,\nfournir `telephone` impose `indicatifTelephone` — sinon **400**. L'indicatif est l'indicatif pays\nsans le `+` (`\"212\"`, le `+` étant toléré et retiré), et il doit exister dans le référentiel : voir\nGET /api/referentiels/pays, champ `indicatifTelephone`. C'est ce contrôle qui rend l'envoi WhatsApp\nfiable en aval — un numéro sans indicatif est inenvoyable, un indicatif fautif expédie le message à\nun inconnu.\n\n**Le numéro est normalisé avant écriture**, au format que porte déjà la base : 9 chiffres deviennent\n`6 98 29 80 95` (espacé, zéro initial retiré) — la forme de 98,8 % des fiches existantes ; toute\nautre longueur est stockée en chiffres nus, comme le sont déjà les mobiles nord-américains à 10\nchiffres. La valeur relue peut donc différer de celle envoyée.\n\n**Contrôle de doublon d'identité.** Avant toute écriture, les fiches prospect/client au même nom,\ntéléphone ou email sont recherchées (règles de `GET /api/prospects/doublons`) ; s'il y en a et que\n`ignorerDoublons` n'est pas `true`, **409** avec la liste `doublons`.",
-        "operationId": "create",
+        "operationId": "create_1",
         "requestBody": {
           "content": {
             "application/json": {
@@ -576,7 +682,7 @@
         ],
         "summary": "Liste paginée des prospections",
         "description": "Filtre optionnellement par étape/origine/commercial (multi-sélection, une valeur pour un seul choix\nse comporte comme avant), tranche(s) visée(s), plage de dates sur la date du document, et recherche\nlibre. Exclut les pré-prospections (voir GET /api/pre-prospections). Voir\ninstructions/filtres-avances.md pour le détail des filtres avancés.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), cette liste ne contient que les prospections de ses projets affectés — filtrage côté\nserveur, en plus des filtres ci-dessus. Le projet d'une prospection est celui de sa tranche visée ;\ncelles sans tranche restent visibles de tous.",
-        "operationId": "findAll_1",
+        "operationId": "findAll_2",
         "parameters": [
           {
             "name": "etape",
@@ -1742,6 +1848,98 @@
         }
       }
     },
+    "/api/projets": {
+      "get": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Liste paginée des programmes des entités actives",
+        "description": "Restreinte aux programmes dont l'entité juridique est active (`CfgCompany.IsActive = 1`). `entiteCode` donne\nl'entité de chaque ligne.",
+        "operationId": "findAll_3",
+        "parameters": [
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoProjetListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Crée un programme",
+        "description": "Réservé au rôle `Administrateur`. Obligatoires : `entiteId` (entité existante **et active**), `code`, `description`.\nLe code est saisi (aucune numérotation automatique, comme OMRAN), débarrassé de ses espaces de bord et **unique sur\ntoute la table**, casse ignorée. Les textes non saisis sont enregistrés vides (`\"\"`), jamais `null`, pour rester\nlisibles par OMRAN. Le créateur reçoit l'habilitation OMRAN sur le programme (ligne `AdmUserHabilitation`), sans\nlaquelle OMRAN ne l'affiche à personne. Trace : `creePar`/`creeLe` et `modifiePar`/`modifieLe` posés au même instant.",
+        "operationId": "create_2",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjetEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Programme créé ; renvoie sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent ou vide ; entité ou pays introuvable ; entité inactive ; texte trop long ; date de fin\n(travaux ou commercialisation) antérieure à la date de début. Le corps ProblemDetail porte `champ` = nom du champ en\nfaute.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par un autre programme.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/pre-prospections": {
       "get": {
         "tags": [
@@ -1749,7 +1947,7 @@
         ],
         "summary": "Liste paginée des pré-prospections",
         "description": "Mêmes filtres que GET /api/prospections (étape, origine, commercial, tranche(s), plage de dates,\nrecherche libre, ouvertes) appliqués aux leads non encore qualifiés. Voir\ninstructions/filtres-avances.md point 5.\n\n**Périmètre commercial** : si l'appelant est restreint, cette liste ne contient que les\npré-prospections de ses projets affectés, scopées par le projet de leur tranche visée. Les\npré-prospections sans tranche restent visibles de tous. Le filtre `commercial` s'applique : une\npré-prospection saisie dans OMRAN peut déjà porter un commercial (~780 en base réelle).",
-        "operationId": "findAll_2",
+        "operationId": "findAll_4",
         "parameters": [
           {
             "name": "etape",
@@ -2299,7 +2497,7 @@
         ],
         "summary": "Liste paginée des dossiers de vente",
         "description": "Filtre optionnellement par statut (multi-sélection, une valeur pour un seul statut se comporte comme\navant), commercial, entité (projet), tranche(s), plage de dates sur un jalon au choix, et recherche\nlibre sur le code du dossier OU le nom/prénom/raison sociale du client lié. Voir\ninstructions/filtres-avances.md pour le détail des filtres avancés.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), cette liste ne contient que les dossiers de ses projets affectés — filtrage côté serveur,\nappliqué en plus des filtres ci-dessus. Le front ne doit pas refiltrer par projet lui-même. Les\ndossiers dont le projet ne se résout pas restent visibles de tous.",
-        "operationId": "findAll_3",
+        "operationId": "findAll_5",
         "parameters": [
           {
             "name": "statut",
@@ -2474,8 +2672,8 @@
           "Dossiers"
         ],
         "summary": "Crée un dossier de vente à partir d'une prospection",
-        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Prospect → client** : si le statut initial porte l'indicateur OMRAN « Transforme le prospect en\nclient », le tiers passe au type client (voir `PATCH /api/dossiers/{id}/statut`).",
-        "operationId": "create_1",
+        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\nDans les deux modes, la base est écrite comme le logiciel de bureau l'écrit : `ComFolder.Discount`\nen ratio 0–1 du HT avant remise, `ComFolder.DiscountAmount` en HT. L'API relit `remise` en\npourcentage (0–100) et `remiseMontant` en HT.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Prospect → client** : si le statut initial porte l'indicateur OMRAN « Transforme le prospect en\nclient », le tiers passe au type client (voir `PATCH /api/dossiers/{id}/statut`).",
+        "operationId": "create_3",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3612,12 +3810,137 @@
         }
       }
     },
+    "/api/tranches/{id}": {
+      "get": {
+        "tags": [
+          "Tranches"
+        ],
+        "summary": "Fiche d'une tranche",
+        "operationId": "findById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche de la tranche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune tranche avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Tranches"
+        ],
+        "summary": "Modifie une tranche (champs absents inchangés)",
+        "description": "Réservé au rôle `Administrateur`. PATCH : un champ absent ou `null` reste inchangé ; `\"\"` vide un texte facultatif\n(refusé pour `code` et `description`). `projetId` ne se modifie pas : une valeur différente du programme actuel\ndonne 400 « Le programme d'une tranche ne se modifie pas ». `concretisationPercent` suit `advancePercent`.",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrancheEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Tranche modifiée ; renvoie sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Mêmes causes qu'à la création, plus un `projetId` différent du programme actuel.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune tranche avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par une autre tranche, tous programmes confondus.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prospects/{id}": {
       "get": {
         "tags": [
           "prospect-controller"
         ],
-        "operationId": "findById",
+        "operationId": "findById_1",
         "parameters": [
           {
             "name": "id",
@@ -3648,7 +3971,7 @@
         ],
         "summary": "Modifie un prospect",
         "description": "Mise à jour partielle : un champ absent ou `null` est laissé inchangé.\n\n**Les mêmes règles de téléphone qu'à la création s'appliquent** (voir POST /api/prospects), avec une\nconséquence propre à la modification : l'indicatif **n'est jamais repris implicitement** de la fiche\nexistante. Modifier `mobile` sans envoyer `indicatifMobile` renvoie 400 même si la fiche en portait\ndéjà un — un numéro qui change peut changer de pays, et hériter de l'ancien indicatif fabriquerait\nun numéro qui n'existe pas.\n\nEn revanche, une modification qui **ne touche pas** au téléphone ne demande aucun indicatif : les\nfiches historiques dont l'indicatif manque restent modifiables sur leurs autres champs.",
-        "operationId": "update",
+        "operationId": "update_1",
         "parameters": [
           {
             "name": "id",
@@ -3711,7 +4034,7 @@
         ],
         "summary": "Détail d'une prospection (ou d'une pré-prospection)",
         "description": "Sert aussi bien une prospection qualifiée qu'une pré-prospection : `GET /api/pre-prospections`\nn'expose pas de route de détail propre, les deux partagent cette fiche.\n\n**Périmètre commercial** : une prospection hors du périmètre de l'appelant renvoie **404**, et non\n403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants. Même règle pour\ntoutes les routes imbriquées (interactions, devis, qualification, documents).\n\n**Deux origines de données, deux comportements** :\n- les champs issus de `ComProspection` et de ses associations (société, type de tiers, coordonnées,\ncodes de référentiel, audit) sont servis **dans tous les cas**, pré-prospection comprise ;\n- le bloc `activite` vient de `ComSaleProspectionView`, qui exclut les pré-prospections : il vaut\nalors `null` **en entier**. `null` signifie « non disponible », jamais « zéro ».\n\nLes champs mesurés morts (`prix`, `surface`, avance, financement, `proposeur*`) restent exposés pour\nne pas rompre le contrat existant, mais ne doivent pas être affichés — voir leur `@Schema`.\n\n**Tri manuel et déduplication** : `marqueurTri` (`DOUBLON`, `SPAM`, `TRAITE`) et `doublonDe*`\nexposent un mécanisme que l'équipe tenait dans des champs libres. **L'endpoint les expose sans rien\nfiltrer** — 798 pré-prospections sont marquées doublon ou spam et 795 d'entre elles sont encore à\nl'étape `1 A TRAITER` : c'est au client de décider du traitement. Voir\n`instructions/FEATURE-marqueurs-tri-pre-prospection.md`.\n\n**Sur une pré-prospection**, `fermee` (0 %), les champs `article*` (0,2 %) et `proposeur*` (0 %)\nsont structurellement vides — ne pas les attendre.",
-        "operationId": "findById_1",
+        "operationId": "findById_2",
         "parameters": [
           {
             "name": "id",
@@ -4030,6 +4353,131 @@
         }
       }
     },
+    "/api/projets/{id}": {
+      "get": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Fiche d'un programme",
+        "operationId": "findById_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du programme (CfgProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche du programme.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun programme avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Modifie un programme (champs absents inchangés)",
+        "description": "Réservé au rôle `Administrateur`. PATCH : un champ absent ou `null` reste inchangé ; une chaîne vide `\"\"` vide un\ntexte facultatif mais est refusée (400) pour `code` et `description`. Les dates sont contrôlées sur les valeurs\nrésultantes (fin ≥ début). Pose `modifiePar`/`modifieLe`.",
+        "operationId": "update_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du programme (CfgProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProjetEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Programme modifié ; renvoie sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Mêmes causes qu'à la création.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun programme avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par un autre programme.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/mon-compte/profil": {
       "patch": {
         "tags": [
@@ -4286,7 +4734,7 @@
         ],
         "summary": "Liste les comptes utilisateurs",
         "description": "Tous les comptes (AdmUser) avec leurs informations (identifiant, coordonnées, statut\nactivé/désactivé), la fiche employé (CfgTier) liée et les rôles (AdmRole) assignés — écran\nd'administration des comptes. `search` filtre (insensible à la casse, sous-chaîne) sur\nidentifiant/description/email. `disabled` filtre sur le statut activé/désactivé ; absent = tous les\ncomptes. Réservé au rôle Administrateur.",
-        "operationId": "findAll_4",
+        "operationId": "findAll_6",
         "parameters": [
           {
             "name": "search",
@@ -4332,79 +4780,6 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PageDtoUtilisateurListItemDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tranches": {
-      "get": {
-        "tags": [
-          "Tranches"
-        ],
-        "summary": "Liste paginée des tranches, à plat",
-        "description": "Toutes les tranches, tous projets confondus, ou filtrées sur un seul projet via `projetId`. Évite le\ncontournement N+1 (GET /api/projets puis GET /api/projets/{id}/tranches pour chacun) pour peupler\nune checklist de filtre côté front — voir instructions/filtres-avances.md point 2.",
-        "operationId": "findAll_5",
-        "parameters": [
-          {
-            "name": "projetId",
-            "in": "query",
-            "description": "Id du projet (Entité, CfgProject.id) pour ne renvoyer que ses tranches. Absent = toutes les tranches.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "pageable",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Pageable"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoTrancheListItemDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tranches/{id}": {
-      "get": {
-        "tags": [
-          "Tranches"
-        ],
-        "operationId": "findById_2",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/TrancheDetailDto"
                 }
               }
             }
@@ -4575,7 +4950,7 @@
         ],
         "summary": "Liste des actions commerciales, colonnes au choix",
         "description": "La grille de l'écran OMRAN. Tous les filtres sont optionnels et se combinent en ET.\n\n**Période fin exclue**, comme OMRAN : `dateDebut <= DocDate < dateFin`. Un jour J = `dateDebut=J\nT00:00` et `dateFin=J+1 T00:00`.\n\n**Colonnes** : `?colonnes=` choisit les champs servis (catalogue et liste blanche : `GET\n/api/referentiels/colonnes/suivi-actions`). `rang`, `alerteActive`, `etat` et `personnel` sont\ncalculées pour la page servie, et seulement quand elles sont demandées : ni triables ni groupables.\n\n**Tri** : `sort=docDate,desc` par défaut ; seules les propriétés de l'action (`docDate`, `userName`,\n`alertValidityDate`…) sont triables.\n\nLes actions **système** (relances, événements générés) sont listées, comme dans OMRAN —\n`systeme=false` pour ne garder que les saisies.",
-        "operationId": "findAll_6",
+        "operationId": "findAll_7",
         "parameters": [
           {
             "name": "dateDebut",
@@ -4907,7 +5282,19 @@
         "tags": [
           "Référentiels"
         ],
+        "summary": "Vocations d'article (StkVocation)",
         "operationId": "getVocations",
+        "parameters": [
+          {
+            "name": "pourArticle",
+            "in": "query",
+            "description": "true : sans la vocation PROJET, réservée aux terrains (formulaire article). Absent : toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -5144,7 +5531,19 @@
         "tags": [
           "Référentiels"
         ],
+        "summary": "Types de bien (StkItemType)",
         "operationId": "getTypesBien_1",
+        "parameters": [
+          {
+            "name": "pourSousArticle",
+            "in": "query",
+            "description": "Présent : nature Bâtiment seulement, paramétrées « Pour les sous articles » (true) ou non (false). Absent : toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -5742,6 +6141,30 @@
         }
       }
     },
+    "/api/referentiels/immeubles": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Immeubles (StkBuilding), triés par ordre d'affichage puis code",
+        "operationId": "getImmeubles",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/etapes-prospection": {
       "get": {
         "tags": [
@@ -6018,7 +6441,19 @@
         "tags": [
           "Référentiels"
         ],
+        "summary": "Catégories de bien (StkItemCategory)",
         "operationId": "getCategoriesBien",
+        "parameters": [
+          {
+            "name": "pourSousArticle",
+            "in": "query",
+            "description": "Présent : nature Bâtiment seulement, paramétrées « Pour les sous articles » (true) ou non (false). Absent : toutes.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -6891,77 +7326,18 @@
         }
       }
     },
-    "/api/projets": {
-      "get": {
-        "tags": [
-          "projet-controller"
-        ],
-        "operationId": "findAll_7",
-        "parameters": [
-          {
-            "name": "pageable",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Pageable"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoProjetListItemDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/projets/{id}": {
-      "get": {
-        "tags": [
-          "projet-controller"
-        ],
-        "operationId": "findById_3",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProjetDetailDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/projets/{id}/tranches": {
       "get": {
         "tags": [
-          "projet-controller"
+          "Programmes"
         ],
+        "summary": "Tranches d'un programme",
         "operationId": "findTranches",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant du programme (CfgProject.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -6979,7 +7355,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Tranches du programme (éventuellement aucune).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoTrancheListItemDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun programme avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
@@ -10314,6 +10700,590 @@
           }
         }
       },
+      "TrancheEcritureDto": {
+        "type": "object",
+        "description": "Création (POST) ou modification partielle (PATCH) d'une tranche (CfgTranche). Taux en fraction : 0.2 = 20 %.",
+        "properties": {
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Programme (CfgProject.id). Obligatoire à la création, non modifiable ensuite."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code saisi, unique sur toute la table (pas par programme). Obligatoire à la création."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé de la tranche. Obligatoire à la création."
+          },
+          "descriptionLongue": {
+            "type": "string",
+            "description": "Description détaillée (500 caractères au plus)."
+          },
+          "estEnVente": {
+            "type": "boolean",
+            "description": "Visible dans le module Vente (IsForSale). Défaut true."
+          },
+          "estEnLocation": {
+            "type": "boolean",
+            "description": "Visible dans le module Location (IsForRent). Défaut false."
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "adresse2": {
+            "type": "string"
+          },
+          "adresse3": {
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string",
+            "description": "Ville, texte libre."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pays (AdmCountry.id)."
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "fax": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "siteWeb": {
+            "type": "string"
+          },
+          "dateDebutTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fin des travaux, postérieure ou égale au lancement."
+          },
+          "dateDebutCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinCommercialisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fin de commercialisation, postérieure ou égale au début."
+          },
+          "dateOctroiTitresFonciers": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'octroi des titres fonciers (DeliveryDate)."
+          },
+          "datePermisHabiter": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du permis d'habiter (OccupancyPermitsDate)."
+          },
+          "dateReception": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de réception (ReceptionDate)."
+          },
+          "datePremiereRelance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la première relance (Revival1Date)."
+          },
+          "dateFinConcretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fin des concrétisations (EndDateConcretisation)."
+          },
+          "dateDebutFinalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de début des finalisations (StartDateFinalisation)."
+          },
+          "montantPreReservation": {
+            "type": "number",
+            "description": "Montant de pré-réservation (BeforeReservationAmount), ≥ 0."
+          },
+          "montantPreReservationRemise": {
+            "type": "number",
+            "description": "Montant de pré-réservation pour anciens clients, ≥ 0."
+          },
+          "avanceSurMontant": {
+            "type": "boolean",
+            "description": "Avance calculée sur un montant fixe plutôt qu'un pourcentage (AdvanceBasedOnAmount)."
+          },
+          "montantAvance": {
+            "type": "number",
+            "description": "Montant d'avance (AdvanceAmount), ≥ 0."
+          },
+          "advancePercent": {
+            "type": "number",
+            "description": "« Concrétisation » d'OMRAN, fraction ∈ [0 ; 1]. Recopiée dans concretisationPercent."
+          },
+          "advancePercentRemise": {
+            "type": "number",
+            "description": "Concrétisation pour anciens clients, fraction ∈ [0 ; 1]."
+          },
+          "advancePercentRemiseActive": {
+            "type": "boolean",
+            "description": "Active la concrétisation anciens clients (IsActiveAdvancePercentDiscount)."
+          },
+          "fraisDossier": {
+            "type": "number",
+            "description": "Frais de dossier (DefaultExpenseAmount), ≥ 0."
+          },
+          "fraisDossierRemise": {
+            "type": "number",
+            "description": "Frais de dossier anciens clients, ≥ 0."
+          },
+          "tauxPenaliteAnnulation": {
+            "type": "number",
+            "description": "Taux de pénalité d'annulation, fraction ∈ [0 ; 1]."
+          },
+          "tauxPenaliteAnnulationRemise": {
+            "type": "number",
+            "description": "Taux de pénalité d'annulation anciens clients, fraction ∈ [0 ; 1]."
+          },
+          "penaliteAnnulationSurPrixArticle": {
+            "type": "boolean",
+            "description": "Pénalité d'annulation calculée sur le prix de l'article. Défaut true."
+          },
+          "penaliteTransfertArticle": {
+            "type": "number",
+            "description": "Pénalité de transfert d'article, ≥ 0."
+          },
+          "penaliteTransfertArticleRemise": {
+            "type": "number",
+            "description": "Pénalité de transfert d'article anciens clients, ≥ 0."
+          },
+          "penaliteTransfertTranche": {
+            "type": "number",
+            "description": "Pénalité de transfert de tranche, ≥ 0."
+          },
+          "penaliteTransfertTrancheRemise": {
+            "type": "number",
+            "description": "Pénalité de transfert de tranche anciens clients, ≥ 0."
+          },
+          "penaliteTransfertClient": {
+            "type": "number",
+            "description": "Pénalité de transfert de client, ≥ 0."
+          },
+          "penaliteTransfertClientRemise": {
+            "type": "number",
+            "description": "Pénalité de transfert de client anciens clients, ≥ 0."
+          },
+          "autresFrais": {
+            "type": "number",
+            "description": "Autres frais (OtherExpenseAmount), ≥ 0."
+          },
+          "autresFraisRemise": {
+            "type": "number",
+            "description": "Autres frais anciens clients, ≥ 0."
+          },
+          "montantSyndic": {
+            "type": "number",
+            "description": "Montant du syndic, ≥ 0."
+          },
+          "montantSyndicRemise": {
+            "type": "number",
+            "description": "Montant du syndic anciens clients, ≥ 0."
+          },
+          "periodeSyndic": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Période du syndic (SyndicPeriod), entier ≥ 0."
+          },
+          "delaiPremierEngagement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai du premier engagement, en jours. Défaut 60."
+          },
+          "delaiDeuxiemeEngagement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai du deuxième engagement, en jours. Défaut 30."
+          },
+          "tauxPenalitePremierEngagement": {
+            "type": "number",
+            "description": "Taux de pénalité du premier engagement, fraction ∈ [0 ; 1]."
+          },
+          "tauxPenaliteDeuxiemeEngagement": {
+            "type": "number",
+            "description": "Taux de pénalité du deuxième engagement, fraction ∈ [0 ; 1]."
+          },
+          "delaiSoldePaiement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de solde du paiement (PaymentBalanceDelay), ≥ 0."
+          },
+          "delaiGarantie": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de garantie (WarrantyDelay), ≥ 0."
+          },
+          "delaiGarantieSupplement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de garantie supplémentaire (WarrantyDelayAdded), ≥ 0."
+          },
+          "codeDroitRetractation": {
+            "type": "string",
+            "description": "Code du droit de rétractation (CancellationRightCode), texte."
+          },
+          "tribunalCommerce": {
+            "type": "string",
+            "description": "Tribunal de commerce (CommerceTribunal), texte."
+          },
+          "delaiMinimumIntervention": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai minimum d'intervention (InterventionMinimumDelai). Défaut 2."
+          },
+          "maxVisitNumber": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre maximum de visites (MaxVisitNumber). Défaut 4."
+          },
+          "delaiRetractation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de rétractation en heures (WithdrawalDelay). Défaut 48."
+          },
+          "delaiMaxEcheance": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai maximum d'échéance (MaxEcheanceDelai), ≥ 0."
+          },
+          "verifierDelaiMaxEcheance": {
+            "type": "boolean",
+            "description": "Contrôler le délai maximum d'échéance (IsWithVerifMaxEcheanceDelai)."
+          },
+          "creditPercent": {
+            "type": "number",
+            "description": "Crédit maximum, fraction ∈ [0 ; 1] (« le crédit max ne doit pas dépasser 100% »)."
+          },
+          "isWithVerifCredit": {
+            "type": "boolean",
+            "description": "Contrôler le crédit maximum (IsWithVerifCredit)."
+          },
+          "delaiNotaireMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai notaire en minutes (DelayLawyerMinute). Défaut 60."
+          },
+          "delaiToutSoldeMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai « tout soldé » en minutes (DelayMinuteAllSettled). Défaut 30."
+          },
+          "ecartTypeConcretisation": {
+            "type": "number",
+            "description": "Écart-type des concrétisations (EcarttypeConcretisation), ≥ 0. Défaut 5."
+          },
+          "ecartTypeFinalisation": {
+            "type": "number",
+            "description": "Écart-type des finalisations (EcarttypeFinalisation), ≥ 0. Défaut 3."
+          }
+        }
+      },
+      "TrancheDetailDto": {
+        "type": "object",
+        "description": "Fiche d'une tranche (CfgTranche). Taux en fraction : 0.2 = 20 %.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "descriptionLongue": {
+            "type": "string"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "adresse2": {
+            "type": "string"
+          },
+          "adresse3": {
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "fax": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "siteWeb": {
+            "type": "string"
+          },
+          "dateDebutTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDebutCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateOctroiTitresFonciers": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'octroi des titres fonciers (DeliveryDate, « Date octroi des T.F » d'OMRAN)."
+          },
+          "estEnVente": {
+            "type": "boolean"
+          },
+          "estEnLocation": {
+            "type": "boolean"
+          },
+          "tauxPenaliteAnnulation": {
+            "type": "number"
+          },
+          "tauxPenaliteAnnulationRemise": {
+            "type": "number"
+          },
+          "penaliteTransfertArticle": {
+            "type": "number"
+          },
+          "penaliteTransfertArticleRemise": {
+            "type": "number"
+          },
+          "penaliteTransfertTranche": {
+            "type": "number"
+          },
+          "penaliteTransfertTrancheRemise": {
+            "type": "number"
+          },
+          "penaliteTransfertClient": {
+            "type": "number"
+          },
+          "penaliteTransfertClientRemise": {
+            "type": "number"
+          },
+          "tauxPenalitePremierEngagement": {
+            "type": "number"
+          },
+          "tauxPenaliteDeuxiemeEngagement": {
+            "type": "number"
+          },
+          "delaiGarantie": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiGarantieSupplement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiPremierEngagement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiDeuxiemeEngagement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiSoldePaiement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiNotaireMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiToutSoldeMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiRetractation": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiMinimumIntervention": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiMaxEcheance": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "advancePercent": {
+            "type": "number"
+          },
+          "concretisationPercent": {
+            "type": "number",
+            "description": "Toujours égal à advancePercent (OMRAN l'écrit par accesseur) ; non saisissable."
+          },
+          "maxVisitNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isWithVerifCredit": {
+            "type": "boolean"
+          },
+          "creditPercent": {
+            "type": "number"
+          },
+          "datePermisHabiter": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateReception": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "datePremiereRelance": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinConcretisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDebutFinalisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "montantPreReservation": {
+            "type": "number"
+          },
+          "montantPreReservationRemise": {
+            "type": "number"
+          },
+          "avanceSurMontant": {
+            "type": "boolean"
+          },
+          "montantAvance": {
+            "type": "number"
+          },
+          "advancePercentRemise": {
+            "type": "number"
+          },
+          "advancePercentRemiseActive": {
+            "type": "boolean"
+          },
+          "fraisDossier": {
+            "type": "number"
+          },
+          "fraisDossierRemise": {
+            "type": "number"
+          },
+          "penaliteAnnulationSurPrixArticle": {
+            "type": "boolean"
+          },
+          "autresFrais": {
+            "type": "number"
+          },
+          "autresFraisRemise": {
+            "type": "number"
+          },
+          "montantSyndic": {
+            "type": "number"
+          },
+          "montantSyndicRemise": {
+            "type": "number"
+          },
+          "periodeSyndic": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "codeDroitRetractation": {
+            "type": "string"
+          },
+          "tribunalCommerce": {
+            "type": "string"
+          },
+          "verifierDelaiMaxEcheance": {
+            "type": "boolean"
+          },
+          "ecartTypeConcretisation": {
+            "type": "number"
+          },
+          "ecartTypeFinalisation": {
+            "type": "number"
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du programme de la tranche."
+          },
+          "entiteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Entité juridique du programme (CfgCompany.id)."
+          },
+          "entiteCode": {
+            "type": "string",
+            "description": "Code de l'entité juridique du programme."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pays (AdmCountry.id) ; null si non renseigné."
+          },
+          "paysLibelle": {
+            "type": "string",
+            "description": "Libellé du pays."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création (UserCreate)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création (UserCreateDateTime)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification (UserUpdate)."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification (UserUpdateDateTime)."
+          }
+        }
+      },
       "SynchronisationResultatDto": {
         "type": "object",
         "description": "Bilan du cycle de synchronisation descendante qui vient de s'exécuter.",
@@ -11945,7 +12915,7 @@
           },
           "remisePercent": {
             "type": "number",
-            "description": "Taux de remise appliqué au total, en %."
+            "description": "Taux de remise appliqué au total, en % (5 = 5 %) : `StlQuote.Discount` (ratio 0–1) × 100."
           },
           "remiseHT": {
             "type": "number",
@@ -12057,6 +13027,209 @@
           },
           "articleDescription": {
             "type": "string"
+          }
+        }
+      },
+      "ProjetEcritureDto": {
+        "type": "object",
+        "description": "Création (POST) ou modification partielle (PATCH) d'un programme (CfgProject).",
+        "properties": {
+          "entiteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Entité juridique (CfgCompany.id), active. Obligatoire à la création."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code saisi, unique sur toute la table (casse ignorée). Obligatoire à la création.",
+            "example": "LAZ"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé du programme. Obligatoire à la création.",
+            "example": "VILLA LAZRAK"
+          },
+          "descriptionLongue": {
+            "type": "string",
+            "description": "Description détaillée (500 caractères au plus)."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Adresse, ligne 1."
+          },
+          "adresse2": {
+            "type": "string",
+            "description": "Adresse, ligne 2."
+          },
+          "adresse3": {
+            "type": "string",
+            "description": "Adresse, ligne 3."
+          },
+          "codePostal": {
+            "type": "string",
+            "description": "Code postal."
+          },
+          "ville": {
+            "type": "string",
+            "description": "Ville, texte libre (pas de référentiel, comme OMRAN)."
+          },
+          "villeSignature": {
+            "type": "string",
+            "description": "« Courrier fait à » : ville des courriers."
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Téléphone fixe."
+          },
+          "mobile": {
+            "type": "string",
+            "description": "Téléphone mobile."
+          },
+          "fax": {
+            "type": "string",
+            "description": "Fax."
+          },
+          "email": {
+            "type": "string",
+            "description": "Adresse email."
+          },
+          "siteWeb": {
+            "type": "string",
+            "description": "Site web."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pays (AdmCountry.id, voir GET /api/referentiels/pays)."
+          },
+          "dateDebutTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de lancement des travaux."
+          },
+          "dateFinTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fin des travaux, postérieure ou égale au lancement."
+          },
+          "dateDebutCommercialisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de début de commercialisation."
+          },
+          "dateFinCommercialisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de fin de commercialisation, postérieure ou égale au début."
+          }
+        }
+      },
+      "ProjetDetailDto": {
+        "type": "object",
+        "description": "Fiche d'un programme (CfgProject).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "descriptionLongue": {
+            "type": "string"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "adresse2": {
+            "type": "string"
+          },
+          "adresse3": {
+            "type": "string"
+          },
+          "codePostal": {
+            "type": "string"
+          },
+          "ville": {
+            "type": "string"
+          },
+          "villeSignature": {
+            "type": "string",
+            "description": "« Courrier fait à » (CfgProject.SignatureCity)."
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "fax": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "siteWeb": {
+            "type": "string"
+          },
+          "dateDebutTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDebutCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "entiteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Entité juridique (CfgCompany.id) ; null si non renseignée."
+          },
+          "entiteCode": {
+            "type": "string",
+            "description": "Code de l'entité juridique."
+          },
+          "entiteLibelle": {
+            "type": "string",
+            "description": "Libellé de l'entité juridique."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pays (AdmCountry.id) ; null si non renseigné."
+          },
+          "paysLibelle": {
+            "type": "string",
+            "description": "Libellé du pays."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création (UserCreate, libellé du compte)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création (UserCreateDateTime)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification (UserUpdate)."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification (UserUpdateDateTime)."
           }
         }
       },
@@ -12597,10 +13770,12 @@
             "type": "number"
           },
           "remise": {
-            "type": "number"
+            "type": "number",
+            "description": "Taux de remise **en pourcentage** (5 = 5 %), jamais un ratio 0–1 : `ComFolder.Discount` (ratio du\nprix HT avant remise, la convention du logiciel de bureau) × 100. Négatif = majoration (prix négocié\nau-dessus du prix de référence). Même échelle sur tous les dossiers, quel que soit leur auteur."
           },
           "remiseMontant": {
-            "type": "number"
+            "type": "number",
+            "description": "Montant de la remise **hors taxes** (`ComFolder.DiscountAmount`, qui n'a pas de pendant TTC en base)\n= `prixAvantRemiseHT` − `prixHT`. Le montant TTC se déduit par `prixAvantRemise` − `prixApresRemise`."
           },
           "prixApresRemise": {
             "type": "number"
@@ -13072,12 +14247,12 @@
           },
           "montantRemise": {
             "type": "number",
-            "description": "Montant TTC de la remise, calculé sur `prixAvantRemise` (principal + annexes). Exactement la valeur\nque `POST /api/dossiers` enregistrera (`remiseMontant` du dossier) avec les mêmes paramètres.",
+            "description": "Montant **TTC** de la remise, calculé sur `prixAvantRemise` (principal + annexes) : `prixAvantRemise`\n− `prixApresRemise`. Attention : le dossier créé expose `remiseMontant` en **HT** (convention du\nlogiciel de bureau) ; ce montant TTC en est le pendant toutes taxes comprises.",
             "example": 60000
           },
           "remisePercent": {
             "type": "number",
-            "description": "Taux de remise en pourcentage (5 = 5 %), jamais un ratio 0–1. De 0 à 100 quand il est saisi\n(`remisePercent` de la requête) ; déduit de l'écart entre le prix de référence de l'article (+ annexes)\net le `prix` négocié, il peut être négatif (prix négocié > prix de référence). Exactement la valeur\nque `POST /api/dossiers` enregistrera dans `ComFolder.Discount`.",
+            "description": "Taux de remise en pourcentage (5 = 5 %), jamais un ratio 0–1. De 0 à 100 quand il est saisi\n(`remisePercent` de la requête) ; déduit de l'écart entre le prix de référence de l'article (+ annexes)\net le `prix` négocié (rapporté au HT), il peut être négatif (prix négocié > prix de référence).\nExactement la valeur que le dossier créé exposera dans `remise` (`ComFolder.Discount` en base est le\nmême taux en ratio 0–1, comme l'écrit le logiciel de bureau).",
             "example": 5
           },
           "prixApresRemise": {
@@ -13703,6 +14878,7 @@
       },
       "TrancheListItemDto": {
         "type": "object",
+        "description": "Ligne d'une liste de tranches.",
         "properties": {
           "id": {
             "type": "string",
@@ -13717,173 +14893,19 @@
           "ville": {
             "type": "string"
           },
-          "dateLivraison": {
+          "dateOctroiTitresFonciers": {
             "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "TrancheDetailDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
+            "format": "date-time",
+            "description": "Date d'octroi des titres fonciers (CfgTranche.DeliveryDate, « Date octroi des T.F » d'OMRAN)."
           },
           "projetId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Programme de la tranche (CfgProject.id)."
           },
-          "code": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "descriptionLongue": {
-            "type": "string"
-          },
-          "adresse": {
-            "type": "string"
-          },
-          "adresse2": {
-            "type": "string"
-          },
-          "adresse3": {
-            "type": "string"
-          },
-          "codePostal": {
-            "type": "string"
-          },
-          "ville": {
-            "type": "string"
-          },
-          "telephone": {
-            "type": "string"
-          },
-          "mobile": {
-            "type": "string"
-          },
-          "fax": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "siteWeb": {
-            "type": "string"
-          },
-          "dateDebutTravaux": {
+          "projetCode": {
             "type": "string",
-            "format": "date-time"
-          },
-          "dateFinTravaux": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateDebutCommercialisation": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateFinCommercialisation": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateLivraison": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "estEnVente": {
-            "type": "boolean"
-          },
-          "estEnLocation": {
-            "type": "boolean"
-          },
-          "tauxPenaliteAnnulation": {
-            "type": "number"
-          },
-          "tauxPenaliteAnnulationRemise": {
-            "type": "number"
-          },
-          "penaliteTransfertArticle": {
-            "type": "number"
-          },
-          "penaliteTransfertArticleRemise": {
-            "type": "number"
-          },
-          "penaliteTransfertTranche": {
-            "type": "number"
-          },
-          "penaliteTransfertTrancheRemise": {
-            "type": "number"
-          },
-          "penaliteTransfertClient": {
-            "type": "number"
-          },
-          "penaliteTransfertClientRemise": {
-            "type": "number"
-          },
-          "tauxPenalitePremierEngagement": {
-            "type": "number"
-          },
-          "tauxPenaliteDeuxiemeEngagement": {
-            "type": "number"
-          },
-          "delaiGarantie": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiGarantieSupplement": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiPremierEngagement": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiDeuxiemeEngagement": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiSoldePaiement": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiNotaireMinutes": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiToutSoldeMinutes": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiRetractation": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiMinimumIntervention": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "delaiMaxEcheance": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "advancePercent": {
-            "type": "number"
-          },
-          "concretisationPercent": {
-            "type": "number"
-          },
-          "maxVisitNumber": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "isWithVerifCredit": {
-            "type": "boolean"
-          },
-          "creditPercent": {
-            "type": "number"
+            "description": "Code du programme de la tranche."
           }
         }
       },
@@ -15291,11 +16313,11 @@
           },
           "remise": {
             "type": "number",
-            "description": "Taux de remise, en pourcentage."
+            "description": "Taux de remise en pourcentage (5 = 5 %), jamais un ratio 0–1."
           },
           "remiseMontant": {
             "type": "number",
-            "description": "Montant de la remise."
+            "description": "Montant de la remise, hors taxes (`ComFolder.DiscountAmount`)."
           },
           "prixApresRemise": {
             "type": "number",
@@ -15784,6 +16806,7 @@
       },
       "ProjetListItemDto": {
         "type": "object",
+        "description": "Ligne de la liste des programmes.",
         "properties": {
           "id": {
             "type": "string",
@@ -15797,73 +16820,10 @@
           },
           "ville": {
             "type": "string"
-          }
-        }
-      },
-      "ProjetDetailDto": {
-        "type": "object",
-        "properties": {
-          "id": {
+          },
+          "entiteCode": {
             "type": "string",
-            "format": "uuid"
-          },
-          "code": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "descriptionLongue": {
-            "type": "string"
-          },
-          "adresse": {
-            "type": "string"
-          },
-          "adresse2": {
-            "type": "string"
-          },
-          "adresse3": {
-            "type": "string"
-          },
-          "codePostal": {
-            "type": "string"
-          },
-          "ville": {
-            "type": "string"
-          },
-          "villeSignature": {
-            "type": "string"
-          },
-          "telephone": {
-            "type": "string"
-          },
-          "mobile": {
-            "type": "string"
-          },
-          "fax": {
-            "type": "string"
-          },
-          "email": {
-            "type": "string"
-          },
-          "siteWeb": {
-            "type": "string"
-          },
-          "dateDebutTravaux": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateFinTravaux": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateDebutCommercialisation": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "dateFinCommercialisation": {
-            "type": "string",
-            "format": "date-time"
+            "description": "Code de l'entité juridique (CfgCompany.Code)."
           }
         }
       },

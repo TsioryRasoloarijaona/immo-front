@@ -1,7 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Building2, Calendar, Coins, Scale } from 'lucide-react';
+import { Building2, Calendar, Coins, Pencil, Plus, Scale } from 'lucide-react';
 import PageShell from '../../components/PageShell';
+import ChampsTrace from '../../components/patrimoine/ChampsTrace';
+import { Button } from '../../components/ui/button';
+import { useAuth } from '../../lib/auth';
+import { estAdministrateur } from '../../lib/roles';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, TogglePill } from '../../components/ui';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -114,6 +118,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
     [id, statut, articlesPage],
   );
   const navigate = useNavigate();
+  const admin = estAdministrateur(useAuth().user);
 
   if (loading) return <PageShell title="Tranche"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Tranche"><ErrorState message={error} /></PageShell>;
@@ -145,6 +150,16 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
             {t.estEnVente && <Badge tone="info">Vente</Badge>}
             {t.estEnLocation && <Badge tone="info">Location</Badge>}
           </span>
+          {admin && (
+            <span className="ml-auto flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => navigate(`/tranches/${t.id}/modifier`)}>
+                <Pencil data-icon="inline-start" /> Modifier
+              </Button>
+              <Button size="sm" onClick={() => navigate(`/articles/nouveau?trancheId=${t.id}`)}>
+                <Plus data-icon="inline-start" /> Nouvel article
+              </Button>
+            </span>
+          )}
         </div>
 
         <Card title="Aperçu du projet" accent="var(--sec-tranche)" className="shrink-0">
@@ -157,7 +172,11 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
             <Field label="Fin des travaux" value={formatDate(t.dateFinTravaux)} />
             <Field label="Début commercialisation" value={formatDate(t.dateDebutCommercialisation)} />
             <Field label="Fin commercialisation" value={formatDate(t.dateFinCommercialisation)} />
-            <Field label="Livraison" value={formatDate(t.dateLivraison)} />
+            <Field label="Octroi des T.F" value={formatDate(t.dateOctroiTitresFonciers)} />
+            <Field label="Programme" value={t.projetCode} />
+            <Field label="Entité" value={t.entiteCode} />
+            <Field label="Pays" value={t.paysLibelle} />
+            <ChampsTrace creePar={t.creePar} creeLe={t.creeLe} modifiePar={t.modifiePar} modifieLe={t.modifieLe} />
           </FieldGrid>
         </Card>
 

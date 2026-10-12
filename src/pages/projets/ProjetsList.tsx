@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, Search } from 'lucide-react';
+import { LayoutGrid, Plus, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
+import { Button } from '../../components/ui/button';
+import { useAuth } from '../../lib/auth';
+import { estAdministrateur } from '../../lib/roles';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
@@ -12,8 +15,9 @@ import type { ProjetListItemDto } from '../../types';
 
 const COLONNES: ColonneGrille<ProjetListItemDto>[] = [
   { nom: 'code', libelle: 'Code', largeur: 14, classe: 'text-muted-foreground' },
-  { nom: 'description', libelle: 'Description', largeur: 56, classe: 'font-medium text-foreground', titre: (p) => p.description || undefined },
-  { nom: 'ville', libelle: 'Ville', largeur: 30, classe: 'capitalize text-muted-foreground' },
+  { nom: 'description', libelle: 'Description', largeur: 46, classe: 'font-medium text-foreground', titre: (p) => p.description || undefined },
+  { nom: 'entiteCode', libelle: 'Entité', largeur: 14, classe: 'text-muted-foreground' },
+  { nom: 'ville', libelle: 'Ville', largeur: 26, classe: 'capitalize text-muted-foreground' },
 ];
 
 export default function ProjetsList() {
@@ -21,6 +25,12 @@ export default function ProjetsList() {
   const [page, setPage] = useState(0);
   const { data, loading, error } = useApi(() => listProjets({ page, size: DEFAULT_PAGE_SIZE }), [page]);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const actions = estAdministrateur(user) ? (
+    <Button size="sm" onClick={() => void navigate('/projets/nouveau')}>
+      <Plus data-icon="inline-start" /> Nouveau programme
+    </Button>
+  ) : undefined;
 
   const q = search.trim().toLowerCase();
   const filtered = q
@@ -34,6 +44,7 @@ export default function ProjetsList() {
     <PageShell
       title="Projets"
       crumbs={[{ label: 'Patrimoine' }, { label: 'Projets' }]}
+      actions={actions}
       icon={<LayoutGrid />}
       accent="var(--sec-projet)"
       accentBg="var(--sec-projet-bg)"

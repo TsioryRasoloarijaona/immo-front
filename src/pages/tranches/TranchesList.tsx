@@ -1,55 +1,34 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Search } from 'lucide-react';
+import { Building2, Plus, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { listProjets, listProjetTranches } from '../../lib/api';
+import { listTranches } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import { estAdministrateur } from '../../lib/roles';
 import { useApi } from '../../lib/useApi';
 import { formatDate, formatNumber } from '../../lib/format';
-import type { TrancheListItemDto } from '../../types';
 
-// `TrancheListItemDto` ne porte pas `projetId` : la colonne Projet impose une requête par projet
-// (`/api/projets/{id}/tranches`). Voir FEATURE-qualite-front.md A12.
-const AGGREGATE_PAGE_SIZE = 200;
+// Une seule page couvre tout le parc (16 tranches) : la recherche reste côté écran.
+const TAILLE_PAGE = 500;
 
 export default function TranchesList() {
-  const projets = useApi(() => listProjets({ page: 0, size: AGGREGATE_PAGE_SIZE }), []);
+  const { data, loading, error } = useApi(() => listTranches(undefined, { page: 0, size: TAILLE_PAGE }), []);
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
-
-  const projetIds = useMemo(() => (projets.data?.content ?? []).map((p) => p.id), [projets.data]);
-  const tranchesByProjet = useApi(
-    () =>
-      Promise.all(
-        projetIds.map((pid) =>
-          listProjetTranches(pid, { page: 0, size: AGGREGATE_PAGE_SIZE }).then((page) =>
-            page.content.map((t) => ({ ...t, _projetId: pid })),
-          ),
-        ),
-      ),
-    [projetIds.join(',')],
-  );
-
-  const projetById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const p of projets.data?.content ?? []) m.set(p.id, p.description || p.code || '');
-    return m;
-  }, [projets.data]);
-
-  const allTranches: (TrancheListItemDto & { _projetId: string })[] = (tranchesByProjet.data ?? []).flat();
+  const admin = estAdministrateur(useAuth().user);
 
   const filtered = useMemo(() => {
+    const toutes = data?.content ?? [];
     const q = search.trim().toLowerCase();
-    if (!q) return allTranches;
-    return allTranches.filter((t) => `${t.description ?? ''} ${t.code ?? ''} ${t.ville ?? ''}`.toLowerCase().includes(q));
-  }, [allTranches, search]);
+    if (!q) return toutes;
+    return toutes.filter((t) => `${t.description ?? ''} ${t.code ?? ''} ${t.ville ?? ''} ${t.projetCode ?? ''}`.toLowerCase().includes(q));
+  }, [data, search]);
 
-  const loading = projets.loading || tranchesByProjet.loading;
-  const error = projets.error || tranchesByProjet.error;
-
-  if (loading) return <PageShell title="Tranches"><LoadingState /></PageShell>;
+  if (loading && !data) return <PageShell title="Tranches"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Tranches"><ErrorState message={error} /></PageShell>;
 
   return (
@@ -59,6 +38,13 @@ export default function TranchesList() {
       icon={<Building2 />}
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
+      actions={
+        admin ? (
+          <Button size="sm" onClick={() => void navigate('/tranches/nouveau')}>
+            <Plus data-icon="inline-start" /> Nouvelle tranche
+          </Button>
+        ) : undefined
+      }
       fullHeight
     >
       <div className="flex min-h-0 flex-1 flex-col gap-2.5 pt-1">
@@ -89,7 +75,7 @@ export default function TranchesList() {
                   <TableHead className="text-muted-foreground">Code</TableHead>
                   <TableHead className="text-muted-foreground">Projet</TableHead>
                   <TableHead className="text-muted-foreground">Ville</TableHead>
-                  <TableHead className="text-muted-foreground">Livraison</TableHead>
+                  <TableHead className="text-muted-foreground">Octroi des T.F</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -103,11 +89,9 @@ export default function TranchesList() {
                       {t.description || '—'}
                     </TableCell>
                     <TableCell className="font-mono text-micro text-muted-foreground">{t.code || '—'}</TableCell>
-                    <TableCell className="max-w-[240px] truncate text-muted-foreground">{projetById.get(t._projetId) || '—'}</TableCell>
+                    <TableCell className="text-muted-foreground">{t.projetCode || '—'}</TableCell>
                     <TableCell className="capitalize text-muted-foreground">{t.ville || '—'}</TableCell>
-                    <TableCell className="tabular-nums text-muted-foreground">
-                      {formatDate(t.dateLivraison) === '—' ? 'non planifiée' : formatDate(t.dateLivraison)}
-                    </TableCell>
+                    <TableCell className="tabular-nums text-muted-foreground">{formatDate(t.dateOctroiTitresFonciers)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
