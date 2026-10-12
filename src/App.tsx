@@ -18,6 +18,7 @@ const ReinitialiserMotDePasse = lazy(() => import('./pages/utilisateurs/Reinitia
 const ClesApiList = lazy(() => import('./pages/utilisateurs/ClesApiList'));
 const PerformancesCommerciaux = lazy(() => import('./pages/kpi/PerformancesCommerciaux'));
 const MesPerformances = lazy(() => import('./pages/kpi/MesPerformances'));
+const MonEquipe = lazy(() => import('./pages/equipe/MonEquipe'));
 const Calendrier = lazy(() => import('./pages/calendrier/Calendrier'));
 const Hotline = lazy(() => import('./pages/hotline/Hotline'));
 const SuiviActionsList = lazy(() => import('./pages/actions/SuiviActionsList'));
@@ -95,6 +96,7 @@ function AuthenticatedApp() {
                   <Route path="/cles-api" element={<ClesApiList />} />
                   <Route path="/performances" element={<PerformancesCommerciaux />} />
                   <Route path="/mes-performances" element={<MesPerformances />} />
+                  <Route path="/equipe" element={<MonEquipe />} />
                   <Route path="/hotline" element={<Hotline />} />
                   <Route path="/calendrier" element={<Calendrier />} />
                   <Route path="/suivi-actions" element={<SuiviActionsList />} />

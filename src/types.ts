@@ -2415,6 +2415,8 @@ export type TypeActionRecente =
   | 'ETAPE_CHANGEE'
   | 'ARCHIVEE'
   | 'DESARCHIVEE'
+  | 'COMMERCIAL_ASSIGNE'
+  | 'COMMERCIAL_REAFFECTE'
   | 'DOSSIER_STATUT'
   | 'INTERACTION'
   | 'AUTRE';
@@ -2607,6 +2609,97 @@ export interface PerformanceCommercialDto {
   tauxActionVersRdv?: number | null;
   /** Ratio 0–1. `null` si rien d'assigné. Bruyant sur petit effectif. */
   tauxProspectionVersDossier?: number | null;
+}
+
+// « Mon équipe » (/api/equipe/*) : Commercial Chef, Administrateur, Direction Générale.
+
+export type CodeEtapeEntonnoir = 'ARRIVES' | 'PRIS_EN_CHARGE' | 'QUALIFIES' | 'VISITES' | 'OFFRES' | 'DOSSIERS';
+
+export interface EtapeEntonnoirDto {
+  code: CodeEtapeEntonnoir;
+  libelle?: string;
+  /** Leads de la cohorte ayant atteint au moins cette étape : ≤ l'étape précédente. */
+  nombre: number;
+  /** Ratio 0–1 sur l'étape précédente ; `null` pour la première ou si la précédente vaut 0. */
+  tauxPassage?: number | null;
+}
+
+/** Cohorte : leads créés sur la période, et jusqu'où chacun est allé à ce jour. */
+export interface EntonnoirDto {
+  du?: string;
+  au?: string;
+  projetId?: UUID | null;
+  etapes: EtapeEntonnoirDto[];
+  delaiMedianJours?: number | null;
+}
+
+export interface CommercialEquipeDto {
+  admUserId: UUID;
+  code?: string;
+  nom?: string;
+  /** Employé (CfgTier) à envoyer comme `commercialId` ; `null` = ne peut rien recevoir. */
+  commercialId?: UUID | null;
+  projets: ProjetPerimetreDto[];
+  /** État à ce jour, indépendant de la période. */
+  portefeuilleOuvert: number;
+  sansActionDepuis7Jours: number;
+  relancesEnRetard: number;
+  performance: PerformanceCommercialDto;
+}
+
+export interface ADistribuerDto {
+  nombre: number;
+  plusAncienneDate?: string | null;
+  agePlusAncienneJours?: number | null;
+}
+
+/** Pose le commercial sur la pré-prospection, sans la transformer (comme OMRAN). */
+export interface DistribuerRequest {
+  preProspectionIds: UUID[];
+  commercialId: UUID;
+}
+
+export interface ReaffecterRequest {
+  prospectionIds: UUID[];
+  commercialId: UUID;
+  motif?: string | null;
+}
+
+export interface LigneLotDto {
+  id: UUID;
+  code?: string;
+  ancienCommercialNom?: string | null;
+}
+
+export interface ResultatLotDto {
+  nombre: number;
+  commercialId?: UUID;
+  commercialNom?: string | null;
+  lignes: LigneLotDto[];
+}
+
+export interface MembreAffectationDto {
+  admUserId: UUID;
+  code?: string;
+  nom?: string;
+  commercialId?: UUID | null;
+  /** Parmi les projets de l'appelant seulement. */
+  projetIds: UUID[];
+  sansRestriction: boolean;
+  /** `false` : autre chef, admin ou direction — l'appelant ne peut pas le modifier. */
+  modifiable: boolean;
+}
+
+export interface AffectationsEquipeDto {
+  projets: ProjetPerimetreDto[];
+  commerciaux: MembreAffectationDto[];
+  affectables: MembreAffectationDto[];
+}
+
+/** Jamais un remplacement total ; retirer le dernier projet = 409. */
+export interface ModifierAffectationsRequest {
+  ajouter?: UUID[];
+  retirer?: UUID[];
 }
 
 // Appel synchrone : la réponse n'arrive qu'en fin de cycle. 409 si un cycle

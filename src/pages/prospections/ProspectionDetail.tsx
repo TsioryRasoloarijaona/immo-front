@@ -87,7 +87,7 @@ import {
   type ArticleReferentielFilters,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { CODE_PRE_PROSPECTION, CODE_PROSPECTION, calculerParcours, texteProspectionTransformee, toastProspectLie } from '../../lib/parcours';
+import { CODE_PRE_PROSPECTION, CODE_PROSPECTION, calculerParcours, estTransformable, texteProspectionTransformee, toastProspectLie } from '../../lib/parcours';
 import { useToast } from '../../lib/toastContext';
 import ContactsProspect from '../../components/ContactsProspect';
 import TransformerProspectionDialog from '../../components/TransformerProspectionDialog';
@@ -842,7 +842,7 @@ export function FicheProspection({
         <Plus data-icon="inline-start" /> Créer prospect
       </Button>
     );
-  } else if (!p.commercialId) {
+  } else if (estTransformable(p)) {
     actionPrincipale = (
       <Button size="sm" onClick={() => setShowTransform(true)} disabled={busy}>
         Transformer
