@@ -113,6 +113,13 @@ export const useBanques = makeCachedListHook(api.getBanques);
 export const useEntitesReferentiel = makeCachedListHook(api.getEntitesReferentiel);
 export const useNatures = makeCachedListHook(api.getNatures);
 export const useEtages = makeCachedListHook(api.getEtages);
+export const useImmeubles = makeCachedListHook(api.getImmeubles);
+export const useVocationsArticle = makeCachedListHook(api.getVocationsArticle);
+/* Un hook par liste filtrée : `makeCachedListHook` referme un cache sur son fetcher. */
+export const useCategoriesArticle = makeCachedListHook(() => api.getCategoriesClassement(false));
+export const useTypesArticle = makeCachedListHook(() => api.getTypesClassement(false));
+export const useCategoriesSousArticle = makeCachedListHook(() => api.getCategoriesClassement(true));
+export const useTypesSousArticle = makeCachedListHook(() => api.getTypesClassement(true));
 export const useComptesReferentiel = makeCachedListHook(api.getComptesReferentiel);
 export const useDepotsReferentiel = makeCachedListHook(api.getDepotsReferentiel);
 export const useResultatsInteraction = makeCachedListHook(api.getResultatsInteraction);

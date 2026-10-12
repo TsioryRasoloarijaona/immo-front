@@ -72,6 +72,10 @@ import type {
   PorteeRelance,
   ProfilCategorieDto,
   ProjetDetailDto,
+  ProjetEcritureDto,
+  ArticleEcritureDto,
+  SousArticleEcritureDto,
+  AffectationSousArticleDto,
   ProjetListItemDto,
   PerformanceCommercialDto,
   ProjetPerimetreDto,
@@ -105,6 +109,7 @@ import type {
   TitreDto,
   TransformerProspectionRequest,
   TrancheDetailDto,
+  TrancheEcritureDto,
   TrancheListItemDto,
   TypeReglementDto,
   UtilisateurCourantDto,
@@ -1274,6 +1279,75 @@ export function listProjetTranches(projetId: UUID, pageable?: Pageable): Promise
 
 export function listTranches(params?: { projetId?: UUID }, pageable?: Pageable): Promise<PageDto<TrancheListItemDto>> {
   return request('GET', '/api/tranches', { query: withPageable(params, pageable) });
+}
+
+/** Administrateur seulement (403 sinon). 409 : code déjà pris, sur toute la table. */
+export function createProjet(body: ProjetEcritureDto): Promise<ProjetDetailDto> {
+  return request('POST', '/api/projets', { body });
+}
+
+export function updateProjet(id: UUID, body: ProjetEcritureDto): Promise<ProjetDetailDto> {
+  return request('PATCH', `/api/projets/${id}`, { body });
+}
+
+/** Administrateur seulement. Code unique sur toute la table, pas par programme. */
+export function createTranche(body: TrancheEcritureDto): Promise<TrancheDetailDto> {
+  return request('POST', '/api/tranches', { body });
+}
+
+/** `projetId` différent de l'actuel : 400. */
+export function updateTranche(id: UUID, body: TrancheEcritureDto): Promise<TrancheDetailDto> {
+  return request('PATCH', `/api/tranches/${id}`, { body });
+}
+
+/** Administrateur seulement. Code unique dans la tranche ; prix stockés calculés par le serveur. */
+export function createArticle(body: ArticleEcritureDto): Promise<ArticleDetailDto> {
+  return request('POST', '/api/articles', { body });
+}
+
+/** 409 si l'article est occupé et que la demande change un champ protégé (prix, surfaces, classification). */
+export function updateArticle(id: UUID, body: ArticleEcritureDto): Promise<ArticleDetailDto> {
+  return request('PATCH', `/api/articles/${id}`, { body });
+}
+
+/** Renvoie la fiche du sous-article créé, rattaché à `articleId`. */
+export function createSousArticle(articleId: UUID, body: SousArticleEcritureDto): Promise<ArticleDetailDto> {
+  return request('POST', `/api/articles/${articleId}/sous-articles`, { body });
+}
+
+/** Renvoie la fiche de l'article parent, prix de vente recalculé. */
+export function affecterSousArticle(articleId: UUID, sousArticleId: UUID, body: AffectationSousArticleDto): Promise<ArticleDetailDto> {
+  return request('POST', `/api/articles/${articleId}/sous-articles/${sousArticleId}/affecter`, { body });
+}
+
+export function desaffecterSousArticle(articleId: UUID, sousArticleId: UUID): Promise<ArticleDetailDto> {
+  return request('POST', `/api/articles/${articleId}/sous-articles/${sousArticleId}/desaffecter`);
+}
+
+export function listSousArticlesLibres(trancheId: UUID, pageable?: Pageable): Promise<PageDto<ArticleListItemDto>> {
+  return request('GET', `/api/tranches/${trancheId}/sous-articles-libres`, { query: withPageable(undefined, pageable) });
+}
+
+export const getImmeubles = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/immeubles');
+
+/** Nature Bâtiment, filtrées sur « Pour les sous articles ». */
+export function getCategoriesClassement(pourSousArticle: boolean): Promise<ReferentielItemDto[]> {
+  return request('GET', '/api/referentiels/categories-bien', { query: { pourSousArticle } });
+}
+
+export function getTypesClassement(pourSousArticle: boolean): Promise<ReferentielItemDto[]> {
+  return request('GET', '/api/referentiels/types-bien', { query: { pourSousArticle } });
+}
+
+/** Sans la vocation PROJET (réservée aux terrains). */
+export const getVocationsArticle = (): Promise<ReferentielItemDto[]> =>
+  request('GET', '/api/referentiels/vocations', { query: { pourArticle: true } });
+
+/** Nom du champ du corps en faute, porté par les 400/409 des écritures patrimoine. */
+export function champEnErreur(err: unknown): string | null {
+  if (!(err instanceof ApiError)) return null;
+  const champ = err.problem?.champ;
+  return typeof champ === 'string' ? champ : null;
 }
 
 export function getArticle(id: UUID): Promise<ArticleDetailDto> {
