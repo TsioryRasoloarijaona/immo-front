@@ -8,7 +8,6 @@ import type {
   AffectationsEquipeDto,
   CommercialEquipeDto,
   DistribuerRequest,
-  EntonnoirDto,
   MembreAffectationDto,
   ModifierAffectationsRequest,
   ReaffecterRequest,
@@ -1505,10 +1504,6 @@ interface ParamsEquipe {
   du?: string;
   au?: string;
   projet?: UUID;
-}
-
-export function getEntonnoirEquipe(params?: ParamsEquipe): Promise<EntonnoirDto> {
-  return request('GET', '/api/equipe/entonnoir', { query: { du: params?.du, au: params?.au, projet: params?.projet } });
 }
 
 export function listCommerciauxEquipe(params?: ParamsEquipe): Promise<CommercialEquipeDto[]> {
