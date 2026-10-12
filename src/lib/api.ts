@@ -1,6 +1,15 @@
 import { clearCachedValues } from './apiCache';
 import type {
   ActionRecente,
+  ADistribuerDto,
+  AffectationsEquipeDto,
+  CommercialEquipeDto,
+  DistribuerRequest,
+  EntonnoirDto,
+  MembreAffectationDto,
+  ModifierAffectationsRequest,
+  ReaffecterRequest,
+  ResultatLotDto,
   PorteeActionsRecentes,
   AffecterProjetsRequest,
   AjouterAutreTrancheRequest,
@@ -1486,6 +1495,43 @@ export function remplacerProjetsUtilisateur(admUserId: UUID, projetIds: UUID[]):
  * l'effectif complet. 403 hors Administrateur. */
 export function listPerformancesCommerciaux(params?: { du?: string; au?: string }): Promise<PerformanceCommercialDto[]> {
   return request('GET', '/api/kpi/commerciaux', { query: { du: params?.du, au: params?.au } });
+}
+
+// « Mon équipe » : `projet` hors du périmètre de l'appelant = 403. Mêmes dates nues que les KPI.
+interface ParamsEquipe {
+  du?: string;
+  au?: string;
+  projet?: UUID;
+}
+
+export function getEntonnoirEquipe(params?: ParamsEquipe): Promise<EntonnoirDto> {
+  return request('GET', '/api/equipe/entonnoir', { query: { du: params?.du, au: params?.au, projet: params?.projet } });
+}
+
+export function listCommerciauxEquipe(params?: ParamsEquipe): Promise<CommercialEquipeDto[]> {
+  return request('GET', '/api/equipe/commerciaux', { query: { du: params?.du, au: params?.au, projet: params?.projet } });
+}
+
+export function getADistribuer(projet?: UUID): Promise<ADistribuerDto> {
+  return request('GET', '/api/equipe/a-distribuer', { query: { projet } });
+}
+
+/** Tout ou rien ; la ligne reste une pré-prospection (ni prospect ni tranche exigés). */
+export function distribuerPreProspections(body: DistribuerRequest): Promise<ResultatLotDto> {
+  return request('POST', '/api/equipe/distribuer', { body });
+}
+
+/** Tout ou rien ; les lignes déjà au destinataire sont ignorées (absentes de `lignes`). */
+export function reaffecterProspections(body: ReaffecterRequest): Promise<ResultatLotDto> {
+  return request('POST', '/api/equipe/reaffecter', { body });
+}
+
+export function getAffectationsEquipe(): Promise<AffectationsEquipeDto> {
+  return request('GET', '/api/equipe/affectations');
+}
+
+export function modifierAffectationsEquipe(admUserId: UUID, body: ModifierAffectationsRequest): Promise<MembreAffectationDto> {
+  return request('PUT', `/api/equipe/affectations/${admUserId}`, { body });
 }
 
 /** 200 à zéro n'est pas un état vide ; 404 = compte non rattaché à un employé,

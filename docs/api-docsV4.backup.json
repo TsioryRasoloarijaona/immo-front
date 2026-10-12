@@ -40,6 +40,10 @@
       "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
     },
     {
+      "name": "Mon équipe",
+      "description": "Écran « Mon équipe » du chef commercial. Réservé aux rôles `Commercial Chef`, `Administrateur` et `Direction Générale`.\n\nL'équipe d'un chef = les comptes actifs « Commercial » ou « Commercial Aide » affectés à au moins un de ses projets (`AdmUserHabilitation`). Administrateur et Direction Générale voient tous les commerciaux actifs et tous les projets. Toutes les routes passent par ce même calcul ; un compte désactivé n'est jamais membre.\n\nLes écritures (distribuer, réaffecter, affectations) vont directement dans les tables d'OMRAN, sans validation : un lot est contrôlé en entier avant la première écriture et un lot partiellement invalide n'écrit rien."
+    },
+    {
       "name": "Hotline",
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
     },
@@ -237,6 +241,90 @@
                   "items": {
                     "$ref": "#/components/schemas/ProjetPerimetreDto"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/equipe/affectations/{admUserId}": {
+      "put": {
+        "tags": [
+          "Mon équipe"
+        ],
+        "summary": "Ajoute ou retire des projets à un commercial",
+        "description": "Ajoute ou retire des projets à un commercial, **jamais un remplacement total**. Un chef ne touche que\nses propres projets, et seulement des commerciaux : un autre chef, un administrateur, la direction\ngénérale ou un commercial sans aucune restriction de projet lui sont refusés (403). Un projet déjà\naffecté (ajout) ou non affecté (retrait) est ignoré.",
+        "operationId": "modifierAffectations",
+        "parameters": [
+          {
+            "name": "admUserId",
+            "in": "path",
+            "description": "Compte (AdmUser) du commercial.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierAffectationsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Nouvel état du commercial.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembreAffectationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Rien à ajouter ni à retirer, ou projet inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembreAffectationDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle sans accès, ou projet hors du périmètre de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembreAffectationDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun compte avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembreAffectationDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Le retrait lui enlèverait son dernier projet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembreAffectationDto"
                 }
               }
             }
@@ -1024,7 +1112,7 @@
             }
           },
           "409": {
-            "description": "Le prospect lié a déjà une prospection **ouverte** sur le projet de la tranche effective\n(`trancheId` fourni, sinon celle déjà portée) — la transformation en créerait une seconde. Ouvrir\n`prospectionExistante` à la place ; une prospection fermée ne bloque pas. Voir\n`FEATURE-doublons-prospect-projet.md` §3.",
+            "description": "Le prospect lié a déjà une prospection **ouverte** sur le projet de la tranche effective\n(`trancheId` fourni, sinon celle déjà portée) — la transformation en créerait une seconde. Ouvrir\n`prospectionExistante` à la place ; une prospection fermée ne bloque pas. Voir\n`FEATURE-doublons-prospect-projet.md` §3.\n\nAussi : la ligne **n'est plus une pré-prospection** (déjà typée prospection de vente ou location) —\nla transformer réécrirait son commercial ; pour en changer, `POST /api/equipe/reaffecter`. Une ligne\nsans type reste acceptée.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2292,6 +2380,150 @@
         }
       }
     },
+    "/api/equipe/reaffecter": {
+      "post": {
+        "tags": [
+          "Mon équipe"
+        ],
+        "summary": "Réaffecte des prospections à un autre commercial de l'équipe",
+        "description": "Change le commercial (`ComProspection.CfgCommercialId`) de prospections ouvertes et trace « Commercial\nréaffecté : A → B » dans leur historique. Le commercial référent de la fiche prospect n'est pas\nmodifié. Tout le lot ou rien.",
+        "operationId": "reaffecter",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReaffecterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes réaffectées (celles déjà à ce commercial sont ignorées).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatLotDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Liste vide ou `commercialId` absent.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatLotDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle sans accès, ou projet hors du périmètre de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatLotDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Une ligne demandée n'existe pas : rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatLotDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Une ligne est une pré-prospection (elle se distribue) ou une prospection clôturée, ou le commercial\nn'est pas de l'équipe ou pas affecté au projet de la ligne : rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatLotDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/equipe/distribuer": {
+      "post": {
+        "tags": [
+          "Mon équipe"
+        ],
+        "summary": "Distribue des pré-prospections à un commercial de l'équipe",
+        "description": "Transforme chaque pré-prospection en prospection du commercial choisi, **avec les règles de\n`POST /api/prospections/{id}/transformer`** : prospect lié obligatoire, tranche obligatoire (fournie\nou déjà portée), une seule prospection ouverte par prospect et projet. Une ligne sans tranche se\ndistribue avec `trancheId`. Tout le lot ou rien.",
+        "operationId": "distribuer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DistribuerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Toutes les lignes ont été transformées.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatLotDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`preProspectionIds` vide, `commercialId` absent, tranche inconnue, ou une règle de `transformer`\nnon respectée (ligne sans prospect, sans tranche…) : rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatLotDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle sans accès, ou projet hors du périmètre de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatLotDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Une ligne demandée n'existe pas : rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatLotDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Une ligne n'est plus une pré-prospection, le commercial n'est pas de l'équipe ou n'est pas affecté au\nprojet de la ligne, ou le prospect a déjà une prospection ouverte sur ce projet : rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatLotDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers": {
       "get": {
         "tags": [
@@ -2474,7 +2706,7 @@
           "Dossiers"
         ],
         "summary": "Crée un dossier de vente à partir d'une prospection",
-        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Prospect → client** : si le statut initial porte l'indicateur OMRAN « Transforme le prospect en\nclient », le tiers passe au type client (voir `PATCH /api/dossiers/{id}/statut`).",
+        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\nDans les deux modes, la base est écrite comme le logiciel de bureau l'écrit : `ComFolder.Discount`\nen ratio 0–1 du HT avant remise, `ComFolder.DiscountAmount` en HT. L'API relit `remise` en\npourcentage (0–100) et `remiseMontant` en HT.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Prospect → client** : si le statut initial porte l'indicateur OMRAN « Transforme le prospect en\nclient », le tiers passe au type client (voir `PATCH /api/dossiers/{id}/statut`).",
         "operationId": "create_1",
         "requestBody": {
           "content": {
@@ -7424,6 +7656,242 @@
         }
       }
     },
+    "/api/equipe/entonnoir": {
+      "get": {
+        "tags": [
+          "Mon équipe"
+        ],
+        "summary": "Entonnoir des leads de la période",
+        "description": "Entonnoir **de cohorte** : les leads créés sur la période, et l'étape la plus avancée atteinte par\nchacun à ce jour (voir `EntonnoirDto`). Les étapes ne sont pas datées en base : on ne peut pas compter\n« les visites de la période » des leads plus anciens.",
+        "operationId": "entonnoir",
+        "parameters": [
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Premier jour pris en compte, inclus. Défaut : il y a 30 jours.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-09-12"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Dernier jour pris en compte, inclus jusqu'à 23:59:59. Défaut : aujourd'hui.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-11"
+          },
+          {
+            "name": "projet",
+            "in": "query",
+            "description": "Projet à isoler ; doit être dans le périmètre de l'appelant (sinon 403).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Six étapes, éventuellement à zéro.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntonnoirDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`du` postérieure à `au`, ou date non parsable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntonnoirDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle sans accès, ou projet hors du périmètre de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntonnoirDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/equipe/commerciaux": {
+      "get": {
+        "tags": [
+          "Mon équipe"
+        ],
+        "summary": "Tableau « par commercial » de l'équipe",
+        "description": "Une ligne par commercial de l'équipe (avec `projet` : ceux qui peuvent recevoir une ligne de ce\nprojet). Le portefeuille et ses alertes sont l'état d'aujourd'hui ; `performance` porte les\nindicateurs de la période, calculés exactement comme `GET /api/kpi/commerciaux`, sur les projets du\npérimètre. Pour lister les prospections d'un commercial : `GET /api/prospections` filtré sur lui.",
+        "operationId": "commerciaux",
+        "parameters": [
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Premier jour pris en compte, inclus. Défaut : il y a 30 jours.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-09-12"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Dernier jour pris en compte, inclus jusqu'à 23:59:59. Défaut : aujourd'hui.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-11"
+          },
+          {
+            "name": "projet",
+            "in": "query",
+            "description": "Projet à isoler ; doit être dans le périmètre de l'appelant (sinon 403).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Une ligne par commercial de l'équipe, triée par nom.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommercialEquipeDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`du` postérieure à `au`, ou date non parsable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommercialEquipeDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle sans accès, ou projet hors du périmètre de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommercialEquipeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/equipe/affectations": {
+      "get": {
+        "tags": [
+          "Mon équipe"
+        ],
+        "summary": "Projets de l'appelant × commerciaux de l'équipe",
+        "operationId": "affectations",
+        "responses": {
+          "200": {
+            "description": "Matrice, éventuellement vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AffectationsEquipeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle sans accès, ou projet hors du périmètre de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AffectationsEquipeDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/equipe/a-distribuer": {
+      "get": {
+        "tags": [
+          "Mon équipe"
+        ],
+        "summary": "Pré-prospections en attente de commercial",
+        "description": "Pré-prospections ouvertes, sans commercial, dont la tranche est sur un projet de l'appelant (toutes\npour Administrateur / Direction Générale sans `projet`, lignes sans tranche comprises).",
+        "operationId": "aDistribuer",
+        "parameters": [
+          {
+            "name": "projet",
+            "in": "query",
+            "description": "Projet à isoler ; doit être dans le périmètre de l'appelant (sinon 403).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Compte et âge de la plus ancienne.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ADistribuerDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle sans accès, ou projet hors du périmètre de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ADistribuerDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/encaissements": {
       "get": {
         "tags": [
@@ -10267,6 +10735,67 @@
           }
         }
       },
+      "ModifierAffectationsRequest": {
+        "type": "object",
+        "description": "Ajout et retrait de projets pour un commercial ; jamais un remplacement total.",
+        "properties": {
+          "ajouter": {
+            "type": "array",
+            "description": "Projets à ajouter (déjà affecté : ignoré).",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "retirer": {
+            "type": "array",
+            "description": "Projets à retirer (non affecté : ignoré).",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "MembreAffectationDto": {
+        "type": "object",
+        "description": "Un commercial et ses projets.",
+        "properties": {
+          "admUserId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "m.jakha"
+          },
+          "nom": {
+            "type": "string",
+            "example": "Maha JAKHA"
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Employé (CfgTier) ; `null` = compte sans employé."
+          },
+          "projetIds": {
+            "type": "array",
+            "description": "Ses projets parmi `projets`.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "sansRestriction": {
+            "type": "boolean",
+            "description": "Aucun projet affecté : il voit tous les projets (possible seulement hors équipe d'un chef)."
+          },
+          "modifiable": {
+            "type": "boolean",
+            "description": "`false` : l'appelant ne peut pas modifier ses affectations (autre chef, admin, direction)."
+          }
+        }
+      },
       "ReinitialiserMotDePasseRequest": {
         "type": "object",
         "description": "Corps facultatif de la réinitialisation de mot de passe. Absent ou `{}` : le mot de passe est envoyé\nà l'adresse connue du compte (AdmUser.Email, à défaut la fiche employé), ou seulement renvoyé dans\nla réponse si le compte n'en a aucune.",
@@ -11945,7 +12474,7 @@
           },
           "remisePercent": {
             "type": "number",
-            "description": "Taux de remise appliqué au total, en %."
+            "description": "Taux de remise appliqué au total, en % (5 = 5 %) : `StlQuote.Discount` (ratio 0–1) × 100."
           },
           "remiseHT": {
             "type": "number",
@@ -12414,6 +12943,110 @@
           }
         }
       },
+      "ReaffecterRequest": {
+        "type": "object",
+        "description": "Réaffectation en lot de prospections ouvertes à un autre commercial de l'équipe.",
+        "properties": {
+          "prospectionIds": {
+            "type": "array",
+            "description": "Prospections à réaffecter (au moins une).",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Employé (CfgTier) du nouveau commercial."
+          },
+          "motif": {
+            "type": "string",
+            "description": "Motif facultatif, ajouté à la ligne d'historique.",
+            "example": "Congé de Khadija"
+          }
+        },
+        "required": [
+          "commercialId",
+          "prospectionIds"
+        ]
+      },
+      "LigneLotDto": {
+        "type": "object",
+        "description": "Une ligne du lot.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "26/05948"
+          },
+          "ancienCommercialNom": {
+            "type": "string",
+            "description": "Commercial avant l'opération. `null` s'il n'y en avait pas.",
+            "example": "Issam EL KAMRI"
+          }
+        }
+      },
+      "ResultatLotDto": {
+        "type": "object",
+        "description": "Résultat d'une distribution ou d'une réaffectation : toutes les lignes ont été écrites.",
+        "properties": {
+          "nombre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de lignes écrites.",
+            "example": 12
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Employé (CfgTier) destinataire."
+          },
+          "commercialNom": {
+            "type": "string",
+            "description": "Nom du destinataire.",
+            "example": "Maha JAKHA"
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Une entrée par ligne écrite, avec son commercial précédent.",
+            "items": {
+              "$ref": "#/components/schemas/LigneLotDto"
+            }
+          }
+        }
+      },
+      "DistribuerRequest": {
+        "type": "object",
+        "description": "Distribution en lot : chaque pré-prospection est transformée comme par `POST /api/prospections/{id}/transformer`, dans une seule transaction.",
+        "properties": {
+          "preProspectionIds": {
+            "type": "array",
+            "description": "Pré-prospections à distribuer (au moins une).",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Employé (CfgTier) du commercial destinataire — `commercialId` de `GET /api/equipe/commerciaux`."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche posée sur chaque ligne ; facultative si toutes en portent déjà une."
+          }
+        },
+        "required": [
+          "commercialId",
+          "preProspectionIds"
+        ]
+      },
       "CreerDossierRequest": {
         "type": "object",
         "properties": {
@@ -12597,10 +13230,12 @@
             "type": "number"
           },
           "remise": {
-            "type": "number"
+            "type": "number",
+            "description": "Taux de remise **en pourcentage** (5 = 5 %), jamais un ratio 0–1 : `ComFolder.Discount` (ratio du\nprix HT avant remise, la convention du logiciel de bureau) × 100. Négatif = majoration (prix négocié\nau-dessus du prix de référence). Même échelle sur tous les dossiers, quel que soit leur auteur."
           },
           "remiseMontant": {
-            "type": "number"
+            "type": "number",
+            "description": "Montant de la remise **hors taxes** (`ComFolder.DiscountAmount`, qui n'a pas de pendant TTC en base)\n= `prixAvantRemiseHT` − `prixHT`. Le montant TTC se déduit par `prixAvantRemise` − `prixApresRemise`."
           },
           "prixApresRemise": {
             "type": "number"
@@ -13072,12 +13707,12 @@
           },
           "montantRemise": {
             "type": "number",
-            "description": "Montant TTC de la remise, calculé sur `prixAvantRemise` (principal + annexes). Exactement la valeur\nque `POST /api/dossiers` enregistrera (`remiseMontant` du dossier) avec les mêmes paramètres.",
+            "description": "Montant **TTC** de la remise, calculé sur `prixAvantRemise` (principal + annexes) : `prixAvantRemise`\n− `prixApresRemise`. Attention : le dossier créé expose `remiseMontant` en **HT** (convention du\nlogiciel de bureau) ; ce montant TTC en est le pendant toutes taxes comprises.",
             "example": 60000
           },
           "remisePercent": {
             "type": "number",
-            "description": "Taux de remise en pourcentage (5 = 5 %), jamais un ratio 0–1. De 0 à 100 quand il est saisi\n(`remisePercent` de la requête) ; déduit de l'écart entre le prix de référence de l'article (+ annexes)\net le `prix` négocié, il peut être négatif (prix négocié > prix de référence). Exactement la valeur\nque `POST /api/dossiers` enregistrera dans `ComFolder.Discount`.",
+            "description": "Taux de remise en pourcentage (5 = 5 %), jamais un ratio 0–1. De 0 à 100 quand il est saisi\n(`remisePercent` de la requête) ; déduit de l'écart entre le prix de référence de l'article (+ annexes)\net le `prix` négocié (rapporté au HT), il peut être négatif (prix négocié > prix de référence).\nExactement la valeur que le dossier créé exposera dans `remise` (`ComFolder.Discount` en base est le\nmême taux en ratio 0–1, comme l'écrit le logiciel de bureau).",
             "example": 5
           },
           "prixApresRemise": {
@@ -15291,11 +15926,11 @@
           },
           "remise": {
             "type": "number",
-            "description": "Taux de remise, en pourcentage."
+            "description": "Taux de remise en pourcentage (5 = 5 %), jamais un ratio 0–1."
           },
           "remiseMontant": {
             "type": "number",
-            "description": "Montant de la remise."
+            "description": "Montant de la remise, hors taxes (`ComFolder.DiscountAmount`)."
           },
           "prixApresRemise": {
             "type": "number",
@@ -16120,6 +16755,170 @@
             "items": {
               "$ref": "#/components/schemas/ProspectionListItemDto"
             }
+          }
+        }
+      },
+      "EntonnoirDto": {
+        "type": "object",
+        "description": "Entonnoir **de cohorte** : les leads (pré-prospections et prospections de vente) créés entre `du` et\n`au` dans le périmètre de l'appelant, et l'étape la plus avancée que chacun a atteinte **à ce jour**.\nLes étapes d'OMRAN ne sont pas datées en base (ni la transformation, ni le changement d'étape) : un\nentonnoir d'évènements de la période n'est pas calculable. Règles complètes :\n`FEATURE-equipe-commerciale.md` §4.",
+        "properties": {
+          "du": {
+            "type": "string",
+            "format": "date",
+            "description": "Premier jour de la cohorte, inclus.",
+            "example": "2026-09-12"
+          },
+          "au": {
+            "type": "string",
+            "format": "date",
+            "description": "Dernier jour de la cohorte, inclus jusqu'à 23:59:59.",
+            "example": "2026-10-11"
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet filtré, `null` = tout le périmètre de l'appelant."
+          },
+          "etapes": {
+            "type": "array",
+            "description": "Les six étapes dans l'ordre, chacune ≤ la précédente.",
+            "items": {
+              "$ref": "#/components/schemas/EtapeEntonnoirDto"
+            }
+          },
+          "delaiMedianJours": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Médiane, en jours, du délai entre l'arrivée du lead (`DocDate`) et son premier dossier non annulé ni\ndésisté, sur les leads de l'étape « Dossiers ». Valeur centrale basse quand l'effectif est pair.\n`null` si aucun lead de la cohorte n'a de dossier."
+          }
+        }
+      },
+      "EtapeEntonnoirDto": {
+        "type": "object",
+        "description": "Une étape de l'entonnoir : leads de la cohorte ayant atteint au moins cette étape.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code stable : ARRIVES, PRIS_EN_CHARGE, QUALIFIES, VISITES, OFFRES, DOSSIERS.",
+            "example": "QUALIFIES"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé affiché.",
+            "example": "Qualifiés"
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de leads de la cohorte arrivés au moins jusqu'ici.",
+            "example": 193
+          },
+          "tauxPassage": {
+            "type": "number",
+            "description": "`nombre` / celui de l'étape précédente, entre 0 et 1. `null` pour la première étape ou si la précédente vaut 0.",
+            "example": 0.12
+          }
+        }
+      },
+      "CommercialEquipeDto": {
+        "type": "object",
+        "description": "Un commercial de l'équipe : état de son portefeuille à ce jour et performances de la période.",
+        "properties": {
+          "admUserId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Compte (AdmUser.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Identifiant de connexion (AdmUser.Code).",
+            "example": "f.saoud"
+          },
+          "nom": {
+            "type": "string",
+            "description": "Nom affiché : description du compte, à défaut son code.",
+            "example": "Faycal SAOUD"
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Employé (CfgTier) du compte : la valeur à envoyer comme `commercialId`. `null` = compte sans employé, qui ne peut recevoir aucune prospection."
+          },
+          "projets": {
+            "type": "array",
+            "description": "Ses projets dans le périmètre de l'appelant. Vide = aucun projet affecté (sans restriction).",
+            "items": {
+              "$ref": "#/components/schemas/ProjetPerimetreDto"
+            }
+          },
+          "portefeuilleOuvert": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Prospections (pas les pré-prospections) assignées à ce commercial (`ComProspection.CfgCommercialId` =\nson employé), non clôturées, dans le périmètre de projets demandé. État à ce jour : ne dépend pas de\nla période."
+          },
+          "sansActionDepuis7Jours": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Parmi le portefeuille ouvert, les prospections dont la dernière action (tous auteurs) — à défaut la\ndate de la prospection — date de plus de 7 jours. À afficher en alerte quand il est non nul."
+          },
+          "relancesEnRetard": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Parmi le portefeuille ouvert, les prospections dont la dernière relance non désarmée\n(`ComActionMessage.AlertValidityDate`) est échue avant aujourd'hui. À afficher en alerte quand il est\nnon nul."
+          },
+          "performance": {
+            "$ref": "#/components/schemas/PerformanceCommercialDto",
+            "description": "Performances de la période (`du`/`au`), calculées par `GET /api/kpi/commerciaux` sur le même périmètre de projets : dossiers, taux prospection → dossier, appels…"
+          }
+        }
+      },
+      "AffectationsEquipeDto": {
+        "type": "object",
+        "description": "Matrice projets × commerciaux de l'appelant.",
+        "properties": {
+          "projets": {
+            "type": "array",
+            "description": "Projets de l'appelant (tous les projets visibles pour Administrateur / Direction Générale).",
+            "items": {
+              "$ref": "#/components/schemas/ProjetPerimetreDto"
+            }
+          },
+          "commerciaux": {
+            "type": "array",
+            "description": "Commerciaux de l'équipe.",
+            "items": {
+              "$ref": "#/components/schemas/MembreAffectationDto"
+            }
+          },
+          "affectables": {
+            "type": "array",
+            "description": "Commerciaux actifs hors équipe qu'un chef peut ajouter à l'un de ses projets.",
+            "items": {
+              "$ref": "#/components/schemas/MembreAffectationDto"
+            }
+          }
+        }
+      },
+      "ADistribuerDto": {
+        "type": "object",
+        "description": "Pré-prospections ouvertes et sans commercial des projets de l'appelant. La liste elle-même : `GET /api/pre-prospections`.",
+        "properties": {
+          "nombre": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de pré-prospections en attente de commercial.",
+            "example": 152
+          },
+          "plusAncienneDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date (`DocDate`) de la plus ancienne. `null` si aucune."
+          },
+          "agePlusAncienneJours": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Âge de la plus ancienne en jours, à aujourd'hui. `null` si aucune.",
+            "example": 9
           }
         }
       },
@@ -17392,7 +18191,7 @@
           },
           "type": {
             "type": "string",
-            "description": "Code stable de l'action. Historique de prospection : lu au début de la description\n(`PRE_PROSPECTION_CREEE`, `PROSPECT_CREE`, `PROSPECT_RATTACHE`, `TRANSFORMEE_EN_PROSPECTION`,\n`PROSPECTION_CREEE`, `ETAPE_CHANGEE`, `ARCHIVEE`, `DESARCHIVEE`, et `AUTRE` pour un début inconnu —\nservie, jamais rejetée). `DOSSIER_STATUT` : changement de statut d'un dossier. `INTERACTION` : note ou\ninteraction saisie.",
+            "description": "Code stable de l'action. Historique de prospection : lu au début de la description\n(`PRE_PROSPECTION_CREEE`, `PROSPECT_CREE`, `PROSPECT_RATTACHE`, `TRANSFORMEE_EN_PROSPECTION`,\n`PROSPECTION_CREEE`, `ETAPE_CHANGEE`, `ARCHIVEE`, `DESARCHIVEE`, `COMMERCIAL_REAFFECTE` (écran « Mon\néquipe »), et `AUTRE` pour un début inconnu —\nservie, jamais rejetée). `DOSSIER_STATUT` : changement de statut d'un dossier. `INTERACTION` : note ou\ninteraction saisie.",
             "enum": [
               "PRE_PROSPECTION_CREEE",
               "PROSPECT_CREE",
@@ -17402,6 +18201,7 @@
               "ETAPE_CHANGEE",
               "ARCHIVEE",
               "DESARCHIVEE",
+              "COMMERCIAL_REAFFECTE",
               "DOSSIER_STATUT",
               "INTERACTION",
               "AUTRE"

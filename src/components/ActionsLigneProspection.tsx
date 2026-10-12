@@ -15,7 +15,7 @@ import { addInteraction, archiverProspection, desarchiverProspection, transforme
 import { useAppData, commercialLabel } from '../lib/appData';
 import { useAuth } from '../lib/auth';
 import { prospectionDisplayName } from '../lib/domain';
-import { routeFicheProspection, texteProspectionTransformee, toastProspectLie } from '../lib/parcours';
+import { estTransformable, routeFicheProspection, texteProspectionTransformee, toastProspectLie } from '../lib/parcours';
 import { useToast } from '../lib/toastContext';
 import type { ProspectionListItemDto } from '../types';
 
@@ -77,7 +77,7 @@ export function useActionsLigneProspection({
             Transformer en prospect
           </DropdownMenuItem>
         )}
-        {!p.fermee && !!p.prospectId && !p.commercialId && (
+        {!p.fermee && !!p.prospectId && estTransformable(p) && (
           <DropdownMenuItem onClick={() => setBoite({ type: 'transformer', ligne: p })}>
             Transformer en prospection
           </DropdownMenuItem>
