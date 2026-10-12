@@ -481,6 +481,15 @@ const POIDS_SUIVI_ACTIONS: Record<string, number> = {
   modifieLe: 10,
 };
 
+/** Ordre du catalogue serveur (onglets OMRAN), sauf les colonnes par défaut remontées en tête. */
+const ORDRE_TRANCHES = ['description', 'code', 'projetCode', 'entiteLibelle', 'standingLibelle', 'ville', 'dateOctroiTitresFonciers', 'estEnVente'];
+
+export const DISPOSITION_TRANCHES: DispositionColonnes = {
+  ordre: ORDRE_TRANCHES,
+  poids: { description: 22, code: 9, projetCode: 9, entiteLibelle: 14, standingLibelle: 11, ville: 11, adresseComplete: 20 },
+  masquees: new Set(['id', 'projetId']),
+};
+
 /** Demandées à chaque appel, jamais affichées : le clic ouvre la prospection, à défaut le dossier ; `tiersId`
  * charge les coordonnées de la personne, que `SuiviActionDto` ne porte pas. */
 export const CLES_OUVERTURE_SUIVI_ACTION = ['prospectionId', 'dossierId', 'tiersId'];

@@ -1,15 +1,38 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Building2 } from 'lucide-react';
 import AdminGuard from '../utilisateurs/AdminGuard';
 import { Card, ErrorState, LoadingState } from '../../components/ui';
-import { ChampSelect, ChampsDeclares, GrilleSaisie, PiedFormulaire } from '../../components/patrimoine/SaisiePatrimoine';
-import { messageDuChamp, useSoumission, type DefChamp } from '../../lib/saisiePatrimoine';
-import { createTranche, getProjet, getTranche, updateTranche } from '../../lib/api';
+import { ChampSelect, ChampsDeclares, GrilleSaisie, PiedFormulaire, type OptionSelect } from '../../components/patrimoine/SaisiePatrimoine';
+import { avecChampsAVider, messageDuChamp, useSoumission, type DefChamp } from '../../lib/saisiePatrimoine';
+import { createTranche, getProjet, getProjetsFacturation, getTranche, updateTranche } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { referentielItems, usePays, useProjetsReferentiel } from '../../lib/referentiels';
-import type { ProjetDetailDto, TrancheEcritureDto } from '../../types';
-import { AUTRES, COORDONNEES, DATES, DEFAUTS_CREATION, IDENTITE, REGLES_1, REGLES_2, REMISES, versEcriture } from './champsTranche';
+import {
+  referentielItems,
+  useNiveauxTerrain,
+  usePays,
+  usePersonnels,
+  usePlansComptables,
+  useProjetsReferentiel,
+  useRubriquesTranche,
+  useStandings,
+  useTiersAutrui,
+} from '../../lib/referentiels';
+import type { ProjetDetailDto, ReferentielItemDto, TrancheEcritureDto } from '../../types';
+import {
+  AUTRES,
+  COORDONNEES,
+  DATES,
+  DEFAUTS_CREATION,
+  FONCIER,
+  GENERAL,
+  REGLES_1,
+  REGLES_2,
+  REMISES,
+  SAISIS,
+  VISIBILITE,
+  versEcriture,
+} from './champsTranche';
 
 const ENTETE = {
   icon: <Building2 />,
@@ -62,32 +85,53 @@ function EditionTranche({ id }: Readonly<{ id: string }>) {
   const { data, error } = useApi(() => getTranche(id), [id]);
   if (error) return <ErrorState message={error} />;
   if (!data) return <LoadingState />;
-  return <FormulaireTranche id={id} initial={versEcriture(data)} />;
+  return <FormulaireTranche id={id} initial={versEcriture(data)} entiteId={data.entiteId} />;
 }
 
 function CreationDepuisProgramme({ projetId }: Readonly<{ projetId: string }>) {
   const { data, error } = useApi(() => getProjet(projetId), [projetId]);
   if (error) return <ErrorState message={error} />;
   if (!data) return <LoadingState />;
-  return <FormulaireTranche initial={{ ...DEFAUTS_CREATION, ...reprisDuProgramme(data), projetId }} />;
+  return <FormulaireTranche initial={{ ...DEFAUTS_CREATION, ...reprisDuProgramme(data), projetId }} entiteId={data.entiteId} />;
 }
 
-function Section({ titre, children }: Readonly<{ titre: string; children: ReactNode }>) {
-  return <Card title={titre}>{children}</Card>;
+/** Options des champs `reference` du catalogue, par nom de champ. */
+function useReferencesTranche(entiteId: string | undefined): Partial<Record<string, OptionSelect[]>> {
+  const standings = useStandings();
+  const niveaux = useNiveauxTerrain();
+  const rubriques = useRubriquesTranche();
+  const personnels = usePersonnels();
+  const pays = usePays();
+  const tiersAutrui = useTiersAutrui();
+  const comptes = usePlansComptables();
+  // OMRAN propose les projets de l'entité du programme (`PrjProjectItemList.GetList`).
+  const projets = useApi(() => getProjetsFacturation(entiteId), [entiteId ?? '']);
+  const avecCode = (list: ReferentielItemDto[]) =>
+    list.map((r) => ({ label: [r.code, r.description].filter(Boolean).join(' — ') || r.id, value: r.id }));
+  return {
+    standingId: referentielItems(standings.data),
+    niveauTerrainId: referentielItems(niveaux.data),
+    rubriqueId: referentielItems(rubriques.data),
+    responsableSavId: referentielItems(personnels.data),
+    paysId: pays.data.map((p) => ({ label: p.description || p.code || p.id, value: p.id })),
+    tiersAutruiId: referentielItems(tiersAutrui.data),
+    planComptableId: avecCode(comptes.data),
+    projetFacturationId: referentielItems(projets.data ?? []),
+  };
 }
 
-function FormulaireTranche({ id, initial }: Readonly<{ id?: string; initial: TrancheEcritureDto }>) {
+function FormulaireTranche({ id, initial, entiteId }: Readonly<{ id?: string; initial: TrancheEcritureDto; entiteId?: string }>) {
   const navigate = useNavigate();
   const [form, setForm] = useState<TrancheEcritureDto>(initial);
+  const [entite, setEntite] = useState(entiteId);
   const { enCours, erreur, soumettre } = useSoumission();
   const [erreurProgramme, setErreurProgramme] = useState<string | null>(null);
   const projets = useProjetsReferentiel();
-  const pays = usePays();
-  const optionsPays = pays.data.map((p) => ({ label: p.description || p.code || p.id, value: p.id }));
+  const references = useReferencesTranche(entite);
 
   const changer = (nom: keyof TrancheEcritureDto, valeur: unknown) => setForm((f) => ({ ...f, [nom]: valeur }));
   const champs = (defs: DefChamp<TrancheEcritureDto>[]) => (
-    <ChampsDeclares prefixe="tra" defs={defs} form={form} onChange={changer} erreur={erreur} />
+    <ChampsDeclares prefixe="tra" defs={defs} form={form} onChange={changer} erreur={erreur} references={references} />
   );
 
   async function choisirProgramme(projetId: string | undefined) {
@@ -95,23 +139,25 @@ function FormulaireTranche({ id, initial }: Readonly<{ id?: string; initial: Tra
     setErreurProgramme(null);
     if (!projetId) return;
     try {
-      const repris = reprisDuProgramme(await getProjet(projetId));
-      setForm((f) => ({ ...f, ...repris, projetId }));
+      const programme = await getProjet(projetId);
+      setEntite(programme.entiteId);
+      setForm((f) => ({ ...f, ...reprisDuProgramme(programme), projetId }));
     } catch {
       setErreurProgramme('Coordonnées du programme non reprises : saisissez-les.');
     }
   }
 
   function enregistrer() {
+    const corps = avecChampsAVider(initial, form, SAISIS);
     void soumettre(
-      () => (id ? updateTranche(id, form) : createTranche(form)),
+      () => (id ? updateTranche(id, corps) : createTranche(corps)),
       (tranche) => void navigate(`/tranches/${tranche.id}`),
     );
   }
 
   return (
     <div className="flex max-w-200 flex-col gap-3">
-      <Card title="Identité" accent="var(--sec-tranche)">
+      <Card title="Général" accent="var(--sec-tranche)">
         <div className="flex flex-col gap-3.5">
           <GrilleSaisie>
             <ChampSelect
@@ -126,29 +172,17 @@ function FormulaireTranche({ id, initial }: Readonly<{ id?: string; initial: Tra
               aide={id ? "Le programme d'une tranche ne se modifie pas." : 'Reprend les coordonnées et les dates du programme.'}
             />
           </GrilleSaisie>
-          {champs(IDENTITE)}
+          {champs(GENERAL)}
         </div>
       </Card>
-      <Section titre="Coordonnées">
-        <div className="flex flex-col gap-3.5">
-          {champs(COORDONNEES)}
-          <GrilleSaisie>
-            <ChampSelect
-              id="tra-pays"
-              libelle="Pays"
-              options={optionsPays}
-              valeur={form.paysId}
-              onChange={(v) => changer('paysId', v)}
-              message={messageDuChamp(erreur, 'paysId')}
-            />
-          </GrilleSaisie>
-        </div>
-      </Section>
-      <Section titre="Dates">{champs(DATES)}</Section>
-      <Section titre="Règles de gestion 1">{champs(REGLES_1)}</Section>
-      <Section titre="Règles de gestion 2">{champs(REGLES_2)}</Section>
-      <Section titre="Remises anciens clients">{champs(REMISES)}</Section>
-      <Section titre="Autres">{champs(AUTRES)}</Section>
+      <Card title="Visibilité par module">{champs(VISIBILITE)}</Card>
+      <Card title="Délais">{champs(DATES)}</Card>
+      <Card title="Coordonnées">{champs(COORDONNEES)}</Card>
+      <Card title="Identification foncière">{champs(FONCIER)}</Card>
+      <Card title="Règles de gestion 1">{champs(REGLES_1)}</Card>
+      <Card title="Règles de gestion 2">{champs(REGLES_2)}</Card>
+      <Card title="Remises anciens clients">{champs(REMISES)}</Card>
+      <Card title="Autres">{champs(AUTRES)}</Card>
       <PiedFormulaire
         erreur={erreur}
         enCours={enCours}

@@ -8,7 +8,8 @@ export interface ErreurSaisie {
   message: string;
 }
 
-export type GenreChamp = 'texte' | 'texteLong' | 'montant' | 'nombre' | 'entier' | 'taux' | 'date' | 'case';
+/** `reference` : clé étrangère choisie dans une liste (options passées au formulaire), lue en fiche par `lu`. */
+export type GenreChamp = 'texte' | 'texteLong' | 'montant' | 'nombre' | 'entier' | 'taux' | 'date' | 'case' | 'reference';
 
 export interface DefChamp<T> {
   nom: keyof T & string;
@@ -18,6 +19,31 @@ export interface DefChamp<T> {
   /** Occupe toute la largeur de la grille. */
   large?: boolean;
   desactive?: boolean;
+  /** Champ de la fiche affiché à la place de `nom` (libellé d'une référence : `standingId` → `standingLibelle`). */
+  lu?: string;
+}
+
+/* Un PATCH ignore un champ absent : effacer une date, une référence ou un nombre passe par `champsAVider`
+   (FEATURE-patrimoine-tranche-fiche §1.1). Un texte se vide en envoyant "". */
+const GENRES_A_VIDER = new Set<GenreChamp>(['date', 'reference', 'montant', 'nombre', 'entier', 'taux']);
+
+const estVide = (v: unknown) => v === undefined || v === null || v === '';
+
+/** Corps à envoyer : les champs effacés depuis `initial` sont retirés et listés dans `champsAVider`. */
+export function avecChampsAVider<T extends { champsAVider?: string[] }>(
+  initial: T,
+  form: T,
+  defs: readonly DefChamp<T>[],
+): T {
+  const avant = initial as Record<string, unknown>;
+  const apres = form as Record<string, unknown>;
+  const aVider = defs
+    .filter((d) => GENRES_A_VIDER.has(d.genre) && !estVide(avant[d.nom]) && estVide(apres[d.nom]))
+    .map((d) => d.nom);
+  if (aVider.length === 0) return form;
+  const corps: Record<string, unknown> = { ...form, champsAVider: aVider };
+  for (const nom of aVider) delete corps[nom];
+  return corps as T;
 }
 
 // Arrondi d'affichage : 0,07 × 100 vaut 7,000000000000001 en flottant.
@@ -41,6 +67,7 @@ export function valeurAffichee(genre: GenreChamp, valeur: unknown): string {
 export function valeurSaisie(genre: GenreChamp, texte: string): unknown {
   if (genre === 'date') return texte ? `${texte}T00:00:00` : undefined;
   if (genre === 'texte' || genre === 'texteLong') return texte;
+  if (genre === 'reference') return texte || undefined;
   const n = versNombre(texte);
   if (n === undefined) return undefined;
   if (genre === 'taux') return arrondir(n / 100);

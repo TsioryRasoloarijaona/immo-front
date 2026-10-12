@@ -3,43 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { LayoutGrid } from 'lucide-react';
 import AdminGuard from '../utilisateurs/AdminGuard';
 import { Card, ErrorState, LoadingState } from '../../components/ui';
-import { ChampSelect, ChampsDeclares, GrilleSaisie, PiedFormulaire } from '../../components/patrimoine/SaisiePatrimoine';
-import { extraireSaisie, messageDuChamp, useSoumission, type DefChamp } from '../../lib/saisiePatrimoine';
-import { createProjet, getProjet, updateProjet } from '../../lib/api';
+import { ChampSelect, ChampsDeclares, GrilleSaisie, PiedFormulaire, type OptionSelect } from '../../components/patrimoine/SaisiePatrimoine';
+import { avecChampsAVider, messageDuChamp, useSoumission, type DefChamp } from '../../lib/saisiePatrimoine';
+import { createProjet, getDefautsEntiteProjet, getProjet, updateProjet } from '../../lib/api';
+import { useConfirm } from '../../lib/confirmContext';
 import { useApi } from '../../lib/useApi';
-import { referentielItems, useEntitesReferentiel, usePays } from '../../lib/referentiels';
-import type { ProjetDetailDto, ProjetEcritureDto } from '../../types';
-
-const IDENTITE: DefChamp<ProjetEcritureDto>[] = [
-  { nom: 'code', libelle: 'Code', genre: 'texte', requis: true },
-  { nom: 'description', libelle: 'Description', genre: 'texte', requis: true },
-  { nom: 'descriptionLongue', libelle: 'Description détaillée', genre: 'texteLong' },
-];
-
-const COORDONNEES: DefChamp<ProjetEcritureDto>[] = [
-  { nom: 'adresse', libelle: 'Adresse', genre: 'texte', large: true },
-  { nom: 'adresse2', libelle: 'Adresse (suite)', genre: 'texte' },
-  { nom: 'adresse3', libelle: 'Adresse (complément)', genre: 'texte' },
-  { nom: 'codePostal', libelle: 'Code postal', genre: 'texte' },
-  { nom: 'ville', libelle: 'Ville', genre: 'texte' },
-  { nom: 'villeSignature', libelle: 'Courrier fait à', genre: 'texte' },
-  { nom: 'telephone', libelle: 'Téléphone', genre: 'texte' },
-  { nom: 'mobile', libelle: 'Mobile', genre: 'texte' },
-  { nom: 'fax', libelle: 'Fax', genre: 'texte' },
-  { nom: 'email', libelle: 'Email', genre: 'texte' },
-  { nom: 'siteWeb', libelle: 'Site web', genre: 'texte' },
-];
-
-const DATES: DefChamp<ProjetEcritureDto>[] = [
-  { nom: 'dateDebutTravaux', libelle: 'Lancement des travaux', genre: 'date' },
-  { nom: 'dateFinTravaux', libelle: 'Fin des travaux', genre: 'date' },
-  { nom: 'dateDebutCommercialisation', libelle: 'Début de commercialisation', genre: 'date' },
-  { nom: 'dateFinCommercialisation', libelle: 'Fin de commercialisation', genre: 'date' },
-];
-
-function versEcriture(p: ProjetDetailDto): ProjetEcritureDto {
-  return extraireSaisie(p, [...IDENTITE, ...COORDONNEES, ...DATES], { entiteId: p.entiteId, paysId: p.paysId });
-}
+import { referentielItems, useEntitesReferentiel, usePays, usePersonnels } from '../../lib/referentiels';
+import type { ProjetEcritureDto } from '../../types';
+import { ADMINISTRATION, AUTRES, COORDONNEES, DELAIS, GENERAL, SAISIS, versEcriture } from './champsProjet';
 
 const ENTETE = {
   crumbs: [{ label: 'Patrimoine' }, { label: 'Projets', to: '/projets' }],
@@ -71,26 +42,62 @@ function EditionProjet({ id }: Readonly<{ id: string }>) {
   return <FormulaireProjet id={id} initial={versEcriture(data)} />;
 }
 
+function useReferencesProjet(): Partial<Record<string, OptionSelect[]>> {
+  const pays = usePays();
+  const personnels = referentielItems(usePersonnels().data);
+  return {
+    paysId: pays.data.map((p) => ({ label: p.description || p.code || p.id, value: p.id })),
+    signataireId: personnels,
+    responsableTechniqueId: personnels,
+    responsableCommercialId: personnels,
+  };
+}
+
 function FormulaireProjet({ id, initial }: Readonly<{ id?: string; initial: ProjetEcritureDto }>) {
   const navigate = useNavigate();
+  const confirmer = useConfirm();
   const [form, setForm] = useState<ProjetEcritureDto>(initial);
+  const [erreurDefauts, setErreurDefauts] = useState<string | null>(null);
   const { enCours, erreur, soumettre } = useSoumission();
   const entites = useEntitesReferentiel();
-  const pays = usePays();
-  const optionsPays = pays.data.map((p) => ({ label: p.description || p.code || p.id, value: p.id }));
+  const references = useReferencesProjet();
 
   const changer = (nom: keyof ProjetEcritureDto, valeur: unknown) => setForm((f) => ({ ...f, [nom]: valeur }));
+  const champs = (defs: DefChamp<ProjetEcritureDto>[]) => (
+    <ChampsDeclares prefixe="prj" defs={defs} form={form} onChange={changer} erreur={erreur} references={references} />
+  );
+
+  /** OMRAN `Project:CfgCompanyItemList_ValueChanged` : code et libellé compris ; un code pris donnera 409. */
+  async function choisirEntite(entiteId: string | undefined) {
+    changer('entiteId', entiteId);
+    setErreurDefauts(null);
+    if (!entiteId) return;
+    const charger = await confirmer({
+      title: 'Données par défaut',
+      message: "Voulez-vous charger les données par défaut de l'entité sélectionnée ?",
+      confirmLabel: 'Charger',
+      cancelLabel: 'Non',
+    });
+    if (!charger) return;
+    try {
+      const defauts = await getDefautsEntiteProjet(entiteId);
+      setForm((f) => ({ ...f, ...defauts, entiteId }));
+    } catch {
+      setErreurDefauts("Données de l'entité non chargées : saisissez-les.");
+    }
+  }
 
   function enregistrer() {
+    const corps = avecChampsAVider(initial, form, SAISIS);
     void soumettre(
-      () => (id ? updateProjet(id, form) : createProjet(form)),
+      () => (id ? updateProjet(id, corps) : createProjet(corps)),
       (projet) => void navigate(`/projets/${projet.id}`),
     );
   }
 
   return (
     <div className="flex max-w-200 flex-col gap-3">
-      <Card title="Identité" accent="var(--sec-projet)">
+      <Card title="Général" accent="var(--sec-projet)">
         <div className="flex flex-col gap-3.5">
           <GrilleSaisie>
             <ChampSelect
@@ -99,31 +106,18 @@ function FormulaireProjet({ id, initial }: Readonly<{ id?: string; initial: Proj
               requis
               options={referentielItems(entites.data)}
               valeur={form.entiteId}
-              onChange={(v) => changer('entiteId', v)}
-              message={messageDuChamp(erreur, 'entiteId')}
+              onChange={(v) => void choisirEntite(v)}
+              message={messageDuChamp(erreur, 'entiteId') ?? erreurDefauts}
+              aide="Propose de reprendre les coordonnées et les responsables de l'entité."
             />
           </GrilleSaisie>
-          <ChampsDeclares prefixe="prj" defs={IDENTITE} form={form} onChange={changer} erreur={erreur} />
+          {champs(GENERAL)}
         </div>
       </Card>
-      <Card title="Coordonnées">
-        <div className="flex flex-col gap-3.5">
-          <ChampsDeclares prefixe="prj" defs={COORDONNEES} form={form} onChange={changer} erreur={erreur} />
-          <GrilleSaisie>
-            <ChampSelect
-              id="prj-pays"
-              libelle="Pays"
-              options={optionsPays}
-              valeur={form.paysId}
-              onChange={(v) => changer('paysId', v)}
-              message={messageDuChamp(erreur, 'paysId')}
-            />
-          </GrilleSaisie>
-        </div>
-      </Card>
-      <Card title="Dates">
-        <ChampsDeclares prefixe="prj" defs={DATES} form={form} onChange={changer} erreur={erreur} />
-      </Card>
+      <Card title="Délais">{champs(DELAIS)}</Card>
+      <Card title="Coordonnées">{champs(COORDONNEES)}</Card>
+      <Card title="Administration">{champs(ADMINISTRATION)}</Card>
+      <Card title="Autres">{champs(AUTRES)}</Card>
       <PiedFormulaire
         erreur={erreur}
         enCours={enCours}

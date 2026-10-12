@@ -124,6 +124,8 @@ import type {
   UtilisateurListItemDto,
   UUID,
   VilleDto,
+  ZoneProjetDto,
+  ZoneProjetEcritureDto,
   LigneAuditDto,
   NoteDto,
   CreerNoteRequest,
@@ -1352,8 +1354,37 @@ export function listTrancheArticles(
   return request('GET', `/api/tranches/${trancheId}/articles`, { query: withPageable(params, pageable) });
 }
 
-export function listProjets(pageable?: Pageable): Promise<PageDto<ProjetListItemDto>> {
-  return request('GET', '/api/projets', { query: withPageable(undefined, pageable) });
+/** `search` : code, libellé, entité, ville, casse ignorée, côté serveur. */
+export function listProjets(pageable?: Pageable, params?: { search?: string }): Promise<PageDto<ProjetListItemDto>> {
+  return request('GET', '/api/projets', { query: withPageable(params, pageable) });
+}
+
+/** Corps de création pré-rempli depuis l'entité (code et libellé compris) ; ne crée rien. 404 entité inconnue. */
+export function getDefautsEntiteProjet(entiteId: UUID): Promise<ProjetEcritureDto> {
+  return request('GET', `/api/projets/defauts-entite/${entiteId}`);
+}
+
+/** Administrateur. 409 (message à afficher) tant qu'une tranche, un article… référence le programme. */
+export function deleteProjet(id: UUID): Promise<void> {
+  return request('DELETE', `/api/projets/${id}`);
+}
+
+export function listZonesProjet(projetId: UUID): Promise<ZoneProjetDto[]> {
+  return request('GET', `/api/projets/${projetId}/zones`);
+}
+
+/** Administrateur. 409 : code déjà pris par une zone sœur. */
+export function createZoneProjet(projetId: UUID, body: ZoneProjetEcritureDto): Promise<ZoneProjetDto> {
+  return request('POST', `/api/projets/${projetId}/zones`, { body });
+}
+
+export function updateZoneProjet(projetId: UUID, zoneId: UUID, body: ZoneProjetEcritureDto): Promise<ZoneProjetDto> {
+  return request('PATCH', `/api/projets/${projetId}/zones/${zoneId}`, { body });
+}
+
+/** 409 si la zone a des sous-zones ou une réclamation SAV. */
+export function deleteZoneProjet(projetId: UUID, zoneId: UUID): Promise<void> {
+  return request('DELETE', `/api/projets/${projetId}/zones/${zoneId}`);
 }
 
 export function getProjet(id: UUID): Promise<ProjetDetailDto> {
@@ -1364,8 +1395,37 @@ export function listProjetTranches(projetId: UUID, pageable?: Pageable): Promise
   return request('GET', `/api/projets/${projetId}/tranches`, { query: withPageable(undefined, pageable) });
 }
 
-export function listTranches(params?: { projetId?: UUID }, pageable?: Pageable): Promise<PageDto<TrancheListItemDto>> {
-  return request('GET', '/api/tranches', { query: withPageable(params, pageable) });
+export function listTranches(
+  params?: { projetId?: UUID; search?: string },
+  pageable?: Pageable,
+  /** Un nom hors catalogue renvoie 400 ; `id` est servi qu'on le demande ou non. */
+  options?: { colonnes?: string[] },
+): Promise<PageDto<TrancheListItemDto>> {
+  const query: Record<string, QueryValue> = withPageable(params, pageable);
+  if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
+  return request('GET', '/api/tranches', { query });
+}
+
+export function getColonnesTranches(): Promise<ColonneDto[]> {
+  return request('GET', '/api/tranches/colonnes');
+}
+
+type ReferentielPatrimoine =
+  | 'standings'
+  | 'niveaux-terrain'
+  | 'rubriques-tranche'
+  | 'personnels'
+  | 'plans-comptables'
+  | 'tiers-autrui';
+
+/** Listes des fiches programme et tranche (`/api/referentiels-patrimoine/…`). */
+export function getReferentielPatrimoine(ressource: ReferentielPatrimoine): Promise<ReferentielItemDto[]> {
+  return request('GET', `/api/referentiels-patrimoine/${ressource}`);
+}
+
+/** Projets de travaux proposés comme « Projet de facturation » ; `entiteId` absent = tous. */
+export function getProjetsFacturation(entiteId?: UUID): Promise<ReferentielItemDto[]> {
+  return request('GET', '/api/referentiels-patrimoine/projets-facturation', { query: { entiteId } });
 }
 
 /** Administrateur seulement (403 sinon). 409 : code déjà pris, sur toute la table. */

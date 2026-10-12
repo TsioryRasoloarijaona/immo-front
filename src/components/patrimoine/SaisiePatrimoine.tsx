@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Check } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Field as FormField, FieldError, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
@@ -15,7 +15,7 @@ import {
 } from '../../lib/saisiePatrimoine';
 import { cn } from '../../lib/utils';
 
-interface OptionSelect {
+export interface OptionSelect {
   label: string;
   value: string;
 }
@@ -33,12 +33,15 @@ export function ChampsDeclares<T extends object>({
   form,
   onChange,
   erreur,
+  references,
 }: Readonly<{
   prefixe: string;
   defs: readonly DefChamp<T>[];
   form: Partial<T>;
   onChange: (nom: keyof T & string, valeur: unknown) => void;
   erreur: ErreurSaisie | null;
+  /** Options des champs `reference`, par nom de champ. */
+  references?: Partial<Record<string, OptionSelect[]>>;
 }>) {
   return (
     <GrilleSaisie>
@@ -50,6 +53,7 @@ export function ChampsDeclares<T extends object>({
           valeur={(form as Record<string, unknown>)[def.nom]}
           onChange={(v) => onChange(def.nom, v)}
           message={messageDuChamp(erreur, def.nom)}
+          options={references?.[def.nom]}
         />
       ))}
     </GrilleSaisie>
@@ -62,7 +66,30 @@ function ChampDeclare<T>({
   valeur,
   onChange,
   message,
-}: Readonly<{ id: string; def: DefChamp<T>; valeur: unknown; onChange: (v: unknown) => void; message: string | null }>) {
+  options,
+}: Readonly<{
+  id: string;
+  def: DefChamp<T>;
+  valeur: unknown;
+  onChange: (v: unknown) => void;
+  message: string | null;
+  options?: OptionSelect[];
+}>) {
+  if (def.genre === 'reference') {
+    return (
+      <ChampSelect
+        id={id}
+        libelle={def.libelle}
+        requis={def.requis}
+        desactive={def.desactive}
+        options={options ?? []}
+        valeur={typeof valeur === 'string' ? valeur : undefined}
+        onChange={onChange}
+        message={message}
+        effacable={!def.requis}
+      />
+    );
+  }
   if (def.genre === 'case') {
     return (
       <label htmlFor={id} className={cn('flex items-center gap-2 self-end pb-1.5 text-label', def.large && 'sm:col-span-2')}>
@@ -139,6 +166,7 @@ export function ChampSelect({
   desactive,
   message,
   aide,
+  effacable,
 }: Readonly<{
   id: string;
   libelle: string;
@@ -149,21 +177,30 @@ export function ChampSelect({
   desactive?: boolean;
   message?: string | null;
   aide?: string;
+  /** Bouton « Effacer » : la valeur repart en `champsAVider` à l'enregistrement. */
+  effacable?: boolean;
 }>) {
   return (
     <ChampCadre id={id} libelle={libelle} requis={requis} message={message}>
-      <Select items={options} value={valeur ?? null} disabled={desactive} onValueChange={(v) => onChange((v as string) || undefined)}>
-        <SelectTrigger id={id} className="w-full" aria-invalid={!!message}>
-          <SelectValue placeholder="Choisir…" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {options.map((o) => (
-              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+      <div className="flex items-center gap-1.5">
+        <Select items={options} value={valeur ?? null} disabled={desactive} onValueChange={(v) => onChange((v as string) || undefined)}>
+          <SelectTrigger id={id} className="w-full min-w-0" aria-invalid={!!message}>
+            <SelectValue placeholder="Choisir…" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {options.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        {effacable && valeur && !desactive && (
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={`Effacer « ${libelle} »`} onClick={() => onChange(undefined)}>
+            <X />
+          </Button>
+        )}
+      </div>
       {aide && <p className="text-micro text-muted-foreground">{aide}</p>}
     </ChampCadre>
   );
