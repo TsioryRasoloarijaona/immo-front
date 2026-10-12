@@ -12626,12 +12626,12 @@
           "delaiNotaireMinutes": {
             "type": "integer",
             "format": "int32",
-            "description": "Délai notaire en minutes (DelayLawyerMinute). Défaut 60."
+            "description": "Jours entre l'envoi au notaire et la date minute (DelayLawyerMinute). Défaut 60."
           },
           "delaiToutSoldeMinutes": {
             "type": "integer",
             "format": "int32",
-            "description": "Délai « tout soldé » en minutes (DelayMinuteAllSettled). Défaut 30."
+            "description": "Jours entre la date minute et l'encaissement du reste (DelayMinuteAllSettled). Défaut 30."
           },
           "ecartTypeConcretisation": {
             "type": "number",

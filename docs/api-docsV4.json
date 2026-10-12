@@ -2023,7 +2023,7 @@
             }
           },
           "404": {
-            "description": "Aucun programme avec cet id.",
+            "description": "Aucun programme avec cet id, ou programme d'une entité inactive.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2097,7 +2097,7 @@
             }
           },
           "404": {
-            "description": "Aucun programme avec cet id.",
+            "description": "Aucun programme avec cet id, ou programme d'une entité inactive.",
             "content": {
               "*/*": {
                 "schema": {
@@ -5154,7 +5154,7 @@
             }
           },
           "404": {
-            "description": "Aucun programme avec cet id.",
+            "description": "Aucun programme avec cet id, ou programme d'une entité inactive.",
             "content": {
               "*/*": {
                 "schema": {
@@ -5192,7 +5192,7 @@
             "description": "L'appelant n'a pas le rôle Administrateur."
           },
           "404": {
-            "description": "Aucun programme avec cet id."
+            "description": "Aucun programme avec cet id, ou programme d'une entité inactive."
           },
           "409": {
             "description": "Une tranche, un article ou une autre donnée le référence."
@@ -5260,7 +5260,7 @@
             }
           },
           "404": {
-            "description": "Aucun programme avec cet id.",
+            "description": "Aucun programme avec cet id, ou programme d'une entité inactive.",
             "content": {
               "*/*": {
                 "schema": {
@@ -5319,7 +5319,7 @@
             "description": "L'appelant n'a pas le rôle Administrateur."
           },
           "404": {
-            "description": "Programme ou zone introuvable."
+            "description": "Programme ou zone introuvable (programme d'une entité inactive compris)."
           },
           "409": {
             "description": "La zone a des sous-zones ou une réclamation SAV la référence."
@@ -5396,7 +5396,7 @@
             }
           },
           "404": {
-            "description": "Programme ou zone introuvable.",
+            "description": "Programme ou zone introuvable (programme d'une entité inactive compris).",
             "content": {
               "*/*": {
                 "schema": {
@@ -7826,12 +7826,13 @@
           "Référentiels patrimoine"
         ],
         "summary": "Projets de travaux (PrjProject) proposés comme « Projet de facturation pour les dépenses »",
+        "description": "Réservé à l'Administrateur ; seuls les projets des entités actives.",
         "operationId": "projetsFacturation",
         "parameters": [
           {
             "name": "entiteId",
             "in": "query",
-            "description": "Entité juridique (CfgCompany.id) de la tranche ; absent = tous les projets.",
+            "description": "Entité juridique (CfgCompany.id) de la tranche ; absent = toutes les entités actives.",
             "required": false,
             "schema": {
               "type": "string",
@@ -7841,7 +7842,20 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Projets (liste vide si l'entité est inactive ou inconnue).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
             "content": {
               "*/*": {
                 "schema": {
@@ -8699,7 +8713,7 @@
             }
           },
           "404": {
-            "description": "Aucun programme avec cet id.",
+            "description": "Aucun programme avec cet id, ou programme d'une entité inactive.",
             "content": {
               "*/*": {
                 "schema": {
@@ -8717,7 +8731,7 @@
           "Programmes"
         ],
         "summary": "Valeurs par défaut d'un programme, reprises de l'entité juridique",
-        "description": "Reprend `CfgProject.GetDefaultValuesFromCompany` d'OMRAN : à l'écran, au choix de l'entité, « Voulez-vous charger les\ndonnées par défaut de l'entité sélectionnée ? ». Copie **le code et le libellé** de l'entité (comme OMRAN : le\ndeuxième programme d'une même entité devra changer de code, sinon 409 à l'enregistrement), adresses, ville, code\npostal, pays, téléphones, email, site, « Courrier fait à », signataire, responsables technique et commercial et\ndescription détaillée (tronquée à 500 caractères). Ne crée rien. Fonctionne aussi pour une entité inactive, que le\nPOST refusera ensuite.",
+        "description": "Reprend `CfgProject.GetDefaultValuesFromCompany` d'OMRAN : à l'écran, au choix de l'entité, « Voulez-vous charger les\ndonnées par défaut de l'entité sélectionnée ? ». Copie **le code et le libellé** de l'entité (comme OMRAN : le\ndeuxième programme d'une même entité devra changer de code, sinon 409 à l'enregistrement), adresses, ville, code\npostal, pays, téléphones, email, site, « Courrier fait à », signataire, responsables technique et commercial et\ndescription détaillée (tronquée à 500 caractères). Ne crée rien. Une entité inactive est traitée comme inconnue\n(404, administrateur compris).",
         "operationId": "defautsEntite",
         "parameters": [
           {
@@ -8743,7 +8757,7 @@
             }
           },
           "404": {
-            "description": "Aucune entité avec cet id.",
+            "description": "Aucune entité active avec cet id.",
             "content": {
               "*/*": {
                 "schema": {
