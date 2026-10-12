@@ -9,7 +9,7 @@ import { useAuth } from '../../lib/auth';
 import { estChefOuExempte } from '../../lib/roles';
 import { prospectionDisplayName } from '../../lib/domain';
 import { formatNumber } from '../../lib/format';
-import { CARTES_PAR_COLONNE, COLONNES_CARTE, colonnesKanban, type ColonneKanban } from '../../lib/kanban';
+import { CARTES_PAR_COLONNE, COLONNES_CARTE, colonnesKanban, declencheRemerciement, type ColonneKanban } from '../../lib/kanban';
 import { useEtapesProspection } from '../../lib/referentiels';
 import { useToast } from '../../lib/toastContext';
 import { cn } from '../../lib/utils';
@@ -63,6 +63,8 @@ export default function KanbanProspections({
   const { user } = useAuth();
   const showToast = useToast();
   const etapes = useEtapesProspection();
+  // Un commercial simple ne déplace que ses cartes : le serveur répondrait 404 sur celles d'un autre.
+  const chef = estChefOuExempte(user);
   const colonnes = colonnesKanban(etapes.data);
   const [ouvertes, setOuvertes] = useState<ReadonlySet<string>>(new Set());
   const [glissee, setGlissee] = useState<{ carte: ProspectionListItemDto; depuis: ColonneKanban } | null>(null);
@@ -144,7 +146,8 @@ export default function KanbanProspections({
                     key={p.id}
                     carte={p}
                     cibles={cibles(c)}
-                    avecCommercial={estChefOuExempte(user)}
+                    avecCommercial={chef}
+                    deplacable={chef || p.commercialId === user?.employeeId}
                     enAttente={deplacement?.carte.id === p.id}
                     onOuvrir={() => onOuvrir(p.id)}
                     onDeplacer={(versId) => deposer(p, c, versId)}
@@ -162,6 +165,7 @@ export default function KanbanProspections({
           nom={prospectionDisplayName(deplacement.carte)}
           depuis={deplacement.depuis.libelle}
           vers={deplacement.vers.libelle}
+          remerciement={declencheRemerciement(deplacement.vers.etape)}
           onClose={() => setDeplacement(null)}
           onSubmit={async (prochaineAction, phrase) => {
             await avancerProspection(deplacement.carte.id, { etapeId: deplacement.vers.etape.id, prochaineAction });

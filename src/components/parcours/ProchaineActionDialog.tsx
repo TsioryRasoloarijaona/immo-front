@@ -40,12 +40,15 @@ export default function ProchaineActionDialog({
   nom,
   depuis,
   vers,
+  remerciement = false,
   onClose,
   onSubmit,
 }: Readonly<{
   nom: string;
   depuis: string;
   vers: string;
+  /** Étape d'arrivée « 4 APRES VISITES » : le serveur envoie le remerciement de visite au prospect. */
+  remerciement?: boolean;
   onClose: () => void;
   /** Rejette en cas d'échec : le dialogue reste ouvert et affiche le message du serveur. */
   onSubmit: (action: ProchaineActionRequest, phrase: string) => Promise<void>;
@@ -115,6 +118,10 @@ export default function ProchaineActionDialog({
         <p className={cn('text-body', phrase ? 'text-foreground' : 'text-(--warning)')}>
           {phrase ?? 'Choisissez la prochaine action et sa date pour enregistrer : un client ne reste jamais sans suite.'}
         </p>
+        {remerciement && (
+          <p role="note" className="text-body text-(--amber)">Le prospect recevra le message de remerciement de visite (e-mail et WhatsApp).</p>
+        )}
+        {type === 'visite' && <p role="note" className="text-body text-(--amber)">Le prospect recevra la confirmation de visite.</p>}
         {erreur && (
           <p role="alert" className="text-label text-destructive">
             {erreur}

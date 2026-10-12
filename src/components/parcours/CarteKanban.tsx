@@ -11,6 +11,7 @@ export default function CarteKanban({
   carte,
   cibles,
   avecCommercial,
+  deplacable,
   enAttente,
   onOuvrir,
   onDeplacer,
@@ -20,6 +21,8 @@ export default function CarteKanban({
   cibles: readonly { id: string; libelle: string }[];
   /** Chef et administration : initiales du commercial. */
   avecCommercial: boolean;
+  /** Faux pour la carte d'un autre commercial vue par un commercial simple : visible, pas déplaçable. */
+  deplacable: boolean;
   /** Déposée, en attente de sa prochaine action. */
   enAttente: boolean;
   onOuvrir: () => void;
@@ -34,14 +37,16 @@ export default function CarteKanban({
   if (echeance) libelleEcheance = enRetard ? `En retard · ${formatDate(echeance)}` : formatDate(echeance);
   return (
     <li
-      draggable
+      draggable={deplacable}
       onDragStart={(e) => {
+        if (!deplacable) return;
         e.dataTransfer.setData('text/plain', carte.id);
         e.dataTransfer.effectAllowed = 'move';
         onGlisser();
       }}
       className={cn(
-        'flex cursor-grab flex-col gap-1 rounded-lg border border-border bg-card p-2.5 shadow-xs active:cursor-grabbing',
+        'flex flex-col gap-1 rounded-lg border border-border bg-card p-2.5 shadow-xs',
+        deplacable && 'cursor-grab active:cursor-grabbing',
         enAttente && 'opacity-60 ring-2 ring-primary/40',
       )}
     >
@@ -49,7 +54,7 @@ export default function CarteKanban({
         <button type="button" className="min-w-0 text-left text-label font-semibold text-foreground hover:text-primary" onClick={onOuvrir}>
           <span className="line-clamp-2">{nom}</span>
         </button>
-        <DropdownMenu>
+        {deplacable && <DropdownMenu>
           <DropdownMenuTrigger
             aria-label={`Déplacer ${nom} vers…`}
             className="inline-flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/50"
@@ -64,7 +69,7 @@ export default function CarteKanban({
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
-        </DropdownMenu>
+        </DropdownMenu>}
       </div>
       {carte.trancheCode && <span className="truncate text-micro text-muted-foreground">{carte.trancheCode}</span>}
       <span className={cn('flex items-center gap-1 text-micro', enRetard ? 'font-semibold text-(--warning)' : 'text-muted-foreground')}>

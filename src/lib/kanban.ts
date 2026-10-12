@@ -47,7 +47,12 @@ export function colonnesKanban(etapes: readonly ReferentielItemDto[]): ColonneKa
   return [...principales, ...repliees];
 }
 
-export type TypeProchaineAction = 'appel' | 'whatsapp' | 'visite';
+/** Arriver en « 4 APRES VISITES » déclenche le remerciement de visite côté serveur (comme `PATCH /etape`). */
+export function declencheRemerciement(etape: ReferentielItemDto): boolean {
+  return normaliser(etape.code) === '4 APRES VISITES';
+}
+
+export type TypeProchaineAction ='appel' | 'whatsapp' | 'visite';
 
 interface ModeleAction {
   libelle: string;
