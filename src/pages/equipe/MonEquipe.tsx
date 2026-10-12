@@ -76,7 +76,7 @@ function ContenuEquipe() {
       </div>
       <TableauCommerciaux data={commerciaux.data} loading={commerciaux.loading} error={commerciaux.error} onOuvrir={setSource} />
       <AffectationsEquipe data={affectations.data} loading={affectations.loading} error={affectations.error} onFait={fait} />
-      {distribuer && <DistribuerDialog periode={periode} commerciaux={membres} onClose={() => setDistribuer(false)} onFait={fait} />}
+      {distribuer && <DistribuerDialog periode={periode} projet={projet} commerciaux={membres} onClose={() => setDistribuer(false)} onFait={fait} />}
       {source && <ReaffecterDialog source={source} commerciaux={membres} onClose={() => setSource(null)} onFait={fait} />}
     </div>
   );

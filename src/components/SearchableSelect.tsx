@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Combobox, ComboboxContent, ComboboxItem, ComboboxTrigger } from './ui/combobox';
+import { sansAccents } from '../lib/colonnes';
 
 export interface SearchableSelectOption {
   label: string;
@@ -33,9 +34,18 @@ export default function SearchableSelect({
   // doit garder l'aspect du placeholder.
   const selected = useMemo(() => (value ? items.find((i) => i.value === value) ?? null : null), [items, value]);
 
+  // Le libellé choisi reste dans le champ et sert de requête : sans ce filtre la liste se réduisait à la
+  // sélection (libellés à espace final en base, ex. projet APF). Libellé choisi = liste entière.
+  function filtrer(item: SearchableSelectOption, query: string): boolean {
+    const q = sansAccents(query.trim());
+    if (!q || q === sansAccents((selected?.label ?? '').trim())) return true;
+    return sansAccents(item.label).includes(q);
+  }
+
   return (
     <Combobox
       items={items}
+      filter={filtrer}
       value={selected}
       onValueChange={(next) => onValueChange(next ? (next).value : null)}
       isItemEqualToValue={(a: SearchableSelectOption | null, b: SearchableSelectOption | null) => a?.value === b?.value}
