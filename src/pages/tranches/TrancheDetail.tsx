@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Building2, Calendar, Coins, Pencil, Plus, Scale } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ChampsTrace from '../../components/patrimoine/ChampsTrace';
+import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import { Button } from '../../components/ui/button';
 import { useAuth } from '../../lib/auth';
 import { estAdministrateur } from '../../lib/roles';
@@ -284,6 +285,8 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
             />
           )}
         </Card>
+
+        <OngletsTransverses porteur="tranche" id={t.id} />
         </div>
       </div>
     </PageShell>

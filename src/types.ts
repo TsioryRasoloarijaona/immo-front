@@ -2747,3 +2747,52 @@ export interface DecompteDetailDto extends DecompteListItemDto {
   extras: ExtraDecompteDto[];
   retenues: RetenueDecompteDto[];
 }
+
+// --- Audit OMRAN, notes (FEATURE-patrimoine-audit-actions.md) ---
+
+/** Une entrée du JSON `Details` d'OMRAN. Valeurs en texte OMRAN (dates
+ * `jj/MM/aaaa HH:mm:ss`, décimaux à point) : à afficher telles quelles. */
+export interface ChangementAuditDto {
+  propriete?: string;
+  /** Vide pour une création. */
+  ancienneValeur?: string;
+  nouvelleValeur?: string;
+}
+
+/** Code brut d'`AdmWebHistorics.Action`, traduit à l'écran. */
+export type ActionAudit = 'Added' | 'Modified' | 'Deleted';
+
+export interface LigneAuditDto {
+  id?: UUID;
+  date?: string | null;
+  utilisateur?: string | null;
+  /** `Added`, `Modified` ou `Deleted` (typé `string` sur le fil). */
+  action?: string | null;
+  typeObjet?: string | null;
+  libelleTypeObjet?: string | null;
+  libelleObjet?: string | null;
+  /** Renseigné pour une ligne enfant (ex. terrain d'une tranche). */
+  parentTypeObjet?: string | null;
+  /** Vide si le `Details` est illisible. */
+  details?: ChangementAuditDto[];
+}
+
+export type PorteurNote = 'projet' | 'tranche' | 'article';
+
+export interface NoteDto {
+  id?: UUID;
+  date?: string | null;
+  auteur?: string | null;
+  /** Libellé OMRAN « jj/MM/aaaa HH:mm Nom », pas un contenu. */
+  description?: string | null;
+  /** HTML assaini par le serveur (balises simples sans attribut). */
+  texteHtml?: string | null;
+  rappel?: string | null;
+}
+
+export interface CreerNoteRequest {
+  porteur: PorteurNote;
+  id: UUID;
+  texteHtml: string;
+  rappel?: string;
+}

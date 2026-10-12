@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowUpRight, Eye, FileText, Folder, Home, Pencil } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ChampsTrace from '../../components/patrimoine/ChampsTrace';
+import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import { useAuth } from '../../lib/auth';
 import { estAdministrateur } from '../../lib/roles';
 import SousArticlesArticle from './SousArticlesArticle';
@@ -238,6 +239,8 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
             </div>
           )}
         </Card>
+
+        <OngletsTransverses porteur="article" id={a.id} />
       </div>
     </PageShell>
   );
