@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, Calendar, Contact, FilePlus2, FileText, Folder, Gauge, History, Home, KeyRound, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
+import { BookUser, Bot, Building2, Calendar, Contact, FilePlus2, FileText, Folder, Gauge, History, Home, KeyRound, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, Trophy, UserCheck, UserCircle, UserPlus, Users, UsersRound, Wallet } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -22,13 +22,14 @@ import EntreesAdminVirements from '../pages/outils/virements/EntreesAdminViremen
 import EntreesSyndic from '../pages/outils/syndic/EntreesSyndic';
 import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
-import { estAdministrateur } from '../lib/roles';
+import { estAdministrateur, estChefOuExempte } from '../lib/roles';
 
 export default function Layout({ children }: Readonly<{ children: ReactNode }>) {
   const location = useLocation();
   const activeModule = moduleForPath(location.pathname);
   const { user, logout } = useAuth();
   const isAdmin = estAdministrateur(user);
+  const chefOuExempte = estChefOuExempte(user);
   // Le commercial voit Ventes, Patrimoine et Profil ensemble, hors du découpage
   // par module que suivent les autres rôles.
   const isCommercial = user?.roles?.includes('Commercial') ?? false;
@@ -140,6 +141,14 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                     Encaissements
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                {chefOuExempte && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton render={<NavLink to="/equipe" />} isActive={location.pathname.startsWith('/equipe')} tooltip="Mon équipe">
+                      <UsersRound />
+                      Mon équipe
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroup>
           )}

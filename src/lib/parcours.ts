@@ -5,6 +5,11 @@ import type { HistoriqueDto, ProspectionDetailDto } from '../types';
 export const CODE_PRE_PROSPECTION = 'ComPreProspection';
 export const CODE_PROSPECTION = 'ComProspection';
 
+/** Sans commercial et pas encore typée prospection : sinon le serveur refuse (409), le commercial se réaffecte. */
+export function estTransformable(p: { commercialId?: string | null; typeProspectionCode?: string | null }): boolean {
+  return !p.commercialId && p.typeProspectionCode !== CODE_PROSPECTION;
+}
+
 /** Selon le **code** de type, jamais son libellé. */
 export function routeFicheProspection(
   id: string,
