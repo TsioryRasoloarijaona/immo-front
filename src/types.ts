@@ -2921,3 +2921,155 @@ export interface CreerNoteRequest {
   texteHtml: string;
   rappel?: string;
 }
+
+// ---------------------------------------------------------------- Entités juridiques (FEATURE-entites-juridiques.md)
+
+export interface LigneRepartitionDto {
+  id: UUID;
+  actionnaireId?: UUID | null;
+  actionnaireCode?: string | null;
+  actionnaireLibelle?: string | null;
+  /** Nombre de parts (actions), entier. */
+  nombreParts?: number | null;
+}
+
+export interface LigneRepartitionEcritureDto {
+  actionnaireId?: UUID;
+  nombreParts?: number;
+}
+
+/** `GET /api/entites-juridiques` (liste, `repartition` null) et `GET /api/entites-juridiques/{id}` (fiche). */
+export interface EntiteJuridiqueDto {
+  id: UUID;
+  code?: string | null;
+  description?: string | null;
+  /** false : tout le patrimoine et le commercial de l'entité sont masqués du CRM. */
+  actif: boolean;
+  formeJuridique?: string | null;
+  matriculeFiscal?: string | null;
+  registreCommerce?: string | null;
+  cnss?: string | null;
+  patente?: string | null;
+  ice?: string | null;
+  dateCreation?: string | null;
+  capital?: number | null;
+  deviseId?: UUID | null;
+  deviseCode?: string | null;
+  groupeId?: UUID | null;
+  groupeCode?: string | null;
+  groupeLibelle?: string | null;
+  /** Doit égaler le nombre de lignes de la répartition (contrôle OMRAN). */
+  nombreActionnaires: number;
+  /** Doit égaler la somme des parts de la répartition. */
+  nombreParts: number;
+  /** Fraction : 0.25 = 25 %. */
+  partMaison?: number | null;
+  dateLiquidation?: string | null;
+  adresse?: string | null;
+  adresse2?: string | null;
+  adresse3?: string | null;
+  codePostal?: string | null;
+  ville?: string | null;
+  paysId?: UUID | null;
+  paysLibelle?: string | null;
+  telephone?: string | null;
+  mobile?: string | null;
+  fax?: string | null;
+  email?: string | null;
+  siteWeb?: string | null;
+  villeSignature?: string | null;
+  representantLegalId?: UUID | null;
+  representantLegalLibelle?: string | null;
+  signataireId?: UUID | null;
+  signataireLibelle?: string | null;
+  responsableTechniqueId?: UUID | null;
+  responsableTechniqueLibelle?: string | null;
+  responsableCommercialId?: UUID | null;
+  responsableCommercialLibelle?: string | null;
+  descriptionLongue?: string | null;
+  creePar?: string | null;
+  creeLe?: string | null;
+  modifiePar?: string | null;
+  modifieLe?: string | null;
+  repartition?: LigneRepartitionDto[] | null;
+}
+
+/** Corps de POST / PATCH `/api/entites-juridiques` : absent = inchangé, `champsAVider` pour une date, référence ou nombre. */
+export interface EntiteJuridiqueEcritureDto {
+  code?: string;
+  description?: string;
+  actif?: boolean;
+  formeJuridique?: string;
+  matriculeFiscal?: string;
+  registreCommerce?: string;
+  cnss?: string;
+  patente?: string;
+  ice?: string;
+  dateCreation?: string;
+  capital?: number;
+  deviseId?: UUID;
+  groupeId?: UUID;
+  nombreActionnaires?: number;
+  nombreParts?: number;
+  partMaison?: number;
+  dateLiquidation?: string;
+  adresse?: string;
+  adresse2?: string;
+  adresse3?: string;
+  codePostal?: string;
+  ville?: string;
+  paysId?: UUID;
+  telephone?: string;
+  mobile?: string;
+  fax?: string;
+  email?: string;
+  siteWeb?: string;
+  villeSignature?: string;
+  representantLegalId?: UUID;
+  signataireId?: UUID;
+  responsableTechniqueId?: UUID;
+  responsableCommercialId?: UUID;
+  descriptionLongue?: string;
+  /** Présente = remplace toutes les lignes ; absente au PATCH = inchangée. */
+  repartition?: LigneRepartitionEcritureDto[];
+  champsAVider?: string[];
+}
+
+export interface DeviseDto {
+  id: UUID;
+  code?: string | null;
+  description?: string | null;
+  /** Devise par défaut d'OMRAN : à présélectionner à la création. */
+  parDefaut: boolean;
+}
+
+export interface ActionnaireDto {
+  id: UUID;
+  code?: string | null;
+  description?: string | null;
+  notes?: string | null;
+  creePar?: string | null;
+  creeLe?: string | null;
+  modifiePar?: string | null;
+  modifieLe?: string | null;
+}
+
+interface LigneGroupeActionnaires {
+  id: UUID;
+  actionnaireId?: UUID | null;
+  actionnaireCode?: string | null;
+  actionnaireLibelle?: string | null;
+  /** Fraction : 0.4 = 40 %. */
+  pourcentage?: number | null;
+}
+
+export interface GroupeActionnairesDto {
+  id: UUID;
+  code?: string | null;
+  description?: string | null;
+  lignes?: LigneGroupeActionnaires[];
+  creePar?: string | null;
+  creeLe?: string | null;
+  modifiePar?: string | null;
+  modifieLe?: string | null;
+}

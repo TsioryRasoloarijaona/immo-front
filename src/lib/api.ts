@@ -1,5 +1,10 @@
 import { clearCachedValues } from './apiCache';
 import type {
+  ActionnaireDto,
+  DeviseDto,
+  EntiteJuridiqueDto,
+  EntiteJuridiqueEcritureDto,
+  GroupeActionnairesDto,
   ActionRecente,
   PorteeActionsRecentes,
   AffecterProjetsRequest,
@@ -1435,6 +1440,52 @@ export function createProjet(body: ProjetEcritureDto): Promise<ProjetDetailDto> 
 
 export function updateProjet(id: UUID, body: ProjetEcritureDto): Promise<ProjetDetailDto> {
   return request('PATCH', `/api/projets/${id}`, { body });
+}
+
+// ---------------------------------------------------------------- Entités juridiques (FEATURE-entites-juridiques.md)
+
+export type FiltreActif = 'true' | 'false' | 'tous';
+
+/** Entités où l'utilisateur est habilité (toutes pour un administrateur), actives ou non. */
+export function listEntitesJuridiques(params: { actif?: FiltreActif; search?: string }): Promise<EntiteJuridiqueDto[]> {
+  return request('GET', '/api/entites-juridiques', { query: params });
+}
+
+/** Fiche complète, répartition comprise ; 404 hors habilitation. */
+export function getEntiteJuridique(id: UUID): Promise<EntiteJuridiqueDto> {
+  return request('GET', `/api/entites-juridiques/${id}`);
+}
+
+export function listDevises(): Promise<DeviseDto[]> {
+  return request('GET', '/api/entites-juridiques/devises');
+}
+
+/** Administrateur. 409 : code déjà pris ; 400 sur `nombreActionnaires` / `nombreParts` si la répartition ne suit pas. */
+export function createEntiteJuridique(body: EntiteJuridiqueEcritureDto): Promise<EntiteJuridiqueDto> {
+  return request('POST', '/api/entites-juridiques', { body });
+}
+
+/** Administrateur. `actif` modifiable : effet immédiat sur tout le CRM. */
+export function updateEntiteJuridique(id: UUID, body: EntiteJuridiqueEcritureDto): Promise<EntiteJuridiqueDto> {
+  return request('PATCH', `/api/entites-juridiques/${id}`, { body });
+}
+
+/** Administrateur. 409 (message à afficher) tant qu'un programme, un tiers, un règlement… référence l'entité. */
+export function deleteEntiteJuridique(id: UUID): Promise<void> {
+  return request('DELETE', `/api/entites-juridiques/${id}`);
+}
+
+/** Administrateur. Enregistre le groupe, recalcule la répartition sur le nombre de parts **enregistré**. */
+export function chargerRepartitionDepuisGroupe(id: UUID, groupeId: UUID): Promise<EntiteJuridiqueDto> {
+  return request('POST', `/api/entites-juridiques/${id}/repartition/depuis-groupe/${groupeId}`);
+}
+
+export function listActionnaires(): Promise<ActionnaireDto[]> {
+  return request('GET', '/api/actionnaires');
+}
+
+export function listGroupesActionnaires(): Promise<GroupeActionnairesDto[]> {
+  return request('GET', '/api/groupes-actionnaires');
 }
 
 /** Administrateur seulement. Code unique sur toute la table, pas par programme. */

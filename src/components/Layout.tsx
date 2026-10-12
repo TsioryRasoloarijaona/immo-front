@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, Calendar, Contact, FilePlus2, FileText, Folder, Gauge, HardHat, History, Home, KeyRound, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, ReceiptText, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
+import { BookUser, Bot, Building2, Calendar, Contact, FilePlus2, FileText, Folder, Gauge, HardHat, History, Home, KeyRound, Landmark, LayoutDashboard, LayoutGrid, ListChecks, LogOut, Phone, ReceiptText, Trophy, UserCheck, UserCircle, UserPlus, Users, Wallet } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -166,6 +166,16 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                   <SidebarMenuButton render={<NavLink to="/articles" />} isActive={location.pathname.startsWith('/articles')} tooltip="Articles">
                     <Home style={{ color: 'var(--sec-tranche)' }} />
                     Articles
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/entites-juridiques" />}
+                    isActive={location.pathname.startsWith('/entites-juridiques')}
+                    tooltip="Entités juridiques"
+                  >
+                    <Landmark style={{ color: 'var(--sec-projet)' }} />
+                    Entités juridiques
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

@@ -38,6 +38,11 @@ const DossierDetail = lazy(() => import('./pages/dossiers/DossierDetail'));
 const ProjetsList = lazy(() => import('./pages/projets/ProjetsList'));
 const ProjetDetail = lazy(() => import('./pages/projets/ProjetDetail'));
 const ProjetForm = lazy(() => import('./pages/projets/ProjetForm'));
+const EntitesJuridiquesList = lazy(() => import('./pages/entites/EntitesJuridiquesList'));
+const EntiteJuridiqueFiche = lazy(() => import('./pages/entites/EntiteJuridiqueFiche'));
+const NouvelleEntiteJuridique = lazy(() =>
+  import('./pages/entites/EntiteJuridiqueFiche').then((m) => ({ default: m.NouvelleEntiteJuridique })),
+);
 const TranchesList = lazy(() => import('./pages/tranches/TranchesList'));
 const TrancheForm = lazy(() => import('./pages/tranches/TrancheForm'));
 const TrancheDetail = lazy(() => import('./pages/tranches/TrancheDetail'));
@@ -117,6 +122,9 @@ function AuthenticatedApp() {
                   <Route path="/projets/nouveau" element={<ProjetForm />} />
                   <Route path="/projets/:id" element={<ProjetDetail />} />
                   <Route path="/projets/:id/modifier" element={<ProjetForm />} />
+                  <Route path="/entites-juridiques" element={<EntitesJuridiquesList />} />
+                  <Route path="/entites-juridiques/nouveau" element={<NouvelleEntiteJuridique />} />
+                  <Route path="/entites-juridiques/:id" element={<EntiteJuridiqueFiche />} />
                   <Route path="/tranches" element={<TranchesList />} />
                   <Route path="/tranches/nouveau" element={<TrancheForm />} />
                   <Route path="/tranches/:id" element={<TrancheDetail />} />

@@ -38,7 +38,12 @@ export function moduleForPath(pathname: string): string | null {
   ) {
     return 'vente';
   }
-  if (pathname.startsWith('/tranches') || pathname.startsWith('/articles') || pathname.startsWith('/projets')) {
+  if (
+    pathname.startsWith('/tranches') ||
+    pathname.startsWith('/articles') ||
+    pathname.startsWith('/projets') ||
+    pathname.startsWith('/entites-juridiques')
+  ) {
     return 'patrimoine';
   }
   if (pathname.startsWith('/chantier')) {
