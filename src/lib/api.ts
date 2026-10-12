@@ -1475,9 +1475,9 @@ export function deleteEntiteJuridique(id: UUID): Promise<void> {
   return request('DELETE', `/api/entites-juridiques/${id}`);
 }
 
-/** Administrateur. Enregistre le groupe, recalcule la répartition sur le nombre de parts **enregistré**. */
-export function chargerRepartitionDepuisGroupe(id: UUID, groupeId: UUID): Promise<EntiteJuridiqueDto> {
-  return request('POST', `/api/entites-juridiques/${id}/repartition/depuis-groupe/${groupeId}`);
+/** Administrateur. Enregistre le groupe et `nombreParts` (absent = celui enregistré), recalcule la répartition dessus. */
+export function chargerRepartitionDepuisGroupe(id: UUID, groupeId: UUID, nombreParts?: number): Promise<EntiteJuridiqueDto> {
+  return request('POST', `/api/entites-juridiques/${id}/repartition/depuis-groupe/${groupeId}`, { query: { nombreParts } });
 }
 
 export function listActionnaires(): Promise<ActionnaireDto[]> {

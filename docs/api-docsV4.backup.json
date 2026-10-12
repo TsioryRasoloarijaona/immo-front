@@ -24,6 +24,10 @@
       "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
     },
     {
+      "name": "Entités juridiques",
+      "description": "Écran « Entités juridiques » d'OMRAN (`CfgCompany`) : liste, fiche en quatre onglets, création, modification — dont\nle drapeau **Active**, qui décide de tout ce que le CRM affiche (programmes, tranches, articles, prospections, dossiers\nd'une entité inactive disparaissent des listes ; programme, prospection et dossier répondent 404 par id). Toutes les\nécritures exigent le rôle\n`Administrateur`. Lisible par tout utilisateur connecté, **jamais par une clé API** (hors `PorteeCleApi`). Les\nsélecteurs d'entité des autres formulaires restent sur `GET /api/referentiels/entites` (actives seulement)."
+    },
+    {
       "name": "Hotline",
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
     },
@@ -90,10 +94,6 @@
     {
       "name": "Clés d'API (admin)",
       "description": "Clés d'API des clients machine (n8n, agents), réservées au rôle Administrateur. Une clé s'envoie dans l'en-tête `X-Api-Key` ; elle authentifie un compte de service et n'autorise que les routes de ses portées. Le secret n'est montré qu'à la création et à la régénération. Voir `FEATURE-cle-api-n8n.md`."
-    },
-    {
-      "name": "Entités juridiques",
-      "description": "Écran « Entités juridiques » d'OMRAN (`CfgCompany`) : liste, fiche en quatre onglets, création, modification — dont\nle drapeau **Active**, qui décide de tout ce que le CRM affiche (programmes, tranches, articles, prospections, dossiers\nd'une entité inactive disparaissent des listes et répondent 404 par id). Toutes les écritures exigent le rôle\n`Administrateur`. Lisible par tout utilisateur connecté, **jamais par une clé API** (hors `PorteeCleApi`). Les\nsélecteurs d'entité des autres formulaires restent sur `GET /api/referentiels/entites` (actives seulement)."
     },
     {
       "name": "Actions d'un article",

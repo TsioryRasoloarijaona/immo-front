@@ -90,7 +90,7 @@ export default function FormulaireEntite({
     });
     if (!charger) return;
     try {
-      const recalculee = await chargerRepartitionDepuisGroupe(id, groupeId);
+      const recalculee = await chargerRepartitionDepuisGroupe(id, groupeId, form.nombreParts);
       setForm((f) => ({
         ...f,
         groupeId,
@@ -142,7 +142,7 @@ export default function FormulaireEntite({
                 effacable
                 aide={
                   id
-                    ? 'Propose de recharger la répartition sur le nombre de parts enregistré ; le chargement est enregistré aussitôt.'
+                    ? 'Propose de recharger la répartition sur le nombre de parts saisi ; le chargement est enregistré aussitôt.'
                     : 'La répartition se charge depuis un groupe une fois l’entité créée.'
                 }
               />
