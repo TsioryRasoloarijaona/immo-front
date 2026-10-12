@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Send } from 'lucide-react';
 import Modal from '../Modal';
 import RefSelect from '../RefSelect';
@@ -7,7 +7,7 @@ import { Button } from '../ui/button';
 import { DialogFooter } from '../ui/dialog';
 import { Field as FormField, FieldLabel } from '../ui/field';
 import { EmptyState, ErrorState, LoadingState } from '../ui';
-import { distribuerPreProspections, listPreProspections } from '../../lib/api';
+import { distribuerPreProspections, getTranchesReferentiel, listPreProspections } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { basculer, bornesPeriodeEquipe, choixCommerciaux, phraseDistribution } from '../../lib/equipe';
 import { useToast } from '../../lib/toastContext';
@@ -18,28 +18,36 @@ const TAILLE = 100;
 /** Les plus anciennes d'abord ; tout le lot ou rien (le serveur n'écrit rien si une ligne est refusée). */
 export default function DistribuerDialog({
   periode,
+  projet,
   commerciaux,
   onClose,
   onFait,
 }: Readonly<{
-  /** Période de l'écran : mêmes lignes que le bloc « À distribuer » (FEATURE-equipe-commerciale.md §10). */
+  /** Période et projet de l'écran : mêmes lignes que le bloc « À distribuer » (FEATURE-equipe-commerciale.md §10). */
   periode: { du: string; au: string };
+  projet: string | null;
   commerciaux: readonly CommercialEquipeDto[];
   onClose: () => void;
   onFait: () => void;
 }>) {
   const toast = useToast();
   const { dateDebut, dateFin } = bornesPeriodeEquipe(periode);
-  const liste = useApi(
-    () => listPreProspections({ ouvertes: true, dateDebut, dateFin }, { page: 0, size: TAILLE, sort: ['docDate,asc'] }),
-    [dateDebut, dateFin],
-  );
+  // La liste des pré-prospections ne filtre que par tranche : un projet = ses tranches ; un projet sans tranche n'a rien.
+  const liste = useApi(async () => {
+    const tranches = projet ? (await getTranchesReferentiel(projet)).map((t) => t.id) : undefined;
+    if (tranches?.length === 0) return [];
+    const page = await listPreProspections(
+      { ouvertes: true, dateDebut, dateFin, trancheId: tranches },
+      { page: 0, size: TAILLE, sort: ['docDate,asc'] },
+    );
+    return page.content.filter((l) => !l.commercialId);
+  }, [dateDebut, dateFin, projet]);
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [commercialId, setCommercialId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
-  const lignes = useMemo(() => (liste.data?.content ?? []).filter((l) => !l.commercialId), [liste.data]);
+  const lignes = liste.data ?? [];
 
   async function distribuer() {
     if (!commercialId || selection.size === 0) return;
