@@ -3810,6 +3810,565 @@
         }
       }
     },
+    "/api/articles": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Catalogue transverse des articles",
+        "description": "Liste paginée de tous les articles racine et sous-articles, toutes tranches confondues — pour\nparcourir/rechercher le patrimoine sans devoir d'abord choisir une Tranche (contrairement à `GET\n/api/tranches/{id}/articles`, point d'entrée à privilégier quand la tranche est déjà connue).\n`search` filtre en sous-chaîne sur `code` OU `description` (insensible à la casse). `trancheId`\nrestreint à une ou plusieurs tranches (OR) sans changer d'écran. `statut` filtre sur la\ndisponibilité mais, à la différence des autres endpoints Article, **n'a pas de valeur par défaut\nici** : absent = tous les statuts (DISPONIBLE + OCCUPE), pour une vraie vue catalogue. Restreint aux\nentités juridiques actives (ADMOD/GHRIZA), comme les autres listings Projet/Tranche/Article. Filtres\nde parité avec la grille legacy \"Articles\" (instructions/from_front.md #4) : `entiteId` (CfgCompany,\nvoir `GET /api/referentiels/entites`), `natureId` (StkKind, voir `GET /api/referentiels/natures`),\n`vocationId` (StkVocation, voir `GET /api/referentiels/vocations`), `etageId` (StkFloor, voir `GET\n/api/referentiels/etages`), et les plages `prixDe`/`prixA` (sur `comSalePrice`) et\n`surfaceDe`/`surfaceA` (sur `area`), bornes inclusives et indépendamment optionnelles.",
+        "operationId": "findAll_6",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Sous-chaîne recherchée dans le code ou la description de l'article.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "A-204"
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de CfgTranche. Répétable, correspondance OR. Absent = toutes les tranches (des entités actives).",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Filtre sur la disponibilité. Absent = DISPONIBLE et OCCUPE.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DISPONIBLE",
+                "OCCUPE"
+              ]
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de StkItemType. Répétable, correspondance OR. Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id de CfgCompany (entité juridique). Absent = toutes (parmi les entités actives).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "natureId",
+            "in": "query",
+            "description": "Id de StkKind (nature du bien). Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vocationId",
+            "in": "query",
+            "description": "Id de StkVocation. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "etageId",
+            "in": "query",
+            "description": "Id de StkFloor (étage). Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "prixDe",
+            "in": "query",
+            "description": "Borne basse (incluse) sur le prix de vente (StkItem.ComSalePrice).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "prixA",
+            "in": "query",
+            "description": "Borne haute (incluse) sur le prix de vente (StkItem.ComSalePrice).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "surfaceDe",
+            "in": "query",
+            "description": "Borne basse (incluse) sur la superficie (StkItem.Area).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "surfaceA",
+            "in": "query",
+            "description": "Borne haute (incluse) sur la superficie (StkItem.Area).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Crée un article principal",
+        "description": "Réservé au rôle `Administrateur`. Crée un **article principal** (lot bâti). Obligatoires : `trancheId`, `code`\n(unique **dans la tranche**, sous-articles compris, casse ignorée — le même code dans une autre tranche est permis),\n`description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « Pour les sous articles »), `immeubleId`,\n`etageId`. `vocationId` vaut VENTE par défaut ; PROJET est refusée. Surfaces : provisoire 1 par défaut, définitive =\nprovisoire par défaut, toutes deux > 0. Le serveur pose la nature Bâtiment, le type de document OMRAN « StkItem »\n(sans lui l'article est invisible dans OMRAN), laisse les colonnes d'affectation vides, met à 0 les nombres et à vide\nles textes non saisis, et **calcule les prix stockés** : prix du m² TTC = HT × (1 + TVA) arrondi à 6 décimales, prix\narticle = prix du m² × surface (provisoire sur `surfaceProvisoire`, définitif sur `surfaceDefinitive`), prix de vente =\nprix article + sous-articles rattachés.",
+        "operationId": "create_4",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Article créé ; renvoie sa fiche, prix calculés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent ; tranche, vocation, catégorie, type, immeuble ou étage introuvable ; catégorie ou type hors\nnature Bâtiment ou paramétré pour les sous-articles ; vocation PROJET ; surface ≤ 0 (« La valeur de la supérficie\nprovisoire doit être strictement supérieure à 0 ! ») ; prix négatif ; TVA ou remise hors de [0 ; 1] ; texte trop long.\nLe ProblemDetail porte `champ`.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé dans la tranche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}/sous-articles": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Sous-articles disponibles (ou occupés) d'un article",
+        "description": "Liste paginée des sous-articles (StkItem.ParentId) d'un article donné — ex. les places de parking ou\ncaves annexées à un lot. `statut` filtre sur la disponibilité (défaut: DISPONIBLE) ;\n`categorieId`/`typeId` filtrent comme sur `GET /api/tranches/{id}/articles`. Chaque sous-article\nrenvoyé porte son propre `description` (son nom), pas seulement son `code`.",
+        "operationId": "findSousArticles",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Filtre sur la disponibilité du sous-article. Absent = DISPONIBLE.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DISPONIBLE",
+                "OCCUPE"
+              ]
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de StkItemType. Répétable, correspondance OR. Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Crée un sous-article rattaché à l'article",
+        "description": "Réservé au rôle `Administrateur`. Crée un lot annexe (parking, jardin, terrasse) **rattaché** à l'article `id` : même\ntranche, même vocation et même nature que lui ; immeuble de l'article par défaut ; catégorie et type paramétrés « Pour\nles sous articles » ; non titré par défaut. Le prix de vente de l'article est recalculé.",
+        "operationId": "createSousArticle",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SousArticleEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Sous-article créé ; renvoie sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "L'article `id` est lui-même un sous-article ; sinon mêmes causes qu'à la création d'un article.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun article avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris dans la tranche, ou article affecté à un dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}/sous-articles/{sousArticleId}/desaffecter": {
+      "post": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Détache un sous-article de l'article (il redevient libre)",
+        "description": "Réservé au rôle `Administrateur`. Le sous-article redevient libre (`toujoursAffecte` remis à faux) ; le prix de vente de\nl'article est recalculé.",
+        "operationId": "desaffecter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sousArticleId",
+            "in": "path",
+            "description": "Identifiant du sous-article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Détaché ; renvoie la fiche de l'article, prix de vente recalculé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Article ou sous-article introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Le sous-article n'est pas rattaché à cet article ; il a un dossier (« Vous ne pouvez pas désaffecter un sous article\nayant un dossier de vente ! », idem location) ; ou l'article est affecté à un dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}/sous-articles/{sousArticleId}/affecter": {
+      "post": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Rattache un sous-article libre de la tranche à l'article",
+        "description": "Réservé au rôle `Administrateur`. Le sous-article doit être **libre** dans la même tranche (voir\n`GET /api/tranches/{id}/sous-articles-libres`). Corps facultatif `{ \"toujoursAffecte\": true }`.",
+        "operationId": "affecter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sousArticleId",
+            "in": "path",
+            "description": "Identifiant du sous-article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AffectationSousArticleDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rattaché ; renvoie la fiche de l'article, prix de vente recalculé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "L'article cible est lui-même un sous-article.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Article ou sous-article introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "« Ce sous article n'est pas libre » : déjà rattaché, toujours affecté, affecté à un dossier, pas un sous-article, ou dans\nune autre tranche ; ou article cible affecté à un dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tranches/{id}": {
       "get": {
         "tags": [
@@ -4727,6 +5286,121 @@
         }
       }
     },
+    "/api/articles/{id}": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Détail d'un article ou sous-article",
+        "description": "Fonctionne indifféremment pour un article racine ou un sous-article (même table StkItem) — la\n\"recherche inverse\" (partir d'un sous-article pour retrouver sa tranche et son article parent) passe\npar ce même endpoint : `trancheId`/`trancheCode`/`trancheDescription` et\n`lotParentId`/`lotParentCode`/`lotParentDescription` sont toujours renseignés quand applicable, sans\nappel supplémentaire. `sousLots` liste tous les sous-articles de cet article, quel que soit leur\nstatut. `immeubleId`/`immeubleCode`/`immeubleLibelle` (StkBuilding),\n`etageId`/`etageCode`/`etageLibelle` (StkFloor) et `natureId`/`natureCode`/`natureLibelle` (StkKind)\nsont chacun des référentiels distincts de Catégorie/Type — tous null si l'article n'est rattaché à\naucune valeur (ex. un terrain n'a ni immeuble ni étage). `salePriceFloor`/`comSalePriceFloor` (prix\nplancher) sont distincts de `salePrice`/`comSalePrice` (prix commercial) — ce dernier peut valoir 0\nsur un article dont le prix commercial n'a jamais été saisi alors qu'un prix plancher existe déjà\n(confirmé sur données réelles) ; au front de décider s'il affiche le plancher en repli dans ce cas.\n`tauxTVA` (StkItem.Vat, ratio brut) et\n`presentationTypeId`/`presentationTypeCode`/`presentationTypeLibelle` (StkPresentationType, \"Type\nPrésentation\" de la grille legacy — codes courts F/C/D/H..., scopés par tranche) répondent à\ninstructions/from_front.md #4. `superficieSousArticles` est la somme des superficies des\nsous-articles rattachés (0 si aucun), distincte de `area` (superficie de l'article lui-même).",
+        "operationId": "findById_4",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Modifie un article ou un sous-article (champs absents inchangés)",
+        "description": "Réservé au rôle `Administrateur`. Vaut pour un article comme pour un sous-article. PATCH : absent ou `null` = inchangé,\n`\"\"` = vider un texte facultatif. `trancheId` ne se modifie pas (400). Un sous-article garde la vocation de son article\n(400 si elle change) et ses listes sont celles « Pour les sous articles ». Les prix stockés ne sont recalculés que si\nune surface, un prix au m² ou la TVA change ; le prix de vente de l'article parent suit alors.",
+        "operationId": "update_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Article modifié ; renvoie sa fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Mêmes causes qu'à la création, plus un changement de `trancheId`, ou de vocation sur un sous-article.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun article avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris dans la tranche ; ou **article occupé** (dossier de vente ou de location, ou parent qui en a un) dont la\ndemande change un champ protégé — code, vocation, catégorie, type, surfaces, prix au m², TVA, remises : « L'article X\nest affecté au dossier Y : ses prix, surfaces et classification ne se modifient plus ». Description, notes, adresse,\ntitre foncier, titré, surfaces intérieure/murs/parties communes, immeuble et étage restent modifiables. `champ` nomme\nle premier champ protégé changé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/utilisateurs": {
       "get": {
         "tags": [
@@ -4734,7 +5408,7 @@
         ],
         "summary": "Liste les comptes utilisateurs",
         "description": "Tous les comptes (AdmUser) avec leurs informations (identifiant, coordonnées, statut\nactivé/désactivé), la fiche employé (CfgTier) liée et les rôles (AdmRole) assignés — écran\nd'administration des comptes. `search` filtre (insensible à la casse, sous-chaîne) sur\nidentifiant/description/email. `disabled` filtre sur le statut activé/désactivé ; absent = tous les\ncomptes. Réservé au rôle Administrateur.",
-        "operationId": "findAll_6",
+        "operationId": "findAll_7",
         "parameters": [
           {
             "name": "search",
@@ -4780,6 +5454,58 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PageDtoUtilisateurListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/sous-articles-libres": {
+      "get": {
+        "tags": [
+          "Tranches"
+        ],
+        "summary": "Sous-articles libres de la tranche, à affecter à un article",
+        "description": "Lots annexes de la tranche qu'on peut rattacher à un article (`POST /api/articles/{id}/sous-articles/{sousArticleId}/affecter`) :\n`IsUnderItem = 1`, non « toujours affecté », sans article parent, sans dossier de vente ni de location — le filtre\nd'OMRAN plus les deux garde-fous d'occupation. Triés par code par défaut.",
+        "operationId": "findSousArticlesLibres",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sous-articles libres (éventuellement aucun).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune tranche avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
                 }
               }
             }
@@ -4950,7 +5676,7 @@
         ],
         "summary": "Liste des actions commerciales, colonnes au choix",
         "description": "La grille de l'écran OMRAN. Tous les filtres sont optionnels et se combinent en ET.\n\n**Période fin exclue**, comme OMRAN : `dateDebut <= DocDate < dateFin`. Un jour J = `dateDebut=J\nT00:00` et `dateFin=J+1 T00:00`.\n\n**Colonnes** : `?colonnes=` choisit les champs servis (catalogue et liste blanche : `GET\n/api/referentiels/colonnes/suivi-actions`). `rang`, `alerteActive`, `etat` et `personnel` sont\ncalculées pour la page servie, et seulement quand elles sont demandées : ni triables ni groupables.\n\n**Tri** : `sort=docDate,desc` par défaut ; seules les propriétés de l'action (`docDate`, `userName`,\n`alertValidityDate`…) sont triables.\n\nLes actions **système** (relances, événements générés) sont listées, comme dans OMRAN —\n`systeme=false` pour ne garder que les saisies.",
-        "operationId": "findAll_7",
+        "operationId": "findAll_8",
         "parameters": [
           {
             "name": "dateDebut",
@@ -7817,7 +8543,7 @@
         ],
         "summary": "Liste paginée des encaissements (règlements de Dossiers de vente)",
         "description": "Toujours restreint aux règlements liés à au moins une échéance de Dossier de vente (les règlements\nd'achat/location, s'il y en a, ne remontent jamais ici), et aux **encaissements** : un décaissement\n(`StlSettlement.IsCredit` faux, typiquement un remboursement à montant négatif) ne remonte jamais,\ncomme sur l'écran legacy. `montantBrutRestant` (calculé : montant brut moins la part déjà affectée à\nune échéance) et `montantNet` (montant brut moins retenue source/timbre) sont calculés côté serveur,\njamais stockés. `etat` accepte les 3 valeurs confirmées sur données réelles (IN_WORK, POINTED,\nCANCELED) — l'écran legacy propose aussi \"Impayé(e)\"/\"Perdu(e)\" comme filtres mais aucune ligne\nréelle ne les porte à ce jour ; passés tel quel (comparaison insensible à la casse), donc\nutilisables dès qu'un vrai code sera confirmé, sans changement d'API.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), cette liste ne contient que les règlements portant au moins une ligne rattachée à un dossier\nd'un de ses projets affectés. Les règlements dont aucune ligne ne résout de projet restent visibles\nde tous.\n\n**Encaissements non affectés : volontairement absents.** Un règlement encaissé mais pas encore\nimputé à une échéance n'a aucune ligne, donc ne remonte pas ici. L'écran legacy les affiche (il les\nreconnaît sous `StlSettlementRelationView.Origin = 'StlSettlement-NonAffecte'`) : 16 pièces pour\n6 435 400 DH sur les données réelles, toutes à l'état IN_WORK. Les servir suppose de changer le\ncritère \"Vente\" — décision produit en attente, voir\n`instructions/FEATURE-encaissements-conformite-legataire.md` §4. Ne pas confondre avec un filtre\ntrop strict : c'est un choix assumé.",
-        "operationId": "findAll_8",
+        "operationId": "findAll_9",
         "parameters": [
           {
             "name": "entiteId",
@@ -8071,7 +8797,7 @@
         ],
         "summary": "Fiche d'un encaissement (règlement) et ses affectations",
         "description": "Alimente le panneau détail \"Pièce de règlement\" côté front (`EncaissementDetail.tsx`).\n`montantBrutRestant` et `montantNet` sont recalculés côté serveur, jamais stockés, comme sur la\nliste.\n\n**`affectations` : les échéances que ce règlement solde**, montant croissant — l'ordre de l'écran\nlégataire. C'est la réponse à « ce règlement, il a payé quoi ? », que la liste ne sait pas donner :\nelle n'expose qu'un `dossierCode`, celui de la *première* ligne, et masque donc les autres sur les 8\nrèglements réels qui couvrent plusieurs dossiers. La somme des `montantAffecte` vaut `montantBrut -\nmontantBrutRestant`. Tableau vide = règlement encaissé mais pas encore imputé.\n\n**Cette réponse n'est pas filtrée par `?colonnes=`** — une fiche dit tout, là où une grille laisse\nchoisir ses colonnes. Elle porte donc plus de clés que les lignes de la liste : celles hors\nsélection par défaut, plus `affectations`. Aucune clé ne disparaît et aucune ne change de type.\n\n**Périmètre commercial** : un encaissement hors du périmètre de l'appelant renvoie **404**, et non\n403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants.",
-        "operationId": "findById_4",
+        "operationId": "findById_5",
         "parameters": [
           {
             "name": "id",
@@ -8367,7 +9093,7 @@
         ],
         "summary": "Détail d'un dossier de vente",
         "description": "Fiche complète du dossier : statut courant et étapes atteignables, client/commercial/notaire,\narticles liés, ventilation des montants et prospection d'origine.\n\n**Périmètre commercial** : un dossier hors du périmètre de l'appelant renvoie **404**, et non 403 —\nun 403 confirmerait son existence et permettrait d'énumérer les identifiants. La même règle\ns'applique à *toutes* les routes imbriquées de ce dossier (échéancier, règlements, pièces jointes,\nhistorique, générateurs de documents).",
-        "operationId": "findById_5",
+        "operationId": "findById_6",
         "parameters": [
           {
             "name": "id",
@@ -9219,7 +9945,7 @@
         ],
         "summary": "Liste paginée de toutes les offres (devis), tous prospections confondues",
         "description": "Filtre optionnellement par recherche libre sur le code de l'offre, tranche(s), commercial, et plage\nde dates sur la date de l'offre (dateDocument). Chaque ligne porte prospectionId/prospectionCode\npour la colonne \"Prospection\" et le lien cliquable vers la prospection d'origine.\nsommePrixVenteTTCPage est calculé uniquement sur la page renvoyée, pas sur l'ensemble des résultats\nfiltrés — voir la description du champ.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), seules les offres portant une tranche d'un de ses projets affectés sont renvoyées (plus\ncelles sans tranche, dont le projet ne se résout pas). Ce filtre s'ajoute aux filtres ci-dessus :\ndemander explicitement une `trancheId` hors périmètre renvoie une page vide, pas une erreur.\n`sommePrixVenteTTCPage` porte donc sur les seules lignes visibles.",
-        "operationId": "findAll_9",
+        "operationId": "findAll_10",
         "parameters": [
           {
             "name": "search",
@@ -9570,7 +10296,7 @@
         "tags": [
           "commercial-controller"
         ],
-        "operationId": "findAll_10",
+        "operationId": "findAll_11",
         "parameters": [
           {
             "name": "pageable",
@@ -9602,7 +10328,7 @@
         ],
         "summary": "Liste des clients",
         "description": "Les tiers portant au moins un dossier de vente sur une entité juridique en exploitation, avec leurs\nagrégats calculés côté serveur (nombre de dossiers, total à payer, total réglé). Une page vide\nsignifie qu'aucun client ne correspond, pas une erreur.\n\n**Filtre par tranche** (`trancheId`, réservé aux administrateurs) : seuls les clients ayant au moins\nun dossier dans cette tranche — même règle d'appartenance que `GET /api/dossiers?trancheId=` (un\narticle lié ou l'article principal du dossier dans la tranche). Les agrégats (`nombreDossiers`,\n`totalAPayer`, `totalRegle`) restent calculés sur **tous** les dossiers du client, pas sur ceux de\nla tranche seule.",
-        "operationId": "findAll_11",
+        "operationId": "findAll_12",
         "parameters": [
           {
             "name": "search",
@@ -9673,7 +10399,7 @@
         "tags": [
           "Clients"
         ],
-        "operationId": "findById_6",
+        "operationId": "findById_7",
         "parameters": [
           {
             "name": "id",
@@ -9806,289 +10532,6 @@
                   "items": {
                     "$ref": "#/components/schemas/EvenementCalendrierDto"
                   }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/articles": {
-      "get": {
-        "tags": [
-          "Articles"
-        ],
-        "summary": "Catalogue transverse des articles",
-        "description": "Liste paginée de tous les articles racine et sous-articles, toutes tranches confondues — pour\nparcourir/rechercher le patrimoine sans devoir d'abord choisir une Tranche (contrairement à `GET\n/api/tranches/{id}/articles`, point d'entrée à privilégier quand la tranche est déjà connue).\n`search` filtre en sous-chaîne sur `code` OU `description` (insensible à la casse). `trancheId`\nrestreint à une ou plusieurs tranches (OR) sans changer d'écran. `statut` filtre sur la\ndisponibilité mais, à la différence des autres endpoints Article, **n'a pas de valeur par défaut\nici** : absent = tous les statuts (DISPONIBLE + OCCUPE), pour une vraie vue catalogue. Restreint aux\nentités juridiques actives (ADMOD/GHRIZA), comme les autres listings Projet/Tranche/Article. Filtres\nde parité avec la grille legacy \"Articles\" (instructions/from_front.md #4) : `entiteId` (CfgCompany,\nvoir `GET /api/referentiels/entites`), `natureId` (StkKind, voir `GET /api/referentiels/natures`),\n`vocationId` (StkVocation, voir `GET /api/referentiels/vocations`), `etageId` (StkFloor, voir `GET\n/api/referentiels/etages`), et les plages `prixDe`/`prixA` (sur `comSalePrice`) et\n`surfaceDe`/`surfaceA` (sur `area`), bornes inclusives et indépendamment optionnelles.",
-        "operationId": "findAll_12",
-        "parameters": [
-          {
-            "name": "search",
-            "in": "query",
-            "description": "Sous-chaîne recherchée dans le code ou la description de l'article.",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "example": "A-204"
-          },
-          {
-            "name": "trancheId",
-            "in": "query",
-            "description": "Id(s) de CfgTranche. Répétable, correspondance OR. Absent = toutes les tranches (des entités actives).",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "statut",
-            "in": "query",
-            "description": "Filtre sur la disponibilité. Absent = DISPONIBLE et OCCUPE.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "DISPONIBLE",
-                "OCCUPE"
-              ]
-            }
-          },
-          {
-            "name": "categorieId",
-            "in": "query",
-            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR. Absent = toutes.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "typeId",
-            "in": "query",
-            "description": "Id(s) de StkItemType. Répétable, correspondance OR. Absent = tous.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "entiteId",
-            "in": "query",
-            "description": "Id de CfgCompany (entité juridique). Absent = toutes (parmi les entités actives).",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "natureId",
-            "in": "query",
-            "description": "Id de StkKind (nature du bien). Absent = toutes.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "vocationId",
-            "in": "query",
-            "description": "Id de StkVocation. Absent = toutes.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "etageId",
-            "in": "query",
-            "description": "Id de StkFloor (étage). Absent = tous.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "prixDe",
-            "in": "query",
-            "description": "Borne basse (incluse) sur le prix de vente (StkItem.ComSalePrice).",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "prixA",
-            "in": "query",
-            "description": "Borne haute (incluse) sur le prix de vente (StkItem.ComSalePrice).",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "surfaceDe",
-            "in": "query",
-            "description": "Borne basse (incluse) sur la superficie (StkItem.Area).",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "surfaceA",
-            "in": "query",
-            "description": "Borne haute (incluse) sur la superficie (StkItem.Area).",
-            "required": false,
-            "schema": {
-              "type": "number"
-            }
-          },
-          {
-            "name": "pageable",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Pageable"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/articles/{id}": {
-      "get": {
-        "tags": [
-          "Articles"
-        ],
-        "summary": "Détail d'un article ou sous-article",
-        "description": "Fonctionne indifféremment pour un article racine ou un sous-article (même table StkItem) — la\n\"recherche inverse\" (partir d'un sous-article pour retrouver sa tranche et son article parent) passe\npar ce même endpoint : `trancheId`/`trancheCode`/`trancheDescription` et\n`lotParentId`/`lotParentCode`/`lotParentDescription` sont toujours renseignés quand applicable, sans\nappel supplémentaire. `sousLots` liste tous les sous-articles de cet article, quel que soit leur\nstatut. `immeubleId`/`immeubleCode`/`immeubleLibelle` (StkBuilding),\n`etageId`/`etageCode`/`etageLibelle` (StkFloor) et `natureId`/`natureCode`/`natureLibelle` (StkKind)\nsont chacun des référentiels distincts de Catégorie/Type — tous null si l'article n'est rattaché à\naucune valeur (ex. un terrain n'a ni immeuble ni étage). `salePriceFloor`/`comSalePriceFloor` (prix\nplancher) sont distincts de `salePrice`/`comSalePrice` (prix commercial) — ce dernier peut valoir 0\nsur un article dont le prix commercial n'a jamais été saisi alors qu'un prix plancher existe déjà\n(confirmé sur données réelles) ; au front de décider s'il affiche le plancher en repli dans ce cas.\n`tauxTVA` (StkItem.Vat, ratio brut) et\n`presentationTypeId`/`presentationTypeCode`/`presentationTypeLibelle` (StkPresentationType, \"Type\nPrésentation\" de la grille legacy — codes courts F/C/D/H..., scopés par tranche) répondent à\ninstructions/from_front.md #4. `superficieSousArticles` est la somme des superficies des\nsous-articles rattachés (0 si aucun), distincte de `area` (superficie de l'article lui-même).",
-        "operationId": "findById_7",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArticleDetailDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/articles/{id}/sous-articles": {
-      "get": {
-        "tags": [
-          "Articles"
-        ],
-        "summary": "Sous-articles disponibles (ou occupés) d'un article",
-        "description": "Liste paginée des sous-articles (StkItem.ParentId) d'un article donné — ex. les places de parking ou\ncaves annexées à un lot. `statut` filtre sur la disponibilité (défaut: DISPONIBLE) ;\n`categorieId`/`typeId` filtrent comme sur `GET /api/tranches/{id}/articles`. Chaque sous-article\nrenvoyé porte son propre `description` (son nom), pas seulement son `code`.",
-        "operationId": "findSousArticles",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "statut",
-            "in": "query",
-            "description": "Filtre sur la disponibilité du sous-article. Absent = DISPONIBLE.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "DISPONIBLE",
-                "OCCUPE"
-              ]
-            }
-          },
-          {
-            "name": "categorieId",
-            "in": "query",
-            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR. Absent = toutes.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "typeId",
-            "in": "query",
-            "description": "Id(s) de StkItemType. Répétable, correspondance OR. Absent = tous.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "pageable",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "$ref": "#/components/schemas/Pageable"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoArticleListItemDto"
                 }
               }
             }
@@ -14413,6 +14856,629 @@
           "username"
         ]
       },
+      "ArticleEcritureDto": {
+        "type": "object",
+        "description": "Création (POST) d'un article principal ou modification partielle (PATCH) d'un article ou sous-article (StkItem).",
+        "properties": {
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche (CfgTranche.id). Obligatoire à la création, non modifiable ensuite."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code saisi, unique dans la tranche (sous-articles compris). Obligatoire à la création."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé. Obligatoire à la création."
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Vocation (StkVocation.id) ; défaut VENTE ; PROJET refusée. Celle du parent pour un sous-article."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie (StkItemCategory.id), nature Bâtiment, hors « Pour les sous articles »."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type (StkItemType.id), même filtre que la catégorie."
+          },
+          "immeubleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Immeuble (StkBuilding.id), obligatoire."
+          },
+          "etageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Étage (StkFloor.id), obligatoire."
+          },
+          "surfaceProvisoire": {
+            "type": "number",
+            "description": "Superficie provisoire en m² (AreaFloor), > 0, défaut 1."
+          },
+          "surfaceDefinitive": {
+            "type": "number",
+            "description": "Superficie définitive en m² (Area), > 0, défaut = surfaceProvisoire."
+          },
+          "prixM2ProvisoireHT": {
+            "type": "number",
+            "description": "Prix du m² provisoire HT (ComSaleUnitCostFloorHT), ≥ 0."
+          },
+          "prixM2DefinitifHT": {
+            "type": "number",
+            "description": "Prix du m² définitif HT (ComSaleUnitCostHT), ≥ 0."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "TVA en fraction ∈ [0 ; 1] (Vat), défaut 0."
+          },
+          "titreFoncier": {
+            "type": "string",
+            "description": "Numéro du titre foncier (TitleNumber)."
+          },
+          "estTitre": {
+            "type": "boolean",
+            "description": "Titré (IsTitled) ; défaut true pour un article, false pour un sous-article."
+          },
+          "remiseMax1": {
+            "type": "number",
+            "description": "Niveau de remise 1 (DiscountMax), fraction ∈ [0 ; 1]."
+          },
+          "remiseMax2": {
+            "type": "number",
+            "description": "Niveau de remise 2 (DiscountMax2), fraction ∈ [0 ; 1]."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Adresse (500 caractères au plus)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1000 caractères au plus)."
+          },
+          "surfaceInterieure": {
+            "type": "number",
+            "description": "Superficie intérieure en m², ≥ 0."
+          },
+          "surfaceMurs": {
+            "type": "number",
+            "description": "Superficie des murs en m², ≥ 0."
+          },
+          "surfacePartiesCommunes": {
+            "type": "number",
+            "description": "Superficie des parties communes en m², ≥ 0."
+          }
+        }
+      },
+      "ArticleDetailDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "area": {
+            "type": "number"
+          },
+          "salePrice": {
+            "type": "number"
+          },
+          "comSalePrice": {
+            "type": "number"
+          },
+          "salePriceFloor": {
+            "type": "number"
+          },
+          "comSalePriceFloor": {
+            "type": "number"
+          },
+          "statut": {
+            "type": "string",
+            "enum": [
+              "DISPONIBLE",
+              "OCCUPE"
+            ]
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trancheCode": {
+            "type": "string"
+          },
+          "trancheDescription": {
+            "type": "string"
+          },
+          "lotParentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "lotParentCode": {
+            "type": "string"
+          },
+          "lotParentDescription": {
+            "type": "string"
+          },
+          "sousLots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArticleListItemDto"
+            }
+          },
+          "titreFoncier": {
+            "type": "string"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorieCode": {
+            "type": "string"
+          },
+          "categorieLibelle": {
+            "type": "string"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeCode": {
+            "type": "string"
+          },
+          "typeLibelle": {
+            "type": "string"
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dossierCode": {
+            "type": "string"
+          },
+          "dossierStatut": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientNom": {
+            "type": "string"
+          },
+          "immeubleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "immeubleCode": {
+            "type": "string"
+          },
+          "immeubleLibelle": {
+            "type": "string"
+          },
+          "etageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "etageCode": {
+            "type": "string"
+          },
+          "etageLibelle": {
+            "type": "string"
+          },
+          "natureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "natureCode": {
+            "type": "string"
+          },
+          "natureLibelle": {
+            "type": "string"
+          },
+          "tauxTVA": {
+            "type": "number"
+          },
+          "presentationTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "presentationTypeCode": {
+            "type": "string"
+          },
+          "presentationTypeLibelle": {
+            "type": "string"
+          },
+          "superficieSousArticles": {
+            "type": "number"
+          },
+          "prixSuggere": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Prix de référence TTC : comSalePrice s'il est > 0, sinon comSalePriceFloor s'il est > 0, sinon null."
+          },
+          "prixSuggereEstPlancher": {
+            "type": "boolean",
+            "description": "Vrai quand prixSuggere est le prix plancher (prix commercial à 0)."
+          },
+          "surfaceProvisoire": {
+            "type": "number",
+            "description": "Superficie provisoire en m² (AreaFloor) ; la définitive est `area`."
+          },
+          "prixM2ProvisoireHT": {
+            "type": "number",
+            "description": "Prix du m² provisoire HT (ComSaleUnitCostFloorHT)."
+          },
+          "prixM2ProvisoireTTC": {
+            "type": "number",
+            "description": "Prix du m² provisoire TTC (ComSaleUnitCostFloor), calculé."
+          },
+          "prixM2DefinitifHT": {
+            "type": "number",
+            "description": "Prix du m² définitif HT (ComSaleUnitCostHT)."
+          },
+          "prixM2DefinitifTTC": {
+            "type": "number",
+            "description": "Prix du m² définitif TTC (ComSaleUnitCost), calculé."
+          },
+          "prixArticleProvisoireHT": {
+            "type": "number",
+            "description": "Prix de l'article seul, provisoire HT (SalePriceFloorHT)."
+          },
+          "prixArticleProvisoireTTC": {
+            "type": "number",
+            "description": "Prix de l'article seul, provisoire TTC (SalePriceFloor)."
+          },
+          "prixArticleDefinitifHT": {
+            "type": "number",
+            "description": "Prix de l'article seul, définitif HT (SalePriceHT)."
+          },
+          "prixArticleDefinitifTTC": {
+            "type": "number",
+            "description": "Prix de l'article seul, définitif TTC (SalePrice)."
+          },
+          "prixVenteProvisoireHT": {
+            "type": "number",
+            "description": "Prix de vente provisoire HT = article + sous-articles rattachés (ComSalePriceFloorHT)."
+          },
+          "prixVenteDefinitifHT": {
+            "type": "number",
+            "description": "Prix de vente définitif HT = article + sous-articles rattachés (ComSalePriceHT)."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "TVA en fraction (Vat), même valeur que tauxTVA."
+          },
+          "remiseMax1": {
+            "type": "number",
+            "description": "Niveau de remise 1 (DiscountMax), fraction."
+          },
+          "remiseMax2": {
+            "type": "number",
+            "description": "Niveau de remise 2 (DiscountMax2), fraction."
+          },
+          "estTitre": {
+            "type": "boolean",
+            "description": "Titré (IsTitled)."
+          },
+          "toujoursAffecte": {
+            "type": "boolean",
+            "description": "Toujours affecté à son article (AlwaysAffected)."
+          },
+          "estSousArticle": {
+            "type": "boolean",
+            "description": "Lot annexe (IsUnderItem) ; peut être libre, sans parent."
+          },
+          "occupe": {
+            "type": "boolean",
+            "description": "Affecté à un dossier de vente ou de location, ou rattaché à un article qui l'est."
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Vocation (StkVocation.id)."
+          },
+          "vocationLibelle": {
+            "type": "string",
+            "description": "Libellé de la vocation."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (StkItem.Notes)."
+          },
+          "surfaceInterieure": {
+            "type": "number",
+            "description": "Superficie intérieure en m² (InteriorArea)."
+          },
+          "surfaceMurs": {
+            "type": "number",
+            "description": "Superficie des murs en m² (WallsArea)."
+          },
+          "surfacePartiesCommunes": {
+            "type": "number",
+            "description": "Superficie des parties communes en m² (CommonPartsArea)."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création (UserCreate)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création (UserCreateDateTime)."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification (UserUpdate)."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification (UserUpdateDateTime)."
+          }
+        }
+      },
+      "ArticleListItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "area": {
+            "type": "number"
+          },
+          "salePrice": {
+            "type": "number"
+          },
+          "comSalePrice": {
+            "type": "number"
+          },
+          "salePriceFloor": {
+            "type": "number"
+          },
+          "comSalePriceFloor": {
+            "type": "number"
+          },
+          "statut": {
+            "type": "string",
+            "enum": [
+              "DISPONIBLE",
+              "OCCUPE"
+            ]
+          },
+          "titreFoncier": {
+            "type": "string"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorieCode": {
+            "type": "string"
+          },
+          "categorieLibelle": {
+            "type": "string"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeCode": {
+            "type": "string"
+          },
+          "typeLibelle": {
+            "type": "string"
+          },
+          "sousArticle": {
+            "type": "boolean"
+          },
+          "lotParentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dossierCode": {
+            "type": "string"
+          },
+          "dossierStatut": {
+            "type": "string"
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "clientNom": {
+            "type": "string"
+          },
+          "tauxTVA": {
+            "type": "number"
+          },
+          "presentationTypeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "presentationTypeCode": {
+            "type": "string"
+          },
+          "presentationTypeLibelle": {
+            "type": "string"
+          },
+          "superficieSousArticles": {
+            "type": "number"
+          },
+          "natureId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "natureCode": {
+            "type": "string"
+          },
+          "natureLibelle": {
+            "type": "string"
+          },
+          "etageId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "etageCode": {
+            "type": "string"
+          },
+          "etageLibelle": {
+            "type": "string"
+          },
+          "immeubleId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "immeubleCode": {
+            "type": "string"
+          },
+          "immeubleLibelle": {
+            "type": "string"
+          },
+          "prixSuggere": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Prix de référence TTC : comSalePrice s'il est > 0, sinon comSalePriceFloor s'il est > 0, sinon null."
+          },
+          "prixSuggereEstPlancher": {
+            "type": "boolean",
+            "description": "Vrai quand prixSuggere est le prix plancher (prix commercial à 0)."
+          }
+        }
+      },
+      "SousArticleEcritureDto": {
+        "type": "object",
+        "description": "Création d'un sous-article (lot annexe : parking, jardin, terrasse) rattaché à un article.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code saisi, unique dans la tranche du parent. Obligatoire."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé. Obligatoire."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie (StkItemCategory.id), nature Bâtiment et « Pour les sous articles ». Obligatoire."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type (StkItemType.id), même filtre. Obligatoire."
+          },
+          "immeubleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Immeuble (StkBuilding.id) ; défaut = immeuble du parent."
+          },
+          "etageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Étage (StkFloor.id). Obligatoire."
+          },
+          "surfaceProvisoire": {
+            "type": "number",
+            "description": "Superficie provisoire en m², > 0, défaut 1."
+          },
+          "surfaceDefinitive": {
+            "type": "number",
+            "description": "Superficie définitive en m², > 0, défaut = surfaceProvisoire."
+          },
+          "prixM2ProvisoireHT": {
+            "type": "number",
+            "description": "Prix du m² provisoire HT, ≥ 0."
+          },
+          "prixM2DefinitifHT": {
+            "type": "number",
+            "description": "Prix du m² définitif HT, ≥ 0."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "TVA en fraction ∈ [0 ; 1], défaut 0."
+          },
+          "titreFoncier": {
+            "type": "string",
+            "description": "Numéro du titre foncier."
+          },
+          "estTitre": {
+            "type": "boolean",
+            "description": "Titré ; défaut false."
+          },
+          "remiseMax1": {
+            "type": "number",
+            "description": "Niveau de remise 1, fraction ∈ [0 ; 1]."
+          },
+          "remiseMax2": {
+            "type": "number",
+            "description": "Niveau de remise 2, fraction ∈ [0 ; 1]."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Adresse."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "surfaceInterieure": {
+            "type": "number",
+            "description": "Superficie intérieure en m², ≥ 0."
+          },
+          "surfaceMurs": {
+            "type": "number",
+            "description": "Superficie des murs en m², ≥ 0."
+          },
+          "surfacePartiesCommunes": {
+            "type": "number",
+            "description": "Superficie des parties communes en m², ≥ 0."
+          },
+          "toujoursAffecte": {
+            "type": "boolean",
+            "description": "Toujours affecté (AlwaysAffected) : suit l'article dans la vente. Défaut false."
+          }
+        }
+      },
+      "AffectationSousArticleDto": {
+        "type": "object",
+        "description": "Corps facultatif de l'affectation d'un sous-article libre à un article.",
+        "properties": {
+          "toujoursAffecte": {
+            "type": "boolean",
+            "description": "Toujours affecté (AlwaysAffected). Absent = false."
+          }
+        }
+      },
       "ModifierProspectRequest": {
         "type": "object",
         "properties": {
@@ -14906,147 +15972,6 @@
           "projetCode": {
             "type": "string",
             "description": "Code du programme de la tranche."
-          }
-        }
-      },
-      "ArticleListItemDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "code": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "area": {
-            "type": "number"
-          },
-          "salePrice": {
-            "type": "number"
-          },
-          "comSalePrice": {
-            "type": "number"
-          },
-          "salePriceFloor": {
-            "type": "number"
-          },
-          "comSalePriceFloor": {
-            "type": "number"
-          },
-          "statut": {
-            "type": "string",
-            "enum": [
-              "DISPONIBLE",
-              "OCCUPE"
-            ]
-          },
-          "titreFoncier": {
-            "type": "string"
-          },
-          "categorieId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "categorieCode": {
-            "type": "string"
-          },
-          "categorieLibelle": {
-            "type": "string"
-          },
-          "typeId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "typeCode": {
-            "type": "string"
-          },
-          "typeLibelle": {
-            "type": "string"
-          },
-          "sousArticle": {
-            "type": "boolean"
-          },
-          "lotParentId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "dossierId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "dossierCode": {
-            "type": "string"
-          },
-          "dossierStatut": {
-            "type": "string"
-          },
-          "clientId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "clientNom": {
-            "type": "string"
-          },
-          "tauxTVA": {
-            "type": "number"
-          },
-          "presentationTypeId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "presentationTypeCode": {
-            "type": "string"
-          },
-          "presentationTypeLibelle": {
-            "type": "string"
-          },
-          "superficieSousArticles": {
-            "type": "number"
-          },
-          "natureId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "natureCode": {
-            "type": "string"
-          },
-          "natureLibelle": {
-            "type": "string"
-          },
-          "etageId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "etageCode": {
-            "type": "string"
-          },
-          "etageLibelle": {
-            "type": "string"
-          },
-          "immeubleId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "immeubleCode": {
-            "type": "string"
-          },
-          "immeubleLibelle": {
-            "type": "string"
-          },
-          "prixSuggere": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Prix de référence TTC : comSalePrice s'il est > 0, sinon comSalePriceFloor s'il est > 0, sinon null."
-          },
-          "prixSuggereEstPlancher": {
-            "type": "boolean",
-            "description": "Vrai quand prixSuggere est le prix plancher (prix commercial à 0)."
           }
         }
       },
@@ -18175,169 +19100,6 @@
           },
           "commercialNom": {
             "type": "string"
-          }
-        }
-      },
-      "ArticleDetailDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "code": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "adresse": {
-            "type": "string"
-          },
-          "area": {
-            "type": "number"
-          },
-          "salePrice": {
-            "type": "number"
-          },
-          "comSalePrice": {
-            "type": "number"
-          },
-          "salePriceFloor": {
-            "type": "number"
-          },
-          "comSalePriceFloor": {
-            "type": "number"
-          },
-          "statut": {
-            "type": "string",
-            "enum": [
-              "DISPONIBLE",
-              "OCCUPE"
-            ]
-          },
-          "trancheId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "trancheCode": {
-            "type": "string"
-          },
-          "trancheDescription": {
-            "type": "string"
-          },
-          "lotParentId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "lotParentCode": {
-            "type": "string"
-          },
-          "lotParentDescription": {
-            "type": "string"
-          },
-          "sousLots": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ArticleListItemDto"
-            }
-          },
-          "titreFoncier": {
-            "type": "string"
-          },
-          "categorieId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "categorieCode": {
-            "type": "string"
-          },
-          "categorieLibelle": {
-            "type": "string"
-          },
-          "typeId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "typeCode": {
-            "type": "string"
-          },
-          "typeLibelle": {
-            "type": "string"
-          },
-          "dossierId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "dossierCode": {
-            "type": "string"
-          },
-          "dossierStatut": {
-            "type": "string"
-          },
-          "clientId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "clientNom": {
-            "type": "string"
-          },
-          "immeubleId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "immeubleCode": {
-            "type": "string"
-          },
-          "immeubleLibelle": {
-            "type": "string"
-          },
-          "etageId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "etageCode": {
-            "type": "string"
-          },
-          "etageLibelle": {
-            "type": "string"
-          },
-          "natureId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "natureCode": {
-            "type": "string"
-          },
-          "natureLibelle": {
-            "type": "string"
-          },
-          "tauxTVA": {
-            "type": "number"
-          },
-          "presentationTypeId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "presentationTypeCode": {
-            "type": "string"
-          },
-          "presentationTypeLibelle": {
-            "type": "string"
-          },
-          "superficieSousArticles": {
-            "type": "number"
-          },
-          "prixSuggere": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Prix de référence TTC : comSalePrice s'il est > 0, sinon comSalePriceFloor s'il est > 0, sinon null."
-          },
-          "prixSuggereEstPlancher": {
-            "type": "boolean",
-            "description": "Vrai quand prixSuggere est le prix plancher (prix commercial à 0)."
           }
         }
       },
