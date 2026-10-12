@@ -1364,12 +1364,14 @@ export interface CreerEcheanceRequest {
   dateEcheance?: string | null;
   montant?: number;
   description?: string;
-  categorieId?: UUID;
+  /** Requise (400 sinon). */
+  categorieId: UUID;
   exclureDuPrix?: boolean;
   notes?: string;
 }
 
-export type ModifierEcheanceRequest = CreerEcheanceRequest;
+/** Mise à jour partielle : la ligne garde sa catégorie si `categorieId` est absent. */
+export type ModifierEcheanceRequest = Partial<CreerEcheanceRequest>;
 
 /** Le payeur peut différer de l'acquéreur principal du dossier. */
 export interface ReglementDto {

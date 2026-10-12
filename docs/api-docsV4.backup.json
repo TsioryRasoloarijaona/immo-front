@@ -2474,7 +2474,7 @@
           "Dossiers"
         ],
         "summary": "Crée un dossier de vente à partir d'une prospection",
-        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Prospect → client** : si le statut initial porte l'indicateur OMRAN « Transforme le prospect en\nclient », le tiers passe au type client (voir `PATCH /api/dossiers/{id}/statut`).",
+        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\nDans les deux modes, la base est écrite comme le logiciel de bureau l'écrit : `ComFolder.Discount`\nen ratio 0–1 du HT avant remise, `ComFolder.DiscountAmount` en HT. L'API relit `remise` en\npourcentage (0–100) et `remiseMontant` en HT.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Prospect → client** : si le statut initial porte l'indicateur OMRAN « Transforme le prospect en\nclient », le tiers passe au type client (voir `PATCH /api/dossiers/{id}/statut`).",
         "operationId": "create_1",
         "requestBody": {
           "content": {
@@ -11945,7 +11945,7 @@
           },
           "remisePercent": {
             "type": "number",
-            "description": "Taux de remise appliqué au total, en %."
+            "description": "Taux de remise appliqué au total, en % (5 = 5 %) : `StlQuote.Discount` (ratio 0–1) × 100."
           },
           "remiseHT": {
             "type": "number",
@@ -12597,10 +12597,12 @@
             "type": "number"
           },
           "remise": {
-            "type": "number"
+            "type": "number",
+            "description": "Taux de remise **en pourcentage** (5 = 5 %), jamais un ratio 0–1 : `ComFolder.Discount` (ratio du\nprix HT avant remise, la convention du logiciel de bureau) × 100. Négatif = majoration (prix négocié\nau-dessus du prix de référence). Même échelle sur tous les dossiers, quel que soit leur auteur."
           },
           "remiseMontant": {
-            "type": "number"
+            "type": "number",
+            "description": "Montant de la remise **hors taxes** (`ComFolder.DiscountAmount`, qui n'a pas de pendant TTC en base)\n= `prixAvantRemiseHT` − `prixHT`. Le montant TTC se déduit par `prixAvantRemise` − `prixApresRemise`."
           },
           "prixApresRemise": {
             "type": "number"
@@ -13072,12 +13074,12 @@
           },
           "montantRemise": {
             "type": "number",
-            "description": "Montant TTC de la remise, calculé sur `prixAvantRemise` (principal + annexes). Exactement la valeur\nque `POST /api/dossiers` enregistrera (`remiseMontant` du dossier) avec les mêmes paramètres.",
+            "description": "Montant **TTC** de la remise, calculé sur `prixAvantRemise` (principal + annexes) : `prixAvantRemise`\n− `prixApresRemise`. Attention : le dossier créé expose `remiseMontant` en **HT** (convention du\nlogiciel de bureau) ; ce montant TTC en est le pendant toutes taxes comprises.",
             "example": 60000
           },
           "remisePercent": {
             "type": "number",
-            "description": "Taux de remise en pourcentage (5 = 5 %), jamais un ratio 0–1. De 0 à 100 quand il est saisi\n(`remisePercent` de la requête) ; déduit de l'écart entre le prix de référence de l'article (+ annexes)\net le `prix` négocié, il peut être négatif (prix négocié > prix de référence). Exactement la valeur\nque `POST /api/dossiers` enregistrera dans `ComFolder.Discount`.",
+            "description": "Taux de remise en pourcentage (5 = 5 %), jamais un ratio 0–1. De 0 à 100 quand il est saisi\n(`remisePercent` de la requête) ; déduit de l'écart entre le prix de référence de l'article (+ annexes)\net le `prix` négocié (rapporté au HT), il peut être négatif (prix négocié > prix de référence).\nExactement la valeur que le dossier créé exposera dans `remise` (`ComFolder.Discount` en base est le\nmême taux en ratio 0–1, comme l'écrit le logiciel de bureau).",
             "example": 5
           },
           "prixApresRemise": {
@@ -15291,11 +15293,11 @@
           },
           "remise": {
             "type": "number",
-            "description": "Taux de remise, en pourcentage."
+            "description": "Taux de remise en pourcentage (5 = 5 %), jamais un ratio 0–1."
           },
           "remiseMontant": {
             "type": "number",
-            "description": "Montant de la remise."
+            "description": "Montant de la remise, hors taxes (`ComFolder.DiscountAmount`)."
           },
           "prixApresRemise": {
             "type": "number",

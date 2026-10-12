@@ -113,6 +113,8 @@ function AddEcheanceRow({
   const [dateEcheance, setDateEcheance] = useState(initialDate ?? '');
   const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [categorieManquante, setCategorieManquante] = useState(false);
   const categoriesEcheance = useCategoriesEcheance();
   const categorieItems = referentielItems(categoriesEcheance.data);
 
@@ -122,6 +124,8 @@ function AddEcheanceRow({
     setMontant(initialMontant ? String(initialMontant) : '');
     setDateEcheance(initialDate ?? '');
     setDescription('');
+    setError(null);
+    setCategorieManquante(false);
   }
 
   if (!open) {
@@ -137,16 +141,23 @@ function AddEcheanceRow({
       <form
         onSubmit={async (e) => {
           e.preventDefault();
+          if (!categorieId) {
+            setCategorieManquante(true);
+            return;
+          }
           setBusy(true);
+          setError(null);
           try {
             await onAdd({
-              categorieId: categorieId || undefined,
+              categorieId,
               montant: Number(montant) || 0,
               // `dateEcheance` est en `date-time` : un « YYYY-MM-DD » nu vaut 400.
               dateEcheance: toApiDateTime(dateEcheance) ?? null,
               description: description || undefined,
             });
             reset();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Échec de l'enregistrement.");
           } finally {
             setBusy(false);
           }
@@ -154,9 +165,21 @@ function AddEcheanceRow({
       >
         <FieldGroup>
           <FormField>
-            <FieldLabel htmlFor="new-cat">Catégorie</FieldLabel>
-            <Select items={categorieItems} value={categorieId} onValueChange={(v) => setCategorieId((v) || null)}>
-              <SelectTrigger id="new-cat" className="w-full">
+            <FieldLabel htmlFor="new-cat">Catégorie *</FieldLabel>
+            <Select
+              items={categorieItems}
+              value={categorieId}
+              onValueChange={(v) => {
+                setCategorieId((v) || null);
+                setCategorieManquante(false);
+              }}
+            >
+              <SelectTrigger
+                id="new-cat"
+                className="w-full"
+                aria-invalid={categorieManquante || undefined}
+                aria-describedby={categorieManquante ? 'new-cat-erreur' : undefined}
+              >
                 <SelectValue placeholder="Choisir…" />
               </SelectTrigger>
               <SelectContent>
@@ -167,6 +190,9 @@ function AddEcheanceRow({
                 </SelectGroup>
               </SelectContent>
             </Select>
+            {categorieManquante && (
+              <p id="new-cat-erreur" className="mt-1 text-micro text-destructive">Choisissez une catégorie.</p>
+            )}
           </FormField>
           <FormField>
             <FieldLabel htmlFor="new-montant">Montant</FieldLabel>
@@ -181,9 +207,10 @@ function AddEcheanceRow({
             <Input id="new-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
           </FormField>
         </FieldGroup>
+        {error && <p className="mt-3 text-micro text-destructive">{error}</p>}
         <DialogFooter className="mt-5">
           <Button type="button" variant="outline" onClick={reset}>Annuler</Button>
-          <Button type="submit" disabled={busy || !montant}>Ajouter</Button>
+          <Button type="submit" disabled={busy || !montant || !categorieId}>Ajouter</Button>
         </DialogFooter>
       </form>
     </Modal>
