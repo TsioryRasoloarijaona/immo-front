@@ -28,6 +28,7 @@ export function moduleForPath(pathname: string): string | null {
     pathname.startsWith('/calendrier') ||
     pathname.startsWith('/suivi-actions') ||
     pathname.startsWith('/performances') ||
+    pathname.startsWith('/equipe') ||
     pathname.startsWith('/prospections') ||
     pathname.startsWith('/pre-prospections') ||
     pathname.startsWith('/prospects') ||

@@ -11,6 +11,11 @@ export function estAdministrateur(user: PorteurDeRoles | null | undefined): bool
   return user?.roles?.includes('Administrateur') ?? false;
 }
 
+/** Accès à « Mon équipe » : Commercial Chef, Administrateur ou Direction Générale. */
+export function estChefOuExempte(user: PorteurDeRoles | null | undefined): boolean {
+  return (user?.roles?.includes('Commercial Chef') ?? false) || estExempte(user);
+}
+
 export function estExempte(user: PorteurDeRoles | null | undefined): boolean {
   return user?.roles?.some((r) => ROLES_EXEMPTES.has(r)) ?? false;
 }
