@@ -6,6 +6,7 @@ import RefSelect from '../../components/RefSelect';
 import InteractionForm from '../../components/InteractionForm';
 import BlocJournee from '../../components/parcours/BlocJournee';
 import { LigneLead, LigneRelance } from '../../components/parcours/LignesJournee';
+import FicheProspectionLazy, { type FicheOuverte } from '../../components/dashboard/FicheProspectionLazy';
 import { ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { addInteraction, getJournee } from '../../lib/api';
@@ -36,6 +37,7 @@ export default function MaJournee() {
   const types = useTypesContactProspection();
   const [commercialId, setCommercialId] = useState<string | null>(null);
   const [visiteFaite, setVisiteFaite] = useState<RelanceJourneeDto | null>(null);
+  const [fiche, setFiche] = useState<FicheOuverte | null>(null);
   const chef = estChefOuExempte(user);
 
   const journee = useApi(() => getJournee(commercialId ?? undefined), [commercialId], 'journee');
@@ -90,16 +92,17 @@ export default function MaJournee() {
                   </>
                 }
               >
-                {j.nouveauxLeads.lignes.map((l) => <LigneLead key={l.prospectionId} lead={l} />)}
+                {j.nouveauxLeads.lignes.map((l) => <LigneLead key={l.prospectionId} lead={l} onOuvrir={setFiche} />)}
               </BlocJournee>
               <BlocJournee titre="Appels et relances du jour" total={j.relancesDuJour.total} affichees={j.relancesDuJour.lignes.length} vide="Aucune relance prévue aujourd'hui.">
-                {j.relancesDuJour.lignes.map((r) => <LigneRelance key={r.interactionId} relance={r} />)}
+                {j.relancesDuJour.lignes.map((r) => <LigneRelance key={r.interactionId} relance={r} onOuvrir={setFiche} />)}
               </BlocJournee>
               <BlocJournee titre="Visites du jour" total={j.visitesDuJour.total} affichees={j.visitesDuJour.lignes.length} vide="Aucune visite prévue aujourd'hui.">
                 {j.visitesDuJour.lignes.map((r) => (
                   <LigneRelance
                     key={r.interactionId}
                     relance={r}
+                    onOuvrir={setFiche}
                     action={
                       <Button type="button" size="sm" variant="outline" disabled={!typeVisite} onClick={() => setVisiteFaite(r)}>
                         <Check data-icon="inline-start" /> Visite faite
@@ -109,12 +112,20 @@ export default function MaJournee() {
                 ))}
               </BlocJournee>
               <BlocJournee titre="En retard" alerte total={j.enRetard.total} affichees={j.enRetard.lignes.length} vide="Rien en retard.">
-                {j.enRetard.lignes.map((r) => <LigneRelance key={r.interactionId} relance={r} retard />)}
+                {j.enRetard.lignes.map((r) => <LigneRelance key={r.interactionId} relance={r} onOuvrir={setFiche} retard />)}
               </BlocJournee>
             </div>
           </>
         )}
       </div>
+      {/* À la fermeture, relire la journée : une action notée dans la fiche peut déplacer la ligne. */}
+      <FicheProspectionLazy
+        fiche={fiche}
+        onClose={() => {
+          setFiche(null);
+          void journee.refetch();
+        }}
+      />
       {visiteFaite && (
         <InteractionForm
           initialActionTypeId={typeVisite}
