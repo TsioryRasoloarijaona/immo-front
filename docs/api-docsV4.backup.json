@@ -24,6 +24,10 @@
       "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
     },
     {
+      "name": "Entités juridiques",
+      "description": "Écran « Entités juridiques » d'OMRAN (`CfgCompany`) : liste, fiche en quatre onglets, création, modification — dont\nle drapeau **Active**, qui décide de tout ce que le CRM affiche (programmes, tranches, articles, prospections, dossiers\nd'une entité inactive disparaissent des listes ; programme, prospection et dossier répondent 404 par id). Toutes les\nécritures exigent le rôle\n`Administrateur`. Lisible par tout utilisateur connecté, **jamais par une clé API** (hors `PorteeCleApi`). Les\nsélecteurs d'entité des autres formulaires restent sur `GET /api/referentiels/entites` (actives seulement)."
+    },
+    {
       "name": "Hotline",
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
     },
@@ -38,6 +42,10 @@
     {
       "name": "Onglets de tranche",
       "description": "Listes enfants de la fiche tranche : terrains, étages, plancher couvert, frais."
+    },
+    {
+      "name": "Actionnaires",
+      "description": "Actionnaires (CfgShareholder) : Configuration › Autres d'OMRAN."
     },
     {
       "name": "Prospections",
@@ -70,6 +78,10 @@
     {
       "name": "Suivi des actions",
       "description": "L'écran OMRAN « Suivi des actions » : les actions commerciales (appels, visites, messages, notes…) saisies par chaque utilisateur, sur une période. Doc OMRAN : https://help.omranestate.com/SUIVIDESACTIONS.html — détail dans `instructions/FEATURE-suivi-actions.md`.\n\n**Même requête qu'OMRAN**, relevée dans sa trace d'audit : `ComActionMessageView WHERE CfgTrancheId IN (…) AND DocDate >= début AND DocDate < fin [AND UserName = …]`. Mêmes colonnes, même tranche résolue (catégorie Prospection → tranche de la prospection, sinon de l'article), même rang, même état — construits sur la table plutôt que sur la vue, qui coûte 6,6 s la page.\n\n**Compter les appels d'un commercial jour par jour** — le cas d'usage principal (94 % des actions de l'année sont des appels sortants) : `GET /api/suivi-actions/groupes?utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR&dateDebut=…&dateFin=…`. L'effectif de chaque groupe est le nombre d'actions ; la somme des effectifs égale le `totalElements` de la liste aux mêmes filtres.\n\n**Qui voit quoi.** Le suivi **général** est réservé au rôle `Administrateur`. Tout autre utilisateur ne voit que **ses propres actions** — sur la liste comme dans les groupes : celles écrites à son nom (`UserName`), plus celles de son compte hors lignes « Système » (actions générées pendant sa session, qu'OMRAN attribue à « Système »). Pour lui, le filtre `utilisateur` ne peut que restreindre : demander quelqu'un d'autre rend une page vide, jamais un 403 qui confirmerait l'existence de ses actions. Le front masque donc le sélecteur d'utilisateur hors administrateur.\n\n**Périmètre commercial** : appliqué par le service, liste et groupes — une action dont le projet (par la prospection, puis par le dossier) est hors périmètre n'apparaît ni dans la liste ni dans un effectif. Actions d'entités juridiques inactives exclues, comme partout."
+    },
+    {
+      "name": "Groupes d'actionnaires",
+      "description": "Groupes d'actionnaires (CfgGroupShareholder et lignes) : modèles de répartition chargés sur une entité juridique."
     },
     {
       "name": "Notes",
@@ -804,6 +816,83 @@
         }
       }
     },
+    "/api/entites-juridiques/{id}/repartition": {
+      "put": {
+        "tags": [
+          "Entités juridiques"
+        ],
+        "summary": "Remplace la répartition de l'entité",
+        "description": "Corps : la liste complète `[{actionnaireId, nombreParts}]`, qui remplace toutes les lignes. Contrôlée contre\n`nombreActionnaires` et `nombreParts` **enregistrés** sur la fiche (changer aussi ces nombres : `PATCH` avec\n`repartition`).",
+        "operationId": "modifierRepartition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'entité juridique (CfgCompany.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/LigneRepartitionEcritureDto"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Fiche, répartition mise à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Actionnaire absent, inconnu ou en double ; parts absentes ou négatives ; `Verif` (mêmes messages et champs qu'à la\ncréation).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune entité avec cet id parmi celles où l'appelant est habilité.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/utilisateurs/{admUserId}/reinitialiser-mot-de-passe": {
       "post": {
         "tags": [
@@ -1001,80 +1090,6 @@
           },
           "409": {
             "description": "Code déjà utilisé par une autre tranche, tous programmes confondus.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/TrancheDetailDto"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tranches/{id}/charger-depuis/{sourceId}": {
-      "post": {
-        "tags": [
-          "Tranches"
-        ],
-        "summary": "Charge les paramètres d'une autre tranche dans la tranche (« Charger à partir d'une autre tranche »)",
-        "description": "Réservé au rôle `Administrateur`. Reprend « Charger à partir d'une autre tranche » d'OMRAN, en une transaction.\nRecopie de la source : standing, nombre d'étages, responsable SAV, coordonnées (adresses, ville, code postal, pays,\ntéléphones, email, site), adresse SAV, description détaillée, montant de pré-réservation, avance (mode, taux,\nmontant), frais de dossier, pénalités d'annulation et de transfert, syndic, autres frais, délais et pénalités des\nengagements, délai de solde, garanties, tribunal, code du droit de rétractation, cadeaux, toutes les remises, délai\nd'intervention, visites max, délais notaire. Les listes Étages, Plancher couvert et Frais sont fusionnées par clé\n(ligne de la source absente de la cible → ajoutée ; présente → valeurs de la source ; les autres lignes de la cible\nrestent) et le plancher couvert est recalculé. Jamais copiés : code, libellé, programme, dates, visibilités, délai de\nrétractation, délai max d'échéance et sa vérification, crédit, écarts-types, tiers autrui, projet de facturation, plan\ncomptable, rubrique, terrains, commissions, seuils de versement.",
-        "operationId": "chargerDepuis",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Identifiant de la tranche (CfgTranche.PKey).",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "sourceId",
-            "in": "path",
-            "description": "Tranche dont on reprend les paramètres.",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Fiche de la tranche, paramètres chargés.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/TrancheDetailDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "La source est la tranche elle-même (`champ` = `sourceId`).",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/TrancheDetailDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "L'appelant n'a pas le rôle Administrateur.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/TrancheDetailDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Tranche ou source inconnue, ou d'une entité inactive.",
             "content": {
               "*/*": {
                 "schema": {
@@ -3427,6 +3442,305 @@
         }
       }
     },
+    "/api/groupes-actionnaires": {
+      "get": {
+        "tags": [
+          "Groupes d'actionnaires"
+        ],
+        "summary": "Liste des groupes d'actionnaires, triée par code, avec leurs lignes",
+        "operationId": "lister_1",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sur code et libellé, espaces ignorés des deux côtés, casse ignorée.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes (éventuellement aucun).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GroupeActionnairesDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Groupes d'actionnaires"
+        ],
+        "summary": "Crée un groupe d'actionnaires et ses lignes (Σ = 100 %)",
+        "description": "Réservé au rôle `Administrateur`. Obligatoires : `code` (unique sur toute la table, casse ignorée), `description`,\net des `lignes` dont les pourcentages (fractions : `0.4` = 40 %) font **exactement** 100 % — un groupe sans ligne\nest donc refusé, comme `CfgGroupShareholder.Verif` d'OMRAN.",
+        "operationId": "creer_2",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupeActionnairesEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Groupe créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupeActionnairesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code ou description manquant ; sur `champ = lignes` : actionnaire absent ou inconnu, pourcentage absent ou hors\n[0 ; 1], actionnaire en double (« L'actionnaire existe déjà dans la liste !!! »), somme différente de 100 % (« La\nsomme des pourcentages doit être égale à 100 % ! »).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupeActionnairesDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupeActionnairesDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par un autre groupe (champ = code).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupeActionnairesDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/entites-juridiques": {
+      "get": {
+        "tags": [
+          "Entités juridiques"
+        ],
+        "summary": "Liste des entités juridiques où l'appelant est habilité, actives ou non",
+        "description": "Ne filtre **pas** sur `IsActive` (sauf `actif=true|false`) : c'est l'écran qui gère le drapeau. Filtre comme\n`CfgCompanyView.GetList` d'OMRAN : seules les entités où l'appelant a une habilitation société\n(`AdmUserHabilitation.CfgCompanyId`), sauf rôle exempté (`Administrateur`, `Direction Générale`, lus dans\n`AdmUserRole`). Un appelant sans compte `AdmUser` ne voit rien. `search` retire les espaces de la saisie et des\ncolonnes comparées (code, libellé, matricule fiscal, registre du commerce), casse ignorée.",
+        "operationId": "lister_2",
+        "parameters": [
+          {
+            "name": "actif",
+            "in": "query",
+            "description": "true = actives, false = inactives, tous (défaut) = toutes.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "tous"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sur code, libellé, matricule fiscal, registre du commerce, sans espaces.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Entités, triées par code (repartition = null).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "actif ne vaut ni true, ni false, ni tous.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Entités juridiques"
+        ],
+        "summary": "Crée une entité juridique, ses 4 séquences et l'habilitation du créateur",
+        "description": "Obligatoires : `code` (débarrassé de ses espaces de bord, unique sur toute la table, casse ignorée), `description`,\n`deviseId` (devise existante ; présélectionner celle marquée `parDefaut` dans `GET …/devises`). `actif` vaut `true`\npar défaut ; les textes non saisis sont enregistrés `\"\"`, les nombres 0, jamais `null`, comme OMRAN. Le représentant\nlégal, le signataire et les responsables sont des personnels (`GET /api/referentiels-patrimoine/personnels`).\n\nDans la même transaction (`CfgCompany.AfterInsert`) : l'habilitation OMRAN du créateur sur l'entité (sans elle,\npersonne ne la voit dans OMRAN ni ici) et les 4 compteurs `AdmSequence` de la société — `INVOICE` « Facture »,\n`REFUND` « Avoir », `RSSheetCode` « Certificat de retenue à la source », `Receipt` « Reçu », année courante,\nbasés sur l'année système, 2 chiffres d'année, 3 de numéro, valeur 0, préfixe, séparateur et suffixe vides.\n\n`repartition` facultative. Le contrôle `Verif` d'OMRAN s'applique **toujours** : le nombre de lignes doit égaler\n`nombreActionnaires`, la somme des parts doit égaler `nombreParts` (0 et 0 sans répartition).",
+        "operationId": "creer_3",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntiteJuridiqueEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Entité créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`code`, `description` ou `deviseId` manquant ; devise, groupe, pays ou personnel inconnu (ou tiers qui n'est pas un\npersonnel) ; texte trop long ; `capital`, `nombreActionnaires`, `nombreParts` négatifs ; `partMaison` hors [0 ; 1] ;\n`repartition` (champ `repartition`) : actionnaire absent, inconnu ou en double (« L'actionnaire existe déjà dans la\nliste !!! »), parts absentes ou négatives ; `Verif` : « Le nombre de répartitions doit être égal au nombre\nd'actionnaires ! » (champ `nombreActionnaires`) ou « Le nombre de parts (actions) doit être égal au total des nombre\nde parts / actions dans la répartition ! » (champ `nombreParts`).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par une autre entité (champ = code).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/entites-juridiques/{id}/repartition/depuis-groupe/{groupeId}": {
+      "post": {
+        "tags": [
+          "Entités juridiques"
+        ],
+        "summary": "Charge la répartition depuis un groupe d'actionnaires",
+        "description": "`CfgCompany.SetRepartitions` d'OMRAN, à appeler après la confirmation « Est ce que vous voulez charger les\nrépartitions !! ». Pose le groupe sur la fiche, vide la répartition puis la recalcule sur `nombreParts` — celui\n**saisi sur la fiche** (paramètre, enregistré avec la répartition), sinon celui enregistré : pour chaque ligne du\ngroupe sauf la dernière (ordre : code de l'actionnaire),\n`(int)(pourcentage × 100) × nombreParts / 100` en troncatures entières ; la dernière reçoit le reste, si bien que\nla somme vaut toujours `nombreParts`. `nombreActionnaires` est aligné sur le nombre de lignes du groupe (OMRAN le\nlaisse à ressaisir, et refuserait l'enregistrement sinon). Calcul : `domain/RepartitionActionnaires`.",
+        "operationId": "modifierRepartitionDepuisGroupe",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'entité juridique (CfgCompany.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "groupeId",
+            "in": "path",
+            "description": "Groupe d'actionnaires (CfgGroupShareholder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "nombreParts",
+            "in": "query",
+            "description": "Nombre de parts saisi sur la fiche ; absent = celui enregistré.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 1000
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche, groupe, nombre de parts et répartition recalculée enregistrés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "nombreParts négatif (champ = nombreParts).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Entité introuvable (voir fiche) ou groupe inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers": {
       "get": {
         "tags": [
@@ -4567,7 +4881,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_1",
+        "operationId": "lister_3",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -4603,7 +4917,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_2",
+        "operationId": "creer_4",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5345,7 +5659,7 @@
         ],
         "summary": "Actions et alertes d'un article, plus récentes d'abord",
         "description": "Toutes les actions rattachées à l'article (`StkItemId`), y compris celles saisies depuis une prospection ou un dossier\nqui citent l'article, avec la visibilité par entité du suivi des actions mais sans sa portée « mes actions ». Lignes\nau format de `GET /api/suivi-actions` (colonnes par défaut). Tri par défaut : `docDate` décroissante.",
-        "operationId": "lister_2",
+        "operationId": "lister_4",
         "parameters": [
           {
             "name": "id",
@@ -5395,7 +5709,7 @@
         ],
         "summary": "Ajoute une action ou une alerte à un article",
         "description": "Corps identique à une interaction de prospection. Règles GEN0005 : `actionTypeId` obligatoire ; action « Note » ⇒\n`description` obligatoire ; autre action ⇒ `resultatId` obligatoire ; résultat « avec alerte » ⇒ `dateAlerte`\nobligatoire ; résultat de rendez-vous ⇒ `dateRdv` obligatoire (un `AdmEvent` est créé). Catégorie : celle du résultat,\nsinon « Prospection ». Auteur, date, `UserName` et libellé « jj/MM/aaaa HH:mm Nom » posés par le serveur. Une\n`dateAlerte` pose une alerte (`AdmAlertData`) et **désactive** les alertes des autres actions propres de l'article\n(sans prospection ni dossier) : c'est ainsi qu'OMRAN désactive une alerte.",
-        "operationId": "creer_3",
+        "operationId": "creer_5",
         "parameters": [
           {
             "name": "id",
@@ -5455,6 +5769,100 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/SuiviActionDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/actionnaires": {
+      "get": {
+        "tags": [
+          "Actionnaires"
+        ],
+        "summary": "Liste des actionnaires, triée par code",
+        "operationId": "lister_5",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sur code et libellé, espaces ignorés des deux côtés, casse ignorée.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actionnaires (éventuellement aucun).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActionnaireDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Actionnaires"
+        ],
+        "summary": "Crée un actionnaire",
+        "operationId": "creer_6",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionnaireEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Actionnaire créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionnaireDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code ou description manquant ; texte trop long.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionnaireDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionnaireDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par un autre actionnaire (champ = code).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionnaireDto"
                 }
               }
             }
@@ -6376,6 +6784,325 @@
         }
       }
     },
+    "/api/groupes-actionnaires/{id}": {
+      "get": {
+        "tags": [
+          "Groupes d'actionnaires"
+        ],
+        "summary": "Fiche d'un groupe d'actionnaires",
+        "operationId": "fiche",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du groupe (CfgGroupShareholder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupe et ses lignes.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupeActionnairesDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun groupe d'actionnaires avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupeActionnairesDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Groupes d'actionnaires"
+        ],
+        "summary": "Supprime un groupe et ses lignes",
+        "description": "Refusée (409) tant qu'une entité juridique désigne ce groupe : en production la clé étrangère\n`CfgCompany.CfgGroupShareholderId` est `ON DELETE CASCADE`, la base supprimerait l'entité avec le groupe. Le détail\nliste les codes des entités concernées.",
+        "operationId": "supprimer_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du groupe (CfgGroupShareholder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Groupe supprimé."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Aucun groupe d'actionnaires avec cet id."
+          },
+          "409": {
+            "description": "Une entité juridique utilise ce groupe (la base la supprimerait)."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Groupes d'actionnaires"
+        ],
+        "summary": "Modifie un groupe ; lignes présentes = remplacent toutes les lignes",
+        "description": "Champs absents inchangés. `lignes` présentes **remplacent** toutes les lignes du groupe, avec les mêmes contrôles\nqu'à la création. Les entités juridiques déjà réparties depuis ce groupe ne sont pas recalculées (OMRAN ne le fait\npas non plus) : relancer `POST /api/entites-juridiques/{id}/repartition/depuis-groupe/{groupeId}`.",
+        "operationId": "modifier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du groupe (CfgGroupShareholder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GroupeActionnairesEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Groupe modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupeActionnairesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Mêmes causes qu'à la création.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupeActionnairesDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupeActionnairesDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun groupe d'actionnaires avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupeActionnairesDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par un autre groupe (champ = code).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupeActionnairesDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/entites-juridiques/{id}": {
+      "get": {
+        "tags": [
+          "Entités juridiques"
+        ],
+        "summary": "Fiche complète d'une entité juridique, répartition comprise",
+        "description": "Même visibilité que la liste : une entité hors habilitation répond 404, active ou non.",
+        "operationId": "fiche_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'entité juridique (CfgCompany.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune entité avec cet id parmi celles où l'appelant est habilité.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Entités juridiques"
+        ],
+        "summary": "Supprime une entité juridique",
+        "description": "Refusée (409, le détail liste les références) tant qu'une clé étrangère `NO_ACTION` de la production pointe sur\nl'entité : programmes, articles, tiers, échéances, règlements, comptabilité, RH, achats, SAV… (57 colonnes). Sinon,\ndans la même transaction : ses séquences, habilitations et lignes de répartition, puis l'entité ; les autres\ndépendances `CASCADE` de production (`ActDefault*`, `Prv*Prevision`, `StlCategoryPrevision`,\n`StlProjectVentilation`…) suivent par la base. Le groupe d'actionnaires de l'entité n'est jamais supprimé.",
+        "operationId": "supprimer_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'entité juridique (CfgCompany.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Entité supprimée avec ses séquences, habilitations, répartition."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Aucune entité avec cet id parmi celles où l'appelant est habilité."
+          },
+          "409": {
+            "description": "L'entité est référencée : le détail donne le nombre de lignes par nature (« 2 programme(s), 14 règlement(s) »)."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Entités juridiques"
+        ],
+        "summary": "Modifie une entité juridique (champs absents inchangés), drapeau « Active » compris",
+        "description": "Champ absent ou `null` = inchangé ; `champsAVider` remet un texte à `\"\"`, une date ou une référence à `null`, un\nnombre à 0 (`code`, `description`, `deviseId`, `actif` ne se vident pas). `actif` est modifiable : l'effet sur la\nvisibilité est immédiat. `repartition` présente remplace toutes les lignes ; absente, `Verif` se fait sur les lignes\nenregistrées — changer `nombreParts` seul est donc refusé si la répartition ne suit pas. `groupeId` pose le groupe\n**sans** recalculer la répartition (OMRAN demande confirmation avant de la recharger : voir `depuis-groupe`).",
+        "operationId": "modifier_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'entité juridique (CfgCompany.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EntiteJuridiqueEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Fiche modifiée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Mêmes causes qu'à la création ; champsAVider invalide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune entité avec cet id parmi celles où l'appelant est habilité.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par une autre entité (champ = code).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntiteJuridiqueDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/statut": {
       "patch": {
         "tags": [
@@ -6713,6 +7440,163 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/actionnaires/{id}": {
+      "get": {
+        "tags": [
+          "Actionnaires"
+        ],
+        "summary": "Fiche d'un actionnaire",
+        "operationId": "fiche_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'actionnaire (CfgShareholder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actionnaire.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionnaireDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun actionnaire avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionnaireDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Actionnaires"
+        ],
+        "summary": "Supprime un actionnaire",
+        "operationId": "supprimer_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'actionnaire (CfgShareholder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Actionnaire supprimé."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Aucun actionnaire avec cet id."
+          },
+          "409": {
+            "description": "Cité par une répartition d'entité ou une ligne de groupe."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Actionnaires"
+        ],
+        "summary": "Modifie un actionnaire (champs absents inchangés)",
+        "operationId": "modifier_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de l'actionnaire (CfgShareholder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionnaireEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Actionnaire modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionnaireDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code ou description vide ; texte trop long.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionnaireDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionnaireDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun actionnaire avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionnaireDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà utilisé par un autre actionnaire (champ = code).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionnaireDto"
                 }
               }
             }
@@ -10167,6 +11051,30 @@
         }
       }
     },
+    "/api/entites-juridiques/devises": {
+      "get": {
+        "tags": [
+          "Entités juridiques"
+        ],
+        "summary": "Devises proposées sur la fiche, la devise par défaut d'OMRAN marquée",
+        "operationId": "devises",
+        "responses": {
+          "200": {
+            "description": "Devises, triées par code.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DeviseDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/encaissements": {
       "get": {
         "tags": [
@@ -12894,7 +13802,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_3",
+        "operationId": "lister_6",
         "parameters": [
           {
             "name": "portee",
@@ -13193,7 +14101,7 @@
           "Notes"
         ],
         "summary": "Supprime une note",
-        "operationId": "supprimer_1",
+        "operationId": "supprimer_4",
         "parameters": [
           {
             "name": "id",
@@ -13666,6 +14574,267 @@
           "niveauDescription": {
             "type": "string",
             "description": "Libellé du niveau, lecture seule."
+          }
+        }
+      },
+      "LigneRepartitionEcritureDto": {
+        "type": "object",
+        "description": "Ligne de répartition saisie : un actionnaire (une seule fois) et son nombre de parts.",
+        "properties": {
+          "actionnaireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Actionnaire (CfgShareholder.PKey). Obligatoire."
+          },
+          "nombreParts": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de parts (actions), entier positif ou nul. Obligatoire."
+          }
+        }
+      },
+      "EntiteJuridiqueDto": {
+        "type": "object",
+        "description": "Entité juridique (CfgCompany) : ligne de la liste et fiche (la fiche ajoute la répartition).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant (CfgCompany.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, unique sur toute la table."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé (raison sociale)."
+          },
+          "actif": {
+            "type": "boolean",
+            "description": "« Active » : une entité inactive masque ses programmes, tranches, articles, dossiers."
+          },
+          "formeJuridique": {
+            "type": "string",
+            "description": "Forme juridique (SARL, SA…)."
+          },
+          "matriculeFiscal": {
+            "type": "string",
+            "description": "Matricule fiscal (CfgCompany.FiscalNumber)."
+          },
+          "registreCommerce": {
+            "type": "string",
+            "description": "Registre du commerce (CfgCompany.CommercialRegister)."
+          },
+          "cnss": {
+            "type": "string",
+            "description": "N° de sécurité sociale (CNSS)."
+          },
+          "patente": {
+            "type": "string",
+            "description": "Patente."
+          },
+          "ice": {
+            "type": "string",
+            "description": "Identifiant commun de l'entreprise (ICE)."
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création de la société."
+          },
+          "capital": {
+            "type": "number",
+            "description": "Capital social."
+          },
+          "deviseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Devise (StlCurrency.PKey)."
+          },
+          "deviseCode": {
+            "type": "string",
+            "description": "Code de la devise (MAD…)."
+          },
+          "groupeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Groupe d'actionnaires (CfgGroupShareholder.PKey), null si aucun."
+          },
+          "groupeCode": {
+            "type": "string",
+            "description": "Code du groupe d'actionnaires."
+          },
+          "groupeLibelle": {
+            "type": "string",
+            "description": "Libellé du groupe d'actionnaires."
+          },
+          "nombreActionnaires": {
+            "type": "integer",
+            "format": "int32",
+            "description": "« Nombre actionnaires » saisi (TotalSharing) : égal au nombre de lignes de répartition."
+          },
+          "nombreParts": {
+            "type": "integer",
+            "format": "int32",
+            "description": "« Nombre de parts (actions) » (SharingNumber) : égal au total des parts réparties."
+          },
+          "partMaison": {
+            "type": "number",
+            "description": "« Part maison » en fraction : 0.25 = 25 %.",
+            "example": 0.25
+          },
+          "dateLiquidation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de liquidation, null si aucune."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Adresse 1."
+          },
+          "adresse2": {
+            "type": "string",
+            "description": "Adresse 2."
+          },
+          "adresse3": {
+            "type": "string",
+            "description": "Adresse 3."
+          },
+          "codePostal": {
+            "type": "string",
+            "description": "Code postal."
+          },
+          "ville": {
+            "type": "string",
+            "description": "Ville (texte libre)."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pays (AdmCountry.PKey)."
+          },
+          "paysLibelle": {
+            "type": "string",
+            "description": "Libellé du pays."
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Téléphone."
+          },
+          "mobile": {
+            "type": "string",
+            "description": "Mobile."
+          },
+          "fax": {
+            "type": "string",
+            "description": "Fax."
+          },
+          "email": {
+            "type": "string",
+            "description": "E-mail."
+          },
+          "siteWeb": {
+            "type": "string",
+            "description": "Site web."
+          },
+          "villeSignature": {
+            "type": "string",
+            "description": "« Courrier fait à » (CfgCompany.SignatureCity) : lieu imprimé en pied des courriers."
+          },
+          "representantLegalId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Représentant légal (personnel, CfgTier.PKey)."
+          },
+          "representantLegalLibelle": {
+            "type": "string",
+            "description": "Nom du représentant légal."
+          },
+          "signataireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "« Courrier signataire » (personnel, CfgTier.PKey)."
+          },
+          "signataireLibelle": {
+            "type": "string",
+            "description": "Nom du signataire des courriers."
+          },
+          "responsableTechniqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Responsable technique (personnel, CfgTier.PKey)."
+          },
+          "responsableTechniqueLibelle": {
+            "type": "string",
+            "description": "Nom du responsable technique."
+          },
+          "responsableCommercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Responsable commercial (personnel, CfgTier.PKey)."
+          },
+          "responsableCommercialLibelle": {
+            "type": "string",
+            "description": "Nom du responsable commercial."
+          },
+          "descriptionLongue": {
+            "type": "string",
+            "description": "Description détaillée (onglet « Autres », 1000 caractères au plus)."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création de la fiche."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification."
+          },
+          "repartition": {
+            "type": "array",
+            "description": "Répartition par actionnaire (onglet « Répartition ») ; null dans la liste, renseignée en fiche.",
+            "items": {
+              "$ref": "#/components/schemas/LigneRepartitionDto"
+            }
+          }
+        }
+      },
+      "LigneRepartitionDto": {
+        "type": "object",
+        "description": "Ligne de répartition d'une entité juridique (CfgCompanyShareholder).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la ligne (CfgCompanyShareholder.PKey)."
+          },
+          "actionnaireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Actionnaire (CfgShareholder.PKey)."
+          },
+          "actionnaireCode": {
+            "type": "string",
+            "description": "Code de l'actionnaire."
+          },
+          "actionnaireLibelle": {
+            "type": "string",
+            "description": "Libellé de l'actionnaire."
+          },
+          "nombreParts": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de parts (actions) détenues, entier."
           }
         }
       },
@@ -17137,6 +18306,284 @@
           }
         }
       },
+      "GroupeActionnairesEcritureDto": {
+        "type": "object",
+        "description": "Création (POST) ou modification partielle (PATCH) d'un groupe d'actionnaires.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code, unique sur toute la table. Obligatoire à la création."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé. Obligatoire à la création."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes ; présentes = remplacent toutes les lignes (Σ = 100 %), absentes au PATCH = inchangées.",
+            "items": {
+              "$ref": "#/components/schemas/LigneGroupeActionnairesEcriture"
+            }
+          }
+        }
+      },
+      "LigneGroupeActionnairesEcriture": {
+        "type": "object",
+        "description": "Part d'un actionnaire dans le groupe.",
+        "properties": {
+          "actionnaireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Actionnaire (CfgShareholder.PKey), une seule fois par groupe. Obligatoire."
+          },
+          "pourcentage": {
+            "type": "number",
+            "description": "Pourcentage en fraction, entre 0 et 1 : 0.4 = 40 %. Obligatoire.",
+            "example": 0.4
+          }
+        }
+      },
+      "GroupeActionnairesDto": {
+        "type": "object",
+        "description": "Groupe d'actionnaires (CfgGroupShareholder) : modèle de répartition en pourcentages.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant (CfgGroupShareholder.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, unique sur toute la table."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes du groupe, triées par code d'actionnaire ; leurs pourcentages font 100 %.",
+            "items": {
+              "$ref": "#/components/schemas/LigneGroupeActionnaires"
+            }
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification."
+          }
+        }
+      },
+      "LigneGroupeActionnaires": {
+        "type": "object",
+        "description": "Part d'un actionnaire dans le groupe.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la ligne (CfgGroupShareholderLine.PKey)."
+          },
+          "actionnaireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Actionnaire (CfgShareholder.PKey)."
+          },
+          "actionnaireCode": {
+            "type": "string",
+            "description": "Code de l'actionnaire."
+          },
+          "actionnaireLibelle": {
+            "type": "string",
+            "description": "Libellé de l'actionnaire."
+          },
+          "pourcentage": {
+            "type": "number",
+            "description": "Pourcentage en fraction : 0.4 = 40 %.",
+            "example": 0.4
+          }
+        }
+      },
+      "EntiteJuridiqueEcritureDto": {
+        "type": "object",
+        "description": "Création (POST) ou modification partielle (PATCH : champ absent ou null = inchangé) d'une entité juridique.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code, unique sur toute la table. Obligatoire à la création."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé. Obligatoire à la création."
+          },
+          "actif": {
+            "type": "boolean",
+            "description": "« Active » ; défaut true à la création. false masque tout le patrimoine de l'entité."
+          },
+          "formeJuridique": {
+            "type": "string",
+            "description": "Forme juridique."
+          },
+          "matriculeFiscal": {
+            "type": "string",
+            "description": "Matricule fiscal."
+          },
+          "registreCommerce": {
+            "type": "string",
+            "description": "Registre du commerce."
+          },
+          "cnss": {
+            "type": "string",
+            "description": "N° de sécurité sociale (CNSS)."
+          },
+          "patente": {
+            "type": "string",
+            "description": "Patente."
+          },
+          "ice": {
+            "type": "string",
+            "description": "Identifiant commun de l'entreprise (ICE)."
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création de la société."
+          },
+          "capital": {
+            "type": "number",
+            "description": "Capital social, positif ou nul."
+          },
+          "deviseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Devise (StlCurrency.PKey). Obligatoire à la création, non vidable."
+          },
+          "groupeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Groupe d'actionnaires (sans recalcul : voir POST …/repartition/depuis-groupe)."
+          },
+          "nombreActionnaires": {
+            "type": "integer",
+            "format": "int32",
+            "description": "« Nombre actionnaires » : doit égaler le nombre de lignes de la répartition."
+          },
+          "nombreParts": {
+            "type": "integer",
+            "format": "int32",
+            "description": "« Nombre de parts (actions) » : doit égaler le total des parts réparties."
+          },
+          "partMaison": {
+            "type": "number",
+            "description": "« Part maison » en fraction, entre 0 et 1.",
+            "example": 0.25
+          },
+          "dateLiquidation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de liquidation."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Adresse 1."
+          },
+          "adresse2": {
+            "type": "string",
+            "description": "Adresse 2."
+          },
+          "adresse3": {
+            "type": "string",
+            "description": "Adresse 3."
+          },
+          "codePostal": {
+            "type": "string",
+            "description": "Code postal."
+          },
+          "ville": {
+            "type": "string",
+            "description": "Ville."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pays (AdmCountry.PKey)."
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Téléphone."
+          },
+          "mobile": {
+            "type": "string",
+            "description": "Mobile."
+          },
+          "fax": {
+            "type": "string",
+            "description": "Fax."
+          },
+          "email": {
+            "type": "string",
+            "description": "E-mail."
+          },
+          "siteWeb": {
+            "type": "string",
+            "description": "Site web."
+          },
+          "villeSignature": {
+            "type": "string",
+            "description": "« Courrier fait à »."
+          },
+          "representantLegalId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Représentant légal : un personnel (GET /api/referentiels-patrimoine/personnels)."
+          },
+          "signataireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "« Courrier signataire » : un personnel."
+          },
+          "responsableTechniqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Responsable technique : un personnel."
+          },
+          "responsableCommercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Responsable commercial : un personnel."
+          },
+          "descriptionLongue": {
+            "type": "string",
+            "description": "Description détaillée (1000 caractères au plus)."
+          },
+          "repartition": {
+            "type": "array",
+            "description": "Répartition ; présente = remplace toutes les lignes, absente au PATCH = inchangée.",
+            "items": {
+              "$ref": "#/components/schemas/LigneRepartitionEcritureDto"
+            }
+          },
+          "champsAVider": {
+            "type": "array",
+            "description": "PATCH : noms de champs à vider (texte → \"\", date et référence → null, nombre → 0).",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "CreerDossierRequest": {
         "type": "object",
         "properties": {
@@ -18759,6 +20206,65 @@
             "type": "string",
             "format": "date-time",
             "description": "Modifié le (`UserUpdateDateTime`)."
+          }
+        }
+      },
+      "ActionnaireEcritureDto": {
+        "type": "object",
+        "description": "Création (POST) ou modification partielle (PATCH, champ absent = inchangé) d'un actionnaire.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code, unique sur toute la table. Obligatoire à la création."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé. Obligatoire à la création."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (500 caractères au plus) ; chaîne vide = vider."
+          }
+        }
+      },
+      "ActionnaireDto": {
+        "type": "object",
+        "description": "Actionnaire (CfgShareholder), réparti entre entités juridiques et groupes d'actionnaires.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant (CfgShareholder.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, unique sur toute la table."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé (nom de l'actionnaire)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes libres (500 caractères au plus)."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de la création (libellé du compte)."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification."
           }
         }
       },
@@ -21587,6 +23093,29 @@
             "items": {
               "$ref": "#/components/schemas/ProspectionListItemDto"
             }
+          }
+        }
+      },
+      "DeviseDto": {
+        "type": "object",
+        "description": "Devise (StlCurrency) proposée sur la fiche d'une entité juridique.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant (StlCurrency.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code (MAD, EUR…)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé."
+          },
+          "parDefaut": {
+            "type": "boolean",
+            "description": "Devise par défaut d'OMRAN (paramètre DefaultCurrency) : à présélectionner à la création."
           }
         }
       },
