@@ -2,6 +2,9 @@ import { clearCachedValues } from './apiCache';
 import type {
   ActionRecente,
   ADistribuerDto,
+  AvancerProspectionRequest,
+  JourneeDto,
+  LigneTriDto,
   AffectationsEquipeDto,
   CommercialEquipeDto,
   DistribuerRequest,
@@ -1512,8 +1515,9 @@ export function listCommerciauxEquipe(params?: ParamsEquipe): Promise<Commercial
   return request('GET', '/api/equipe/commerciaux', { query: { du: params?.du, au: params?.au, projet: params?.projet } });
 }
 
-export function getADistribuer(projet?: UUID): Promise<ADistribuerDto> {
-  return request('GET', '/api/equipe/a-distribuer', { query: { projet } });
+/** Pré-prospections sans commercial reçues dans la période (30 jours par défaut) ; 400 si `du` > `au`. */
+export function getADistribuer(params?: ParamsEquipe): Promise<ADistribuerDto> {
+  return request('GET', '/api/equipe/a-distribuer', { query: { du: params?.du, au: params?.au, projet: params?.projet } });
 }
 
 /** Tout ou rien ; la ligne reste une pré-prospection (ni prospect ni tranche exigés). */
@@ -1532,6 +1536,28 @@ export function getAffectationsEquipe(): Promise<AffectationsEquipeDto> {
 
 export function modifierAffectationsEquipe(admUserId: UUID, body: ModifierAffectationsRequest): Promise<MembreAffectationDto> {
   return request('PUT', `/api/equipe/affectations/${admUserId}`, { body });
+}
+
+// ---------------------------------------------------------------- Parcours commercial
+
+/** `commercialId` réservé aux exemptés et aux chefs pour un membre de leur équipe (403 sinon). */
+export function getJournee(commercialId?: UUID): Promise<JourneeDto> {
+  return request('GET', '/api/journee', { query: { commercialId } });
+}
+
+/** Mes pré-prospections ouvertes, les plus récentes d'abord ; `toutes` lève la limite des 6 mois. */
+export function listBoiteDeTri(toutes: boolean, pageable?: Pageable): Promise<PageDto<LigneTriDto>> {
+  return request('GET', '/api/boite-de-tri', { query: withPageable({ toutes }, pageable) });
+}
+
+/** Relance demain 10:00 ; la ligne reste dans la boîte. 409 si elle n'est plus une pré-prospection. */
+export function marquerInjoignable(prospectionId: UUID): Promise<InteractionDto> {
+  return request('POST', `/api/boite-de-tri/${prospectionId}/injoignable`);
+}
+
+/** Étape et prochaine action en une transaction : un refus n'écrit rien. */
+export function avancerProspection(id: UUID, body: AvancerProspectionRequest): Promise<ProspectionDetailDto> {
+  return request('POST', `/api/prospections/${id}/avancer`, { body });
 }
 
 /** 200 à zéro n'est pas un état vide ; 404 = compte non rattaché à un employé,

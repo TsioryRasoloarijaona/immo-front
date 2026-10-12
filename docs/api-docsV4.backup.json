@@ -68,6 +68,10 @@
       "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur : liste des comptes, réinitialisation du mot de passe Arpent, et affectation des projets qui composent le périmètre commercial d'un utilisateur. Les comptes eux-mêmes se créent dans Omran, jamais ici."
     },
     {
+      "name": "Parcours commercial",
+      "description": "Parcours du commercial : « Ma journée », Boîte de tri des pré-prospections et avancement d'une prospection\ndans le Kanban. « Mes lignes » = les prospections dont `ComProspection.CfgCommercialId` est l'employé du\ncompte appelant, dans son périmètre projet. Administrateur et Direction Générale voient leurs propres lignes ;\n`commercialId` leur permet, ainsi qu'à un chef pour un membre de son équipe, de consulter un autre commercial."
+    },
+    {
       "name": "KPI commerciaux",
       "description": "Indicateurs de performance des commerciaux sur une période — activité réalisée (appels, visites, interactions), portefeuille confié (prospections, réactivité) et résultat (dossiers, montants, taux de transformation).\n\nDeux attributions cohabitent et il faut le savoir pour lire les chiffres : l'**activité** est comptée pour celui qui l'a saisie, le **portefeuille** pour le commercial assigné. Un chef qui appelle sur la prospection d'un commercial voit l'appel chez lui, pas chez l'autre.\n\nTous les compteurs respectent la visibilité par entité juridique et le périmètre commercial de l'appelant. Un commercial restreint verra donc des chiffres inférieurs à son activité réelle — c'est volontaire."
     },
@@ -1733,6 +1737,90 @@
         }
       }
     },
+    "/api/prospections/{id}/avancer": {
+      "post": {
+        "tags": [
+          "Parcours commercial"
+        ],
+        "summary": "Kanban : change l'étape et pose la prochaine action, en une transaction",
+        "description": "Geste du Kanban, **en une seule transaction** : change l'étape (mêmes effets que\n`PATCH /api/prospections/{id}/etape`, sans toucher aux notes) puis écrit la prochaine action comme\n`POST /api/prospections/{id}/interactions` (`typeId` = action, `sousCategorieId` = résultat, `date` = relance,\n`message` = message). Les relances précédentes sont soldées. Un résultat de visite (« Rendez vous pris »,\n« RDV reporté », « Le prospect veut faire une visite du projet ») crée aussi le rendez-vous à cette date :\nil apparaît dans le calendrier et déclenche la confirmation de visite habituelle. Si une des deux écritures\néchoue, rien n'est écrit. Le type de la prochaine action n'est pas stocké : l'intention passe par le résultat.",
+        "operationId": "avancer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la prospection (ComProspection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AvancerProspectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Prospection à jour (étape et prochaine relance).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`etapeId`, `prochaineAction`, `prochaineAction.typeId` ou `prochaineAction.date` absent, date dans le passé,\nétape inconnue, ou règle d'interaction non respectée (résultat obligatoire hors Note).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Compte applicatif non identifiable ; sur `/api/journee`, `commercialId` non autorisé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prospection inconnue, hors périmètre, ou d'un autre commercial.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Prospection archivée, ligne encore pré-prospection (elle se trie dans la Boîte de tri), ou étape exigeant un\nprojet (`IsWithProjectMandatory`) sur une prospection sans tranche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prospections/{id}/autres-tranches": {
       "get": {
         "tags": [
@@ -2458,7 +2546,7 @@
           "Mon équipe"
         ],
         "summary": "Distribue des pré-prospections à un commercial de l'équipe",
-        "description": "Transforme chaque pré-prospection en prospection du commercial choisi, **avec les règles de\n`POST /api/prospections/{id}/transformer`** : prospect lié obligatoire, tranche obligatoire (fournie\nou déjà portée), une seule prospection ouverte par prospect et projet. Une ligne sans tranche se\ndistribue avec `trancheId`. Tout le lot ou rien.",
+        "description": "Pose le commercial choisi (`ComProspection.CfgCommercialId`) sur chaque pré-prospection, **comme le\nchamp « Commercial » de la fiche pré-prospection d'OMRAN** : la ligne reste une pré-prospection, aucun\nprospect ni tranche n'est exigé. La transformer reste le geste du commercial\n(`POST /api/prospections/{id}/transformer`). Une ligne qui avait déjà un commercial est redistribuée.\nHistorique : « Commercial assigné : B », ou « Commercial réaffecté : A → B ». Tout le lot ou rien.",
         "operationId": "distribuer",
         "requestBody": {
           "content": {
@@ -2472,7 +2560,7 @@
         },
         "responses": {
           "200": {
-            "description": "Toutes les lignes ont été transformées.",
+            "description": "Commercial posé (celles déjà à ce commercial sont ignorées).",
             "content": {
               "*/*": {
                 "schema": {
@@ -2482,7 +2570,7 @@
             }
           },
           "400": {
-            "description": "`preProspectionIds` vide, `commercialId` absent, tranche inconnue, ou une règle de `transformer`\nnon respectée (ligne sans prospect, sans tranche…) : rien n'est écrit.",
+            "description": "Liste vide ou `commercialId` absent.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2512,7 +2600,7 @@
             }
           },
           "409": {
-            "description": "Une ligne n'est plus une pré-prospection, le commercial n'est pas de l'équipe ou n'est pas affecté au\nprojet de la ligne, ou le prospect a déjà une prospection ouverte sur ce projet : rien n'est écrit.",
+            "description": "Une ligne n'est plus une pré-prospection ou est clôturée, ou le commercial n'est pas de l'équipe ou\nn'est pas affecté au projet de la ligne : rien n'est écrit.",
             "content": {
               "*/*": {
                 "schema": {
@@ -3780,6 +3868,70 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/CleApiCreeeDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/boite-de-tri/{id}/injoignable": {
+      "post": {
+        "tags": [
+          "Parcours commercial"
+        ],
+        "summary": "« Pas joignable » : relance demain 10:00, la ligne reste dans la boîte",
+        "description": "Écrit une interaction « Téléphone Sortant », résultat « Prospect injoignable ou Boite vocale », message\n« Pas joignable », avec une relance **demain à 10:00 (heure de Casablanca)**. Les relances précédentes de la\nligne sont soldées comme pour toute nouvelle relance. Rien d'automatique ensuite : pas de nouvel essai\nprogrammé, pas d'archivage. La ligne reste dans la Boîte de tri et sort de « nouveaux leads ».",
+        "operationId": "injoignable",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la pré-prospection (ComProspection.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Interaction créée, porteuse de la relance.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InteractionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Compte applicatif non identifiable ; sur `/api/journee`, `commercialId` non autorisé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InteractionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ligne inconnue, hors périmètre, ou d'un autre commercial.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InteractionDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "La ligne n'est plus une pré-prospection (déjà qualifiée), ou elle est archivée. Aussi si le référentiel\nd'interactions ne contient pas le type ou le résultat attendu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InteractionDto"
                 }
               }
             }
@@ -7602,6 +7754,50 @@
         }
       }
     },
+    "/api/journee": {
+      "get": {
+        "tags": [
+          "Parcours commercial"
+        ],
+        "summary": "« Ma journée » du commercial",
+        "description": "Quatre blocs, chacun avec son total et ses 20 premières lignes :\n\n- `nouveauxLeads` : pré-prospections du commercial, ouvertes, reçues il y a moins de 6 mois, **sans aucune\n  interaction saisie**, les plus récentes d'abord ;\n- `relancesDuJour` : relances ouvertes échéant aujourd'hui dont le résultat n'est pas une visite ;\n- `visitesDuJour` : relances ouvertes du jour dont le résultat est « Rendez vous pris », « RDV reporté » ou\n  « Le prospect veut faire une visite du projet » ;\n- `enRetard` : relances ouvertes échues avant aujourd'hui, **même règle que `GET /api/dashboard/relances?echeance=RETARD`**\n  (prospections qualifiées, ouvertes, créées dans le mois civil en cours).\n\nUne relance ouverte est la dernière interaction datée d'une prospection ouverte : non désarmée\n(`WithoutRevival`), sans échéance de paiement, non impayée. Les relances suivent l'heure de Casablanca.",
+        "operationId": "journee",
+        "parameters": [
+          {
+            "name": "commercialId",
+            "in": "query",
+            "description": "Commercial (CfgTier) à consulter ; réservé aux exemptés et aux chefs (membre de leur équipe).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Quatre blocs, éventuellement vides.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/JourneeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Compte applicatif non identifiable ; sur `/api/journee`, `commercialId` non autorisé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/JourneeDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/hotline/recherche": {
       "get": {
         "tags": [
@@ -9888,6 +10084,59 @@
                   "items": {
                     "$ref": "#/components/schemas/EvenementCalendrierDto"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/boite-de-tri": {
+      "get": {
+        "tags": [
+          "Parcours commercial"
+        ],
+        "summary": "Boîte de tri : mes pré-prospections ouvertes, les plus récentes d'abord",
+        "description": "Pré-prospections du commercial appelant, ouvertes, reçues il y a moins de 6 mois (`toutes=true` lève la\nlimite), les plus récentes d'abord. Une ligne marquée « Pas joignable » y reste, avec sa `prochaineRelance`.\nChaque ligne porte ses `doublons` : fiches prospect et autres prospections au même numéro (9 derniers\nchiffres, sans espaces ni indicatif) ou au même e-mail, limitées au périmètre de l'appelant. Le nombre à\ntrier du menu est le `totalElements` de cette liste.\n\nLes autres gestes du tri utilisent les routes existantes : qualifier = `POST /api/prospections/{id}/transformer`\n(fiche prospect requise, sinon `POST /api/pre-prospections/{id}/creer-prospect`), archiver =\n`PATCH /api/prospections/{id}/archiver` (motif « PROSPECTION EN DOUBLE » proposé si un doublon est signalé),\nappel effectué = `POST /api/prospections/{id}/interactions`.",
+        "operationId": "boiteDeTri",
+        "parameters": [
+          {
+            "name": "toutes",
+            "in": "query",
+            "description": "Vrai pour lever la limite des 6 mois.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lignes, éventuellement vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneTriDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Compte applicatif non identifiable ; sur `/api/journee`, `commercialId` non autorisé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneTriDto"
                 }
               }
             }
@@ -12547,6 +12796,54 @@
           }
         }
       },
+      "AvancerProspectionRequest": {
+        "type": "object",
+        "description": "Kanban : nouvelle étape et prochaine action obligatoire, écrites dans une seule transaction.",
+        "properties": {
+          "etapeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Étape d'arrivée (ComProspectionKind.PKey)."
+          },
+          "prochaineAction": {
+            "$ref": "#/components/schemas/ProchaineActionRequest"
+          }
+        },
+        "required": [
+          "etapeId",
+          "prochaineAction"
+        ]
+      },
+      "ProchaineActionRequest": {
+        "type": "object",
+        "description": "Prochaine action : l'interaction qui porte la relance suivante (ComActionMessage).",
+        "properties": {
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Action (ComActionMessageType.PKey), ex. Téléphone Sortant."
+          },
+          "sousCategorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Résultat (ComActionMessageSubCategory.PKey) ; obligatoire sauf pour une Note."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance de la relance ; aujourd'hui ou plus tard."
+          },
+          "message": {
+            "type": "string",
+            "description": "Message de la relance (AlertMessage).",
+            "example": "Visite du 3 chambres témoin"
+          }
+        },
+        "required": [
+          "date",
+          "typeId"
+        ]
+      },
       "AjouterAutreTrancheRequest": {
         "type": "object",
         "properties": {
@@ -13021,7 +13318,7 @@
       },
       "DistribuerRequest": {
         "type": "object",
-        "description": "Distribution en lot : chaque pré-prospection est transformée comme par `POST /api/prospections/{id}/transformer`, dans une seule transaction.",
+        "description": "Distribution en lot : le commercial est posé sur chaque pré-prospection, qui reste une pré-prospection (comme OMRAN), dans une seule transaction.",
         "properties": {
           "preProspectionIds": {
             "type": "array",
@@ -13035,11 +13332,6 @@
             "type": "string",
             "format": "uuid",
             "description": "Employé (CfgTier) du commercial destinataire — `commercialId` de `GET /api/equipe/commerciaux`."
-          },
-          "trancheId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Tranche posée sur chaque ligne ; facultative si toutes en portent déjà une."
           }
         },
         "required": [
@@ -16661,6 +16953,199 @@
           }
         }
       },
+      "BlocLeadsDto": {
+        "type": "object",
+        "description": "Bloc de nouveaux leads : total et les 20 premières lignes.",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre total de lignes du bloc, au-delà des 20 servies.",
+            "example": 12
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Les 20 premières lignes, les plus récentes d'abord.",
+            "items": {
+              "$ref": "#/components/schemas/LeadJourneeDto"
+            }
+          }
+        }
+      },
+      "BlocRelancesDto": {
+        "type": "object",
+        "description": "Bloc de relances : total et les 20 premières lignes.",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre total de lignes du bloc, au-delà des 20 servies.",
+            "example": 3
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Les 20 premières lignes, par échéance croissante.",
+            "items": {
+              "$ref": "#/components/schemas/RelanceJourneeDto"
+            }
+          }
+        }
+      },
+      "JourneeDto": {
+        "type": "object",
+        "description": "« Ma journée » d'un commercial : quatre blocs calculés au jour de Casablanca.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Jour servi (aujourd'hui à Casablanca)."
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Commercial dont les lignes sont servies (CfgTier) ; null si le compte n'a pas d'employé."
+          },
+          "prenom": {
+            "type": "string",
+            "description": "Prénom du commercial, sinon son nom.",
+            "example": "Khadija"
+          },
+          "nouveauxLeads": {
+            "$ref": "#/components/schemas/BlocLeadsDto"
+          },
+          "relancesDuJour": {
+            "$ref": "#/components/schemas/BlocRelancesDto"
+          },
+          "visitesDuJour": {
+            "$ref": "#/components/schemas/BlocRelancesDto"
+          },
+          "enRetard": {
+            "$ref": "#/components/schemas/BlocRelancesDto"
+          }
+        }
+      },
+      "LeadJourneeDto": {
+        "type": "object",
+        "description": "Nouveau lead de « Ma journée » : pré-prospection du commercial, ouverte, sans aucune interaction.",
+        "properties": {
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la pré-prospection (ComProspection.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "example": "26/06025"
+          },
+          "nom": {
+            "type": "string",
+            "description": "Nom de la fiche prospect, sinon nom saisi au premier contact (TempDescription)."
+          },
+          "telephone": {
+            "type": "string",
+            "description": "Mobile ou fixe de la fiche, sinon numéro du premier contact (TempTel).",
+            "example": "0661248735"
+          },
+          "indicatif": {
+            "type": "string",
+            "description": "Indicatif pays du mobile de la fiche ; null si le numéro ne vient pas de la fiche.",
+            "example": "212"
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du projet de la tranche visée ; null sans tranche.",
+            "example": "TRIBECA"
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Code de la tranche visée ; null sans tranche."
+          },
+          "recuLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de réception du lead (ComProspection.DocDate)."
+          },
+          "ageJours": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Jours écoulés depuis la réception, calculés au jour de Casablanca.",
+            "example": 2
+          },
+          "message": {
+            "type": "string",
+            "description": "Message du formulaire (ComProspection.Notes)."
+          },
+          "source": {
+            "type": "string",
+            "description": "Origine du lead (ComProspectionOrigin.Code).",
+            "example": "FACEBOOK"
+          }
+        }
+      },
+      "RelanceJourneeDto": {
+        "type": "object",
+        "description": "Relance ouverte de « Ma journée » : l'interaction (ComActionMessage) qui porte la prochaine action.",
+        "properties": {
+          "interactionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Interaction qui porte la relance (ComActionMessage.PKey)."
+          },
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "preProspection": {
+            "type": "boolean",
+            "description": "Vrai si la ligne est encore une pré-prospection (elle se traite dans la Boîte de tri)."
+          },
+          "nom": {
+            "type": "string",
+            "description": "Nom de la fiche prospect, sinon nom saisi au premier contact."
+          },
+          "telephone": {
+            "type": "string",
+            "example": "0661248735"
+          },
+          "indicatif": {
+            "type": "string",
+            "description": "Indicatif pays du mobile de la fiche ; null si le numéro ne vient pas de la fiche.",
+            "example": "212"
+          },
+          "projetCode": {
+            "type": "string",
+            "example": "TRIBECA"
+          },
+          "trancheCode": {
+            "type": "string"
+          },
+          "etape": {
+            "type": "string",
+            "description": "Étape de la prospection (ComProspectionKind.Code) ; null sans étape.",
+            "example": "3 QUALIFIÉ"
+          },
+          "echeance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance de la relance (ComActionMessage.AlertValidityDate)."
+          },
+          "joursDeRetard": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Jours entre l'échéance et aujourd'hui ; 0 pour une relance du jour.",
+            "example": 3
+          },
+          "message": {
+            "type": "string",
+            "description": "Message de la relance (ComActionMessage.AlertMessage)."
+          },
+          "resultat": {
+            "type": "string",
+            "description": "Résultat du dernier contact, qui dit l'intention (visite, rappel…).",
+            "example": "Rendez vous pris"
+          }
+        }
+      },
       "HotlineFicheDto": {
         "type": "object",
         "description": "Fiche complète d'une personne déjà connue (CfgTier) trouvée par numéro de téléphone : informations\ngénérales + tout son historique d'activité, limité aux entrées les plus récentes de chaque\ncatégorie. Pour l'historique complet d'une catégorie, utiliser tier.id avec les endpoints\n/api/prospects/{id}/... correspondants.",
@@ -18017,6 +18502,165 @@
           }
         }
       },
+      "DoublonTriDto": {
+        "type": "object",
+        "description": "Fiche prospect ou autre prospection au même numéro (9 derniers chiffres) ou au même e-mail.",
+        "properties": {
+          "nature": {
+            "type": "string",
+            "description": "PROSPECT = fiche CfgTier ; PROSPECTION = autre ComProspection (pré-prospection comprise).",
+            "enum": [
+              "PROSPECT",
+              "PROSPECTION"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la fiche (CfgTier) ou de la prospection (ComProspection)."
+          },
+          "code": {
+            "type": "string"
+          },
+          "nom": {
+            "type": "string"
+          },
+          "criteres": {
+            "type": "array",
+            "description": "Critères communs : TELEPHONE et/ou EMAIL.",
+            "items": {
+              "type": "string",
+              "description": "Critère sur lequel une fiche existante correspond à l'identité saisie. `NOM` : prénom + nom (ou raison sociale) sans casse ni espaces, dans les deux ordres ; `TELEPHONE` : 9 derniers chiffres d'un des numéros de la fiche ; `EMAIL` : sans casse.",
+              "enum": [
+                "NOM",
+                "TELEPHONE",
+                "EMAIL"
+              ]
+            }
+          },
+          "fermee": {
+            "type": "boolean",
+            "description": "Prospection clôturée ; toujours null pour une fiche prospect."
+          }
+        }
+      },
+      "LigneTriDto": {
+        "type": "object",
+        "description": "Pré-prospection de la Boîte de tri, avec les champs du formulaire et ses doublons.",
+        "properties": {
+          "prospectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "26/06025"
+          },
+          "nom": {
+            "type": "string",
+            "description": "Nom de la fiche prospect, sinon nom saisi au premier contact."
+          },
+          "prospectId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fiche prospect liée (CfgTier) ; null tant qu'elle n'est pas créée — requise pour qualifier."
+          },
+          "telephone": {
+            "type": "string",
+            "example": "0661248735"
+          },
+          "indicatif": {
+            "type": "string",
+            "description": "Indicatif pays du mobile de la fiche ; null si le numéro ne vient pas de la fiche.",
+            "example": "212"
+          },
+          "email": {
+            "type": "string"
+          },
+          "recuLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de réception (ComProspection.DocDate)."
+          },
+          "ageJours": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Jours écoulés depuis la réception, au jour de Casablanca.",
+            "example": 2
+          },
+          "message": {
+            "type": "string",
+            "description": "Message du formulaire (ComProspection.Notes)."
+          },
+          "source": {
+            "type": "string",
+            "description": "Origine (ComProspectionOrigin.Code).",
+            "example": "FACEBOOK"
+          },
+          "sourceSupport": {
+            "type": "string",
+            "description": "Support de l'origine (ComProspectionOriginSupport.Description)."
+          },
+          "campagne": {
+            "type": "string",
+            "description": "Campagne : action commerciale rattachée (ComAction.Description)."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trancheCode": {
+            "type": "string"
+          },
+          "projetCode": {
+            "type": "string",
+            "example": "TRIBECA"
+          },
+          "etape": {
+            "type": "string",
+            "description": "Étape (ComProspectionKind.Code) ; null sans étape."
+          },
+          "prochaineRelance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance de la relance ouverte (après « Pas joignable » : demain 10:00) ; null sinon."
+          },
+          "doublons": {
+            "type": "array",
+            "description": "Doublons visibles de l'appelant ; vide si aucun.",
+            "items": {
+              "$ref": "#/components/schemas/DoublonTriDto"
+            }
+          }
+        }
+      },
+      "PageDtoLigneTriDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneTriDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "ArticleDetailDto": {
         "type": "object",
         "properties": {
@@ -18191,7 +18835,7 @@
           },
           "type": {
             "type": "string",
-            "description": "Code stable de l'action. Historique de prospection : lu au début de la description\n(`PRE_PROSPECTION_CREEE`, `PROSPECT_CREE`, `PROSPECT_RATTACHE`, `TRANSFORMEE_EN_PROSPECTION`,\n`PROSPECTION_CREEE`, `ETAPE_CHANGEE`, `ARCHIVEE`, `DESARCHIVEE`, `COMMERCIAL_REAFFECTE` (écran « Mon\néquipe »), et `AUTRE` pour un début inconnu —\nservie, jamais rejetée). `DOSSIER_STATUT` : changement de statut d'un dossier. `INTERACTION` : note ou\ninteraction saisie.",
+            "description": "Code stable de l'action. Historique de prospection : lu au début de la description\n(`PRE_PROSPECTION_CREEE`, `PROSPECT_CREE`, `PROSPECT_RATTACHE`, `TRANSFORMEE_EN_PROSPECTION`,\n`PROSPECTION_CREEE`, `ETAPE_CHANGEE`, `ARCHIVEE`, `DESARCHIVEE`, `COMMERCIAL_ASSIGNE`,\n`COMMERCIAL_REAFFECTE` (écran « Mon équipe »), et `AUTRE` pour un début inconnu —\nservie, jamais rejetée). `DOSSIER_STATUT` : changement de statut d'un dossier. `INTERACTION` : note ou\ninteraction saisie.",
             "enum": [
               "PRE_PROSPECTION_CREEE",
               "PROSPECT_CREE",
@@ -18201,6 +18845,7 @@
               "ETAPE_CHANGEE",
               "ARCHIVEE",
               "DESARCHIVEE",
+              "COMMERCIAL_ASSIGNE",
               "COMMERCIAL_REAFFECTE",
               "DOSSIER_STATUT",
               "INTERACTION",
