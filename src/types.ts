@@ -2110,6 +2110,87 @@ export interface ZoneProjetEcritureDto {
   ordre?: number;
 }
 
+/* Onglets de la fiche tranche (FEATURE-patrimoine-tranche-onglets) : chaque PUT reçoit la liste
+   complète ; ligne avec `id` = modifiée, sans `id` = créée, absente = supprimée. */
+export interface LignesTrancheDto<T> {
+  lignes: T[];
+}
+
+export interface TerrainTrancheDto {
+  id: UUID;
+  terrainId?: UUID;
+  terrainCode?: string;
+  terrainDescription?: string;
+  surface?: number;
+  /** Fraction (1 = 100 %). */
+  ratio?: number;
+  ordre?: number;
+}
+
+export interface TerrainTrancheEcritureDto {
+  id?: UUID;
+  terrainId?: UUID;
+  ratio?: number;
+}
+
+export interface TerrainDisponibleDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  surface?: number;
+}
+
+export interface EtageTrancheDto {
+  id: UUID;
+  niveauTerrainId?: UUID;
+  niveauCode?: string;
+  niveauDescription?: string;
+}
+
+export interface EtageTrancheEcritureDto {
+  id?: UUID;
+  niveauTerrainId?: UUID;
+}
+
+export interface PlancherCouvertDto {
+  id: UUID;
+  categorieId?: UUID;
+  categorieCode?: string;
+  categorieDescription?: string;
+  surface?: number;
+}
+
+export interface PlancherCouvertEcritureDto {
+  id?: UUID;
+  categorieId?: UUID;
+  surface?: number;
+}
+
+export interface FraisTrancheDto {
+  id: UUID;
+  categorieReglementId?: UUID;
+  categorieCode?: string;
+  categorieDescription?: string;
+  ordre?: number;
+  montantHT?: number;
+  /** Fraction (0,2 = 20 %). */
+  tauxTva?: number;
+  montantTTC?: number;
+  pourcentageDe?: number;
+}
+
+export interface FraisTrancheEcritureDto {
+  id?: UUID;
+  categorieReglementId?: UUID;
+  ordre?: number;
+  montantHT?: number;
+  tauxTva?: number;
+  montantTTC?: number;
+  pourcentageDe?: number;
+  /** Vrai : le TTC est saisi, le serveur calcule le HT. */
+  saisiEnTTC?: boolean;
+}
+
 
 export interface EtapeCountDto {
   etape?: string;

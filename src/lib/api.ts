@@ -130,6 +130,16 @@ import type {
   NoteDto,
   CreerNoteRequest,
   PorteurNote,
+  LignesTrancheDto,
+  TerrainTrancheDto,
+  TerrainTrancheEcritureDto,
+  TerrainDisponibleDto,
+  EtageTrancheDto,
+  EtageTrancheEcritureDto,
+  PlancherCouvertDto,
+  PlancherCouvertEcritureDto,
+  FraisTrancheDto,
+  FraisTrancheEcritureDto,
 } from '../types';
 
 export const DEFAULT_PAGE_SIZE = 20;
@@ -1445,6 +1455,58 @@ export function createTranche(body: TrancheEcritureDto): Promise<TrancheDetailDt
 /** `projetId` différent de l'actuel : 400. */
 export function updateTranche(id: UUID, body: TrancheEcritureDto): Promise<TrancheDetailDto> {
   return request('PATCH', `/api/tranches/${id}`, { body });
+}
+
+/** Administrateur. 409 : le `detail` liste les tables qui référencent la tranche. */
+export function deleteTranche(id: UUID): Promise<void> {
+  return request('DELETE', `/api/tranches/${id}`);
+}
+
+/** « Charger à partir d'une autre tranche ». 400 si `sourceId` = `id`. */
+export function chargerTrancheDepuis(id: UUID, sourceId: UUID): Promise<TrancheDetailDto> {
+  return request('POST', `/api/tranches/${id}/charger-depuis/${sourceId}`);
+}
+
+export function listTerrainsTranche(id: UUID): Promise<TerrainTrancheDto[]> {
+  return request('GET', `/api/tranches/${id}/terrains`);
+}
+
+/** Administrateur. 400 : `champ` = `lignes[i].<champ>`. */
+export function saveTerrainsTranche(id: UUID, lignes: TerrainTrancheEcritureDto[]): Promise<TerrainTrancheDto[]> {
+  return request('PUT', `/api/tranches/${id}/terrains`, { body: { lignes } satisfies LignesTrancheDto<TerrainTrancheEcritureDto> });
+}
+
+export function getTerrainsDisponibles(): Promise<TerrainDisponibleDto[]> {
+  return request('GET', '/api/tranches/terrains-disponibles');
+}
+
+export function listEtagesTranche(id: UUID): Promise<EtageTrancheDto[]> {
+  return request('GET', `/api/tranches/${id}/etages`);
+}
+
+export function saveEtagesTranche(id: UUID, lignes: EtageTrancheEcritureDto[]): Promise<EtageTrancheDto[]> {
+  return request('PUT', `/api/tranches/${id}/etages`, { body: { lignes } satisfies LignesTrancheDto<EtageTrancheEcritureDto> });
+}
+
+export function listPlancherCouvert(id: UUID): Promise<PlancherCouvertDto[]> {
+  return request('GET', `/api/tranches/${id}/plancher-couvert`);
+}
+
+/** Réécrit aussi le plancher couvert de la fiche (Σ des surfaces). */
+export function savePlancherCouvert(id: UUID, lignes: PlancherCouvertEcritureDto[]): Promise<PlancherCouvertDto[]> {
+  return request('PUT', `/api/tranches/${id}/plancher-couvert`, { body: { lignes } satisfies LignesTrancheDto<PlancherCouvertEcritureDto> });
+}
+
+export function listFraisTranche(id: UUID): Promise<FraisTrancheDto[]> {
+  return request('GET', `/api/tranches/${id}/frais`);
+}
+
+export function saveFraisTranche(id: UUID, lignes: FraisTrancheEcritureDto[]): Promise<FraisTrancheDto[]> {
+  return request('PUT', `/api/tranches/${id}/frais`, { body: { lignes } satisfies LignesTrancheDto<FraisTrancheEcritureDto> });
+}
+
+export function getCategoriesFrais(): Promise<ReferentielItemDto[]> {
+  return request('GET', '/api/tranches/categories-frais');
 }
 
 /** Administrateur seulement. Code unique dans la tranche ; prix stockés calculés par le serveur. */
