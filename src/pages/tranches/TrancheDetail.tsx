@@ -16,9 +16,12 @@ import { useApi } from '../../lib/useApi';
 import { formatSurface } from '../../lib/format';
 import type { TrancheDetailDto } from '../../types';
 import GrilleArticles from '../articles/GrilleArticles';
+import ActionsTranche from './ActionsTranche';
+import { OngletEtages, OngletTerrains } from './OngletsTerrainsEtages';
+import { OngletFrais, OngletPlancherCouvert } from './OngletsPlancherFrais';
 import { AUTRES, COORDONNEES, DATES, FONCIER, GENERAL, REGLES_1, REGLES_2, REMISES, VISIBILITE } from './champsTranche';
 
-type OngletTranche = 'fiche' | 'articles';
+type OngletTranche = 'fiche' | 'terrains' | 'etages' | 'plancher' | 'frais' | 'articles';
 
 const MODULES: { cle: keyof TrancheDetailDto; libelle: string }[] = [
   { cle: 'estEnVente', libelle: 'Vente' },
@@ -35,9 +38,19 @@ export default function TrancheDetail() {
   return <FicheTranche key={id} id={id} />;
 }
 
+const ONGLETS: { id: OngletTranche; libelle: string }[] = [
+  { id: 'fiche', libelle: 'Fiche' },
+  { id: 'terrains', libelle: 'Terrains' },
+  { id: 'etages', libelle: 'Étages' },
+  { id: 'plancher', libelle: 'Plancher couvert' },
+  { id: 'frais', libelle: 'Frais' },
+  { id: 'articles', libelle: 'Articles' },
+];
+
 function FicheTranche({ id }: Readonly<{ id: string }>) {
-  const { data: t, loading, error } = useApi(() => getTranche(id), [id]);
+  const { data: t, loading, error, refetch } = useApi(() => getTranche(id), [id]);
   const [onglet, setOnglet] = useState<OngletTranche>('fiche');
+  const admin = estAdministrateur(useAuth().user);
 
   if (loading && !t) return <PageShell title="Tranche"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Tranche"><ErrorState message={error} /></PageShell>;
@@ -58,16 +71,24 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
       accentBg="var(--sec-tranche-bg)"
     >
       <div className="flex flex-col gap-3 pt-1">
-        <EnteteTranche t={t} />
+        <EnteteTranche t={t} admin={admin} />
         <Tabs value={onglet} onValueChange={(v) => setOnglet(v as OngletTranche)} className="flex flex-col gap-3">
-          <OngletsLigne
-            onglets={[
-              { id: 'fiche', libelle: 'Fiche' },
-              { id: 'articles', libelle: 'Articles' },
-            ]}
-          />
+          <OngletsLigne onglets={ONGLETS} />
           <TabsContent value="fiche">
             <BlocsTranche t={t} />
+          </TabsContent>
+          <TabsContent value="terrains">
+            <OngletTerrains trancheId={t.id} admin={admin} />
+          </TabsContent>
+          <TabsContent value="etages">
+            <OngletEtages trancheId={t.id} admin={admin} />
+          </TabsContent>
+          <TabsContent value="plancher">
+            {/* Relire la fiche : son « Plancher couvert » vient d'être réécrit par le serveur. */}
+            <OngletPlancherCouvert trancheId={t.id} admin={admin} apresEnregistrement={() => void refetch()} />
+          </TabsContent>
+          <TabsContent value="frais">
+            <OngletFrais trancheId={t.id} admin={admin} />
           </TabsContent>
           <TabsContent value="articles">
             <div className="flex min-h-120 flex-col gap-3">
@@ -81,9 +102,8 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
   );
 }
 
-function EnteteTranche({ t }: Readonly<{ t: TrancheDetailDto }>) {
+function EnteteTranche({ t, admin }: Readonly<{ t: TrancheDetailDto; admin: boolean }>) {
   const navigate = useNavigate();
-  const admin = estAdministrateur(useAuth().user);
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <h2 className="text-title font-semibold tracking-tight text-foreground">{t.description}</h2>
@@ -96,7 +116,8 @@ function EnteteTranche({ t }: Readonly<{ t: TrancheDetailDto }>) {
         ))}
       </span>
       {admin && (
-        <span className="ml-auto flex gap-2">
+        <span className="ml-auto flex flex-wrap gap-2">
+          <ActionsTranche t={t} />
           <Button variant="outline" size="sm" onClick={() => void navigate(`/tranches/${t.id}/modifier`)}>
             <Pencil data-icon="inline-start" /> Modifier
           </Button>
