@@ -46,10 +46,9 @@ export default function BoiteDeTri() {
   const progression = traites + restants > 0 ? Math.round((traites / (traites + restants)) * 100) : 0;
   const ownCommercial = commerciaux.find((c) => c.id === user?.employeeId) ?? null;
 
-  /** `reste` : la ligne reste dans la boîte (pas joignable, échange noté), on passe à la suivante. */
-  async function suivante(reste: boolean, message: string) {
+  /** Toute ligne traitée quitte la boîte côté serveur : la relecture amène la suivante au même rang. */
+  async function suivante(message: string) {
     setTraites((t) => t + 1);
-    if (reste) setIndex((i) => i + 1);
     await file.refetch();
     showToast(message);
   }
@@ -60,7 +59,7 @@ export default function BoiteDeTri() {
     } else if (g === 'injoignable') {
       setBusy(true);
       marquerInjoignable(l.prospectionId)
-        .then(() => suivante(true, `${l.nom ?? 'Lead'} : relance demain à 10:00.`))
+        .then(() => suivante(`${l.nom ?? 'Lead'} : relance demain à 10:00, dans Ma journée.`))
         .catch((err: unknown) => showToast({ texte: err instanceof Error ? err.message : 'Échec.', variante: 'erreur' }))
         .finally(() => setBusy(false));
     } else if (g === 'qualifier') {
@@ -143,7 +142,7 @@ export default function BoiteDeTri() {
           onClose={() => setBoite(null)}
           onSubmit={async (input) => {
             await addInteraction(boite.ligne.prospectionId, input);
-            await suivante(true, 'Échange noté.');
+            await suivante('Échange noté.');
           }}
         />
       )}
@@ -175,7 +174,7 @@ export default function BoiteDeTri() {
           onClose={() => setBoite(null)}
           onSubmit={async (body) => {
             await transformerProspection(boite.ligne.prospectionId, body);
-            await suivante(false, `${nomLigne(boite.ligne)} est maintenant une prospection.`);
+            await suivante(`${nomLigne(boite.ligne)} est maintenant une prospection.`);
           }}
         />
       )}
@@ -186,7 +185,7 @@ export default function BoiteDeTri() {
           onClose={() => setBoite(null)}
           onSubmit={async (body) => {
             await archiverProspection(boite.ligne.prospectionId, body);
-            await suivante(false, `${nomLigne(boite.ligne)} archivé.`);
+            await suivante(`${nomLigne(boite.ligne)} archivé.`);
           }}
         />
       )}
