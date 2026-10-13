@@ -42,7 +42,7 @@ export default function GestesTri({ ligne, busy, onGeste }: Readonly<{ ligne: Li
       <Tuile touche="1" titre="Appeler / WhatsApp" aide="Puis noter l'échange">
         <ContactBoutons nom={nom} telephone={ligne.telephone} indicatif={ligne.indicatif} libelles onContact={() => onGeste('contact')} />
       </Tuile>
-      <Tuile touche="2" titre="Pas joignable" aide="Relance demain 10:00" disabled={busy} onClick={() => onGeste('injoignable')} />
+      <Tuile touche="2" titre="Pas joignable" aide={busy ? 'Enregistrement…' : 'Relance demain 10:00'} disabled={busy} onClick={() => onGeste('injoignable')} />
       <Tuile
         touche="3"
         titre="Qualifier et attribuer"
