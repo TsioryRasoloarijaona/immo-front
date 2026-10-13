@@ -29,7 +29,7 @@ import {
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { formatCurrency, formatPercent, formatPercentValue, formatSurface } from '../../lib/format';
 import { avecCles } from '../../lib/cles';
-import { aDesAnnexes, annexesAutomatiques, prixAnnexesAutomatiques } from '../../lib/annexesAutomatiques';
+import { aDesAnnexes, annexesAutomatiques, arrondiCentimes, prixProposeDesArticles, sansRemise } from '../../lib/annexesAutomatiques';
 
 function libelleArticlesCharges(affiches: number, charges: number): string {
   const s = (n: number) => (n > 1 ? 's' : '');
@@ -101,15 +101,17 @@ function remiseDeduiteDeLOffre(montants: MontantsOffreDto | undefined): { totalT
 /** Montants de la simulation serveur, ceux que la création enregistrera. Rien si aucune remise. */
 function BlocRemise({ schema, avecAnnexes }: Readonly<{ schema: SchemaFinancementDto; avecAnnexes: boolean }>) {
   const { prixAvantRemise, montantRemise, remisePercent, prixApresRemise } = schema;
-  if (montantRemise == null || prixApresRemise == null || montantRemise === 0) return null;
+  if (montantRemise == null || prixApresRemise == null) return null;
+  // Sous le demi-centime : arrondi du prix saisi, pas une remise (même seuil que le serveur).
+  const remise = sansRemise(montantRemise) ? { montant: 0, taux: 0 } : { montant: montantRemise, taux: remisePercent };
   // Prix négocié au-dessus du prix de référence : le serveur déduit une remise négative.
-  const signe = montantRemise > 0 ? '−' : '+';
+  const signe = remise.montant < 0 ? '+' : '−';
   return (
     <div className="mt-4 flex flex-col gap-1.5 border-t border-border pt-3">
       <div className="flex items-center justify-between text-body">
-        <span className="text-muted-foreground">Montant de la remise ({formatPercentValue(remisePercent)})</span>
+        <span className="text-muted-foreground">Montant de la remise ({formatPercentValue(remise.taux)})</span>
         <span className="tabular-nums text-foreground">
-          {signe} {formatCurrency(Math.abs(montantRemise))}
+          {remise.montant === 0 ? '' : `${signe} `}{formatCurrency(Math.abs(remise.montant))}
         </span>
       </div>
       {avecAnnexes && (
@@ -262,12 +264,10 @@ export default function NewDossier() {
 
   const selectedArticles: ArticleDetailDto[] = selectedArticleDetails.data ?? [];
   const showPicker = editingArticles || selectedArticles.length === 0;
-  // Le serveur rattache d'office les sous-articles libres du lot : ils entrent dans le prix proposé.
+  // Le serveur rattache d'office les sous-articles libres du lot ; le prix du lot les inclut déjà.
   const annexesAuto = annexesAutomatiques(selectedArticles);
   const avecAnnexes = aDesAnnexes(selectedIds.length, annexesAuto);
-  // `prixSuggere` = prix commercial, ou plancher quand il vaut 0 — même calcul que le serveur.
-  const autoPrixFromArticles =
-    selectedArticles.reduce((sum, a) => sum + (a.prixSuggere ?? 0), 0) + prixAnnexesAutomatiques(annexesAuto);
+  const autoPrixFromArticles = prixProposeDesArticles(selectedArticles);
   const prixPlancherPropose = selectedArticles.some((a) => a.prixSuggereEstPlancher);
   const remiseOffre = remiseDeduiteDeLOffre(latestDevis?.montants);
   // Taux auto seulement si le prix l'est aussi : sinon il s'appliquerait à un prix tapé à la main.
@@ -279,7 +279,7 @@ export default function NewDossier() {
   // Avec une remise, `prix` est le total avant remise : depuis une offre remisée, c'est son `totalTTC`.
   const prixOffre = remiseOffre && remiseNumber !== null ? remiseOffre.totalTTC : latestDevis?.montants?.prixVenteTTC;
   const autoPrix = prixOffre || autoPrixFromArticles;
-  const prixValue = !priceTouched && autoPrix > 0 ? String(autoPrix) : prix;
+  const prixValue = !priceTouched && autoPrix > 0 ? String(arrondiCentimes(autoPrix)) : prix;
 
   // `remisePercent` est un pourcentage 0–100, pas un ratio. Avec une remise, `prix` devient le total
   // avant remise, annexes comprises.

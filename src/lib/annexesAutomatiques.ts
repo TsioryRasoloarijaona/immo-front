@@ -16,7 +16,25 @@ export function aDesAnnexes(nombreSelectionnes: number, automatiques: readonly u
   return nombreSelectionnes > 1 || (automatiques ?? []).length > 0;
 }
 
-/** Prix de référence TTC cumulé des sous-articles rattachés d'office (0 sans prix). */
-export function prixAnnexesAutomatiques(annexes: readonly ArticleListItemDto[]): number {
-  return annexes.reduce((somme, a) => somme + (a.prixSuggere ?? 0), 0);
+/**
+ * Prix proposé : `prixSuggere` du lot principal, qui inclut déjà tous ses sous-articles (prix OMRAN du lot),
+ * plus les autres articles cochés qui ne sont pas des sous-articles de ce lot.
+ */
+export function prixProposeDesArticles(selection: readonly ArticleDetailDto[]): number {
+  if (selection.length === 0) return 0;
+  const principal = selection[0];
+  const enfants = new Set((principal.sousLots ?? []).map((s) => s.id));
+  return selection
+    .filter((a, index) => index === 0 || !enfants.has(a.id))
+    .reduce((somme, a) => somme + (a.prixSuggere ?? 0), 0);
+}
+
+/** Écart de prix sous le demi-centime : arrondi du prix saisi, pas une remise (seuil du serveur). */
+export function sansRemise(montantRemise: number): boolean {
+  return Math.abs(montantRemise) < 0.005;
+}
+
+/** Montant ramené au centime, pour pré-remplir un champ de prix. */
+export function arrondiCentimes(montant: number): number {
+  return Math.round(montant * 100) / 100;
 }
