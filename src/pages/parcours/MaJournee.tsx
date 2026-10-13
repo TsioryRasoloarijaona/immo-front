@@ -16,6 +16,7 @@ import { useAppData, commercialLabel } from '../../lib/appData';
 import { estChefOuExempte } from '../../lib/roles';
 import { formatNumber, pluriel } from '../../lib/format';
 import { useTypesContactProspection } from '../../lib/referentiels';
+import { typeActionDuCanal, type CanalContact } from '../../lib/contact';
 import { useToast } from '../../lib/toastContext';
 import type { JourneeDto, RelanceJourneeDto } from '../../types';
 
@@ -36,13 +37,16 @@ export default function MaJournee() {
   const showToast = useToast();
   const types = useTypesContactProspection();
   const [commercialId, setCommercialId] = useState<string | null>(null);
-  const [visiteFaite, setVisiteFaite] = useState<RelanceJourneeDto | null>(null);
+  // Échange à noter : « Visite faite », ou retour d'un clic Appeler / WhatsApp (type d'action présélectionné).
+  const [echange, setEchange] = useState<{ relance: RelanceJourneeDto; typeId?: string; confirmation: string } | null>(null);
   const [fiche, setFiche] = useState<FicheOuverte | null>(null);
   const chef = estChefOuExempte(user);
 
   const journee = useApi(() => getJournee(commercialId ?? undefined), [commercialId], 'journee');
   const typeVisite = types.data.find((t) => (t.code ?? '').trim().toLowerCase() === 'visite')?.id;
   const j = journee.data;
+  const apresContact = (relance: RelanceJourneeDto, canal: CanalContact) =>
+    setEchange({ relance, typeId: typeActionDuCanal(types.data, canal), confirmation: 'Échange noté.' });
 
   return (
     <PageShell
@@ -95,7 +99,7 @@ export default function MaJournee() {
                 {j.nouveauxLeads.lignes.map((l) => <LigneLead key={l.prospectionId} lead={l} onOuvrir={setFiche} />)}
               </BlocJournee>
               <BlocJournee titre="Appels et relances du jour" total={j.relancesDuJour.total} affichees={j.relancesDuJour.lignes.length} vide="Aucune relance prévue aujourd'hui.">
-                {j.relancesDuJour.lignes.map((r) => <LigneRelance key={r.interactionId} relance={r} onOuvrir={setFiche} />)}
+                {j.relancesDuJour.lignes.map((r) => <LigneRelance key={r.interactionId} relance={r} onOuvrir={setFiche} onContact={apresContact} />)}
               </BlocJournee>
               <BlocJournee titre="Visites du jour" total={j.visitesDuJour.total} affichees={j.visitesDuJour.lignes.length} vide="Aucune visite prévue aujourd'hui.">
                 {j.visitesDuJour.lignes.map((r) => (
@@ -104,7 +108,7 @@ export default function MaJournee() {
                     relance={r}
                     onOuvrir={setFiche}
                     action={
-                      <Button type="button" size="sm" variant="outline" disabled={!typeVisite} onClick={() => setVisiteFaite(r)}>
+                      <Button type="button" size="sm" variant="outline" disabled={!typeVisite} onClick={() => setEchange({ relance: r, typeId: typeVisite, confirmation: 'Visite notée.' })}>
                         <Check data-icon="inline-start" /> Visite faite
                       </Button>
                     }
@@ -112,7 +116,7 @@ export default function MaJournee() {
                 ))}
               </BlocJournee>
               <BlocJournee titre="En retard" alerte total={j.enRetard.total} affichees={j.enRetard.lignes.length} vide="Rien en retard.">
-                {j.enRetard.lignes.map((r) => <LigneRelance key={r.interactionId} relance={r} onOuvrir={setFiche} retard />)}
+                {j.enRetard.lignes.map((r) => <LigneRelance key={r.interactionId} relance={r} onOuvrir={setFiche} onContact={apresContact} retard />)}
               </BlocJournee>
             </div>
           </>
@@ -126,14 +130,14 @@ export default function MaJournee() {
           void journee.refetch();
         }}
       />
-      {visiteFaite && (
+      {echange && (
         <InteractionForm
-          initialActionTypeId={typeVisite}
-          onClose={() => setVisiteFaite(null)}
+          initialActionTypeId={echange.typeId}
+          onClose={() => setEchange(null)}
           onSubmit={async (input) => {
-            await addInteraction(visiteFaite.prospectionId, input);
+            await addInteraction(echange.relance.prospectionId, input);
             await journee.refetch();
-            showToast('Visite notée.');
+            showToast(echange.confirmation);
           }}
         />
       )}

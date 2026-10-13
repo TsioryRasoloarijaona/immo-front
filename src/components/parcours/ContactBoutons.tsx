@@ -1,6 +1,6 @@
 import { MessageCircle, Phone } from 'lucide-react';
 import { buttonVariants } from '../ui/button';
-import { lienAppel, lienWhatsApp } from '../../lib/contact';
+import { lienAppel, lienWhatsApp, type CanalContact } from '../../lib/contact';
 import { cn } from '../../lib/utils';
 
 /** « Appeler » (`tel:`) et « WhatsApp » (`wa.me`, nouvel onglet). Rien sans numéro. */
@@ -16,8 +16,8 @@ export default function ContactBoutons({
   indicatif?: string | null;
   /** Libellés visibles ; sinon icônes seules, nommées pour les lecteurs d'écran. */
   libelles?: boolean;
-  /** Après le clic : le contact a été tenté, l'écran propose de le noter. */
-  onContact?: () => void;
+  /** Après le clic : le contact a été tenté, l'écran propose de le noter (type d'action selon le canal). */
+  onContact?: (canal: CanalContact) => void;
 }>) {
   const appel = lienAppel(telephone);
   const whatsapp = lienWhatsApp(telephone, indicatif);
@@ -30,7 +30,7 @@ export default function ContactBoutons({
         className={cn(buttonVariants({ variant: 'outline', size: taille }))}
         aria-label={`Appeler ${nom}`}
         title={`Appeler ${nom}`}
-        onClick={onContact}
+        onClick={() => onContact?.('appel')}
       >
         <Phone data-icon={libelles ? 'inline-start' : undefined} aria-hidden />
         {libelles && 'Appeler'}
@@ -42,7 +42,7 @@ export default function ContactBoutons({
         className={cn(buttonVariants({ variant: 'outline', size: taille }), 'text-(--success)')}
         aria-label={`WhatsApp ${nom} (nouvel onglet)`}
         title={`WhatsApp ${nom}`}
-        onClick={onContact}
+        onClick={() => onContact?.('whatsapp')}
       >
         <MessageCircle data-icon={libelles ? 'inline-start' : undefined} aria-hidden />
         {libelles && 'WhatsApp'}

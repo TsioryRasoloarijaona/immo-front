@@ -1,7 +1,23 @@
 // Liens « Appeler » et « WhatsApp » du parcours commercial (FEATURE-parcours-commercial.md §4).
 // Lien seulement : rien n'est envoyé par l'application.
 
+import { sansAccents } from './colonnes';
+
 const INDICATIF_PAR_DEFAUT = '212';
+
+export type CanalContact = 'appel' | 'whatsapp';
+
+// Codes `ComActionMessageType` d'OMRAN, comparés sans casse ni accents.
+const TYPE_DU_CANAL: Record<CanalContact, string> = { appel: 'telephone sortant', whatsapp: 'message sortant' };
+
+/** Type d'action à présélectionner pour noter l'échange qui suit un clic Appeler / WhatsApp. */
+export function typeActionDuCanal(
+  types: readonly { id: string; code?: string }[],
+  canal: CanalContact | undefined,
+): string | undefined {
+  if (!canal) return undefined;
+  return types.find((t) => sansAccents((t.code ?? '').trim()) === TYPE_DU_CANAL[canal])?.id;
+}
 
 function chiffres(valeur: string | null | undefined): string {
   return (valeur ?? '').replaceAll(/\D/g, '');

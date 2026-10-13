@@ -13,14 +13,16 @@ import { addInteraction, archiverProspection, listBoiteDeTri, marquerInjoignable
 import { useApi } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { lienAppel } from '../../lib/contact';
+import { lienAppel, typeActionDuCanal, type CanalContact } from '../../lib/contact';
 import { formatNumber, pluriel } from '../../lib/format';
+import { useTypesContactProspection } from '../../lib/referentiels';
 import { useToast } from '../../lib/toastContext';
 import type { LigneTriDto } from '../../types';
 
 const TAILLE_FILE = 50;
 const TOUCHES: Partial<Record<string, GesteTri>> ={ '1': 'contact', '2': 'injoignable', '3': 'qualifier', '4': 'archiver' };
-type Boite = { type: 'interaction' | 'creerProspect' | 'transformer' | 'archiver'; ligne: LigneTriDto };
+/** `canal` : bouton Appeler / WhatsApp cliqué avant « noter l'échange », pour présélectionner le type d'action. */
+type Boite = { type: 'interaction' | 'creerProspect' | 'transformer' | 'archiver'; ligne: LigneTriDto; canal?: CanalContact };
 
 function saisieEnCours(cible: EventTarget | null): boolean {
   return cible instanceof HTMLElement && (cible.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(cible.tagName));
@@ -31,6 +33,7 @@ export default function BoiteDeTri() {
   const { user } = useAuth();
   const { commerciaux } = useAppData();
   const showToast = useToast();
+  const typesAction = useTypesContactProspection();
   const [toutes, setToutes] = useState(false);
   const [index, setIndex] = useState(0);
   const [traites, setTraites] = useState(0);
@@ -55,10 +58,10 @@ export default function BoiteDeTri() {
     showToast(message);
   }
 
-  function geste(g: GesteTri, l: LigneTriDto) {
+  function geste(g: GesteTri, l: LigneTriDto, canal?: CanalContact) {
     if (enCours.current) return;
     if (g === 'contact') {
-      setBoite({ type: 'interaction', ligne: l });
+      setBoite({ type: 'interaction', ligne: l, canal });
     } else if (g === 'injoignable') {
       enCours.current = true;
       setBusy(true);
@@ -84,7 +87,7 @@ export default function BoiteDeTri() {
       // Au clavier, « 1 » compose aussi le numéro ; au clic, c'est le lien lui-même qui l'a fait.
       const appel = g === 'contact' ? lienAppel(ligne.telephone) : null;
       if (appel) globalThis.location.assign(appel);
-      geste(g, ligne);
+      geste(g, ligne, appel ? 'appel' : undefined);
     }
     globalThis.addEventListener('keydown', surTouche);
     return () => globalThis.removeEventListener('keydown', surTouche);
@@ -138,7 +141,7 @@ export default function BoiteDeTri() {
                 )}
                 <div aria-busy={busy} className={busy ? 'pointer-events-none flex flex-col gap-3 opacity-60' : 'flex flex-col gap-3'}>
                   <CarteTri ligne={ligne} />
-                  <GestesTri ligne={ligne} busy={busy} onGeste={(g) => geste(g, ligne)} />
+                  <GestesTri ligne={ligne} busy={busy} onGeste={(g, canal) => geste(g, ligne, canal)} />
                 </div>
               </>
             ) : (
@@ -154,6 +157,7 @@ export default function BoiteDeTri() {
 
       {boite?.type === 'interaction' && (
         <InteractionForm
+          initialActionTypeId={typeActionDuCanal(typesAction.data, boite.canal)}
           onClose={() => setBoite(null)}
           onSubmit={async (input) => {
             await addInteraction(boite.ligne.prospectionId, input);
