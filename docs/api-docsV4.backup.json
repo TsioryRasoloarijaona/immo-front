@@ -444,7 +444,7 @@
           "Dossiers — réajustement des superficies"
         ],
         "summary": "« Vérifier les données » : dossiers de la tranche dont la superficie diffère du stock",
-        "description": "Un dossier n'apparaît que si le nouveau prix de vente TTC après remise diffère du total avance + crédit +\nautofinancement de son schéma de financement (écart arrondi à 2 décimales) : sans écart, le légataire écarte\nla ligne. `ligneCible` dit où ira l'écart : la dernière ligne d'autofinancement, sinon la dernière ligne de\ncrédit, sinon une nouvelle ligne d'autofinancement datée du jour.",
+        "description": "Un dossier n'apparaît que si le nouveau prix de vente TTC après remise diffère du total avance + crédit +\nautofinancement de son schéma de financement (écart arrondi à 2 décimales) : sans écart, le légataire écarte\nla ligne. `ligneCible` dit où ira l'écart : la dernière ligne d'autofinancement, sinon la dernière ligne de\ncrédit, sinon une nouvelle ligne d'autofinancement datée du jour.\n\nUn dossier dont le nouveau prix ne peut pas être calculé est listé avec `motifExclusion` et sans prix, écart\nni ligne cible : prix du m² HT du dossier absent ou nul (dossier saisi au forfait, le prix tomberait à 0),\nprix de stock absent pour un sous-article dont la superficie change, ou nouveau prix nul ou négatif. Il ne\npeut pas être coché.",
         "operationId": "verifier",
         "parameters": [
           {
@@ -583,7 +583,7 @@
             }
           },
           "409": {
-            "description": "Un dossier coché n'a aucun écart de superficie à réajuster (ou plus d'écart dans son schéma), ou aucune\ncatégorie d'autofinancement n'existe pour sa vocation alors qu'une ligne doit être créée.",
+            "description": "Un dossier coché n'a aucun écart de superficie à réajuster (ou plus d'écart dans son schéma), porte un\n`motifExclusion` (rien n'est écrit), ou aucune catégorie d'autofinancement n'existe pour sa vocation alors qu'une ligne doit être créée.",
             "content": {
               "*/*": {
                 "schema": {
@@ -12555,6 +12555,10 @@
           "notes": {
             "type": "string",
             "description": "Détail des superficies modifiées (article et sous-articles), une par ligne."
+          },
+          "motifExclusion": {
+            "type": "string",
+            "description": "Raison pour laquelle le dossier ne peut pas être réajusté (POST = 409) ; null sinon."
           }
         }
       },
