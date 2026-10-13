@@ -61,6 +61,7 @@ const NouvelAppartementSyndic = lazy(() => import('./pages/outils/syndic/NouvelA
 const ProprietaireSyndic = lazy(() => import('./pages/outils/syndic/ProprietaireSyndic'));
 const OuvrirExerciceSyndic = lazy(() => import('./pages/outils/syndic/OuvrirExerciceSyndic'));
 const ReglagesSyndic = lazy(() => import('./pages/outils/syndic/ReglagesSyndic'));
+const Aide = lazy(() => import('./pages/aide/Aide'));
 const ComingSoon = lazy(() => import('./pages/ComingSoon'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -144,6 +145,8 @@ function AuthenticatedApp() {
                   <Route path="/outils/syndic/paiement/nouveau" element={<NouveauPaiementSyndic />} />
                   <Route path="/outils/syndic/paiements" element={<PaiementsSyndic />} />
                   <Route path="/outils/syndic/qui-doit" element={<QuiDoitSyndic />} />
+                  <Route path="/aide" element={<Aide />} />
+                  <Route path="/aide/:slug" element={<Aide />} />
                   <Route path="/bientot/:module" element={<ComingSoon />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
