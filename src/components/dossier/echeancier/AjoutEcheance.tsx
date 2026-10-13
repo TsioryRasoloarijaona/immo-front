@@ -51,10 +51,11 @@ export default function AjoutEcheance({
       <form
         onSubmit={async (e) => {
           e.preventDefault();
+          if (!categorieId) return;
           setBusy(true);
           try {
             await onAdd({
-              categorieId: categorieId || undefined,
+              categorieId,
               montant: Number(montant) || 0,
               // `dateEcheance` est en `date-time` : un « YYYY-MM-DD » nu vaut 400.
               dateEcheance: toApiDateTime(dateEcheance) ?? null,
@@ -68,7 +69,7 @@ export default function AjoutEcheance({
       >
         <FieldGroup>
           <FormField>
-            <FieldLabel htmlFor="new-cat">Catégorie</FieldLabel>
+            <FieldLabel htmlFor="new-cat">Catégorie *</FieldLabel>
             <Select items={categorieItems} value={categorieId} onValueChange={(v) => setCategorieId((v) || null)}>
               <SelectTrigger id="new-cat" className="w-full">
                 <SelectValue placeholder="Choisir…" />
@@ -97,7 +98,7 @@ export default function AjoutEcheance({
         </FieldGroup>
         <DialogFooter className="mt-5">
           <Button type="button" variant="outline" onClick={reset}>Annuler</Button>
-          <Button type="submit" disabled={busy || !montant}>Ajouter</Button>
+          <Button type="submit" disabled={busy || !montant || !categorieId}>Ajouter</Button>
         </DialogFooter>
       </form>
     </Modal>

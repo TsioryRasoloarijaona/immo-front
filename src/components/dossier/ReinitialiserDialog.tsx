@@ -49,7 +49,8 @@ export default function ReinitialiserDialog({
   return (
     <Modal title="Réinitialiser depuis le stock" onClose={onClose} width={560}>
       <p className="mb-3 text-body text-muted-foreground">
-        Recharge la superficie, la TVA et le prix HT de l'article et des sous-articles depuis le stock. Le montant
+        Recharge la superficie, la TVA et le prix HT de l'article et des sous-articles depuis le stock, et ajoute les
+        sous-articles du stock absents du dossier. Le montant
         de remise est conservé, le taux est recalculé. Le schéma de financement n'est pas modifié.
       </p>
       {apercu.error && <ErrorState message={apercu.error} />}
@@ -78,7 +79,12 @@ export default function ReinitialiserDialog({
           </TableBody>
         </Table>
       )}
-      {a && !a.modifie && <p className="mt-3 text-body text-muted-foreground">Le dossier est déjà aligné sur le stock.</p>}
+      {a && a.sousArticlesAjoutes.length > 0 && (
+        <p className="mt-3 text-body">
+          Sous-articles du stock ajoutés au dossier : <span className="font-semibold">{a.sousArticlesAjoutes.join(', ')}</span>
+        </p>
+      )}
+      {a && !a.modifie &&<p className="mt-3 text-body text-muted-foreground">Le dossier est déjà aligné sur le stock.</p>}
       {error && <p role="alert" className="mt-3 text-micro text-destructive">{error}</p>}
       <DialogFooter className="mt-5">
         <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>

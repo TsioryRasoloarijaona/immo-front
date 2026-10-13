@@ -1543,6 +1543,8 @@ export interface ReinitialisationDto {
   avant: EtatPrixDto;
   apres: EtatPrixDto;
   modifie: boolean;
+  /** Codes des sous-articles du stock absents du dossier, ajoutés par la réinitialisation. */
+  sousArticlesAjoutes: string[];
 }
 
 export type LigneCibleReajustement = 'AUTOFINANCEMENT' | 'CREDIT' | 'NOUVELLE_LIGNE_AUTOFINANCEMENT';
@@ -1643,16 +1645,17 @@ export interface EcheanceDto {
   creeLe?: string | null;
 }
 
+/** `categorieId` obligatoire à la création (400 sinon). */
 export interface CreerEcheanceRequest {
   dateEcheance?: string | null;
   montant?: number;
   description?: string;
-  categorieId?: UUID;
+  categorieId: UUID;
   exclureDuPrix?: boolean;
   notes?: string;
 }
 
-export type ModifierEcheanceRequest = CreerEcheanceRequest;
+export type ModifierEcheanceRequest = Partial<CreerEcheanceRequest>;
 
 /** Le payeur peut différer de l'acquéreur principal du dossier. */
 export interface ReglementDto {
