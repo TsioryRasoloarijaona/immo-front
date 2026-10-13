@@ -19,9 +19,16 @@ export type CibleRepartition =
  */
 export default function RepartirAutomatiquement({
   cible,
+  rechargement = false,
   onFait,
   onErreur,
-}: Readonly<{ cible: CibleRepartition; onFait: () => void; onErreur: (message: string | null) => void }>) {
+}: Readonly<{
+  cible: CibleRepartition;
+  /** Compteur en cours de rechargement : `nombre` peut encore être celui de l'ancien filtre. */
+  rechargement?: boolean;
+  onFait: () => void;
+  onErreur: (message: string | null) => void;
+}>) {
   const toast = useToast();
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
@@ -56,7 +63,7 @@ export default function RepartirAutomatiquement({
   }
 
   return (
-    <Button type="button" variant="outline" onClick={() => void repartir()} disabled={busy || cible.nombre === 0}>
+    <Button type="button" variant="outline" onClick={() => void repartir()} disabled={busy || rechargement || cible.nombre === 0}>
       <Shuffle data-icon="inline-start" />{' '}
       {busy ? 'Répartition…' : `Répartir automatiquement (${formatNumber(cible.nombre)})`}
     </Button>

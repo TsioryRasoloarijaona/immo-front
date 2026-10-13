@@ -139,7 +139,12 @@ export default function ListeADistribuer({
               <Button type="button" onClick={() => void distribuer()} disabled={busy || !commercialId || selection.size === 0}>
                 <Send data-icon="inline-start" /> {busy ? 'Distribution…' : `Distribuer (${selection.size})`}
               </Button>
-              <RepartirAutomatiquement cible={cible} onFait={apresEcriture} onErreur={setErreur} />
+              <RepartirAutomatiquement
+                cible={cible}
+                rechargement={compte.loading || liste.loading}
+                onFait={apresEcriture}
+                onErreur={setErreur}
+              />
             </div>
             {erreur && <p role="alert" className="text-body text-destructive">{erreur}</p>}
             <LignesADistribuer
