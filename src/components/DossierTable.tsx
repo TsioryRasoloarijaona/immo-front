@@ -84,6 +84,7 @@ const CLASSES: Record<string, string> = {
   delaiConcretisation: 'text-muted-foreground',
   delaiNotaire: 'text-muted-foreground',
   delaiLivraison: 'text-muted-foreground',
+  dateEnvoiNotaire: 'text-muted-foreground',
   dateCompromis: 'text-muted-foreground',
   dateLivraisonReelle: 'text-muted-foreground',
   creePar: 'text-muted-foreground',
