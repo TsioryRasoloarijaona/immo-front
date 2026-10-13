@@ -1982,6 +1982,19 @@
             }
           },
           {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id(s) de projet (CfgProject.id) de la tranche ; une ligne sans tranche est écartée. Répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
             "name": "dateDebut",
             "in": "query",
             "description": "Borne inférieure (incluse) sur la date du document, format ISO-8601.",
@@ -2633,8 +2646,8 @@
         "tags": [
           "Mon équipe"
         ],
-        "summary": "Réaffecte des prospections à un autre commercial de l'équipe",
-        "description": "Change le commercial (`ComProspection.CfgCommercialId`) de prospections ouvertes et trace « Commercial\nréaffecté : A → B » dans leur historique. Le commercial référent de la fiche prospect n'est pas\nmodifié. Tout le lot ou rien.",
+        "summary": "Réaffecte des prospections ou pré-prospections affectées à un autre commercial de l'équipe",
+        "description": "Change le commercial (`ComProspection.CfgCommercialId`) de prospections **et de pré-prospections déjà\naffectées**, ouvertes, et trace « Commercial réaffecté : A → B — motif » dans leur historique. Une\npré-prospection réaffectée reste une pré-prospection (aucune transformation). Le commercial référent\nde la fiche prospect n'est pas modifié. Un lot peut mêler les deux. Tout le lot ou rien.\n\nUne ligne **sans tranche** (donc sans projet) se réaffecte par un chef seulement si son commercial actuel\nest de son équipe (403 sinon), vers n'importe quel membre de l'équipe.",
         "operationId": "reaffecter",
         "requestBody": {
           "content": {
@@ -2688,7 +2701,7 @@
             }
           },
           "409": {
-            "description": "Une ligne est une pré-prospection (elle se distribue) ou une prospection clôturée, ou le commercial\nn'est pas de l'équipe ou pas affecté au projet de la ligne : rien n'est écrit.",
+            "description": "Une ligne est clôturée, ou c'est une pré-prospection sans commercial (elle se distribue :\n`POST /api/equipe/distribuer`), ou le commercial n'est pas de l'équipe ou pas affecté au projet de la\nligne : rien n'est écrit.",
             "content": {
               "*/*": {
                 "schema": {
@@ -13829,11 +13842,11 @@
       },
       "ReaffecterRequest": {
         "type": "object",
-        "description": "Réaffectation en lot de prospections ouvertes à un autre commercial de l'équipe.",
+        "description": "Réaffectation en lot de lignes ouvertes (prospections ou pré-prospections affectées) à un autre commercial.",
         "properties": {
           "prospectionIds": {
             "type": "array",
-            "description": "Prospections à réaffecter (au moins une).",
+            "description": "Prospections et/ou pré-prospections déjà affectées à réaffecter (au moins une).",
             "items": {
               "type": "string",
               "format": "uuid"

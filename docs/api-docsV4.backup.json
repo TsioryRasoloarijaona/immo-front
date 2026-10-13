@@ -1982,6 +1982,19 @@
             }
           },
           {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id(s) de projet (CfgProject.id) de la tranche ; une ligne sans tranche est écartée. Répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
             "name": "dateDebut",
             "in": "query",
             "description": "Borne inférieure (incluse) sur la date du document, format ISO-8601.",
@@ -2562,7 +2575,7 @@
           "Mon équipe"
         ],
         "summary": "Répartit automatiquement des pré-prospections entre les commerciaux de leur projet",
-        "description": "Répartition automatique : pour chaque pré-prospection demandée, le commercial est choisi par la même\nfonction que la création et l'import. Projet = projet de la tranche ; éligibles = comptes actifs\n« Commercial » / « Commercial Aide » avec un employé et une **affectation explicite** à ce projet (un\ncommercial sans restriction n'est pas éligible). Lead déjà connu (même téléphone, 9 derniers chiffres,\nou même e-mail qu'une autre prospection ouverte ou qu'un prospect suivis par un éligible) → ce\ncommercial (`CONNU`) ; sinon le moins de leads à trier (`MOINS_CHARGE`, même définition que la Boîte de\ntri), puis la dernière pré-prospection reçue la plus ancienne, puis le nom ; la charge est mise à jour\nau fil du lot. Une ligne déjà attribuée n'est jamais reprise (`DEJA_ATTRIBUEE`). Avec `simulation`\n(défaut `true`) rien n'est écrit ; sinon historique « Commercial assigné : B — répartition\nautomatique » et notification à chaque commercial. 403 si une ligne est hors des projets d'un chef.",
+        "description": "Répartition automatique : pour chaque pré-prospection demandée, le commercial est choisi par la même\nfonction que la création et l'import. Projet = projet de la tranche ; éligibles = comptes actifs\n« Commercial » / « Commercial Aide » avec un employé et une **affectation explicite** à ce projet (un\ncommercial sans restriction n'est pas éligible). Lead déjà connu (même téléphone, 9 derniers chiffres,\nou même e-mail qu'une autre prospection ouverte ou qu'un prospect suivis par un éligible) → ce\ncommercial (`CONNU`) ; sinon le moins de leads à trier (`MOINS_CHARGE`, même définition que la Boîte de\ntri), puis la dernière pré-prospection reçue la plus ancienne, puis le nom ; la charge est mise à jour\nau fil du lot. Une ligne déjà attribuée n'est jamais reprise (`DEJA_ATTRIBUEE`). Avec `simulation`\n(défaut `true`) rien n'est écrit ; sinon historique « Commercial assigné : B — répartition\nautomatique » et notification à chaque commercial. 403 si une ligne est hors des projets d'un chef.\n\nLe lot est soit `preProspectionIds` (les lignes cochées), soit `filtre` : alors **toutes** les lignes que\n`GET /api/equipe/a-distribuer/lignes` renverrait pour ce filtre, toutes pages confondues — c'est-à-dire\nle `nombre` du compteur. Exactement un des deux, sinon 400 ; au-delà de 5 000 lignes au filtre, 400\n(découper la période).",
         "operationId": "repartir",
         "requestBody": {
           "content": {
@@ -2586,7 +2599,7 @@
             }
           },
           "400": {
-            "description": "Liste vide.",
+            "description": "Ni ids ni `filtre`, les deux à la fois, ou plus de 5 000 lignes au filtre.",
             "content": {
               "*/*": {
                 "schema": {
@@ -2633,8 +2646,8 @@
         "tags": [
           "Mon équipe"
         ],
-        "summary": "Réaffecte des prospections à un autre commercial de l'équipe",
-        "description": "Change le commercial (`ComProspection.CfgCommercialId`) de prospections ouvertes et trace « Commercial\nréaffecté : A → B » dans leur historique. Le commercial référent de la fiche prospect n'est pas\nmodifié. Tout le lot ou rien.",
+        "summary": "Réaffecte des prospections ou pré-prospections affectées à un autre commercial de l'équipe",
+        "description": "Change le commercial (`ComProspection.CfgCommercialId`) de prospections **et de pré-prospections déjà\naffectées**, ouvertes, et trace « Commercial réaffecté : A → B — motif » dans leur historique. Une\npré-prospection réaffectée reste une pré-prospection (aucune transformation). Le commercial référent\nde la fiche prospect n'est pas modifié. Un lot peut mêler les deux. Tout le lot ou rien.",
         "operationId": "reaffecter",
         "requestBody": {
           "content": {
@@ -2688,7 +2701,7 @@
             }
           },
           "409": {
-            "description": "Une ligne est une pré-prospection (elle se distribue) ou une prospection clôturée, ou le commercial\nn'est pas de l'équipe ou pas affecté au projet de la ligne : rien n'est écrit.",
+            "description": "Une ligne est clôturée, ou c'est une pré-prospection sans commercial (elle se distribue :\n`POST /api/equipe/distribuer`), ou le commercial n'est pas de l'équipe ou pas affecté au projet de la\nligne : rien n'est écrit.",
             "content": {
               "*/*": {
                 "schema": {
@@ -8307,7 +8320,7 @@
           "Mon équipe"
         ],
         "summary": "Pré-prospections en attente de commercial, reçues dans la période",
-        "description": "Pré-prospections ouvertes, sans commercial, dont la tranche est sur un projet de l'appelant (toutes\npour Administrateur / Direction Générale sans `projet`, lignes sans tranche comprises), **reçues dans la\npériode** (`ComProspection.DocDate` entre `du` et `au`, 30 derniers jours par défaut, même règle que\n`entonnoir` et `commerciaux`). La plus ancienne est celle de la période. Pour lister ces lignes :\n`GET /api/pre-prospections?ouvertes=true&dateDebut=…&dateFin=…` puis garder celles sans commercial.",
+        "description": "Pré-prospections ouvertes, sans commercial, dont la tranche est sur un projet de l'appelant (toutes\npour Administrateur / Direction Générale sans `projet`, lignes sans tranche comprises), **reçues dans la\npériode** (`ComProspection.DocDate` entre `du` et `au`, 30 derniers jours par défaut, même règle que\n`entonnoir` et `commerciaux`) et, par défaut, **jamais traitées** : aucune action (`ComActionMessage`)\nautre que système (`IsSystem`), même règle que la Boîte de tri. `toutes=true` lève cette dernière\ncondition. La plus ancienne est celle de la période. La liste elle-même :\n`GET /api/equipe/a-distribuer/lignes` avec les mêmes paramètres — son `totalElements` est toujours ce\n`nombre`.",
         "operationId": "aDistribuer",
         "parameters": [
           {
@@ -8341,6 +8354,16 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "toutes",
+            "in": "query",
+            "description": "`true` : aussi les pré-prospections déjà traitées. Défaut : jamais traitées seulement.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {
@@ -8370,6 +8393,114 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ADistribuerDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/equipe/a-distribuer/lignes": {
+      "get": {
+        "tags": [
+          "Mon équipe"
+        ],
+        "summary": "Liste des pré-prospections à distribuer (mêmes règles que le compteur)",
+        "description": "Les lignes que compte `GET /api/equipe/a-distribuer` pour les mêmes paramètres (même règle, même\npérimètre, même 403 pour un projet hors périmètre), paginées et triées par `DocDate` croissante.\nAvec `toutes=true`, `dejaTraitee` signale celles qui ont au moins une action non système.",
+        "operationId": "lignesADistribuer",
+        "parameters": [
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Premier jour pris en compte, inclus. Défaut : il y a 30 jours.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-09-12"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Dernier jour pris en compte, inclus jusqu'à 23:59:59. Défaut : aujourd'hui.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-11"
+          },
+          {
+            "name": "projet",
+            "in": "query",
+            "description": "Projet à isoler ; doit être dans le périmètre de l'appelant (sinon 403).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "toutes",
+            "in": "query",
+            "description": "`true` : aussi les pré-prospections déjà traitées. Défaut : jamais traitées seulement.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Numéro de page, à partir de 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Taille de page ; ramenée à 500 au-delà.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page triée par date de document croissante.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneADistribuerDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`du` postérieure à `au`, ou date non parsable. Ou `page` < 0, `size` < 1.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneADistribuerDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle sans accès, ou projet hors du périmètre de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneADistribuerDto"
                 }
               }
             }
@@ -13576,17 +13707,48 @@
           }
         }
       },
+      "FiltreADistribuer": {
+        "type": "object",
+        "description": "Filtre de la carte « À distribuer » : mêmes sens que `GET /api/equipe/a-distribuer/lignes`.",
+        "properties": {
+          "du": {
+            "type": "string",
+            "format": "date",
+            "description": "Premier jour pris en compte, inclus. Défaut : il y a 30 jours.",
+            "example": "2026-09-12"
+          },
+          "au": {
+            "type": "string",
+            "format": "date",
+            "description": "Dernier jour pris en compte, inclus. Défaut : aujourd'hui.",
+            "example": "2026-10-11"
+          },
+          "projet": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet à isoler ; doit être dans le périmètre de l'appelant (sinon 403)."
+          },
+          "toutes": {
+            "type": "boolean",
+            "description": "`true` : aussi les pré-prospections déjà traitées ; `false` ou absent : jamais traitées seulement."
+          }
+        }
+      },
       "RepartirRequest": {
         "type": "object",
-        "description": "Pré-prospections à répartir automatiquement entre les commerciaux de leur projet.",
+        "description": "Pré-prospections à répartir automatiquement entre les commerciaux de leur projet : `preProspectionIds` ou `filtre`, exactement un des deux.",
         "properties": {
           "preProspectionIds": {
             "type": "array",
-            "description": "Pré-prospections à répartir (au moins une).",
+            "description": "Pré-prospections à répartir (au moins une) ; absent ou vide quand `filtre` est donné.",
             "items": {
               "type": "string",
               "format": "uuid"
             }
+          },
+          "filtre": {
+            "$ref": "#/components/schemas/FiltreADistribuer",
+            "description": "Toutes les lignes que renverrait `GET /api/equipe/a-distribuer/lignes` avec ce filtre."
           },
           "simulation": {
             "type": "boolean",
@@ -13680,11 +13842,11 @@
       },
       "ReaffecterRequest": {
         "type": "object",
-        "description": "Réaffectation en lot de prospections ouvertes à un autre commercial de l'équipe.",
+        "description": "Réaffectation en lot de lignes ouvertes (prospections ou pré-prospections affectées) à un autre commercial.",
         "properties": {
           "prospectionIds": {
             "type": "array",
-            "description": "Prospections à réaffecter (au moins une).",
+            "description": "Prospections et/ou pré-prospections déjà affectées à réaffecter (au moins une).",
             "items": {
               "type": "string",
               "format": "uuid"
@@ -17926,7 +18088,7 @@
       },
       "ADistribuerDto": {
         "type": "object",
-        "description": "Pré-prospections ouvertes et sans commercial des projets de l'appelant. La liste elle-même : `GET /api/pre-prospections`.",
+        "description": "Pré-prospections ouvertes et sans commercial des projets de l'appelant. La liste elle-même : `GET /api/equipe/a-distribuer/lignes`, mêmes paramètres.",
         "properties": {
           "nombre": {
             "type": "integer",
@@ -17944,6 +18106,72 @@
             "format": "int64",
             "description": "Âge de la plus ancienne en jours, à aujourd'hui. `null` si aucune.",
             "example": 9
+          }
+        }
+      },
+      "LigneADistribuerDto": {
+        "type": "object",
+        "description": "Une pré-prospection ouverte et sans commercial de la carte « À distribuer ».",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la pré-prospection (`ComProspection.PKey`)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la pré-prospection.",
+            "example": "PP-2026-00412"
+          },
+          "nom": {
+            "type": "string",
+            "description": "Nom du prospect lié, sinon `TempDescription` saisi à la création. `null` si aucun."
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Code de la tranche. `null` = sans tranche.",
+            "example": "BEL-AIR-T1"
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Projet de la tranche. `null` = sans tranche ou tranche sans projet."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la pré-prospection (`DocDate`)."
+          },
+          "dejaTraitee": {
+            "type": "boolean",
+            "description": "Vrai si au moins une action non système existe ; toujours faux quand `toutes=false`."
+          }
+        }
+      },
+      "PageDtoLigneADistribuerDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneADistribuerDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

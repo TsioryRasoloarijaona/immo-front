@@ -13,6 +13,7 @@ import { getAffectationsEquipe, listCommerciauxEquipe } from '../../lib/api';
 import { refetchAllApis, useApi } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
 import { estChefOuExempte } from '../../lib/roles';
+import { periodeEffective } from '../../lib/equipe';
 import type { CommercialEquipeDto } from '../../types';
 
 function ContenuEquipe() {
@@ -47,7 +48,17 @@ function ContenuEquipe() {
       />
       <TableauCommerciaux data={commerciaux.data} loading={commerciaux.loading} error={commerciaux.error} onOuvrir={setSource} />
       <AffectationsEquipe data={affectations.data} loading={affectations.loading} error={affectations.error} onFait={fait} />
-      {source && <ReaffecterDialog source={source} commerciaux={membres} onClose={() => setSource(null)} onFait={fait} />}
+      {source && (
+        <ReaffecterDialog
+          source={source}
+          commerciaux={membres}
+          dates={periodeEffective(periode)}
+          projet={projet}
+          projetLibelle={projetItems.find((p) => p.value === projet)?.label ?? null}
+          onClose={() => setSource(null)}
+          onFait={fait}
+        />
+      )}
     </div>
   );
 }
