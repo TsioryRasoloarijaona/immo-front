@@ -26,10 +26,10 @@ const LEADS: LigneADistribuerDto[] = [
 ];
 
 const ACTIVITES = new Map<string, LeadActiviteDto>([
-  ['31', { id: '31', nombreActions: 0, joursSansAction: 21, endormi: true }],
-  ['32', { id: '32', nombreActions: 2, joursSansAction: 12, endormi: true }],
-  ['33', { id: '33', nombreActions: 3, joursSansAction: 2, endormi: false }],
-  ['34', { id: '34', nombreActions: 1, joursSansAction: 0, endormi: false }],
+  ['31', { id: '31', nombreActions: 0, joursSansAction: 21, endormi: true, jamaisTraite: true }],
+  ['32', { id: '32', nombreActions: 2, joursSansAction: 12, endormi: true, jamaisTraite: false }],
+  ['33', { id: '33', nombreActions: 3, joursSansAction: 2, endormi: false, jamaisTraite: false }],
+  ['34', { id: '34', nombreActions: 1, joursSansAction: 0, endormi: false, jamaisTraite: false }],
 ]);
 
 const COCHES: ReadonlySet<string> = new Set(['31', '32']);
