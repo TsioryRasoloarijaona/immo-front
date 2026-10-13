@@ -11,6 +11,8 @@ import type {
   MembreAffectationDto,
   ModifierAffectationsRequest,
   ReaffecterRequest,
+  LeadActiviteDto,
+  LeadsActiviteRequest,
   RepartirRequest,
   FiltreADistribuer,
   LigneADistribuerDto,
@@ -1542,6 +1544,11 @@ export function distribuerPreProspections(body: DistribuerRequest): Promise<Resu
  * ignorées (absentes de `lignes`). */
 export function reaffecterProspections(body: ReaffecterRequest): Promise<ResultatLotDto> {
   return request('POST', '/api/equipe/reaffecter', { body });
+}
+
+/** Nombre d'actions et sommeil des leads demandés (lecture seule) ; les ids hors périmètre sont omis. */
+export function getActiviteLeads(body: LeadsActiviteRequest): Promise<LeadActiviteDto[]> {
+  return request('POST', '/api/equipe/leads/activite', { body, lecture: true });
 }
 
 /** Répartition automatique ; `simulation` n'écrit rien (aperçu) et ne vide pas les caches. Une ligne déjà

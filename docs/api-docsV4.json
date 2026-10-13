@@ -2713,6 +2713,67 @@
         }
       }
     },
+    "/api/equipe/leads/activite": {
+      "post": {
+        "tags": [
+          "Mon équipe"
+        ],
+        "summary": "Nombre d'actions et sommeil des leads demandés (fenêtre « Leads de … »)",
+        "description": "État des leads affichés dans la fenêtre « Leads de … » (pré-prospections et prospections,\n`ComProspection.PKey`), en une requête pour une page de la liste. **Action** = ligne `ComActionMessage`\nnon système (`IsSystem` faux ou absent), même règle que la Boîte de tri et « À distribuer » ; `endormi`\nsuit exactement la colonne `sansActionDepuis7Jours` de `GET /api/equipe/commerciaux`.\n\nSeuls les leads du périmètre de l'appelant sont renvoyés : Administrateur / Direction Générale = projets\ndes sociétés actives et leads sans projet ; chef = ses projets, plus les leads sans projet tenus par un\nmembre de son équipe. Un id hors périmètre, inconnu ou qui n'est pas un lead est **omis** sans erreur.\nLecture seule.",
+        "operationId": "activiteLeads",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeadsActiviteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Une entrée par lead visible, ordre libre ; les autres ids sont omis.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeadActiviteDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ids` absent, vide, contenant null ou de plus de 200 éléments.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeadActiviteDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle sans accès, ou projet hors du périmètre de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeadActiviteDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/equipe/distribuer": {
       "post": {
         "tags": [
@@ -13916,6 +13977,58 @@
           }
         }
       },
+      "LeadsActiviteRequest": {
+        "type": "object",
+        "description": "Leads dont on veut l'état d'activité.",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "description": "Ids de pré-prospections et/ou de prospections (ComProspection.PKey), de 1 à 200.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 200,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "LeadActiviteDto": {
+        "type": "object",
+        "description": "État d'activité d'un lead (pré-prospection ou prospection) de la fenêtre « Leads de … ».",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lead (ComProspection.PKey) demandé."
+          },
+          "nombreActions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'actions non système du lead (ComActionMessage, IsSystem absent ou faux).",
+            "example": 3
+          },
+          "derniereActionDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la plus récente de ces actions ; `null` si aucune.",
+            "example": "2026-10-02T14:30:00"
+          },
+          "joursSansAction": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entiers depuis la dernière action, à défaut depuis la date du lead.",
+            "example": 11
+          },
+          "endormi": {
+            "type": "boolean",
+            "description": "Vrai quand la dernière action non système — à défaut la date du lead (`ComProspection.DocDate`) — date\nde plus de 7 jours (borne stricte), exactement la règle de la colonne `sansActionDepuis7Jours` de\n`GET /api/equipe/commerciaux`. Un lead sans aucune action est « jamais traité » : il peut être endormi\nou non selon sa date."
+          }
+        }
+      },
       "DistribuerRequest": {
         "type": "object",
         "description": "Distribution en lot : le commercial est posé sur chaque pré-prospection, qui reste une pré-prospection (comme OMRAN), dans une seule transaction.",
@@ -18046,7 +18159,7 @@
           "sansActionDepuis7Jours": {
             "type": "integer",
             "format": "int64",
-            "description": "Parmi le portefeuille ouvert, les prospections dont la dernière action (tous auteurs) — à défaut la\ndate de la prospection — date de plus de 7 jours. À afficher en alerte quand il est non nul."
+            "description": "Parmi le portefeuille ouvert, les prospections dont la dernière action non système (`IsSystem` faux ou\nabsent) — à défaut la date de la prospection — date de plus de 7 jours. Même règle que `endormi` de\n`POST /api/equipe/leads/activite`. À afficher en alerte quand il est non nul."
           },
           "relancesEnRetard": {
             "type": "integer",
