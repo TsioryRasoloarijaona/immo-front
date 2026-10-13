@@ -96,6 +96,10 @@
       "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
     {
+      "name": "Notifications",
+      "description": "Cloche de l'application : notifications du **compte appelant** uniquement (`AppNotification.AdmUserId`),\njamais celles d'un autre compte. Types : `LEADS_ATTRIBUES` (leads attribués au commercial du compte,\nregroupés par lot), `LEADS_A_DISTRIBUER` (leads importés restés sans commercial, aux chefs du projet ou,\nsans projet, à l'administration) et `RESUME_DEMI_JOURNEE` (09:00 et 14:00, heure de Casablanca).\nL'auteur d'une attribution n'est jamais notifié de son propre geste."
+    },
+    {
       "name": "Pré-prospections",
       "description": "Leads bruts non encore qualifiés : ComProspection de type légataire `ComPreProspection` (`StrEntity`), le discriminant d'OMRAN lui-même — une pré-prospection peut donc déjà porter un prospect ou un commercial tant qu'elle n'a pas été transformée. Même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
@@ -2426,6 +2430,90 @@
         }
       }
     },
+    "/api/notifications/{id}/lue": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Marque une notification du compte appelant comme lue",
+        "operationId": "marquerLue",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Notification.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Non lues restantes (déjà lue : sans effet).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NonLuesDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Appelant sans compte applicatif (clé d'API) : pas de cloche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NonLuesDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune notification de ce compte avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NonLuesDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/tout-lu": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Marque toutes les notifications du compte appelant comme lues",
+        "operationId": "marquerToutLu",
+        "responses": {
+          "200": {
+            "description": "Compteur remis à zéro.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NonLuesDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Appelant sans compte applicatif (clé d'API) : pas de cloche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NonLuesDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/mon-compte/changer-mot-de-passe": {
       "post": {
         "tags": [
@@ -2461,6 +2549,78 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/UtilisateurCourantDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/equipe/repartir": {
+      "post": {
+        "tags": [
+          "Mon équipe"
+        ],
+        "summary": "Répartit automatiquement des pré-prospections entre les commerciaux de leur projet",
+        "description": "Répartition automatique : pour chaque pré-prospection demandée, le commercial est choisi par la même\nfonction que la création et l'import. Projet = projet de la tranche ; éligibles = comptes actifs\n« Commercial » / « Commercial Aide » avec un employé et une **affectation explicite** à ce projet (un\ncommercial sans restriction n'est pas éligible). Lead déjà connu (même téléphone, 9 derniers chiffres,\nou même e-mail qu'une autre prospection ouverte ou qu'un prospect suivis par un éligible) → ce\ncommercial (`CONNU`) ; sinon le moins de leads à trier (`MOINS_CHARGE`, même définition que la Boîte de\ntri), puis la dernière pré-prospection reçue la plus ancienne, puis le nom ; la charge est mise à jour\nau fil du lot. Une ligne déjà attribuée n'est jamais reprise (`DEJA_ATTRIBUEE`). Avec `simulation`\n(défaut `true`) rien n'est écrit ; sinon historique « Commercial assigné : B — répartition\nautomatique » et notification à chaque commercial. 403 si une ligne est hors des projets d'un chef.",
+        "operationId": "repartir",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepartirRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Attributions (ou aperçu si `simulation`), lignes laissées et totaux.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatRepartitionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Liste vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatRepartitionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle sans accès, ou projet hors du périmètre de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatRepartitionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Une ligne demandée n'existe pas : rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatRepartitionDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Une ligne n'est plus une pré-prospection ou est clôturée : rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatRepartitionDto"
                 }
               }
             }
@@ -3880,8 +4040,8 @@
         "tags": [
           "Parcours commercial"
         ],
-        "summary": "« Pas joignable » : relance demain 10:00, la ligne reste dans la boîte",
-        "description": "Écrit une interaction « Téléphone Sortant », résultat « Prospect injoignable ou Boite vocale », message\n« Pas joignable », avec une relance **demain à 10:00 (heure de Casablanca)**. Les relances précédentes de la\nligne sont soldées comme pour toute nouvelle relance. Rien d'automatique ensuite : pas de nouvel essai\nprogrammé, pas d'archivage. La ligne reste dans la Boîte de tri et sort de « nouveaux leads ».",
+        "summary": "« Pas joignable » : relance demain 10:00, la ligne quitte la boîte",
+        "description": "Écrit une interaction « Téléphone Sortant », résultat « Prospect injoignable ou Boite vocale », message\n« Pas joignable », avec une relance **demain à 10:00 (heure de Casablanca)**. Les relances précédentes de la\nligne sont soldées comme pour toute nouvelle relance. Rien d'automatique ensuite : pas de nouvel essai\nprogrammé, pas d'archivage. La ligne quitte la Boîte de tri et « nouveaux leads », et revient demain dans\n« relances du jour ».",
         "operationId": "injoignable",
         "parameters": [
           {
@@ -7591,6 +7751,103 @@
         }
       }
     },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
+        "operationId": "lister_1",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page, à partir de 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Taille de page, 1 à 100.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Une page, éventuellement vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`page` négative ou `size` hors de 1..100.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Appelant sans compte applicatif (clé d'API) : pas de cloche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/flux": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Flux temps réel (SSE) des nouvelles notifications du compte appelant",
+        "description": "Flux **Server-Sent Events** (`EventSource` avec `withCredentials`, cookie JWT habituel). Un évènement\nnommé `notification` par nouvelle notification du compte, dont `data` est un `EvenementNotificationDto`\n(la notification et le nouveau nombre de non lues) ; un commentaire `ping` toutes les 30 s. Plusieurs\nonglets peuvent être ouverts. Le flux se ferme au bout de 30 minutes : le navigateur se reconnecte seul.",
+        "operationId": "flux",
+        "responses": {
+          "200": {
+            "description": "Flux ouvert ; `data` de chaque évènement `notification`.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvenementNotificationDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Appelant sans compte applicatif (clé d'API) : pas de cloche.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/SseEmitter"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/mon-compte": {
       "get": {
         "tags": [
@@ -10128,8 +10385,8 @@
         "tags": [
           "Parcours commercial"
         ],
-        "summary": "Boîte de tri : mes pré-prospections ouvertes, les plus récentes d'abord",
-        "description": "Pré-prospections du commercial appelant, ouvertes, reçues il y a moins de 6 mois (`toutes=true` lève la\nlimite), les plus récentes d'abord. Une ligne marquée « Pas joignable » y reste, avec sa `prochaineRelance`.\nChaque ligne porte ses `doublons` : fiches prospect et autres prospections au même numéro (9 derniers\nchiffres, sans espaces ni indicatif) ou au même e-mail, limitées au périmètre de l'appelant. Le nombre à\ntrier du menu est le `totalElements` de cette liste.\n\nLes autres gestes du tri utilisent les routes existantes : qualifier = `POST /api/prospections/{id}/transformer`\n(fiche prospect requise, sinon `POST /api/pre-prospections/{id}/creer-prospect`), archiver =\n`PATCH /api/prospections/{id}/archiver` (motif « PROSPECTION EN DOUBLE » proposé si un doublon est signalé),\nappel effectué = `POST /api/prospections/{id}/interactions`.",
+        "summary": "Boîte de tri : mes pré-prospections ouvertes non traitées, les plus récentes d'abord",
+        "description": "Pré-prospections du commercial appelant, ouvertes, reçues il y a moins de 6 mois (`toutes=true` lève la\nlimite), **sans aucune interaction saisie** (même règle que `nouveauxLeads` de « Ma journée »), les plus\nrécentes d'abord. Une ligne traitée (« Pas joignable », appel noté) quitte la boîte et revient par sa relance\ndans « Ma journée ». `prochaineRelance` ne porte donc plus qu'une relance écrite par OMRAN seul (`IsSystem`).\nChaque ligne porte ses `doublons` : fiches prospect et autres prospections au même numéro (9 derniers\nchiffres, sans espaces ni indicatif) ou au même e-mail, limitées au périmètre de l'appelant. Le nombre à\ntrier du menu est le `totalElements` de cette liste.\n\nLes autres gestes du tri utilisent les routes existantes : qualifier = `POST /api/prospections/{id}/transformer`\n(fiche prospect requise, sinon `POST /api/pre-prospections/{id}/creer-prospect`), archiver =\n`PATCH /api/prospections/{id}/archiver` (motif « PROSPECTION EN DOUBLE » proposé si un doublon est signalé),\nappel effectué = `POST /api/prospections/{id}/interactions`.",
         "operationId": "boiteDeTri",
         "parameters": [
           {
@@ -10556,7 +10813,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_1",
+        "operationId": "lister_2",
         "parameters": [
           {
             "name": "portee",
@@ -13200,6 +13457,53 @@
             "format": "int32",
             "description": "Lignes réellement écrites (`preProspectionId` non null). 0 dans l'aperçu.",
             "example": 18
+          },
+          "repartition": {
+            "type": "array",
+            "description": "Leads créés attribués par la répartition automatique, par commercial. Vide dans l'aperçu.",
+            "items": {
+              "$ref": "#/components/schemas/RepartitionCommercialDto"
+            }
+          },
+          "nonAttribuees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Leads créés restés sans commercial (sans projet ou aucun éligible). 0 dans l'aperçu.",
+            "example": 2
+          }
+        }
+      },
+      "RepartitionCommercialDto": {
+        "type": "object",
+        "description": "Nombre de leads attribués à un commercial par la répartition automatique.",
+        "properties": {
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Commercial (employé, CfgTier)."
+          },
+          "commercialNom": {
+            "type": "string",
+            "description": "Nom du commercial.",
+            "example": "Faycal BENALI"
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Leads attribués à ce commercial dans ce lot.",
+            "example": 4
+          }
+        }
+      },
+      "NonLuesDto": {
+        "type": "object",
+        "description": "Compteur de la cloche après l'opération.",
+        "properties": {
+          "nonLues": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Notifications non lues restantes du compte appelant.",
+            "example": 3
           }
         }
       },
@@ -13268,6 +13572,108 @@
             "description": "Les projets du périmètre, quand perimetreRestreint vaut true. Toujours vide si perimetreRestreint\nvaut false — un périmètre vide signifie \"aucune restriction\", jamais \"ne voit rien\".",
             "items": {
               "$ref": "#/components/schemas/ProjetPerimetreDto"
+            }
+          }
+        }
+      },
+      "RepartirRequest": {
+        "type": "object",
+        "description": "Pré-prospections à répartir automatiquement entre les commerciaux de leur projet.",
+        "properties": {
+          "preProspectionIds": {
+            "type": "array",
+            "description": "Pré-prospections à répartir (au moins une).",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "simulation": {
+            "type": "boolean",
+            "description": "`true` (ou absent) : aperçu, rien n'est écrit ; `false` : les commerciaux sont posés."
+          }
+        }
+      },
+      "AttributionDto": {
+        "type": "object",
+        "description": "Une pré-prospection et le commercial choisi.",
+        "properties": {
+          "preProspectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "26/01234"
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Commercial choisi (employé, CfgTier)."
+          },
+          "commercialNom": {
+            "type": "string"
+          },
+          "motif": {
+            "type": "string",
+            "description": "`CONNU` : contact déjà suivi par ce commercial ; `MOINS_CHARGE` : le moins de leads à trier.",
+            "enum": [
+              "CONNU",
+              "MOINS_CHARGE"
+            ]
+          }
+        }
+      },
+      "NonAttribueeDto": {
+        "type": "object",
+        "description": "Une pré-prospection que la répartition laisse sans commercial.",
+        "properties": {
+          "preProspectionId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "26/01235"
+          },
+          "raison": {
+            "type": "string",
+            "description": "`SANS_PROJET`, `AUCUN_ELIGIBLE` (aucun commercial habilité sur le projet) ou `DEJA_ATTRIBUEE`.",
+            "enum": [
+              "SANS_PROJET",
+              "AUCUN_ELIGIBLE",
+              "DEJA_ATTRIBUEE"
+            ]
+          }
+        }
+      },
+      "ResultatRepartitionDto": {
+        "type": "object",
+        "description": "Résultat (ou aperçu) d'une répartition automatique.",
+        "properties": {
+          "simulation": {
+            "type": "boolean",
+            "description": "`true` : aperçu, rien n'a été écrit."
+          },
+          "attributions": {
+            "type": "array",
+            "description": "Lignes attribuées (ou qui le seraient), dans l'ordre de la demande.",
+            "items": {
+              "$ref": "#/components/schemas/AttributionDto"
+            }
+          },
+          "nonAttribuees": {
+            "type": "array",
+            "description": "Lignes laissées « à distribuer », avec la raison.",
+            "items": {
+              "$ref": "#/components/schemas/NonAttribueeDto"
+            }
+          },
+          "parCommercial": {
+            "type": "array",
+            "description": "Total par commercial, trié par nom.",
+            "items": {
+              "$ref": "#/components/schemas/RepartitionCommercialDto"
             }
           }
         }
@@ -16823,6 +17229,108 @@
           "dateFinCommercialisation": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "NotificationDto": {
+        "type": "object",
+        "description": "Une notification de la cloche, adressée au compte appelant.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "type": {
+            "type": "string",
+            "description": "`LEADS_ATTRIBUES`, `LEADS_A_DISTRIBUER` ou `RESUME_DEMI_JOURNEE`.",
+            "enum": [
+              "LEADS_ATTRIBUES",
+              "LEADS_A_DISTRIBUER",
+              "RESUME_DEMI_JOURNEE"
+            ]
+          },
+          "titre": {
+            "type": "string",
+            "example": "4 nouveaux leads à trier"
+          },
+          "message": {
+            "type": "string",
+            "example": "Imane Bennis, Abden Sayem, Majda el haitmy et 1 autre."
+          },
+          "lien": {
+            "type": "string",
+            "description": "Route du front à ouvrir au clic ; null si aucune.",
+            "example": "/tri"
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Création (heure de Casablanca)."
+          },
+          "lueLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Lecture ; null = non lue."
+          }
+        }
+      },
+      "NotificationsDto": {
+        "type": "object",
+        "description": "Une page des notifications du compte appelant, plus récentes d'abord.",
+        "properties": {
+          "notifications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NotificationDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro de page (à partir de 0)."
+          },
+          "taille": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Taille de page demandée."
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre total de notifications du compte."
+          },
+          "nonLues": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre total de notifications non lues du compte (pastille de la cloche)."
+          }
+        }
+      },
+      "EvenementNotificationDto": {
+        "type": "object",
+        "description": "Données d'un évènement SSE `notification` du flux `/api/notifications/flux`.",
+        "properties": {
+          "admUserId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Compte destinataire (jamais envoyé à un autre compte)."
+          },
+          "notification": {
+            "$ref": "#/components/schemas/NotificationDto"
+          },
+          "nonLues": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Non lues du compte, cette notification comprise."
+          }
+        }
+      },
+      "SseEmitter": {
+        "type": "object",
+        "properties": {
+          "timeout": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },

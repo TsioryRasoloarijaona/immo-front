@@ -25,14 +25,14 @@ export default function Cloche() {
   return (
     <Popover open={ouvert} onOpenChange={setOuvert}>
       <PopoverTrigger
-        render={<Button type="button" variant="ghost" size="icon-sm" aria-label={libelle} title={libelle} />}
-        className="relative"
+        render={<Button type="button" variant="ghost" size="icon-lg" aria-label={libelle} title={libelle} />}
+        className={cn('relative', nonLues > 0 && 'text-primary')}
       >
-        {sonne ? <BellRing className="motion-safe:animate-bounce" /> : <Bell />}
+        {sonne ? <BellRing className="size-5 motion-safe:animate-bounce" /> : <Bell className="size-5" />}
         {nonLues > 0 && (
           <span
             aria-hidden
-            className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-micro font-semibold text-primary-foreground tabular-nums"
+            className="absolute -top-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-micro font-bold text-white tabular-nums ring-2 ring-background"
           >
             {nonLues > 99 ? '99+' : nonLues}
           </span>
