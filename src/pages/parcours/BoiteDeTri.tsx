@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Inbox, RotateCcw } from 'lucide-react';
+import { Inbox, LoaderCircle, RotateCcw } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import InteractionForm from '../../components/InteractionForm';
 import CreateProspectForm from '../../components/CreateProspectForm';
@@ -36,6 +36,8 @@ export default function BoiteDeTri() {
   const [traites, setTraites] = useState(0);
   const [boite, setBoite] = useState<Boite | null>(null);
   const [busy, setBusy] = useState(false);
+  // Verrou synchrone : un 2e clic ou une touche répétée arrive avant que `busy` ne grise l'écran.
+  const enCours = useRef(false);
   const apresCreation = useRef<LigneTriDto | null>(null);
 
   const file = useApi(() => listBoiteDeTri(toutes, { page: 0, size: TAILLE_FILE }), [toutes], 'boite-de-tri');
@@ -54,14 +56,19 @@ export default function BoiteDeTri() {
   }
 
   function geste(g: GesteTri, l: LigneTriDto) {
+    if (enCours.current) return;
     if (g === 'contact') {
       setBoite({ type: 'interaction', ligne: l });
     } else if (g === 'injoignable') {
+      enCours.current = true;
       setBusy(true);
       marquerInjoignable(l.prospectionId)
         .then(() => suivante(`${l.nom ?? 'Lead'} : relance demain à 10:00, dans Ma journée.`))
         .catch((err: unknown) => showToast({ texte: err instanceof Error ? err.message : 'Échec.', variante: 'erreur' }))
-        .finally(() => setBusy(false));
+        .finally(() => {
+          enCours.current = false;
+          setBusy(false);
+        });
     } else if (g === 'qualifier') {
       setBoite({ type: l.prospectId ? 'transformer' : 'creerProspect', ligne: l });
     } else {
@@ -123,8 +130,16 @@ export default function BoiteDeTri() {
             </div>
             {ligne ? (
               <>
-                <CarteTri ligne={ligne} />
-                <GestesTri ligne={ligne} busy={busy} onGeste={(g) => geste(g, ligne)} />
+                {busy && (
+                  <p role="status" className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-body text-foreground">
+                    <LoaderCircle aria-hidden className="size-4 animate-spin" />
+                    Enregistrement en cours… le lead suivant arrive dès que le serveur a répondu.
+                  </p>
+                )}
+                <div aria-busy={busy} className={busy ? 'pointer-events-none flex flex-col gap-3 opacity-60' : 'flex flex-col gap-3'}>
+                  <CarteTri ligne={ligne} />
+                  <GestesTri ligne={ligne} busy={busy} onGeste={(g) => geste(g, ligne)} />
+                </div>
               </>
             ) : (
               <EmptyState
