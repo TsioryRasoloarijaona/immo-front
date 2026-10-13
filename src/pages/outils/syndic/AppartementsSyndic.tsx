@@ -22,8 +22,8 @@ export default function AppartementsSyndic() {
 }
 
 const COLONNES: ColonneGrille<Appartement>[] = [
-  { nom: 'code', libelle: 'Appartement', largeur: 10, classe: 'font-mono font-medium text-foreground' },
-  { nom: 'proprietaires', libelle: 'Propriétaire(s)', largeur: 26, valeur: (a) => a.proprietaires.map((p) => p.nom).join(' et ') || '—' },
+  { nom: 'proprietaires', libelle: 'Propriétaire(s)', largeur: 26, classe: 'font-medium text-foreground', valeur: (a) => a.proprietaires.map((p) => p.nom).join(' et ') || '—' },
+  { nom: 'code', libelle: 'Appartement', largeur: 10, classe: 'font-mono' },
   {
     nom: 'situation',
     libelle: 'Situation',

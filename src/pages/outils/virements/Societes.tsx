@@ -75,7 +75,6 @@ function ListeSocietes({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
 
   const lignes: Ligne[] = (data ?? []).map((s) => ({ id: String(s.id), s }));
   const colonnes: ColonneGrille<Ligne>[] = [
-    { nom: 'logo', libelle: 'Logo', largeur: 8, valeur: (r) => r.s.entete_mode, rendu: (r) => <Vignette s={r.s} /> },
     {
       nom: 'nom',
       libelle: 'Nom',
@@ -89,11 +88,12 @@ function ListeSocietes({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
         </span>
       ),
     },
-    { nom: 'banque', libelle: 'Banque', largeur: 11, valeur: (r) => r.s.banque },
     { nom: 'ville', libelle: 'Ville', largeur: 9, valeur: (r) => r.s.ville },
-    { nom: 'compte', libelle: 'Compte', largeur: 13, classe: 'font-mono text-muted-foreground', valeur: (r) => r.s.compte },
+    { nom: 'banque', libelle: 'Banque', largeur: 11, valeur: (r) => r.s.banque },
     { nom: 'signataire', libelle: 'Signataire', largeur: 13, valeur: (r) => r.s.signataire },
     { nom: 'nb_ordres', libelle: 'Ordres', type: 'NOMBRE', largeur: 6, valeur: (r) => r.s.nb_ordres ?? 0 },
+    { nom: 'compte', libelle: 'Compte', largeur: 13, classe: 'font-mono text-muted-foreground', valeur: (r) => r.s.compte },
+    { nom: 'logo', libelle: 'Logo', largeur: 8, valeur: (r) => r.s.entete_mode, rendu: (r) => <Vignette s={r.s} /> },
     {
       nom: 'actions',
       libelle: '',

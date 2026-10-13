@@ -481,17 +481,7 @@ function detailOffre(o: DevisDto) {
 const TIRET_MUET = <span className="text-muted-foreground">-</span>;
 
 const COLONNES: ColonneGrille<DevisDto>[] = [
-  {
-    nom: 'code',
-    libelle: 'Code',
-    largeur: 8,
-    titre: (o) => o.code,
-    rendu: (o) => (
-      <Badge tone="progress" className="font-mono">
-        {o.code ?? '-'}
-      </Badge>
-    ),
-  },
+  { nom: 'prospect', libelle: 'Prospect', largeur: 11, classe: 'font-medium text-foreground', titre: (o) => o.prospect },
   { nom: 'dateDocument', libelle: 'Date', type: 'DATE', largeur: 7, classe: 'text-muted-foreground' },
   {
     nom: 'trancheDescription',
@@ -502,20 +492,13 @@ const COLONNES: ColonneGrille<DevisDto>[] = [
     rendu: (o) =>
       o.trancheDescription || o.tranche ? <Badge tone="neutral">{o.trancheDescription || o.tranche}</Badge> : TIRET_MUET,
   },
+  { nom: 'commercial', libelle: 'Commercial', largeur: 11, classe: 'text-muted-foreground', titre: (o) => o.commercial },
   {
     nom: 'articleDescription',
     libelle: 'Article',
     largeur: 6,
     classe: 'text-muted-foreground',
     valeur: (o) => o.articleDescription || o.article,
-  },
-  { nom: 'commercial', libelle: 'Commercial', largeur: 11, classe: 'text-muted-foreground', titre: (o) => o.commercial },
-  { nom: 'prospect', libelle: 'Prospect', largeur: 11, classe: 'font-medium text-foreground', titre: (o) => o.prospect },
-  {
-    nom: 'prospectionCode',
-    libelle: 'Prospection',
-    largeur: 8,
-    rendu: (o) => (o.prospectionCode ? <Badge tone="info">{o.prospectionCode}</Badge> : TIRET_MUET),
   },
   { nom: 'modePaiement', libelle: 'Mode de paiement', largeur: 10, classe: 'text-muted-foreground' },
   {
@@ -539,6 +522,23 @@ const COLONNES: ColonneGrille<DevisDto>[] = [
     largeur: 12,
     classe: 'font-semibold text-(--success)',
     valeur: (o) => o.montants?.prixVenteTTC,
+  },
+  {
+    nom: 'code',
+    libelle: 'Code',
+    largeur: 8,
+    titre: (o) => o.code,
+    rendu: (o) => (
+      <Badge tone="progress" className="font-mono">
+        {o.code ?? '-'}
+      </Badge>
+    ),
+  },
+  {
+    nom: 'prospectionCode',
+    libelle: 'Prospection',
+    largeur: 8,
+    rendu: (o) => (o.prospectionCode ? <Badge tone="info">{o.prospectionCode}</Badge> : TIRET_MUET),
   },
   {
     nom: 'fiche',

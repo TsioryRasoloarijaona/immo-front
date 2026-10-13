@@ -92,7 +92,6 @@ export default function UtilisateursList() {
         ),
       },
       { nom: 'employe', libelle: 'Employé', largeur: 13, classe: 'text-muted-foreground', valeur: employeeName, rendu: employeeName, titre: employeeName },
-      { nom: 'typeEmployeLibelle', libelle: 'Type', largeur: 9, classe: 'text-muted-foreground', titre: (r) => r.typeEmployeLibelle || undefined },
       {
         nom: 'email',
         libelle: 'Contact',
@@ -106,6 +105,7 @@ export default function UtilisateursList() {
           </>
         ),
       },
+      { nom: 'typeEmployeLibelle', libelle: 'Type', largeur: 9, classe: 'text-muted-foreground', titre: (r) => r.typeEmployeLibelle || undefined },
       {
         nom: 'roles',
         libelle: 'Rôles',

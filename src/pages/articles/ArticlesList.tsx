@@ -161,25 +161,51 @@ export default function ArticlesList() {
 
   const colonnes = useMemo<ColonneGrille<ArticleListItemDto>[]>(
     () => [
+      { nom: 'description', libelle: 'Description', largeur: 11, classe: 'text-muted-foreground', titre: (a) => a.description || undefined },
+      { nom: 'clientNom', libelle: 'Client', largeur: 8, classe: 'text-muted-foreground', titre: (a) => a.clientNom || undefined },
       { nom: 'etat', libelle: 'État', largeur: 7, valeur: articleEtatLabel, rendu: articleEtatBadge },
       {
-        nom: 'code',
-        libelle: 'Code',
-        largeur: 8,
-        classe: 'font-medium text-foreground',
-        titre: (a) => a.code || undefined,
-        rendu: (a) => (
-          <>
-            {a.code || '—'}
-            {a.sousArticle && (
-              <Badge tone="neutral" className="ml-1.5 align-middle">
-                Sous-article
-              </Badge>
-            )}
-          </>
-        ),
+        nom: 'salePrice',
+        libelle: 'Prix de vente',
+        type: 'MONTANT',
+        largeur: 9,
+        classe: 'text-muted-foreground',
+        // `valeur` suit le même repli sur le plancher que le rendu, sinon le tri le classerait mal.
+        valeur: (a) => a.salePrice || a.salePriceFloor,
+        rendu: (a) => libellePrix(a.salePrice, a.salePriceFloor) ?? <span className="text-muted-foreground">—</span>,
       },
-      { nom: 'description', libelle: 'Description', largeur: 11, classe: 'text-muted-foreground', titre: (a) => a.description || undefined },
+      {
+        nom: 'tauxTVA',
+        libelle: 'TVA',
+        type: 'NOMBRE',
+        largeur: 5,
+        classe: 'text-muted-foreground',
+        rendu: (a) => (a.tauxTVA != null ? formatPercent(a.tauxTVA) : <span className="text-muted-foreground">—</span>),
+        formatValeur: (v) => formatPercent(typeof v === 'number' ? v : null),
+      },
+      {
+        nom: 'dossierCode',
+        libelle: 'N° Dossier',
+        largeur: 6,
+        classe: 'text-muted-foreground',
+        titre: (a) => a.dossierCode || undefined,
+        rendu: (a) =>
+          a.dossierCode ? (
+            <button
+              type="button"
+              className="hover:text-foreground hover:underline"
+              onClick={(e) => {
+                if (!a.dossierId) return;
+                e.stopPropagation();
+                void navigate(`/dossiers/${a.dossierId}`);
+              }}
+            >
+              {a.dossierCode}
+            </button>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
       { nom: 'categorieLibelle', libelle: 'Catégorie', largeur: 8, classe: 'text-muted-foreground', titre: (a) => a.categorieLibelle || undefined },
       { nom: 'typeLibelle', libelle: 'Type', largeur: 9, classe: 'text-muted-foreground', titre: (a) => a.typeLibelle || undefined },
       { nom: 'presentationTypeCode', libelle: 'Présent.', largeur: 5, classe: 'text-muted-foreground', titre: (a) => a.presentationTypeLibelle || undefined },
@@ -209,48 +235,22 @@ export default function ArticlesList() {
         rendu: (a) => M2(a.superficieSousArticles),
       },
       {
-        nom: 'tauxTVA',
-        libelle: 'TVA',
-        type: 'NOMBRE',
-        largeur: 5,
-        classe: 'text-muted-foreground',
-        rendu: (a) => (a.tauxTVA != null ? formatPercent(a.tauxTVA) : <span className="text-muted-foreground">—</span>),
-        formatValeur: (v) => formatPercent(typeof v === 'number' ? v : null),
+        nom: 'code',
+        libelle: 'Code',
+        largeur: 8,
+        classe: 'font-medium text-foreground',
+        titre: (a) => a.code || undefined,
+        rendu: (a) => (
+          <>
+            {a.code || '—'}
+            {a.sousArticle && (
+              <Badge tone="neutral" className="ml-1.5 align-middle">
+                Sous-article
+              </Badge>
+            )}
+          </>
+        ),
       },
-      {
-        nom: 'salePrice',
-        libelle: 'Prix de vente',
-        type: 'MONTANT',
-        largeur: 9,
-        classe: 'text-muted-foreground',
-        // `valeur` suit le même repli sur le plancher que le rendu, sinon le tri le classerait mal.
-        valeur: (a) => a.salePrice || a.salePriceFloor,
-        rendu: (a) => libellePrix(a.salePrice, a.salePriceFloor) ?? <span className="text-muted-foreground">—</span>,
-      },
-      {
-        nom: 'dossierCode',
-        libelle: 'N° Dossier',
-        largeur: 6,
-        classe: 'text-muted-foreground',
-        titre: (a) => a.dossierCode || undefined,
-        rendu: (a) =>
-          a.dossierCode ? (
-            <button
-              type="button"
-              className="hover:text-foreground hover:underline"
-              onClick={(e) => {
-                if (!a.dossierId) return;
-                e.stopPropagation();
-                void navigate(`/dossiers/${a.dossierId}`);
-              }}
-            >
-              {a.dossierCode}
-            </button>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
-      },
-      { nom: 'clientNom', libelle: 'Client', largeur: 8, classe: 'text-muted-foreground', titre: (a) => a.clientNom || undefined },
     ],
     [navigate],
   );

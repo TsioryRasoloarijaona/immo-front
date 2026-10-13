@@ -12,16 +12,16 @@ import { useApi, useDebouncedValue } from '../../lib/useApi';
 import type { ClientListItemDto } from '../../types';
 
 const COLONNES: ColonneGrille<ClientListItemDto>[] = [
-  { nom: 'code', libelle: 'Code', largeur: 10, classe: 'text-muted-foreground' },
   { nom: 'nomAffiche', libelle: 'Affiché comme', largeur: 18, classe: 'font-medium text-foreground', titre: (r) => r.nomAffiche || undefined },
+  { nom: 'email', libelle: 'Email', largeur: 16, classe: 'text-muted-foreground', titre: (r) => r.email || undefined },
   { nom: 'mobile', libelle: 'Mobile', largeur: 11, classe: 'tabular-nums text-muted-foreground' },
   { nom: 'telephone', libelle: 'Téléphone', largeur: 11, classe: 'tabular-nums text-muted-foreground' },
   { nom: 'ville', libelle: 'Ville', largeur: 10, classe: 'text-muted-foreground' },
-  { nom: 'email', libelle: 'Email', largeur: 16, classe: 'text-muted-foreground', titre: (r) => r.email || undefined },
   { nom: 'nbDossiers', libelle: 'Dossiers', type: 'NOMBRE', largeur: 8, classe: 'text-muted-foreground' },
   { nom: 'totalAPayer', libelle: 'À payer', type: 'MONTANT', largeur: 12, classe: 'text-foreground' },
   { nom: 'totalRegle', libelle: 'Réglé', type: 'MONTANT', largeur: 12, classe: 'text-(--success)' },
   { nom: 'totalReste', libelle: 'Reste', type: 'MONTANT', largeur: 12, classe: 'text-destructive' },
+  { nom: 'code', libelle: 'Code', largeur: 10, classe: 'text-muted-foreground' },
 ];
 
 export default function ClientsList() {

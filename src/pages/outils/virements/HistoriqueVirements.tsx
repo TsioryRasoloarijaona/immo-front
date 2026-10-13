@@ -76,12 +76,9 @@ function Historique({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
   }
 
   const colonnes: ColonneGrille<LigneHistorique>[] = [
-    { nom: 'numero', libelle: 'N°', largeur: 10, classe: 'font-mono font-medium text-foreground', valeur: (r) => r.ordre.numero },
+    { nom: 'beneficiaire', libelle: 'Bénéficiaire', largeur: 17, classe: 'font-medium text-foreground', valeur: (r) => r.ordre.fournisseur_nom },
     { nom: 'date', libelle: 'Date', type: 'DATE', largeur: 8, valeur: (r) => r.ordre.date_virement },
     ...(plusieursSocietes ? [{ nom: 'societe', libelle: 'Société', largeur: 11, valeur: (r: LigneHistorique) => r.ordre.societe_nom ?? '—' }] : []),
-    { nom: 'beneficiaire', libelle: 'Bénéficiaire', largeur: 17, classe: 'font-medium text-foreground', valeur: (r) => r.ordre.fournisseur_nom },
-    { nom: 'montant', libelle: 'Montant', type: 'MONTANT', largeur: 11, sansSomme: true, valeur: (r) => r.ordre.montant },
-    { nom: 'reference', libelle: 'Référence', largeur: 12, classe: 'text-muted-foreground', valeur: (r) => r.ordre.reference || '—' },
     {
       nom: 'statut',
       libelle: 'Statut',
@@ -114,6 +111,9 @@ function Historique({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
           </span>
         ),
     },
+    { nom: 'montant', libelle: 'Montant', type: 'MONTANT', largeur: 11, sansSomme: true, valeur: (r) => r.ordre.montant },
+    { nom: 'numero', libelle: 'N°', largeur: 10, classe: 'font-mono text-muted-foreground', valeur: (r) => r.ordre.numero },
+    { nom: 'reference', libelle: 'Référence', largeur: 12, classe: 'text-muted-foreground', valeur: (r) => r.ordre.reference || '—' },
     {
       nom: 'actions',
       libelle: '',

@@ -101,6 +101,19 @@ export default function ClesApiList() {
         ),
       },
       {
+        nom: 'dateCreation',
+        libelle: 'Créée',
+        largeur: 12,
+        classe: 'text-muted-foreground',
+        valeur: (r) => r.dateCreation ?? '',
+        rendu: (r) => (
+          <>
+            <div className="truncate">{r.dateCreation ? formatDateTime(r.dateCreation) : '—'}</div>
+            {r.creePar && <div className="truncate text-micro">par {r.creePar}</div>}
+          </>
+        ),
+      },
+      {
         nom: 'portees',
         libelle: 'Portées',
         largeur: 18,
@@ -158,19 +171,6 @@ export default function ClesApiList() {
         classe: 'text-muted-foreground',
         valeur: (r) => r.dernierUsage ?? '',
         rendu: (r) => (r.dernierUsage ? formatDateTime(r.dernierUsage) : <span title="Aucune requête acceptée avec cette clé">Jamais</span>),
-      },
-      {
-        nom: 'dateCreation',
-        libelle: 'Créée',
-        largeur: 12,
-        classe: 'text-muted-foreground',
-        valeur: (r) => r.dateCreation ?? '',
-        rendu: (r) => (
-          <>
-            <div className="truncate">{r.dateCreation ? formatDateTime(r.dateCreation) : '—'}</div>
-            {r.creePar && <div className="truncate text-micro">par {r.creePar}</div>}
-          </>
-        ),
       },
       {
         nom: 'actions',
