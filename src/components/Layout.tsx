@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, FilePlus2, History, Home, KeyRound, LayoutGrid, LogOut, Users } from 'lucide-react';
+import { BookUser, Bot, Building2, CircleHelp, FilePlus2, History, Home, KeyRound, LayoutGrid, LogOut, Users } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -203,6 +203,14 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
         </SidebarContent>
 
         <SidebarFooter>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton render={<NavLink to="/aide" />} isActive={location.pathname.startsWith('/aide')} tooltip="Aide">
+                <CircleHelp />
+                Aide
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
           {/* SyncButton se cache lui-même pour les rôles auxquels le backend refuse l'appel. */}
           <ActionsRecentes />
           <SyncButton />
