@@ -2647,7 +2647,7 @@
           "Mon équipe"
         ],
         "summary": "Réaffecte des prospections ou pré-prospections affectées à un autre commercial de l'équipe",
-        "description": "Change le commercial (`ComProspection.CfgCommercialId`) de prospections **et de pré-prospections déjà\naffectées**, ouvertes, et trace « Commercial réaffecté : A → B — motif » dans leur historique. Une\npré-prospection réaffectée reste une pré-prospection (aucune transformation). Le commercial référent\nde la fiche prospect n'est pas modifié. Un lot peut mêler les deux. Tout le lot ou rien.",
+        "description": "Change le commercial (`ComProspection.CfgCommercialId`) de prospections **et de pré-prospections déjà\naffectées**, ouvertes, et trace « Commercial réaffecté : A → B — motif » dans leur historique. Une\npré-prospection réaffectée reste une pré-prospection (aucune transformation). Le commercial référent\nde la fiche prospect n'est pas modifié. Un lot peut mêler les deux. Tout le lot ou rien.\n\nUne ligne **sans tranche** (donc sans projet) se réaffecte par un chef seulement si son commercial actuel\nest de son équipe (403 sinon), vers n'importe quel membre de l'équipe.",
         "operationId": "reaffecter",
         "requestBody": {
           "content": {

@@ -2230,6 +2230,24 @@ export interface ReaffecterRequest {
   motif?: string | null;
 }
 
+export interface LeadsActiviteRequest {
+  /** 1 à 200 ids de pré-prospections / prospections ; sinon 400. */
+  ids: UUID[];
+}
+
+/** `POST /api/equipe/leads/activite` : un élément par lead visible (les autres ids sont omis). */
+export interface LeadActiviteDto {
+  id: UUID;
+  /** Actions non système (`IsSystem` faux ou absent). */
+  nombreActions: number;
+  /** Plus récente de ces actions ; `null` si aucune. */
+  derniereActionDate?: string | null;
+  /** Jours entiers depuis la dernière action, à défaut la date du lead. */
+  joursSansAction: number;
+  /** Même règle que la colonne « Sans action > 7 j ». */
+  endormi: boolean;
+}
+
 export interface LigneLotDto {
   id: UUID;
   code?: string;
