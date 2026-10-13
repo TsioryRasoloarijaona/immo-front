@@ -238,7 +238,7 @@ export const GUIDES_AIDE: readonly GuideAide[] = [
     resume: 'Envoyer un prix au prospect par email et WhatsApp, ou préparer une offre (devis) détaillée.',
     etapes: [
       'Ouvrez la prospection, onglet « Choix article ». Si aucun lot n\'est rattaché, ouvrez la sélection (« Modifier »), choisissez la tranche et l\'article, puis cliquez sur « Modifier » sous la liste.',
-      'À partir de l\'étape « 4 APRES VISITES », la ligne « Offre de prix » apparaît. Cliquez sur « Envoyer l\'offre au prospect ».',
+      'À partir de l\'étape « 4 APRES VISITES », la ligne « Offre de prix » apparaît. Cliquez sur « Envoyer l\'offre au prospect » : le formulaire s\'ouvre et le bouton devient « Fermer ».',
       'Renseignez si besoin une « Remise (%) », un « Prix imposé TTC », le « Mode de paiement » et une note. Cliquez sur « Établir et envoyer l\'offre ».',
       "L'écran affiche le numéro de l'offre, son montant, et pour l'email comme pour WhatsApp si l'envoi est parti.",
       'Pour préparer une offre sans l\'envoyer, ouvrez l\'onglet « Offres » et cliquez sur « Nouvelle offre ». Choisissez la tranche, l\'article, le prix et la remise, puis cliquez sur « Créer l\'offre ».',

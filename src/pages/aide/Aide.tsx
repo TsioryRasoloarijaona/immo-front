@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Link, NavLink, useParams } from 'react-router-dom';
 import { ArrowUpRight, CircleHelp, Info, Search, TriangleAlert } from 'lucide-react';
 import PageShell from '../../components/PageShell';
@@ -9,6 +9,8 @@ import { useAuth } from '../../lib/auth';
 import { cn } from '../../lib/utils';
 import type { GuideAide } from './guides';
 import { filtrerGuides, guidesVisibles, sommaireParTheme, titreDuTheme } from './recherche';
+import EtapesGuide from './EtapesGuide';
+import { MAQUETTES } from './maquettes';
 
 /** Section Aide : sommaire par thème à gauche (au-dessus sur écran étroit), guide ouvert à droite (FEATURE-aide.md). */
 export default function Aide() {
@@ -46,7 +48,7 @@ export default function Aide() {
           <Sommaire guides={trouves} actif={guide?.slug} />
         </aside>
         {guide ? (
-          <VueGuide guide={guide} />
+          <VueGuide key={guide.slug} guide={guide} />
         ) : (
           <EmptyState
             title="Guide introuvable"
@@ -97,6 +99,12 @@ function Sommaire({ guides, actif }: Readonly<{ guides: readonly GuideAide[]; ac
 }
 
 function VueGuide({ guide }: Readonly<{ guide: GuideAide }>) {
+  const Maquette = MAQUETTES[guide.slug];
+  const [actif, setActif] = useState<number | null>(null);
+  const [presents, setPresents] = useState<readonly number[]>([]);
+  const onPresents = useCallback((ns: readonly number[]) => setPresents((p) => (p.join() === ns.join() ? p : ns)), []);
+  const lien = { actif, onActif: setActif, onPresents };
+
   return (
     <article aria-labelledby="aide-titre" className="flex min-w-0 flex-col gap-5 rounded-xl border border-border bg-card p-5 sm:p-6">
       <header className="flex flex-col gap-1.5">
@@ -114,19 +122,9 @@ function VueGuide({ guide }: Readonly<{ guide: GuideAide }>) {
         </video>
       )}
 
-      <ol className="flex flex-col gap-3">
-        {guide.etapes.map((etape, i) => (
-          <li key={etape} className="flex gap-3">
-            <span
-              aria-hidden
-              className="flex size-6 shrink-0 items-center justify-center rounded-full bg-(--brand-bg) text-micro font-semibold text-(--brand) tabular-nums"
-            >
-              {i + 1}
-            </span>
-            <span className="pt-0.5 text-body leading-relaxed text-foreground">{etape}</span>
-          </li>
-        ))}
-      </ol>
+      {Maquette && <Maquette {...lien} />}
+
+      <EtapesGuide etapes={guide.etapes} reperes={Maquette && lien} presents={presents} />
 
       {guide.bonASavoir && (
         <Encadre
