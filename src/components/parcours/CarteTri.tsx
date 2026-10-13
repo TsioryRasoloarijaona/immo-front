@@ -16,14 +16,15 @@ function Puce({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 /** La pré-prospection en cours de tri : identité, formulaire, doublons (FEATURE-parcours-commercial.md §4). */
-export default function CarteTri({ ligne }: Readonly<{ ligne: LigneTriDto }>) {
+export default function CarteTri({ ligne, onOuvrir }: Readonly<{ ligne: LigneTriDto; onOuvrir: () => void }>) {
   const lieu = [ligne.projetCode, ligne.trancheCode].filter(Boolean).join(' · ');
   return (
     <article aria-labelledby="tri-nom" className="flex flex-col gap-3 rounded-xl border border-border bg-card p-5 shadow-xs">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <Link id="tri-nom" to={`/pre-prospections/${ligne.prospectionId}`} className="text-hero font-semibold text-foreground no-underline hover:text-primary">
+        {/* La fiche s'ouvre en fenêtre : la boîte garde sa position et se relit à la fermeture. */}
+        <button id="tri-nom" type="button" onClick={onOuvrir} className="text-left text-hero font-semibold text-foreground hover:text-primary">
           {ligne.nom || ligne.code || 'Sans nom'}
-        </Link>
+        </button>
         <span className="text-title tabular-nums text-foreground">{formatTelephone(ligne.telephone, ligne.indicatif)}</span>
       </div>
       <div className="flex flex-wrap gap-1.5">

@@ -290,6 +290,11 @@ export function clearApiCache(): void {
   clearCachedValues();
 }
 
+/** Retour sur l'onglet : une écriture faite ailleurs n'a pas vidé ce cache, la relecture doit aller au serveur. */
+export function oublierLecturesRecentes(): void {
+  getCache.clear();
+}
+
 async function request<T>(
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   path: string,

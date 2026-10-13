@@ -1055,7 +1055,7 @@
           "Prospections"
         ],
         "summary": "Transforme une pré-prospection en prospection (commercial + tranche)",
-        "description": "Dernière étape de qualification d'un lead : affecte le commercial et **garantit qu'une tranche\n(projet) est rattachée**. Requiert qu'un prospect soit déjà lié via `POST\n/api/pre-prospections/{id}/creer-prospect` — 400 sinon.\n\n**La tranche est obligatoire.** Règle métier plus stricte que le légataire (qui n'impose rien au\nniveau base — seule `PKey` est NOT NULL sur `ComProspection`), justifiée sur données réelles : 99,83\n% des prospections qualifiées (14 700/14 725) portent déjà une tranche. Fournir `trancheId` pour la\nposer/remplacer ici (avec périmètre commercial et cohérence `articleId`, comme `PATCH\n.../tranche-principale`) ; si `trancheId` est omis, la prospection doit **déjà** en porter une,\nfaute de quoi la transformation est refusée (400).",
+        "description": "Dernière étape de qualification d'un lead : affecte le commercial et **garantit qu'une tranche\n(projet) est rattachée**. Requiert qu'un prospect soit déjà lié via `POST\n/api/pre-prospections/{id}/creer-prospect` — 400 sinon.\n\n**La tranche est obligatoire.** Règle métier plus stricte que le légataire (qui n'impose rien au\nniveau base — seule `PKey` est NOT NULL sur `ComProspection`), justifiée sur données réelles : 99,83\n% des prospections qualifiées (14 700/14 725) portent déjà une tranche. Fournir `trancheId` pour la\nposer/remplacer ici (avec périmètre commercial et cohérence `articleId`, comme `PATCH\n.../tranche-principale`) ; si `trancheId` est omis, la prospection doit **déjà** en porter une,\nfaute de quoi la transformation est refusée (400).\n\nLes relances en cours de la ligne sont désarmées (comme à l'archivage) : elles quittent « Ma journée ».",
         "operationId": "transformer",
         "parameters": [
           {
@@ -1324,7 +1324,7 @@
           "Prospections"
         ],
         "summary": "Ajoute une interaction à une prospection",
-        "description": "Journalise un appel/message/visite/note sur cette prospection — voir GET\n/api/referentiels/types-contact-prospection et GET /api/referentiels/resultats-interaction.\n\n**Champs obligatoires (règle OMRAN GEN0005)** :\n- `actionTypeId` (\"Action\") : toujours obligatoire.\n- Action de type **Note** (code `Note`, insensible à la casse) : `description` (le message) est\n  obligatoire et non vide, `resultatId` est facultatif.\n- Toute autre action : `resultatId` (\"Résultat\") est obligatoire, `description` est facultative.\n- Résultat paramétré « avec alerte » (`alerteRecommandee = true` dans le référentiel) : `dateAlerte`\n  est obligatoire.\n- Résultat \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\" :\n  `dateRdv` est obligatoire et une entrée calendrier est créée, visible ensuite via GET\n  /api/calendrier/evenements.\n\n**Catégorie** : celle du résultat s'il y en a un, sinon la catégorie « Prospection » de l'écran\nparent, comme OMRAN. Une interaction sans résultat (note) reste donc visible dans « Dernière\naction », « Dernier échange » et « Résultat » de la liste des prospections.\n\n**Quand un rendez-vous est créé, une confirmation part automatiquement au prospect, par email ET par WhatsApp** (date, heure,\nadresse du projet, conseiller ; les plans seulement par email). Les deux canaux sont indépendants —\n57 % des prospects ont une adresse email, 99 % un numéro exploitable, donc l'essentiel est prévenu\npar au moins un des deux. L'envoi a lieu après validation de la transaction et hors du temps de\nréponse : il ne peut ni retarder ni faire échouer cet appel, et la réponse ne dit pas s'il a abouti.\nPour connaître l'issue, ou pour renvoyer après avoir corrigé une coordonnée, voir POST\n/api/prospections/{id}/interactions/{interactionId}/email-visite.\n\n`description` est le champ d'entrée du message : il alimente le champ `note` de la réponse, pas\nle libellé. Le libellé `description` de la réponse est **généré par le serveur**\n(`JJ/MM/AAAA HH:MM <auteur>`) et ne peut pas être imposé : c'est ce qui rend les interactions créées\nici indiscernables de celles de l'application de bureau.\n\nL'**auteur** est déduit du jeton d'authentification, jamais du corps : le laisser choisir fausserait\nles KPI de performance commerciale.\n\n**Relance (`dateAlerte`).** Une interaction datée d'une alerte devient la relance courante de la\nprospection, exactement comme dans le logiciel de bureau : les relances précédentes de la\nprospection sont désarmées (`WithoutRevival`, alerte éteinte dans `AdmAlertData`) et la nouvelle est\nposée là où l'écran du légataire la lit. Elle disparaît donc de `derniereAlerteDate` de la liste et\ndu tableau de bord des relances, et la nouvelle prend sa place. **Une interaction sans `dateAlerte`\nne touche à aucune relance existante** — c'est la règle du légataire, vérifiée sur sa trace d'audit\n: ni la date de l'alerte ni une simple note ne l'éteignent.",
+        "description": "Journalise un appel/message/visite/note sur cette prospection — voir GET\n/api/referentiels/types-contact-prospection et GET /api/referentiels/resultats-interaction.\n\n**Champs obligatoires (règle OMRAN GEN0005)** :\n- `actionTypeId` (\"Action\") : toujours obligatoire.\n- Action de type **Note** (code `Note`, insensible à la casse) : `description` (le message) est\n  obligatoire et non vide, `resultatId` est facultatif.\n- Toute autre action : `resultatId` (\"Résultat\") est obligatoire, `description` est facultative.\n- Résultat paramétré « avec alerte » (`alerteRecommandee = true` dans le référentiel) : `dateAlerte`\n  est obligatoire.\n- Résultat \"Rendez vous pris\", \"RDV reporté\" ou \"Le prospect veut faire une visite du projet\" :\n  `dateRdv` est obligatoire et une entrée calendrier est créée, visible ensuite via GET\n  /api/calendrier/evenements.\n\n**Catégorie** : celle du résultat s'il y en a un, sinon la catégorie « Prospection » de l'écran\nparent, comme OMRAN. Une interaction sans résultat (note) reste donc visible dans « Dernière\naction », « Dernier échange » et « Résultat » de la liste des prospections.\n\n**Quand un rendez-vous est créé, une confirmation part automatiquement au prospect, par email ET par WhatsApp** (date, heure,\nadresse du projet, conseiller ; les plans seulement par email). Les deux canaux sont indépendants —\n57 % des prospects ont une adresse email, 99 % un numéro exploitable, donc l'essentiel est prévenu\npar au moins un des deux. L'envoi a lieu après validation de la transaction et hors du temps de\nréponse : il ne peut ni retarder ni faire échouer cet appel, et la réponse ne dit pas s'il a abouti.\nPour connaître l'issue, ou pour renvoyer après avoir corrigé une coordonnée, voir POST\n/api/prospections/{id}/interactions/{interactionId}/email-visite.\n\n`description` est le champ d'entrée du message : il alimente le champ `note` de la réponse, pas\nle libellé. Le libellé `description` de la réponse est **généré par le serveur**\n(`JJ/MM/AAAA HH:MM <auteur>`) et ne peut pas être imposé : c'est ce qui rend les interactions créées\nici indiscernables de celles de l'application de bureau.\n\nL'**auteur** est déduit du jeton d'authentification, jamais du corps : le laisser choisir fausserait\nles KPI de performance commerciale.\n\n**Relance (`dateAlerte`).** Une interaction datée d'une alerte devient la relance courante de la\nprospection, exactement comme dans le logiciel de bureau : les relances précédentes de la\nprospection sont désarmées (`WithoutRevival`, alerte éteinte dans `AdmAlertData`) et la nouvelle est\nposée là où l'écran du légataire la lit. Elle disparaît donc de `derniereAlerteDate` de la liste et\ndu tableau de bord des relances, et la nouvelle prend sa place. **Une interaction sans `dateAlerte`\n(note comprise) clôt les relances en cours** sans en poser de nouvelle : elles sont désarmées comme à\nl'archivage et disparaissent de « Ma journée ». C'est un écart voulu au légataire, qui les laissait\nvivantes. Les relances rattachées à une échéance de dossier ne sont pas touchées.",
         "operationId": "addInteraction",
         "parameters": [
           {
@@ -2706,6 +2706,67 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ResultatLotDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/equipe/leads/activite": {
+      "post": {
+        "tags": [
+          "Mon équipe"
+        ],
+        "summary": "Nombre d'actions et sommeil des leads demandés (fenêtre « Leads de … »)",
+        "description": "État des leads affichés dans la fenêtre « Leads de … » (pré-prospections et prospections,\n`ComProspection.PKey`), en une requête pour une page de la liste. **Action** = ligne `ComActionMessage`\nnon système (`IsSystem` faux ou absent) ; `endormi` suit exactement la colonne `sansActionDepuis7Jours`\nde `GET /api/equipe/commerciaux`. `jamaisTraite` = la règle « non traitée » de la Boîte de tri et de\n« À distribuer » (0 action **et** étape de départ).\n\nSeuls les leads du périmètre de l'appelant sont renvoyés : Administrateur / Direction Générale = projets\ndes sociétés actives et leads sans projet ; chef = ses projets, plus les leads sans projet tenus par un\nmembre de son équipe. Un id hors périmètre, inconnu ou qui n'est pas un lead est **omis** sans erreur.\nLecture seule.",
+        "operationId": "activiteLeads",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LeadsActiviteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Une entrée par lead visible, ordre libre ; les autres ids sont omis.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeadActiviteDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ids` absent, vide, contenant null ou de plus de 200 éléments.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeadActiviteDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle sans accès, ou projet hors du périmètre de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LeadActiviteDto"
+                  }
                 }
               }
             }
@@ -8030,7 +8091,7 @@
           "Parcours commercial"
         ],
         "summary": "« Ma journée » du commercial",
-        "description": "Quatre blocs, chacun avec son total et ses 20 premières lignes :\n\n- `nouveauxLeads` : pré-prospections du commercial, ouvertes, reçues il y a moins de 6 mois, **sans aucune\n  interaction saisie**, les plus récentes d'abord ;\n- `relancesDuJour` : relances ouvertes échéant aujourd'hui dont le résultat n'est pas une visite ;\n- `visitesDuJour` : relances ouvertes du jour dont le résultat est « Rendez vous pris », « RDV reporté » ou\n  « Le prospect veut faire une visite du projet » ;\n- `enRetard` : relances ouvertes échues avant aujourd'hui, **même règle que `GET /api/dashboard/relances?echeance=RETARD`**\n  (prospections qualifiées, ouvertes, créées dans le mois civil en cours).\n\nUne relance ouverte est la dernière interaction datée d'une prospection ouverte : non désarmée\n(`WithoutRevival`), sans échéance de paiement, non impayée. Les relances suivent l'heure de Casablanca.",
+        "description": "Quatre blocs, chacun avec son total et ses 20 premières lignes :\n\n- `nouveauxLeads` : pré-prospections du commercial, ouvertes, reçues il y a moins de 6 mois, **non traitées**\n  (aucune interaction saisie **et** étape de départ : `1 A TRAITER` ou aucune), les plus récentes d'abord ;\n- `relancesDuJour` : relances ouvertes échéant aujourd'hui dont le résultat n'est pas une visite ;\n- `visitesDuJour` : relances ouvertes du jour dont le résultat est « Rendez vous pris », « RDV reporté » ou\n  « Le prospect veut faire une visite du projet » ;\n- `enRetard` : relances ouvertes échues avant aujourd'hui, **même règle que `GET /api/dashboard/relances?echeance=RETARD`**\n  (prospections qualifiées, ouvertes, créées dans le mois civil en cours).\n\nUne relance ouverte est la dernière interaction datée d'une prospection ouverte : non désarmée\n(`WithoutRevival`), sans échéance de paiement, non impayée. Les relances suivent l'heure de Casablanca.",
         "operationId": "journee",
         "parameters": [
           {
@@ -8320,7 +8381,7 @@
           "Mon équipe"
         ],
         "summary": "Pré-prospections en attente de commercial, reçues dans la période",
-        "description": "Pré-prospections ouvertes, sans commercial, dont la tranche est sur un projet de l'appelant (toutes\npour Administrateur / Direction Générale sans `projet`, lignes sans tranche comprises), **reçues dans la\npériode** (`ComProspection.DocDate` entre `du` et `au`, 30 derniers jours par défaut, même règle que\n`entonnoir` et `commerciaux`) et, par défaut, **jamais traitées** : aucune action (`ComActionMessage`)\nautre que système (`IsSystem`), même règle que la Boîte de tri. `toutes=true` lève cette dernière\ncondition. La plus ancienne est celle de la période. La liste elle-même :\n`GET /api/equipe/a-distribuer/lignes` avec les mêmes paramètres — son `totalElements` est toujours ce\n`nombre`.",
+        "description": "Pré-prospections ouvertes, sans commercial, dont la tranche est sur un projet de l'appelant (toutes\npour Administrateur / Direction Générale sans `projet`, lignes sans tranche comprises), **reçues dans la\npériode** (`ComProspection.DocDate` entre `du` et `au`, 30 derniers jours par défaut, même règle que\n`entonnoir` et `commerciaux`) et, par défaut, **jamais traitées** : aucune action (`ComActionMessage`)\nautre que système (`IsSystem`) **et** étape de départ (`1 A TRAITER` ou aucune), même règle que la Boîte\nde tri. `toutes=true` lève cette dernière condition. La plus ancienne est celle de la période. La liste\nelle-même :\n`GET /api/equipe/a-distribuer/lignes` avec les mêmes paramètres — son `totalElements` est toujours ce\n`nombre`.",
         "operationId": "aDistribuer",
         "parameters": [
           {
@@ -8406,7 +8467,7 @@
           "Mon équipe"
         ],
         "summary": "Liste des pré-prospections à distribuer (mêmes règles que le compteur)",
-        "description": "Les lignes que compte `GET /api/equipe/a-distribuer` pour les mêmes paramètres (même règle, même\npérimètre, même 403 pour un projet hors périmètre), paginées et triées par `DocDate` croissante.\nAvec `toutes=true`, `dejaTraitee` signale celles qui ont au moins une action non système.",
+        "description": "Les lignes que compte `GET /api/equipe/a-distribuer` pour les mêmes paramètres (même règle, même\npérimètre, même 403 pour un projet hors périmètre), paginées et triées par `DocDate` croissante.\nAvec `toutes=true`, `dejaTraitee` signale celles qui ont au moins une action non système ou dont l'étape\nn'est plus l'étape de départ.",
         "operationId": "lignesADistribuer",
         "parameters": [
           {
@@ -10517,7 +10578,7 @@
           "Parcours commercial"
         ],
         "summary": "Boîte de tri : mes pré-prospections ouvertes non traitées, les plus récentes d'abord",
-        "description": "Pré-prospections du commercial appelant, ouvertes, reçues il y a moins de 6 mois (`toutes=true` lève la\nlimite), **sans aucune interaction saisie** (même règle que `nouveauxLeads` de « Ma journée »), les plus\nrécentes d'abord. Une ligne traitée (« Pas joignable », appel noté) quitte la boîte et revient par sa relance\ndans « Ma journée ». `prochaineRelance` ne porte donc plus qu'une relance écrite par OMRAN seul (`IsSystem`).\nChaque ligne porte ses `doublons` : fiches prospect et autres prospections au même numéro (9 derniers\nchiffres, sans espaces ni indicatif) ou au même e-mail, limitées au périmètre de l'appelant. Le nombre à\ntrier du menu est le `totalElements` de cette liste.\n\nLes autres gestes du tri utilisent les routes existantes : qualifier = `POST /api/prospections/{id}/transformer`\n(fiche prospect requise, sinon `POST /api/pre-prospections/{id}/creer-prospect`), archiver =\n`PATCH /api/prospections/{id}/archiver` (motif « PROSPECTION EN DOUBLE » proposé si un doublon est signalé),\nappel effectué = `POST /api/prospections/{id}/interactions`.",
+        "description": "Pré-prospections du commercial appelant, ouvertes, reçues il y a moins de 6 mois (`toutes=true` lève la\nlimite), **non traitées** (même règle que `nouveauxLeads` de « Ma journée »), les plus récentes d'abord.\nUne ligne traitée (« Pas joignable », appel noté) quitte la boîte et revient par sa relance dans « Ma\njournée ». Changer son étape (`PATCH /api/prospections/{id}/etape`) la sort aussi de la boîte, sans rien\nécrire d'autre. `prochaineRelance` ne porte donc plus qu'une relance écrite par OMRAN seul (`IsSystem`).\nChaque ligne porte ses `doublons` : fiches prospect et autres prospections au même numéro (9 derniers\nchiffres, sans espaces ni indicatif) ou au même e-mail, limitées au périmètre de l'appelant. Le nombre à\ntrier du menu est le `totalElements` de cette liste.\n\nLes autres gestes du tri utilisent les routes existantes : qualifier = `POST /api/prospections/{id}/transformer`\n(fiche prospect requise, sinon `POST /api/pre-prospections/{id}/creer-prospect`), archiver =\n`PATCH /api/prospections/{id}/archiver` (motif « PROSPECTION EN DOUBLE » proposé si un doublon est signalé),\nappel effectué = `POST /api/prospections/{id}/interactions`.",
         "operationId": "boiteDeTri",
         "parameters": [
           {
@@ -13913,6 +13974,62 @@
             "items": {
               "$ref": "#/components/schemas/LigneLotDto"
             }
+          }
+        }
+      },
+      "LeadsActiviteRequest": {
+        "type": "object",
+        "description": "Leads dont on veut l'état d'activité.",
+        "properties": {
+          "ids": {
+            "type": "array",
+            "description": "Ids de pré-prospections et/ou de prospections (ComProspection.PKey), de 1 à 200.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 200,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "ids"
+        ]
+      },
+      "LeadActiviteDto": {
+        "type": "object",
+        "description": "État d'activité d'un lead (pré-prospection ou prospection) de la fenêtre « Leads de … ».",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Lead (ComProspection.PKey) demandé."
+          },
+          "nombreActions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'actions non système du lead (ComActionMessage, IsSystem absent ou faux).",
+            "example": 3
+          },
+          "derniereActionDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la plus récente de ces actions ; `null` si aucune.",
+            "example": "2026-10-02T14:30:00"
+          },
+          "joursSansAction": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entiers depuis la dernière action, à défaut depuis la date du lead.",
+            "example": 11
+          },
+          "endormi": {
+            "type": "boolean",
+            "description": "Vrai quand la dernière action non système — à défaut la date du lead (`ComProspection.DocDate`) — date\nde plus de 7 jours (borne stricte), exactement la règle de la colonne `sansActionDepuis7Jours` de\n`GET /api/equipe/commerciaux`. Un lead « jamais traité » peut être endormi ou non selon sa date."
+          },
+          "jamaisTraite": {
+            "type": "boolean",
+            "description": "Vrai quand le lead n'a aucune action non système **et** est toujours à son étape de départ\n(`ComProspectionKind.Code` = `1 A TRAITER`, ou aucune étape) : la même règle que la Boîte de tri et\n« À distribuer ». Un lead à 0 action dont l'étape a changé n'est pas « jamais traité »."
           }
         }
       },
@@ -17728,7 +17845,7 @@
       },
       "LeadJourneeDto": {
         "type": "object",
-        "description": "Nouveau lead de « Ma journée » : pré-prospection du commercial, ouverte, sans aucune interaction.",
+        "description": "Nouveau lead de « Ma journée » : pré-prospection du commercial, ouverte, non traitée (0 action, étape de départ).",
         "properties": {
           "prospectionId": {
             "type": "string",
@@ -18046,7 +18163,7 @@
           "sansActionDepuis7Jours": {
             "type": "integer",
             "format": "int64",
-            "description": "Parmi le portefeuille ouvert, les prospections dont la dernière action (tous auteurs) — à défaut la\ndate de la prospection — date de plus de 7 jours. À afficher en alerte quand il est non nul."
+            "description": "Parmi le portefeuille ouvert, les prospections dont la dernière action non système (`IsSystem` faux ou\nabsent) — à défaut la date de la prospection — date de plus de 7 jours. Même règle que `endormi` de\n`POST /api/equipe/leads/activite`. À afficher en alerte quand il est non nul."
           },
           "relancesEnRetard": {
             "type": "integer",

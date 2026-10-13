@@ -37,13 +37,14 @@ export function useActiviteLeads(ids: readonly UUID[]): ActiviteLeads {
   };
 }
 
+/** Règle du serveur : 0 action et étape de départ (FEATURE-tri-a-jour.md §Règle 1). */
 export function jamaisTraite(a: LeadActiviteDto): boolean {
-  return a.nombreActions === 0;
+  return a.jamaisTraite;
 }
 
-/** Au moins une action, la dernière il y a plus de 7 j : disjoint de « jamais traité ». */
+/** Endormi et déjà traité (action ou étape changée) : disjoint de « jamais traité ». */
 export function endormi(a: LeadActiviteDto): boolean {
-  return a.nombreActions > 0 && a.endormi;
+  return !a.jamaisTraite && a.endormi;
 }
 
 /** En rouge : jamais traité ou endormi. */

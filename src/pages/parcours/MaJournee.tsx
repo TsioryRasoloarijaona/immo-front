@@ -11,6 +11,7 @@ import { ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { addInteraction, getJournee } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { useRafraichirAuRetour } from '../../lib/useRafraichirAuRetour';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { estChefOuExempte } from '../../lib/roles';
@@ -43,6 +44,7 @@ export default function MaJournee() {
   const chef = estChefOuExempte(user);
 
   const journee = useApi(() => getJournee(commercialId ?? undefined), [commercialId], 'journee');
+  useRafraichirAuRetour(journee.refetch);
   const typeVisite = types.data.find((t) => (t.code ?? '').trim().toLowerCase() === 'visite')?.id;
   const j = journee.data;
   const apresContact = (relance: RelanceJourneeDto, canal: CanalContact) =>

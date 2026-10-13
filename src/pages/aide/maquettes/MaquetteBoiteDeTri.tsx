@@ -49,7 +49,7 @@ export default function MaquetteBoiteDeTri(lien: Readonly<LienReperes>) {
         <div className="h-full w-1/6 rounded-full bg-primary" />
       </div>
       <div {...cible(1, 'gauche', 'a')}>
-        <CarteTri ligne={LEAD} />
+        <CarteTri ligne={LEAD} onOuvrir={() => undefined} />
       </div>
       <div className="grid grid-cols-4 gap-2">
         {GESTES.map((g, i) => (
