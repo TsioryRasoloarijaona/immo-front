@@ -1,5 +1,6 @@
 // « Mon équipe » : phrases de confirmation et listes de choix partagées par les dialogues.
 import { formatNumber, jourISO, pluriel } from './format';
+import type { ProspectionFilterParams } from './api';
 import type {
   ADistribuerDto,
   CommercialEquipeDto,
@@ -94,11 +95,42 @@ export function phraseAttributionCreation(commercialNom: string | null | undefin
     : "Pré-prospection créée : aucun commercial habilité, elle reste à distribuer.";
 }
 
-/** « 12 prospections passées de A à B » ; plusieurs anciens commerciaux : « … passées à B ». */
+/** « 12 leads passés de A à B » ; plusieurs anciens commerciaux : « … passés à B ». */
 export function phraseReaffectation(r: ResultatLotDto): string {
-  if (r.nombre === 0) return `Rien à faire : ces prospections sont déjà à ${r.commercialNom ?? '—'}.`;
+  if (r.nombre === 0) return `Rien à faire : ces leads sont déjà à ${r.commercialNom ?? '—'}.`;
   const anciens = new Set(r.lignes.map((l) => l.ancienCommercialNom ?? 'aucun commercial'));
-  const verbe = r.nombre > 1 ? 'passées' : 'passée';
+  const verbe = r.nombre > 1 ? 'passés' : 'passé';
   const de = anciens.size === 1 ? ` de ${[...anciens][0]}` : '';
-  return `${pluriel(r.nombre, 'prospection')} ${verbe}${de} à ${r.commercialNom ?? '—'}.`;
+  return `${pluriel(r.nombre, 'lead')} ${verbe}${de} à ${r.commercialNom ?? '—'}.`;
+}
+
+// ---------------------------------------------------------------- fenêtre « Réaffecter »
+
+export type OngletLeads = 'pre' | 'prospection';
+
+/** Leads ouverts du commercial reçus dans la période de l'écran, sur son projet (FEATURE-reaffecter-filtres.md §3). */
+export function filtreLeadsDe(
+  commercialId: UUID,
+  dates: { du: string; au: string },
+  projet: UUID | null,
+): ProspectionFilterParams {
+  return {
+    commercial: [commercialId],
+    ouvertes: true,
+    dateDebut: `${dates.du}T00:00:00`,
+    dateFin: `${dates.au}T23:59:59`,
+    projetId: projet ? [projet] : undefined,
+  };
+}
+
+/** Celui qui a des lignes ; Pré-prospections si les deux en ont (ou aucun). */
+export function ongletParDefaut(totalPre: number | undefined, totalProspections: number | undefined): OngletLeads {
+  if (!totalPre && totalProspections) return 'prospection';
+  return 'pre';
+}
+
+/** « Les 100 plus récentes sur 160 » quand la liste est tronquée, sinon « 12 ouvertes ». */
+export function libelleChargees(chargees: number, total: number): string {
+  if (total > chargees) return `Les ${formatNumber(chargees)} plus récentes sur ${formatNumber(total)}`;
+  return pluriel(chargees, 'ouverte');
 }

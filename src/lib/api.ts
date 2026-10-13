@@ -442,6 +442,9 @@ export interface ProspectionFilterParams {
   origine?: string[];
   commercial?: UUID[];
   trancheId?: UUID[];
+  /** Projet de la tranche (une ligne sans tranche est écartée) ; accepté par les deux listes, pas par les groupes
+   * de pré-prospections. */
+  projetId?: UUID[];
   /** Date-heure ISO (pas une date seule), borne incluse. */
   dateDebut?: string;
   /** Date-heure ISO (pas une date seule), borne incluse. */
@@ -1535,7 +1538,8 @@ export function distribuerPreProspections(body: DistribuerRequest): Promise<Resu
   return request('POST', '/api/equipe/distribuer', { body });
 }
 
-/** Tout ou rien ; les lignes déjà au destinataire sont ignorées (absentes de `lignes`). */
+/** Prospections et pré-prospections déjà affectées, mêlées ; tout ou rien ; les lignes déjà au destinataire sont
+ * ignorées (absentes de `lignes`). */
 export function reaffecterProspections(body: ReaffecterRequest): Promise<ResultatLotDto> {
   return request('POST', '/api/equipe/reaffecter', { body });
 }

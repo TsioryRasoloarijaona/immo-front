@@ -2224,6 +2224,7 @@ export interface DistribuerRequest {
 }
 
 export interface ReaffecterRequest {
+  /** Prospections et pré-prospections déjà affectées, mêlées ; une pré-prospection sans commercial → 409. */
   prospectionIds: UUID[];
   commercialId: UUID;
   motif?: string | null;
