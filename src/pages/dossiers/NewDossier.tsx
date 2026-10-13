@@ -29,6 +29,7 @@ import {
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { formatCurrency, formatPercent, formatPercentValue, formatSurface } from '../../lib/format';
 import { avecCles } from '../../lib/cles';
+import { aDesAnnexes, annexesAutomatiques, prixAnnexesAutomatiques } from '../../lib/annexesAutomatiques';
 
 function libelleArticlesCharges(affiches: number, charges: number): string {
   const s = (n: number) => (n > 1 ? 's' : '');
@@ -37,6 +38,30 @@ function libelleArticlesCharges(affiches: number, charges: number): string {
 import { prospectionDisplayName } from '../../lib/domain';
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../../lib/referentiels';
 import type { ArticleDetailDto, ArticleListItemDto, MontantsOffreDto, SchemaFinancementDto } from '../../types';
+
+/** Sous-articles libres du lot que la création rattache d'office : visibles, car ils entrent dans le prix. */
+function AnnexesAutomatiques({ annexes }: Readonly<{ annexes: ArticleListItemDto[] }>) {
+  if (annexes.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-micro font-medium text-muted-foreground">
+        Sous-articles du lot, rattachés d'office et comptés dans le prix ({annexes.length})
+      </span>
+      {annexes.map((a) => (
+        <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2 text-label">
+          <span className="flex items-center gap-2 font-medium text-foreground">
+            {a.code}
+            <Badge tone="neutral">Rattaché automatiquement</Badge>
+          </span>
+          <span className="flex items-center gap-3 tabular-nums text-muted-foreground">
+            {a.area ? formatSurface(a.area) : '—'}
+            <span className="text-foreground">{formatCurrency(a.prixSuggere ?? 0)}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 type FiltreStatut = 'DISPONIBLE' | 'OCCUPE' | 'all';
 
@@ -237,8 +262,12 @@ export default function NewDossier() {
 
   const selectedArticles: ArticleDetailDto[] = selectedArticleDetails.data ?? [];
   const showPicker = editingArticles || selectedArticles.length === 0;
+  // Le serveur rattache d'office les sous-articles libres du lot : ils entrent dans le prix proposé.
+  const annexesAuto = annexesAutomatiques(selectedArticles);
+  const avecAnnexes = aDesAnnexes(selectedIds.length, annexesAuto);
   // `prixSuggere` = prix commercial, ou plancher quand il vaut 0 — même calcul que le serveur.
-  const autoPrixFromArticles = selectedArticles.reduce((sum, a) => sum + (a.prixSuggere ?? 0), 0);
+  const autoPrixFromArticles =
+    selectedArticles.reduce((sum, a) => sum + (a.prixSuggere ?? 0), 0) + prixAnnexesAutomatiques(annexesAuto);
   const prixPlancherPropose = selectedArticles.some((a) => a.prixSuggereEstPlancher);
   const remiseOffre = remiseDeduiteDeLOffre(latestDevis?.montants);
   // Taux auto seulement si le prix l'est aussi : sinon il s'appliquerait à un prix tapé à la main.
@@ -271,7 +300,7 @@ export default function NewDossier() {
             articleIds: selectedIds,
             prix: debouncedPrixNumber,
             ...(debouncedRemise !== null ? { remisePercent: debouncedRemise } : {}),
-          }).then((schema) => ({ schema, avecAnnexes: selectedIds.length > 1 }))
+          }).then((schema) => ({ schema, avecAnnexes: aDesAnnexes(selectedIds.length, schema.annexesAutomatiques) }))
         : Promise.resolve(null),
     [selectedIds, debouncedPrixNumber, debouncedRemise],
   );
@@ -387,6 +416,7 @@ export default function NewDossier() {
                   />
                 ))}
               </div>
+              <AnnexesAutomatiques annexes={annexesAuto} />
             </div>
           )}
 
@@ -575,7 +605,7 @@ export default function NewDossier() {
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <FormField>
                 <FieldLabel htmlFor="prix">
-                  {libellePrix(remiseRenseignee, selectedIds.length > 1)}
+                  {libellePrix(remiseRenseignee, avecAnnexes)}
                 </FieldLabel>
                 <Input
                   id="prix"

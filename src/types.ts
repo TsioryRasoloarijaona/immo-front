@@ -1329,6 +1329,19 @@ export interface SchemaFinancementDto {
   /** 0–100 (`formatPercentValue`), pas un ratio. */
   remisePercent?: number;
   prixApresRemise?: number;
+  /** Sous-articles libres du lot absents de `articleIds`, rattachés d'office à la création ; comptés dans les prix. */
+  annexesAutomatiques?: AnnexeAutomatiqueDto[];
+}
+
+/** Sous-article du lot (`StkItem.ParentId`) rattaché automatiquement, comme le logiciel de bureau. */
+export interface AnnexeAutomatiqueDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  /** m². */
+  surface?: number;
+  /** Prix de référence TTC compté dans le prix des sous-articles. */
+  prix?: number;
 }
 
 export interface ChangerStatutRequest {
