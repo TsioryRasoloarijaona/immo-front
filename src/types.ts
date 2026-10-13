@@ -2246,6 +2246,8 @@ export interface LeadActiviteDto {
   joursSansAction: number;
   /** Même règle que la colonne « Sans action > 7 j ». */
   endormi: boolean;
+  /** 0 action **et** étape de départ (`1 A TRAITER` ou aucune) : même règle que la Boîte de tri. */
+  jamaisTraite: boolean;
 }
 
 export interface LigneLotDto {

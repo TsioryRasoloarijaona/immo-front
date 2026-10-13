@@ -6,11 +6,14 @@ import CreateProspectForm from '../../components/CreateProspectForm';
 import TransformerProspectionDialog from '../../components/TransformerProspectionDialog';
 import ArchiverProspectionDialog from '../../components/ArchiverProspectionDialog';
 import CarteTri from '../../components/parcours/CarteTri';
+import FicheProspectionLazy, { type FicheOuverte } from '../../components/dashboard/FicheProspectionLazy';
 import GestesTri, { type GesteTri } from '../../components/parcours/GestesTri';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { addInteraction, archiverProspection, listBoiteDeTri, marquerInjoignable, transformerProspection } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { useRafraichirAuRetour } from '../../lib/useRafraichirAuRetour';
+import { rangApresRelecture } from '../../lib/parcours';
 import { useAuth } from '../../lib/auth';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { lienAppel, typeActionDuCanal, type CanalContact } from '../../lib/contact';
@@ -23,6 +26,8 @@ const TAILLE_FILE = 50;
 const TOUCHES: Partial<Record<string, GesteTri>> ={ '1': 'contact', '2': 'injoignable', '3': 'qualifier', '4': 'archiver' };
 /** `canal` : bouton Appeler / WhatsApp cliqué avant « noter l'échange », pour présélectionner le type d'action. */
 type Boite = { type: 'interaction' | 'creerProspect' | 'transformer' | 'archiver'; ligne: LigneTriDto; canal?: CanalContact };
+
+const idLigne = (l: LigneTriDto) => l.prospectionId;
 
 function saisieEnCours(cible: EventTarget | null): boolean {
   return cible instanceof HTMLElement && (cible.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(cible.tagName));
@@ -38,12 +43,22 @@ export default function BoiteDeTri() {
   const [index, setIndex] = useState(0);
   const [traites, setTraites] = useState(0);
   const [boite, setBoite] = useState<Boite | null>(null);
+  const [fiche, setFiche] = useState<FicheOuverte | null>(null);
   const [busy, setBusy] = useState(false);
   // Verrou synchrone : un 2e clic ou une touche répétée arrive avant que `busy` ne grise l'écran.
   const enCours = useRef(false);
   const apresCreation = useRef<LigneTriDto | null>(null);
 
   const file = useApi(() => listBoiteDeTri(toutes, { page: 0, size: TAILLE_FILE }), [toutes], 'boite-de-tri');
+  useRafraichirAuRetour(file.refetch);
+  // Toute relecture (geste, fiche fermée, retour sur l'onglet) garde la ligne courante, ou passe à la suivante.
+  const [fileVue, setFileVue] = useState(file.data);
+  if (file.data !== fileVue) {
+    setFileVue(file.data);
+    if (fileVue && file.data) {
+      setIndex(rangApresRelecture(fileVue.content.map(idLigne), index, file.data.content.map(idLigne)));
+    }
+  }
   const lignes = file.data?.content ?? [];
   const ligne = lignes.at(index) ?? null;
   const total = file.data?.totalElements ?? 0;
@@ -82,7 +97,7 @@ export default function BoiteDeTri() {
   useEffect(() => {
     function surTouche(e: KeyboardEvent) {
       const g = TOUCHES[e.key];
-      if (!g || !ligne || boite || busy || e.ctrlKey || e.metaKey || e.altKey || saisieEnCours(e.target)) return;
+      if (!g || !ligne || boite || fiche || busy || e.ctrlKey || e.metaKey || e.altKey || saisieEnCours(e.target)) return;
       e.preventDefault();
       // Au clavier, « 1 » compose aussi le numéro ; au clic, c'est le lien lui-même qui l'a fait.
       const appel = g === 'contact' ? lienAppel(ligne.telephone) : null;
@@ -140,7 +155,7 @@ export default function BoiteDeTri() {
                   </p>
                 )}
                 <div aria-busy={busy} className={busy ? 'pointer-events-none flex flex-col gap-3 opacity-60' : 'flex flex-col gap-3'}>
-                  <CarteTri ligne={ligne} />
+                  <CarteTri ligne={ligne} onOuvrir={() => setFiche({ id: ligne.prospectionId, pre: true })} />
                   <GestesTri ligne={ligne} busy={busy} onGeste={(g, canal) => geste(g, ligne, canal)} />
                 </div>
               </>
@@ -155,6 +170,14 @@ export default function BoiteDeTri() {
         )}
       </div>
 
+      {/* Une action faite dans la fiche peut sortir la ligne de la boîte : relire à la fermeture. */}
+      <FicheProspectionLazy
+        fiche={fiche}
+        onClose={() => {
+          setFiche(null);
+          void file.refetch();
+        }}
+      />
       {boite?.type === 'interaction' && (
         <InteractionForm
           initialActionTypeId={typeActionDuCanal(typesAction.data, boite.canal)}
