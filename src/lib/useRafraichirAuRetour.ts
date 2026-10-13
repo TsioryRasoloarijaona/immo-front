@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { oublierLecturesRecentes } from './api';
 
 /** Au moins 2 s entre deux relectures : `visibilitychange` et `focus` arrivent souvent ensemble. */
 const ECART_MIN_MS = 2000;
@@ -23,6 +24,8 @@ export function useRafraichirAuRetour(refetch: () => Promise<void>): void {
       const maintenant = Date.now();
       if (maintenant - dernier.current < ECART_MIN_MS) return;
       dernier.current = maintenant;
+      // Sinon le cache GET de 30 s (api.ts) rendrait la réponse d'avant le départ.
+      oublierLecturesRecentes();
       void refetchRef.current();
     }
     document.addEventListener('visibilitychange', auRetour);

@@ -48,8 +48,10 @@ export function writeCachedValue(key: string, value: unknown): void {
 
 const clearListeners = new Set<() => void>();
 
-export function onCacheClear(listener: () => void): void {
+/** Rend la désinscription, pour un composant qui écoute pendant qu'il est monté. */
+export function onCacheClear(listener: () => void): () => void {
   clearListeners.add(listener);
+  return () => clearListeners.delete(listener);
 }
 
 export function clearCachedValues(): void {
