@@ -8381,7 +8381,7 @@
           "Mon équipe"
         ],
         "summary": "Pré-prospections en attente de commercial, reçues dans la période",
-        "description": "Pré-prospections ouvertes, sans commercial, dont la tranche est sur un projet de l'appelant (toutes\npour Administrateur / Direction Générale sans `projet`, lignes sans tranche comprises), **reçues dans la\npériode** (`ComProspection.DocDate` entre `du` et `au`, 30 derniers jours par défaut, même règle que\n`entonnoir` et `commerciaux`) et, par défaut, **jamais traitées** : aucune action (`ComActionMessage`)\nautre que système (`IsSystem`) **et** étape de départ (`1 A TRAITER` ou aucune), même règle que la Boîte\nde tri. `toutes=true` lève cette dernière\ncondition. La plus ancienne est celle de la période. La liste elle-même :\n`GET /api/equipe/a-distribuer/lignes` avec les mêmes paramètres — son `totalElements` est toujours ce\n`nombre`.",
+        "description": "Pré-prospections ouvertes, sans commercial, dont la tranche est sur un projet de l'appelant (toutes\npour Administrateur / Direction Générale sans `projet`, lignes sans tranche comprises), **reçues dans la\npériode** (`ComProspection.DocDate` entre `du` et `au`, 30 derniers jours par défaut, même règle que\n`entonnoir` et `commerciaux`) et, par défaut, **jamais traitées** : aucune action (`ComActionMessage`)\nautre que système (`IsSystem`) **et** étape de départ (`1 A TRAITER` ou aucune), même règle que la Boîte\nde tri. `toutes=true` lève cette dernière condition. La plus ancienne est celle de la période. La liste\nelle-même :\n`GET /api/equipe/a-distribuer/lignes` avec les mêmes paramètres — son `totalElements` est toujours ce\n`nombre`.",
         "operationId": "aDistribuer",
         "parameters": [
           {
