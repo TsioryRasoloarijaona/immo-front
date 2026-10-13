@@ -1513,6 +1513,8 @@ export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; v
                       await nextSteps.refetch();
                       await historique.refetch();
                       await montants.refetch();
+                      // Une sortie libère le lot, une réactivation le réoccupe : sa disponibilité change.
+                      await articleDetails.refetch();
                       showToast(`Statut changé : ${canonicalStatusLabel(newStatus)}.`);
                     } catch (err) {
                       showToast({ texte: err instanceof Error ? err.message : "Échec de l'opération.", variante: 'erreur' });

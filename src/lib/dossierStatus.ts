@@ -18,6 +18,12 @@ export const DOSSIER_STATUS_PIPELINE = [
 
 export const DOSSIER_EXIT_STATUSES = ['Annulé', 'Désistement'] as const;
 
+/** Code API (`StrStatus.Code`) de chaque sortie : « Annulé » ne se normalise pas en `ANNULATION`. */
+export const CODE_SORTIE: Record<(typeof DOSSIER_EXIT_STATUSES)[number], string> = {
+  'Annulé': 'ANNULATION',
+  'Désistement': 'DESISTEMENT',
+};
+
 /** Accepte libellé et code brut `StrStatus.Code` : « Annulé » se code `ANNULATION`,
  * la normalisation ne les rejoint pas. Le serveur exclut ces statuts de ses
  * agrégats ; le tableau de bord doit faire de même. */

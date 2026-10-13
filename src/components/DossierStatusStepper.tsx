@@ -5,7 +5,13 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
 import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from './ui/popover';
-import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, normalizeStatus } from '../lib/dossierStatus';
+import {
+  CODE_SORTIE,
+  DOSSIER_STATUS_PIPELINE,
+  DOSSIER_EXIT_STATUSES,
+  estStatutSortie,
+  normalizeStatus,
+} from '../lib/dossierStatus';
 import { todayISO } from '../lib/format';
 import { cn } from '../lib/utils';
 import type { EtapeSuivanteDto } from '../types';
@@ -53,12 +59,14 @@ export default function DossierStatusStepper({
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-4">
           <span className="text-micro font-medium text-muted-foreground">Sorties :</span>
           {DOSSIER_EXIT_STATUSES.map((label) => {
-            const isCurrent = normalizeStatus(label) === normalizedCurrent;
-            const step = stepByStatus.get(normalizeStatus(label));
+            const code = CODE_SORTIE[label];
+            const isCurrent = normalizeStatus(code) === normalizedCurrent;
+            const step = stepByStatus.get(normalizeStatus(code));
             return (
               <ExitChip
                 key={label}
                 label={label}
+                code={code}
                 isCurrent={isCurrent}
                 step={step}
                 onConfirm={onConfirm}
@@ -88,17 +96,25 @@ function ConfianceBadge({ confiance }: Readonly<{ confiance?: string }>) {
 
 function ConfirmPopoverBody({
   label,
+  code,
   step,
   onConfirm,
   close,
 }: Readonly<{
   label: string;
+  code: string;
   step?: EtapeSuivanteDto;
   onConfirm: (s: string, note: string, date?: string) => void;
   close: () => void;
 }>) {
   const [note, setNote] = useState('');
   const [date, setDate] = useState(todayISO());
+  // Envoyer `step.statut` tel que l'API le donne, sinon le code API, jamais le libellé affiché :
+  // casse et accents diffèrent (« CONCRETISATION » / « Concrétisation », « ANNULATION » / « Annulé »).
+  const statutApi = step?.statut ?? code;
+  // Sortie : le serveur exige la cause (400 sinon) et libère le lot.
+  const sortie = estStatutSortie(statutApi);
+  const causeManquante = sortie && note.trim() === '';
   return (
     <div className="flex flex-col gap-3">
       <p className="text-label font-medium text-foreground">Passer à « {label} » ?</p>
@@ -115,8 +131,14 @@ function ConfirmPopoverBody({
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="text-label" />
         </label>
       )}
+      {sortie && (
+        <p role="alert" className="rounded-md border border-(--warning-border) bg-(--warning-bg) px-2 py-1.5 text-micro font-medium text-(--warning)">
+          Le lot sera libéré et remis en vente.
+        </p>
+      )}
       <Textarea
-        placeholder="Motif / note (optionnel)"
+        aria-label={sortie ? 'Cause' : 'Motif / note'}
+        placeholder={sortie ? 'Cause (obligatoire)' : 'Motif / note (optionnel)'}
         value={note}
         onChange={(e) => setNote(e.target.value)}
         className="min-h-17.5 text-label"
@@ -126,10 +148,9 @@ function ConfirmPopoverBody({
         <Button
           type="button"
           size="sm"
+          disabled={causeManquante}
           onClick={() => {
-            // Envoyer `step.statut` tel que l'API le donne, pas le libellé affiché :
-            // casse et accents diffèrent (« CONCRETISATION » / « Concrétisation »).
-            onConfirm(step?.statut ?? label, note.trim(), step?.champDate ? date || undefined : undefined);
+            onConfirm(statutApi, note.trim(), step?.champDate ? date || undefined : undefined);
             setNote('');
             close();
           }}
@@ -209,7 +230,7 @@ function StepNode({
         {textLabel}
       </PopoverTrigger>
       <PopoverContent>
-        <ConfirmPopoverBody label={label} step={step} onConfirm={onConfirm} close={() => setOpen(false)} />
+        <ConfirmPopoverBody label={label} code={label} step={step} onConfirm={onConfirm} close={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
   );
@@ -217,11 +238,13 @@ function StepNode({
 
 function ExitChip({
   label,
+  code,
   isCurrent,
   step,
   onConfirm,
 }: Readonly<{
   label: string;
+  code: string;
   isCurrent: boolean;
   step?: EtapeSuivanteDto;
   onConfirm: (s: string, note: string, date?: string) => void;
@@ -251,7 +274,7 @@ function ExitChip({
         {chip}
       </PopoverTrigger>
       <PopoverContent>
-        <ConfirmPopoverBody label={label} step={step} onConfirm={onConfirm} close={() => setOpen(false)} />
+        <ConfirmPopoverBody label={label} code={code} step={step} onConfirm={onConfirm} close={() => setOpen(false)} />
       </PopoverContent>
     </Popover>
   );
