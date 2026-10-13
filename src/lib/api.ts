@@ -11,7 +11,11 @@ import type {
   MembreAffectationDto,
   ModifierAffectationsRequest,
   ReaffecterRequest,
+  RepartirRequest,
   ResultatLotDto,
+  ResultatRepartitionDto,
+  NonLuesDto,
+  NotificationsDto,
   PorteeActionsRecentes,
   AffecterProjetsRequest,
   AjouterAutreTrancheRequest,
@@ -1525,6 +1529,12 @@ export function reaffecterProspections(body: ReaffecterRequest): Promise<Resulta
   return request('POST', '/api/equipe/reaffecter', { body });
 }
 
+/** Répartition automatique ; `simulation` n'écrit rien (aperçu) et ne vide pas les caches. Une ligne déjà
+ * attribuée n'est jamais reprise ; 403 si une ligne est hors des projets d'un chef. */
+export function repartirPreProspections(body: RepartirRequest): Promise<ResultatRepartitionDto> {
+  return request('POST', '/api/equipe/repartir', { body, lecture: body.simulation });
+}
+
 export function getAffectationsEquipe(): Promise<AffectationsEquipeDto> {
   return request('GET', '/api/equipe/affectations');
 }
@@ -1560,6 +1570,25 @@ export function avancerProspection(id: UUID, body: AvancerProspectionRequest): P
 export function getMesPerformances(params?: { du?: string; au?: string }): Promise<PerformanceCommercialDto> {
   return request('GET', '/api/kpi/commerciaux/moi', { query: { du: params?.du, au: params?.au } });
 }
+
+// ---------------------------------------------------------------- Notifications (cloche)
+
+/** Compte appelant seulement, plus récentes d'abord ; `nonLues` = pastille. */
+export function listNotifications(page = 0, size = 20): Promise<NotificationsDto> {
+  return request('GET', '/api/notifications', { query: { page, size } });
+}
+
+/** 404 si la notification n'est pas au compte appelant. */
+export function marquerNotificationLue(id: UUID): Promise<NonLuesDto> {
+  return request('POST', `/api/notifications/${id}/lue`);
+}
+
+export function marquerToutesNotificationsLues(): Promise<NonLuesDto> {
+  return request('POST', '/api/notifications/tout-lu');
+}
+
+/** Flux SSE (`EventSource` avec `withCredentials`) : évènements `notification` (`EvenementNotificationDto`). */
+export const URL_FLUX_NOTIFICATIONS = `${API_BASE_URL}/api/notifications/flux`;
 
 /** Synchrone ; 409 si un cycle tourne déjà. Les caches sont vidés, mais l'appelant
  * doit lancer `refetchAllApis()` pour que les pages montées relisent. */

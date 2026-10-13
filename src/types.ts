@@ -847,6 +847,10 @@ export interface RapportImportPreProspectionsDto {
   statutsImportes?: StatutLigneImport[] | null;
   /** 0 dans l'aperçu. */
   creees: number;
+  /** Leads créés attribués par la répartition automatique, par commercial ; vide dans l'aperçu. */
+  repartition: RepartitionCommercialDto[];
+  /** Leads créés restés sans commercial (sans projet ou aucun éligible). */
+  nonAttribuees: number;
 }
 
 
@@ -2216,6 +2220,44 @@ export interface ResultatLotDto {
   lignes: LigneLotDto[];
 }
 
+// Répartition automatique (POST /api/equipe/repartir, FEATURE-repartition-notifications.md §3).
+
+export type MotifAttribution = 'CONNU' | 'MOINS_CHARGE';
+export type RaisonNonAttribution = 'SANS_PROJET' | 'AUCUN_ELIGIBLE' | 'DEJA_ATTRIBUEE';
+
+export interface RepartirRequest {
+  preProspectionIds: UUID[];
+  /** `true` (ou absent) : aperçu, rien n'est écrit. */
+  simulation: boolean;
+}
+
+export interface RepartitionCommercialDto {
+  commercialId?: UUID;
+  commercialNom?: string | null;
+  nombre: number;
+}
+
+export interface AttributionDto {
+  preProspectionId?: UUID;
+  code?: string;
+  commercialId?: UUID;
+  commercialNom?: string | null;
+  motif?: MotifAttribution;
+}
+
+export interface NonAttribueeDto {
+  preProspectionId?: UUID;
+  code?: string;
+  raison?: RaisonNonAttribution;
+}
+
+export interface ResultatRepartitionDto {
+  simulation: boolean;
+  attributions: AttributionDto[];
+  nonAttribuees: NonAttribueeDto[];
+  parCommercial: RepartitionCommercialDto[];
+}
+
 export interface MembreAffectationDto {
   admUserId: UUID;
   code?: string;
@@ -2399,4 +2441,39 @@ export interface ProchaineActionRequest {
 export interface AvancerProspectionRequest {
   etapeId: UUID;
   prochaineAction: ProchaineActionRequest;
+}
+
+// Cloche (/api/notifications, FEATURE-repartition-notifications.md §3.3) : compte appelant seulement.
+
+export type TypeNotification = 'LEADS_ATTRIBUES' | 'LEADS_A_DISTRIBUER' | 'RESUME_DEMI_JOURNEE';
+
+export interface NotificationDto {
+  id: UUID;
+  type: TypeNotification;
+  titre: string;
+  message: string;
+  /** Route du front à ouvrir au clic. */
+  lien?: string | null;
+  creeLe: string;
+  /** null = non lue. */
+  lueLe?: string | null;
+}
+
+export interface NotificationsDto {
+  notifications: NotificationDto[];
+  page: number;
+  taille: number;
+  total: number;
+  nonLues: number;
+}
+
+export interface NonLuesDto {
+  nonLues: number;
+}
+
+/** `data` d'un évènement SSE `notification` du flux `/api/notifications/flux`. */
+export interface EvenementNotificationDto {
+  admUserId: UUID;
+  notification: NotificationDto;
+  nonLues: number;
 }

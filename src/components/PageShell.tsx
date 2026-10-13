@@ -13,6 +13,7 @@ import {
 import { SidebarTrigger } from './ui/sidebar';
 import { Button } from './ui/button';
 import ThemeToggle from './ThemeToggle';
+import Cloche from './notifications/Cloche';
 import ModuleSwitcher from './ModuleSwitcher';
 
 interface Crumb {
@@ -111,6 +112,7 @@ export default function PageShell({
         </div>
         <div className={cn('flex items-center gap-2', entete ? 'ml-auto max-w-full' : 'shrink-0')}>
           {actions && <div className="flex min-w-0 flex-wrap justify-end gap-2">{actions}</div>}
+          <Cloche />
           <ThemeToggle />
           <Button
             type="button"

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import Layout from './components/Layout';
 import RouteErrorBoundary from './components/RouteErrorBoundary';
 import { ConfirmProvider } from './components/ConfirmModal';
+import NotificationsProvider from './components/notifications/NotificationsProvider';
 import { PreviewProvider } from './components/PreviewProvider';
 import { ToastProvider } from './components/ToastProvider';
 import { LoadingState } from './components/ui';
@@ -77,6 +78,7 @@ function AuthenticatedApp() {
     <AppDataProvider>
       <ToastProvider>
       <ConfirmProvider>
+        <NotificationsProvider>
         <PreviewProvider>
           <Layout>
             {/* La frontière enveloppe le Suspense, pas l’inverse : un chunk qui ne se télécharge pas démonterait
@@ -149,6 +151,7 @@ function AuthenticatedApp() {
             </RouteErrorBoundary>
           </Layout>
         </PreviewProvider>
+        </NotificationsProvider>
       </ConfirmProvider>
       </ToastProvider>
     </AppDataProvider>

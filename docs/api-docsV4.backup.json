@@ -1743,7 +1743,7 @@
           "Parcours commercial"
         ],
         "summary": "Kanban : change l'étape et pose la prochaine action, en une transaction",
-        "description": "Geste du Kanban, **en une seule transaction** : change l'étape (mêmes effets que\n`PATCH /api/prospections/{id}/etape`, sans toucher aux notes) puis écrit la prochaine action comme\n`POST /api/prospections/{id}/interactions` (`typeId` = action, `sousCategorieId` = résultat, `date` = relance,\n`message` = message). Les relances précédentes sont soldées. Un résultat de visite (« Rendez vous pris »,\n« RDV reporté », « Le prospect veut faire une visite du projet ») crée aussi le rendez-vous à cette date :\nil apparaît dans le calendrier et déclenche la confirmation de visite habituelle. Si une des deux écritures\néchoue, rien n'est écrit. Le type de la prochaine action n'est pas stocké : l'intention passe par le résultat.",
+        "description": "Geste du Kanban, **en une seule transaction** : change l'étape (mêmes effets que\n`PATCH /api/prospections/{id}/etape`, sans toucher aux notes) puis écrit la prochaine action comme\n`POST /api/prospections/{id}/interactions` (`typeId` = action, `sousCategorieId` = résultat, `date` = relance,\n`message` = message). Les relances précédentes sont soldées. Un résultat de visite (« Rendez vous pris »,\n« RDV reporté », « Le prospect veut faire une visite du projet ») crée aussi le rendez-vous à cette date :\nil apparaît dans le calendrier et déclenche la confirmation de visite habituelle. Si une des deux écritures\néchoue, rien n'est écrit. Le type de la prochaine action n'est pas stocké : l'intention passe par le résultat.\n\n**Messages envoyés au prospect** (après validation de la transaction, comme les routes d'origine) : arriver en\n« 4 APRES VISITES » envoie le remerciement de visite (e-mail et WhatsApp) ; un résultat de visite envoie la\nconfirmation de visite. Le front en avertit l'utilisateur avant d'enregistrer.",
         "operationId": "avancer",
         "parameters": [
           {
@@ -8049,10 +8049,32 @@
         "tags": [
           "Mon équipe"
         ],
-        "summary": "Pré-prospections en attente de commercial",
-        "description": "Pré-prospections ouvertes, sans commercial, dont la tranche est sur un projet de l'appelant (toutes\npour Administrateur / Direction Générale sans `projet`, lignes sans tranche comprises).",
+        "summary": "Pré-prospections en attente de commercial, reçues dans la période",
+        "description": "Pré-prospections ouvertes, sans commercial, dont la tranche est sur un projet de l'appelant (toutes\npour Administrateur / Direction Générale sans `projet`, lignes sans tranche comprises), **reçues dans la\npériode** (`ComProspection.DocDate` entre `du` et `au`, 30 derniers jours par défaut, même règle que\n`entonnoir` et `commerciaux`). La plus ancienne est celle de la période. Pour lister ces lignes :\n`GET /api/pre-prospections?ouvertes=true&dateDebut=…&dateFin=…` puis garder celles sans commercial.",
         "operationId": "aDistribuer",
         "parameters": [
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Premier jour pris en compte, inclus. Défaut : il y a 30 jours.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-09-12"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Dernier jour pris en compte, inclus jusqu'à 23:59:59. Défaut : aujourd'hui.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-11"
+          },
           {
             "name": "projet",
             "in": "query",
@@ -8066,7 +8088,17 @@
         ],
         "responses": {
           "200": {
-            "description": "Compte et âge de la plus ancienne.",
+            "description": "Compte et âge de la plus ancienne de la période.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ADistribuerDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`du` postérieure à `au`, ou date non parsable.",
             "content": {
               "*/*": {
                 "schema": {

@@ -1,6 +1,13 @@
 // « Mon équipe » : phrases de confirmation et listes de choix partagées par les dialogues.
 import { jourISO, pluriel } from './format';
-import type { CommercialEquipeDto, ResultatLotDto, UUID } from '../types';
+import type {
+  CommercialEquipeDto,
+  RaisonNonAttribution,
+  RepartitionCommercialDto,
+  ResultatLotDto,
+  ResultatRepartitionDto,
+  UUID,
+} from '../types';
 
 const JOURS_PAR_DEFAUT = 30;
 
@@ -40,6 +47,44 @@ export function basculer(prev: ReadonlySet<string>, id: string): Set<string> {
 
 export function phraseDistribution(r: ResultatLotDto): string {
   return `${pluriel(r.nombre, 'pré-prospection distribuée', 'pré-prospections distribuées')} à ${r.commercialNom ?? '—'}.`;
+}
+
+const RAISONS_NON_ATTRIBUEES: Record<RaisonNonAttribution, [string, string]> = {
+  SANS_PROJET: ['sans projet', 'sans projet'],
+  AUCUN_ELIGIBLE: ['sans commercial habilité', 'sans commercial habilité'],
+  DEJA_ATTRIBUEE: ['déjà attribuée', 'déjà attribuées'],
+};
+
+/** « Faycal 4 · Khadija 3 · 2 sans projet » : aperçu et résultat de la répartition automatique. */
+export function phraseRepartition(r: ResultatRepartitionDto): string {
+  const parties = r.parCommercial.map((c) => `${c.commercialNom ?? '—'} ${c.nombre}`);
+  const parRaison = new Map<RaisonNonAttribution, number>();
+  for (const n of r.nonAttribuees) {
+    if (n.raison) parRaison.set(n.raison, (parRaison.get(n.raison) ?? 0) + 1);
+  }
+  for (const [raison, nombre] of parRaison) {
+    const [un, plusieurs] = RAISONS_NON_ATTRIBUEES[raison];
+    parties.push(`${nombre} ${nombre > 1 ? plusieurs : un}`);
+  }
+  return parties.length > 0 ? parties.join(' · ') : 'Aucune ligne à répartir.';
+}
+
+/** « Répartis : Faycal 4, Khadija 3 · 2 à distribuer » (résultat d'import). */
+export function phraseRepartitionImport(repartition: readonly RepartitionCommercialDto[], nonAttribuees: number): string {
+  const parts: string[] = [];
+  if (repartition.length > 0) {
+    const noms = repartition.map((c) => `${c.commercialNom ?? '—'} ${c.nombre}`).join(', ');
+    parts.push(`Répartis : ${noms}`);
+  }
+  if (nonAttribuees > 0) parts.push(`${nonAttribuees} à distribuer`);
+  return parts.join(' · ');
+}
+
+/** Toast de création : à qui la répartition (ou la règle du créateur) a donné le lead. */
+export function phraseAttributionCreation(commercialNom: string | null | undefined): string {
+  return commercialNom
+    ? `Pré-prospection créée et attribuée à ${commercialNom}.`
+    : "Pré-prospection créée : aucun commercial habilité, elle reste à distribuer.";
 }
 
 /** « 12 prospections passées de A à B » ; plusieurs anciens commerciaux : « … passées à B ». */

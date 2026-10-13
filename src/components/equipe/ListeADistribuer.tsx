@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Send } from 'lucide-react';
 import RefSelect from '../RefSelect';
+import RepartirAutomatiquement from './RepartirAutomatiquement';
 import FicheProspectionLazy, { type FicheOuverte } from '../dashboard/FicheProspectionLazy';
 import { Button } from '../ui/button';
 import { Card, EmptyState, ErrorState, LoadingState } from '../ui';
@@ -110,6 +111,14 @@ export default function ListeADistribuer({
               <Button type="button" onClick={() => void distribuer()} disabled={busy || !commercialId || selection.size === 0}>
                 <Send data-icon="inline-start" /> {busy ? 'Distribution…' : `Distribuer (${selection.size})`}
               </Button>
+              <RepartirAutomatiquement
+                ids={selection.size > 0 ? [...selection] : lignes.map((l) => l.id)}
+                onFait={() => {
+                  setSelection(new Set());
+                  onFait();
+                }}
+                onErreur={setErreur}
+              />
             </div>
             {erreur && <p role="alert" className="text-body text-destructive">{erreur}</p>}
             <ul className="flex max-h-[60vh] flex-col overflow-y-auto rounded-md border border-border">
