@@ -20,6 +20,46 @@
       "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. Sans filtre `categorieId`, les **annexes** (`IsUnderItem` — parkings, terrasses, jardins, mêmes racines sans parent) sont écartées, comme dans l'écran Articles du logiciel de bureau ; cocher explicitement leur catégorie les fait réapparaître. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
     },
     {
+      "name": "Synchronisation",
+      "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
+    },
+    {
+      "name": "Hotline",
+      "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
+    },
+    {
+      "name": "Mon compte",
+      "description": "Profil de l'utilisateur authentifié et changement volontaire de son mot de passe. Aucun portail de première connexion : mustChangePassword/profileCompleted ne bloquent plus aucune route."
+    },
+    {
+      "name": "Dossiers — fiche",
+      "description": "Fiche complète d'un dossier de vente en consultation, organisée par onglet de l'écran OMRAN (en-tête, statut, autres montants, dates, dates autres, annulation, autres). Lecture seule : la modification des champs est un autre lot. Même périmètre que `GET /api/dossiers/{id}` : un dossier hors périmètre ou rattaché à une entité inactive renvoie 404."
+    },
+    {
+      "name": "Dossiers — réinitialisation",
+      "description": "Bouton « Réinitialiser » de la fiche dossier : « Le système recharge les données de l'article et des sous articles à partir du module stock » (aide OMRAN). Pour l'article : superficie, taux de TVA et prix du m² HT ; pour chaque sous-article déjà présent sur le dossier : superficie, TVA, prix avant remise HT et descriptifs (code, description, adresse, contenance, catégorie, type…). Puis la remise est recalculée comme `Sale.cs:RecalcDiscount` : le montant de remise HT est conservé, le taux change (« Montant remise / Total HT »), et les prix après remise suivent. Le schéma de financement n'est pas modifié ; une valeur absente du stock laisse celle du dossier. Réservé au rôle Administrateur."
+    },
+    {
+      "name": "Dossiers — actions",
+      "description": "Onglet « Actions » du dossier de vente (règle GEN0005 d'OMRAN) et instructions adressées au commercial du dossier. Les actions sont des `ComActionMessage` rattachées au dossier par `ComFolderId` ; leur catégorie est déduite du statut du dossier (Réservation → « Dossier de vente (Réservation) », Annulation ou Désistement → « Désistement et annulation », tout autre statut → « Dossier de vente (Livraison) »), comme `Sale.cs:AttachNotes`. Toute écriture signe le dossier (`UserUpdate`, `UserUpdateDateTime`)."
+    },
+    {
+      "name": "Prospections",
+      "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
+    },
+    {
+      "name": "Notifications",
+      "description": "Cloche de l'application : notifications du **compte appelant** uniquement (`AppNotification.AdmUserId`),\njamais celles d'un autre compte. Types : `LEADS_ATTRIBUES` (leads attribués au commercial du compte,\nregroupés par lot), `LEADS_A_DISTRIBUER` (leads importés restés sans commercial, aux chefs du projet ou,\nsans projet, à l'administration) et `RESUME_DEMI_JOURNEE` (09:00 et 14:00, heure de Casablanca).\nL'auteur d'une attribution n'est jamais notifié de son propre geste."
+    },
+    {
+      "name": "Pré-prospections",
+      "description": "Leads bruts non encore qualifiés : ComProspection de type légataire `ComPreProspection` (`StrEntity`), le discriminant d'OMRAN lui-même — une pré-prospection peut donc déjà porter un prospect ou un commercial tant qu'elle n'a pas été transformée. Même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
+    },
+    {
+      "name": "Dossiers — visites techniques",
+      "description": "Calendrier des visites techniques (bouton à gauche du champ « Visite technique / réception » de la fiche OMRAN). Une visite est un `AdmEvent` rattaché au dossier (`ComFolderId`) et à la tranche de son article (`CfgTrancheId`) ; les créneaux et le quota sont comptés par tranche."
+    },
+    {
       "name": "Articles",
       "description": "Articles et sous-articles (StkItem) — lots vendables d'une tranche, avec leur disponibilité et leurs éventuels sous-lots (cave/parking annexés)."
     },
@@ -36,20 +76,8 @@
       "description": "L'écran OMRAN « Suivi des actions » : les actions commerciales (appels, visites, messages, notes…) saisies par chaque utilisateur, sur une période. Doc OMRAN : https://help.omranestate.com/SUIVIDESACTIONS.html — détail dans `instructions/FEATURE-suivi-actions.md`.\n\n**Même requête qu'OMRAN**, relevée dans sa trace d'audit : `ComActionMessageView WHERE CfgTrancheId IN (…) AND DocDate >= début AND DocDate < fin [AND UserName = …]`. Mêmes colonnes, même tranche résolue (catégorie Prospection → tranche de la prospection, sinon de l'article), même rang, même état — construits sur la table plutôt que sur la vue, qui coûte 6,6 s la page.\n\n**Compter les appels d'un commercial jour par jour** — le cas d'usage principal (94 % des actions de l'année sont des appels sortants) : `GET /api/suivi-actions/groupes?utilisateur=<nom>&typeId=<Téléphone Sortant>&groupBy=dateAction&granularite=JOUR&dateDebut=…&dateFin=…`. L'effectif de chaque groupe est le nombre d'actions ; la somme des effectifs égale le `totalElements` de la liste aux mêmes filtres.\n\n**Qui voit quoi.** Le suivi **général** est réservé au rôle `Administrateur`. Tout autre utilisateur ne voit que **ses propres actions** — sur la liste comme dans les groupes : celles écrites à son nom (`UserName`), plus celles de son compte hors lignes « Système » (actions générées pendant sa session, qu'OMRAN attribue à « Système »). Pour lui, le filtre `utilisateur` ne peut que restreindre : demander quelqu'un d'autre rend une page vide, jamais un 403 qui confirmerait l'existence de ses actions. Le front masque donc le sélecteur d'utilisateur hors administrateur.\n\n**Périmètre commercial** : appliqué par le service, liste et groupes — une action dont le projet (par la prospection, puis par le dossier) est hors périmètre n'apparaît ni dans la liste ni dans un effectif. Actions d'entités juridiques inactives exclues, comme partout."
     },
     {
-      "name": "Synchronisation",
-      "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
-    },
-    {
       "name": "Mon équipe",
       "description": "Écran « Mon équipe » du chef commercial. Réservé aux rôles `Commercial Chef`, `Administrateur` et `Direction Générale`.\n\nL'équipe d'un chef = les comptes actifs « Commercial » ou « Commercial Aide » affectés à au moins un de ses projets (`AdmUserHabilitation`). Administrateur et Direction Générale voient tous les commerciaux actifs et tous les projets. Toutes les routes passent par ce même calcul ; un compte désactivé n'est jamais membre.\n\nLes écritures (distribuer, réaffecter, affectations) vont directement dans les tables d'OMRAN, sans validation : un lot est contrôlé en entier avant la première écriture et un lot partiellement invalide n'écrit rien."
-    },
-    {
-      "name": "Hotline",
-      "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
-    },
-    {
-      "name": "Mon compte",
-      "description": "Profil de l'utilisateur authentifié et changement volontaire de son mot de passe. Aucun portail de première connexion : mustChangePassword/profileCompleted ne bloquent plus aucune route."
     },
     {
       "name": "Passerelle",
@@ -84,6 +112,10 @@
       "description": "Tranches (CfgTranche) — phases d'un projet immobilier, leurs conditions commerciales et leurs articles."
     },
     {
+      "name": "Dossiers — réajustement des superficies",
+      "description": "Écran OMRAN « Réajuster les superficies », lancé depuis la liste des dossiers pour une tranche. « Le système n'effectue des modifications que lorsqu'on change la superficie » (aide OMRAN) : un dossier est proposé quand la superficie de son article principal, ou d'un de ses sous-articles, diffère du stock (arrondie à 2 décimales). La remise est recalculée comme pour la réinitialisation (montant conservé, taux recalculé) ; un sous-article dont la superficie change reprend aussi son prix (prix TTC du stock / (1 + TVA)). Dossiers annulés ou désistés exclus. Réservé au rôle Administrateur."
+    },
+    {
       "name": "Dossiers",
       "description": "Dossiers de vente (ComFolder) — cycle de vie, échéancier, pièces jointes et génération de documents.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de dossier — y compris les routes imbriquées (échéancier, règlements, pièces jointes, historique, générateurs de documents) — un dossier hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Cette collection ne renvoie que les dossiers rattachés à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, y compris aux rôles qui en sont exemptés (dont Administrateur). Un dossier masqué renvoie 404 sur toutes les routes portant son identifiant, exactement comme un dossier inexistant."
     },
@@ -92,16 +124,8 @@
       "description": "Le panneau « Actions récentes » : ce qui vient d'être fait sur les prospections, pré-prospections et dossiers, avec de quoi rouvrir la fiche. Détail : `instructions/FEATURE-actions-recentes.md`."
     },
     {
-      "name": "Prospections",
-      "description": "Prospections (ComProspection) — pipeline commercial, qualification, interactions, devis.\n\n**Guide d'implémentation front — tranche/article principal vs. \"Autres tranches\"**\nUne prospection porte DEUX notions distinctes de tranche/article, à ne pas confondre côté UI :\n1. **Tranche/article principal** (`ProspectionDetailDto.trancheId`/`articleId`, + leurs `...Code`/`...Description` pour l'affichage) — LE couple sur lequel porte la prospection. Modifié exclusivement via `PATCH /api/prospections/{id}/tranche-principale` (jamais via le PATCH générique `PATCH /api/prospections/{id}`, qui ne touche plus à ces deux champs). Cet endpoint garantit que l'article appartient bien à la tranche fournie (400 sinon) — avant ce garde-fou, un mauvais appel avait déjà pu créer une incohérence réelle en base (article d'une tranche assigné alors que la tranche principale en pointait une autre).\n2. **Autres tranches** (`GET/POST/DELETE /api/prospections/{id}/autres-tranches`, `ComProspectionProject`) — des intérêts SECONDAIRES et indépendants, sur d'autres tranches/articles que la tranche principale (ex. le prospect est aussi intéressé par un autre programme). N'affecte jamais `trancheId`/`articleId` de la prospection. Chaque entrée porte elle aussi `trancheDescription`/`articleDescription` pour l'affichage.\n**Côté front** : le champ \"Tranche\"/\"Article\" principal du formulaire de qualification doit appeler l'endpoint (1) ; l'onglet \"Autres tranches\" doit appeler l'endpoint (2). Ce sont deux actions utilisateur différentes, jamais interchangeables.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant de prospection — y compris les routes imbriquées (interactions, devis, qualification, documents) — une prospection hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA, comme dans l'application de bureau. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
-    },
-    {
-      "name": "Notifications",
-      "description": "Cloche de l'application : notifications du **compte appelant** uniquement (`AppNotification.AdmUserId`),\njamais celles d'un autre compte. Types : `LEADS_ATTRIBUES` (leads attribués au commercial du compte,\nregroupés par lot), `LEADS_A_DISTRIBUER` (leads importés restés sans commercial, aux chefs du projet ou,\nsans projet, à l'administration) et `RESUME_DEMI_JOURNEE` (09:00 et 14:00, heure de Casablanca).\nL'auteur d'une attribution n'est jamais notifié de son propre geste."
-    },
-    {
-      "name": "Pré-prospections",
-      "description": "Leads bruts non encore qualifiés : ComProspection de type légataire `ComPreProspection` (`StrEntity`), le discriminant d'OMRAN lui-même — une pré-prospection peut donc déjà porter un prospect ou un commercial tant qu'elle n'a pas été transformée. Même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
+      "name": "Dossiers — compteurs",
+      "description": "Compteurs eau, électricité et gaz de l'article du dossier (bouton « Compteurs »)."
     },
     {
       "name": "Clients",
@@ -407,6 +431,166 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ReinitialiserMotDePasseResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/reajustement-superficies": {
+      "get": {
+        "tags": [
+          "Dossiers — réajustement des superficies"
+        ],
+        "summary": "« Vérifier les données » : dossiers de la tranche dont la superficie diffère du stock",
+        "description": "Un dossier n'apparaît que si le nouveau prix de vente TTC après remise diffère du total avance + crédit +\nautofinancement de son schéma de financement (écart arrondi à 2 décimales) : sans écart, le légataire écarte\nla ligne. `ligneCible` dit où ira l'écart : la dernière ligne d'autofinancement, sinon la dernière ligne de\ncrédit, sinon une nouvelle ligne d'autofinancement datée du jour.",
+        "operationId": "verifier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dossiers à réajuster (liste éventuellement vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneReajustementDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Réservé au rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneReajustementDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche inexistante, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneReajustementDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dossiers — réajustement des superficies"
+        ],
+        "summary": "« Valider » : réajuste les dossiers cochés et leur schéma de financement",
+        "description": "Applique, pour chaque dossier coché, ce que `GET` annonçait : nouvelles superficies et prix, écart ajouté (ou\nretranché) à la ligne cible du schéma de financement, avec la note « Document modifié lors du réajustement des\nsuperficies par (utilisateur) le (date et heure) ». Tout ou rien : chaque dossier est vérifié avant la première\nécriture. Le dossier est signé (`UserUpdate*`). Les lignes d'échéancier sont écrites directement, avec les\nmêmes colonnes qu'une échéance ajoutée à la main.",
+        "operationId": "valider",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValiderReajustementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes appliquées, telles que renvoyées par la vérification.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneReajustementDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "dossierIds absent ou vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneReajustementDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Réservé au rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneReajustementDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable, ou dossier coché hors de la tranche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneReajustementDto"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Un dossier coché n'a aucun écart de superficie à réajuster (ou plus d'écart dans son schéma), ou aucune\ncatégorie d'autofinancement n'existe pour sa vocation alors qu'une ligne doit être créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneReajustementDto"
+                  }
                 }
               }
             }
@@ -3074,6 +3258,216 @@
         }
       }
     },
+    "/api/dossiers/{id}/visites-techniques": {
+      "get": {
+        "tags": [
+          "Dossiers — visites techniques"
+        ],
+        "summary": "Créneaux de visite technique déjà pris sur la tranche du dossier",
+        "operationId": "calendrier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Début de période (inclus) ; absent = aujourd'hui 00:00.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-10-01T00:00:00"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Fin de période (exclue) ; absente = début + 60 jours.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "example": "2026-12-01T00:00:00"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendrier de la tranche et ses règles.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendrierVisitesDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendrierVisitesDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Dossier sans article rattaché à une tranche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendrierVisitesDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dossiers — visites techniques"
+        ],
+        "summary": "Programme une visite technique pour le dossier et prévient le S.A.V.",
+        "description": "« A l'enregistrement, le système vérifie le délai minimum pour la programmation d'une visite technique et le\nnombre maximum de visite par jour, si le saisi est validé le système enregistre la visite, il envoie un mail\nau responsable de service après vente paramétré dans la tranche » (aide OMRAN). La date de début devient la\ndate « Visite technique / réception » du dossier (`ComFolder.ReceptionDate`) et le dossier est signé\n(`UserUpdate*`). Le mail part après l'enregistrement et n'annule jamais la visite ; la copie au directeur\ntechnique du programme n'est pas reprise.",
+        "operationId": "programmer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgrammerVisiteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Visite enregistrée ; `emailEnvoye` dit si le mail au responsable S.A.V. est parti.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisiteProgrammeeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "debut ou fin absent, ou fin non postérieure au début.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisiteProgrammeeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisiteProgrammeeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Refus métier, message en clair : tranche sans responsable S.A.V. (« Veuillez affecter un responsable S.A.V à\nla tranche … »), délai non respecté (« Vous devez programmer la visite technique XX heures à l'avance »,\n`CfgTranche.InterventionMinimumDelai` en heures), quota du jour atteint sur la tranche (« Vous ne devez pas\nprogrammer plus que XX visites technique par jour », `CfgTranche.MaxVisitNumber`), ou dossier sans article\nrattaché à une tranche. Un délai ou un quota nul ou absent ne limite rien.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisiteProgrammeeDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/reinitialiser": {
+      "post": {
+        "tags": [
+          "Dossiers — réinitialisation"
+        ],
+        "summary": "Réinitialise superficie, TVA et prix HT depuis le stock, puis recalcule la remise",
+        "operationId": "reinitialiser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Réinitialisation appliquée ; le dossier est signé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReinitialisationDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Réservé au rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReinitialisationDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReinitialisationDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Dossier annulé ou désisté, ou sans article principal.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReinitialisationDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/reglements/{reglementId}/pieces-jointes": {
       "get": {
         "tags": [
@@ -3369,6 +3763,90 @@
         }
       }
     },
+    "/api/dossiers/{id}/instructions": {
+      "post": {
+        "tags": [
+          "Dossiers — actions"
+        ],
+        "summary": "Adresse une instruction au commercial du dossier, avec un mail",
+        "description": "« L'action instruction permet aux utilisateurs de notifier le commercial du dossier de vente en envoyant un\nmail et en affichant une icône » (aide OMRAN). L'instruction est une action de type « Instruction » adressée\nau commercial du dossier (`CfgEmployeeId`), marquée non lue (`IsNotRead = 1`). Le mail part après\nl'enregistrement, vers l'email du commercial (`CfgTier.EMail`) ; son échec n'annule jamais l'instruction.",
+        "operationId": "creerInstruction",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerInstructionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Instruction créée ; emailEnvoye dit si le mail est parti.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstructionCreeeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "note vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstructionCreeeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur, Commercial Chef ou Direction Générale.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstructionCreeeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstructionCreeeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Dossier sans commercial ou sans statut.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstructionCreeeDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/echeancier": {
       "get": {
         "tags": [
@@ -3568,6 +4046,120 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ReglementDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/actions": {
+      "get": {
+        "tags": [
+          "Dossiers — actions"
+        ],
+        "summary": "Actions du dossier et leur nombre par type",
+        "operationId": "lister",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Actions (liste éventuellement vide) et compteurs.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionsDossierDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionsDossierDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dossiers — actions"
+        ],
+        "summary": "Ajoute une action au dossier (GEN0005)",
+        "operationId": "creer_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerActionDossierRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Action créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionDossierDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "typeId absent ou inconnu, note vide, ou type « Instruction ».",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionDossierDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionDossierDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Dossier sans statut (ou statut inconnu) : catégorie indéterminée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionDossierDto"
                 }
               }
             }
@@ -3954,7 +4546,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister",
+        "operationId": "lister_1",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -3990,7 +4582,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_1",
+        "operationId": "creer_2",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4696,7 +5288,7 @@
           "Dossiers"
         ],
         "summary": "Change le statut du dossier de vente",
-        "description": "Change le statut du dossier. La transition doit figurer dans la table des transitions validées\n(sinon **409**, avec `transitionsAutorisees`) ; un dossier sans statut courant accepte tout statut.\n\n**Prospect → client, comme OMRAN** : si le statut cible porte l'indicateur « Transforme le prospect\nen client » (`StrStatus.BoolField011` : CONCRETISATION, COMPROMIS, FORMALISE…), et que le client du\ndossier est de type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`), son type devient le type client\ncorrespondant (`CLI`, `CLIRNT`, `CLIPRM`, `CLIROM`), dans la même transaction. Une ligne\nd'historique distincte « Prospect transformé en client » (type `STATUT`) s'ajoute alors à celle du\nchangement de statut, dont la note reste intacte.\nDéjà client, type absent ou inconnu : rien ne change. Jamais de retour client → prospect.",
+        "description": "Change le statut du dossier. La transition doit figurer dans la table des transitions validées\n(sinon **409**, avec `transitionsAutorisees`) ; un dossier sans statut courant accepte tout statut.\n\n**Prospect → client, comme OMRAN** : si le statut cible porte l'indicateur « Transforme le prospect\nen client » (`StrStatus.BoolField011` : CONCRETISATION, COMPROMIS, FORMALISE…), et que le client du\ndossier est de type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`), son type devient le type client\ncorrespondant (`CLI`, `CLIRNT`, `CLIPRM`, `CLIROM`), dans la même transaction. Une ligne\nd'historique distincte « Prospect transformé en client » (type `STATUT`) s'ajoute alors à celle du\nchangement de statut, dont la note reste intacte.\nDéjà client, type absent ou inconnu : rien ne change. Jamais de retour client → prospect.\n\n**Sortie (ANNULATION ou DESISTEMENT) : le lot est libéré**, comme OMRAN, dans la même transaction.\nChaque article lié au dossier (lot principal et annexes TER / PARKING) perd son `ComFolderId` et\nredevient `DISPONIBLE` ; un sous-article sans « Toujours affecté » (`AlwaysAffected`) perd aussi son\narticle parent. `ComFolder.StkItemId` est conservé : le détail d'un dossier sorti montre toujours son\nlot principal dans `articles`, même revendu depuis. `note` est **obligatoire** (la cause, écrite dans\n`CancelDescription`) ; `date` va dans `CancelDate` (maintenant si absente), pour les deux sorties.\n\n**Réactivation ANNULATION → RESERVATION** : le lot principal doit être encore libre (sinon **409**) ;\nil reprend le dossier, avec ses sous-articles « Toujours affecté » encore libres. Les annexes libérées\nsans cet indicateur ne reviennent pas. `CancelDate` et `CancelDescription` restent en historique.",
         "operationId": "changerStatut",
         "parameters": [
           {
@@ -4731,7 +5323,17 @@
             }
           },
           "400": {
-            "description": "`statut` absent ou inconnu.",
+            "description": "`statut` absent ou inconnu, ou `note` absente ou vide vers ANNULATION / DESISTEMENT (« La cause est\nobligatoire pour une annulation ou un désistement ») ; rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Un article à libérer ou à réoccuper est sur un projet hors du périmètre commercial de l'appelant.",
             "content": {
               "*/*": {
                 "schema": {
@@ -4751,7 +5353,7 @@
             }
           },
           "409": {
-            "description": "Transition non autorisée depuis le statut courant ; le corps liste `transitionsAutorisees`.",
+            "description": "Transition non autorisée depuis le statut courant (le corps liste `transitionsAutorisees`), ou\nréactivation d'un dossier annulé dont le lot a été revendu entre-temps (« Le lot <code> a été revendu\nentre-temps : créer un nouveau dossier ») ; le statut ne change pas.",
             "content": {
               "*/*": {
                 "schema": {
@@ -4847,6 +5449,70 @@
         }
       }
     },
+    "/api/dossiers/{id}/instructions/{instructionId}/lue": {
+      "patch": {
+        "tags": [
+          "Dossiers — actions"
+        ],
+        "summary": "Marque une instruction comme lue par son destinataire",
+        "description": "« L'icône sera supprimée lorsque le commercial concerné ouvre l'écran des actions » (aide OMRAN) : le front\nappelle cette route pour chaque instruction non lue qui lui est adressée quand il ouvre l'onglet Actions.\nIdempotent : une instruction déjà lue renvoie 200.",
+        "operationId": "marquerLue_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "instructionId",
+            "in": "path",
+            "description": "Identifiant de l'instruction (ComActionMessage.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Instruction marquée lue (idempotent).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionDossierDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'est ni le commercial destinataire ni Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionDossierDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable, ou pas une instruction de ce dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionDossierDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/echeancier/{echeanceId}": {
       "patch": {
         "tags": [
@@ -4890,6 +5556,130 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/compteurs": {
+      "get": {
+        "tags": [
+          "Dossiers — compteurs"
+        ],
+        "summary": "Compteurs de l'article principal du dossier",
+        "operationId": "lire",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Compteurs (champs null si non renseignés).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompteursDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompteursDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Dossier sans article principal.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompteursDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Dossiers — compteurs"
+        ],
+        "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
+        "operationId": "modifier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompteursDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Compteurs à jour ; l'article et le dossier sont signés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompteursDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps absent ou champ de plus de 50 caractères.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompteursDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompteursDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Dossier sans article principal.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompteursDto"
                 }
               }
             }
@@ -7793,7 +8583,7 @@
         ],
         "summary": "Vérifie l'appelant pour la passerelle",
         "description": "Appelée par Caddy (forward_auth) avec les en-têtes de la requête d'origine, dont le cookie\naccess_token. Ne renvoie aucun corps : en cas de succès, l'identité est portée par les en-têtes\nX-User-Id, X-Username, X-User-Roles et X-Employee-Id, que la passerelle recopie sur la requête\nrelayée au service. X-User-Roles liste les codes de rôle (AdmRole.Code) séparés par des virgules,\nchacun encodé en pourcentage UTF-8 (« Direction Générale » → « Direction%20G%C3%A9n%C3%A9rale ») :\nles codes réels portent accents et espaces, qu'un en-tête HTTP ne peut pas transporter tels quels.\nX-Employee-Id est absent si le compte n'est lié à aucune fiche employé. Les mêmes contrôles que sur\nle reste de l'API s'appliquent : révocation par changement de mot de passe, portée des clés d'API.\nPlus aucun blocage de première connexion : mustChangePassword/profileCompleted ne sont pas\nconsultés.",
-        "operationId": "verifier",
+        "operationId": "verifier_1",
         "responses": {
           "204": {
             "description": "Appelant authentifié ; identité dans les en-têtes.",
@@ -7831,7 +8621,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_1",
+        "operationId": "lister_2",
         "parameters": [
           {
             "name": "page",
@@ -9197,6 +9987,69 @@
         }
       }
     },
+    "/api/dossiers/{id}/reinitialiser/apercu": {
+      "get": {
+        "tags": [
+          "Dossiers — réinitialisation"
+        ],
+        "summary": "Aperçu de la réinitialisation depuis le stock (avant / après), sans rien écrire",
+        "operationId": "apercu",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État actuel et état après réinitialisation.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReinitialisationDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Réservé au rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReinitialisationDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReinitialisationDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Dossier annulé ou désisté, ou sans article principal.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReinitialisationDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/reglements/{reglementId}/pieces-jointes/{pieceId}/fichier": {
       "get": {
         "tags": [
@@ -9518,6 +10371,50 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PageDtoHistoriqueEvenementDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/fiche": {
+      "get": {
+        "tags": [
+          "Dossiers — fiche"
+        ],
+        "summary": "Fiche complète du dossier en consultation, par onglet OMRAN",
+        "description": "Chaque onglet de l'écran OMRAN est un objet de la réponse. Une date absente vaut `null` (jalon non atteint) ;\nle front l'affiche « — ». Le « Prix contractuel » est `ComFolder.AgreementPrice` (« Σ des montants des lignes\nde schéma de financement qui ne sont pas paramétrées \"Exclure ce montant du prix contractuel\" », aide OMRAN),\net non le total à payer.\n\n`aDesImpayes` alimente le bandeau « Ce dossier possède des pièces de règlement impayées » : vrai dès qu'une\néchéance du schéma de financement est échue (date dépassée) avec un reste dû positif, les règlements annulés\nne comptant pas. `instructionNonLue` est vrai seulement pour le commercial destinataire d'une instruction\nqu'il n'a pas encore lue (voir `PATCH /api/dossiers/{id}/instructions/{instructionId}/lue`).",
+        "operationId": "fiche",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche du dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierFicheDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierFicheDto"
                 }
               }
             }
@@ -11005,7 +11902,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_2",
+        "operationId": "lister_3",
         "parameters": [
           {
             "name": "portee",
@@ -11570,6 +12467,94 @@
             ],
             "description": "Adresse de destination, masquée. Adresse du corps si fournie, sinon `AdmUser.Email`, à défaut\nl'email de la fiche employé (`CfgTier`). `null` si aucun destinataire n'existe (aucun email publié).",
             "example": "j***@exemple.ma"
+          }
+        }
+      },
+      "ValiderReajustementRequest": {
+        "type": "object",
+        "description": "Dossiers cochés à réajuster.",
+        "properties": {
+          "dossierIds": {
+            "type": "array",
+            "description": "Identifiants des dossiers cochés, tous de la tranche et avec un écart. Requis, non vide.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "LigneReajustementDto": {
+        "type": "object",
+        "description": "Dossier dont la superficie diffère du stock, avec l'écart et la ligne du schéma qui le reçoit.",
+        "properties": {
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du dossier (ComFolder.PKey), à cocher pour le POST."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code du dossier de vente."
+          },
+          "articleCode": {
+            "type": "string",
+            "description": "Code de l'article principal."
+          },
+          "client": {
+            "type": "string",
+            "description": "Nom du client."
+          },
+          "ancienneSuperficie": {
+            "type": "number",
+            "description": "Ancienne superficie (m²), celle du dossier."
+          },
+          "nouvelleSuperficie": {
+            "type": "number",
+            "description": "Nouvelle superficie (m²), celle du stock."
+          },
+          "differenceSuperficie": {
+            "type": "number",
+            "description": "Nouvelle superficie − ancienne superficie (m²)."
+          },
+          "ancienPrix": {
+            "type": "number",
+            "description": "Ancien prix de vente TTC du dossier (ComFolder.Price)."
+          },
+          "nouveauPrix": {
+            "type": "number",
+            "description": "Nouveau prix de vente TTC après recalcul de la remise."
+          },
+          "differencePrix": {
+            "type": "number",
+            "description": "Nouveau prix − ancien prix."
+          },
+          "differenceSchema": {
+            "type": "number",
+            "description": "Montant ajouté (ou retranché si négatif) à la ligne cible du schéma de financement."
+          },
+          "ligneCible": {
+            "type": "string",
+            "description": "Ligne cible : AUTOFINANCEMENT, CREDIT ou NOUVELLE_LIGNE_AUTOFINANCEMENT.",
+            "enum": [
+              "AUTOFINANCEMENT",
+              "CREDIT",
+              "NOUVELLE_LIGNE_AUTOFINANCEMENT"
+            ]
+          },
+          "ligneCibleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Échéance modifiée (ComDocument.PKey), null si une ligne est créée."
+          },
+          "ligneCibleDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'échéance modifiée, null si une ligne est créée."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Détail des superficies modifiées (article et sous-articles), une par ligne."
           }
         }
       },
@@ -14431,6 +15416,139 @@
           }
         }
       },
+      "ProgrammerVisiteRequest": {
+        "type": "object",
+        "description": "Programmation d'une visite technique pour le dossier.",
+        "properties": {
+          "debut": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date et heure de début de la visite. Requise."
+          },
+          "fin": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date et heure de fin, postérieure au début. Requise."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note libre."
+          }
+        }
+      },
+      "VisiteProgrammeeDto": {
+        "type": "object",
+        "description": "Visite technique programmée, avec le sort du mail au responsable S.A.V.",
+        "properties": {
+          "visite": {
+            "$ref": "#/components/schemas/VisiteTechniqueDto"
+          },
+          "emailEnvoye": {
+            "type": "boolean",
+            "description": "Vrai si le mail est parti ; faux sans email du responsable ou si l'envoi est inactif."
+          }
+        }
+      },
+      "VisiteTechniqueDto": {
+        "type": "object",
+        "description": "Créneau de visite technique pris sur la tranche (AdmEvent rattaché à un dossier).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du créneau (AdmEvent.PKey)."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Dossier visité (AdmEvent.ComFolderId)."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "N° du dossier visité."
+          },
+          "titre": {
+            "type": "string",
+            "description": "Titre du créneau (AdmEvent.Subject)."
+          },
+          "debut": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Début de la visite (AdmEvent.StartHour)."
+          },
+          "fin": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fin de la visite (AdmEvent.EndHour)."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note libre (AdmEvent.Notes)."
+          }
+        }
+      },
+      "EtatPrixDto": {
+        "type": "object",
+        "description": "Superficie, TVA et prix d'un dossier, avant ou après réinitialisation.",
+        "properties": {
+          "superficie": {
+            "type": "number",
+            "description": "Superficie de l'article (m²)."
+          },
+          "superficieGlobale": {
+            "type": "number",
+            "description": "Superficie globale, sous-articles compris (m²)."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "Taux de TVA en ratio 0–1."
+          },
+          "prixM2HT": {
+            "type": "number",
+            "description": "Prix du m² HT de l'article."
+          },
+          "prixSousArticlesHT": {
+            "type": "number",
+            "description": "Prix des sous-articles HT avant remise."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Total HT avant remise."
+          },
+          "remiseMontantHT": {
+            "type": "number",
+            "description": "Montant de la remise HT (inchangé par la réinitialisation)."
+          },
+          "remisePourcentage": {
+            "type": "number",
+            "description": "Remise en pourcentage 0–100 (recalculée : Montant remise / Total HT)."
+          },
+          "prixVenteHT": {
+            "type": "number",
+            "description": "Prix de vente HT après remise."
+          },
+          "prixVenteTTC": {
+            "type": "number",
+            "description": "Prix de vente TTC après remise."
+          }
+        }
+      },
+      "ReinitialisationDto": {
+        "type": "object",
+        "description": "Effet de la réinitialisation depuis le stock : état avant et après.",
+        "properties": {
+          "avant": {
+            "$ref": "#/components/schemas/EtatPrixDto"
+          },
+          "apres": {
+            "$ref": "#/components/schemas/EtatPrixDto"
+          },
+          "modifie": {
+            "type": "boolean",
+            "description": "Vrai si au moins une valeur change."
+          }
+        }
+      },
       "PieceJointeDto": {
         "type": "object",
         "description": "Métadonnées d'une pièce jointe rattachée à un dossier.",
@@ -14464,6 +15582,93 @@
           "creePar": {
             "type": "string",
             "description": "Identifiant/login de l'utilisateur ayant déposé le fichier, tel qu'enregistré en base. Peut être\nnull si non renseigné (legacy) ou pour un dépôt effectué via cette API."
+          }
+        }
+      },
+      "CreerInstructionRequest": {
+        "type": "object",
+        "description": "Instruction adressée au commercial du dossier (action de type « Instruction »).",
+        "properties": {
+          "note": {
+            "type": "string",
+            "description": "Texte de l'instruction. Requis, non vide."
+          },
+          "dateAlerte": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'alerte éventuelle ; absente = pas d'alerte."
+          }
+        }
+      },
+      "ActionDossierDto": {
+        "type": "object",
+        "description": "Action d'un dossier de vente (ComActionMessage rattachée par ComFolderId).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de l'action (ComActionMessage.PKey)."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'action (ComActionMessage.DocDate)."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type d'action (ComActionMessageType.PKey) : Note, Téléphone sortant, Instruction…"
+          },
+          "type": {
+            "type": "string",
+            "description": "Libellé du type d'action."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Libellé de la catégorie, déduite du statut du dossier à la création."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note de l'action (ComActionMessage.AlertMessage)."
+          },
+          "auteur": {
+            "type": "string",
+            "description": "Auteur : libellé du compte qui a saisi (UserName, sinon UserCreate)."
+          },
+          "dateAlerte": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'alerte éventuelle (ComActionMessage.AlertValidityDate), null sans alerte."
+          },
+          "instruction": {
+            "type": "boolean",
+            "description": "Vrai pour une instruction (type « Instruction »)."
+          },
+          "destinataireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Commercial destinataire d'une instruction (ComActionMessage.CfgEmployeeId)."
+          },
+          "destinataireNom": {
+            "type": "string",
+            "description": "Nom du commercial destinataire d'une instruction."
+          },
+          "nonLue": {
+            "type": "boolean",
+            "description": "Vrai si l'instruction n'a pas encore été lue par son destinataire (IsNotRead)."
+          }
+        }
+      },
+      "InstructionCreeeDto": {
+        "type": "object",
+        "description": "Instruction créée, avec le sort du mail au commercial.",
+        "properties": {
+          "instruction": {
+            "$ref": "#/components/schemas/ActionDossierDto"
+          },
+          "emailEnvoye": {
+            "type": "boolean",
+            "description": "Vrai si le mail est parti ; faux si le commercial n'a pas d'email ou si l'envoi est inactif."
           }
         }
       },
@@ -14672,6 +15877,31 @@
           },
           "statut": {
             "type": "string"
+          }
+        }
+      },
+      "CreerActionDossierRequest": {
+        "type": "object",
+        "description": "Création d'une action sur un dossier ; la catégorie est déduite du statut, jamais fournie.",
+        "properties": {
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type d'action (ComActionMessageType.PKey), voir /api/referentiels/types-contact-prospection. Requis."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'action ; absente = maintenant."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note de l'action. Requise, non vide."
+          },
+          "dateAlerte": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'alerte éventuelle ; absente = pas d'alerte."
           }
         }
       },
@@ -15186,6 +16416,52 @@
           },
           "notes": {
             "type": "string"
+          }
+        }
+      },
+      "CompteursDto": {
+        "type": "object",
+        "description": "Compteurs de l'article principal du dossier (StkItem), 50 caractères au plus par champ.",
+        "properties": {
+          "referenceSteg": {
+            "type": "string",
+            "description": "Référence STEG (StkItem.ElectricityRef)."
+          },
+          "compteurElectricite": {
+            "type": "string",
+            "description": "N° compteur d'électricité (StkItem.ElectricityMeter)."
+          },
+          "releveElectricite": {
+            "type": "string",
+            "description": "Arrêté (relevé) du compteur électricité (StkItem.ElectricityMeterIndex)."
+          },
+          "policeElectricite": {
+            "type": "string",
+            "description": "N° police électricité (StkItem.ElectricityMeterPolice)."
+          },
+          "compteurEau": {
+            "type": "string",
+            "description": "N° compteur d'eau (StkItem.WaterMeter)."
+          },
+          "releveEau": {
+            "type": "string",
+            "description": "Arrêté (relevé) du compteur eau (StkItem.WaterMeterIndex)."
+          },
+          "policeEau": {
+            "type": "string",
+            "description": "N° police eau (StkItem.WaterMeterPolice)."
+          },
+          "compteurGaz": {
+            "type": "string",
+            "description": "N° compteur du gaz (StkItem.GasMeter)."
+          },
+          "releveGaz": {
+            "type": "string",
+            "description": "Arrêté (relevé) du compteur gaz (StkItem.GasMeterIndex)."
+          },
+          "policeGaz": {
+            "type": "string",
+            "description": "N° police gaz (StkItem.GasMeterPolice)."
           }
         }
       },
@@ -18667,6 +19943,42 @@
           }
         }
       },
+      "CalendrierVisitesDto": {
+        "type": "object",
+        "description": "Calendrier des visites techniques de la tranche du dossier, avec ses règles de programmation.",
+        "properties": {
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche de l'article du dossier."
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Libellé de la tranche."
+          },
+          "responsableSav": {
+            "type": "string",
+            "description": "Responsable S.A.V. de la tranche ; null = aucune visite ne peut être programmée."
+          },
+          "delaiMinimumHeures": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai minimum de programmation, en heures (CfgTranche.InterventionMinimumDelai)."
+          },
+          "maxVisitesParJour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre maximum de visites par jour sur la tranche (CfgTranche.MaxVisitNumber)."
+          },
+          "creneaux": {
+            "type": "array",
+            "description": "Créneaux déjà pris sur la période demandée, par heure de début.",
+            "items": {
+              "$ref": "#/components/schemas/VisiteTechniqueDto"
+            }
+          }
+        }
+      },
       "EtapeSuivanteDto": {
         "type": "object",
         "properties": {
@@ -18834,6 +20146,532 @@
           }
         }
       },
+      "AnnulationFicheDto": {
+        "type": "object",
+        "description": "Onglet « Annulation / Résiliation » ; vide tant que le dossier n'est pas sorti.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'annulation / résiliation (ComFolder.CancelDate)."
+          },
+          "causes": {
+            "type": "string",
+            "description": "Causes saisies (ComFolder.CancelDescription)."
+          }
+        }
+      },
+      "AutresFicheDto": {
+        "type": "object",
+        "description": "Onglet « Autres » : gestionnaires, crédit, notaire, note, cases à cocher et MEILLEURTAUX.",
+        "properties": {
+          "gestionnaire1Id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Gestionnaire 1 (ComFolder.CfgSaleManagerId)."
+          },
+          "gestionnaire1Nom": {
+            "type": "string",
+            "description": "Nom du gestionnaire 1."
+          },
+          "gestionnaire2Id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Gestionnaire 2 (ComFolder.CfgSaleManager2Id)."
+          },
+          "gestionnaire2Nom": {
+            "type": "string",
+            "description": "Nom du gestionnaire 2."
+          },
+          "banqueCreditId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Banque du crédit ou du leasing (ComFolder.CreditBankId)."
+          },
+          "banqueCreditNom": {
+            "type": "string",
+            "description": "Nom de la banque du crédit."
+          },
+          "agenceCredit": {
+            "type": "string",
+            "description": "Agence de crédit, texte libre (ComFolder.CreditAgency)."
+          },
+          "notaireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Notaire / avocat (ComFolder.CfgLawyerId)."
+          },
+          "notaireNom": {
+            "type": "string",
+            "description": "Nom du notaire / avocat."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note libre du dossier (ComFolder.Notes)."
+          },
+          "ancienClient": {
+            "type": "boolean",
+            "description": "« C'est un ancien client » : applique les remises anciens clients (ComFolder.IsOldCustomer)."
+          },
+          "cadeauPlusTard": {
+            "type": "boolean",
+            "description": "« Client veut choisir le cadeau plus tard » (ComFolder.IsWithGiftChoiceLater)."
+          },
+          "integrerModificationsAuPrix": {
+            "type": "boolean",
+            "description": "« Intégrer le montant des modifications dans le calcul du prix de vente » (PriceWithModification)."
+          },
+          "meilleurTauxEnvoi": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'envoi MEILLEURTAUX (ComFolder.loanCompanySendDate)."
+          },
+          "meilleurTauxDecision": {
+            "type": "string",
+            "description": "Décision MEILLEURTAUX (libellé de ComLoanCompanyDecision), null si non décidée."
+          },
+          "meilleurTauxDecisionDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la décision MEILLEURTAUX (ComFolder.loanCompanyDecisionDate)."
+          },
+          "penalitesDesactivees": {
+            "type": "boolean",
+            "description": "« Pénalité désactivée » (ComFolder.IsPenaltyDisabled)."
+          }
+        }
+      },
+      "AutresMontantsFicheDto": {
+        "type": "object",
+        "description": "Onglet « Autres montants » de la fiche OMRAN : prix avant et après remise, HT et TTC.",
+        "properties": {
+          "superficie": {
+            "type": "number",
+            "description": "« Sup (m²) » : superficie en m² (ComFolder.Area)."
+          },
+          "superficieGlobale": {
+            "type": "number",
+            "description": "Superficie globale = article + sous-articles (ComFolder.GlobalArea)."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "Taux de TVA en ratio 0–1 (ComFolder.VATRatio) ; 0,2 = 20 %."
+          },
+          "prixArticleM2HT": {
+            "type": "number",
+            "description": "« Prix article m² HT » : prix d'un m² HT repris du module stock (ComFolder.UnitCostHT)."
+          },
+          "prixArticleM2TTC": {
+            "type": "number",
+            "description": "« Prix article m² TTC » : prix du m² HT × (1 + TVA)."
+          },
+          "prixArticleHT": {
+            "type": "number",
+            "description": "Prix article HT avant remise."
+          },
+          "prixArticleTTC": {
+            "type": "number",
+            "description": "Prix article TTC avant remise."
+          },
+          "prixSousArticlesHT": {
+            "type": "number",
+            "description": "Prix des sous-articles HT avant remise."
+          },
+          "prixSousArticlesTTC": {
+            "type": "number",
+            "description": "Prix des sous-articles TTC avant remise."
+          },
+          "prixArticleApresRemiseHT": {
+            "type": "number",
+            "description": "Prix article HT après remise (ComFolder.ItemPriceAfterHT)."
+          },
+          "prixArticleApresRemiseTTC": {
+            "type": "number",
+            "description": "Prix article TTC après remise (ComFolder.ItemPriceAfter)."
+          },
+          "prixSousArticlesApresRemiseHT": {
+            "type": "number",
+            "description": "Prix des sous-articles HT après remise (ComFolder.UnderItemsPriceAfterHT)."
+          },
+          "prixSousArticlesApresRemiseTTC": {
+            "type": "number",
+            "description": "Prix des sous-articles TTC après remise (ComFolder.UnderItemsPriceAfter)."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Total HT avant remise."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Total TTC avant remise."
+          },
+          "remisePourcentage": {
+            "type": "number",
+            "description": "Remise en pourcentage 0–100 (Montant remise / Total HT)."
+          },
+          "prixVenteHT": {
+            "type": "number",
+            "description": "Prix de vente HT après remise (ComFolder.PriceAfterDiscountHT)."
+          },
+          "prixVenteTTC": {
+            "type": "number",
+            "description": "Prix de vente TTC après remise (ComFolder.PriceAfterDiscount)."
+          },
+          "prixVenteM2HT": {
+            "type": "number",
+            "description": "Prix de vente au m² HT = prix de vente HT / superficie vendue ; null si superficie nulle."
+          },
+          "prixVenteM2TTC": {
+            "type": "number",
+            "description": "Prix de vente au m² TTC = prix de vente TTC / superficie vendue ; null si superficie nulle."
+          }
+        }
+      },
+      "DatesAutresFicheDto": {
+        "type": "object",
+        "description": "Onglet « Dates autres » : dates client, avocat, légalisation et enregistrement de chaque acte, CPF.",
+        "properties": {
+          "promesseClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Promesse de vente client (ComFolder.ReservationDateCustomer)."
+          },
+          "promesseEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'enregistrement de la réservation (ComFolder.ReservationRegistryDate)."
+          },
+          "impressionContrat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'impression du contrat de réservation / promesse (ComFolder.ContractPrintDate)."
+          },
+          "minuteClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Minute / signature du contrat client (ComFolder.AgreementSavingDateCustomer)."
+          },
+          "minuteAvocat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Minute / signature du contrat avocat (ComFolder.AgreementSavingDateLawyer)."
+          },
+          "minuteRemiseLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise du contrat pour légalisation (ComFolder.AgreementSavingDateForLegalization)."
+          },
+          "minuteLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Légalisation du contrat (ComFolder.AgreementSavingDateLegalization)."
+          },
+          "minuteDepotEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dépôt pour enregistrement du contrat (ComFolder.AgreementSavingDateForRegistry)."
+          },
+          "remiseClesClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise des clés effective client (ComFolder.DeliveryDateRealCustomer)."
+          },
+          "remiseClesEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'enregistrement de la remise des clés (ComFolder.DeliveryRegistryDate)."
+          },
+          "actePrecisionClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Acte de précision client (ComFolder.PrecisionActDateCustomer)."
+          },
+          "actePrecisionAvocat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Acte de précision avocat (ComFolder.PrecisionActDateLawyer)."
+          },
+          "actePrecisionRemiseLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise pour légalisation de l'acte de précision (ComFolder.PrecisionActDateForLegalization)."
+          },
+          "actePrecisionLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Légalisation de l'acte de précision (ComFolder.PrecisionActDateLegalization)."
+          },
+          "actePrecisionDepotEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dépôt pour enregistrement de l'acte de précision (ComFolder.PrecisionActDateForRegistry)."
+          },
+          "actePrecisionEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'enregistrement de l'acte de précision (ComFolder.PrecisionActRegistryDate)."
+          },
+          "cpfDepot": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dépôt à la CPF (ComFolder.FinalTitleDateDeposit)."
+          },
+          "cpfRetrait": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Retrait du dossier client de la CPF (ComFolder.FinalTitleDateWithdrawal)."
+          },
+          "remiseCertificatPropriete": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise du certificat de propriété au client (ComFolder.FinalTitleDate)."
+          },
+          "numeroTitre": {
+            "type": "string",
+            "description": "N° de titre (ComFolder.FinalTitleNumber)."
+          }
+        }
+      },
+      "DatesFicheDto": {
+        "type": "object",
+        "description": "Onglet « Dates » de la fiche OMRAN ; chaque date est null tant que le jalon n'est pas atteint.",
+        "properties": {
+          "concretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Concrétisation (ComFolder.AdvanceDate)."
+          },
+          "promesseVente": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Promesse de vente (ComFolder.ReservationDate)."
+          },
+          "visiteTechnique": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Visite technique / réception (ComFolder.ReceptionDate)."
+          },
+          "envoiNotairePrevisionnel": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Envoi au notaire prévisionnel (ComFolder.AgreementDatePrevisionel)."
+          },
+          "envoiNotaireConfirme": {
+            "type": "boolean",
+            "description": "Case « Confirmé » de l'envoi au notaire prévisionnel (ComFolder.IsConfirmedAgreementDate)."
+          },
+          "enregistrementContrat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'enregistrement du contrat (ComFolder.AgreementRegistryDate)."
+          },
+          "envoiNotaire": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Envoi au notaire / avocat (ComFolder.AgreementDate)."
+          },
+          "minute": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Minute / signature du contrat (ComFolder.AgreementSavingDate)."
+          },
+          "expedition": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Expédition / certificat de propriété (ComFolder.OwnershipCertificateDate)."
+          },
+          "relanceTitreFoncier1": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Relance 1 titre foncier (ComFolder.Revival1)."
+          },
+          "echeanceRelance1": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance de la relance 1 (ComFolder.Revival1ValidityDate)."
+          },
+          "relanceTitreFoncier2": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Relance 2 titre foncier (ComFolder.Revival2)."
+          },
+          "echeanceRelance2": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance de la relance 2 (ComFolder.Revival2ValidityDate)."
+          },
+          "ficheBancaire": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fiche bancaire (ComFolder.BankRecordDate)."
+          },
+          "compromis": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Compromis / approbation du crédit (ComFolder.CreditApprovalDate)."
+          },
+          "attestation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Attestation de consignation / octroi du crédit (ComFolder.CreditPossessionDate)."
+          },
+          "intervention": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Intervention (ComFolder.InterventionDate)."
+          },
+          "assurance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Assurance (ComFolder.InsuranceDate)."
+          },
+          "remiseClesPrevue": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise des clés prévue : date de livraison de l'article, sinon début de finalisation de la tranche."
+          },
+          "remiseClesEffective": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise des clés effective (ComFolder.DeliveryDateReal)."
+          },
+          "permisHabiter": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Permis d'habiter, lu sur la tranche de l'article (CfgTranche.OccupancyPermitsDate)."
+          },
+          "actePrecision": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Acte de précision (ComFolder.PrecisionActDate)."
+          }
+        }
+      },
+      "DossierFicheDto": {
+        "type": "object",
+        "description": "Fiche complète d'un dossier de vente en consultation, organisée par onglet de l'écran OMRAN.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du dossier (ComFolder.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "N° de dossier (ComFolder.Code)."
+          },
+          "enTete": {
+            "$ref": "#/components/schemas/EnTeteFicheDto"
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutFicheDto"
+          },
+          "autresMontants": {
+            "$ref": "#/components/schemas/AutresMontantsFicheDto"
+          },
+          "dates": {
+            "$ref": "#/components/schemas/DatesFicheDto"
+          },
+          "datesAutres": {
+            "$ref": "#/components/schemas/DatesAutresFicheDto"
+          },
+          "annulation": {
+            "$ref": "#/components/schemas/AnnulationFicheDto"
+          },
+          "autres": {
+            "$ref": "#/components/schemas/AutresFicheDto"
+          },
+          "aDesImpayes": {
+            "type": "boolean",
+            "description": "Bandeau « Ce dossier possède des pièces de règlement impayées » : une échéance échue reste due."
+          },
+          "instructionNonLue": {
+            "type": "boolean",
+            "description": "Vrai si l'appelant est le commercial destinataire d'une instruction non lue sur ce dossier."
+          }
+        }
+      },
+      "EnTeteFicheDto": {
+        "type": "object",
+        "description": "En-tête de la fiche dossier : prix de l'article et des sous-articles séparés, HT et TTC.",
+        "properties": {
+          "superficie": {
+            "type": "number",
+            "description": "Superficie (m²) de l'article, figée sur le dossier (ComFolder.Area)."
+          },
+          "prixM2HT": {
+            "type": "number",
+            "description": "Prix du m² HT avant remise (ComFolder.UnitCostHT)."
+          },
+          "prixM2TTC": {
+            "type": "number",
+            "description": "Prix du m² TTC avant remise (ComFolder.UnitCost)."
+          },
+          "prixArticleHT": {
+            "type": "number",
+            "description": "Prix article HT avant remise = superficie × prix du m² HT (ComFolder.ItemPriceHT)."
+          },
+          "prixArticleTTC": {
+            "type": "number",
+            "description": "Prix article TTC avant remise (ComFolder.ItemPrice)."
+          },
+          "prixSousArticlesHT": {
+            "type": "number",
+            "description": "Prix des sous-articles HT avant remise (ComFolder.UnderItemsPriceHT)."
+          },
+          "prixSousArticlesTTC": {
+            "type": "number",
+            "description": "Prix des sous-articles TTC avant remise (ComFolder.UnderItemsPrice)."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Total HT avant remise = prix article HT + prix sous-articles HT."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Total TTC avant remise = prix article TTC + prix sous-articles TTC."
+          },
+          "remiseMontantHT": {
+            "type": "number",
+            "description": "Montant de la remise, HT (ComFolder.DiscountAmount)."
+          },
+          "remisePourcentage": {
+            "type": "number",
+            "description": "Remise en pourcentage 0–100 : « Montant remise / Total HT » (aide OMRAN)."
+          },
+          "prixVenteHT": {
+            "type": "number",
+            "description": "Prix de vente HT : « Prix article HT après remise + Prix sous article HT après remise »."
+          },
+          "prixVenteTTC": {
+            "type": "number",
+            "description": "Prix de vente TTC après remise (ComFolder.PriceAfterDiscount)."
+          },
+          "prixContractuel": {
+            "type": "number",
+            "description": "Prix contractuel (ComFolder.AgreementPrice) : Σ des lignes non exclues du prix contractuel."
+          }
+        }
+      },
+      "StatutFicheDto": {
+        "type": "object",
+        "description": "Statut du dossier et sa date de validité (lecture seule).",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code du statut (StrStatus.Code), null si le dossier n'a pas de statut."
+          },
+          "dateValidite": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de validité du statut (ComFolder.StatusValidityDate), null si sans limite."
+          },
+          "expire": {
+            "type": "boolean",
+            "description": "Vrai si la date de validité est passée (comparée à l'heure de Casablanca)."
+          }
+        }
+      },
       "PageDtoEcheanceDto": {
         "type": "object",
         "properties": {
@@ -18858,6 +20696,46 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "ActionsDossierDto": {
+        "type": "object",
+        "description": "Onglet « Actions » du dossier : la liste des actions et leur compteur par type.",
+        "properties": {
+          "actions": {
+            "type": "array",
+            "description": "Actions du dossier, de la plus récente à la plus ancienne.",
+            "items": {
+              "$ref": "#/components/schemas/ActionDossierDto"
+            }
+          },
+          "parType": {
+            "type": "array",
+            "description": "Compteur par type d'action, trié par nombre décroissant.",
+            "items": {
+              "$ref": "#/components/schemas/CompteurTypeActionDto"
+            }
+          }
+        }
+      },
+      "CompteurTypeActionDto": {
+        "type": "object",
+        "description": "Nombre d'actions du dossier pour un type (« La liste visualise le nombre d'actions groupées par type »).",
+        "properties": {
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type d'action (ComActionMessageType.PKey), null pour les actions sans type."
+          },
+          "type": {
+            "type": "string",
+            "description": "Libellé du type, « Sans type » si absent."
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre d'actions de ce type sur le dossier."
           }
         }
       },

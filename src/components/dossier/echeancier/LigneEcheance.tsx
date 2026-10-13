@@ -1,0 +1,89 @@
+import { useState } from 'react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { Badge } from '../../ui';
+import { TableCell, TableRow } from '../../ui/table';
+import { ECHEANCE_STATUT_LABELS, echeanceCategorieTone, echeanceStatut, echeanceStatutTone } from '../../../lib/domain';
+import { formatCurrency, formatDate } from '../../../lib/format';
+import type { CreerReglementRequest, EcheanceDto } from '../../../types';
+import AjoutReglement from './AjoutReglement';
+import HistoriqueReglementsEcheance from './LigneReglement';
+
+export default function LigneEcheance({
+  dossierId,
+  echeance,
+  onReglementAdded,
+  onReglementChanged,
+}: Readonly<{
+  dossierId: string;
+  echeance: EcheanceDto;
+  onReglementAdded: (echeanceId: string, body: CreerReglementRequest) => Promise<void>;
+  onReglementChanged: () => Promise<void>;
+}>) {
+  const [expanded, setExpanded] = useState(false);
+  const [reglementsVersion, setReglementsVersion] = useState(0);
+  const statut = echeanceStatut(echeance);
+
+  return (
+    <>
+      <TableRow
+        tabIndex={0}
+        role="button"
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Replier' : 'Déplier'} l'échéance ${echeance.categorie || echeance.description || ''}`}
+        className="cursor-pointer"
+        onClick={() => setExpanded((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded((o) => !o); }
+        }}
+      >
+        <TableCell>
+          {expanded ? <ChevronDown className="size-4 text-(--brand)" /> : <ChevronRight className="size-4 text-muted-foreground" />}
+        </TableCell>
+        <TableCell>
+          <Badge tone={echeanceCategorieTone(echeance.categorie)}>{echeance.categorie || echeance.description || 'Échéance'}</Badge>
+        </TableCell>
+        <TableCell className="text-muted-foreground">{formatDate(echeance.dateEcheance)}</TableCell>
+        <TableCell className="text-right font-semibold tabular-nums text-foreground">{formatCurrency(echeance.montant)}</TableCell>
+        <TableCell>
+          <div className="flex flex-col gap-0.5">
+            <Badge tone={echeanceStatutTone(statut)}>{ECHEANCE_STATUT_LABELS[statut]}</Badge>
+            {statut !== 'aregler' && (
+              <span className="text-micro text-muted-foreground">
+                Réglé {formatCurrency(echeance.montantRegle)}{echeance.reste ? ` · Reste ${formatCurrency(echeance.reste)}` : ''}
+              </span>
+            )}
+          </div>
+        </TableCell>
+        <TableCell onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-end gap-1">
+            <AjoutReglement
+              dossierId={dossierId}
+              echeanceId={echeance.id}
+              reste={echeance.reste}
+              onAdd={async (echeanceId, body) => {
+                await onReglementAdded(echeanceId, body);
+                setReglementsVersion((v) => v + 1);
+                setExpanded(true);
+              }}
+            />
+          </div>
+        </TableCell>
+      </TableRow>
+      {expanded && (
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={6} className="bg-muted/30 py-3">
+            <HistoriqueReglementsEcheance
+              dossierId={dossierId}
+              echeanceId={echeance.id}
+              refreshKey={reglementsVersion}
+              onChanged={async () => {
+                setReglementsVersion((v) => v + 1);
+                await onReglementChanged();
+              }}
+            />
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  );
+}
