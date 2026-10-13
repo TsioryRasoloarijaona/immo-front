@@ -32,12 +32,12 @@
       "description": "Profil de l'utilisateur authentifié et changement volontaire de son mot de passe. Aucun portail de première connexion : mustChangePassword/profileCompleted ne bloquent plus aucune route."
     },
     {
-      "name": "Dossiers — fiche",
-      "description": "Fiche complète d'un dossier de vente en consultation, organisée par onglet de l'écran OMRAN (en-tête, statut, autres montants, dates, dates autres, annulation, autres). Lecture seule : la modification des champs est un autre lot. Même périmètre que `GET /api/dossiers/{id}` : un dossier hors périmètre ou rattaché à une entité inactive renvoie 404."
+      "name": "Dossiers — réinitialisation",
+      "description": "Bouton « Réinitialiser » de la fiche dossier : « Le système recharge les données de l'article et des sous articles à partir du module stock » (aide OMRAN). Pour l'article : superficie, taux de TVA et prix du m² HT ; pour chaque sous-article : superficie, TVA, prix avant remise HT et descriptifs (code, description, adresse, contenance, catégorie, type, étage, bâtiment…). Comme `Sale.cs:Reinitialise`, les sous-articles du stock (`StkItem.ParentId` = article) absents du dossier sont d'abord ajoutés (ligne `ComFolderItem`, sous-article affecté au dossier) et listés dans `sousArticlesAjoutes` ; un sous-article déjà affecté à un autre dossier n'est pas pris. Puis la remise est recalculée comme `Sale.cs:RecalcDiscount` : le montant de remise HT est conservé, le taux change (« Montant remise / Total HT »), et les prix après remise suivent. Le schéma de financement n'est pas modifié ; une valeur absente du stock laisse celle du dossier. Réservé au rôle Administrateur."
     },
     {
-      "name": "Dossiers — réinitialisation",
-      "description": "Bouton « Réinitialiser » de la fiche dossier : « Le système recharge les données de l'article et des sous articles à partir du module stock » (aide OMRAN). Pour l'article : superficie, taux de TVA et prix du m² HT ; pour chaque sous-article déjà présent sur le dossier : superficie, TVA, prix avant remise HT et descriptifs (code, description, adresse, contenance, catégorie, type…). Puis la remise est recalculée comme `Sale.cs:RecalcDiscount` : le montant de remise HT est conservé, le taux change (« Montant remise / Total HT »), et les prix après remise suivent. Le schéma de financement n'est pas modifié ; une valeur absente du stock laisse celle du dossier. Réservé au rôle Administrateur."
+      "name": "Dossiers — fiche",
+      "description": "Fiche complète d'un dossier de vente en consultation, organisée par onglet de l'écran OMRAN (en-tête, statut, autres montants, dates, dates autres, annulation, autres). Lecture seule : la modification des champs est un autre lot. Même périmètre que `GET /api/dossiers/{id}` : un dossier hors périmètre ou rattaché à une entité inactive renvoie 404."
     },
     {
       "name": "Dossiers — actions",
@@ -444,7 +444,7 @@
           "Dossiers — réajustement des superficies"
         ],
         "summary": "« Vérifier les données » : dossiers de la tranche dont la superficie diffère du stock",
-        "description": "Un dossier n'apparaît que si le nouveau prix de vente TTC après remise diffère du total avance + crédit +\nautofinancement de son schéma de financement (écart arrondi à 2 décimales) : sans écart, le légataire écarte\nla ligne. `ligneCible` dit où ira l'écart : la dernière ligne d'autofinancement, sinon la dernière ligne de\ncrédit, sinon une nouvelle ligne d'autofinancement datée du jour.",
+        "description": "Un dossier n'apparaît que si le nouveau prix de vente TTC après remise diffère du total avance + crédit +\nautofinancement de son schéma de financement (écart arrondi à 2 décimales) : sans écart, le légataire écarte\nla ligne. `ligneCible` dit où ira l'écart : la dernière ligne d'autofinancement, sinon la dernière ligne de\ncrédit, sinon une nouvelle ligne d'autofinancement datée du jour.\n\nUn dossier dont le nouveau prix ne peut pas être calculé est listé avec `motifExclusion` et sans prix, écart\nni ligne cible : prix du m² HT du dossier absent ou nul (dossier saisi au forfait, le prix tomberait à 0),\nprix de stock absent pour un sous-article dont la superficie change, ou nouveau prix nul ou négatif. Il ne\npeut pas être coché.",
         "operationId": "verifier",
         "parameters": [
           {
@@ -583,7 +583,7 @@
             }
           },
           "409": {
-            "description": "Un dossier coché n'a aucun écart de superficie à réajuster (ou plus d'écart dans son schéma), ou aucune\ncatégorie d'autofinancement n'existe pour sa vocation alors qu'une ligne doit être créée.",
+            "description": "Un dossier coché n'a aucun écart de superficie à réajuster (ou plus d'écart dans son schéma), porte un\n`motifExclusion` (rien n'est écrit), ou aucune catégorie d'autofinancement n'existe pour sa vocation alors qu'une ligne doit être créée.",
             "content": {
               "*/*": {
                 "schema": {
@@ -3337,7 +3337,7 @@
           "Dossiers — visites techniques"
         ],
         "summary": "Programme une visite technique pour le dossier et prévient le S.A.V.",
-        "description": "« A l'enregistrement, le système vérifie le délai minimum pour la programmation d'une visite technique et le\nnombre maximum de visite par jour, si le saisi est validé le système enregistre la visite, il envoie un mail\nau responsable de service après vente paramétré dans la tranche » (aide OMRAN). La date de début devient la\ndate « Visite technique / réception » du dossier (`ComFolder.ReceptionDate`) et le dossier est signé\n(`UserUpdate*`). Le mail part après l'enregistrement et n'annule jamais la visite ; la copie au directeur\ntechnique du programme n'est pas reprise.",
+        "description": "« A l'enregistrement, le système vérifie le délai minimum pour la programmation d'une visite technique et le\nnombre maximum de visite par jour, si le saisi est validé le système enregistre la visite, il envoie un mail\nau responsable de service après vente paramétré dans la tranche » (aide OMRAN). La date de début devient la\ndate « Visite technique / réception » du dossier (`ComFolder.ReceptionDate`) et le dossier est signé\n(`UserUpdate*`). Le mail part après l'enregistrement et n'annule jamais la visite ; il « met en copie le\ndirecteur technique du programme » (`CfgProject.CfgTechnicalManagerId`), copie omise si ce directeur n'a pas\nd'email.",
         "operationId": "programmer",
         "parameters": [
           {
@@ -12555,6 +12555,10 @@
           "notes": {
             "type": "string",
             "description": "Détail des superficies modifiées (article et sous-articles), une par ligne."
+          },
+          "motifExclusion": {
+            "type": "string",
+            "description": "Raison pour laquelle le dossier ne peut pas être réajusté (POST = 409) ; null sinon."
           }
         }
       },
@@ -15545,7 +15549,14 @@
           },
           "modifie": {
             "type": "boolean",
-            "description": "Vrai si au moins une valeur change."
+            "description": "Vrai si au moins une valeur change ou si un sous-article est ajouté."
+          },
+          "sousArticlesAjoutes": {
+            "type": "array",
+            "description": "Codes des sous-articles du stock absents du dossier, ajoutés par la réinitialisation.",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

@@ -26,6 +26,40 @@ function libelleAction(l: LigneReajustementDto): string {
   return `${sens} ${montant} — ${cible}${date}`;
 }
 
+/** Un dossier exclu (`motifExclusion`) n'est pas cochable : son nouveau prix ne peut pas être calculé. */
+function LigneTableau({
+  l,
+  coche,
+  onBasculer,
+}: Readonly<{ l: LigneReajustementDto; coche: boolean; onBasculer: (id: string) => void }>) {
+  const exclu = !!l.motifExclusion;
+  return (
+    <TableRow>
+      <TableCell>
+        <input
+          type="checkbox"
+          aria-label={`Réajuster le dossier ${l.dossierCode ?? ''}`}
+          checked={!exclu && coche}
+          disabled={exclu}
+          onChange={() => onBasculer(l.dossierId)}
+        />
+      </TableCell>
+      <TableCell className="font-medium text-foreground">{l.dossierCode || '—'}</TableCell>
+      <TableCell>{l.articleCode || '—'}</TableCell>
+      <TableCell className="text-muted-foreground">{l.client || '—'}</TableCell>
+      <TableCell className="text-right tabular-nums" title={l.notes ?? undefined}>
+        {formatSurface(l.ancienneSuperficie)} → {formatSurface(l.nouvelleSuperficie)}
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {exclu ? formatCurrency(l.ancienPrix) : `${formatCurrency(l.ancienPrix)} → ${formatCurrency(l.nouveauPrix)}`}
+      </TableCell>
+      {exclu
+        ? <TableCell className="font-medium text-(--warning)">{l.motifExclusion}</TableCell>
+        : <TableCell className="text-muted-foreground">{libelleAction(l)}</TableCell>}
+    </TableRow>
+  );
+}
+
 function TableauReajustement({
   lignes,
   coches,
@@ -47,26 +81,7 @@ function TableauReajustement({
         </TableHeader>
         <TableBody>
           {lignes.map((l) => (
-            <TableRow key={l.dossierId}>
-              <TableCell>
-                <input
-                  type="checkbox"
-                  aria-label={`Réajuster le dossier ${l.dossierCode ?? ''}`}
-                  checked={coches.has(l.dossierId)}
-                  onChange={() => onBasculer(l.dossierId)}
-                />
-              </TableCell>
-              <TableCell className="font-medium text-foreground">{l.dossierCode || '—'}</TableCell>
-              <TableCell>{l.articleCode || '—'}</TableCell>
-              <TableCell className="text-muted-foreground">{l.client || '—'}</TableCell>
-              <TableCell className="text-right tabular-nums" title={l.notes ?? undefined}>
-                {formatSurface(l.ancienneSuperficie)} → {formatSurface(l.nouvelleSuperficie)}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {formatCurrency(l.ancienPrix)} → {formatCurrency(l.nouveauPrix)}
-              </TableCell>
-              <TableCell className="text-muted-foreground">{libelleAction(l)}</TableCell>
-            </TableRow>
+            <LigneTableau key={l.dossierId} l={l} coche={coches.has(l.dossierId)} onBasculer={onBasculer} />
           ))}
         </TableBody>
       </Table>

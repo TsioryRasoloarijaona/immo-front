@@ -1565,6 +1565,8 @@ export interface LigneReajustementDto {
   ligneCibleId?: UUID | null;
   ligneCibleDate?: string | null;
   notes?: string | null;
+  /** Raison de l'exclusion (prix du m² ou de stock absent…) : non cochable, POST = 409. Null sinon. */
+  motifExclusion?: string | null;
 }
 
 export interface CreerDossierRequest {
