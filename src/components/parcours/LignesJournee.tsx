@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Clock } from 'lucide-react';
 import ContactBoutons from './ContactBoutons';
 import type { FicheOuverte } from '../dashboard/FicheProspectionLazy';
+import type { CanalContact } from '../../lib/contact';
 import { formatDate, formatHeure, formatNumber, formatRecuIlYa } from '../../lib/format';
 import type { LeadJourneeDto, RelanceJourneeDto } from '../../types';
 
@@ -55,9 +56,11 @@ export function LigneLead({ lead, onOuvrir }: Readonly<{ lead: LeadJourneeDto; o
 }
 
 /** `retard` : l'échéance est dite en jours (« prévue il y a 3 jours ») plutôt qu'en heure. */
-export function LigneRelance({ relance, onOuvrir, retard = false, action }: Readonly<{
+export function LigneRelance({ relance, onOuvrir, onContact, retard = false, action }: Readonly<{
   relance: RelanceJourneeDto;
   onOuvrir: Ouvrir;
+  /** Après Appeler / WhatsApp : la page ouvre « noter l'échange » avec le type d'action du canal. */
+  onContact?: (relance: RelanceJourneeDto, canal: CanalContact) => void;
   retard?: boolean;
   action?: ReactNode;
 }>) {
@@ -71,7 +74,14 @@ export function LigneRelance({ relance, onOuvrir, retard = false, action }: Read
       fiche={{ id: relance.prospectionId, pre: relance.preProspection }}
       onOuvrir={onOuvrir}
       detail={joindre(quand, relance.resultat, relance.projetCode ?? relance.trancheCode, relance.message)}
-      droite={action ?? <ContactBoutons nom={nom} telephone={relance.telephone} indicatif={relance.indicatif} />}
+      droite={action ?? (
+        <ContactBoutons
+          nom={nom}
+          telephone={relance.telephone}
+          indicatif={relance.indicatif}
+          onContact={onContact ? (canal) => onContact(relance, canal) : undefined}
+        />
+      )}
     />
   );
 }

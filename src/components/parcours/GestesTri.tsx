@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import ContactBoutons from './ContactBoutons';
 import { cn } from '../../lib/utils';
+import type { CanalContact } from '../../lib/contact';
 import type { LigneTriDto } from '../../types';
 
 export type GesteTri = 'contact' | 'injoignable' | 'qualifier' | 'archiver';
@@ -35,12 +36,17 @@ function Tuile({ touche, titre, aide, danger, onClick, disabled, children }: Rea
 }
 
 /** Les quatre gestes du tri, raccourcis 1 à 4 (gérés par la page). */
-export default function GestesTri({ ligne, busy, onGeste }: Readonly<{ ligne: LigneTriDto; busy: boolean; onGeste: (g: GesteTri) => void }>) {
+export default function GestesTri({ ligne, busy, onGeste }: Readonly<{
+  ligne: LigneTriDto;
+  busy: boolean;
+  /** `canal` : seulement pour « contact », le bouton cliqué (Appeler ou WhatsApp). */
+  onGeste: (g: GesteTri, canal?: CanalContact) => void;
+}>) {
   const nom = ligne.nom || ligne.code || 'ce lead';
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
       <Tuile touche="1" titre="Appeler / WhatsApp" aide="Puis noter l'échange">
-        <ContactBoutons nom={nom} telephone={ligne.telephone} indicatif={ligne.indicatif} libelles onContact={() => onGeste('contact')} />
+        <ContactBoutons nom={nom} telephone={ligne.telephone} indicatif={ligne.indicatif} libelles onContact={(canal) => onGeste('contact', canal)} />
       </Tuile>
       <Tuile touche="2" titre="Pas joignable" aide={busy ? 'Enregistrement…' : 'Relance demain 10:00'} disabled={busy} onClick={() => onGeste('injoignable')} />
       <Tuile
