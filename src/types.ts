@@ -2195,6 +2195,28 @@ export interface ADistribuerDto {
   agePlusAncienneJours?: number | null;
 }
 
+/** Ligne de `GET /api/equipe/a-distribuer/lignes` (FEATURE-a-distribuer-jamais-traitees.md §3.1). */
+export interface LigneADistribuerDto {
+  id: UUID;
+  code?: string | null;
+  /** Prospect lié, sinon `TempDescription`. */
+  nom?: string | null;
+  /** `null` = sans tranche. */
+  trancheCode?: string | null;
+  projetId?: UUID | null;
+  dateDocument?: string | null;
+  /** Au moins une action non système ; toujours faux quand `toutes=false`. */
+  dejaTraitee: boolean;
+}
+
+/** Filtre de la carte « À distribuer » ; `toutes` absent = jamais traitées seulement. */
+export interface FiltreADistribuer {
+  du?: string;
+  au?: string;
+  projet?: UUID;
+  toutes?: boolean;
+}
+
 /** Pose le commercial sur la pré-prospection, sans la transformer (comme OMRAN). */
 export interface DistribuerRequest {
   preProspectionIds: UUID[];
@@ -2225,8 +2247,10 @@ export interface ResultatLotDto {
 export type MotifAttribution = 'CONNU' | 'MOINS_CHARGE';
 export type RaisonNonAttribution = 'SANS_PROJET' | 'AUCUN_ELIGIBLE' | 'DEJA_ATTRIBUEE';
 
+/** Exactement un des deux : `preProspectionIds` non vide, ou `filtre` (toutes les lignes du filtre). */
 export interface RepartirRequest {
-  preProspectionIds: UUID[];
+  preProspectionIds?: UUID[];
+  filtre?: FiltreADistribuer;
   /** `true` (ou absent) : aperçu, rien n'est écrit. */
   simulation: boolean;
 }

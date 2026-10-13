@@ -4,29 +4,43 @@ import { Button } from '../ui/button';
 import { repartirPreProspections } from '../../lib/api';
 import { useConfirm } from '../../lib/confirmContext';
 import { phraseRepartition } from '../../lib/equipe';
-import { pluriel } from '../../lib/format';
+import { formatNumber, pluriel } from '../../lib/format';
 import { useToast } from '../../lib/toastContext';
-import type { UUID } from '../../types';
+import type { FiltreADistribuer, UUID } from '../../types';
+
+/** Les lignes cochées, ou à défaut tout ce que le filtre de la carte compte (`nombre` = le compteur). */
+export type CibleRepartition =
+  | { ids: readonly UUID[]; filtre?: undefined; nombre: number }
+  | { ids?: undefined; filtre: FiltreADistribuer; nombre: number };
 
 /**
- * « Répartir automatiquement » : aperçu (simulation) des lignes cochées, ou de toutes si rien n'est coché, puis
- * confirmation (FEATURE-repartition-notifications.md §4). Le serveur choisit le commercial ligne par ligne.
+ * « Répartir automatiquement » : aperçu (simulation) obligatoire, puis confirmation
+ * (FEATURE-a-distribuer-jamais-traitees.md §4). Le serveur choisit le commercial ligne par ligne.
  */
 export default function RepartirAutomatiquement({
-  ids,
+  cible,
+  rechargement = false,
   onFait,
   onErreur,
-}: Readonly<{ ids: readonly UUID[]; onFait: () => void; onErreur: (message: string | null) => void }>) {
+}: Readonly<{
+  cible: CibleRepartition;
+  /** Compteur en cours de rechargement : `nombre` peut encore être celui de l'ancien filtre. */
+  rechargement?: boolean;
+  onFait: () => void;
+  onErreur: (message: string | null) => void;
+}>) {
   const toast = useToast();
   const confirm = useConfirm();
   const [busy, setBusy] = useState(false);
 
+  const lot = cible.ids ? { preProspectionIds: [...cible.ids] } : { filtre: cible.filtre };
+
   async function repartir() {
-    if (ids.length === 0) return;
+    if (cible.nombre === 0) return;
     setBusy(true);
     onErreur(null);
     try {
-      const apercu = await repartirPreProspections({ preProspectionIds: [...ids], simulation: true });
+      const apercu = await repartirPreProspections({ ...lot, simulation: true });
       if (apercu.attributions.length === 0) {
         toast({ texte: `Rien à répartir : ${phraseRepartition(apercu)}` });
         return;
@@ -38,7 +52,7 @@ export default function RepartirAutomatiquement({
         cancelLabel: 'Annuler',
       });
       if (!ok) return;
-      const resultat = await repartirPreProspections({ preProspectionIds: [...ids], simulation: false });
+      const resultat = await repartirPreProspections({ ...lot, simulation: false });
       toast({ texte: `Répartition faite : ${phraseRepartition(resultat)}.`, variante: 'succes' });
       onFait();
     } catch (err) {
@@ -49,8 +63,9 @@ export default function RepartirAutomatiquement({
   }
 
   return (
-    <Button type="button" variant="outline" onClick={() => void repartir()} disabled={busy || ids.length === 0}>
-      <Shuffle data-icon="inline-start" /> {busy ? 'Répartition…' : 'Répartir automatiquement'}
+    <Button type="button" variant="outline" onClick={() => void repartir()} disabled={busy || rechargement || cible.nombre === 0}>
+      <Shuffle data-icon="inline-start" />{' '}
+      {busy ? 'Répartition…' : `Répartir automatiquement (${formatNumber(cible.nombre)})`}
     </Button>
   );
 }

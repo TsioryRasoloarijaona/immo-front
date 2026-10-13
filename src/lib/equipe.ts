@@ -1,6 +1,7 @@
 // « Mon équipe » : phrases de confirmation et listes de choix partagées par les dialogues.
-import { jourISO, pluriel } from './format';
+import { formatNumber, jourISO, pluriel } from './format';
 import type {
+  ADistribuerDto,
   CommercialEquipeDto,
   RaisonNonAttribution,
   RepartitionCommercialDto,
@@ -12,17 +13,23 @@ import type {
 const JOURS_PAR_DEFAUT = 30;
 
 /**
- * Bornes date-heure de la période de « Mon équipe », avec le défaut du serveur (`PeriodeEquipe` : 30 jours jusqu'à
- * aujourd'hui) : la liste du dialogue Distribuer doit compter les mêmes lignes que le bloc « À distribuer ».
+ * Dates effectives (`YYYY-MM-DD`) d'une période de « Mon équipe », avec le défaut du serveur (`PeriodeEquipe` :
+ * 30 jours jusqu'à aujourd'hui) : la carte « À distribuer » montre ces dates en clair, jamais un champ vide.
  */
-export function bornesPeriodeEquipe(periode: { du: string; au: string }): { dateDebut: string; dateFin: string } {
+export function periodeEffective(periode: { du: string; au: string }): { du: string; au: string } {
   const au = periode.au || jourISO(new Date());
-  let du = periode.du;
-  if (!du) {
-    const [y, m, d] = au.split('-').map(Number);
-    du = jourISO(new Date(y, m - 1, d - (JOURS_PAR_DEFAUT - 1)));
+  if (periode.du) return { du: periode.du, au };
+  const [y, m, d] = au.split('-').map(Number);
+  return { du: jourISO(new Date(y, m - 1, d - (JOURS_PAR_DEFAUT - 1))), au };
+}
+
+/** Compteur de la carte « À distribuer » ; `…` tant qu'il n'est pas chargé. */
+export function resumeADistribuer(compte: ADistribuerDto | null | undefined, toutes: boolean): string {
+  if (!compte) return '…';
+  if (compte.nombre === 0) {
+    return toutes ? 'Aucune en attente sur la période' : 'Aucune jamais traitée en attente sur la période';
   }
-  return { dateDebut: `${du}T00:00:00`, dateFin: `${au}T23:59:59` };
+  return `${formatNumber(compte.nombre)} en attente · la plus ancienne depuis ${formatNumber(compte.agePlusAncienneJours)} j`;
 }
 
 export interface ChoixCommercial {

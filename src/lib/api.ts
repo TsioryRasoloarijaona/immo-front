@@ -12,6 +12,8 @@ import type {
   ModifierAffectationsRequest,
   ReaffecterRequest,
   RepartirRequest,
+  FiltreADistribuer,
+  LigneADistribuerDto,
   ResultatLotDto,
   ResultatRepartitionDto,
   NonLuesDto,
@@ -1514,9 +1516,18 @@ export function listCommerciauxEquipe(params?: ParamsEquipe): Promise<Commercial
   return request('GET', '/api/equipe/commerciaux', { query: { du: params?.du, au: params?.au, projet: params?.projet } });
 }
 
-/** Pré-prospections sans commercial reçues dans la période (30 jours par défaut) ; 400 si `du` > `au`. */
-export function getADistribuer(params?: ParamsEquipe): Promise<ADistribuerDto> {
-  return request('GET', '/api/equipe/a-distribuer', { query: { du: params?.du, au: params?.au, projet: params?.projet } });
+/** Pré-prospections sans commercial reçues dans la période (30 jours par défaut), jamais traitées sauf `toutes` ;
+ * 400 si `du` > `au`. Même total que `listADistribuer` pour le même filtre. */
+export function getADistribuer(filtre: FiltreADistribuer): Promise<ADistribuerDto> {
+  return request('GET', '/api/equipe/a-distribuer', { query: { ...filtre } });
+}
+
+/** Les lignes que compte `getADistribuer`, triées par date croissante ; `size` ramené à 500 au-delà. */
+export function listADistribuer(
+  filtre: FiltreADistribuer,
+  pagination: { page: number; size: number },
+): Promise<PageDto<LigneADistribuerDto>> {
+  return request('GET', '/api/equipe/a-distribuer/lignes', { query: { ...filtre, ...pagination } });
 }
 
 /** Tout ou rien ; la ligne reste une pré-prospection (ni prospect ni tranche exigés). */
