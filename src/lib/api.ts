@@ -135,6 +135,7 @@ import type {
   SynchronisationResultatDto,
   TitreDto,
   TransformerProspectionRequest,
+  TransitionSuggereeDto,
   TrancheDetailDto,
   TrancheListItemDto,
   TypeReglementDto,
@@ -797,6 +798,10 @@ export function changerStatutDossier(id: UUID, body: ChangerStatutRequest): Prom
 
 export function getEtapesSuivantes(id: UUID): Promise<EtapeSuivanteDto[]> {
   return request('GET', `/api/dossiers/${id}/statut/etapes-suivantes`);
+}
+
+export function getTransitionSuggeree(id: UUID): Promise<TransitionSuggereeDto> {
+  return request('GET', `/api/dossiers/${id}/statut/transition-suggeree`);
 }
 
 export function listHistoriqueDossier(id: UUID, pageable?: Pageable): Promise<PageDto<HistoriqueEvenementDto>> {

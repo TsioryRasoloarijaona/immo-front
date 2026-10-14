@@ -1631,14 +1631,29 @@ export interface ChangerStatutRequest {
   statut: string;
   date?: string;
   note?: string;
+  /** Administrateur seulement (403 sinon) : saute le seuil de versement, tracé dans l'historique. */
+  ignorerSeuil?: boolean;
 }
 
+/** Transition que l'utilisateur connecté peut exécuter (workflow paramétré, filtré par ses rôles). */
 export interface EtapeSuivanteDto {
   statut: string;
-  /** Nom du champ date du dossier dont dérive l'étape (ex. `agreementDate`). */
-  champDate?: string;
+  /** Date associée au statut cible, en camelCase (ex. `advanceDate`) ; absente s'il n'en a pas. */
+  champDate?: string | null;
   libelleChampDate?: string;
+  /** CONFIRME, PLAUSIBLE ou AUCUN. */
   confiance?: string;
+  /** Libellé de la transition (StrWorkFlow.Description). */
+  transition?: string;
+  passageAutomatique?: boolean;
+}
+
+/** Passage automatique proposé ; tous les champs nuls quand il n'y a rien à proposer. */
+export interface TransitionSuggereeDto {
+  statut?: string | null;
+  transition?: string | null;
+  /** Date du dernier règlement d'avance, d'auto-financement ou de crédit. */
+  date?: string | null;
 }
 
 export interface EcheanceDto {
