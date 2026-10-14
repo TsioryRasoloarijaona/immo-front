@@ -75,6 +75,18 @@ import type {
   ModifierStatutReglementRequest,
   ModifierTranchePrincipaleRequest,
   MontantsDossierDto,
+  ActionDossierDto,
+  ActionsDossierDto,
+  CalendrierVisitesDto,
+  CompteursDto,
+  CreerActionDossierRequest,
+  CreerInstructionRequest,
+  DossierFicheDto,
+  InstructionCreeeDto,
+  LigneReajustementDto,
+  ProgrammerVisiteRequest,
+  ReinitialisationDto,
+  VisiteProgrammeeDto,
   OrigineProspectionDto,
   PageDto,
   Pageable,
@@ -793,6 +805,66 @@ export function listHistoriqueDossier(id: UUID, pageable?: Pageable): Promise<Pa
 
 export function getMontantsDossier(id: UUID): Promise<MontantsDossierDto> {
   return request('GET', `/api/dossiers/${id}/montants`);
+}
+
+/* ---- Fiche complète et actions de la fiche (FEATURE-vente-fiche.md) ---- */
+
+export function getFicheDossier(id: UUID): Promise<DossierFicheDto> {
+  return request('GET', `/api/dossiers/${id}/fiche`);
+}
+
+export function listActionsDossier(id: UUID): Promise<ActionsDossierDto> {
+  return request('GET', `/api/dossiers/${id}/actions`);
+}
+
+export function creerActionDossier(id: UUID, body: CreerActionDossierRequest): Promise<ActionDossierDto> {
+  return request('POST', `/api/dossiers/${id}/actions`, { body });
+}
+
+/** Administrateur, Commercial Chef ou Direction Générale (403 sinon) ; 409 sans commercial. */
+export function creerInstructionDossier(id: UUID, body: CreerInstructionRequest): Promise<InstructionCreeeDto> {
+  return request('POST', `/api/dossiers/${id}/instructions`, { body });
+}
+
+/** Destinataire ou Administrateur seulement (403) ; idempotent. */
+export function marquerInstructionLue(id: UUID, instructionId: UUID): Promise<ActionDossierDto> {
+  return request('PATCH', `/api/dossiers/${id}/instructions/${instructionId}/lue`);
+}
+
+export function getCompteursDossier(id: UUID): Promise<CompteursDto> {
+  return request('GET', `/api/dossiers/${id}/compteurs`);
+}
+
+export function modifierCompteursDossier(id: UUID, body: CompteursDto): Promise<CompteursDto> {
+  return request('PATCH', `/api/dossiers/${id}/compteurs`, { body });
+}
+
+export function getCalendrierVisites(id: UUID, du?: string, au?: string): Promise<CalendrierVisitesDto> {
+  return request('GET', `/api/dossiers/${id}/visites-techniques`, { query: { du, au } });
+}
+
+export function programmerVisiteTechnique(id: UUID, body: ProgrammerVisiteRequest): Promise<VisiteProgrammeeDto> {
+  return request('POST', `/api/dossiers/${id}/visites-techniques`, { body });
+}
+
+/** Administrateur seulement. */
+export function getApercuReinitialisation(id: UUID): Promise<ReinitialisationDto> {
+  return request('GET', `/api/dossiers/${id}/reinitialiser/apercu`);
+}
+
+/** Administrateur seulement. */
+export function reinitialiserDossier(id: UUID): Promise<ReinitialisationDto> {
+  return request('POST', `/api/dossiers/${id}/reinitialiser`);
+}
+
+/** Administrateur seulement. */
+export function verifierReajustementSuperficies(trancheId: UUID): Promise<LigneReajustementDto[]> {
+  return request('GET', `/api/tranches/${trancheId}/reajustement-superficies`);
+}
+
+/** Administrateur seulement ; tout ou rien (404 dossier hors tranche, 409 dossier sans écart). */
+export function validerReajustementSuperficies(trancheId: UUID, dossierIds: UUID[]): Promise<LigneReajustementDto[]> {
+  return request('POST', `/api/tranches/${trancheId}/reajustement-superficies`, { body: { dossierIds } });
 }
 
 export function listPiecesJointes(dossierId: UUID): Promise<PieceJointeDto[]> {

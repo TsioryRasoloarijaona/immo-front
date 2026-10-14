@@ -11,6 +11,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/u
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import DossierTable from '../../components/DossierTable';
 import BandeGroupement from '../../components/BandeGroupement';
+import BoutonReajustementSuperficies from '../../components/dossier/BoutonReajustementSuperficies';
 import {
   DEFAULT_PAGE_SIZE,
   DOSSIER_BATCH_DOC_LABELS,
@@ -363,6 +364,7 @@ export default function DossiersList() {
             <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
               <RotateCcw data-icon="inline-start" /> Réinitialiser
             </Button>
+            <BoutonReajustementSuperficies />
         </div>
 
         <Card padded={false} className="shrink-0">

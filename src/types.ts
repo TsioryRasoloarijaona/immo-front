@@ -1289,6 +1289,289 @@ export interface DossierDetailDto {
   prospectionCode?: string;
 }
 
+/* ---- Fiche complète du dossier et ses actions (FEATURE-vente-fiche.md) ---- */
+
+/** En-tête de la fiche : article et sous-articles séparés, HT et TTC. Montants en DH. */
+export interface EnTeteFicheDto {
+  superficie?: number | null;
+  prixM2HT?: number | null;
+  prixM2TTC?: number | null;
+  prixArticleHT?: number | null;
+  prixArticleTTC?: number | null;
+  prixSousArticlesHT?: number | null;
+  prixSousArticlesTTC?: number | null;
+  totalHT?: number | null;
+  totalTTC?: number | null;
+  remiseMontantHT?: number | null;
+  /** Pourcentage 0–100 : `formatPercentValue`. */
+  remisePourcentage?: number | null;
+  prixVenteHT?: number | null;
+  prixVenteTTC?: number | null;
+  /** `AgreementPrice` : Σ des lignes non exclues du prix contractuel, pas le total à payer. */
+  prixContractuel?: number | null;
+}
+
+export interface StatutFicheDto {
+  code?: string | null;
+  dateValidite?: string | null;
+  expire: boolean;
+}
+
+export interface AutresMontantsFicheDto {
+  superficie?: number | null;
+  superficieGlobale?: number | null;
+  /** Ratio 0–1 : `formatPercent`. */
+  tauxTva?: number | null;
+  prixArticleM2HT?: number | null;
+  prixArticleM2TTC?: number | null;
+  prixArticleHT?: number | null;
+  prixArticleTTC?: number | null;
+  prixSousArticlesHT?: number | null;
+  prixSousArticlesTTC?: number | null;
+  prixArticleApresRemiseHT?: number | null;
+  prixArticleApresRemiseTTC?: number | null;
+  prixSousArticlesApresRemiseHT?: number | null;
+  prixSousArticlesApresRemiseTTC?: number | null;
+  totalHT?: number | null;
+  totalTTC?: number | null;
+  /** Pourcentage 0–100. */
+  remisePourcentage?: number | null;
+  prixVenteHT?: number | null;
+  prixVenteTTC?: number | null;
+  /** `null` si la superficie vendue est nulle. */
+  prixVenteM2HT?: number | null;
+  prixVenteM2TTC?: number | null;
+}
+
+/** Chaque date est `null` tant que le jalon n'est pas atteint. */
+export interface DatesFicheDto {
+  concretisation?: string | null;
+  promesseVente?: string | null;
+  visiteTechnique?: string | null;
+  envoiNotairePrevisionnel?: string | null;
+  envoiNotaireConfirme?: boolean | null;
+  enregistrementContrat?: string | null;
+  envoiNotaire?: string | null;
+  minute?: string | null;
+  expedition?: string | null;
+  relanceTitreFoncier1?: string | null;
+  echeanceRelance1?: string | null;
+  relanceTitreFoncier2?: string | null;
+  echeanceRelance2?: string | null;
+  ficheBancaire?: string | null;
+  /** « Compromis / approbation crédit » (`CreditApprovalDate`). */
+  compromis?: string | null;
+  attestation?: string | null;
+  intervention?: string | null;
+  assurance?: string | null;
+  remiseClesPrevue?: string | null;
+  remiseClesEffective?: string | null;
+  /** Lu sur la tranche. */
+  permisHabiter?: string | null;
+  actePrecision?: string | null;
+}
+
+export interface DatesAutresFicheDto {
+  promesseClient?: string | null;
+  promesseEnregistrement?: string | null;
+  impressionContrat?: string | null;
+  minuteClient?: string | null;
+  minuteAvocat?: string | null;
+  minuteRemiseLegalisation?: string | null;
+  minuteLegalisation?: string | null;
+  minuteDepotEnregistrement?: string | null;
+  remiseClesClient?: string | null;
+  remiseClesEnregistrement?: string | null;
+  actePrecisionClient?: string | null;
+  actePrecisionAvocat?: string | null;
+  actePrecisionRemiseLegalisation?: string | null;
+  actePrecisionLegalisation?: string | null;
+  actePrecisionDepotEnregistrement?: string | null;
+  actePrecisionEnregistrement?: string | null;
+  cpfDepot?: string | null;
+  cpfRetrait?: string | null;
+  remiseCertificatPropriete?: string | null;
+  numeroTitre?: string | null;
+}
+
+export interface AnnulationFicheDto {
+  date?: string | null;
+  causes?: string | null;
+}
+
+export interface AutresFicheDto {
+  gestionnaire1Id?: UUID | null;
+  gestionnaire1Nom?: string | null;
+  gestionnaire2Id?: UUID | null;
+  gestionnaire2Nom?: string | null;
+  banqueCreditId?: UUID | null;
+  banqueCreditNom?: string | null;
+  agenceCredit?: string | null;
+  notaireId?: UUID | null;
+  notaireNom?: string | null;
+  note?: string | null;
+  ancienClient?: boolean | null;
+  cadeauPlusTard?: boolean | null;
+  integrerModificationsAuPrix?: boolean | null;
+  meilleurTauxEnvoi?: string | null;
+  meilleurTauxDecision?: string | null;
+  meilleurTauxDecisionDate?: string | null;
+  penalitesDesactivees?: boolean | null;
+}
+
+export interface DossierFicheDto {
+  id: UUID;
+  code?: string | null;
+  enTete: EnTeteFicheDto;
+  statut: StatutFicheDto;
+  autresMontants: AutresMontantsFicheDto;
+  dates: DatesFicheDto;
+  datesAutres: DatesAutresFicheDto;
+  annulation: AnnulationFicheDto;
+  autres: AutresFicheDto;
+  /** Bandeau « pièces de règlement impayées » : une échéance échue reste due. */
+  aDesImpayes: boolean;
+  /** Vrai seulement pour le commercial destinataire d'une instruction non lue. */
+  instructionNonLue: boolean;
+}
+
+export interface ActionDossierDto {
+  id: UUID;
+  date?: string | null;
+  typeId?: UUID | null;
+  type?: string | null;
+  categorie?: string | null;
+  note?: string | null;
+  auteur?: string | null;
+  dateAlerte?: string | null;
+  instruction: boolean;
+  destinataireId?: UUID | null;
+  destinataireNom?: string | null;
+  nonLue: boolean;
+}
+
+export interface CompteurTypeActionDto {
+  /** `null` pour les actions sans type. */
+  typeId?: UUID | null;
+  type?: string | null;
+  nombre: number;
+}
+
+export interface ActionsDossierDto {
+  actions: ActionDossierDto[];
+  parType: CompteurTypeActionDto[];
+}
+
+/** La catégorie est déduite du statut par le serveur ; 409 si le dossier n'a pas de statut. */
+export interface CreerActionDossierRequest {
+  /** `/api/referentiels/types-contact-prospection` ; « Instruction » refusé (400). */
+  typeId: UUID;
+  date?: string;
+  note: string;
+  dateAlerte?: string;
+}
+
+export interface CreerInstructionRequest {
+  note: string;
+  dateAlerte?: string;
+}
+
+export interface InstructionCreeeDto {
+  instruction: ActionDossierDto;
+  emailEnvoye: boolean;
+}
+
+/** En PATCH : champ absent ou `null` = inchangé, `""` = effacé ; 50 caractères au plus (400). */
+export interface CompteursDto {
+  referenceSteg?: string | null;
+  compteurElectricite?: string | null;
+  releveElectricite?: string | null;
+  policeElectricite?: string | null;
+  compteurEau?: string | null;
+  releveEau?: string | null;
+  policeEau?: string | null;
+  compteurGaz?: string | null;
+  releveGaz?: string | null;
+  policeGaz?: string | null;
+}
+
+export interface VisiteTechniqueDto {
+  id: UUID;
+  dossierId?: UUID | null;
+  dossierCode?: string | null;
+  titre?: string | null;
+  debut?: string | null;
+  fin?: string | null;
+  note?: string | null;
+}
+
+export interface CalendrierVisitesDto {
+  trancheId?: UUID | null;
+  trancheLibelle?: string | null;
+  /** `null` = aucune visite ne peut être programmée (409). */
+  responsableSav?: string | null;
+  /** En heures. */
+  delaiMinimumHeures?: number | null;
+  maxVisitesParJour?: number | null;
+  creneaux: VisiteTechniqueDto[];
+}
+
+export interface ProgrammerVisiteRequest {
+  debut: string;
+  fin: string;
+  note?: string;
+}
+
+export interface VisiteProgrammeeDto {
+  visite: VisiteTechniqueDto;
+  emailEnvoye: boolean;
+}
+
+export interface EtatPrixDto {
+  superficie?: number | null;
+  superficieGlobale?: number | null;
+  /** Ratio 0–1. */
+  tauxTva?: number | null;
+  prixM2HT?: number | null;
+  prixSousArticlesHT?: number | null;
+  totalHT?: number | null;
+  remiseMontantHT?: number | null;
+  /** Pourcentage 0–100. */
+  remisePourcentage?: number | null;
+  prixVenteHT?: number | null;
+  prixVenteTTC?: number | null;
+}
+
+export interface ReinitialisationDto {
+  avant: EtatPrixDto;
+  apres: EtatPrixDto;
+  modifie: boolean;
+  /** Codes des sous-articles du stock absents du dossier, ajoutés par la réinitialisation. */
+  sousArticlesAjoutes: string[];
+}
+
+export type LigneCibleReajustement = 'AUTOFINANCEMENT' | 'CREDIT' | 'NOUVELLE_LIGNE_AUTOFINANCEMENT';
+
+export interface LigneReajustementDto {
+  dossierId: UUID;
+  dossierCode?: string | null;
+  articleCode?: string | null;
+  client?: string | null;
+  ancienneSuperficie?: number | null;
+  nouvelleSuperficie?: number | null;
+  differenceSuperficie?: number | null;
+  ancienPrix?: number | null;
+  nouveauPrix?: number | null;
+  differencePrix?: number | null;
+  differenceSchema?: number | null;
+  ligneCible?: LigneCibleReajustement | null;
+  ligneCibleId?: UUID | null;
+  ligneCibleDate?: string | null;
+  notes?: string | null;
+  /** Raison de l'exclusion (prix du m² ou de stock absent…) : non cochable, POST = 409. Null sinon. */
+  motifExclusion?: string | null;
+}
+
 export interface CreerDossierRequest {
   prospectionId: UUID;
   articleIds: UUID[];
@@ -1380,19 +1663,18 @@ export interface EcheanceDto {
   creeLe?: string | null;
 }
 
+/** `categorieId` obligatoire à la création (400 sinon). */
 export interface CreerEcheanceRequest {
   dateEcheance?: string | null;
   montant?: number;
   /** Par défaut : la description de la catégorie. */
   description?: string;
-  /** Requise par le serveur (400 sinon), à la création comme à la modification ; optionnelle ici tant que
-   * le formulaire d'échéance de `DossierDetail` peut l'envoyer vide. */
-  categorieId?: UUID;
+  categorieId: UUID;
   exclureDuPrix?: boolean;
   notes?: string;
 }
 
-export type ModifierEcheanceRequest = CreerEcheanceRequest;
+export type ModifierEcheanceRequest = Partial<CreerEcheanceRequest>;
 
 /** Le payeur peut différer de l'acquéreur principal du dossier. */
 export interface ReglementDto {
