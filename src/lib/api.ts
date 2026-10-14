@@ -1,4 +1,5 @@
 import { clearCachedValues } from './apiCache';
+import type { ChampDateListeDto, LignesListeDossiers, StatutListeDossierDto } from '../types/dossierListe';
 import type {
   ActionRecente,
   ADistribuerDto,
@@ -135,6 +136,7 @@ import type {
   SynchronisationResultatDto,
   TitreDto,
   TransformerProspectionRequest,
+  TransitionSuggereeDto,
   TrancheDetailDto,
   TrancheListItemDto,
   TypeReglementDto,
@@ -201,7 +203,7 @@ function detailProblem(problem: Record<string, unknown> | undefined): string | n
   return null;
 }
 
-type QueryValue = string | number | boolean | string[] | undefined | null;
+export type QueryValue = string | number | boolean | string[] | undefined | null;
 
 export interface ParamsGroupes {
   /** Doit être `groupable` dans le catalogue, sinon 400 (`colonnesValides`). */
@@ -249,7 +251,7 @@ function withDepliage(
   return query;
 }
 
-function buildQuery(params?: Record<string, QueryValue>): string {
+export function buildQuery(params?: Record<string, QueryValue>): string {
   if (!params) return '';
   const usp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -462,15 +464,16 @@ export interface ProspectionFilterParams {
   origine?: string[];
   commercial?: UUID[];
   trancheId?: UUID[];
-  /** Projet de la tranche (une ligne sans tranche est écartée) ; accepté par les deux listes, pas par les groupes
-   * de pré-prospections. */
+  /** Projet de la tranche (une ligne sans tranche est écartée) ; listes et groupes de pré-prospections. */
   projetId?: UUID[];
-  /** Date-heure ISO (pas une date seule), borne incluse. */
+  /** `AAAA-MM-JJ` (début du jour) ou date-heure ISO, borne incluse. */
   dateDebut?: string;
-  /** Date-heure ISO (pas une date seule), borne incluse. */
+  /** `AAAA-MM-JJ` = jour entier inclus ; une date-heure ISO reste une borne incluse. */
   dateFin?: string;
   search?: string;
   ouvertes?: boolean;
+  /** Pré-prospections : « Non affectés » — `trancheId` cochées OU sans tranche ; seul, les lignes sans tranche. */
+  inclureSansTranche?: boolean;
 }
 
 /** `colonnes` hors de `ProspectionFilterParams` : /api/pre-prospections le refuse.
@@ -722,17 +725,6 @@ export function listOffres(params?: DevisFilterParams, pageable?: Pageable): Pro
   return request('GET', '/api/devis', { query: withPageable(params, pageable) });
 }
 
-export type DossierChampDate =
-  | 'RESERVATION'
-  | 'CONCRETISATION'
-  | 'COMPROMIS'
-  | 'ENVOI_NOTAIRE'
-  | 'CREDIT_DEBLOQUE'
-  | 'MINUTE'
-  | 'REMISE_DES_CLES'
-  | 'FORMALISATION'
-  | 'ANNULATION';
-
 /** Alias et non `interface` à dessein : seul un alias d'objet reçoit la signature
  * d'index implicite qui le rend assignable au `Record` de `withPageable`. */
 export type DossierFilterParams = {
@@ -742,12 +734,20 @@ export type DossierFilterParams = {
   projet?: UUID;
   trancheId?: UUID[];
   /** Défaut serveur RESERVATION ; ignoré sans `dateDebut`/`dateFin`. */
-  champDate?: DossierChampDate;
+  /** Une des 47 valeurs de `GET /api/dossiers/champs-date` (`listChampsDateDossiers`). */
+  champDate?: string;
   /** Date-heure ISO (pas une date seule), borne incluse. */
   dateDebut?: string;
   /** Date-heure ISO (pas une date seule), borne incluse. */
   dateFin?: string;
+  /** `true` : `champDate` vide ; `false` : renseignée. Prioritaire sur la période. */
+  dateVide?: boolean;
   search?: string;
+  /** Sans lui, annulés et désistés sont exclus (sauf `statut` explicite). */
+  inclureSortis?: boolean;
+  lignes?: LignesListeDossiers;
+  /** Tri d'OMRAN : article, tranche, projet, entité ; remplace `sort`. */
+  ordreOmran?: boolean;
 };
 
 export function listDossiers(
@@ -776,6 +776,16 @@ export function listDossiersGroupes(
   });
 }
 
+/** Statuts proposés au filtre de la liste, visibles de l'appelant (codes de `?statut=`). */
+export function listStatutsDossiers(): Promise<StatutListeDossierDto[]> {
+  return request('GET', '/api/dossiers/statuts');
+}
+
+/** Les 47 dates du filtre de période, dans l'ordre d'OMRAN. */
+export function listChampsDateDossiers(): Promise<ChampDateListeDto[]> {
+  return request('GET', '/api/dossiers/champs-date');
+}
+
 export function getColonnesDossiers(): Promise<ColonneDto[]> {
   return request('GET', '/api/referentiels/colonnes/dossiers');
 }
@@ -798,6 +808,10 @@ export function changerStatutDossier(id: UUID, body: ChangerStatutRequest): Prom
 
 export function getEtapesSuivantes(id: UUID): Promise<EtapeSuivanteDto[]> {
   return request('GET', `/api/dossiers/${id}/statut/etapes-suivantes`);
+}
+
+export function getTransitionSuggeree(id: UUID): Promise<TransitionSuggereeDto> {
+  return request('GET', `/api/dossiers/${id}/statut/transition-suggeree`);
 }
 
 export function listHistoriqueDossier(id: UUID, pageable?: Pageable): Promise<PageDto<HistoriqueEvenementDto>> {
@@ -941,7 +955,7 @@ function blobDepuisTexte(text: string, mime: string): Blob {
 
 /** Un `format: byte` peut arriver en JSON (chaîne base64 ou tableau de nombres)
  * au lieu de binaire : les deux formes sont gérées. */
-async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestInit): Promise<Blob> {
+export async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestInit): Promise<Blob> {
   let res: Response;
   try {
     res = await fetch(url, { credentials: 'include', ...init });
@@ -1013,7 +1027,7 @@ function fetchDevisDocumentBlob(prospectionId: UUID, devisId: UUID): Promise<Blo
   return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
 }
 
-function triggerBlobDownload(blob: Blob, filename: string): void {
+export function triggerBlobDownload(blob: Blob, filename: string): void {
   const objectUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = objectUrl;
@@ -1496,6 +1510,8 @@ export const getPays = (): Promise<PaysDto[]> => request('GET', '/api/referentie
 export const getOriginesProspection = (): Promise<OrigineProspectionDto[]> => request('GET', '/api/referentiels/origines-prospection');
 export const getSupportsForOrigine = (origineId: UUID): Promise<ReferentielItemDto[]> =>
   request('GET', `/api/referentiels/origines-prospection/${origineId}/supports`);
+/** Tous les supports, toutes origines confondues, triés par libellé. */
+export const getSupportsOrigine = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/supports-origine');
 export const getNationalites = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/nationalites');
 export const getEtapesProspection = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/etapes-prospection');
 export const getCategoriesBien = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/categories-bien');

@@ -15,6 +15,8 @@ export default function MultiSelectDropdown({
   disabled,
   badge,
   className,
+  entete,
+  resume,
 }: Readonly<{
   /** À omettre quand l'étiquette est déjà posée à côté, sinon elle est répétée. */
   label?: string;
@@ -28,6 +30,10 @@ export default function MultiSelectDropdown({
   disabled?: boolean;
   badge?: ReactNode;
   className?: string;
+  /** Rendu en tête du menu, avant les éléments (ex. une case hors liste). */
+  entete?: ReactNode;
+  /** Remplace le libellé calculé du déclencheur (choix porté par `entete`). */
+  resume?: string;
 }>) {
   const selected = value ?? [];
 
@@ -38,6 +44,8 @@ export default function MultiSelectDropdown({
   let triggerLabel = placeholder;
   if (selected.length === 1) triggerLabel = items.find((i) => i.value === selected[0])?.label ?? placeholder;
   else if (selected.length > 1) triggerLabel = `${selected.length} sélectionnés`;
+  if (resume) triggerLabel = resume;
+  const actif = selected.length > 0 || !!resume;
 
   return (
     <DropdownMenu>
@@ -50,13 +58,14 @@ export default function MultiSelectDropdown({
         )}
       >
         {label && <span className="shrink-0 text-muted-foreground">{label} :</span>}
-        <span className={cn('truncate', selected.length > 0 ? 'font-medium text-foreground' : 'text-muted-foreground')}>
+        <span className={cn('truncate', actif ? 'font-medium text-foreground' : 'text-muted-foreground')}>
           {triggerLabel}
         </span>
         {badge}
         <ChevronDown className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="max-h-72 w-56" align="start">
+        {entete}
         {items.length === 0 ? (
           <p className="px-2 py-2 text-body text-muted-foreground">Aucun élément.</p>
         ) : (

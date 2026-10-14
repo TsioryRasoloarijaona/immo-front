@@ -153,16 +153,13 @@ export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; v
 
   const dossierId = d.id;
 
-  async function changerStatut(newStatus: string, note: string, date?: string) {
-    try {
-      await changerStatutDossier(dossierId, { statut: newStatus, note: note || undefined, date: toApiDateTime(date) });
-      await Promise.all([refetch(), nextSteps.refetch(), historique.refetch(), montants.refetch(), fiche.refetch()]);
-      // Une sortie libère le lot, une réactivation le réoccupe : sa disponibilité change.
-      await articleDetails.refetch();
-      showToast(`Statut changé : ${canonicalStatusLabel(newStatus)}.`);
-    } catch (err) {
-      showToast({ texte: err instanceof Error ? err.message : "Échec de l'opération.", variante: 'erreur' });
-    }
+  // Un refus (400 champs / pièces, 403 rôle, 409 seuil) remonte à l'onglet Statut qui l'affiche en entier.
+  async function changerStatut(newStatus: string, note: string, date?: string, ignorerSeuil?: boolean) {
+    await changerStatutDossier(dossierId, { statut: newStatus, note: note || undefined, date: toApiDateTime(date), ignorerSeuil });
+    await Promise.all([refetch(), nextSteps.refetch(), historique.refetch(), montants.refetch(), fiche.refetch()]);
+    // Une sortie libère le lot, une réactivation le réoccupe : sa disponibilité change.
+    await articleDetails.refetch();
+    showToast(`Statut changé : ${canonicalStatusLabel(newStatus)}.`);
   }
 
   const echeancesVides = echeances.data?.totalElements === 0;
@@ -213,7 +210,7 @@ export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; v
           {
             id: 'statut',
             libelle: 'Statut',
-            contenu: <OngletStatut dossier={d} fiche={fiche.data} etapesSuivantes={nextSteps.data ?? []} onConfirm={changerStatut} />,
+            contenu: <OngletStatut dossier={d} fiche={fiche.data} etapesSuivantes={nextSteps.data ?? []} erreurEtapes={nextSteps.error} onConfirm={changerStatut} />,
           },
           {
             id: 'financier',

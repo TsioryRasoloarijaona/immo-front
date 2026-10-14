@@ -30,9 +30,9 @@ import {
   countActiveFiltresAvances,
   emptyFiltresAvances,
   emptyProspectionFilters,
+  filtresServeurProspection,
   hasActiveProspectionFilters,
-  ouvertesDepuisArchive,
-  toFiltresAvances,
+  paramsBarre,
   type FiltresAvancesState,
   type ProspectionFilterBarState,
 } from '../../lib/domain';
@@ -84,7 +84,8 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
   );
 
   const [avances, setAvances] = useState<FiltresAvancesState>(emptyFiltresAvances());
-  const filtresAvances = toFiltresAvances(avances);
+  // Aboutie et date visée vivent dans la barre mais partent avec les filtres avancés (même objet serveur).
+  const filtresAvances = filtresServeurProspection(avances, filters);
   // Sérialisée pour la clé de dépendance : des listes qu'aucune comparaison de références ne stabilise.
   const cleAvances = filtresAvances ? JSON.stringify(filtresAvances) : '';
   const filtresActifs = hasActiveProspectionFilters(filters, defauts) || countActiveFiltresAvances(avances) > 0;
@@ -101,16 +102,7 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
 
   /* Mêmes filtres pour la liste et les groupes, volet avancé compris : la somme
      des effectifs doit égaler le total de la liste. */
-  const filtresServeur = {
-    search: debouncedSearch || undefined,
-    etape: filters.etape.length > 0 ? filters.etape : undefined,
-    origine: filters.origine.length > 0 ? filters.origine : undefined,
-    commercial: filters.commercial.length > 0 ? filters.commercial : undefined,
-    trancheId: filters.trancheId.length > 0 ? filters.trancheId : undefined,
-    dateDebut: filters.dateDebut ? `${filters.dateDebut}T00:00:00` : undefined,
-    dateFin: filters.dateFin ? `${filters.dateFin}T23:59:59` : undefined,
-    ouvertes: ouvertesDepuisArchive(filters.archive),
-  };
+  const filtresServeur = paramsBarre(filters, debouncedSearch);
 
   const enGroupes = groupement.actif;
 

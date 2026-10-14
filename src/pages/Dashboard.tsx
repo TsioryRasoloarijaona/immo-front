@@ -305,7 +305,8 @@ export default function Dashboard() {
   );
   // 7 et non `LIGNES_COULOIR` : la même page alimente aussi « Dossiers récents ».
   const { data: dossiersPage, error: dossiersErreur } = useApi(
-    () => listDossiers(trancheId ? { trancheId: [trancheId] } : undefined, { size: 7, sort: ['docDate,desc'] }),
+    // `inclureSortis` : la liste exclut désormais les sortis par défaut ; ce bloc les montrait.
+    () => listDossiers({ trancheId: trancheId ? [trancheId] : undefined, inclureSortis: true }, { size: 7, sort: ['docDate,desc'] }),
     [trancheId],
   );
   const { data: aTraiterPage, error: aTraiterErreur } = useApi(
