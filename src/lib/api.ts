@@ -69,6 +69,7 @@ import type {
   HistoriqueDto,
   HistoriqueEvenementDto,
   HotlineResultDto,
+  ImpayesPageDto,
   InteractionDto,
   ModifierEcheanceRequest,
   ModifierProspectRequest,
@@ -1292,6 +1293,37 @@ export function listEncaissements(
 
 export function getColonnesEncaissements(): Promise<ColonneDto[]> {
   return request('GET', '/api/referentiels/colonnes/encaissements');
+}
+
+export type ImpayeEchuA = 'ECHEANCE' | 'RECOUVREMENT' | 'TOUS';
+/** `DOCUMENT` et `ECHEANCE` sont la même colonne pour une échéance de vente. */
+export type ImpayeChampDate = 'DOCUMENT' | 'ECHEANCE' | 'RECOUVREMENT';
+
+export type ImpayesFilterParams = {
+  projetId?: UUID[];
+  trancheId?: UUID[];
+  /** Défaut serveur ECHEANCE (échéance ≤ aujourd'hui). */
+  echu?: ImpayeEchuA;
+  /** Ignoré sans `du` / `au`. */
+  champDate?: ImpayeChampDate;
+  /** `aaaa-mm-jj`, bornes incluses. */
+  du?: string;
+  au?: string;
+  commercialId?: UUID;
+  categorieId?: UUID;
+  client?: string;
+  /** Code ou désignation **exacts**. */
+  article?: string;
+  q?: string;
+};
+
+/** Tri sur un nom du catalogue (inconnu → 400) ; défaut `dateEcheance,desc`. */
+export function listImpayes(params: ImpayesFilterParams, pageable?: Pageable): Promise<ImpayesPageDto> {
+  return request('GET', '/api/impayes', { query: withPageable(params, pageable) });
+}
+
+export function getColonnesImpayes(): Promise<ColonneDto[]> {
+  return request('GET', '/api/referentiels/colonnes/impayes');
 }
 
 export function getColonnesSuiviActions(): Promise<ColonneDto[]> {

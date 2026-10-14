@@ -93,6 +93,11 @@ function MessageCreation({ vide }: Readonly<{ vide: boolean }>) {
   return <div className="rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-micro text-muted-foreground">Dossier créé.</div>;
 }
 
+/** `?onglet=financier` ouvre l'échéancier (lien de la liste des impayés) ; en dialogue, l'URL est celle de derrière. */
+function ongletInitial(variante: VarianteFiche, onglet: string | null): string {
+  return variante === 'page' && onglet === 'financier' ? 'financier' : 'statut';
+}
+
 export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; variante?: VarianteFiche }>) {
   const { data: d, loading, error, refetch } = useApi(() => getDossier(id), [id], 'dossier');
   const fiche = useApi(() => getFicheDossier(id), [id], 'dossier-fiche');
@@ -117,7 +122,7 @@ export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; v
   const [searchParams] = useSearchParams();
   // En dialogue, l'URL est celle de la page derrière : `?nouveau` ne la concerne pas.
   const fromCreation = variante === 'page' && searchParams.get('nouveau') === '1';
-  const [tab, setTab] = useState('statut');
+  const [tab, setTab] = useState(() => ongletInitial(variante, searchParams.get('onglet')));
 
   // Les `refetch` de useApi sont stables : la fonction l'est aussi (dépendance d'un effet d'OngletActions).
   const relireActionsListe = actions.refetch;

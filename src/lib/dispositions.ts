@@ -426,6 +426,51 @@ export const DISPOSITION_ENCAISSEMENTS: DispositionColonnes = {
      toujours une cible unique. */
 };
 
+/** Ordre de l'écran « Impayés » d'OMRAN, celui du catalogue serveur. */
+export const DISPOSITION_IMPAYES: DispositionColonnes = {
+  ordre: [
+    'dateEcheance',
+    'dateRecouvrement',
+    'dossierCode',
+    'clientNom',
+    'projet',
+    'tranche',
+    'article',
+    'categorie',
+    'montantAPayer',
+    'montantRegle',
+    'montantReste',
+    'joursRetard',
+    'commercial',
+    'statutDossier',
+    'societe',
+    'description',
+    'penaliteId',
+    'notes',
+  ],
+  poids: {
+    dateEcheance: 9,
+    dateRecouvrement: 9,
+    dossierCode: 10,
+    clientNom: 16,
+    projet: 12,
+    tranche: 12,
+    article: 9,
+    categorie: 12,
+    montantAPayer: 11,
+    montantRegle: 11,
+    montantReste: 11,
+    joursRetard: 7,
+    commercial: 13,
+    statutDossier: 11,
+    societe: 12,
+    description: 14,
+    penaliteId: 8,
+    notes: 18,
+  },
+  masquees: new Set(['echeanceId', 'dossierId', 'clientId']),
+};
+
 const ORDRE_SUIVI_ACTIONS = [
   'utilisateur',
   'typeAction',
