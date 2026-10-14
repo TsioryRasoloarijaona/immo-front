@@ -497,6 +497,17 @@ export function listProspections(
   return request('GET', '/api/prospections', { query });
 }
 
+/** Paramètres de `GET /api/prospections/export` : ceux de la liste, filtres avancés aplatis comme pour elle. */
+export function paramsExportProspections(
+  params: ProspectionFilterParams,
+  filtres: FiltresAvancesProspection | undefined,
+  colonnes: string[],
+): Record<string, QueryValue> {
+  const query: Record<string, QueryValue> = { ...params, colonnes };
+  ajouterFiltres(query, filtres);
+  return query;
+}
+
 function ajouterFiltres(query: Record<string, QueryValue>, filtres: FiltresAvancesProspection | undefined): void {
   for (const [cle, valeur] of Object.entries(filtres ?? {})) {
     // `false` et `0` sont des filtres légitimes : seuls `undefined` et `[]` sont écartés.
