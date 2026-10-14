@@ -447,14 +447,14 @@ export interface FiltresAvancesProspection {
   raisonFermetureId?: UUID[];
   paysId?: UUID[];
   actionId?: UUID[];
-  /** Pas de référentiel plat des supports : seulement par origine. */
+  /** Référentiel plat : `GET /api/referentiels/supports-origine`. */
   origineSupportId?: UUID[];
   ancienClient?: boolean;
   /** Au moins N jours. */
   inactiviteMin?: number;
   nbInteractionsMin?: number;
   nbVisitesMin?: number;
-  /** Incluse, ISO-8601. */
+  /** `AAAA-MM-JJ`, jours inclus (borne haute = jour entier). */
   communicationDepuis?: string;
   communicationJusqua?: string;
   /** `false` : uniquement celles sans relance. Absent : pas de filtre. */
@@ -462,7 +462,16 @@ export interface FiltresAvancesProspection {
   /** Code inconnu : pas d'erreur, résultat vide. Les prospections sans type
    * sortent dès que ce filtre est actif. */
   typeProspection?: string[];
+  /** Dossier ni annulé ni résilié ; `false` = le complément exact. Absent : Tous. */
+  aboutie?: boolean;
+  /** Date portant `dateDebut` / `dateFin`. Défaut serveur : `DATE`. */
+  periodeSur?: PeriodeSur;
+  /** Présence de la date choisie ; les bornes sont alors ignorées. */
+  dateRenseignee?: DateRenseignee;
 }
+
+export type PeriodeSur = 'DATE' | 'ARCHIVAGE';
+export type DateRenseignee = 'OUI' | 'NON';
 
 /** `api-docsV4.json` n'en liste qu'une partie : les valeurs viennent du backend.
  * Un groupe inconnu retombe sur la clé brute dans `libelleGroupe`. */

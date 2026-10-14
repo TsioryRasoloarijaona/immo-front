@@ -3,8 +3,10 @@ import { IconPhoneIn, IconPhoneOut } from '../components/icons';
 import { debutMoisISO, finMoisISO, isPastOrToday } from './format';
 import type {
   BadgeTone,
+  DateRenseignee,
   EvenementCalendrierDto,
   FiltresAvancesProspection,
+  PeriodeSur,
   ProspectionDetailDto,
   ProspectionListItemDto,
 } from '../types';
@@ -151,11 +153,24 @@ export interface ProspectionFilterBarState {
   dateFin: string;
   /** « Archivé » à l'écran, `ouvertes` sur le fil — voir `ouvertesDepuisArchive`. */
   archive: 'non' | 'oui' | 'tous';
+  /** Prospections seulement : date portant la période. */
+  periodeSur: PeriodeSur;
+  /** Prospections seulement : « Renseignée / Non renseignée » sur la date choisie (bornes alors ignorées). */
+  dateRenseignee: FiltreTriple;
+  /** Prospections seulement : « Aboutie » d'OMRAN. Défaut Tous. */
+  aboutie: FiltreTriple;
+  /** Pré-prospections seulement : « Non affectés », avec les tranches cochées. */
+  sansTranche: boolean;
 }
 
-/** L'état par défaut, pas un état vide : archivées exclues, période = mois courant. C'est aussi ce que rend
- * « Réinitialiser ». */
-export function emptyProspectionFilters(commercialParDefaut?: string): ProspectionFilterBarState {
+export type FiltreTriple = 'tous' | 'oui' | 'non';
+
+/** L'état par défaut, pas un état vide : archivées exclues (sauf `archive` fourni), période = mois courant.
+ * C'est aussi ce que rend « Réinitialiser ». */
+export function emptyProspectionFilters(
+  commercialParDefaut?: string,
+  archive: ProspectionFilterBarState['archive'] = 'non',
+): ProspectionFilterBarState {
   return {
     search: '',
     etape: [],
@@ -164,13 +179,54 @@ export function emptyProspectionFilters(commercialParDefaut?: string): Prospecti
     trancheId: [],
     dateDebut: debutMoisISO(),
     dateFin: finMoisISO(),
-    archive: 'non',
+    archive,
+    periodeSur: 'DATE',
+    dateRenseignee: 'tous',
+    aboutie: 'tous',
+    sansTranche: false,
+  };
+}
+
+/** La part de la barre que le serveur lit avec les filtres avancés (prospections seulement). */
+function filtresBarreProspection(state: ProspectionFilterBarState): FiltresAvancesProspection {
+  const triple = (v: FiltreTriple) => (v === 'tous' ? undefined : v === 'oui');
+  let dateRenseignee: DateRenseignee | undefined;
+  if (state.dateRenseignee !== 'tous') dateRenseignee = state.dateRenseignee === 'oui' ? 'OUI' : 'NON';
+  return {
+    aboutie: triple(state.aboutie),
+    periodeSur: state.periodeSur === 'DATE' ? undefined : state.periodeSur,
+    dateRenseignee,
+  };
+}
+
+/** Filtres avancés et part « avancée » de la barre, fusionnés ; `undefined` si rien n'est actif. */
+export function filtresServeurProspection(
+  avances: FiltresAvancesState,
+  barre: ProspectionFilterBarState,
+): FiltresAvancesProspection | undefined {
+  const fusion = { ...toFiltresAvances(avances), ...filtresBarreProspection(barre) };
+  // JSON.stringify omet les clés `undefined` : « {} » = aucun filtre actif.
+  return JSON.stringify(fusion) === '{}' ? undefined : fusion;
+}
+
+/** Paramètres serveur de la barre communs aux deux listes ; dates seules, la fin vaut le jour entier. */
+export function paramsBarre(state: ProspectionFilterBarState, search: string) {
+  const liste = (v: string[]) => (v.length > 0 ? v : undefined);
+  return {
+    search: search || undefined,
+    etape: liste(state.etape),
+    origine: liste(state.origine),
+    commercial: liste(state.commercial),
+    trancheId: liste(state.trancheId),
+    dateDebut: state.dateDebut || undefined,
+    dateFin: state.dateFin || undefined,
+    ouvertes: ouvertesDepuisArchive(state.archive),
   };
 }
 
 /** Le filtre « Archivé » traduit vers le paramètre `?ouvertes=` : le serveur
  * pose la question à l'envers. « Tous » omet le paramètre. */
-export function ouvertesDepuisArchive(archive: ProspectionFilterBarState['archive']): boolean | undefined {
+function ouvertesDepuisArchive(archive: ProspectionFilterBarState['archive']): boolean | undefined {
   if (archive === 'non') return true;
   if (archive === 'oui') return false;
   return undefined;
@@ -194,8 +250,7 @@ export function hasActiveProspectionFilters(
 type FiltreTernaire = 'all' | 'oui' | 'non';
 
 /** État d'écran, distinct du contrat réseau : nombres et dates en chaînes (champ vidé = pas de filtre, pas `NaN`),
- * booléens ternaires car `avecAlerteActive: false` veut dire « uniquement sans relance », pas « indifférent ».
- * Pas d'`origineSupportId` : aucun référentiel plat des supports n'existe, seulement une cascade sous l'origine. */
+ * booléens ternaires car `avecAlerteActive: false` veut dire « uniquement sans relance », pas « indifférent ». */
 export interface FiltresAvancesState {
   projetId: string[];
   societeId: string[];
@@ -204,6 +259,7 @@ export interface FiltresAvancesState {
   raisonFermetureId: string[];
   paysId: string[];
   actionId: string[];
+  origineSupportId: string[];
   typeProspection: string[];
   ancienClient: FiltreTernaire;
   avecAlerteActive: FiltreTernaire;
@@ -223,6 +279,7 @@ export function emptyFiltresAvances(): FiltresAvancesState {
     raisonFermetureId: [],
     paysId: [],
     actionId: [],
+    origineSupportId: [],
     typeProspection: [],
     ancienClient: 'all',
     avecAlerteActive: 'all',
@@ -244,7 +301,7 @@ export function countActiveFiltresAvances(state: FiltresAvancesState): number {
 }
 
 /** Un champ inactif est omis, jamais envoyé à vide : le backend distingue « absent » de `false`. */
-export function toFiltresAvances(state: FiltresAvancesState): FiltresAvancesProspection | undefined {
+function toFiltresAvances(state: FiltresAvancesState): FiltresAvancesProspection | undefined {
   if (countActiveFiltresAvances(state) === 0) return undefined;
   const nombre = (v: string) => (v.trim() === '' ? undefined : Number(v));
   const ternaire = (v: 'all' | 'oui' | 'non') => (v === 'all' ? undefined : v === 'oui');
@@ -257,6 +314,7 @@ export function toFiltresAvances(state: FiltresAvancesState): FiltresAvancesPros
     raisonFermetureId: liste(state.raisonFermetureId),
     paysId: liste(state.paysId),
     actionId: liste(state.actionId),
+    origineSupportId: liste(state.origineSupportId),
     typeProspection: liste(state.typeProspection),
     ancienClient: ternaire(state.ancienClient),
     avecAlerteActive: ternaire(state.avecAlerteActive),

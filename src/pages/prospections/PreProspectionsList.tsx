@@ -19,12 +19,19 @@ import type { ProspectionListItemDto } from '../../types';
 import { DISPOSITION_PROSPECTIONS } from '../../lib/dispositions';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { useColonnesProspections, useOriginesProspection, useTranchesFiltre } from '../../lib/referentiels';
+import MultiSelectDropdown from '../../components/MultiSelectDropdown';
+import {
+  referentielItems,
+  useColonnesProspections,
+  useOriginesProspection,
+  useProjetsReferentiel,
+  useTranchesFiltre,
+} from '../../lib/referentiels';
 import {
   PIPELINE_STAGES,
   emptyProspectionFilters,
   hasActiveProspectionFilters,
-  ouvertesDepuisArchive,
+  paramsBarre,
   type ProspectionFilterBarState,
 } from '../../lib/domain';
 
@@ -41,9 +48,14 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
   const { commerciaux } = useAppData();
   const origines = useOriginesProspection();
 
-  const [filters, setFilters] = useState<ProspectionFilterBarState>(emptyProspectionFilters());
+  // Archivé : Tous par défaut, comme OMRAN qui ne filtre pas IsClosed sur cette liste.
+  const defauts = emptyProspectionFilters(undefined, 'tous');
+  const [filters, setFilters] = useState<ProspectionFilterBarState>(defauts);
+  const [projetIds, setProjetIds] = useState<string[]>([]);
+  const projets = useProjetsReferentiel();
   const debouncedSearch = useDebouncedValue(filters.search);
   const [page, setPage] = useState(0);
+  const filtresActifs = hasActiveProspectionFilters(filters, defauts) || projetIds.length > 0;
   // `GET /api/pre-prospections` n'accepte pas `?colonnes=`. ACTIVITE et CONVERSION viennent d'une vue
   // légataire qui exclut les pré-prospections (colonnes vides, refusées au groupement) : écartées ici,
   // pas dans la disposition partagée avec les prospections.
@@ -64,14 +76,9 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
 
   // Mêmes filtres pour la liste et les groupes : la somme des effectifs doit égaler le total.
   const filtresServeur = {
-    search: debouncedSearch || undefined,
-    etape: filters.etape.length > 0 ? filters.etape : undefined,
-    origine: filters.origine.length > 0 ? filters.origine : undefined,
-    commercial: filters.commercial.length > 0 ? filters.commercial : undefined,
-    trancheId: filters.trancheId.length > 0 ? filters.trancheId : undefined,
-    dateDebut: filters.dateDebut ? `${filters.dateDebut}T00:00:00` : undefined,
-    dateFin: filters.dateFin ? `${filters.dateFin}T23:59:59` : undefined,
-    ouvertes: ouvertesDepuisArchive(filters.archive),
+    ...paramsBarre(filters, debouncedSearch),
+    inclureSansTranche: filters.sansTranche && filters.trancheId.length > 0 ? true : undefined,
+    projetId: projetIds.length > 0 ? projetIds : undefined,
   };
 
   const enGroupes = groupement.actif;
@@ -82,6 +89,8 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
     filters.origine.join(','),
     filters.commercial.join(','),
     filters.trancheId.join(','),
+    filters.sansTranche,
+    projetIds.join(','),
     filters.dateDebut,
     filters.dateFin,
     filters.archive,
@@ -166,6 +175,20 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
           origineItems={origineItems}
           commercialItems={commercialItems}
           trancheItems={trancheItems}
+          defauts={defauts}
+          mode="pre-prospections"
+          extra={
+            <MultiSelectDropdown
+              label="Projet"
+              placeholder="Tous"
+              value={projetIds}
+              onChange={(v) => {
+                setPage(0);
+                setProjetIds(v);
+              }}
+              items={referentielItems(projets.data)}
+            />
+          }
         />
 
         {/* `pageAffichee` et non `data` : en mode groupes `data` reste nul, le
@@ -196,21 +219,22 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
               <BandeGroupement etat={groupement} />
               {vide ? (
                 <EmptyState
-                  title={hasActiveProspectionFilters(filters) ? 'Aucun résultat' : 'Rien ce mois-ci'}
+                  title={filtresActifs ? 'Aucun résultat' : 'Rien ce mois-ci'}
                   message={
-                    hasActiveProspectionFilters(filters)
+                    filtresActifs
                       ? 'Aucune pré-prospection ne correspond aux filtres actifs.'
                       : 'Aucune pré-prospection sur le mois en cours.'
                   }
                   action={
-                    hasActiveProspectionFilters(filters) ? (
+                    filtresActifs ? (
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => {
                           setPage(0);
-                          setFilters(emptyProspectionFilters());
+                          setFilters(defauts);
+                          setProjetIds([]);
                         }}
                       >
                         <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres

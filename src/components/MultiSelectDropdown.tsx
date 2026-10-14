@@ -15,6 +15,7 @@ export default function MultiSelectDropdown({
   disabled,
   badge,
   className,
+  entete,
 }: Readonly<{
   /** À omettre quand l'étiquette est déjà posée à côté, sinon elle est répétée. */
   label?: string;
@@ -28,6 +29,8 @@ export default function MultiSelectDropdown({
   disabled?: boolean;
   badge?: ReactNode;
   className?: string;
+  /** Rendu en tête du menu, avant les éléments (ex. une case hors liste). */
+  entete?: ReactNode;
 }>) {
   const selected = value ?? [];
 
@@ -57,6 +60,7 @@ export default function MultiSelectDropdown({
         <ChevronDown className="ml-auto size-3.5 shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="max-h-72 w-56" align="start">
+        {entete}
         {items.length === 0 ? (
           <p className="px-2 py-2 text-body text-muted-foreground">Aucun élément.</p>
         ) : (
