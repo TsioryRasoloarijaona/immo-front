@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import DossierStatusStepper from '../../DossierStatusStepper';
-import { Field, FieldGrid } from '../../ui';
+import { ErrorState, Field, FieldGrid } from '../../ui';
 import { Button } from '../../ui/button';
 import type { ConfirmerStatut } from '../ConfirmationStatut';
 import { getTransitionSuggeree } from '../../../lib/api';
@@ -57,11 +57,14 @@ export default function OngletStatut({
   dossier: d,
   fiche,
   etapesSuivantes,
+  erreurEtapes,
   onConfirm,
 }: Readonly<{
   dossier: DossierDetailDto;
   fiche: DossierFicheDto | null;
   etapesSuivantes: EtapeSuivanteDto[];
+  /** Échec de `etapes-suivantes` : ne pas le confondre avec « aucune transition pour vos rôles ». */
+  erreurEtapes?: string | null;
   onConfirm: ConfirmerStatut;
 }>) {
   // `fiche` est relue après un règlement ou un enregistrement : la proposition l'est avec elle.
@@ -70,7 +73,11 @@ export default function OngletStatut({
   return (
     <div className="p-3">
       {!suggestion.error && suggestion.data && <SuggestionPassage suggestion={suggestion.data} onConfirm={onConfirm} />}
-      <DossierStatusStepper currentStatus={d.statut || 'Réservation'} nextSteps={etapesSuivantes} onConfirm={onConfirm} />
+      {erreurEtapes ? (
+        <ErrorState message={erreurEtapes} />
+      ) : (
+        <DossierStatusStepper currentStatus={d.statut || 'Réservation'} nextSteps={etapesSuivantes} onConfirm={onConfirm} />
+      )}
       {/* Délais calculés par le serveur, souvent nuls : tiret plutôt que ligne
           masquée, une case vide dit « pas encore atteint ». */}
       <div className="mt-4 border-t border-border pt-3">

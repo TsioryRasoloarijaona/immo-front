@@ -1646,6 +1646,8 @@ export interface EtapeSuivanteDto {
   /** Libellé de la transition (StrWorkFlow.Description). */
   transition?: string;
   passageAutomatique?: boolean;
+  /** Valeur actuelle de la date associée ; renseignée, elle n'est remplacée que par une date saisie. */
+  dateActuelle?: string | null;
 }
 
 /** Passage automatique proposé ; tous les champs nuls quand il n'y a rien à proposer. */

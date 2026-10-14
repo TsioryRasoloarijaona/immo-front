@@ -4,7 +4,7 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { PopoverClose } from '../ui/popover';
 import { estStatutSortie } from '../../lib/dossierStatus';
-import { todayISO } from '../../lib/format';
+import { formatDate, todayISO } from '../../lib/format';
 import { errorMessage } from '../../lib/useApi';
 import { cn } from '../../lib/utils';
 import type { EtapeSuivanteDto } from '../../types';
@@ -49,7 +49,8 @@ export default function ConfirmationStatut({
   close: () => void;
 }>) {
   const [note, setNote] = useState('');
-  const [date, setDate] = useState(todayISO());
+  // Date associée déjà remplie : champ vide (rien n'est envoyé, la date existante est gardée).
+  const [date, setDate] = useState(step.dateActuelle ? '' : todayISO());
   const [ignorerSeuil, setIgnorerSeuil] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
   const [envoi, setEnvoi] = useState(false);
@@ -82,6 +83,9 @@ export default function ConfirmationStatut({
         <label className="flex flex-col gap-1 text-micro font-medium text-muted-foreground">
           {step.libelleChampDate || 'Date'}
           <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="text-label" />
+          {step.dateActuelle && (
+            <span className="font-normal">Déjà renseignée : {formatDate(step.dateActuelle)} (gardée si vide)</span>
+          )}
         </label>
       )}
       {sortie && (

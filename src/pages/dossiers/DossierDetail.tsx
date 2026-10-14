@@ -203,7 +203,7 @@ export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; v
           {
             id: 'statut',
             libelle: 'Statut',
-            contenu: <OngletStatut dossier={d} fiche={fiche.data} etapesSuivantes={nextSteps.data ?? []} onConfirm={changerStatut} />,
+            contenu: <OngletStatut dossier={d} fiche={fiche.data} etapesSuivantes={nextSteps.data ?? []} erreurEtapes={nextSteps.error} onConfirm={changerStatut} />,
           },
           {
             id: 'financier',
