@@ -34,12 +34,16 @@ export function estStatutSortie(raw: string | undefined | null): boolean {
 
 const ALL_STATUSES = [...DOSSIER_STATUS_PIPELINE, ...DOSSIER_EXIT_STATUSES];
 
+// Codes serveur dont l'orthographe diffère du libellé affiché, après normalisation.
+const ALIAS_CODE: Record<string, string> = { REMISEDESCLEFS: 'REMISEDESCLES' };
+
 export function normalizeStatus(label: string | undefined | null): string {
-  return (label ?? '')
+  const n = (label ?? '')
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-zA-Z0-9]/g, '')
     .toUpperCase();
+  return ALIAS_CODE[n] ?? n;
 }
 
 const CANONICAL_BY_NORMALIZED: Record<string, string> = Object.fromEntries(
