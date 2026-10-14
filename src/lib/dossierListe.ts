@@ -20,6 +20,13 @@ export function optionsListe(inclureSortis: boolean, ordreOmran: boolean): { inc
   return { inclureSortis: inclureSortis || undefined, ordreOmran: ordreOmran || undefined };
 }
 
+/** Dates que seuls les dossiers sortis portent : les choisir sans inclure les sortis rendrait une liste vide. */
+const CHAMPS_DATE_DES_SORTIS = new Set(['ANNULATION']);
+
+export function exigeLesSortis(champDate: string): boolean {
+  return CHAMPS_DATE_DES_SORTIS.has(champDate);
+}
+
 /** Avec des lots libres, une ligne n'est pas toujours un dossier. */
 export function uniteDeLigne(lignes: LignesListeDossiers | undefined): string {
   return lignes ? 'ligne' : 'dossier';

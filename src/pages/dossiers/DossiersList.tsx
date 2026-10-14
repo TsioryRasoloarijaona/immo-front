@@ -39,6 +39,7 @@ import { canonicalStatusLabel } from '../../lib/dossierStatus';
 import {
   AGREGATS_TOTAUX,
   colonnesListe,
+  exigeLesSortis,
   filtreStatuts,
   optionsListe,
   optionsStatuts,
@@ -309,7 +310,11 @@ export default function DossiersList() {
               <Select
                 items={champDateItems}
                 value={champDate}
-                onValueChange={(v) => resetAndSet(setChampDate, v as string)}
+                onValueChange={(v) => {
+                  // Date d'annulation : seuls les sortis la portent, on coche « Inclure annulés / désistés ».
+                  setInclureSortis((avant) => avant || exigeLesSortis(v as string));
+                  resetAndSet(setChampDate, v as string);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
