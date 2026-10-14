@@ -24,6 +24,10 @@
       "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
     },
     {
+      "name": "Dossiers — liste",
+      "description": "Liste des dossiers de vente à parité avec la grille OMRAN (`SaleMonitoringList`) : colonnes, filtres, lots libres, groupes et totaux, export Excel. La liste, les groupes et l'export partagent exactement les mêmes filtres et le même périmètre commercial (voir FEATURE-vente-liste.md)."
+    },
+    {
       "name": "Hotline",
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
     },
@@ -3033,16 +3037,16 @@
     "/api/dossiers": {
       "get": {
         "tags": [
-          "Dossiers"
+          "Dossiers — liste"
         ],
         "summary": "Liste paginée des dossiers de vente",
-        "description": "Filtre optionnellement par statut (multi-sélection, une valeur pour un seul statut se comporte comme\navant), commercial, entité (projet), tranche(s), plage de dates sur un jalon au choix, et recherche\nlibre sur le code du dossier OU le nom/prénom/raison sociale du client lié. Voir\ninstructions/filtres-avances.md pour le détail des filtres avancés.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), cette liste ne contient que les dossiers de ses projets affectés — filtrage côté serveur,\nappliqué en plus des filtres ci-dessus. Le front ne doit pas refiltrer par projet lui-même. Les\ndossiers dont le projet ne se résout pas restent visibles de tous.",
+        "description": "Filtre optionnellement par statut (codes `StrStatus`, multi-sélection), commercial, projet, tranche(s), période sur une des 47 dates d'OMRAN (`GET /api/dossiers/champs-date`) et recherche libre.\n\n**Dossiers sortis exclus par défaut** : sans filtre `statut`, les dossiers dont le statut est une annulation ou une résiliation (`StrStatus.BoolField002` / `BoolField003`) n'apparaissent pas, comme dans OMRAN. `inclureSortis=true` les réintègre ; un `statut` explicite (par exemple `ANNULATION`) est toujours servi tel quel.\n\n**Lots libres** : `lignes=DOSSIERS_ET_LIBRES` ajoute, après les dossiers, une ligne par article racine sans dossier (`StkItem.ComFolderId` vide, hors annexes) ; `lignes=LIBRES` ne sert qu'eux. Sur ces lignes `libre = true` et `id` est l'id de l'article (à ouvrir sur la fiche article, pas sur la fiche dossier). Un filtre qui ne peut viser qu'un dossier (commercial, période) les écarte. La pagination court sur la concaténation dossiers puis lots libres.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seuls les dossiers et lots de ses projets affectés sont servis. Les dossiers dont le projet ne se résout pas restent visibles de tous.",
         "operationId": "findAll_3",
         "parameters": [
           {
             "name": "statut",
             "in": "query",
-            "description": "Code(s) StrStatus à filtrer. Répéter le paramètre pour sélectionner plusieurs statuts\n(?statut=Réservation&statut=Concrétisation). Absent = tous les statuts.",
+            "description": "Code(s) `StrStatus.Code` à filtrer, tels que renvoyés par `GET /api/dossiers/statuts`. Répéter le paramètre pour plusieurs statuts. Absent = tous les statuts sauf les sortis (voir `inclureSortis`).",
             "required": false,
             "schema": {
               "type": "array",
@@ -3050,7 +3054,7 @@
                 "type": "string"
               }
             },
-            "example": "Réservation"
+            "example": "CONCRETISATION"
           },
           {
             "name": "commercial",
@@ -3065,7 +3069,7 @@
           {
             "name": "projet",
             "in": "query",
-            "description": "Id de l'entité/projet (CfgProject.id), résolu par la tranche de l'article principal du dossier.",
+            "description": "Id du projet (CfgProject.id), résolu par la tranche de l'article principal.",
             "required": false,
             "schema": {
               "type": "string",
@@ -3075,7 +3079,7 @@
           {
             "name": "trancheId",
             "in": "query",
-            "description": "Id(s) de tranche (CfgTranche.id, StkItem.stkHierarchy). Répéter le paramètre pour plusieurs\ntranches. Renvoie les dossiers dont au moins un article lié — ou l'article principal — appartient à\nune des tranches demandées.",
+            "description": "Id(s) de tranche (CfgTranche.id). Répéter le paramètre pour plusieurs tranches. Renvoie les dossiers dont au moins un article lié — ou l'article principal — appartient à une des tranches demandées.",
             "required": false,
             "schema": {
               "type": "array",
@@ -3088,19 +3092,57 @@
           {
             "name": "champDate",
             "in": "query",
-            "description": "Jalon sur lequel appliquer dateDebut/dateFin. Ignoré si aucun des deux n'est fourni. Défaut :\nRESERVATION (= date de création du dossier).",
+            "description": "Date sur laquelle appliquer `dateDebut` / `dateFin` ou `dateVide`. Défaut : RESERVATION (date de création du dossier). Les valeurs et leurs libellés : `GET /api/dossiers/champs-date`.",
             "required": false,
             "schema": {
               "type": "string",
               "enum": [
                 "RESERVATION",
+                "PROSPECTION",
+                "VALIDITE_STATUT",
                 "CONCRETISATION",
-                "COMPROMIS",
+                "PROMESSE_VENTE",
+                "PROMESSE_VENTE_CLIENT",
+                "ENREGISTREMENT_RESERVATION",
+                "VISITE_TECHNIQUE",
+                "ENVOI_NOTAIRE_PREVU",
                 "ENVOI_NOTAIRE",
-                "CREDIT_DEBLOQUE",
                 "MINUTE",
-                "REMISE_DES_CLES",
+                "MINUTE_CLIENT",
                 "FORMALISATION",
+                "IMPRESSION_CONTRAT",
+                "EXPEDITION",
+                "RELANCE_1",
+                "ECHEANCE_RELANCE_1",
+                "RELANCE_2",
+                "ECHEANCE_RELANCE_2",
+                "FICHE_BANCAIRE",
+                "ENVOI_MEILLEUR_TAUX",
+                "DECISION_MEILLEUR_TAUX",
+                "COMPROMIS",
+                "CREDIT_DEBLOQUE",
+                "FICHE_INTERVENTION",
+                "FICHE_ASSURANCE",
+                "REMISE_DES_CLES_PREVUE",
+                "REMISE_DES_CLES",
+                "REMISE_DES_CLES_CLIENT",
+                "ENREGISTREMENT_REMISE_DES_CLES",
+                "MODIFICATION_REMISE",
+                "PERMIS_HABITER",
+                "ACTE_PRECISION",
+                "ACTE_PRECISION_CLIENT",
+                "ENREGISTREMENT_ACTE_PRECISION",
+                "MINUTE_AVOCAT",
+                "REMISE_LEGALISATION_CONTRAT",
+                "LEGALISATION_CONTRAT",
+                "DEPOT_ENREGISTREMENT_CONTRAT",
+                "REMISE_LEGALISATION_ACTE_PRECISION",
+                "DEPOT_ENREGISTREMENT_ACTE_PRECISION",
+                "DEPOT_CPF",
+                "RETRAIT_CPF",
+                "REMISE_CERTIFICAT_PROPRIETE",
+                "CREATION",
+                "MODIFICATION",
                 "ANNULATION"
               ]
             },
@@ -3109,7 +3151,7 @@
           {
             "name": "dateDebut",
             "in": "query",
-            "description": "Borne inférieure (incluse) de la plage sur champDate, format ISO-8601.",
+            "description": "Borne inférieure (incluse) sur champDate, ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
@@ -3120,7 +3162,7 @@
           {
             "name": "dateFin",
             "in": "query",
-            "description": "Borne supérieure (incluse) de la plage sur champDate, format ISO-8601.",
+            "description": "Borne supérieure (incluse) sur champDate, ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
@@ -3129,18 +3171,64 @@
             "example": "2026-12-31T23:59:59"
           },
           {
+            "name": "dateVide",
+            "in": "query",
+            "description": "`true` : seulement les dossiers dont la date `champDate` est vide ; `false` : seulement ceux où elle est renseignée. Prioritaire sur `dateDebut` / `dateFin`. Absent : pas de condition de présence.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "search",
             "in": "query",
-            "description": "Recherche libre sur le code du dossier OU le nom/prénom/raison sociale du client lié (sous-chaîne,\ninsensible à la casse).",
+            "description": "Recherche libre, espaces ignorés des deux côtés, sur les 16 champs d'OMRAN : code du dossier, raison sociale, libellé, prénom, nom, prénom+nom et nom+prénom du client, pièce d'identité (CIN), mobile seul, indicatif+mobile, « + » ou « 00 » devant, code et libellé de l'article, catégorie, type et type de présentation de l'article, et libellé des co-acquéreurs (`ComFolderCustomer`).",
             "required": false,
             "schema": {
               "type": "string"
             }
           },
           {
+            "name": "inclureSortis",
+            "in": "query",
+            "description": "Réintègre les dossiers annulés ou résiliés quand aucun `statut` n'est demandé. Faux par défaut.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
+            "name": "lignes",
+            "in": "query",
+            "description": "Population de la liste : `DOSSIERS` (défaut), `DOSSIERS_ET_LIBRES`, `LIBRES`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DOSSIERS",
+                "DOSSIERS_ET_LIBRES",
+                "LIBRES"
+              ]
+            },
+            "example": "DOSSIERS"
+          },
+          {
+            "name": "ordreOmran",
+            "in": "query",
+            "description": "Remplace le tri reçu par celui d'OMRAN : code de l'article principal, puis tranche, projet et entité. Faux par défaut : le `sort` reçu s'applique.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
             "name": "colonnes",
             "in": "query",
-            "description": "Colonnes a serialiser, repetable ou separees par des virgules. Absent : les 13 colonnes historiques.\nCatalogue et liste blanche : `GET /api/referentiels/colonnes/dossiers`. Un nom hors catalogue rend\n400 avec la liste des noms valides. `id` est toujours servi.",
+            "description": "Colonnes à sérialiser, répétable ou séparées par des virgules. Absent : les 13 colonnes historiques. Catalogue et liste blanche : `GET /api/referentiels/colonnes/dossiers`. Un nom hors catalogue rend 400 avec la liste des noms valides. `id` est toujours servi.",
             "required": false,
             "schema": {
               "type": "array",
@@ -3153,7 +3241,7 @@
           {
             "name": "groupeColonne",
             "in": "query",
-            "description": "Déplie un groupe : restreint la liste aux dossiers d'un groupe renvoyé par `GET\n/api/dossiers/groupes`. Attend le nom de la colonne qui a servi au groupement.",
+            "description": "Déplie un groupe : restreint la liste aux dossiers d'un groupe renvoyé par `GET /api/dossiers/groupes`. Attend le nom de la colonne qui a servi au groupement. Un dépliage ne sert jamais de lot libre.",
             "required": false,
             "schema": {
               "type": "string"
@@ -3163,7 +3251,7 @@
           {
             "name": "groupeValeur",
             "in": "query",
-            "description": "Valeur du groupe à déplier — **la `cle` renvoyée telle quelle par `/groupes`**, sans transformation.\nOmise alors que `groupeColonne` est fourni : le groupe des dossiers sans valeur sur cette colonne.",
+            "description": "Valeur du groupe à déplier — **la `cle` renvoyée telle quelle par `/groupes`**, sans transformation. Omise alors que `groupeColonne` est fourni : le groupe des dossiers sans valeur sur cette colonne.",
             "required": false,
             "schema": {
               "type": "string"
@@ -3173,7 +3261,7 @@
           {
             "name": "granularite",
             "in": "query",
-            "description": "Granularité appliquée quand `groupeColonne` est une date. Doit être identique à celle passée à\n`/groupes`, sinon la clé ne retombe pas sur le même groupe. Défaut : MOIS.",
+            "description": "Granularité appliquée quand `groupeColonne` est une date. Doit être identique à celle passée à `/groupes`, sinon la clé ne retombe pas sur le même groupe. Défaut : MOIS.",
             "required": false,
             "schema": {
               "type": "string",
@@ -3195,15 +3283,8 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/PageDtoDossierListItemDto"
-                }
-              }
-            }
+          "400": {
+            "description": "Colonne inconnue dans `colonnes`, valeur d'énumération invalide (`champDate`, `lignes`, `granularite`) ou `groupeColonne` non groupable."
           }
         }
       },
@@ -10740,13 +10821,38 @@
         }
       }
     },
+    "/api/dossiers/statuts": {
+      "get": {
+        "tags": [
+          "Dossiers — liste"
+        ],
+        "summary": "Statuts de dossier proposés au filtre de la liste",
+        "description": "Statuts des dossiers de vente (`StrStatus` du workflow des dossiers) que l'appelant peut voir, triés comme dans OMRAN. `sortie = true` pour les annulations et résiliations, exclues de la liste sans `inclureSortis`. L'option « Libre » du filtre n'est pas un statut : elle se traduit par `lignes`.",
+        "operationId": "statuts",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StatutListeDossierDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/groupes": {
       "get": {
         "tags": [
-          "Dossiers"
+          "Dossiers — liste"
         ],
         "summary": "Liste des dossiers repliée en groupes, avec effectifs et totaux",
-        "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par\nvaleur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Pourquoi cet endpoint plutôt qu'un groupement côté front** : la liste est paginée. Grouper une\npage ne donnerait que des groupes tronqués et des totaux faux. Les effectifs et totaux ci-dessous\nportent sur **tout le périmètre filtré**, pas sur une page.\n\n**Les filtres sont exactement ceux de `GET /api/dossiers`** — mêmes noms, même sémantique, périmètre\ncommercial compris. Un même jeu de filtres des deux côtés garantit que la somme des effectifs des\ngroupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET /api/dossiers`\navec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/dossiers` (booléens `groupable`\n/ `agregeable`). Toutes les colonnes ne le sont pas, et c'est mesuré : un montant porte presque\nautant de valeurs distinctes que de lignes, une date exacte aussi — d'où `granularite` pour les\ndates et le refus de grouper un montant.",
+        "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par valeur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Totaux de la liste (Σ en tête)** : le champ `totaux` de la réponse porte les agrégats demandés sur **toutes** les lignes filtrées. Avec `inclureSansValeur=true`, il couvre exactement la population de `GET /api/dossiers` (hors lots libres, qui n'ont pas de prix de vente).\n\n**Les filtres sont exactement ceux de `GET /api/dossiers`** — mêmes noms, même sémantique, sortis exclus par défaut, périmètre commercial compris. Un même jeu de filtres des deux côtés garantit que la somme des effectifs des groupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET /api/dossiers` avec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/dossiers` (booléens `groupable` / `agregeable`). Une colonne calculée par page (dernière communication, alerte, sous-articles…) n'est ni l'un ni l'autre.",
         "operationId": "grouper_4",
         "parameters": [
           {
@@ -10762,7 +10868,7 @@
           {
             "name": "agregats",
             "in": "query",
-            "description": "Agrégats à calculer, répétable ou séparés par des virgules.\n\nDeux formes. Un **nom nu** (`prix`) vaut une **somme** et revient sous ce nom nu — c'est le\ncomportement historique, inchangé. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et\nrevient sous le jeton complet `prix:AVG`. Les deux formes peuvent coexister dans le même appel.\n\nFonctions : `SUM`, `AVG`, `MIN`, `MAX`, `COUNT` — mais **pas sur toutes les colonnes**. Sommer une\ndate n'a pas de sens, et une colonne calculée par différence n'a pas d'extremum exprimable. La liste\nautorisée par colonne est publiée par le catalogue (`fonctions`) : le menu Σ doit s'y piloter, pas\nsur une liste en dur. Une fonction refusée rend 400 avec les fonctions acceptées par cette\ncolonne-là.\n\n`AVG` est calculée à partir de la somme et de l'effectif renseigné, en décimal exact et arrondie au\ncentime — jamais en virgule flottante.\n\nAbsent : seul l'effectif de chaque groupe est renvoyé.",
+            "description": "Agrégats à calculer, répétable ou séparés par des virgules.\n\nDeux formes. Un **nom nu** (`prix`) vaut une **somme** et revient sous ce nom nu. Un nom **qualifié** (`prix:AVG`) applique la fonction nommée et revient sous le jeton complet `prix:AVG`. Les deux formes peuvent coexister dans le même appel.\n\nFonctions : `SUM`, `AVG`, `MIN`, `MAX`, `COUNT` — selon la colonne (`fonctions` du catalogue). Une fonction refusée rend 400 avec les fonctions acceptées par cette colonne-là.\n\nAbsent : seul l'effectif de chaque groupe est renvoyé.",
             "required": false,
             "schema": {
               "type": "array",
@@ -10775,7 +10881,7 @@
           {
             "name": "granularite",
             "in": "query",
-            "description": "Granularité de regroupement d'une colonne date. Ignorée si `groupBy` n'est pas une date. Défaut :\nMOIS — grouper sur la date exacte rendrait 214 groupes pour 358 dossiers, soit une liste plate.",
+            "description": "Granularité de regroupement d'une colonne date. Ignorée si `groupBy` n'est pas une date. Défaut : MOIS.",
             "required": false,
             "schema": {
               "type": "string",
@@ -10804,7 +10910,7 @@
           {
             "name": "inclureSansValeur",
             "in": "query",
-            "description": "Inclure le groupe des lignes dont la colonne groupée est vide. **Faux par défaut** : l'écran veut\nles valeurs qui existent, et sur une colonne peu renseignée le groupe vide écraserait tous les\nautres. Passer `true` pour le récupérer — la somme des effectifs retombe alors sur le\n`totalElements` de la liste non groupée.",
+            "description": "Inclure le groupe des lignes dont la colonne groupée est vide. **Faux par défaut**. Passer `true` pour que la somme des effectifs et les `totaux` retombent sur le `totalElements` de la liste non groupée.",
             "required": false,
             "schema": {
               "type": "boolean",
@@ -10861,13 +10967,51 @@
               "type": "string",
               "enum": [
                 "RESERVATION",
+                "PROSPECTION",
+                "VALIDITE_STATUT",
                 "CONCRETISATION",
-                "COMPROMIS",
+                "PROMESSE_VENTE",
+                "PROMESSE_VENTE_CLIENT",
+                "ENREGISTREMENT_RESERVATION",
+                "VISITE_TECHNIQUE",
+                "ENVOI_NOTAIRE_PREVU",
                 "ENVOI_NOTAIRE",
-                "CREDIT_DEBLOQUE",
                 "MINUTE",
-                "REMISE_DES_CLES",
+                "MINUTE_CLIENT",
                 "FORMALISATION",
+                "IMPRESSION_CONTRAT",
+                "EXPEDITION",
+                "RELANCE_1",
+                "ECHEANCE_RELANCE_1",
+                "RELANCE_2",
+                "ECHEANCE_RELANCE_2",
+                "FICHE_BANCAIRE",
+                "ENVOI_MEILLEUR_TAUX",
+                "DECISION_MEILLEUR_TAUX",
+                "COMPROMIS",
+                "CREDIT_DEBLOQUE",
+                "FICHE_INTERVENTION",
+                "FICHE_ASSURANCE",
+                "REMISE_DES_CLES_PREVUE",
+                "REMISE_DES_CLES",
+                "REMISE_DES_CLES_CLIENT",
+                "ENREGISTREMENT_REMISE_DES_CLES",
+                "MODIFICATION_REMISE",
+                "PERMIS_HABITER",
+                "ACTE_PRECISION",
+                "ACTE_PRECISION_CLIENT",
+                "ENREGISTREMENT_ACTE_PRECISION",
+                "MINUTE_AVOCAT",
+                "REMISE_LEGALISATION_CONTRAT",
+                "LEGALISATION_CONTRAT",
+                "DEPOT_ENREGISTREMENT_CONTRAT",
+                "REMISE_LEGALISATION_ACTE_PRECISION",
+                "DEPOT_ENREGISTREMENT_ACTE_PRECISION",
+                "DEPOT_CPF",
+                "RETRAIT_CPF",
+                "REMISE_CERTIFICAT_PROPRIETE",
+                "CREATION",
+                "MODIFICATION",
                 "ANNULATION"
               ]
             }
@@ -10891,11 +11035,28 @@
             }
           },
           {
+            "name": "dateVide",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "search",
             "in": "query",
             "required": false,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "inclureSortis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           },
           {
@@ -10919,7 +11080,259 @@
             }
           },
           "400": {
-            "description": "`groupBy` absent, inconnu, ou désignant une colonne non groupable ; ou `agregats` contenant une\ncolonne non agrégeable. Le corps (RFC 7807) porte la liste des noms acceptés."
+            "description": "`groupBy` absent, inconnu, ou désignant une colonne non groupable ; ou `agregats` contenant une colonne non agrégeable. Le corps (RFC 7807) porte la liste des noms acceptés."
+          }
+        }
+      }
+    },
+    "/api/dossiers/export": {
+      "get": {
+        "tags": [
+          "Dossiers — liste"
+        ],
+        "summary": "Export Excel de la liste des dossiers, filtres et colonnes appliqués",
+        "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/dossiers`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Auteur du classeur = utilisateur connecté, titre « Dossiers de vente », fichier `dossiers_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
+        "operationId": "exporter",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Seule valeur acceptée : `xlsx`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "commercial",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projet",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RESERVATION",
+                "PROSPECTION",
+                "VALIDITE_STATUT",
+                "CONCRETISATION",
+                "PROMESSE_VENTE",
+                "PROMESSE_VENTE_CLIENT",
+                "ENREGISTREMENT_RESERVATION",
+                "VISITE_TECHNIQUE",
+                "ENVOI_NOTAIRE_PREVU",
+                "ENVOI_NOTAIRE",
+                "MINUTE",
+                "MINUTE_CLIENT",
+                "FORMALISATION",
+                "IMPRESSION_CONTRAT",
+                "EXPEDITION",
+                "RELANCE_1",
+                "ECHEANCE_RELANCE_1",
+                "RELANCE_2",
+                "ECHEANCE_RELANCE_2",
+                "FICHE_BANCAIRE",
+                "ENVOI_MEILLEUR_TAUX",
+                "DECISION_MEILLEUR_TAUX",
+                "COMPROMIS",
+                "CREDIT_DEBLOQUE",
+                "FICHE_INTERVENTION",
+                "FICHE_ASSURANCE",
+                "REMISE_DES_CLES_PREVUE",
+                "REMISE_DES_CLES",
+                "REMISE_DES_CLES_CLIENT",
+                "ENREGISTREMENT_REMISE_DES_CLES",
+                "MODIFICATION_REMISE",
+                "PERMIS_HABITER",
+                "ACTE_PRECISION",
+                "ACTE_PRECISION_CLIENT",
+                "ENREGISTREMENT_ACTE_PRECISION",
+                "MINUTE_AVOCAT",
+                "REMISE_LEGALISATION_CONTRAT",
+                "LEGALISATION_CONTRAT",
+                "DEPOT_ENREGISTREMENT_CONTRAT",
+                "REMISE_LEGALISATION_ACTE_PRECISION",
+                "DEPOT_ENREGISTREMENT_ACTE_PRECISION",
+                "DEPOT_CPF",
+                "RETRAIT_CPF",
+                "REMISE_CERTIFICAT_PROPRIETE",
+                "CREATION",
+                "MODIFICATION",
+                "ANNULATION"
+              ]
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateVide",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inclureSortis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "lignes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DOSSIERS",
+                "DOSSIERS_ET_LIBRES",
+                "LIBRES"
+              ]
+            }
+          },
+          {
+            "name": "ordreOmran",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes exportées, dans l'ordre voulu (celui de la grille). Absent : les colonnes par défaut de la liste.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,statut,clientNom,prix"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Tri `propriete,asc|desc`, répétable, comme la liste. Défaut : docDate,desc.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "docDate,desc"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx, feuille DONNEES.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`format` autre que `xlsx`, ou colonne inconnue."
+          }
+        }
+      }
+    },
+    "/api/dossiers/champs-date": {
+      "get": {
+        "tags": [
+          "Dossiers — liste"
+        ],
+        "summary": "Les 47 dates du filtre de période, dans l'ordre d'OMRAN",
+        "description": "Les 46 dates du filtre de période d'OMRAN (`GetDatesFilterWithoutCancelDate`), dans son ordre, plus la date d'annulation. `code` se passe dans `champDate`.",
+        "operationId": "champsDate",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChampDateListeDto"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -18519,6 +18932,406 @@
             "type": "string",
             "format": "date-time",
             "description": "Date d'envoi au notaire / avocat (ComFolder.AgreementDate)."
+          },
+          "libre": {
+            "type": "boolean",
+            "description": "Vrai sur une ligne de lot libre (`lignes=DOSSIERS_ET_LIBRES` ou `LIBRES`) : `id` est alors l'article."
+          },
+          "ancienClient": {
+            "type": "boolean",
+            "description": "Client marqué ancien client (ComFolder.IsOldCustomer)."
+          },
+          "clientPrenom": {
+            "type": "string",
+            "description": "Prénom du client principal (CfgTier.FirstName)."
+          },
+          "clientNomFamille": {
+            "type": "string",
+            "description": "Nom du client principal (CfgTier.LastName)."
+          },
+          "clientMobile": {
+            "type": "string",
+            "description": "Mobile du client principal, sans indicatif (CfgTier.Mobile)."
+          },
+          "clientMobileIndicatif": {
+            "type": "string",
+            "description": "Indicatif du mobile du client (CfgTier.MobileIndicatif).",
+            "example": "212"
+          },
+          "clientCin": {
+            "type": "string",
+            "description": "Numéro de pièce d'identité du client (CfgTier.IDNumber)."
+          },
+          "clientMobileComplet": {
+            "type": "string",
+            "description": "Mobile formaté « (indicatif) numéro », calculé côté serveur comme OMRAN."
+          },
+          "clientTelephone": {
+            "type": "string",
+            "description": "Téléphone formaté « (indicatif) numéro », calculé côté serveur comme OMRAN."
+          },
+          "autresClients": {
+            "type": "string",
+            "description": "Co-acquéreurs (ComFolderCustomer), libellés séparés par des virgules."
+          },
+          "datePromesseVente": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Promesse de vente (ComFolder.ReservationDate)."
+          },
+          "datePromesseVenteClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Promesse de vente côté client (ComFolder.ReservationDateCustomer)."
+          },
+          "dateEnregistrementReservation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Enregistrement de la réservation (ComFolder.ReservationRegistryDate)."
+          },
+          "dateFicheBancaire": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fiche bancaire (ComFolder.BankRecordDate)."
+          },
+          "dateFicheIntervention": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fiche intervention (ComFolder.InterventionDate)."
+          },
+          "dateFicheAssurance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fiche assurance (ComFolder.InsuranceDate)."
+          },
+          "datePermisHabiter": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Permis d'habiter de la tranche de l'article principal (CfgTranche.OccupancyPermitsDate)."
+          },
+          "dateOctroiCredit": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Attestation de consignation / octroi crédit (ComFolder.CreditPossessionDate)."
+          },
+          "dateMinute": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Minute / enregistrement contrat (ComFolder.AgreementSavingDate)."
+          },
+          "dateMinuteClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Minute côté client (ComFolder.AgreementSavingDateCustomer)."
+          },
+          "dateMinuteAvocat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Minute / signature contrat avocat (ComFolder.AgreementSavingDateLawyer)."
+          },
+          "dateRemiseLegalisationContrat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise du contrat pour légalisation (ComFolder.AgreementSavingDateForLegalization)."
+          },
+          "dateLegalisationContrat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Légalisation du contrat (ComFolder.AgreementSavingDateLegalization)."
+          },
+          "dateDepotEnregistrementContrat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dépôt pour enregistrement du contrat (ComFolder.AgreementSavingDateForRegistry)."
+          },
+          "dateRemiseClesPrevue": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise des clés prévisionnelle, celle de la tranche (CfgTranche.DeliveryDate)."
+          },
+          "dateRemiseClesClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise des clés côté client (ComFolder.DeliveryDateRealCustomer)."
+          },
+          "dateEnregistrementRemiseCles": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Enregistrement de la remise des clés (ComFolder.DeliveryRegistryDate)."
+          },
+          "dateExpedition": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Expédition / certificat de propriété (ComFolder.OwnershipCertificateDate)."
+          },
+          "dateEnregistrementContrat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Enregistrement du contrat (ComFolder.AgreementRegistryDate)."
+          },
+          "dateRelance1": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Relance 1 du titre foncier (ComFolder.Revival1)."
+          },
+          "echeanceRelance1": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance de la relance 1 (ComFolder.Revival1ValidityDate)."
+          },
+          "dateRelance2": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Relance 2 du titre foncier (ComFolder.Revival2)."
+          },
+          "echeanceRelance2": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance de la relance 2 (ComFolder.Revival2ValidityDate)."
+          },
+          "dateDepotCpf": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dépôt à la CPF (ComFolder.FinalTitleDateDeposit)."
+          },
+          "dateRetraitCpf": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Retrait du dossier client de la CPF (ComFolder.FinalTitleDateWithdrawal)."
+          },
+          "dateRemiseCertificat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise du certificat de propriété au client (ComFolder.FinalTitleDate)."
+          },
+          "numeroTitre": {
+            "type": "string",
+            "description": "Numéro du titre foncier définitif (ComFolder.FinalTitleNumber)."
+          },
+          "dateValiditeStatut": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fin de validité du statut courant (ComFolder.StatusValidityDate)."
+          },
+          "dateModificationRemise": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dernière modification de la remise (ComFolder.DiscountChangeDate)."
+          },
+          "dateEnvoiNotairePrevue": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Envoi au notaire prévisionnel (ComFolder.AgreementDatePrevisionel)."
+          },
+          "envoiNotaireConfirme": {
+            "type": "boolean",
+            "description": "Date d'envoi au notaire confirmée (ComFolder.IsConfirmedAgreementDate)."
+          },
+          "dateVisiteTechnique": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Visite technique / réception (ComFolder.ReceptionDate)."
+          },
+          "dateEnvoiMeilleurTaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Envoi du dossier à MEILLEURTAUX (ComFolder.LoanCompanySendDate)."
+          },
+          "dateDecisionMeilleurTaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Décision de MEILLEURTAUX (ComFolder.LoanCompanyDecisionDate)."
+          },
+          "decisionMeilleurTaux": {
+            "type": "string",
+            "description": "Libellé de la décision MEILLEURTAUX (ComLoanCompanyDecision.Description)."
+          },
+          "dateActePrecision": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Acte de précision (ComFolder.PrecisionActDate)."
+          },
+          "dateActePrecisionClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Acte de précision côté client (ComFolder.PrecisionActDateCustomer)."
+          },
+          "dateEnregistrementActePrecision": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Enregistrement de l'acte de précision (ComFolder.PrecisionActRegistryDate)."
+          },
+          "dateRemiseLegalisationActePrecision": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise pour légalisation de l'acte de précision (PrecisionActDateForLegalization)."
+          },
+          "dateDepotEnregistrementActePrecision": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dépôt pour enregistrement de l'acte de précision (PrecisionActDateForRegistry)."
+          },
+          "dateImpressionContrat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Impression du contrat de réservation / promesse (ComFolder.ContractPrintDate)."
+          },
+          "gestionnaire2Nom": {
+            "type": "string",
+            "description": "Second gestionnaire du dossier (ComFolder.CfgSaleManager2Id)."
+          },
+          "banqueCredit": {
+            "type": "string",
+            "description": "Banque du crédit ou du leasing (ComFolder.CreditBankId)."
+          },
+          "supportSource": {
+            "type": "string",
+            "description": "Support de la source de contact de la prospection d'origine."
+          },
+          "actionCommerciale": {
+            "type": "string",
+            "description": "Action commerciale de la prospection d'origine (ComAction)."
+          },
+          "superficie": {
+            "type": "number",
+            "description": "Superficie en m² (ComFolder.Area ; StkItem.Area sur un lot libre)."
+          },
+          "superficieGlobale": {
+            "type": "number",
+            "description": "Superficie globale en m² (ComFolder.GlobalArea)."
+          },
+          "sousArticlesCodes": {
+            "type": "string",
+            "description": "Codes des articles du dossier (ComFolderItem), distincts, séparés par des virgules."
+          },
+          "sousArticlesLibelles": {
+            "type": "string",
+            "description": "Libellés des articles du dossier (ComFolderItem), distincts, séparés par des virgules."
+          },
+          "prixM2HtAvantRemise": {
+            "type": "number",
+            "description": "Prix du m² HT avant remise (ComFolder.UnitCostHT)."
+          },
+          "prixArticleHtAvantRemise": {
+            "type": "number",
+            "description": "Prix de l'article HT avant remise (ComFolder.ItemPriceHT)."
+          },
+          "prixSousArticlesHtAvantRemise": {
+            "type": "number",
+            "description": "Prix des sous-articles HT avant remise (ComFolder.UnderItemsPriceHT)."
+          },
+          "prixAvantRemiseHt": {
+            "type": "number",
+            "description": "Prix de vente HT avant remise (ComFolder.PriceBeforeDiscountHT)."
+          },
+          "prixM2AvantRemise": {
+            "type": "number",
+            "description": "Prix du m² TTC avant remise (ComFolder.UnitCost)."
+          },
+          "prixArticleAvantRemise": {
+            "type": "number",
+            "description": "Prix de l'article TTC avant remise (ComFolder.ItemPrice)."
+          },
+          "prixSousArticlesAvantRemise": {
+            "type": "number",
+            "description": "Prix des sous-articles TTC avant remise (ComFolder.UnderItemsPrice)."
+          },
+          "tva": {
+            "type": "number",
+            "description": "Taux de TVA en fraction (0.2 = 20 %) (ComFolder.VATRatio).",
+            "example": 0.2
+          },
+          "prixM2Ht": {
+            "type": "number",
+            "description": "Prix de vente du m² HT après remise : prix article HT ÷ superficie, calculé."
+          },
+          "prixArticleHt": {
+            "type": "number",
+            "description": "Prix de vente de l'article HT après remise (ComFolder.ItemPriceAfterHT)."
+          },
+          "prixSousArticlesHt": {
+            "type": "number",
+            "description": "Prix de vente des sous-articles HT après remise (ComFolder.UnderItemsPriceAfterHT)."
+          },
+          "prixHt": {
+            "type": "number",
+            "description": "Prix de vente HT (ComFolder.PriceHT)."
+          },
+          "prixM2Ttc": {
+            "type": "number",
+            "description": "Prix de vente du m² TTC : prix article TTC ÷ superficie (1 si nulle), comme OMRAN."
+          },
+          "prixArticleTtc": {
+            "type": "number",
+            "description": "Prix de vente de l'article TTC après remise (ComFolder.ItemPriceAfter)."
+          },
+          "prixSousArticlesTtc": {
+            "type": "number",
+            "description": "Prix de vente des sous-articles TTC après remise (ComFolder.UnderItemsPriceAfter)."
+          },
+          "prixVenteM2Ttc": {
+            "type": "number",
+            "description": "Prix après remise ÷ (superficie + superficie des annexes), TTC. Calculé."
+          },
+          "prixVenteM2Ht": {
+            "type": "number",
+            "description": "Prix après remise ÷ (superficie + superficie des annexes) ÷ (1 + TVA). Calculé."
+          },
+          "nombreEtatsModification": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Modifications au statut ENCOURS (ComModification)."
+          },
+          "nombreCadeaux": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Cadeaux attribués au dossier (ComFolderGift)."
+          },
+          "cadeauPlusTard": {
+            "type": "boolean",
+            "description": "Le client choisira son cadeau plus tard (ComFolder.IsWithGiftChoiceLater)."
+          },
+          "derniereCommunicationDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière communication non système de la prospection d'origine."
+          },
+          "derniereCommunicationResultat": {
+            "type": "string",
+            "description": "Résultat (sous-catégorie) de la dernière communication."
+          },
+          "derniereCommunicationMessage": {
+            "type": "string",
+            "description": "Message de la dernière communication, à défaut son résultat."
+          },
+          "alerte": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière alerte active de la prospection d'origine ; `null` = pas d'icône."
+          },
+          "instructionNonLue": {
+            "type": "boolean",
+            "description": "Vrai si une instruction non lue de la prospection vise l'utilisateur connecté."
+          },
+          "nombreActions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Actions du dossier (réservation, livraison, annulation) datées d'aujourd'hui ou avant."
+          },
+          "delaiCredit": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entre l'envoi au notaire et l'octroi du crédit. Calculé."
+          },
+          "delaiCreditRemiseCles": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entre l'octroi du crédit et la remise des clés. Calculé."
+          },
+          "delaiMeilleurTaux": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Jours entre l'envoi et la décision MEILLEURTAUX ; 0 si l'une manque, comme OMRAN."
           }
         }
       },
@@ -20862,6 +21675,48 @@
             "type": "integer",
             "format": "int64",
             "description": "Nombre d'actions de ce type sur le dossier."
+          }
+        }
+      },
+      "StatutListeDossierDto": {
+        "type": "object",
+        "description": "Statut de dossier proposé au filtre de la liste (StrStatus des dossiers de vente).",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code à passer tel quel dans `?statut=` (StrStatus.Code).",
+            "example": "CONCRETISATION"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé du statut (StrStatus.Description).",
+            "example": "CONCRETISATION"
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre d'affichage (StrStatus.Sorting).",
+            "example": 2
+          },
+          "sortie": {
+            "type": "boolean",
+            "description": "Statut de sortie (annulation ou résiliation) : exclu de la liste par défaut."
+          }
+        }
+      },
+      "ChampDateListeDto": {
+        "type": "object",
+        "description": "Date proposée au filtre de période de la liste des dossiers.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Valeur à passer dans `?champDate=`.",
+            "example": "CONCRETISATION"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé affiché, celui d'OMRAN.",
+            "example": "Date concrétisation"
           }
         }
       },

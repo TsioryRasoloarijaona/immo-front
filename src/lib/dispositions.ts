@@ -227,10 +227,15 @@ export const DISPOSITION_DOSSIERS: DispositionColonnes = {
     'avocatId',
     'articleId',
     'responsableVenteId',
+    // Servies pour la ligne (lot libre, icône d'instruction), jamais affichées en colonne.
+    'libre',
+    'instructionNonLue',
   ]),
   /* La colonne « Prospection » est un lien vers `/prospections/{id}` et `?colonnes=` est une liste close :
      sans `prospectionId`, le lien disparaît en silence. */
   dependances: { prospectionCode: ['prospectionId'] },
+  /* Icônes de ligne (alerte, instruction non lue) et ouverture d'un lot libre sur sa fiche article. */
+  toujoursDemandees: ['libre', 'alerte', 'instructionNonLue'],
 };
 
 const ORDRE_PROSPECTS = [

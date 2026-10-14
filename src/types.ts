@@ -468,6 +468,9 @@ export interface FiltresAvancesProspection {
  * Un groupe inconnu retombe sur la clé brute dans `libelleGroupe`. */
 export type GroupeColonne =
   | 'IDENTITE'
+  | 'CLIENT'
+  | 'PRIX'
+  | 'DATES'
   | 'CONTACT'
   | 'CONTEXTE'
   | 'FINANCIER'
@@ -1210,6 +1213,99 @@ export interface DossierListItemDto {
   creeLe?: string | null;
   modifiePar?: string;
   modifieLe?: string | null;
+
+  // Parité grille OMRAN (FEATURE-vente-liste.md §1) : `id` est l'article quand `libre` est vrai.
+  libre?: boolean | null;
+  ancienClient?: boolean | null;
+  clientPrenom?: string | null;
+  clientNomFamille?: string | null;
+  clientMobile?: string | null;
+  clientMobileIndicatif?: string | null;
+  clientCin?: string | null;
+  clientMobileComplet?: string | null;
+  clientTelephone?: string | null;
+  autresClients?: string | null;
+  datePromesseVente?: string | null;
+  datePromesseVenteClient?: string | null;
+  dateEnregistrementReservation?: string | null;
+  dateFicheBancaire?: string | null;
+  dateFicheIntervention?: string | null;
+  dateFicheAssurance?: string | null;
+  datePermisHabiter?: string | null;
+  dateOctroiCredit?: string | null;
+  dateMinute?: string | null;
+  dateMinuteClient?: string | null;
+  dateMinuteAvocat?: string | null;
+  dateRemiseLegalisationContrat?: string | null;
+  dateLegalisationContrat?: string | null;
+  dateDepotEnregistrementContrat?: string | null;
+  dateRemiseClesPrevue?: string | null;
+  dateRemiseClesClient?: string | null;
+  dateEnregistrementRemiseCles?: string | null;
+  dateExpedition?: string | null;
+  dateEnregistrementContrat?: string | null;
+  dateRelance1?: string | null;
+  echeanceRelance1?: string | null;
+  dateRelance2?: string | null;
+  echeanceRelance2?: string | null;
+  dateDepotCpf?: string | null;
+  dateRetraitCpf?: string | null;
+  dateRemiseCertificat?: string | null;
+  numeroTitre?: string | null;
+  dateValiditeStatut?: string | null;
+  dateModificationRemise?: string | null;
+  dateEnvoiNotairePrevue?: string | null;
+  envoiNotaireConfirme?: boolean | null;
+  dateVisiteTechnique?: string | null;
+  dateEnvoiMeilleurTaux?: string | null;
+  dateDecisionMeilleurTaux?: string | null;
+  decisionMeilleurTaux?: string | null;
+  dateActePrecision?: string | null;
+  dateActePrecisionClient?: string | null;
+  dateEnregistrementActePrecision?: string | null;
+  dateRemiseLegalisationActePrecision?: string | null;
+  dateDepotEnregistrementActePrecision?: string | null;
+  dateImpressionContrat?: string | null;
+  gestionnaire2Nom?: string | null;
+  banqueCredit?: string | null;
+  supportSource?: string | null;
+  actionCommerciale?: string | null;
+  superficie?: number | null;
+  superficieGlobale?: number | null;
+  sousArticlesCodes?: string | null;
+  sousArticlesLibelles?: string | null;
+  prixM2HtAvantRemise?: number | null;
+  prixArticleHtAvantRemise?: number | null;
+  prixSousArticlesHtAvantRemise?: number | null;
+  prixAvantRemiseHt?: number | null;
+  prixM2AvantRemise?: number | null;
+  prixArticleAvantRemise?: number | null;
+  prixSousArticlesAvantRemise?: number | null;
+  /** Fraction 0–1 (0,2 = 20 %) : `formatPercent`. */
+  tva?: number | null;
+  prixM2Ht?: number | null;
+  prixArticleHt?: number | null;
+  prixSousArticlesHt?: number | null;
+  prixHt?: number | null;
+  prixM2Ttc?: number | null;
+  prixArticleTtc?: number | null;
+  prixSousArticlesTtc?: number | null;
+  prixVenteM2Ttc?: number | null;
+  prixVenteM2Ht?: number | null;
+  nombreEtatsModification?: number | null;
+  nombreCadeaux?: number | null;
+  cadeauPlusTard?: boolean | null;
+  derniereCommunicationDate?: string | null;
+  derniereCommunicationResultat?: string | null;
+  derniereCommunicationMessage?: string | null;
+  /** Dernière alerte active de la prospection d'origine : icône d'alerte en tête de ligne. */
+  alerte?: string | null;
+  /** Instruction non lue qui vise l'utilisateur connecté : icône en tête de ligne. */
+  instructionNonLue?: boolean | null;
+  nombreActions?: number | null;
+  delaiCredit?: number | null;
+  delaiCreditRemiseCles?: number | null;
+  delaiMeilleurTaux?: number | null;
 }
 
 export interface DossierDetailDto {
