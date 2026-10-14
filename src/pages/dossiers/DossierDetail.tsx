@@ -15,11 +15,13 @@ import OngletAnnulation from '../../components/dossier/onglets/OngletAnnulation'
 import OngletArticles from '../../components/dossier/onglets/OngletArticles';
 import OngletAutres from '../../components/dossier/onglets/OngletAutres';
 import OngletAutresMontants from '../../components/dossier/onglets/OngletAutresMontants';
+import OngletCadeaux from '../../components/dossier/onglets/OngletCadeaux';
 import OngletDates from '../../components/dossier/onglets/OngletDates';
 import OngletDatesAutres from '../../components/dossier/onglets/OngletDatesAutres';
 import OngletDocumentsGeneres from '../../components/dossier/onglets/OngletDocumentsGeneres';
 import OngletEcheancier from '../../components/dossier/onglets/OngletEcheancier';
 import OngletHistorique from '../../components/dossier/onglets/OngletHistorique';
+import OngletModifications from '../../components/dossier/onglets/OngletModifications';
 import OngletPiecesJointes from '../../components/dossier/onglets/OngletPiecesJointes';
 import OngletStatut from '../../components/dossier/onglets/OngletStatut';
 import { formatDate, formatPercent, toApiDateTime } from '../../lib/format';
@@ -144,6 +146,11 @@ export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; v
     await Promise.all([echeances.refetch(), montants.refetch(), fiche.refetch()]);
   }
 
+  // Sous-articles, acquéreurs et modifications changent prix, remise ou totaux du dossier.
+  async function relireDossierEtMontants() {
+    await Promise.all([refetch(), relireEcheancier()]);
+  }
+
   const dossierId = d.id;
 
   async function changerStatut(newStatus: string, note: string, date?: string) {
@@ -231,9 +238,17 @@ export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; v
             id: 'articles',
             libelle: 'Articles',
             compteur: d.articles?.length ?? 0,
-            contenu: <OngletArticles articles={d.articles} details={articleDetails} />,
+            contenu: (
+              <OngletArticles dossierId={d.id} articles={d.articles} details={articleDetails} onChanged={relireDossierEtMontants} />
+            ),
           },
-          { id: 'acquereurs', libelle: 'Acquéreurs', contenu: <OngletAcquereurs dossier={d} /> },
+          { id: 'acquereurs', libelle: 'Acquéreurs', contenu: <OngletAcquereurs dossier={d} onChanged={relireDossierEtMontants} /> },
+          {
+            id: 'modifications',
+            libelle: 'Modifications',
+            contenu: <OngletModifications dossierId={d.id} onChanged={relireDossierEtMontants} />,
+          },
+          { id: 'cadeaux', libelle: 'Cadeaux', contenu: <OngletCadeaux dossierId={d.id} /> },
           {
             id: 'actions',
             libelle: 'Actions',

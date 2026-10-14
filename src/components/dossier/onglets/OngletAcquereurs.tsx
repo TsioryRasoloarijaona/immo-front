@@ -1,42 +1,78 @@
+import { useState } from 'react';
+import { Pencil } from 'lucide-react';
 import { Badge, ErrorState, Field, FieldGrid, LoadingState } from '../../ui';
+import { Button } from '../../ui/button';
 import { formatPercentValue, formatTelephone } from '../../../lib/format';
-import { getClient, listPayeurs } from '../../../lib/api';
+import { getClient } from '../../../lib/api';
+import { getAcquereurs } from '../../../lib/apiDossierSousListes';
 import { useApi } from '../../../lib/useApi';
 import type { DossierDetailDto } from '../../../types';
+import type { AcquereursDto, ProspectionAArchiverDto } from '../../../types/dossierSousListes';
+import AcquereursEdition from '../echeancier/AcquereursEdition';
+import ArchivageProspectionsDialog from '../echeancier/ArchivageProspectionsDialog';
 
-// `PayeurDto.quotePart` est un pourcentage 0–100, `DossierDetailDto.quotePart` une fraction
+// `AcquereurDto.quotePart` est un pourcentage 0–100, `DossierDetailDto.quotePart` une fraction
 // (1,00 = 100 %) : même nom, deux échelles, deux formatages.
-function AcquereursDossier({ dossierId }: Readonly<{ dossierId: string }>) {
-  const payeurs = useApi(() => listPayeurs(dossierId), [dossierId], 'dossier-payeurs');
-
-  if (payeurs.loading && !payeurs.data) return <LoadingState />;
-  if (payeurs.error) return <ErrorState message={payeurs.error} />;
-  const lignes = payeurs.data ?? [];
-  if (lignes.length === 0) {
-    return <p className="text-label text-muted-foreground">Aucun acquéreur enregistré sur ce dossier.</p>;
-  }
-
+function ListeAcquereurs({ donnees }: Readonly<{ donnees: AcquereursDto }>) {
   return (
     <div className="flex flex-col gap-2">
-      {lignes.map((pa) => (
-        <div key={pa.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-muted/30 p-2.5">
-          <Badge tone={pa.role === 'ACQUEREUR_PRINCIPAL' ? 'info' : 'neutral'}>
-            {pa.role === 'ACQUEREUR_PRINCIPAL' ? 'Principal' : 'Co-acquéreur'}
-          </Badge>
-          <span className="min-w-0 truncate text-label font-medium text-foreground">{pa.nom || pa.id}</span>
-          {pa.pieceIdentite && <span className="text-body text-muted-foreground">{pa.pieceIdentite}</span>}
-          {/* Toujours nul sur l'acquéreur principal : pas de tiret, il se lirait
-              comme une quote-part manquante. */}
-          {typeof pa.quotePart === 'number' && (
-            <span className="ml-auto text-label font-semibold tabular-nums text-foreground">{formatPercentValue(pa.quotePart)}</span>
-          )}
+      {donnees.acquereurs.map((a) => (
+        <div key={a.id ?? a.tiersId ?? 'principal'} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-muted/30 p-2.5">
+          <Badge tone={a.principal ? 'info' : 'neutral'}>{a.principal ? 'Principal' : 'Co-acquéreur'}</Badge>
+          <span className="min-w-0 truncate text-label font-medium text-foreground">{a.nom || '—'}</span>
+          {a.pieceIdentite && <span className="text-body text-muted-foreground">{a.pieceIdentite}</span>}
+          <span className="ml-auto text-label font-semibold tabular-nums text-foreground">{formatPercentValue(a.quotePart)}</span>
         </div>
       ))}
+      <div className="text-right text-micro text-muted-foreground">Total des parts {formatPercentValue(donnees.total)}</div>
     </div>
   );
 }
 
-export default function OngletAcquereurs({ dossier: d }: Readonly<{ dossier: DossierDetailDto }>) {
+function AcquereursDossier({ dossierId, onChanged }: Readonly<{ dossierId: string; onChanged: () => Promise<void> }>) {
+  const acquereurs = useApi(() => getAcquereurs(dossierId), [dossierId], 'dossier-acquereurs');
+  const [edition, setEdition] = useState(false);
+  const [aArchiver, setAArchiver] = useState<ProspectionAArchiverDto[]>([]);
+
+  if (acquereurs.loading && !acquereurs.data) return <LoadingState />;
+  if (acquereurs.error) return <ErrorState message={acquereurs.error} />;
+  if (!acquereurs.data) return null;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-label font-semibold text-foreground">Acquéreurs</h3>
+        {!edition && (
+          <Button type="button" variant="outline" size="sm" onClick={() => setEdition(true)}>
+            <Pencil data-icon="inline-start" /> Modifier la répartition
+          </Button>
+        )}
+      </div>
+      {edition ? (
+        <AcquereursEdition
+          dossierId={dossierId}
+          donnees={acquereurs.data}
+          onAnnuler={() => setEdition(false)}
+          onEnregistre={async (resultat) => {
+            setEdition(false);
+            setAArchiver(resultat.prospectionsAArchiver);
+            await Promise.all([acquereurs.refetch(), onChanged()]);
+          }}
+        />
+      ) : (
+        <ListeAcquereurs donnees={acquereurs.data} />
+      )}
+      {aArchiver.length > 0 && (
+        <ArchivageProspectionsDialog dossierId={dossierId} prospections={aArchiver} onFerme={() => setAArchiver([])} />
+      )}
+    </div>
+  );
+}
+
+export default function OngletAcquereurs({
+  dossier: d,
+  onChanged,
+}: Readonly<{ dossier: DossierDetailDto; onChanged: () => Promise<void> }>) {
   const client = useApi(() => (d.clientId ? getClient(d.clientId) : Promise.resolve(null)), [d.clientId], 'dossier-client');
 
   return (
@@ -69,7 +105,7 @@ export default function OngletAcquereurs({ dossier: d }: Readonly<{ dossier: Dos
         </FieldGrid>
       </div>
       <div className="border-t border-border pt-3">
-        <AcquereursDossier dossierId={d.id} />
+        <AcquereursDossier dossierId={d.id} onChanged={onChanged} />
       </div>
     </div>
   );

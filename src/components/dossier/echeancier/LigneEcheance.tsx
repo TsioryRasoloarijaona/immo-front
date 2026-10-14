@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import { Badge } from '../../ui';
+import { Button } from '../../ui/button';
 import { TableCell, TableRow } from '../../ui/table';
 import { ECHEANCE_STATUT_LABELS, echeanceCategorieTone, echeanceStatut, echeanceStatutTone } from '../../../lib/domain';
 import { formatCurrency, formatDate } from '../../../lib/format';
@@ -13,11 +14,14 @@ export default function LigneEcheance({
   echeance,
   onReglementAdded,
   onReglementChanged,
+  onSupprimer,
 }: Readonly<{
   dossierId: string;
   echeance: EcheanceDto;
   onReglementAdded: (echeanceId: string, body: CreerReglementRequest) => Promise<void>;
   onReglementChanged: () => Promise<void>;
+  /** Le serveur refuse (409) une ligne réglée, autorisée ou rattachée à un recouvrement. */
+  onSupprimer: (echeance: EcheanceDto) => void;
 }>) {
   const [expanded, setExpanded] = useState(false);
   const [reglementsVersion, setReglementsVersion] = useState(0);
@@ -66,6 +70,9 @@ export default function LigneEcheance({
                 setExpanded(true);
               }}
             />
+            <Button type="button" variant="ghost" size="icon-sm" aria-label="Supprimer l'échéance" onClick={() => onSupprimer(echeance)}>
+              <Trash2 />
+            </Button>
           </div>
         </TableCell>
       </TableRow>

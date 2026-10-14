@@ -3212,7 +3212,7 @@
           "Dossiers"
         ],
         "summary": "Crée un dossier de vente à partir d'une prospection",
-        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\nDans les deux modes, la base est écrite comme le logiciel de bureau l'écrit : `ComFolder.Discount`\nen ratio 0–1 du HT avant remise, `ComFolder.DiscountAmount` en HT. L'API relit `remise` en\npourcentage (0–100) et `remiseMontant` en HT.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Prospect → client** : si le statut initial porte l'indicateur OMRAN « Transforme le prospect en\nclient », le tiers passe au type client (voir `PATCH /api/dossiers/{id}/statut`).",
+        "description": "Voir `POST /api/dossiers/simulation-financement` pour prévisualiser le schéma de financement avant\ncet appel final. Si `prix` est fourni ici, le schéma de financement est généré et persisté\nautomatiquement (mêmes montants que la simulation, à condition que les mêmes articles/prix soient\nutilisés), et la ventilation HT/TTC/remise du dossier est calculée comme sur l'onglet \"Montants\"\nd'une Offre (prix commercial de l'article, taux de TVA) — sauf que le total du dossier\n(`totalToPay`) inclut en plus les Frais Syndic de la tranche, contrairement au total d'une Offre.\n\n**Périmètre commercial** : créer un dossier sur un article dont le projet n'est pas affecté à\nl'appelant renvoie **403** (et non 404 : ici c'est l'appelant qui a nommé l'article, il n'y a rien à\ncacher). Le projet est déduit du premier article via sa tranche.\n\n**Remise commerciale** — deux modes, selon `remisePercent` :\n- `remisePercent` **fourni** (écran de création où le commercial saisit la remise) : `prix` est le\n  total TTC **avant** remise, annexes comprises (articles suivants de `articleIds`, comptés à leur\n  prix de référence) ; le principal vaut `prix` − annexes, à la place du prix commercial de\n  l'article ; la remise est appliquée sur ce total et se\n  répercute sur `prixApresRemise`, `prix`, `totalAPayer` **et** sur le schéma de financement (AVANCE\n  / AUTO-FINANCEMENT calculés sur le prix après remise). Les FRAIS SYNDIC viennent du barème de la\n  tranche et ne sont jamais remisés.\n- `remisePercent` **absent** (comportement historique, inchangé) : `prix` est le prix négocié\n  **après** remise, et `remise`/`remiseMontant` sont déduits de l'écart avec le prix de référence\n  de l'article.\n\nDans les deux modes, la base est écrite comme le logiciel de bureau l'écrit : `ComFolder.Discount`\nen ratio 0–1 du HT avant remise, `ComFolder.DiscountAmount` en HT. L'API relit `remise` en\npourcentage (0–100) et `remiseMontant` en HT.\n\n**Prix de référence d'un article** : `comSalePrice` s'il est > 0, sinon `comSalePriceFloor` (prix\nplancher) s'il est > 0 ; il sert de base pour l'article principal, les annexes, la simulation et\nles offres. Sans prix de référence, la base avant remise est le prix négocié (remise nulle). C'est\nla valeur exposée par `prixSuggere` sur les articles.\n\n**Sans `prix`** : les montants sont quand même écrits, depuis le prix de référence des articles (0\ns'ils n'en ont pas), sans frais de syndic ; aucun schéma de financement n'est généré.\n\n**Écritures compatibles OMRAN** (le dossier apparaît dans les écrans du logiciel de bureau) : statut\ninitial RESERVATION (obligatoire), type de document `ComFolder`, `DocDate` à minuit, description\n« <code> du jj/mm/aaaa », répartition du client principal à 100 %, superficies, prix au m², prix\ncontractuel, schéma texte, constantes et signatures de création. Les articles suivants de\n`articleIds` deviennent les sous-articles du lot principal (ligne `ComFolderItem`, historique\n« AFFECTATION »). Voir `FEATURE-interop-omran-ecritures.md` §3.\n\n**Sous-articles du lot** : comme le logiciel de bureau, tout sous-article libre du lot principal\n(`StkItem.ParentId` = le lot, sans dossier) est rattaché même s'il n'est pas dans `articleIds` ; son\nprix de référence entre dans le prix des sous-articles, donc dans le prix avant remise et la superficie\nglobale. `prix` doit en tenir compte (avec `remisePercent`, il est le total annexes comprises). Le prix de\nréférence d'un lot (`comSalePrice`) inclut déjà ses sous-articles chez OMRAN : le prix du lot seul en est\ndéduit, pour ne pas les compter deux fois — un lot et ses enfants valent donc son `prixSuggere`.\n\n**Type du tiers** : le client (et chaque acquéreur) est client tant qu'il a un dossier actif dont le\nstatut « transforme le prospect en client », prospect sinon (voir `PATCH /api/dossiers/{id}/statut`).",
         "operationId": "create_1",
         "requestBody": {
           "content": {
@@ -3247,6 +3247,16 @@
           },
           "403": {
             "description": "Le projet de l'article n'est pas dans le périmètre commercial de l'appelant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Statut RESERVATION introuvable dans la configuration des dossiers de vente : aucun dossier n'est\ncréé, le `detail` le dit.",
             "content": {
               "*/*": {
                 "schema": {
@@ -3889,6 +3899,8 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Ajoute une ligne d'échéancier au dossier",
+        "description": "Société, module, TVA, HT et date à minuit sont écrits comme le logiciel de bureau.",
         "operationId": "addEcheance",
         "parameters": [
           {
@@ -3912,8 +3924,28 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "OK",
+          "201": {
+            "description": "Échéance créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Catégorie (`categorieId`) absente ou introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable.",
             "content": {
               "*/*": {
                 "schema": {
@@ -3987,7 +4019,7 @@
           "Dossiers"
         ],
         "summary": "Enregistre un règlement sur une échéance",
-        "description": "Crée un `StlSettlement` + sa `StlSettlementLine` de rattachement à l'échéance `echeanceId`. Le\nrèglement naît toujours au statut `IN_WORK`.\n\n**Saisie complète obligatoire** (400 sur chaque manquement) : `montant` (strictement positif et au\nplus égal au reste à payer de l'échéance), `dateEcheance`, `typeId` et `payeurId`. `reference` (n°\nde chèque...) est requise dès que le type choisi a `TypeReglementDto.referenceObligatoire=true`\n(CHÈQUE, EFFET...) ; `banqueId` est requise dès que `TypeReglementDto.banqueObligatoire=true` — ce\nflag était annoncé mais pas appliqué jusqu'ici.\n\n`typeId` et `payeurId` sont exigés parce qu'ils alimentent le « Mode de versement » et le «\nVersement effectué par » de l'**autorisation d'encaissement**, à ouvrir juste après création via\n`GET /api/dossiers/{id}/reglements/{reglementId}/documents/autorisation-versement` (le `reglementId`\nest l'`id` renvoyé ici).\n\n`dateReglement` et `statut=POINTED` sont **refusés** (400) : pointer un règlement exige une preuve\nde paiement, impossible à fournir avant que le règlement existe. Pour saisir un règlement déjà\nencaissé, enchaîner : ce `POST`, puis `POST .../reglements/{reglementId}/pieces-jointes`, puis\n`PATCH .../reglements/{reglementId}/statut`.",
+        "description": "Crée un `StlSettlement` + sa `StlSettlementLine` de rattachement à l'échéance `echeanceId`. Le\nrèglement naît toujours au statut `IN_WORK`.\n\n**Saisie complète obligatoire** (400 sur chaque manquement) : `montant` (strictement positif et au\nplus égal au reste à payer de l'échéance), `dateEcheance` et `typeId`. `reference` (n° de chèque...)\nest requise dès que le type choisi a `TypeReglementDto.referenceObligatoire=true` (CHÈQUE, EFFET...) ;\n`banqueId` est requise dès que `TypeReglementDto.banqueObligatoire=true`.\n\n`typeId` alimente le « Mode de versement » de l'**autorisation d'encaissement**, à ouvrir juste\naprès création via `GET /api/dossiers/{id}/reglements/{reglementId}/documents/autorisation-versement`\n(le `reglementId` est l'`id` renvoyé ici). `payeurId` (« Versement effectué par ») est facultatif :\nabsent, c'est le client du dossier.\n\n**Écritures compatibles OMRAN** : le tiers du règlement (`TierId`) est toujours le client du dossier,\nle payeur saisi va dans `TierPayerId` ; `DocDate` = aujourd'hui à minuit ; société du projet, module\nCOM, type de document « encaissement », devise par défaut, description « <type> <banque> N° <réf> du\njj/mm/aaaa ». Voir `FEATURE-interop-omran-ecritures.md` §5.\n\n`dateReglement` et `statut=POINTED` sont **refusés** (400) : pointer un règlement exige une preuve\nde paiement, impossible à fournir avant que le règlement existe. Pour saisir un règlement déjà\nencaissé, enchaîner : ce `POST`, puis `POST .../reglements/{reglementId}/pieces-jointes`, puis\n`PATCH .../reglements/{reglementId}/statut`.",
         "operationId": "addReglement",
         "parameters": [
           {
@@ -4031,7 +4063,7 @@
             }
           },
           "400": {
-            "description": "Champ obligatoire absent (`montant`, `dateEcheance`, `typeId`, `payeurId`), montant négatif/nul ou\ndépassant le reste à payer, `reference`/`banqueId` absente alors que le type la requiert, ou\n`dateReglement`/`statut=POINTED` fournis.",
+            "description": "Champ obligatoire absent (`montant`, `dateEcheance`, `typeId` ; `payeurId` si le dossier n'a pas de\nclient), montant négatif/nul ou\ndépassant le reste à payer, `reference`/`banqueId` absente alors que le type la requiert, ou\n`dateReglement`/`statut=POINTED` fournis.",
             "content": {
               "*/*": {
                 "schema": {
@@ -4173,7 +4205,7 @@
           "Dossiers"
         ],
         "summary": "Prévisualise le schéma de financement (étape avant création du dossier)",
-        "description": "Calcule le \"Schéma de financement\" (AUTO-FINANCEMENT / AVANCE / FRAIS SYNDIC) que `POST\n/api/dossiers` générerait pour ce(s) article(s) et ce prix, **sans rien créer ni persister** — ni\ndossier, ni échéance. Étape de simulation dans l'assistant de création : le front appelle cet\nendpoint à chaque changement de prix/article pour afficher le récapitulatif avant validation finale\nvia `POST /api/dossiers`. `articleIds` accepte le même format que la création réelle (le premier\narticle détermine la tranche — barème AVANCE/SYNDIC — et la vocation — catégorie d'échéance). Les\narticles n'ont pas besoin d'être DISPONIBLE ici : rien n'est réservé. Si `remisePercent` est fourni,\nAVANCE et AUTO-FINANCEMENT sont calculés sur le prix **après** remise (`prix` étant alors le total\navant remise, annexes comprises — articles suivants de `articleIds`) — mêmes montants que ceux que `POST\n/api/dossiers` persistera pour les mêmes paramètres. FRAIS SYNDIC ne dépend pas du prix (barème de\nla tranche) et n'est donc jamais remisé.",
+        "description": "Calcule le \"Schéma de financement\" (AUTO-FINANCEMENT / AVANCE / FRAIS SYNDIC) que `POST\n/api/dossiers` générerait pour ce(s) article(s) et ce prix, **sans rien créer ni persister** — ni\ndossier, ni échéance. Étape de simulation dans l'assistant de création : le front appelle cet\nendpoint à chaque changement de prix/article pour afficher le récapitulatif avant validation finale\nvia `POST /api/dossiers`. `articleIds` accepte le même format que la création réelle (le premier\narticle détermine la tranche — barème AVANCE/SYNDIC — et la vocation — catégorie d'échéance). Les\narticles n'ont pas besoin d'être DISPONIBLE ici : rien n'est réservé. Si `remisePercent` est fourni,\nAVANCE et AUTO-FINANCEMENT sont calculés sur le prix **après** remise (`prix` étant alors le total\navant remise, annexes comprises — articles suivants de `articleIds`) — mêmes montants que ceux que `POST\n/api/dossiers` persistera pour les mêmes paramètres. FRAIS SYNDIC ne dépend pas du prix (barème de\nla tranche) et n'est donc jamais remisé.\n\nLes sous-articles libres du lot (`StkItem.ParentId`) absents de `articleIds` sont comptés comme à la\ncréation, qui les rattache d'office : ils sont listés dans `annexesAutomatiques` (prix de référence\ncompris dans `prixAvantRemise`), pour que l'aperçu égale le dossier créé.",
         "operationId": "simulerSchemaFinancement",
         "requestBody": {
           "content": {
@@ -5288,7 +5320,7 @@
           "Dossiers"
         ],
         "summary": "Change le statut du dossier de vente",
-        "description": "Change le statut du dossier. La transition doit figurer dans la table des transitions validées\n(sinon **409**, avec `transitionsAutorisees`) ; un dossier sans statut courant accepte tout statut.\n\n**Prospect → client, comme OMRAN** : si le statut cible porte l'indicateur « Transforme le prospect\nen client » (`StrStatus.BoolField011` : CONCRETISATION, COMPROMIS, FORMALISE…), et que le client du\ndossier est de type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`), son type devient le type client\ncorrespondant (`CLI`, `CLIRNT`, `CLIPRM`, `CLIROM`), dans la même transaction. Une ligne\nd'historique distincte « Prospect transformé en client » (type `STATUT`) s'ajoute alors à celle du\nchangement de statut, dont la note reste intacte.\nDéjà client, type absent ou inconnu : rien ne change. Jamais de retour client → prospect.\n\n**Sortie (ANNULATION ou DESISTEMENT) : le lot est libéré**, comme OMRAN, dans la même transaction.\nChaque article lié au dossier (lot principal et annexes TER / PARKING) perd son `ComFolderId` et\nredevient `DISPONIBLE` ; un sous-article sans « Toujours affecté » (`AlwaysAffected`) perd aussi son\narticle parent. `ComFolder.StkItemId` est conservé : le détail d'un dossier sorti montre toujours son\nlot principal dans `articles`, même revendu depuis. `note` est **obligatoire** (la cause, écrite dans\n`CancelDescription`) ; `date` va dans `CancelDate` (maintenant si absente), pour les deux sorties.\n\n**Réactivation ANNULATION → RESERVATION** : le lot principal doit être encore libre (sinon **409**) ;\nil reprend le dossier, avec ses sous-articles « Toujours affecté » encore libres. Les annexes libérées\nsans cet indicateur ne reviennent pas. `CancelDate` et `CancelDescription` restent en historique.",
+        "description": "Change le statut du dossier. La transition doit figurer dans la table des transitions validées\n(sinon **409**, avec `transitionsAutorisees`) — copie des transitions `StrWorkFlow` du logiciel de\nbureau. Un dossier **sans statut** est refusé (**409**, reprise de données nécessaire).\n\n**Type client / prospect, comme OMRAN** (`Sale.cs:ManageTier`), après chaque changement : le client\nprincipal et chaque acquéreur (`ComFolderCustomer`) qui a au moins un dossier actif (statut ni\nannulation ni résiliation) dont le statut porte l'indicateur « Transforme le prospect en client »\n(`StrStatus.BoolField011`) passe d'un type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`) au type\n`CLI` ; un `CLI` qui n'en a plus aucun redevient `PRO` (`CLIRNT`, `CLIPRM`, `CLIROM` restent). `CfgTierKindId` est\nremis à vide dans les deux cas. Une ligne d'historique distincte (type `STATUT`) le dit : « Prospect\ntransformé en client » ou « Retour prospect » (suivie du nom pour un acquéreur) ; la note du\nchangement de statut reste intacte.\n\n**Sortie (ANNULATION ou DESISTEMENT) : le lot est libéré**, comme OMRAN, dans la même transaction.\nChaque article lié au dossier (lot principal et annexes TER / PARKING) perd son `ComFolderId` et\nredevient `DISPONIBLE` ; un sous-article sans « Toujours affecté » (`AlwaysAffected`) perd aussi son\narticle parent. `ComFolder.StkItemId` est conservé : le détail d'un dossier sorti montre toujours son\nlot principal dans `articles`, même revendu depuis. `note` est **obligatoire** (la cause, écrite dans\n`CancelDescription`) ; `date` va dans `CancelDate` (maintenant si absente), pour les deux sorties.\nChaque sous-article libéré reçoit une ligne d'historique « ANNULATION AFFECTATION ». La sortie est\nrefusée (**409**) si un dossier de syndic en cours est rattaché, ou si une facture de chiffre\nd'affaires du dossier n'est pas annulée par un avoir.\n\n**Réactivation ANNULATION → RESERVATION**, comme OMRAN : le lot principal et **tous** les\nsous-articles du dossier (`ComFolderItem`) doivent être libres (sinon **409**) ; tous reprennent le\ndossier (sous-articles rattachés au lot, ligne « AFFECTATION »). `CancelDate` est vidée et\n`CancelDescription` remise à vide.",
         "operationId": "changerStatut",
         "parameters": [
           {
@@ -5353,7 +5385,7 @@
             }
           },
           "409": {
-            "description": "Transition non autorisée depuis le statut courant (le corps liste `transitionsAutorisees`), ou\nréactivation d'un dossier annulé dont le lot a été revendu entre-temps (« Le lot <code> a été revendu\nentre-temps : créer un nouveau dossier ») ; le statut ne change pas.",
+            "description": "Transition non autorisée depuis le statut courant (le corps liste `transitionsAutorisees`), dossier\nsans statut, réactivation d'un dossier annulé dont le lot a été revendu entre-temps (« Le lot <code>\na été revendu entre-temps : créer un nouveau dossier ») ou dont un sous-article est pris (« Le sous\narticle <code> n'est pas libre… »), sortie avec un dossier de syndic en cours ou une facture sans\navoir ; le statut ne change pas.",
             "content": {
               "*/*": {
                 "schema": {
@@ -5518,6 +5550,8 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Modifie une ligne d'échéancier",
+        "description": "Champs absents inchangés ; HT, TVA et société recalculés, la ligne garde une catégorie.",
         "operationId": "updateEcheance",
         "parameters": [
           {
@@ -5551,7 +5585,27 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Échéance modifiée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Catégorie introuvable, ou ligne laissée sans catégorie.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EcheanceDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou échéance introuvable.",
             "content": {
               "*/*": {
                 "schema": {
@@ -10301,7 +10355,7 @@
           "Dossiers"
         ],
         "summary": "Synthèse financière du dossier",
-        "description": "Reproduit l'onglet « Montants » du logiciel de bureau — l'onglet ouvert par défaut sur sa fiche\ndossier.\n\n**Toujours calculé, jamais stocké** : tout est agrégé à la lecture depuis l'échéancier\n(`ComDocument`) et les règlements qui s'y rattachent.\n\nTrois niveaux de lecture :\n- `parCategorie` — une ligne Montant / Réglé / Reste par catégorie d'échéancier (`AVANCE`,\n  `AUTO-FINANCEMENT`, `FRAIS SYNDIC`…) ;\n- `prixVente` et `netAPayer` — les deux lignes de **synthèse**, qui ne sont pas des catégories : le\n  prix de vente, puis ce même prix augmenté des frais exclus du prix ;\n- `totalGeneral` et `totalSoumisReglePrixTTC` — les totaux bruts.\n\nLa distinction « soumis au prix » repose sur `ComDocument.excludeFromPrice`, le booléen prévu pour\ncela dans le schéma, et non sur le libellé de la catégorie, qui est du texte libre configurable.\n\n⚠️ **Sur un dossier sorti** (`ANNULATION` / `DESISTEMENT`, signalé par `dossierSorti`), `netAPayer`\nse réduit à ce qui a été encaissé et son reste vaut zéro : un dossier annulé ne reste rien devoir.\nRègle vérifiée sans exception sur les 30 dossiers sortis réels.",
+        "description": "Reproduit l'onglet « Montants » du logiciel de bureau — l'onglet ouvert par défaut sur sa fiche\ndossier.\n\n**Toujours calculé, jamais stocké** : tout est agrégé à la lecture depuis l'échéancier\n(`ComDocument`) et les règlements qui s'y rattachent.\n\nTrois niveaux de lecture :\n- `parCategorie` — une ligne Montant / Réglé / Reste par catégorie d'échéancier (`AVANCE`,\n  `AUTO-FINANCEMENT`, `FRAIS SYNDIC`…) ;\n- `prixVente` et `netAPayer` — les deux lignes de **synthèse**, qui ne sont pas des catégories : le\n  prix de vente, puis ce même prix augmenté des frais exclus du prix ;\n- `totalGeneral` et `totalSoumisReglePrixTTC` — les totaux bruts.\n\nLa distinction « soumis au prix » repose sur `ComDocument.excludeFromPrice`, le booléen prévu pour\ncela dans le schéma, et non sur le libellé de la catégorie, qui est du texte libre configurable.\n\n⚠️ **Sur un dossier sorti** (`ANNULATION` / `DESISTEMENT`, signalé par `dossierSorti`), `netAPayer`\nse réduit à ce qui a été encaissé et son reste vaut zéro : un dossier annulé ne reste rien devoir.\nRègle vérifiée sans exception sur les 30 dossiers sortis réels.\n\n**Signes** : le réglé d'une échéance est la somme de ses lignes de règlement, un décaissement\n(`StlSettlement.IsCredit = 0`) comptant en négatif, les règlements annulés exclus ; une échéance de\ncatégorie au débit (remboursement, `IsCredit = 0`) se **retranche** des montants et totaux.\n\n`tropPercu` / `tropPercuReste` : formule de la vue `ComSaleFolderView` du logiciel de bureau (total\ndû − total réglé, quand il est négatif), rendue en positif ; 0 pour un dossier débiteur.",
         "operationId": "montants",
         "parameters": [
           {
@@ -10473,7 +10527,7 @@
           "Dossiers"
         ],
         "summary": "Génère la \"Fiche Trop Perçu\" du dossier (PDF)",
-        "description": "Modélisé bande par bande sur le template legacy Stimulsoft `ComSaleFicheTropPercu.yes` — reçu\nattestant que les versements du client dépassent le prix du dossier : état civil de l'acquéreur et\nde ses éventuels co-acquéreurs, désignation complète du bien (avec sous-articles), prix et total des\nfrais (réutilise `GET /api/dossiers/{id}/montants` pour le total des frais, jamais re-dérivé), puis\nle détail chronologique de chaque versement et le \"Reste à payer\" (négatif quand il y a\neffectivement un trop perçu — c'est cette valeur, en valeur absolue, qui est reprise dans le montant\ndu trop perçu, y compris en toutes lettres). PDF uniquement — pas de variante Word pour ce document.",
+        "description": "Modélisé bande par bande sur le template legacy Stimulsoft `ComSaleFicheTropPercu.yes` — reçu\nattestant que les versements du client dépassent le prix du dossier : état civil de l'acquéreur et\nde ses éventuels co-acquéreurs, désignation complète du bien (avec sous-articles), prix et total des\nfrais (réutilise `GET /api/dossiers/{id}/montants` pour le total des frais, jamais re-dérivé), puis\nle détail chronologique de chaque versement et le \"Reste à payer\". Le montant du trop perçu (en\nchiffres et en lettres) est le `tropPercu` de `GET .../montants` — formule de la vue `ComSaleFolderView`\ndu logiciel de bureau, 0 pour un dossier débiteur ; le \"Reste à payer\" est le reste du net à payer de\nce même calcul (frais compris), jamais négatif. PDF uniquement — pas de variante Word pour ce document.",
         "operationId": "getFicheTropPercu",
         "parameters": [
           {
@@ -10517,6 +10571,8 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Fiche de réservation (PDF ou DOCX)",
+        "description": "La première génération pose la date d'impression du contrat (`ContractPrintDate`).",
         "operationId": "getFicheReservation",
         "parameters": [
           {
@@ -15685,28 +15741,39 @@
       },
       "CreerEcheanceRequest": {
         "type": "object",
+        "description": "Nouvelle ligne d'échéancier ; société, TVA, HT et module sont dérivés de la catégorie et du dossier.",
         "properties": {
           "dateEcheance": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Date d'exigibilité (`ComDocument.DocDate`), enregistrée à minuit."
           },
           "montant": {
-            "type": "number"
+            "type": "number",
+            "description": "Montant TTC (`ComDocument.Amount`).",
+            "example": 100000
           },
           "description": {
-            "type": "string"
+            "type": "string",
+            "description": "Libellé ; absent, celui de la catégorie."
           },
           "categorieId": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Catégorie (`ComSettlementCategory.PKey`). Requise : 400 si absente."
           },
           "exclureDuPrix": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Exclue du prix contractuel ; absent, la valeur de la catégorie."
           },
           "notes": {
-            "type": "string"
+            "type": "string",
+            "description": "Commentaire libre."
           }
-        }
+        },
+        "required": [
+          "categorieId"
+        ]
       },
       "EcheanceDto": {
         "type": "object",
@@ -15802,7 +15869,7 @@
           "payeurId": {
             "type": "string",
             "format": "uuid",
-            "description": "Tiers ayant effectivement réglé (`StlSettlement.TierId`) — « réglé par », peut différer de\nl'acquéreur principal (co-acquéreur, tiers payeur...). **Requis** : alimente le bloc « Versement\neffectué par » de l'autorisation d'encaissement. Confirmé renseigné sur >99% des règlements réels."
+            "description": "Tiers ayant effectivement réglé (`StlSettlement.TierPayerId`) — « réglé par », peut différer de\nl'acquéreur principal (co-acquéreur, tiers payeur...). Alimente le bloc « Versement effectué par » de\nl'autorisation d'encaissement et le reçu. **Facultatif** : absent, le payeur est le client du\ndossier. `StlSettlement.TierId` reçoit toujours le client du dossier, comme le logiciel de bureau ;\n400 si `payeurId` est absent et que le dossier n'a pas de client."
           },
           "notes": {
             "type": "string",
@@ -15826,7 +15893,6 @@
         "required": [
           "dateEcheance",
           "montant",
-          "payeurId",
           "typeId"
         ]
       },
@@ -15938,6 +16004,33 @@
           }
         }
       },
+      "AnnexeAutomatique": {
+        "type": "object",
+        "description": "Sous-article du lot (StkItem.ParentId) rattaché automatiquement, comme le logiciel de bureau.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "example": "APF-1-08 TER"
+          },
+          "description": {
+            "type": "string"
+          },
+          "surface": {
+            "type": "number",
+            "description": "Superficie (m²).",
+            "example": 12
+          },
+          "prix": {
+            "type": "number",
+            "description": "Prix de référence TTC compté dans le prix des sous-articles.",
+            "example": 50000
+          }
+        }
+      },
       "SchemaFinancementDto": {
         "type": "object",
         "properties": {
@@ -15969,6 +16062,13 @@
             "type": "number",
             "description": "Prix TTC après remise (`prixAvantRemise` − `montantRemise`), base du schéma de financement. Exactement\nla valeur que `POST /api/dossiers` enregistrera (`prixApresRemise` du dossier) avec les mêmes paramètres.",
             "example": 1140000
+          },
+          "annexesAutomatiques": {
+            "type": "array",
+            "description": "Sous-articles libres du lot absents d'articleIds, rattachés d'office à la création et comptés dans les prix.",
+            "items": {
+              "$ref": "#/components/schemas/AnnexeAutomatique"
+            }
           }
         }
       },
@@ -18390,7 +18490,7 @@
           "dateCompromis": {
             "type": "string",
             "format": "date-time",
-            "description": "Date du compromis (ComFolder.AgreementDate). 73 / 358."
+            "description": "Date du compromis / approbation crédit (ComFolder.CreditApprovalDate)."
           },
           "dateLivraisonReelle": {
             "type": "string",
@@ -18406,14 +18506,19 @@
           "delaiNotaire": {
             "type": "integer",
             "format": "int32",
-            "description": "Jours entre la concrétisation et le compromis. Calculé côté serveur. Calculable sur 73 / 358.",
+            "description": "Jours entre la concrétisation et l'envoi au notaire. Calculé côté serveur.",
             "example": 112
           },
           "delaiLivraison": {
             "type": "integer",
             "format": "int32",
-            "description": "Jours entre le compromis et la livraison réelle. Calculé côté serveur. Calculable sur 63 / 358.\n\nLe délai de crédit du logiciel de bureau n'est pas exposé : il dépend de `CreditPossessionDate`,\nmesurée à **0 ligne sur 358**, donc il vaudrait `null` partout.",
+            "description": "Jours entre l'envoi au notaire (`AgreementDate`) et la livraison réelle. Calculé côté serveur.\nCalculable sur 63 / 358.\n\nLe délai de crédit du logiciel de bureau n'est pas exposé : il dépend de `CreditPossessionDate`,\nmesurée à **0 ligne sur 358**, donc il vaudrait `null` partout.",
             "example": 365
+          },
+          "dateEnvoiNotaire": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'envoi au notaire / avocat (ComFolder.AgreementDate)."
           }
         }
       },
@@ -20087,6 +20192,16 @@
           "dossierSorti": {
             "type": "boolean",
             "description": "`true` si le dossier est **sorti** du parcours — statut `ANNULATION` ou `DESISTEMENT`. Correspond\nexactement au `IsCancellation` du logiciel de bureau (30/30 sur les dossiers réels). Explique la\nrègle particulière de `netAPayer`."
+          },
+          "tropPercu": {
+            "type": "number",
+            "description": "Trop-perçu (≥ 0) : réglé au-delà du total dû, formule de ComSaleFolderView. 0 pour un dossier débiteur.",
+            "example": 0
+          },
+          "tropPercuReste": {
+            "type": "number",
+            "description": "Trop-perçu restant à rembourser (≥ 0), formule de ComSaleFolderView. 0 pour un dossier débiteur.",
+            "example": 0
           }
         }
       },

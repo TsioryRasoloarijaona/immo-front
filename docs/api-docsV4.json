@@ -28,6 +28,10 @@
       "description": "Recherche d'un correspondant par numéro de téléphone, avec tout son historique d'activité (prospections, dossiers de vente, règlements, interactions...) en une seule requête. Pensé pour un agent hotline qui doit identifier un appelant et voir instantanément son passé dans le CRM.\n\n**Entités juridiques en exploitation.** Les blocs prospections, dossiers, règlements et interactions ne remontent que ce qui relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un correspondant dont toute l'activité porte sur une entité hors exploitation est donc trouvé avec un historique vide, ce qui n'est pas une erreur."
     },
     {
+      "name": "Dossiers — modalité de paiement",
+      "description": "Bouton « Modalité de paiement » de la fiche dossier. Aide OMRAN : « Lorsqu'on clic sur \" Modalité de paiement \", le système affiche le schéma de financement initialement créé. Remarque : La création du schéma de financement est manuel. On peut copier le schéma de financement en cliquant sur le bouton \" Copier schéma de financement \". » Les lignes (`ComDocumentPaymentMethod`) gardent date, catégorie, montant, HT, TVA, remise et société de chaque échéance. Une copie est aussi prise automatiquement au premier passage du dossier à un statut de vente effective (drapeau 001), s'il n'a encore aucune ligne (`Sale.cs:CreateDocumentPaymentMethod`)."
+    },
+    {
       "name": "Mon compte",
       "description": "Profil de l'utilisateur authentifié et changement volontaire de son mot de passe. Aucun portail de première connexion : mustChangePassword/profileCompleted ne bloquent plus aucune route."
     },
@@ -38,6 +42,10 @@
     {
       "name": "Dossiers — fiche",
       "description": "Fiche complète d'un dossier de vente en consultation, organisée par onglet de l'écran OMRAN (en-tête, statut, autres montants, dates, dates autres, annulation, autres). Lecture seule : la modification des champs est un autre lot. Même périmètre que `GET /api/dossiers/{id}` : un dossier hors périmètre ou rattaché à une entité inactive renvoie 404."
+    },
+    {
+      "name": "Dossiers — cadeaux",
+      "description": "Onglet « Cadeaux » de la fiche dossier (`ComFolderGift`) : cadeau du catalogue, prix, livré, disponibilité, raison, date du bon d'achat, date de livraison, note. Aide OMRAN : « Si la case livré est coché, le champ date livraison devient obligatoire » (400 sinon). Choisir un cadeau reprend son prix et sa disponibilité (quantités reçues − cadeaux livrés > 0, `FolderGift.cs:SetPrice`). Ajouter et supprimer demandent le droit OMRAN « toolAddDeleteGifts », ouvert ici aux rôles Administrateur et Commercial Chef ; la modification est ouverte au périmètre, mais seul ce droit change la raison. Chaque écriture signe le dossier."
     },
     {
       "name": "Dossiers — actions",
@@ -58,6 +66,10 @@
     {
       "name": "Dossiers — visites techniques",
       "description": "Calendrier des visites techniques (bouton à gauche du champ « Visite technique / réception » de la fiche OMRAN). Une visite est un `AdmEvent` rattaché au dossier (`ComFolderId`) et à la tranche de son article (`CfgTrancheId`) ; les créneaux et le quota sont comptés par tranche."
+    },
+    {
+      "name": "Dossiers — schéma de financement",
+      "description": "Opérations du schéma de financement de la fiche dossier, comme OMRAN (aide « DOSSIERS DE VENTE », liste du schéma de financement) : « Si on ajoute (ou on augmente son montant) un document paramétré \"Mettre à jour le schéma de financement\" --> Le système soustrait son montant de la ligne \"Autofinancement\" sinon de la linge \"Crédit\". Si on supprime (on diminue son montant) un document paramétré \" Mettre à jour le schéma de financement\" --> Le système ajoute son montant à la ligne \"Autofinancement\" sinon à la ligne \"Crédit\". » Ce report s'applique aussi à `POST` et `PATCH /api/dossiers/{id}/echeancier`. Après chaque écriture, le prix contractuel, le montant d'accord et le net à payer du dossier sont recalculés et le dossier est signé."
     },
     {
       "name": "Articles",
@@ -108,12 +120,24 @@
       "description": "Règlements (StlSettlement) rattachés à un Dossier de vente — reproduit l'écran legacy \"Encaissements Vente\" (module Vente d'OMRAN Estate). Pour l'historique des règlements d'une seule échéance, voir plutôt `GET /api/dossiers/{id}/echeancier/{echeanceId}/reglements`, endpoint plus léger et déjà scopé à un dossier — celui-ci est la vue transverse \"tous les encaissements\" avec les mêmes filtres que le tableau legacy (entité, type, état, période, compte, dépôt...).\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, un encaissement hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les règlements portés par une entité juridique active (`StlSettlement.CfgCompanyId` → `CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Un règlement masqué renvoie 404 sur toutes les routes portant son identifiant."
     },
     {
+      "name": "Dossiers — acquéreurs",
+      "description": "Onglet « Acquéreurs » de la fiche dossier : le client principal porte sa part sur `ComFolder.PartPercent`, chaque co-acquéreur sur `ComFolderCustomer.PartPercent` (ratio 0–1 en base, pourcentage 0–100 dans l'API). Contrôles d'OMRAN à l'enregistrement (`Sale.cs:Verif`) : « La réparation du client principal doit être > 0 ! », « Le total des répartitions sur les acquéreurs doit être égale à 100% ! », et à l'ajout « Cet tier est déjà affecté en tant que client principal ! »."
+    },
+    {
       "name": "Tranches",
       "description": "Tranches (CfgTranche) — phases d'un projet immobilier, leurs conditions commerciales et leurs articles."
     },
     {
       "name": "Dossiers — réajustement des superficies",
       "description": "Écran OMRAN « Réajuster les superficies », lancé depuis la liste des dossiers pour une tranche. « Le système n'effectue des modifications que lorsqu'on change la superficie » (aide OMRAN) : un dossier est proposé quand la superficie de son article principal, ou d'un de ses sous-articles, diffère du stock (arrondie à 2 décimales). La remise est recalculée comme pour la réinitialisation (montant conservé, taux recalculé) ; un sous-article dont la superficie change reprend aussi son prix (prix TTC du stock / (1 + TVA)). Dossiers annulés ou désistés exclus. Réservé au rôle Administrateur."
+    },
+    {
+      "name": "Dossiers — sous-articles",
+      "description": "Onglet « Sous articles » de la fiche dossier. Aide OMRAN : « Lorsqu'on ajoute ou on supprime un sous article, le système ne modifie pas le montant remise, mais il modifie le taux de remise. » Le taux devient montant de remise HT / prix HT avant remise (article + sous-articles), et s'applique au prix stocké de l'article et à chaque sous-article (`Sale.cs:RecalcDiscount`) ; le prix de vente HT et TTC suivent. Le schéma de financement n'est pas modifié : son écart se lit sur `GET /api/dossiers/{id}/echeancier/schema`. Chaque ajout ou retrait écrit une ligne d'historique « AFFECTATION » ou « ANNULATION AFFECTATION » et signe le dossier. Écritures réservées au rôle Administrateur (elles changent le prix)."
+    },
+    {
+      "name": "Dossiers — modifications",
+      "description": "Onglet « Modifications » de la fiche dossier (`ComModification`) : description, dates de demande, de validation technique et de validation client, coût, prix de vente HT et TTC, état, notes. Après chaque écriture, `ComFolder.ModificationsAmount` et `ModificationsAmountHT` = Σ des prix des demandes acceptées ou réalisées (`Sale.cs`) ; si « Intégrer le montant des modifications dans le calcul du prix de vente » est coché, le prix de vente = prix après remise + modifications ; puis le net à payer est recalculé et le dossier signé. Hors prix, `ecartSchema` donne ce qui manque au schéma de financement en lignes « Modifications » : le passage de statut le contrôle (`Sale.cs:VerifSchema`, « Votre schéma de financement pour les modifications ne correspond pas au montant contractuel »). La recopie dans l'écran Modification du module Projet, citée par l'aide, n'est pas reproduite (module hors périmètre)."
     },
     {
       "name": "Dossiers",
@@ -357,6 +381,390 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/MembreAffectationDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/modifications/{modificationId}": {
+      "put": {
+        "tags": [
+          "Dossiers — modifications"
+        ],
+        "summary": "Modifie une demande de modification",
+        "operationId": "modifier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "modificationId",
+            "in": "path",
+            "description": "Identifiant de la demande (ComModification.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Demandes et montants du dossier à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModificationsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou demande introuvable (ou d'un autre dossier).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModificationsDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Dossiers — modifications"
+        ],
+        "summary": "Supprime une demande de modification",
+        "operationId": "supprimer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "modificationId",
+            "in": "path",
+            "description": "Identifiant de la demande (ComModification.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demandes et montants du dossier à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModificationsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou demande introuvable (ou d'un autre dossier).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModificationsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/cadeaux/{cadeauId}": {
+      "put": {
+        "tags": [
+          "Dossiers — cadeaux"
+        ],
+        "summary": "Modifie un cadeau (livraison, bon, notes ; la raison selon le droit)",
+        "operationId": "modifier_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cadeauId",
+            "in": "path",
+            "description": "Cadeau du dossier (ComFolderGift.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CadeauRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Cadeaux du dossier à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Livré sans date de livraison, ou cadeau / raison introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Changement de raison hors Administrateur et Commercial Chef.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou cadeau introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Dossiers — cadeaux"
+        ],
+        "summary": "Supprime un cadeau du dossier",
+        "operationId": "supprimer_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "cadeauId",
+            "in": "path",
+            "description": "Cadeau du dossier (ComFolderGift.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cadeaux du dossier à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Réservé aux rôles Administrateur et Commercial Chef.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou cadeau introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/acquereurs": {
+      "get": {
+        "tags": [
+          "Dossiers — acquéreurs"
+        ],
+        "summary": "Client principal et co-acquéreurs, avec leur répartition",
+        "operationId": "lister",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Acquéreurs, principal en tête.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcquereursDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcquereursDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Dossiers — acquéreurs"
+        ],
+        "summary": "Enregistre la répartition des acquéreurs (remplace les co-acquéreurs)",
+        "description": "Remplace la liste des co-acquéreurs : ajout, modification de part, retrait. Les tiers ajoutés passent client via la synchronisation prospect → client du dossier (mention dans l'historique). Réponse : la répartition à jour et, comme l'aide OMRAN (« le système vérifie si l'acquéreur d'article a d'autres prospections non archivées »), les prospections ouvertes des acquéreurs ajoutés, hors celle du dossier, à proposer à l'archivage.",
+        "operationId": "enregistrer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepartitionAcquereursRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Acquéreurs à jour et prospections à proposer à l'archivage.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcquereursDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Part du principal ≤ 0, Σ ≠ 100 %, tiers principal, en double ou introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcquereursDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AcquereursDto"
                 }
               }
             }
@@ -3415,6 +3823,131 @@
         }
       }
     },
+    "/api/dossiers/{id}/sous-articles": {
+      "get": {
+        "tags": [
+          "Dossiers — sous-articles"
+        ],
+        "summary": "Sous-articles du dossier et prix qui en dépendent",
+        "operationId": "lister_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SousArticlesDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SousArticlesDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dossiers — sous-articles"
+        ],
+        "summary": "Ajoute un sous-article et recalcule le taux de remise",
+        "description": "L'article doit être un sous-article libre (`IsUnderItem`, sans `ParentId`, ni dossier ni location, pas « toujours affecté ») de la tranche et de la vocation du dossier, comme le sélecteur d'OMRAN (`UnderItems.cs`). Il est rattaché au dossier et à l'article principal.",
+        "operationId": "ajouter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AjouterSousArticleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sous-articles et prix à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SousArticlesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`articleId` absent ou introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SousArticlesDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Réservé au rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SousArticlesDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SousArticlesDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Article non libre ou hors tranche/vocation, ou dossier sorti.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SousArticlesDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/reinitialiser": {
       "post": {
         "tags": [
@@ -3773,6 +4306,269 @@
         }
       }
     },
+    "/api/dossiers/{id}/modifications": {
+      "get": {
+        "tags": [
+          "Dossiers — modifications"
+        ],
+        "summary": "Demandes de modification du dossier et montants qui en découlent",
+        "operationId": "lister_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Demandes (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModificationsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModificationsDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dossiers — modifications"
+        ],
+        "summary": "Ajoute une demande de modification",
+        "operationId": "ajouter_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModificationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Demandes et montants du dossier à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModificationsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModificationsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/modalite-paiement": {
+      "get": {
+        "tags": [
+          "Dossiers — modalité de paiement"
+        ],
+        "summary": "Modalité de paiement : schéma de financement figé à la vente",
+        "operationId": "lister_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes, date décroissante (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModalitePaiementDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModalitePaiementDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dossiers — modalité de paiement"
+        ],
+        "summary": "Ajoute une ligne de modalité de paiement",
+        "operationId": "ajouter_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerModalitePaiementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Lignes à jour, date décroissante.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModalitePaiementDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date, catégorie ou montant absent, ou catégorie introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModalitePaiementDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModalitePaiementDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/modalite-paiement/copier-schema": {
+      "post": {
+        "tags": [
+          "Dossiers — modalité de paiement"
+        ],
+        "summary": "Copier schéma de financement : remplace les lignes par l'échéancier actuel",
+        "description": "Supprime toutes les lignes du dossier puis recopie chaque échéance actuelle (`Sale.cs:UpdateDocumentPaymentMethod`).",
+        "operationId": "copierSchema",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes à jour, date décroissante.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModalitePaiementDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModalitePaiementDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/instructions": {
       "post": {
         "tags": [
@@ -4085,13 +4881,218 @@
         }
       }
     },
+    "/api/dossiers/{id}/echeancier/periodique": {
+      "post": {
+        "tags": [
+          "Dossiers — schéma de financement"
+        ],
+        "summary": "Génère des échéances périodiques",
+        "description": "Montant d'une période = montant total / nombre au centime ; la dernière ligne porte le reste, la somme est exacte. Les dates avancent d'un, deux, trois, six ou douze mois. L'écart est reporté depuis la dernière ligne, puis toute ligne du dossier ramenée à zéro et non réglée est retirée (`GeneratePeriodicity`). 400 si le montant dépasse `montantInitialPeriodicite`, ou si une ligne d'une catégorie « basée sur la date des finalisations » tombe avant le début des finalisations de la tranche.",
+        "operationId": "genererPeriodique",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenererPeriodiqueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Lignes créées (sans celles ramenées à zéro).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EcheanceDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ manquant, montant au-delà du montant initial, ou date avant le début des finalisations.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EcheanceDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EcheanceDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/cadeaux": {
+      "get": {
+        "tags": [
+          "Dossiers — cadeaux"
+        ],
+        "summary": "Cadeaux du dossier",
+        "operationId": "lister_4",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cadeaux (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dossiers — cadeaux"
+        ],
+        "summary": "Ajoute un cadeau au dossier",
+        "operationId": "ajouter_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CadeauRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Cadeaux du dossier à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Livré sans date de livraison, ou cadeau / raison introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Réservé aux rôles Administrateur et Commercial Chef.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/actions": {
       "get": {
         "tags": [
           "Dossiers — actions"
         ],
         "summary": "Actions du dossier et leur nombre par type",
-        "operationId": "lister",
+        "operationId": "lister_5",
         "parameters": [
           {
             "name": "id",
@@ -4195,6 +5196,49 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/acquereurs/archiver-prospections": {
+      "post": {
+        "tags": [
+          "Dossiers — acquéreurs"
+        ],
+        "summary": "Archive les prospections ouvertes cochées des acquéreurs",
+        "description": "Ferme les prospections cochées comme OMRAN (`IsClosed`, date de clôture, « Création dossier de vente ») et désarme leurs relances. N'accepte que des prospections ouvertes du client principal ou d'un co-acquéreur du dossier.",
+        "operationId": "archiver",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArchiverProspectionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Prospections fermées (« Création dossier de vente »)."
+          },
+          "400": {
+            "description": "Une prospection n'est pas une prospection ouverte d'un acquéreur du dossier."
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre."
           }
         }
       }
@@ -4578,7 +5622,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_1",
+        "operationId": "lister_6",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -5216,7 +6260,7 @@
         ],
         "summary": "Archive une prospection (clôture avec motif)",
         "description": "Sort la prospection du pipeline : `fermee = true`, `dateFermeture` = maintenant, motif posé depuis\n`raisonId` (référentiel `ComProspectionClosingReason`) et/ou `raisonTexte` (libre) — **au moins l'un\ndes deux est requis** (400 sinon).\n\nReproduit la séquence du légataire relevée dans sa trace d'audit : les **relances en cours de la\nprospection sont désarmées** (`WithoutRevival`, alerte éteinte dans `AdmAlertData`), comme lors\nd'une transformation en vente — elles disparaissent du tableau de bord des relances et de\n`derniereAlerteDate` de la liste. Les relances rattachées à une échéance de dossier ne sont pas\ntouchées.\n\nRéversible par `PATCH /api/prospections/{id}/desarchiver`.",
-        "operationId": "archiver",
+        "operationId": "archiver_1",
         "parameters": [
           {
             "name": "id",
@@ -5546,6 +6590,47 @@
       }
     },
     "/api/dossiers/{id}/echeancier/{echeanceId}": {
+      "delete": {
+        "tags": [
+          "Dossiers — schéma de financement"
+        ],
+        "summary": "Supprime une ligne d'échéancier",
+        "description": "Refusée (409) si l'échéance a une ligne de règlement (même annulée), une ligne d'autorisation de versement, une ligne de facture, ou si elle est versée dans un dossier de recouvrement (`ComDocument.cs:VerifyLinksForDeletion`). Sinon ses actions et alertes sont supprimées, les lignes qui la désignaient comme pénalité sont détachées, puis l'écart est reporté si sa catégorie « met à jour le schéma ».",
+        "operationId": "supprimer_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "echeanceId",
+            "in": "path",
+            "description": "Identifiant de l'échéance (ComDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Ligne supprimée, écart reporté si sa catégorie met à jour le schéma."
+          },
+          "404": {
+            "description": "Dossier ou échéance introuvable (ou d'un autre dossier)."
+          },
+          "409": {
+            "description": "Échéance réglée, facturée, en décompte ou en recouvrement."
+          }
+        }
+      },
       "patch": {
         "tags": [
           "Dossiers"
@@ -5674,7 +6759,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier",
+        "operationId": "modifier_2",
         "parameters": [
           {
             "name": "id",
@@ -8675,7 +9760,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_2",
+        "operationId": "lister_7",
         "parameters": [
           {
             "name": "page",
@@ -10041,6 +11126,55 @@
         }
       }
     },
+    "/api/dossiers/{id}/sous-articles/disponibles": {
+      "get": {
+        "tags": [
+          "Dossiers — sous-articles"
+        ],
+        "summary": "Sous-articles libres ajoutables (même tranche, même vocation)",
+        "operationId": "disponibles",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste triée par code (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SousArticleDisponibleDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SousArticleDisponibleDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/reinitialiser/apercu": {
       "get": {
         "tags": [
@@ -10476,6 +11610,50 @@
         }
       }
     },
+    "/api/dossiers/{id}/echeancier/schema": {
+      "get": {
+        "tags": [
+          "Dossiers — schéma de financement"
+        ],
+        "summary": "État du schéma : avance, crédit, autofinancement, écart au prix et montant de périodicité",
+        "description": "Sommes signées par nature (une catégorie au débit se retranche), écart = prix après remise − (avance + crédit + autofinancement) au centime. `montantInitialPeriodicite` est l'autofinancement restant à régler, sinon prix − avance − crédit : c'est la valeur proposée et le plafond de `POST …/periodique`.",
+        "operationId": "etat",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État calculé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtatSchemaDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtatSchemaDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/documents/fiche-visite-technique": {
       "get": {
         "tags": [
@@ -10733,6 +11911,104 @@
                 "schema": {
                   "type": "string",
                   "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/cadeaux/raisons": {
+      "get": {
+        "tags": [
+          "Dossiers — cadeaux"
+        ],
+        "summary": "Raisons de cadeau",
+        "operationId": "raisons",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Raisons triées par code.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauCatalogueDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauCatalogueDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/cadeaux/catalogue": {
+      "get": {
+        "tags": [
+          "Dossiers — cadeaux"
+        ],
+        "summary": "Catalogue des cadeaux, avec prix et stock",
+        "operationId": "catalogue",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Catalogue trié par ordre puis code.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauCatalogueDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CadeauCatalogueDto"
+                  }
                 }
               }
             }
@@ -11958,7 +13234,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_3",
+        "operationId": "lister_8",
         "parameters": [
           {
             "name": "portee",
@@ -12251,6 +13527,80 @@
         }
       }
     },
+    "/api/dossiers/{id}/sous-articles/{ligneId}": {
+      "delete": {
+        "tags": [
+          "Dossiers — sous-articles"
+        ],
+        "summary": "Retire un sous-article et recalcule le taux de remise",
+        "description": "Refusé (409) pour un sous-article « affecté par défaut » : « Vous ne pouvez pas supprimer un sous article affecté par défaut à l'article en cours ! ». L'article du stock est libéré (`ComFolderId` et `ParentId` remis à NULL, `IsUnderItem` = sous-article d'origine).",
+        "operationId": "retirer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "Ligne du dossier (ComFolderItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sous-articles et prix à jour ; l'article est libéré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SousArticlesDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Réservé au rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SousArticlesDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou sous-article introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SousArticlesDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Sous-article affecté par défaut, ou dossier sorti.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SousArticlesDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/reglements/{reglementId}/pieces-jointes/{pieceId}": {
       "delete": {
         "tags": [
@@ -12340,6 +13690,65 @@
           },
           "404": {
             "description": "Dossier introuvable, pièce jointe introuvable pour ce dossier, ou pièce déjà supprimée."
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/modalite-paiement/{ligneId}": {
+      "delete": {
+        "tags": [
+          "Dossiers — modalité de paiement"
+        ],
+        "summary": "Supprime une ligne de modalité de paiement",
+        "operationId": "supprimer_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "Ligne (ComDocumentPaymentMethod.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes à jour, date décroissante.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModalitePaiementDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou ligne introuvable (ou d'un autre dossier).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModalitePaiementDto"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -12476,6 +13885,333 @@
           "modifiable": {
             "type": "boolean",
             "description": "`false` : l'appelant ne peut pas modifier ses affectations (autre chef, admin, direction)."
+          }
+        }
+      },
+      "ModificationRequest": {
+        "type": "object",
+        "description": "Saisie d'une demande de modification ; l'enregistrement remplace tous les champs.",
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "dateDemande": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de demande ; absente, aujourd'hui."
+          },
+          "dateValidationTechnique": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateValidationClient": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cout": {
+            "type": "number",
+            "description": "Coût ; absent, 0."
+          },
+          "prixHT": {
+            "type": "number",
+            "description": "Prix de vente HT ; absent, 0."
+          },
+          "prixTTC": {
+            "type": "number",
+            "description": "Prix de vente TTC ; absent, 0."
+          },
+          "etat": {
+            "type": "string",
+            "description": "État ; absent, ENCOURS.",
+            "enum": [
+              "ENCOURS",
+              "REFUSE_PAR_LE_SERVICE_TECHNIQUE",
+              "REFUSE_PAR_LE_CLIENT",
+              "ACCEPTEE",
+              "REALISED"
+            ]
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "ModificationDto": {
+        "type": "object",
+        "description": "Demande de modification du dossier (`ComModification`).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "description": {
+            "type": "string"
+          },
+          "dateDemande": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateValidationTechnique": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateValidationClient": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cout": {
+            "type": "number",
+            "description": "Coût interne de la modification."
+          },
+          "prixHT": {
+            "type": "number",
+            "description": "Prix de vente HT facturé au client."
+          },
+          "prixTTC": {
+            "type": "number",
+            "description": "Prix de vente TTC facturé au client ; compté dans le dossier si l'état est ACCEPTEE ou REALISED."
+          },
+          "etat": {
+            "type": "string",
+            "description": "État ; null si la base porte une valeur hors énumération.",
+            "enum": [
+              "ENCOURS",
+              "REFUSE_PAR_LE_SERVICE_TECHNIQUE",
+              "REFUSE_PAR_LE_CLIENT",
+              "ACCEPTEE",
+              "REALISED"
+            ]
+          },
+          "etatLibelle": {
+            "type": "string",
+            "description": "Libellé français de l'état."
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "ModificationsDto": {
+        "type": "object",
+        "description": "Onglet Modifications : les demandes et les montants du dossier qui en découlent.",
+        "properties": {
+          "modifications": {
+            "type": "array",
+            "description": "Demandes, la plus récente en tête.",
+            "items": {
+              "$ref": "#/components/schemas/ModificationDto"
+            }
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "`ComFolder.ModificationsAmount` : Σ prix TTC des demandes acceptées ou réalisées."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "`ComFolder.ModificationsAmountHT` : Σ prix HT des demandes acceptées ou réalisées."
+          },
+          "integreAuPrix": {
+            "type": "boolean",
+            "description": "« Intégrer le montant des modifications dans le calcul du prix de vente » (`PriceWithModification`)."
+          },
+          "ecartSchema": {
+            "type": "number",
+            "description": "Hors prix : montant des modifications − Σ lignes de schéma « Modifications » ; null si intégré au prix."
+          }
+        }
+      },
+      "CadeauRequest": {
+        "type": "object",
+        "description": "Saisie d'un cadeau ; l'enregistrement remplace tous les champs.",
+        "properties": {
+          "cadeauId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Cadeau du catalogue (`GET …/cadeaux/catalogue`) ; peut rester vide (« choisir plus tard »)."
+          },
+          "prix": {
+            "type": "number",
+            "description": "Prix ; absent, celui du catalogue."
+          },
+          "livre": {
+            "type": "boolean",
+            "description": "Livré ; impose `dateLivraison`."
+          },
+          "raisonId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Raison (`GET …/cadeaux/raisons`)."
+          },
+          "dateBon": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateLivraison": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de livraison ; obligatoire si `livre` (400 sinon)."
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "CadeauDto": {
+        "type": "object",
+        "description": "Cadeau du dossier (`ComFolderGift`).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "cadeauId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Cadeau du catalogue (`ComGift.PKey`) ; null si pas encore choisi."
+          },
+          "cadeau": {
+            "type": "string"
+          },
+          "prix": {
+            "type": "number"
+          },
+          "livre": {
+            "type": "boolean"
+          },
+          "disponible": {
+            "type": "boolean",
+            "description": "En stock au moment du choix du cadeau."
+          },
+          "raisonId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "raison": {
+            "type": "string"
+          },
+          "dateBon": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du bon d'achat."
+          },
+          "dateLivraison": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      },
+      "CoAcquereur": {
+        "type": "object",
+        "description": "Co-acquéreur et sa part.",
+        "properties": {
+          "tiersId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers client ou prospect (`CfgTier.PKey`), autre que le client principal."
+          },
+          "quotePart": {
+            "type": "number",
+            "description": "Part, pourcentage 0–100.",
+            "example": 50
+          }
+        },
+        "required": [
+          "quotePart",
+          "tiersId"
+        ]
+      },
+      "RepartitionAcquereursRequest": {
+        "type": "object",
+        "description": "Répartition complète des acquéreurs : remplace les co-acquéreurs du dossier.",
+        "properties": {
+          "quotePartPrincipal": {
+            "type": "number",
+            "description": "Part du client principal, pourcentage > 0.",
+            "example": 50
+          },
+          "coAcquereurs": {
+            "type": "array",
+            "description": "Co-acquéreurs ; absents de la liste = retirés. Liste vide = client seul (100 %).",
+            "items": {
+              "$ref": "#/components/schemas/CoAcquereur"
+            }
+          }
+        },
+        "required": [
+          "quotePartPrincipal"
+        ]
+      },
+      "AcquereurDto": {
+        "type": "object",
+        "description": "Acquéreur du dossier : le client principal (`ComFolder.CfgCustomerId`) ou un co-acquéreur (`ComFolderCustomer`).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Ligne `ComFolderCustomer.PKey` ; null pour le client principal."
+          },
+          "tiersId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers (`CfgTier.PKey`)."
+          },
+          "nom": {
+            "type": "string"
+          },
+          "pieceIdentite": {
+            "type": "string",
+            "description": "Pièce d'identité du tiers (`CfgTier.IDNumber`)."
+          },
+          "quotePart": {
+            "type": "number",
+            "description": "Répartition, pourcentage 0–100 (base : ratio 0–1).",
+            "example": 50
+          },
+          "principal": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AcquereursDto": {
+        "type": "object",
+        "description": "Onglet Acquéreurs : le client principal en tête, puis les co-acquéreurs.",
+        "properties": {
+          "acquereurs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AcquereurDto"
+            }
+          },
+          "total": {
+            "type": "number",
+            "description": "Somme des répartitions, pourcentage ; 100 sur un dossier cohérent."
+          },
+          "prospectionsAArchiver": {
+            "type": "array",
+            "description": "Prospections ouvertes des acquéreurs ajoutés par cet enregistrement, à proposer à l'archivage ; vide en lecture.",
+            "items": {
+              "$ref": "#/components/schemas/ProspectionAArchiverDto"
+            }
+          }
+        }
+      },
+      "ProspectionAArchiverDto": {
+        "type": "object",
+        "description": "Prospection ouverte d'un acquéreur, proposée à l'archivage comme OMRAN (« Prospection à archiver »).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "« Tiers => Tranche => Article », libellé d'OMRAN (« Non affecté » sans tranche)."
           }
         }
       },
@@ -15547,6 +17283,114 @@
           }
         }
       },
+      "AjouterSousArticleRequest": {
+        "type": "object",
+        "description": "Sous-article à ajouter, choisi parmi `GET …/sous-articles/disponibles`.",
+        "properties": {
+          "articleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Article du stock (`StkItem.PKey`)."
+          }
+        },
+        "required": [
+          "articleId"
+        ]
+      },
+      "SousArticleDto": {
+        "type": "object",
+        "description": "Sous-article du dossier (`ComFolderItem` à `IsUnderItem`), prix figés pour ce dossier.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Ligne du dossier (`ComFolderItem.PKey`), à passer au retrait."
+          },
+          "articleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Article du stock (`StkItem.PKey`)."
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Catégorie d'article (code)."
+          },
+          "type": {
+            "type": "string",
+            "description": "Type d'article (code)."
+          },
+          "superficie": {
+            "type": "number",
+            "description": "Superficie en m²."
+          },
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA, ratio (0.2 = 20 %)."
+          },
+          "prixAvantRemiseHT": {
+            "type": "number"
+          },
+          "prixAvantRemiseTTC": {
+            "type": "number"
+          },
+          "remisePercent": {
+            "type": "number",
+            "description": "Remise appliquée, pourcentage 0–100 (le taux du dossier)."
+          },
+          "prixHT": {
+            "type": "number"
+          },
+          "prixTTC": {
+            "type": "number"
+          },
+          "affecteParDefaut": {
+            "type": "boolean",
+            "description": "Affecté par défaut à l'article : ne peut pas être retiré."
+          },
+          "sousArticleDOrigine": {
+            "type": "boolean",
+            "description": "Sous-article d'origine de l'article (hors superficie vendue)."
+          }
+        }
+      },
+      "SousArticlesDto": {
+        "type": "object",
+        "description": "Onglet Sous-articles : les lignes et les prix du dossier qui en dépendent.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SousArticleDto"
+            }
+          },
+          "remisePercent": {
+            "type": "number",
+            "description": "Remise du dossier, pourcentage 0–100, recalculée à chaque ajout ou retrait."
+          },
+          "remiseMontantHT": {
+            "type": "number",
+            "description": "Montant de remise HT, inchangé par un ajout ou un retrait."
+          },
+          "prixAvantRemiseHT": {
+            "type": "number"
+          },
+          "prixAvantRemiseTTC": {
+            "type": "number"
+          },
+          "prixApresRemiseHT": {
+            "type": "number"
+          },
+          "prixApresRemiseTTC": {
+            "type": "number"
+          }
+        }
+      },
       "EtatPrixDto": {
         "type": "object",
         "description": "Superficie, TVA et prix d'un dossier, avant ou après réinitialisation.",
@@ -15649,6 +17493,73 @@
           "creePar": {
             "type": "string",
             "description": "Identifiant/login de l'utilisateur ayant déposé le fichier, tel qu'enregistré en base. Peut être\nnull si non renseigné (legacy) ou pour un dépôt effectué via cette API."
+          }
+        }
+      },
+      "CreerModalitePaiementRequest": {
+        "type": "object",
+        "description": "Ligne de modalité de paiement saisie à la main.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date (enregistrée à minuit). Requise."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie (`ComSettlementCategory.PKey`). Requise."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant TTC. Requis."
+          },
+          "notes": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "categorieId",
+          "date",
+          "montant"
+        ]
+      },
+      "ModalitePaiementDto": {
+        "type": "object",
+        "description": "Ligne de la modalité de paiement : le schéma de financement figé à la vente (`ComDocumentPaymentMethod`).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorie": {
+            "type": "string"
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant TTC."
+          },
+          "montantHT": {
+            "type": "number"
+          },
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA, ratio (0.2 = 20 %)."
+          },
+          "remise": {
+            "type": "number",
+            "description": "Remise ancien client, ratio."
+          },
+          "notes": {
+            "type": "string"
           }
         }
       },
@@ -15957,6 +17868,55 @@
           }
         }
       },
+      "GenererPeriodiqueRequest": {
+        "type": "object",
+        "description": "Découpage d'un montant en échéances périodiques (« Générer périodicité » d'OMRAN).",
+        "properties": {
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie des lignes générées (`ComSettlementCategory.PKey`). Requise."
+          },
+          "montantTotal": {
+            "type": "number",
+            "description": "Montant à répartir, TTC ; au plus le montant initial de `GET …/echeancier/schema`.",
+            "example": 300000
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de périodes, au moins 1.",
+            "example": 12
+          },
+          "periodicite": {
+            "type": "string",
+            "description": "Périodicité des échéances.",
+            "enum": [
+              "MENSUELLE",
+              "BIMENSUELLE",
+              "TRIMESTRIELLE",
+              "SEMESTRIELLE",
+              "ANNUELLE"
+            ]
+          },
+          "premiereDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la première échéance (enregistrée à minuit)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Note recopiée sur chaque ligne."
+          }
+        },
+        "required": [
+          "categorieId",
+          "montantTotal",
+          "nombre",
+          "periodicite",
+          "premiereDate"
+        ]
+      },
       "CreerActionDossierRequest": {
         "type": "object",
         "description": "Création d'une action sur un dossier ; la catégorie est déduite du statut, jamais fournie.",
@@ -15979,6 +17939,20 @@
             "type": "string",
             "format": "date-time",
             "description": "Date d'alerte éventuelle ; absente = pas d'alerte."
+          }
+        }
+      },
+      "ArchiverProspectionsRequest": {
+        "type": "object",
+        "description": "Prospections cochées dans la proposition d'archivage.",
+        "properties": {
+          "prospectionIds": {
+            "type": "array",
+            "description": "Prospections ouvertes des acquéreurs du dossier (`ComProspection.PKey`).",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -20112,6 +22086,40 @@
           }
         }
       },
+      "SousArticleDisponibleDto": {
+        "type": "object",
+        "description": "Article libre de la tranche et de la vocation du dossier, ajoutable comme sous-article.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Article du stock (`StkItem.PKey`), à passer à l'ajout."
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "categorie": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "superficie": {
+            "type": "number"
+          },
+          "prixHT": {
+            "type": "number",
+            "description": "Prix de vente HT du stock (`StkItem.SalePriceHT`)."
+          },
+          "tauxTVA": {
+            "type": "number",
+            "description": "Taux de TVA, ratio (0.2 = 20 %)."
+          }
+        }
+      },
       "PayeurDto": {
         "type": "object",
         "description": "Payeur possible d'un règlement : acquéreur principal ou co-acquéreur du dossier.",
@@ -20822,6 +22830,64 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "EtatSchemaDto": {
+        "type": "object",
+        "description": "État du schéma de financement du dossier, calculé à la lecture depuis l'échéancier.",
+        "properties": {
+          "prixApresRemise": {
+            "type": "number",
+            "description": "Prix de vente après remise (`ComFolder.PriceAfterDiscount`)."
+          },
+          "avance": {
+            "type": "number",
+            "description": "Σ des lignes de catégorie « Avance », signées (une catégorie au débit se retranche)."
+          },
+          "credit": {
+            "type": "number",
+            "description": "Σ des lignes de catégorie « Crédit », signées."
+          },
+          "autofinancement": {
+            "type": "number",
+            "description": "Σ des lignes de catégorie « Autofinancement », signées."
+          },
+          "ecart": {
+            "type": "number",
+            "description": "Prix après remise − (avance + crédit + autofinancement), au centime ; 0 = schéma équilibré."
+          },
+          "autofinancementReste": {
+            "type": "number",
+            "description": "Autofinancement restant à régler."
+          },
+          "montantInitialPeriodicite": {
+            "type": "number",
+            "description": "Montant proposé et plafond de la périodicité : l'autofinancement restant, sinon prix − avance − crédit."
+          }
+        }
+      },
+      "CadeauCatalogueDto": {
+        "type": "object",
+        "description": "Cadeau du catalogue (`ComGift`) ou raison (`ComGiftReason`, sans prix ni stock).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "libelle": {
+            "type": "string"
+          },
+          "prix": {
+            "type": "number"
+          },
+          "enStock": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Quantités reçues − cadeaux livrés ; null pour une raison."
           }
         }
       },
