@@ -3,6 +3,7 @@ import { ErrorState, Field, FieldGrid } from '../../ui';
 import { formatCurrency, formatSurface } from '../../../lib/format';
 import type { ApiState } from '../../../lib/useApi';
 import type { ArticleDetailDto, DossierDetailDto } from '../../../types';
+import SousArticlesDossier from '../echeancier/SousArticlesDossier';
 
 type ArticleDuDossier = NonNullable<DossierDetailDto['articles']>[number];
 
@@ -39,13 +40,24 @@ function ListeArticles({
 }
 
 export default function OngletArticles({
+  dossierId,
   articles,
   details,
-}: Readonly<{ articles: DossierDetailDto['articles']; details: ApiState<ArticleDetailDto[]> }>) {
+  onChanged,
+}: Readonly<{
+  dossierId: string;
+  articles: DossierDetailDto['articles'];
+  details: ApiState<ArticleDetailDto[]>;
+  /** Un ajout / retrait de sous-article change le prix et la remise du dossier. */
+  onChanged: () => Promise<void>;
+}>) {
   return (
     <div className="flex flex-col gap-2 p-3">
       <ListeArticles articles={articles} details={details.data} chargement={details.loading} />
       {details.error && <ErrorState message={details.error} />}
+      <div className="border-t border-border pt-3">
+        <SousArticlesDossier dossierId={dossierId} onChanged={onChanged} />
+      </div>
     </div>
   );
 }

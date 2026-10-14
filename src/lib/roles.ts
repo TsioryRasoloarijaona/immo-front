@@ -16,6 +16,11 @@ export function estChefOuExempte(user: PorteurDeRoles | null | undefined): boole
   return (user?.roles?.includes('Commercial Chef') ?? false) || estExempte(user);
 }
 
+/** Droit `toolAddDeleteGifts` d'OMRAN : ajouter / supprimer un cadeau, en changer la raison. */
+export function gereLesCadeaux(user: PorteurDeRoles | null | undefined): boolean {
+  return user?.roles?.some((r) => r === 'Administrateur' || r === 'Commercial Chef') ?? false;
+}
+
 /** Commercial de terrain (ni chef ni exempté) : « Ma journée » est sa page d'accueil. */
 export function estCommercialTerrain(user: PorteurDeRoles | null | undefined): boolean {
   return aUnRoleCommercial(user) && !estChefOuExempte(user);

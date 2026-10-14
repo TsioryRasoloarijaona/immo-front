@@ -1783,6 +1783,8 @@ export interface EcheanceDto {
   decompte?: string | null;
   /** Création de la ligne, pas l'exigibilité (`dateEcheance`). */
   creeLe?: string | null;
+  /** Écart du schéma laissé par l'écriture (POST / PATCH / périodicité) ; `null` en lecture. */
+  ecartSchema?: number | null;
 }
 
 /** `categorieId` obligatoire à la création (400 sinon). */
