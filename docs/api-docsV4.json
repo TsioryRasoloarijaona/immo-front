@@ -132,6 +132,10 @@
       "description": "Compteurs eau, électricité et gaz de l'article du dossier (bouton « Compteurs »)."
     },
     {
+      "name": "Dossiers — modification de la fiche",
+      "description": "Fiche du dossier de vente modifiable, onglet par onglet, comme l'écran OMRAN (`Yes.Com.Front.Sales/Sale.cs:FilterToolsByRights`). Chaque champ appartient à un groupe de droits (voir `GET /api/dossiers/{id}/edition`). Voir FEATURE-vente-edition.md."
+    },
+    {
       "name": "Clients",
       "description": "Tiers ayant acheté — un `CfgTier` référencé par au moins un dossier de vente. Il n'y a pas d'entité Client distincte dans le schéma : la fiche et ses sous-ressources sont celles de /api/prospects.\n\n**Entités juridiques en exploitation.** La qualité de client se juge sur les seuls dossiers rattachés à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Un tier dont tous les dossiers relèvent d'une entité hors exploitation n'est donc plus un client au sens de cet endpoint et disparaît de la liste ; les agrégats `nombreDossiers`, `totalAPayer` et `totalRegle` suivent la même assiette, pour qu'ils concordent avec GET /api/clients/{id}/dossiers."
     }
@@ -917,28 +921,27 @@
           {
             "name": "dateDebut",
             "in": "query",
-            "description": "Borne inférieure (incluse) sur la date du document, format ISO-8601.",
+            "description": "Borne basse (incluse) de la période, sur la date choisie par `periodeSur` (défaut : date du\ndocument). `AAAA-MM-JJ` = depuis le début du jour ; une date-heure ISO-8601 reste acceptée. 400 si\nillisible.",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "string"
             },
-            "example": "2026-01-01T00:00:00"
+            "example": "2026-01-01"
           },
           {
             "name": "dateFin",
             "in": "query",
-            "description": "Borne supérieure (incluse) sur la date du document, format ISO-8601.",
+            "description": "Borne haute de la période. `AAAA-MM-JJ` = **jour entier inclus** (`< fin + 1 jour`, comme le\nlogiciel de bureau) ; une date-heure ISO-8601 reste acceptée et vaut borne incluse. 400 si illisible.\nIgnorée, comme `dateDebut`, quand `dateRenseignee` est fourni.",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "string"
             },
-            "example": "2026-12-31T23:59:59"
+            "example": "2026-12-31"
           },
           {
             "name": "search",
             "in": "query",
+            "description": "Recherche multi-critère du logiciel de bureau, **espaces et casse ignorés des deux côtés** (« 06 12 34\n» trouve « 061234 »). Champs : code, nom / téléphone / email saisis (`Temp*`), notes ; prospect lié\n(nom affiché, prénom + nom dans les deux ordres, mobile, mobile précédé de l'indicatif, de `+` ou de\n`00`, téléphone, email, CIN, ville) ; article (code, libellé, catégorie, type, présentation) ; client\net statut du dossier issu de la prospection ; source et type (code), support et nature (libellé) ;\nautres tranches, catégories et types du profil. Voir `FEATURE-prospection-filtres.md` §1.",
             "required": false,
             "schema": {
               "type": "string"
@@ -2170,6 +2173,17 @@
             }
           },
           {
+            "name": "inclureSansTranche",
+            "in": "query",
+            "description": "« Non affectés », comme le logiciel de bureau : avec `trancheId`, ajoute les pré-prospections **sans\ntranche** à celles des tranches cochées ; sans `trancheId`, ne renvoie **que** les pré-prospections\nsans tranche.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
             "name": "projetId",
             "in": "query",
             "description": "Id(s) de projet (CfgProject.id) de la tranche ; une ligne sans tranche est écartée. Répétable.",
@@ -2185,26 +2199,27 @@
           {
             "name": "dateDebut",
             "in": "query",
-            "description": "Borne inférieure (incluse) sur la date du document, format ISO-8601.",
+            "description": "Borne basse (incluse) sur la date du document. `AAAA-MM-JJ` = depuis le début du jour ; une\ndate-heure ISO-8601 reste acceptée. 400 si illisible.",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
+              "type": "string"
+            },
+            "example": "2026-01-01"
           },
           {
             "name": "dateFin",
             "in": "query",
-            "description": "Borne supérieure (incluse) sur la date du document, format ISO-8601.",
+            "description": "Borne haute sur la date du document. `AAAA-MM-JJ` = **jour entier inclus** ; une date-heure\nISO-8601 reste acceptée et vaut borne incluse. 400 si illisible.",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
+              "type": "string"
+            },
+            "example": "2026-12-31"
           },
           {
             "name": "search",
             "in": "query",
+            "description": "Recherche multi-critère du logiciel de bureau, **espaces et casse ignorés des deux côtés**. Champs :\ncode, nom / téléphone / email saisis, champs libres `TempField1`, `TempField2` et `TempField10` (les\nautres sont vides en production), notes ; libellés du prospect lié, de la tranche, de l'article, de\nla nature, du type, de l'action, de la source et du support.",
             "required": false,
             "schema": {
               "type": "string"
@@ -5395,13 +5410,139 @@
         }
       }
     },
+    "/api/dossiers/{id}": {
+      "get": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Détail d'un dossier de vente",
+        "description": "Fiche complète du dossier : statut courant et étapes atteignables, client/commercial/notaire,\narticles liés, ventilation des montants et prospection d'origine.\n\n**Périmètre commercial** : un dossier hors du périmètre de l'appelant renvoie **404**, et non 403 —\nun 403 confirmerait son existence et permettrait d'énumérer les identifiants. La même règle\ns'applique à *toutes* les routes imbriquées de ce dossier (échéancier, règlements, pièces jointes,\nhistorique, générateurs de documents).",
+        "operationId": "findById_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dossier trouvé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun dossier avec cet id, ou dossier hors du périmètre commercial de l'appelant — les deux cas sont\nvolontairement indiscernables. Également renvoyé (plutôt qu'un 400) lorsque l'identifiant fourni\nn'est pas un UUID valide : sur les collections soumises au périmètre, un identifiant non résoluble\nest refusé sans être transmis au contrôleur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierDetailDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Dossiers — modification de la fiche"
+        ],
+        "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
+        "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nRègles d'OMRAN appliquées :\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
+        "operationId": "modifier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierDossierRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Modification enregistrée ; dossier signé et historisé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierModifieDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Corps vide, champ inconnu dans `champsAVider`, valeurs hors bornes (remise négative, pourcentage hors 0–100, TVA hors 0–1, texte trop long), tiers ou décision introuvable, plafond de remise dépassé, dates dans le désordre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierModifieDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Un champ envoyé appartient à un groupe interdit au rôle.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierModifieDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierModifieDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Dossier annulé ou désisté : seul l'onglet Annulation change.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DossierModifieDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/statut": {
       "patch": {
         "tags": [
           "Dossiers"
         ],
         "summary": "Change le statut du dossier de vente",
-        "description": "Change le statut du dossier. La transition doit figurer dans la table des transitions validées\n(sinon **409**, avec `transitionsAutorisees`) — copie des transitions `StrWorkFlow` du logiciel de\nbureau. Un dossier **sans statut** est refusé (**409**, reprise de données nécessaire).\n\n**Type client / prospect, comme OMRAN** (`Sale.cs:ManageTier`), après chaque changement : le client\nprincipal et chaque acquéreur (`ComFolderCustomer`) qui a au moins un dossier actif (statut ni\nannulation ni résiliation) dont le statut porte l'indicateur « Transforme le prospect en client »\n(`StrStatus.BoolField011`) passe d'un type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`) au type\n`CLI` ; un `CLI` qui n'en a plus aucun redevient `PRO` (`CLIRNT`, `CLIPRM`, `CLIROM` restent). `CfgTierKindId` est\nremis à vide dans les deux cas. Une ligne d'historique distincte (type `STATUT`) le dit : « Prospect\ntransformé en client » ou « Retour prospect » (suivie du nom pour un acquéreur) ; la note du\nchangement de statut reste intacte.\n\n**Sortie (ANNULATION ou DESISTEMENT) : le lot est libéré**, comme OMRAN, dans la même transaction.\nChaque article lié au dossier (lot principal et annexes TER / PARKING) perd son `ComFolderId` et\nredevient `DISPONIBLE` ; un sous-article sans « Toujours affecté » (`AlwaysAffected`) perd aussi son\narticle parent. `ComFolder.StkItemId` est conservé : le détail d'un dossier sorti montre toujours son\nlot principal dans `articles`, même revendu depuis. `note` est **obligatoire** (la cause, écrite dans\n`CancelDescription`) ; `date` va dans `CancelDate` (maintenant si absente), pour les deux sorties.\nChaque sous-article libéré reçoit une ligne d'historique « ANNULATION AFFECTATION ». La sortie est\nrefusée (**409**) si un dossier de syndic en cours est rattaché, ou si une facture de chiffre\nd'affaires du dossier n'est pas annulée par un avoir.\n\n**Réactivation ANNULATION → RESERVATION**, comme OMRAN : le lot principal et **tous** les\nsous-articles du dossier (`ComFolderItem`) doivent être libres (sinon **409**) ; tous reprennent le\ndossier (sous-articles rattachés au lot, ligne « AFFECTATION »). `CancelDate` est vidée et\n`CancelDescription` remise à vide.",
+        "description": "Change le statut du dossier selon le **workflow paramétré d'OMRAN** (CONFIGURATION › VENTE › Statuts /\nTransitions), dans cet ordre :\n\n1. **Transition** lue dans `StrWorkFlow` depuis le statut courant (sinon **409**, avec\n   `transitionsAutorisees` = les cibles que l'appelant peut exécuter). Base sans paramétrage : table de repli\n   des 34 transitions. Un dossier **sans statut** est refusé (**409**, reprise de données nécessaire).\n2. **Intervenant** : un des rôles de l'appelant (ou l'appelant lui-même) doit être intervenant de la\n   transition (`StrWorkFlowIntervener`), sinon **403**. L'Administrateur passe toujours.\n3. `date` et `note` sont posées, puis les **champs obligatoires** de la transition et du statut cible sont\n   contrôlés, sur le dossier **et** sur le client et les acquéreurs personnes physiques ; puis les **pièces à\n   joindre** (une pièce « juste à cocher » peut n'être que cochée). Manque → **400**, `detail` = texte\n   d'OMRAN : « Pour exécuter la transition : … Le champ '…' est obligatoire ! … Le document de type : … est\n   obligatoire ! ».\n4. Hors annulation / désistement : **seuil de versement** du statut cible (`CfgTrancheStatus`, ligne de la\n   tranche sinon globale ; versements = réglé des échéances avance, auto-financement et crédit) — refus\n   **409** « Il faut que la sommes des versements soit au moins égal à 12,50 %. Soit un montant de … ».\n   `ignorerSeuil=true` le saute (Administrateur seulement, sinon **403**) et laisse une ligne d'historique.\n   Puis, si le statut le demande, **schéma de financement** : prix après remise = avance + crédit +\n   auto-financement au centime près (sinon **409** « Votre schéma de financement ne correspond pas… »).\n5. La `date` va sur la **date associée** au statut cible (`StrStatus.StrFieldDateId` : CONCRETISATION →\n   `advanceDate`, MEILLEURTAUX → `loanCompanySendDate`, CREDIT DEBLOQUE → `creditApprovalDate`, FORMALISE →\n   `ownershipCertificateDate`…), ignorée s'il n'en a pas. Sans `date`, rien n'est écrit : une date déjà\n   renseignée n'est jamais écrasée d'office (un retour à RESERVATION garde `docDate`) ; `dateActuelle` de\n   `etapes-suivantes` dit si la colonne est déjà remplie.\n   Le seuil de versement n'est contrôlé que pour un utilisateur dont un rôle porte le droit OMRAN\n   `toolVerifyThreshold` (tout le monde si ce droit n'est pas paramétré).\n6. `StatusValidityDate` = aujourd'hui + durée de vie du statut (vide sans durée) ; si elle change, une action\n   système « l'état … du dossier de vente N° … est expiré » est posée avec son alerte à cette date. Les\n   relances de la prospection sont désarmées et leurs alertes éteintes (impayés épargnés). Un statut « avec\n   affectation de gestionnaire » donne au dossier sans gestionnaire le personnel de l'appelant.\n7. L'historique (`StrHistory`) porte la transition exécutée (`StrWorkflowId`).\n\n**Type client / prospect, comme OMRAN** (`Sale.cs:ManageTier`), après chaque changement : le client\nprincipal et chaque acquéreur (`ComFolderCustomer`) qui a au moins un dossier actif (statut ni\nannulation ni résiliation) dont le statut porte l'indicateur « Transforme le prospect en client »\n(`StrStatus.BoolField011`) passe d'un type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`) au type\n`CLI` ; un `CLI` qui n'en a plus aucun redevient `PRO` (`CLIRNT`, `CLIPRM`, `CLIROM` restent). `CfgTierKindId` est\nremis à vide dans les deux cas. Une ligne d'historique distincte (type `STATUT`) le dit : « Prospect\ntransformé en client » ou « Retour prospect » (suivie du nom pour un acquéreur) ; la note du\nchangement de statut reste intacte.\n\n**Sortie (ANNULATION ou DESISTEMENT) : le lot est libéré**, comme OMRAN, dans la même transaction.\nChaque article lié au dossier (lot principal et annexes TER / PARKING) perd son `ComFolderId` et\nredevient `DISPONIBLE` ; un sous-article sans « Toujours affecté » (`AlwaysAffected`) perd aussi son\narticle parent. `ComFolder.StkItemId` est conservé : le détail d'un dossier sorti montre toujours son\nlot principal dans `articles`, même revendu depuis. `note` est **obligatoire** (la cause, écrite dans\n`CancelDescription`) ; `date` va dans `CancelDate` (maintenant si absente), pour les deux sorties.\nChaque sous-article libéré reçoit une ligne d'historique « ANNULATION AFFECTATION ». La sortie est\nrefusée (**409**) si un dossier de syndic en cours est rattaché, ou si une facture de chiffre\nd'affaires du dossier n'est pas annulée par un avoir.\n\n**Réactivation ANNULATION → RESERVATION**, comme OMRAN : le lot principal et **tous** les\nsous-articles du dossier (`ComFolderItem`) doivent être libres (sinon **409**) ; tous reprennent le\ndossier (sous-articles rattachés au lot, ligne « AFFECTATION »). `CancelDate` est vidée et\n`CancelDescription` remise à vide.",
         "operationId": "changerStatut",
         "parameters": [
           {
@@ -5436,7 +5577,7 @@
             }
           },
           "400": {
-            "description": "`statut` absent ou inconnu, ou `note` absente ou vide vers ANNULATION / DESISTEMENT (« La cause est\nobligatoire pour une annulation ou un désistement ») ; rien n'est écrit.",
+            "description": "`statut` absent ou inconnu, `note` absente ou vide vers ANNULATION / DESISTEMENT (« La cause est\nobligatoire pour une annulation ou un désistement »), ou champs obligatoires / pièces à joindre manquants\n(texte d'OMRAN dans `detail`) ; rien n'est écrit.",
             "content": {
               "*/*": {
                 "schema": {
@@ -5446,7 +5587,7 @@
             }
           },
           "403": {
-            "description": "Un article à libérer ou à réoccuper est sur un projet hors du périmètre commercial de l'appelant.",
+            "description": "L'appelant n'est pas intervenant de la transition, `ignorerSeuil` demandé sans être Administrateur, ou un\narticle à libérer ou à réoccuper est sur un projet hors du périmètre commercial de l'appelant.",
             "content": {
               "*/*": {
                 "schema": {
@@ -5466,7 +5607,7 @@
             }
           },
           "409": {
-            "description": "Transition non autorisée depuis le statut courant (le corps liste `transitionsAutorisees`), dossier\nsans statut, réactivation d'un dossier annulé dont le lot a été revendu entre-temps (« Le lot <code>\na été revendu entre-temps : créer un nouveau dossier ») ou dont un sous-article est pris (« Le sous\narticle <code> n'est pas libre… »), sortie avec un dossier de syndic en cours ou une facture sans\navoir ; le statut ne change pas.",
+            "description": "Transition non paramétrée depuis le statut courant (le corps liste `transitionsAutorisees`), dossier\nsans statut, seuil de versement non atteint, schéma de financement différent du prix, réactivation d'un dossier annulé dont le lot a été revendu entre-temps (« Le lot <code>\na été revendu entre-temps : créer un nouveau dossier ») ou dont un sous-article est pris (« Le sous\narticle <code> n'est pas libre… »), sortie avec un dossier de syndic en cours ou une facture sans\navoir ; le statut ne change pas.",
             "content": {
               "*/*": {
                 "schema": {
@@ -5755,7 +5896,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier",
+        "operationId": "modifier_1",
         "parameters": [
           {
             "name": "id",
@@ -5929,7 +6070,7 @@
         "tags": [
           "Tranches"
         ],
-        "operationId": "findById_2",
+        "operationId": "findById_3",
         "parameters": [
           {
             "name": "id",
@@ -6805,6 +6946,31 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels/supports-origine": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Tous les supports d'origine (ComProspectionOriginSupport), triés par libellé",
+        "description": "Toutes origines confondues ; par origine : `/origines-prospection/{origineId}/supports`.",
+        "operationId": "supports",
         "responses": {
           "200": {
             "description": "OK",
@@ -8369,18 +8535,18 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
+              "type": "string"
+            },
+            "example": "2026-01-01"
           },
           {
             "name": "dateFin",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
+              "type": "string"
+            },
+            "example": "2026-12-31"
           },
           {
             "name": "search",
@@ -8469,7 +8635,7 @@
         "tags": [
           "projet-controller"
         ],
-        "operationId": "findById_3",
+        "operationId": "findById_4",
         "parameters": [
           {
             "name": "id",
@@ -8650,22 +8816,46 @@
             }
           },
           {
+            "name": "inclureSansTranche",
+            "in": "query",
+            "description": "« Non affectés », **identique à la liste** : avec `trancheId`, ajoute les pré-prospections sans\ntranche ; sans `trancheId`, seulement celles sans tranche. Les effectifs retombent sur le\n`totalElements` de la liste appelée avec les mêmes filtres.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id(s) de projet de la tranche, comme la liste. Répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
             "name": "dateDebut",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
+              "type": "string"
+            },
+            "example": "2026-01-01"
           },
           {
             "name": "dateFin",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
+              "type": "string"
+            },
+            "example": "2026-12-31"
           },
           {
             "name": "search",
@@ -9755,7 +9945,7 @@
         ],
         "summary": "Fiche d'un encaissement (règlement) et ses affectations",
         "description": "Alimente le panneau détail \"Pièce de règlement\" côté front (`EncaissementDetail.tsx`).\n`montantBrutRestant` et `montantNet` sont recalculés côté serveur, jamais stockés, comme sur la\nliste.\n\n**`affectations` : les échéances que ce règlement solde**, montant croissant — l'ordre de l'écran\nlégataire. C'est la réponse à « ce règlement, il a payé quoi ? », que la liste ne sait pas donner :\nelle n'expose qu'un `dossierCode`, celui de la *première* ligne, et masque donc les autres sur les 8\nrèglements réels qui couvrent plusieurs dossiers. La somme des `montantAffecte` vaut `montantBrut -\nmontantBrutRestant`. Tableau vide = règlement encaissé mais pas encore imputé.\n\n**Cette réponse n'est pas filtrée par `?colonnes=`** — une fiche dit tout, là où une grille laisse\nchoisir ses colonnes. Elle porte donc plus de clés que les lignes de la liste : celles hors\nsélection par défaut, plus `affectations`. Aucune clé ne disparaît et aucune ne change de type.\n\n**Périmètre commercial** : un encaissement hors du périmètre de l'appelant renvoie **404**, et non\n403 — un 403 confirmerait son existence et permettrait d'énumérer les identifiants.",
-        "operationId": "findById_4",
+        "operationId": "findById_5",
         "parameters": [
           {
             "name": "id",
@@ -10044,14 +10234,14 @@
         }
       }
     },
-    "/api/dossiers/{id}": {
+    "/api/dossiers/{id}/statut/transition-suggeree": {
       "get": {
         "tags": [
           "Dossiers"
         ],
-        "summary": "Détail d'un dossier de vente",
-        "description": "Fiche complète du dossier : statut courant et étapes atteignables, client/commercial/notaire,\narticles liés, ventilation des montants et prospection d'origine.\n\n**Périmètre commercial** : un dossier hors du périmètre de l'appelant renvoie **404**, et non 403 —\nun 403 confirmerait son existence et permettrait d'énumérer les identifiants. La même règle\ns'applique à *toutes* les routes imbriquées de ce dossier (échéancier, règlements, pièces jointes,\nhistorique, générateurs de documents).",
-        "operationId": "findById_5",
+        "summary": "Passage automatique de statut proposé",
+        "description": "Passage automatique à proposer après un règlement ou un enregistrement (OMRAN le propose à la fermeture\ndu dossier) : l'**unique** transition « avec proposition du passage automatique » que l'appelant peut\nexécuter depuis le statut courant, si le **seuil de versement de son statut cible** est atteint (même\ncalcul que le refus de `PATCH …/statut`). `date` = date du dernier règlement d'une échéance avance,\nauto-financement ou crédit. Aucune proposition (tous les champs nuls) sans transition automatique, avec\ndeux ou plus, sans seuil paramétré pour la cible, ou seuil non atteint.",
+        "operationId": "getTransitionSuggeree",
         "parameters": [
           {
             "name": "id",
@@ -10066,21 +10256,21 @@
         ],
         "responses": {
           "200": {
-            "description": "Dossier trouvé.",
+            "description": "Proposition, champs nuls s'il n'y en a pas.",
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/DossierDetailDto"
+                  "$ref": "#/components/schemas/TransitionSuggereeDto"
                 }
               }
             }
           },
           "404": {
-            "description": "Aucun dossier avec cet id, ou dossier hors du périmètre commercial de l'appelant — les deux cas sont\nvolontairement indiscernables. Également renvoyé (plutôt qu'un 400) lorsque l'identifiant fourni\nn'est pas un UUID valide : sur les collections soumises au périmètre, un identifiant non résoluble\nest refusé sans être transmis au contrôleur.",
+            "description": "Dossier introuvable.",
             "content": {
               "*/*": {
                 "schema": {
-                  "$ref": "#/components/schemas/DossierDetailDto"
+                  "$ref": "#/components/schemas/TransitionSuggereeDto"
                 }
               }
             }
@@ -10093,11 +10283,14 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Statuts que l'utilisateur connecté peut donner au dossier",
+        "description": "Transitions que l'utilisateur connecté peut exécuter depuis le statut courant (`StrWorkFlow` filtré par\nses rôles ; toutes pour l'Administrateur), avec pour chacune la **date associée** au statut cible\n(`champDate` en camelCase, nul si le statut n'en a pas), le libellé de la transition et le drapeau\n« avec proposition du passage automatique ». Liste vide pour un dossier sans statut.",
         "operationId": "getEtapesSuivantes",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -10107,7 +10300,20 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Transitions exécutables, vide si aucune.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EtapeSuivanteDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable.",
             "content": {
               "*/*": {
                 "schema": {
@@ -10550,6 +10756,49 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/DossierFicheDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/edition": {
+      "get": {
+        "tags": [
+          "Dossiers — modification de la fiche"
+        ],
+        "summary": "Groupes de champs de la fiche que l'appelant peut modifier sur ce dossier",
+        "operationId": "droits",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes modifiables ; seul ANNULATION si le dossier est sorti.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DroitsEditionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier inexistant, hors périmètre ou d'une entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DroitsEditionDto"
                 }
               }
             }
@@ -11329,6 +11578,30 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ChampDateListeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/decisions-meilleurtaux": {
+      "get": {
+        "tags": [
+          "Dossiers — modification de la fiche"
+        ],
+        "summary": "Décisions MEILLEURTAUX possibles (ComLoanCompanyDecision), pour l'onglet Autres",
+        "operationId": "decisionsMeilleurTaux",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
                   }
                 }
               }
@@ -16882,18 +17155,879 @@
           "telephone"
         ]
       },
+      "ModifierDossierRequest": {
+        "type": "object",
+        "description": "Modification partielle de la fiche : seuls les champs présents et non nuls changent ; vider = champsAVider.",
+        "properties": {
+          "concretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — concrétisation (ComFolder.AdvanceDate)."
+          },
+          "promesseVente": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — promesse de vente (ComFolder.ReservationDate)."
+          },
+          "visiteTechnique": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — visite technique (ComFolder.ReceptionDate)."
+          },
+          "envoiNotairePrevisionnel": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — envoi au notaire prévisionnel (ComFolder.AgreementDatePrevisionel)."
+          },
+          "envoiNotaireConfirme": {
+            "type": "boolean",
+            "description": "Onglet Dates — case « Confirmé » de l'envoi prévisionnel (ComFolder.IsConfirmedAgreementDate)."
+          },
+          "enregistrementContrat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — enregistrement du contrat (ComFolder.AgreementRegistryDate)."
+          },
+          "envoiNotaire": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — envoi au notaire / avocat (ComFolder.AgreementDate)."
+          },
+          "minute": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — minute (ComFolder.AgreementSavingDate)."
+          },
+          "expedition": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — expédition (ComFolder.OwnershipCertificateDate)."
+          },
+          "relanceTitreFoncier1": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — relance 1 titre foncier (ComFolder.Revival1)."
+          },
+          "echeanceRelance1": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — échéance de la relance 1 (ComFolder.Revival1ValidityDate)."
+          },
+          "relanceTitreFoncier2": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — relance 2 titre foncier (ComFolder.Revival2)."
+          },
+          "echeanceRelance2": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — échéance de la relance 2 (ComFolder.Revival2ValidityDate)."
+          },
+          "ficheBancaire": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — fiche bancaire (ComFolder.BankRecordDate)."
+          },
+          "compromis": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — compromis (ComFolder.CreditApprovalDate)."
+          },
+          "attestation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — attestation (ComFolder.CreditPossessionDate)."
+          },
+          "intervention": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — intervention (ComFolder.InterventionDate)."
+          },
+          "assurance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — assurance (ComFolder.InsuranceDate)."
+          },
+          "remiseClesEffective": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — remise des clés effective (ComFolder.DeliveryDateReal)."
+          },
+          "actePrecision": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Onglet Dates — acte de précision (ComFolder.PrecisionActDate)."
+          },
+          "promesseClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — promesse de vente client (ComFolder.ReservationDateCustomer)."
+          },
+          "promesseEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — enregistrement de la réservation (ComFolder.ReservationRegistryDate)."
+          },
+          "impressionContrat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — impression du contrat (ComFolder.ContractPrintDate)."
+          },
+          "minuteClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — minute client (ComFolder.AgreementSavingDateCustomer)."
+          },
+          "minuteAvocat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — minute avocat (ComFolder.AgreementSavingDateLawyer)."
+          },
+          "minuteRemiseLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — remise pour légalisation du contrat (AgreementSavingDateForLegalization)."
+          },
+          "minuteLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — légalisation du contrat (ComFolder.AgreementSavingDateLegalization)."
+          },
+          "minuteDepotEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — dépôt pour enregistrement du contrat (AgreementSavingDateForRegistry)."
+          },
+          "remiseClesClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — remise des clés client (ComFolder.DeliveryDateRealCustomer)."
+          },
+          "remiseClesEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — enregistrement de la remise des clés (ComFolder.DeliveryRegistryDate)."
+          },
+          "actePrecisionClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — acte de précision client (ComFolder.PrecisionActDateCustomer)."
+          },
+          "actePrecisionAvocat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — acte de précision avocat (ComFolder.PrecisionActDateLawyer)."
+          },
+          "actePrecisionRemiseLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — remise pour légalisation de l'acte (PrecisionActDateForLegalization)."
+          },
+          "actePrecisionLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — légalisation de l'acte de précision (PrecisionActDateLegalization)."
+          },
+          "actePrecisionDepotEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — dépôt pour enregistrement de l'acte (PrecisionActDateForRegistry)."
+          },
+          "actePrecisionEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — enregistrement de l'acte de précision (PrecisionActRegistryDate)."
+          },
+          "cpfDepot": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — dépôt à la CPF (ComFolder.FinalTitleDateDeposit)."
+          },
+          "cpfRetrait": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — retrait de la CPF (ComFolder.FinalTitleDateWithdrawal)."
+          },
+          "remiseCertificatPropriete": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dates autres — remise du certificat de propriété (ComFolder.FinalTitleDate)."
+          },
+          "numeroTitre": {
+            "type": "string",
+            "description": "Dates autres — n° de titre, 255 caractères au plus (ComFolder.FinalTitleNumber)."
+          },
+          "annulationDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Annulation — date d'annulation / résiliation (ComFolder.CancelDate)."
+          },
+          "annulationCauses": {
+            "type": "string",
+            "description": "Annulation — causes, 1 000 caractères au plus (ComFolder.CancelDescription)."
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client principal (CfgTier) : devient l'acquéreur principal du dossier."
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Commercial du dossier (CfgTier employé, ComFolder.CfgCommercialId)."
+          },
+          "gestionnaire1Id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Gestionnaire 1 (CfgTier, ComFolder.CfgSaleManagerId)."
+          },
+          "gestionnaire2Id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Gestionnaire 2 (CfgTier, ComFolder.CfgSaleManager2Id)."
+          },
+          "notaireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Notaire / avocat (CfgTier, ComFolder.CfgLawyerId)."
+          },
+          "banqueCreditId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Banque du crédit (CfgTier, ComFolder.CreditBankId)."
+          },
+          "agenceCredit": {
+            "type": "string",
+            "description": "Agence de crédit, texte libre de 255 caractères au plus (ComFolder.CreditAgency)."
+          },
+          "meilleurTauxEnvoi": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'envoi MEILLEURTAUX (ComFolder.loanCompanySendDate)."
+          },
+          "meilleurTauxDecisionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Décision MEILLEURTAUX (ComLoanCompanyDecision.PKey), voir GET /api/dossiers/decisions-meilleurtaux."
+          },
+          "meilleurTauxDecisionDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la décision MEILLEURTAUX (ComFolder.loanCompanyDecisionDate)."
+          },
+          "ancienClient": {
+            "type": "boolean",
+            "description": "« C'est un ancien client » (ComFolder.IsOldCustomer)."
+          },
+          "cadeauPlusTard": {
+            "type": "boolean",
+            "description": "« Client veut choisir le cadeau plus tard » (ComFolder.IsWithGiftChoiceLater)."
+          },
+          "integrerModificationsAuPrix": {
+            "type": "boolean",
+            "description": "Intégrer les modifications au prix de vente (ComFolder.PriceWithModification) ; recalcule le prix."
+          },
+          "penalitesDesactivees": {
+            "type": "boolean",
+            "description": "« Pénalité désactivée » (ComFolder.IsPenaltyDisabled) ; Administrateur seulement."
+          },
+          "remiseMontantHT": {
+            "type": "number",
+            "description": "Montant de la remise HT ; exclusif de remisePourcentage. Le taux est recalculé."
+          },
+          "remisePourcentage": {
+            "type": "number",
+            "description": "Remise en pourcentage 0–100 du total HT avant remise ; exclusif de remiseMontantHT."
+          },
+          "tva": {
+            "type": "number",
+            "description": "Taux de TVA de l'article en ratio 0–1 (0,2 = 20 %) ; les prix TTC sont recalculés."
+          },
+          "forcerRemise": {
+            "type": "boolean",
+            "description": "Vrai pour dépasser les plafonds de remise de l'article (droit toolOverDiscount)."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note du dossier (ComFolder.Notes, 1 000 caractères au plus) ; enregistrée aussi en action Note."
+          },
+          "champsAVider": {
+            "type": "array",
+            "description": "Noms des champs à remettre à null (ex. [\"minute\"]) ; clientId ne peut pas être vidé.",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AnnulationFicheDto": {
+        "type": "object",
+        "description": "Onglet « Annulation / Résiliation » ; vide tant que le dossier n'est pas sorti.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'annulation / résiliation (ComFolder.CancelDate)."
+          },
+          "causes": {
+            "type": "string",
+            "description": "Causes saisies (ComFolder.CancelDescription)."
+          }
+        }
+      },
+      "AutresFicheDto": {
+        "type": "object",
+        "description": "Onglet « Autres » : gestionnaires, crédit, notaire, note, cases à cocher et MEILLEURTAUX.",
+        "properties": {
+          "gestionnaire1Id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Gestionnaire 1 (ComFolder.CfgSaleManagerId)."
+          },
+          "gestionnaire1Nom": {
+            "type": "string",
+            "description": "Nom du gestionnaire 1."
+          },
+          "gestionnaire2Id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Gestionnaire 2 (ComFolder.CfgSaleManager2Id)."
+          },
+          "gestionnaire2Nom": {
+            "type": "string",
+            "description": "Nom du gestionnaire 2."
+          },
+          "banqueCreditId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Banque du crédit ou du leasing (ComFolder.CreditBankId)."
+          },
+          "banqueCreditNom": {
+            "type": "string",
+            "description": "Nom de la banque du crédit."
+          },
+          "agenceCredit": {
+            "type": "string",
+            "description": "Agence de crédit, texte libre (ComFolder.CreditAgency)."
+          },
+          "notaireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Notaire / avocat (ComFolder.CfgLawyerId)."
+          },
+          "notaireNom": {
+            "type": "string",
+            "description": "Nom du notaire / avocat."
+          },
+          "note": {
+            "type": "string",
+            "description": "Note libre du dossier (ComFolder.Notes)."
+          },
+          "ancienClient": {
+            "type": "boolean",
+            "description": "« C'est un ancien client » : applique les remises anciens clients (ComFolder.IsOldCustomer)."
+          },
+          "cadeauPlusTard": {
+            "type": "boolean",
+            "description": "« Client veut choisir le cadeau plus tard » (ComFolder.IsWithGiftChoiceLater)."
+          },
+          "integrerModificationsAuPrix": {
+            "type": "boolean",
+            "description": "« Intégrer le montant des modifications dans le calcul du prix de vente » (PriceWithModification)."
+          },
+          "meilleurTauxEnvoi": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'envoi MEILLEURTAUX (ComFolder.loanCompanySendDate)."
+          },
+          "meilleurTauxDecision": {
+            "type": "string",
+            "description": "Décision MEILLEURTAUX (libellé de ComLoanCompanyDecision), null si non décidée."
+          },
+          "meilleurTauxDecisionDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la décision MEILLEURTAUX (ComFolder.loanCompanyDecisionDate)."
+          },
+          "penalitesDesactivees": {
+            "type": "boolean",
+            "description": "« Pénalité désactivée » (ComFolder.IsPenaltyDisabled)."
+          }
+        }
+      },
+      "AutresMontantsFicheDto": {
+        "type": "object",
+        "description": "Onglet « Autres montants » de la fiche OMRAN : prix avant et après remise, HT et TTC.",
+        "properties": {
+          "superficie": {
+            "type": "number",
+            "description": "« Sup (m²) » : superficie en m² (ComFolder.Area)."
+          },
+          "superficieGlobale": {
+            "type": "number",
+            "description": "Superficie globale = article + sous-articles (ComFolder.GlobalArea)."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "Taux de TVA en ratio 0–1 (ComFolder.VATRatio) ; 0,2 = 20 %."
+          },
+          "prixArticleM2HT": {
+            "type": "number",
+            "description": "« Prix article m² HT » : prix d'un m² HT repris du module stock (ComFolder.UnitCostHT)."
+          },
+          "prixArticleM2TTC": {
+            "type": "number",
+            "description": "« Prix article m² TTC » : prix du m² HT × (1 + TVA)."
+          },
+          "prixArticleHT": {
+            "type": "number",
+            "description": "Prix article HT avant remise."
+          },
+          "prixArticleTTC": {
+            "type": "number",
+            "description": "Prix article TTC avant remise."
+          },
+          "prixSousArticlesHT": {
+            "type": "number",
+            "description": "Prix des sous-articles HT avant remise."
+          },
+          "prixSousArticlesTTC": {
+            "type": "number",
+            "description": "Prix des sous-articles TTC avant remise."
+          },
+          "prixArticleApresRemiseHT": {
+            "type": "number",
+            "description": "Prix article HT après remise (ComFolder.ItemPriceAfterHT)."
+          },
+          "prixArticleApresRemiseTTC": {
+            "type": "number",
+            "description": "Prix article TTC après remise (ComFolder.ItemPriceAfter)."
+          },
+          "prixSousArticlesApresRemiseHT": {
+            "type": "number",
+            "description": "Prix des sous-articles HT après remise (ComFolder.UnderItemsPriceAfterHT)."
+          },
+          "prixSousArticlesApresRemiseTTC": {
+            "type": "number",
+            "description": "Prix des sous-articles TTC après remise (ComFolder.UnderItemsPriceAfter)."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Total HT avant remise."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Total TTC avant remise."
+          },
+          "remisePourcentage": {
+            "type": "number",
+            "description": "Remise en pourcentage 0–100 (Montant remise / Total HT)."
+          },
+          "prixVenteHT": {
+            "type": "number",
+            "description": "Prix de vente HT après remise (ComFolder.PriceAfterDiscountHT)."
+          },
+          "prixVenteTTC": {
+            "type": "number",
+            "description": "Prix de vente TTC après remise (ComFolder.PriceAfterDiscount)."
+          },
+          "prixVenteM2HT": {
+            "type": "number",
+            "description": "Prix de vente au m² HT = prix de vente HT / superficie vendue ; null si superficie nulle."
+          },
+          "prixVenteM2TTC": {
+            "type": "number",
+            "description": "Prix de vente au m² TTC = prix de vente TTC / superficie vendue ; null si superficie nulle."
+          }
+        }
+      },
+      "DatesAutresFicheDto": {
+        "type": "object",
+        "description": "Onglet « Dates autres » : dates client, avocat, légalisation et enregistrement de chaque acte, CPF.",
+        "properties": {
+          "promesseClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Promesse de vente client (ComFolder.ReservationDateCustomer)."
+          },
+          "promesseEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'enregistrement de la réservation (ComFolder.ReservationRegistryDate)."
+          },
+          "impressionContrat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'impression du contrat de réservation / promesse (ComFolder.ContractPrintDate)."
+          },
+          "minuteClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Minute / signature du contrat client (ComFolder.AgreementSavingDateCustomer)."
+          },
+          "minuteAvocat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Minute / signature du contrat avocat (ComFolder.AgreementSavingDateLawyer)."
+          },
+          "minuteRemiseLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise du contrat pour légalisation (ComFolder.AgreementSavingDateForLegalization)."
+          },
+          "minuteLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Légalisation du contrat (ComFolder.AgreementSavingDateLegalization)."
+          },
+          "minuteDepotEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dépôt pour enregistrement du contrat (ComFolder.AgreementSavingDateForRegistry)."
+          },
+          "remiseClesClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise des clés effective client (ComFolder.DeliveryDateRealCustomer)."
+          },
+          "remiseClesEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'enregistrement de la remise des clés (ComFolder.DeliveryRegistryDate)."
+          },
+          "actePrecisionClient": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Acte de précision client (ComFolder.PrecisionActDateCustomer)."
+          },
+          "actePrecisionAvocat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Acte de précision avocat (ComFolder.PrecisionActDateLawyer)."
+          },
+          "actePrecisionRemiseLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise pour légalisation de l'acte de précision (ComFolder.PrecisionActDateForLegalization)."
+          },
+          "actePrecisionLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Légalisation de l'acte de précision (ComFolder.PrecisionActDateLegalization)."
+          },
+          "actePrecisionDepotEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dépôt pour enregistrement de l'acte de précision (ComFolder.PrecisionActDateForRegistry)."
+          },
+          "actePrecisionEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'enregistrement de l'acte de précision (ComFolder.PrecisionActRegistryDate)."
+          },
+          "cpfDepot": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Dépôt à la CPF (ComFolder.FinalTitleDateDeposit)."
+          },
+          "cpfRetrait": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Retrait du dossier client de la CPF (ComFolder.FinalTitleDateWithdrawal)."
+          },
+          "remiseCertificatPropriete": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise du certificat de propriété au client (ComFolder.FinalTitleDate)."
+          },
+          "numeroTitre": {
+            "type": "string",
+            "description": "N° de titre (ComFolder.FinalTitleNumber)."
+          }
+        }
+      },
+      "DatesFicheDto": {
+        "type": "object",
+        "description": "Onglet « Dates » de la fiche OMRAN ; chaque date est null tant que le jalon n'est pas atteint.",
+        "properties": {
+          "concretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Concrétisation (ComFolder.AdvanceDate)."
+          },
+          "promesseVente": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Promesse de vente (ComFolder.ReservationDate)."
+          },
+          "visiteTechnique": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Visite technique / réception (ComFolder.ReceptionDate)."
+          },
+          "envoiNotairePrevisionnel": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Envoi au notaire prévisionnel (ComFolder.AgreementDatePrevisionel)."
+          },
+          "envoiNotaireConfirme": {
+            "type": "boolean",
+            "description": "Case « Confirmé » de l'envoi au notaire prévisionnel (ComFolder.IsConfirmedAgreementDate)."
+          },
+          "enregistrementContrat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'enregistrement du contrat (ComFolder.AgreementRegistryDate)."
+          },
+          "envoiNotaire": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Envoi au notaire / avocat (ComFolder.AgreementDate)."
+          },
+          "minute": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Minute / signature du contrat (ComFolder.AgreementSavingDate)."
+          },
+          "expedition": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Expédition / certificat de propriété (ComFolder.OwnershipCertificateDate)."
+          },
+          "relanceTitreFoncier1": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Relance 1 titre foncier (ComFolder.Revival1)."
+          },
+          "echeanceRelance1": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance de la relance 1 (ComFolder.Revival1ValidityDate)."
+          },
+          "relanceTitreFoncier2": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Relance 2 titre foncier (ComFolder.Revival2)."
+          },
+          "echeanceRelance2": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Échéance de la relance 2 (ComFolder.Revival2ValidityDate)."
+          },
+          "ficheBancaire": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fiche bancaire (ComFolder.BankRecordDate)."
+          },
+          "compromis": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Compromis / approbation du crédit (ComFolder.CreditApprovalDate)."
+          },
+          "attestation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Attestation de consignation / octroi du crédit (ComFolder.CreditPossessionDate)."
+          },
+          "intervention": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Intervention (ComFolder.InterventionDate)."
+          },
+          "assurance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Assurance (ComFolder.InsuranceDate)."
+          },
+          "remiseClesPrevue": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise des clés prévue : date de livraison de l'article, sinon début de finalisation de la tranche."
+          },
+          "remiseClesEffective": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Remise des clés effective (ComFolder.DeliveryDateReal)."
+          },
+          "permisHabiter": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Permis d'habiter, lu sur la tranche de l'article (CfgTranche.OccupancyPermitsDate)."
+          },
+          "actePrecision": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Acte de précision (ComFolder.PrecisionActDate)."
+          }
+        }
+      },
+      "DossierFicheDto": {
+        "type": "object",
+        "description": "Fiche complète d'un dossier de vente en consultation, organisée par onglet de l'écran OMRAN.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du dossier (ComFolder.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "N° de dossier (ComFolder.Code)."
+          },
+          "enTete": {
+            "$ref": "#/components/schemas/EnTeteFicheDto"
+          },
+          "statut": {
+            "$ref": "#/components/schemas/StatutFicheDto"
+          },
+          "autresMontants": {
+            "$ref": "#/components/schemas/AutresMontantsFicheDto"
+          },
+          "dates": {
+            "$ref": "#/components/schemas/DatesFicheDto"
+          },
+          "datesAutres": {
+            "$ref": "#/components/schemas/DatesAutresFicheDto"
+          },
+          "annulation": {
+            "$ref": "#/components/schemas/AnnulationFicheDto"
+          },
+          "autres": {
+            "$ref": "#/components/schemas/AutresFicheDto"
+          },
+          "aDesImpayes": {
+            "type": "boolean",
+            "description": "Bandeau « Ce dossier possède des pièces de règlement impayées » : une échéance échue reste due."
+          },
+          "instructionNonLue": {
+            "type": "boolean",
+            "description": "Vrai si l'appelant est le commercial destinataire d'une instruction non lue sur ce dossier."
+          }
+        }
+      },
+      "DossierModifieDto": {
+        "type": "object",
+        "description": "Résultat d'une modification de la fiche : la fiche relue, les champs changés et l'écart du schéma.",
+        "properties": {
+          "fiche": {
+            "$ref": "#/components/schemas/DossierFicheDto",
+            "description": "Fiche du dossier relue après l'enregistrement."
+          },
+          "champsModifies": {
+            "type": "array",
+            "description": "Noms des champs réellement changés ; vide si le corps ne changeait rien.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ecartSchema": {
+            "type": "number",
+            "description": "Prix après remise TTC − (avance + crédit + autofinancement), arrondi à 2 ; null si nul ou prix inchangé."
+          }
+        }
+      },
+      "EnTeteFicheDto": {
+        "type": "object",
+        "description": "En-tête de la fiche dossier : prix de l'article et des sous-articles séparés, HT et TTC.",
+        "properties": {
+          "superficie": {
+            "type": "number",
+            "description": "Superficie (m²) de l'article, figée sur le dossier (ComFolder.Area)."
+          },
+          "prixM2HT": {
+            "type": "number",
+            "description": "Prix du m² HT avant remise (ComFolder.UnitCostHT)."
+          },
+          "prixM2TTC": {
+            "type": "number",
+            "description": "Prix du m² TTC avant remise (ComFolder.UnitCost)."
+          },
+          "prixArticleHT": {
+            "type": "number",
+            "description": "Prix article HT avant remise = superficie × prix du m² HT (ComFolder.ItemPriceHT)."
+          },
+          "prixArticleTTC": {
+            "type": "number",
+            "description": "Prix article TTC avant remise (ComFolder.ItemPrice)."
+          },
+          "prixSousArticlesHT": {
+            "type": "number",
+            "description": "Prix des sous-articles HT avant remise (ComFolder.UnderItemsPriceHT)."
+          },
+          "prixSousArticlesTTC": {
+            "type": "number",
+            "description": "Prix des sous-articles TTC avant remise (ComFolder.UnderItemsPrice)."
+          },
+          "totalHT": {
+            "type": "number",
+            "description": "Total HT avant remise = prix article HT + prix sous-articles HT."
+          },
+          "totalTTC": {
+            "type": "number",
+            "description": "Total TTC avant remise = prix article TTC + prix sous-articles TTC."
+          },
+          "remiseMontantHT": {
+            "type": "number",
+            "description": "Montant de la remise, HT (ComFolder.DiscountAmount)."
+          },
+          "remisePourcentage": {
+            "type": "number",
+            "description": "Remise en pourcentage 0–100 : « Montant remise / Total HT » (aide OMRAN)."
+          },
+          "prixVenteHT": {
+            "type": "number",
+            "description": "Prix de vente HT : « Prix article HT après remise + Prix sous article HT après remise »."
+          },
+          "prixVenteTTC": {
+            "type": "number",
+            "description": "Prix de vente TTC après remise (ComFolder.PriceAfterDiscount)."
+          },
+          "prixContractuel": {
+            "type": "number",
+            "description": "Prix contractuel (ComFolder.AgreementPrice) : Σ des lignes non exclues du prix contractuel."
+          }
+        }
+      },
+      "StatutFicheDto": {
+        "type": "object",
+        "description": "Statut du dossier et sa date de validité (lecture seule).",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code du statut (StrStatus.Code), null si le dossier n'a pas de statut."
+          },
+          "dateValidite": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de validité du statut (ComFolder.StatusValidityDate), null si sans limite."
+          },
+          "expire": {
+            "type": "boolean",
+            "description": "Vrai si la date de validité est passée (comparée à l'heure de Casablanca)."
+          }
+        }
+      },
       "ChangerStatutRequest": {
         "type": "object",
+        "description": "Changement de statut d'un dossier de vente.",
         "properties": {
           "statut": {
-            "type": "string"
+            "type": "string",
+            "description": "Code du statut cible (StrStatus.Code).",
+            "example": "CONCRETISATION"
           },
           "date": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Date écrite sur la date associée au statut cible ; ignorée s'il n'en a pas."
           },
           "note": {
-            "type": "string"
+            "type": "string",
+            "description": "Note ; la cause, obligatoire, pour ANNULATION et DESISTEMENT."
+          },
+          "ignorerSeuil": {
+            "type": "boolean",
+            "description": "Administrateur seulement : ne pas vérifier le seuil de versement (tracé dans l'historique)."
           }
         }
       },
@@ -19534,19 +20668,39 @@
           },
           "communicationDepuis": {
             "type": "string",
-            "format": "date-time",
-            "description": "Dernier échange à partir de cette date (incluse), ISO-8601. 90,4 %.",
-            "example": "2026-01-01T00:00:00"
+            "format": "date",
+            "description": "Dernier échange à partir de ce jour (inclus), AAAA-MM-JJ. 90,4 %.",
+            "example": "2026-01-01"
           },
           "communicationJusqua": {
             "type": "string",
-            "format": "date-time",
-            "description": "Dernier échange jusqu'à cette date (incluse), ISO-8601.",
-            "example": "2026-12-31T23:59:59"
+            "format": "date",
+            "description": "Dernier échange jusqu'à ce jour inclus (jour entier), AAAA-MM-JJ.",
+            "example": "2026-12-31"
           },
           "avecAlerteActive": {
             "type": "boolean",
             "description": "`true` : uniquement celles portant une relance active. `false` : uniquement celles sans. Absent :\npas de filtre. 25,2 % en portent une."
+          },
+          "aboutie": {
+            "type": "boolean",
+            "description": "Filtre « Aboutie » du logiciel de bureau. `true` : la prospection a donné un dossier de vente ni\nannulé ni résilié (`ComFolderId` renseigné, `StatusIsCancellation = 0` et `StatusIsClosing = 0` dans\nla vue `ComSaleProspectionView`). `false` : exactement le complément — pas de dossier, ou un dossier\nannulé ou résilié ; les pré-prospections et les lignes sans type y tombent. Absent : pas de filtre."
+          },
+          "periodeSur": {
+            "type": "string",
+            "description": "Date portant la période `dateDebut` / `dateFin`. Défaut : DATE.",
+            "enum": [
+              "DATE",
+              "ARCHIVAGE"
+            ]
+          },
+          "dateRenseignee": {
+            "type": "string",
+            "description": "`OUI` : la date choisie par `periodeSur` est renseignée ; `NON` : elle est vide (`IS NULL`). Quand\nce paramètre est présent, `dateDebut` et `dateFin` sont **ignorés**, comme dans le logiciel de\nbureau. Utile surtout avec `periodeSur=ARCHIVAGE` (« archivées sans date d'archivage »).",
+            "enum": [
+              "OUI",
+              "NON"
+            ]
           }
         }
       },
@@ -20908,20 +22062,64 @@
           }
         }
       },
-      "EtapeSuivanteDto": {
+      "TransitionSuggereeDto": {
         "type": "object",
+        "description": "Passage automatique de statut proposé après un règlement ou un enregistrement.",
         "properties": {
           "statut": {
-            "type": "string"
+            "type": "string",
+            "description": "Code du statut proposé, null si aucune proposition.",
+            "example": "MINUTE"
+          },
+          "transition": {
+            "type": "string",
+            "description": "Libellé de la transition (StrWorkFlow.Description).",
+            "example": "MINUTE"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date proposée : celle du dernier règlement d'avance, d'auto-financement ou de crédit."
+          }
+        }
+      },
+      "EtapeSuivanteDto": {
+        "type": "object",
+        "description": "Transition que l'utilisateur connecté peut exécuter depuis le statut courant du dossier.",
+        "properties": {
+          "statut": {
+            "type": "string",
+            "description": "Code du statut cible (StrStatus.Code).",
+            "example": "CONCRETISATION"
           },
           "champDate": {
-            "type": "string"
+            "type": "string",
+            "description": "Champ du dossier (camelCase) qui reçoit la date du changement, null si aucun.",
+            "example": "advanceDate"
           },
           "libelleChampDate": {
-            "type": "string"
+            "type": "string",
+            "description": "Libellé de ce champ, ou explication s'il n'y en a pas.",
+            "example": "Date concrétisation"
           },
           "confiance": {
-            "type": "string"
+            "type": "string",
+            "description": "CONFIRME (date associée paramétrée ou confirmée), PLAUSIBLE ou AUCUN.",
+            "example": "CONFIRME"
+          },
+          "transition": {
+            "type": "string",
+            "description": "Libellé de la transition (StrWorkFlow.Description), le code cible en repli.",
+            "example": "CONCRETISATION"
+          },
+          "passageAutomatique": {
+            "type": "boolean",
+            "description": "Transition « avec proposition du passage automatique » (StrWorkFlow.WithAutomaticTransition)."
+          },
+          "dateActuelle": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Valeur actuelle de la date associée sur ce dossier ; renseignée, elle n'est remplacée que par une date saisie."
           }
         }
       },
@@ -21085,529 +22283,33 @@
           }
         }
       },
-      "AnnulationFicheDto": {
+      "DroitsEditionDto": {
         "type": "object",
-        "description": "Onglet « Annulation / Résiliation » ; vide tant que le dossier n'est pas sorti.",
+        "description": "Groupes de champs de la fiche que l'appelant peut modifier sur ce dossier.",
         "properties": {
-          "date": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date d'annulation / résiliation (ComFolder.CancelDate)."
+          "groupes": {
+            "type": "array",
+            "description": "Groupes de champs que l'appelant peut modifier.",
+            "items": {
+              "type": "string",
+              "enum": [
+                "DATES",
+                "ANNULATION",
+                "CLIENT",
+                "COMMERCIAL",
+                "GESTIONNAIRES",
+                "NOTAIRE",
+                "CREDIT",
+                "OPTIONS",
+                "PENALITES",
+                "PRIX",
+                "NOTE"
+              ]
+            }
           },
-          "causes": {
-            "type": "string",
-            "description": "Causes saisies (ComFolder.CancelDescription)."
-          }
-        }
-      },
-      "AutresFicheDto": {
-        "type": "object",
-        "description": "Onglet « Autres » : gestionnaires, crédit, notaire, note, cases à cocher et MEILLEURTAUX.",
-        "properties": {
-          "gestionnaire1Id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Gestionnaire 1 (ComFolder.CfgSaleManagerId)."
-          },
-          "gestionnaire1Nom": {
-            "type": "string",
-            "description": "Nom du gestionnaire 1."
-          },
-          "gestionnaire2Id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Gestionnaire 2 (ComFolder.CfgSaleManager2Id)."
-          },
-          "gestionnaire2Nom": {
-            "type": "string",
-            "description": "Nom du gestionnaire 2."
-          },
-          "banqueCreditId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Banque du crédit ou du leasing (ComFolder.CreditBankId)."
-          },
-          "banqueCreditNom": {
-            "type": "string",
-            "description": "Nom de la banque du crédit."
-          },
-          "agenceCredit": {
-            "type": "string",
-            "description": "Agence de crédit, texte libre (ComFolder.CreditAgency)."
-          },
-          "notaireId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Notaire / avocat (ComFolder.CfgLawyerId)."
-          },
-          "notaireNom": {
-            "type": "string",
-            "description": "Nom du notaire / avocat."
-          },
-          "note": {
-            "type": "string",
-            "description": "Note libre du dossier (ComFolder.Notes)."
-          },
-          "ancienClient": {
+          "sorti": {
             "type": "boolean",
-            "description": "« C'est un ancien client » : applique les remises anciens clients (ComFolder.IsOldCustomer)."
-          },
-          "cadeauPlusTard": {
-            "type": "boolean",
-            "description": "« Client veut choisir le cadeau plus tard » (ComFolder.IsWithGiftChoiceLater)."
-          },
-          "integrerModificationsAuPrix": {
-            "type": "boolean",
-            "description": "« Intégrer le montant des modifications dans le calcul du prix de vente » (PriceWithModification)."
-          },
-          "meilleurTauxEnvoi": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date d'envoi MEILLEURTAUX (ComFolder.loanCompanySendDate)."
-          },
-          "meilleurTauxDecision": {
-            "type": "string",
-            "description": "Décision MEILLEURTAUX (libellé de ComLoanCompanyDecision), null si non décidée."
-          },
-          "meilleurTauxDecisionDate": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de la décision MEILLEURTAUX (ComFolder.loanCompanyDecisionDate)."
-          },
-          "penalitesDesactivees": {
-            "type": "boolean",
-            "description": "« Pénalité désactivée » (ComFolder.IsPenaltyDisabled)."
-          }
-        }
-      },
-      "AutresMontantsFicheDto": {
-        "type": "object",
-        "description": "Onglet « Autres montants » de la fiche OMRAN : prix avant et après remise, HT et TTC.",
-        "properties": {
-          "superficie": {
-            "type": "number",
-            "description": "« Sup (m²) » : superficie en m² (ComFolder.Area)."
-          },
-          "superficieGlobale": {
-            "type": "number",
-            "description": "Superficie globale = article + sous-articles (ComFolder.GlobalArea)."
-          },
-          "tauxTva": {
-            "type": "number",
-            "description": "Taux de TVA en ratio 0–1 (ComFolder.VATRatio) ; 0,2 = 20 %."
-          },
-          "prixArticleM2HT": {
-            "type": "number",
-            "description": "« Prix article m² HT » : prix d'un m² HT repris du module stock (ComFolder.UnitCostHT)."
-          },
-          "prixArticleM2TTC": {
-            "type": "number",
-            "description": "« Prix article m² TTC » : prix du m² HT × (1 + TVA)."
-          },
-          "prixArticleHT": {
-            "type": "number",
-            "description": "Prix article HT avant remise."
-          },
-          "prixArticleTTC": {
-            "type": "number",
-            "description": "Prix article TTC avant remise."
-          },
-          "prixSousArticlesHT": {
-            "type": "number",
-            "description": "Prix des sous-articles HT avant remise."
-          },
-          "prixSousArticlesTTC": {
-            "type": "number",
-            "description": "Prix des sous-articles TTC avant remise."
-          },
-          "prixArticleApresRemiseHT": {
-            "type": "number",
-            "description": "Prix article HT après remise (ComFolder.ItemPriceAfterHT)."
-          },
-          "prixArticleApresRemiseTTC": {
-            "type": "number",
-            "description": "Prix article TTC après remise (ComFolder.ItemPriceAfter)."
-          },
-          "prixSousArticlesApresRemiseHT": {
-            "type": "number",
-            "description": "Prix des sous-articles HT après remise (ComFolder.UnderItemsPriceAfterHT)."
-          },
-          "prixSousArticlesApresRemiseTTC": {
-            "type": "number",
-            "description": "Prix des sous-articles TTC après remise (ComFolder.UnderItemsPriceAfter)."
-          },
-          "totalHT": {
-            "type": "number",
-            "description": "Total HT avant remise."
-          },
-          "totalTTC": {
-            "type": "number",
-            "description": "Total TTC avant remise."
-          },
-          "remisePourcentage": {
-            "type": "number",
-            "description": "Remise en pourcentage 0–100 (Montant remise / Total HT)."
-          },
-          "prixVenteHT": {
-            "type": "number",
-            "description": "Prix de vente HT après remise (ComFolder.PriceAfterDiscountHT)."
-          },
-          "prixVenteTTC": {
-            "type": "number",
-            "description": "Prix de vente TTC après remise (ComFolder.PriceAfterDiscount)."
-          },
-          "prixVenteM2HT": {
-            "type": "number",
-            "description": "Prix de vente au m² HT = prix de vente HT / superficie vendue ; null si superficie nulle."
-          },
-          "prixVenteM2TTC": {
-            "type": "number",
-            "description": "Prix de vente au m² TTC = prix de vente TTC / superficie vendue ; null si superficie nulle."
-          }
-        }
-      },
-      "DatesAutresFicheDto": {
-        "type": "object",
-        "description": "Onglet « Dates autres » : dates client, avocat, légalisation et enregistrement de chaque acte, CPF.",
-        "properties": {
-          "promesseClient": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Promesse de vente client (ComFolder.ReservationDateCustomer)."
-          },
-          "promesseEnregistrement": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date d'enregistrement de la réservation (ComFolder.ReservationRegistryDate)."
-          },
-          "impressionContrat": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date d'impression du contrat de réservation / promesse (ComFolder.ContractPrintDate)."
-          },
-          "minuteClient": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Minute / signature du contrat client (ComFolder.AgreementSavingDateCustomer)."
-          },
-          "minuteAvocat": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Minute / signature du contrat avocat (ComFolder.AgreementSavingDateLawyer)."
-          },
-          "minuteRemiseLegalisation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Remise du contrat pour légalisation (ComFolder.AgreementSavingDateForLegalization)."
-          },
-          "minuteLegalisation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Légalisation du contrat (ComFolder.AgreementSavingDateLegalization)."
-          },
-          "minuteDepotEnregistrement": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Dépôt pour enregistrement du contrat (ComFolder.AgreementSavingDateForRegistry)."
-          },
-          "remiseClesClient": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Remise des clés effective client (ComFolder.DeliveryDateRealCustomer)."
-          },
-          "remiseClesEnregistrement": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date d'enregistrement de la remise des clés (ComFolder.DeliveryRegistryDate)."
-          },
-          "actePrecisionClient": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Acte de précision client (ComFolder.PrecisionActDateCustomer)."
-          },
-          "actePrecisionAvocat": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Acte de précision avocat (ComFolder.PrecisionActDateLawyer)."
-          },
-          "actePrecisionRemiseLegalisation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Remise pour légalisation de l'acte de précision (ComFolder.PrecisionActDateForLegalization)."
-          },
-          "actePrecisionLegalisation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Légalisation de l'acte de précision (ComFolder.PrecisionActDateLegalization)."
-          },
-          "actePrecisionDepotEnregistrement": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Dépôt pour enregistrement de l'acte de précision (ComFolder.PrecisionActDateForRegistry)."
-          },
-          "actePrecisionEnregistrement": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date d'enregistrement de l'acte de précision (ComFolder.PrecisionActRegistryDate)."
-          },
-          "cpfDepot": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Dépôt à la CPF (ComFolder.FinalTitleDateDeposit)."
-          },
-          "cpfRetrait": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Retrait du dossier client de la CPF (ComFolder.FinalTitleDateWithdrawal)."
-          },
-          "remiseCertificatPropriete": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Remise du certificat de propriété au client (ComFolder.FinalTitleDate)."
-          },
-          "numeroTitre": {
-            "type": "string",
-            "description": "N° de titre (ComFolder.FinalTitleNumber)."
-          }
-        }
-      },
-      "DatesFicheDto": {
-        "type": "object",
-        "description": "Onglet « Dates » de la fiche OMRAN ; chaque date est null tant que le jalon n'est pas atteint.",
-        "properties": {
-          "concretisation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Concrétisation (ComFolder.AdvanceDate)."
-          },
-          "promesseVente": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Promesse de vente (ComFolder.ReservationDate)."
-          },
-          "visiteTechnique": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Visite technique / réception (ComFolder.ReceptionDate)."
-          },
-          "envoiNotairePrevisionnel": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Envoi au notaire prévisionnel (ComFolder.AgreementDatePrevisionel)."
-          },
-          "envoiNotaireConfirme": {
-            "type": "boolean",
-            "description": "Case « Confirmé » de l'envoi au notaire prévisionnel (ComFolder.IsConfirmedAgreementDate)."
-          },
-          "enregistrementContrat": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date d'enregistrement du contrat (ComFolder.AgreementRegistryDate)."
-          },
-          "envoiNotaire": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Envoi au notaire / avocat (ComFolder.AgreementDate)."
-          },
-          "minute": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Minute / signature du contrat (ComFolder.AgreementSavingDate)."
-          },
-          "expedition": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Expédition / certificat de propriété (ComFolder.OwnershipCertificateDate)."
-          },
-          "relanceTitreFoncier1": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Relance 1 titre foncier (ComFolder.Revival1)."
-          },
-          "echeanceRelance1": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Échéance de la relance 1 (ComFolder.Revival1ValidityDate)."
-          },
-          "relanceTitreFoncier2": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Relance 2 titre foncier (ComFolder.Revival2)."
-          },
-          "echeanceRelance2": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Échéance de la relance 2 (ComFolder.Revival2ValidityDate)."
-          },
-          "ficheBancaire": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Fiche bancaire (ComFolder.BankRecordDate)."
-          },
-          "compromis": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Compromis / approbation du crédit (ComFolder.CreditApprovalDate)."
-          },
-          "attestation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Attestation de consignation / octroi du crédit (ComFolder.CreditPossessionDate)."
-          },
-          "intervention": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Intervention (ComFolder.InterventionDate)."
-          },
-          "assurance": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Assurance (ComFolder.InsuranceDate)."
-          },
-          "remiseClesPrevue": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Remise des clés prévue : date de livraison de l'article, sinon début de finalisation de la tranche."
-          },
-          "remiseClesEffective": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Remise des clés effective (ComFolder.DeliveryDateReal)."
-          },
-          "permisHabiter": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Permis d'habiter, lu sur la tranche de l'article (CfgTranche.OccupancyPermitsDate)."
-          },
-          "actePrecision": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Acte de précision (ComFolder.PrecisionActDate)."
-          }
-        }
-      },
-      "DossierFicheDto": {
-        "type": "object",
-        "description": "Fiche complète d'un dossier de vente en consultation, organisée par onglet de l'écran OMRAN.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Identifiant du dossier (ComFolder.PKey)."
-          },
-          "code": {
-            "type": "string",
-            "description": "N° de dossier (ComFolder.Code)."
-          },
-          "enTete": {
-            "$ref": "#/components/schemas/EnTeteFicheDto"
-          },
-          "statut": {
-            "$ref": "#/components/schemas/StatutFicheDto"
-          },
-          "autresMontants": {
-            "$ref": "#/components/schemas/AutresMontantsFicheDto"
-          },
-          "dates": {
-            "$ref": "#/components/schemas/DatesFicheDto"
-          },
-          "datesAutres": {
-            "$ref": "#/components/schemas/DatesAutresFicheDto"
-          },
-          "annulation": {
-            "$ref": "#/components/schemas/AnnulationFicheDto"
-          },
-          "autres": {
-            "$ref": "#/components/schemas/AutresFicheDto"
-          },
-          "aDesImpayes": {
-            "type": "boolean",
-            "description": "Bandeau « Ce dossier possède des pièces de règlement impayées » : une échéance échue reste due."
-          },
-          "instructionNonLue": {
-            "type": "boolean",
-            "description": "Vrai si l'appelant est le commercial destinataire d'une instruction non lue sur ce dossier."
-          }
-        }
-      },
-      "EnTeteFicheDto": {
-        "type": "object",
-        "description": "En-tête de la fiche dossier : prix de l'article et des sous-articles séparés, HT et TTC.",
-        "properties": {
-          "superficie": {
-            "type": "number",
-            "description": "Superficie (m²) de l'article, figée sur le dossier (ComFolder.Area)."
-          },
-          "prixM2HT": {
-            "type": "number",
-            "description": "Prix du m² HT avant remise (ComFolder.UnitCostHT)."
-          },
-          "prixM2TTC": {
-            "type": "number",
-            "description": "Prix du m² TTC avant remise (ComFolder.UnitCost)."
-          },
-          "prixArticleHT": {
-            "type": "number",
-            "description": "Prix article HT avant remise = superficie × prix du m² HT (ComFolder.ItemPriceHT)."
-          },
-          "prixArticleTTC": {
-            "type": "number",
-            "description": "Prix article TTC avant remise (ComFolder.ItemPrice)."
-          },
-          "prixSousArticlesHT": {
-            "type": "number",
-            "description": "Prix des sous-articles HT avant remise (ComFolder.UnderItemsPriceHT)."
-          },
-          "prixSousArticlesTTC": {
-            "type": "number",
-            "description": "Prix des sous-articles TTC avant remise (ComFolder.UnderItemsPrice)."
-          },
-          "totalHT": {
-            "type": "number",
-            "description": "Total HT avant remise = prix article HT + prix sous-articles HT."
-          },
-          "totalTTC": {
-            "type": "number",
-            "description": "Total TTC avant remise = prix article TTC + prix sous-articles TTC."
-          },
-          "remiseMontantHT": {
-            "type": "number",
-            "description": "Montant de la remise, HT (ComFolder.DiscountAmount)."
-          },
-          "remisePourcentage": {
-            "type": "number",
-            "description": "Remise en pourcentage 0–100 : « Montant remise / Total HT » (aide OMRAN)."
-          },
-          "prixVenteHT": {
-            "type": "number",
-            "description": "Prix de vente HT : « Prix article HT après remise + Prix sous article HT après remise »."
-          },
-          "prixVenteTTC": {
-            "type": "number",
-            "description": "Prix de vente TTC après remise (ComFolder.PriceAfterDiscount)."
-          },
-          "prixContractuel": {
-            "type": "number",
-            "description": "Prix contractuel (ComFolder.AgreementPrice) : Σ des lignes non exclues du prix contractuel."
-          }
-        }
-      },
-      "StatutFicheDto": {
-        "type": "object",
-        "description": "Statut du dossier et sa date de validité (lecture seule).",
-        "properties": {
-          "code": {
-            "type": "string",
-            "description": "Code du statut (StrStatus.Code), null si le dossier n'a pas de statut."
-          },
-          "dateValidite": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de validité du statut (ComFolder.StatusValidityDate), null si sans limite."
-          },
-          "expire": {
-            "type": "boolean",
-            "description": "Vrai si la date de validité est passée (comparée à l'heure de Casablanca)."
+            "description": "Vrai si le dossier est annulé ou désisté : seul le groupe ANNULATION reste modifiable."
           }
         }
       },

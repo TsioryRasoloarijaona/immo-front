@@ -136,6 +136,7 @@ import type {
   SynchronisationResultatDto,
   TitreDto,
   TransformerProspectionRequest,
+  TransitionSuggereeDto,
   TrancheDetailDto,
   TrancheListItemDto,
   TypeReglementDto,
@@ -308,7 +309,7 @@ export function oublierLecturesRecentes(): void {
   getCache.clear();
 }
 
-async function request<T>(
+export async function request<T>(
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   path: string,
   // `lecture` : POST sans effet (simulation) — ne vide pas les caches, sinon un
@@ -462,15 +463,16 @@ export interface ProspectionFilterParams {
   origine?: string[];
   commercial?: UUID[];
   trancheId?: UUID[];
-  /** Projet de la tranche (une ligne sans tranche est écartée) ; accepté par les deux listes, pas par les groupes
-   * de pré-prospections. */
+  /** Projet de la tranche (une ligne sans tranche est écartée) ; listes et groupes de pré-prospections. */
   projetId?: UUID[];
-  /** Date-heure ISO (pas une date seule), borne incluse. */
+  /** `AAAA-MM-JJ` (début du jour) ou date-heure ISO, borne incluse. */
   dateDebut?: string;
-  /** Date-heure ISO (pas une date seule), borne incluse. */
+  /** `AAAA-MM-JJ` = jour entier inclus ; une date-heure ISO reste une borne incluse. */
   dateFin?: string;
   search?: string;
   ouvertes?: boolean;
+  /** Pré-prospections : « Non affectés » — `trancheId` cochées OU sans tranche ; seul, les lignes sans tranche. */
+  inclureSansTranche?: boolean;
 }
 
 /** `colonnes` hors de `ProspectionFilterParams` : /api/pre-prospections le refuse.
@@ -805,6 +807,10 @@ export function changerStatutDossier(id: UUID, body: ChangerStatutRequest): Prom
 
 export function getEtapesSuivantes(id: UUID): Promise<EtapeSuivanteDto[]> {
   return request('GET', `/api/dossiers/${id}/statut/etapes-suivantes`);
+}
+
+export function getTransitionSuggeree(id: UUID): Promise<TransitionSuggereeDto> {
+  return request('GET', `/api/dossiers/${id}/statut/transition-suggeree`);
 }
 
 export function listHistoriqueDossier(id: UUID, pageable?: Pageable): Promise<PageDto<HistoriqueEvenementDto>> {
@@ -1503,6 +1509,8 @@ export const getPays = (): Promise<PaysDto[]> => request('GET', '/api/referentie
 export const getOriginesProspection = (): Promise<OrigineProspectionDto[]> => request('GET', '/api/referentiels/origines-prospection');
 export const getSupportsForOrigine = (origineId: UUID): Promise<ReferentielItemDto[]> =>
   request('GET', `/api/referentiels/origines-prospection/${origineId}/supports`);
+/** Tous les supports, toutes origines confondues, triés par libellé. */
+export const getSupportsOrigine = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/supports-origine');
 export const getNationalites = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/nationalites');
 export const getEtapesProspection = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/etapes-prospection');
 export const getCategoriesBien = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/categories-bien');

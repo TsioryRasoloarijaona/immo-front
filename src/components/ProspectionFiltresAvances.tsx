@@ -13,6 +13,7 @@ import {
   usePays,
   useProjetsReferentiel,
   useRaisonsCloture,
+  useSupportsOrigine,
   useTypesContactProspection,
   useVocations,
 } from '../lib/referentiels';
@@ -42,9 +43,7 @@ function Section({ titre, children }: Readonly<{ titre: string; children: ReactN
   );
 }
 
-/** Réservé aux prospections : `/api/pre-prospections` n'accepte pas ces paramètres.
- * `origineSupportId` n'a pas de contrôle : pas de référentiel plat des supports,
- * seulement une cascade sous une origine. */
+/** Réservé aux prospections : `/api/pre-prospections` n'accepte pas ces paramètres. */
 export default function ProspectionFiltresAvances({
   state,
   onChange,
@@ -61,6 +60,7 @@ export default function ProspectionFiltresAvances({
   const actions = useActionsCommerciales();
   const pays = usePays();
   const raisons = useRaisonsCloture();
+  const supports = useSupportsOrigine();
 
   const actifs = countActiveFiltresAvances(state);
 
@@ -107,6 +107,7 @@ export default function ProspectionFiltresAvances({
       | 'vocationId'
       | 'typeContactId'
       | 'actionId'
+      | 'origineSupportId'
       | 'paysId'
       | 'raisonFermetureId'
       | 'typeProspection',
@@ -193,6 +194,7 @@ export default function ProspectionFiltresAvances({
 
           <Section titre="Origine et contact">
             {multi('typeContactId', 'Type de contact', referentielItems(typesContact.data))}
+            {multi('origineSupportId', 'Support', referentielItems(supports.data))}
             {multi('actionId', 'Action commerciale', referentielItems(actions.data))}
             {multi('paysId', 'Pays', referentielItems(pays.data))}
           </Section>
