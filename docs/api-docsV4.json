@@ -3055,7 +3055,7 @@
           "Dossiers — liste"
         ],
         "summary": "Liste paginée des dossiers de vente",
-        "description": "Filtre optionnellement par statut (codes `StrStatus`, multi-sélection), commercial, projet, tranche(s), période sur une des 47 dates d'OMRAN (`GET /api/dossiers/champs-date`) et recherche libre.\n\n**Dossiers sortis exclus par défaut** : sans filtre `statut`, les dossiers dont le statut est une annulation ou une résiliation (`StrStatus.BoolField002` / `BoolField003`) n'apparaissent pas, comme dans OMRAN. `inclureSortis=true` les réintègre ; un `statut` explicite (par exemple `ANNULATION`) est toujours servi tel quel.\n\n**Lots libres** : `lignes=DOSSIERS_ET_LIBRES` ajoute, après les dossiers, une ligne par article racine sans dossier (`StkItem.ComFolderId` vide, hors annexes) ; `lignes=LIBRES` ne sert qu'eux. Sur ces lignes `libre = true` et `id` est l'id de l'article (à ouvrir sur la fiche article, pas sur la fiche dossier). Un filtre qui ne peut viser qu'un dossier (commercial, période) les écarte. La pagination court sur la concaténation dossiers puis lots libres.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seuls les dossiers et lots de ses projets affectés sont servis. Les dossiers dont le projet ne se résout pas restent visibles de tous.",
+        "description": "Filtre optionnellement par statut (codes `StrStatus`, multi-sélection), commercial, projet, tranche(s), période sur une des 47 dates d'OMRAN (`GET /api/dossiers/champs-date`) et recherche libre.\n\n**Dossiers sortis exclus par défaut** : sans filtre `statut`, les dossiers dont le statut est une annulation ou une résiliation (`StrStatus.BoolField002` / `BoolField003`) n'apparaissent pas, comme dans OMRAN. `inclureSortis=true` les réintègre ; un `statut` explicite (par exemple `ANNULATION`) est toujours servi tel quel.\n\n**Lots libres** : `lignes=DOSSIERS_ET_LIBRES` ajoute, après les dossiers, une ligne par article racine sans dossier (`StkItem.ComFolderId` vide, hors annexes) ; `lignes=LIBRES` ne sert qu'eux. Sur ces lignes `libre = true` et `id` est l'id de l'article (à ouvrir sur la fiche article, pas sur la fiche dossier). Un article principal d'un dossier non sorti n'est jamais libre, même sans `StkItem.ComFolderId`. Le filtre commercial les écarte ; la période (`champDate`, `dateDebut`, `dateFin`, `dateVide`) ne les filtre pas, faute de date de dossier. La pagination court sur la concaténation dossiers puis lots libres.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seuls les dossiers et lots de ses projets affectés sont servis. Les dossiers dont le projet ne se résout pas restent visibles de tous.",
         "operationId": "findAll_3",
         "parameters": [
           {
@@ -11561,6 +11561,30 @@
         }
       }
     },
+    "/api/dossiers/decisions-meilleurtaux": {
+      "get": {
+        "tags": [
+          "Dossiers — modification de la fiche"
+        ],
+        "summary": "Décisions MEILLEURTAUX possibles (ComLoanCompanyDecision), pour l'onglet Autres",
+        "operationId": "decisionsMeilleurTaux",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/champs-date": {
       "get": {
         "tags": [
@@ -11578,30 +11602,6 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ChampDateListeDto"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/dossiers/decisions-meilleurtaux": {
-      "get": {
-        "tags": [
-          "Dossiers — modification de la fiche"
-        ],
-        "summary": "Décisions MEILLEURTAUX possibles (ComLoanCompanyDecision), pour l'onglet Autres",
-        "operationId": "decisionsMeilleurTaux",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/ReferentielItemDto"
                   }
                 }
               }
@@ -20069,7 +20069,7 @@
           },
           "libre": {
             "type": "boolean",
-            "description": "Vrai sur une ligne de lot libre (`lignes=DOSSIERS_ET_LIBRES` ou `LIBRES`) : `id` est alors l'article."
+            "description": "Lot libre : `id` = article, `code` = code article, `statut` = LIBRE, `prix` = prix TTC du lot."
           },
           "ancienClient": {
             "type": "boolean",
@@ -20377,15 +20377,15 @@
           },
           "prixM2Ht": {
             "type": "number",
-            "description": "Prix de vente du m² HT après remise : prix article HT ÷ superficie, calculé."
+            "description": "« Prix de vente du m² HT » d'OMRAN : ComFolder.UnitCostHT, avant remise comme la vue."
           },
           "prixArticleHt": {
             "type": "number",
-            "description": "Prix de vente de l'article HT après remise (ComFolder.ItemPriceAfterHT)."
+            "description": "« Prix de vente article HT » d'OMRAN : ComFolder.ItemPriceHT, avant remise comme la vue."
           },
           "prixSousArticlesHt": {
             "type": "number",
-            "description": "Prix de vente des sous-articles HT après remise (ComFolder.UnderItemsPriceAfterHT)."
+            "description": "« Prix de vente sous-articles HT » d'OMRAN : ComFolder.UnderItemsPriceHT, comme la vue."
           },
           "prixHt": {
             "type": "number",
@@ -20393,7 +20393,7 @@
           },
           "prixM2Ttc": {
             "type": "number",
-            "description": "Prix de vente du m² TTC : prix article TTC ÷ superficie (1 si nulle), comme OMRAN."
+            "description": "Prix article TTC après remise ÷ superficie (÷ 1 si 0, null si absente), comme la vue."
           },
           "prixArticleTtc": {
             "type": "number",
