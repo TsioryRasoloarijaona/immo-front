@@ -16,6 +16,7 @@ export default function MultiSelectDropdown({
   badge,
   className,
   entete,
+  resume,
 }: Readonly<{
   /** À omettre quand l'étiquette est déjà posée à côté, sinon elle est répétée. */
   label?: string;
@@ -31,6 +32,8 @@ export default function MultiSelectDropdown({
   className?: string;
   /** Rendu en tête du menu, avant les éléments (ex. une case hors liste). */
   entete?: ReactNode;
+  /** Remplace le libellé calculé du déclencheur (choix porté par `entete`). */
+  resume?: string;
 }>) {
   const selected = value ?? [];
 
@@ -41,6 +44,8 @@ export default function MultiSelectDropdown({
   let triggerLabel = placeholder;
   if (selected.length === 1) triggerLabel = items.find((i) => i.value === selected[0])?.label ?? placeholder;
   else if (selected.length > 1) triggerLabel = `${selected.length} sélectionnés`;
+  if (resume) triggerLabel = resume;
+  const actif = selected.length > 0 || !!resume;
 
   return (
     <DropdownMenu>
@@ -53,7 +58,7 @@ export default function MultiSelectDropdown({
         )}
       >
         {label && <span className="shrink-0 text-muted-foreground">{label} :</span>}
-        <span className={cn('truncate', selected.length > 0 ? 'font-medium text-foreground' : 'text-muted-foreground')}>
+        <span className={cn('truncate', actif ? 'font-medium text-foreground' : 'text-muted-foreground')}>
           {triggerLabel}
         </span>
         {badge}

@@ -22,6 +22,16 @@ const ABOUTIE_ITEMS: { label: string; value: FiltreTriple }[] = [
   { label: 'Aboutie : Non', value: 'non' },
 ];
 
+/** Libellé du bouton Tranche quand « Non affectés » est coché : sinon il dirait « Toutes ». */
+function resumeNonAffectes(trancheIds: string[], items: { label: string; value: string }[]): string {
+  if (trancheIds.length === 0) return 'Non affectés';
+  if (trancheIds.length === 1) {
+    const libelle = items.find((i) => i.value === trancheIds[0])?.label ?? '1 tranche';
+    return `${libelle} + non affectés`;
+  }
+  return `${trancheIds.length} tranches + non affectés`;
+}
+
 export default function ProspectionFilterBar({
   state,
   onChange,
@@ -58,6 +68,8 @@ export default function ProspectionFilterBar({
     onReset?.();
   }
 
+  const resumeTranche = !prospections && state.sansTranche ? resumeNonAffectes(state.trancheId, trancheItems) : undefined;
+
   // « Non affectés » d'OMRAN : avec des tranches cochées, les ajoute ; seule, ne garde que les lignes sans tranche.
   const sansTranche = prospections ? undefined : (
     <>
@@ -93,6 +105,7 @@ export default function ProspectionFilterBar({
           onChange={(v) => onChange('trancheId', v)}
           items={trancheItems}
           entete={sansTranche}
+          resume={resumeTranche}
         />
         <MultiSelectDropdown label="Commercial" placeholder="Tous" value={state.commercial} onChange={(v) => onChange('commercial', v)} items={commercialItems} />
         <ChoixPeriode state={state} onChange={onChange} avecDateChoisie={prospections} />
