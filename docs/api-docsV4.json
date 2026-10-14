@@ -917,28 +917,27 @@
           {
             "name": "dateDebut",
             "in": "query",
-            "description": "Borne inférieure (incluse) sur la date du document, format ISO-8601.",
+            "description": "Borne basse (incluse) de la période, sur la date choisie par `periodeSur` (défaut : date du\ndocument). `AAAA-MM-JJ` = depuis le début du jour ; une date-heure ISO-8601 reste acceptée. 400 si\nillisible.",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "string"
             },
-            "example": "2026-01-01T00:00:00"
+            "example": "2026-01-01"
           },
           {
             "name": "dateFin",
             "in": "query",
-            "description": "Borne supérieure (incluse) sur la date du document, format ISO-8601.",
+            "description": "Borne haute de la période. `AAAA-MM-JJ` = **jour entier inclus** (`< fin + 1 jour`, comme le\nlogiciel de bureau) ; une date-heure ISO-8601 reste acceptée et vaut borne incluse. 400 si illisible.\nIgnorée, comme `dateDebut`, quand `dateRenseignee` est fourni.",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
+              "type": "string"
             },
-            "example": "2026-12-31T23:59:59"
+            "example": "2026-12-31"
           },
           {
             "name": "search",
             "in": "query",
+            "description": "Recherche multi-critère du logiciel de bureau, **espaces et casse ignorés des deux côtés** (« 06 12 34\n» trouve « 061234 »). Champs : code, nom / téléphone / email saisis (`Temp*`), notes ; prospect lié\n(nom affiché, prénom + nom dans les deux ordres, mobile, mobile précédé de l'indicatif, de `+` ou de\n`00`, téléphone, email, CIN, ville) ; article (code, libellé, catégorie, type, présentation) ; client\net statut du dossier issu de la prospection ; source et type (code), support et nature (libellé) ;\nautres tranches, catégories et types du profil. Voir `FEATURE-prospection-filtres.md` §1.",
             "required": false,
             "schema": {
               "type": "string"
@@ -2170,6 +2169,17 @@
             }
           },
           {
+            "name": "inclureSansTranche",
+            "in": "query",
+            "description": "« Non affectés », comme le logiciel de bureau : avec `trancheId`, ajoute les pré-prospections **sans\ntranche** à celles des tranches cochées ; sans `trancheId`, ne renvoie **que** les pré-prospections\nsans tranche.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
             "name": "projetId",
             "in": "query",
             "description": "Id(s) de projet (CfgProject.id) de la tranche ; une ligne sans tranche est écartée. Répétable.",
@@ -2185,26 +2195,27 @@
           {
             "name": "dateDebut",
             "in": "query",
-            "description": "Borne inférieure (incluse) sur la date du document, format ISO-8601.",
+            "description": "Borne basse (incluse) sur la date du document. `AAAA-MM-JJ` = depuis le début du jour ; une\ndate-heure ISO-8601 reste acceptée. 400 si illisible.",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
+              "type": "string"
+            },
+            "example": "2026-01-01"
           },
           {
             "name": "dateFin",
             "in": "query",
-            "description": "Borne supérieure (incluse) sur la date du document, format ISO-8601.",
+            "description": "Borne haute sur la date du document. `AAAA-MM-JJ` = **jour entier inclus** ; une date-heure\nISO-8601 reste acceptée et vaut borne incluse. 400 si illisible.",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
+              "type": "string"
+            },
+            "example": "2026-12-31"
           },
           {
             "name": "search",
             "in": "query",
+            "description": "Recherche multi-critère du logiciel de bureau, **espaces et casse ignorés des deux côtés**. Champs :\ncode, nom / téléphone / email saisis, champs libres `TempField1`, `TempField2` et `TempField10` (les\nautres sont vides en production), notes ; libellés du prospect lié, de la tranche, de l'article, de\nla nature, du type, de l'action, de la source et du support.",
             "required": false,
             "schema": {
               "type": "string"
@@ -6871,6 +6882,31 @@
         }
       }
     },
+    "/api/referentiels/supports-origine": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Tous les supports d'origine (ComProspectionOriginSupport), triés par libellé",
+        "description": "Toutes origines confondues ; par origine : `/origines-prospection/{origineId}/supports`.",
+        "operationId": "supports",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/sous-articles": {
       "get": {
         "tags": [
@@ -8418,18 +8454,18 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
+              "type": "string"
+            },
+            "example": "2026-01-01"
           },
           {
             "name": "dateFin",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
+              "type": "string"
+            },
+            "example": "2026-12-31"
           },
           {
             "name": "search",
@@ -8699,22 +8735,46 @@
             }
           },
           {
+            "name": "inclureSansTranche",
+            "in": "query",
+            "description": "« Non affectés », **identique à la liste** : avec `trancheId`, ajoute les pré-prospections sans\ntranche ; sans `trancheId`, seulement celles sans tranche. Les effectifs retombent sur le\n`totalElements` de la liste appelée avec les mêmes filtres.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id(s) de projet de la tranche, comme la liste. Répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
             "name": "dateDebut",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
+              "type": "string"
+            },
+            "example": "2026-01-01"
           },
           {
             "name": "dateFin",
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "format": "date-time"
-            }
+              "type": "string"
+            },
+            "example": "2026-12-31"
           },
           {
             "name": "search",
@@ -19795,19 +19855,39 @@
           },
           "communicationDepuis": {
             "type": "string",
-            "format": "date-time",
-            "description": "Dernier échange à partir de cette date (incluse), ISO-8601. 90,4 %.",
-            "example": "2026-01-01T00:00:00"
+            "format": "date",
+            "description": "Dernier échange à partir de ce jour (inclus), AAAA-MM-JJ. 90,4 %.",
+            "example": "2026-01-01"
           },
           "communicationJusqua": {
             "type": "string",
-            "format": "date-time",
-            "description": "Dernier échange jusqu'à cette date (incluse), ISO-8601.",
-            "example": "2026-12-31T23:59:59"
+            "format": "date",
+            "description": "Dernier échange jusqu'à ce jour inclus (jour entier), AAAA-MM-JJ.",
+            "example": "2026-12-31"
           },
           "avecAlerteActive": {
             "type": "boolean",
             "description": "`true` : uniquement celles portant une relance active. `false` : uniquement celles sans. Absent :\npas de filtre. 25,2 % en portent une."
+          },
+          "aboutie": {
+            "type": "boolean",
+            "description": "Filtre « Aboutie » du logiciel de bureau. `true` : la prospection a donné un dossier de vente ni\nannulé ni résilié (`ComFolderId` renseigné, `StatusIsCancellation = 0` et `StatusIsClosing = 0` dans\nla vue `ComSaleProspectionView`). `false` : exactement le complément — pas de dossier, ou un dossier\nannulé ou résilié ; les pré-prospections et les lignes sans type y tombent. Absent : pas de filtre."
+          },
+          "periodeSur": {
+            "type": "string",
+            "description": "Date portant la période `dateDebut` / `dateFin`. Défaut : DATE.",
+            "enum": [
+              "DATE",
+              "ARCHIVAGE"
+            ]
+          },
+          "dateRenseignee": {
+            "type": "string",
+            "description": "`OUI` : la date choisie par `periodeSur` est renseignée ; `NON` : elle est vide (`IS NULL`). Quand\nce paramètre est présent, `dateDebut` et `dateFin` sont **ignorés**, comme dans le logiciel de\nbureau. Utile surtout avec `periodeSur=ARCHIVAGE` (« archivées sans date d'archivage »).",
+            "enum": [
+              "OUI",
+              "NON"
+            ]
           }
         }
       },

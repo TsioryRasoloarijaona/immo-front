@@ -90,6 +90,7 @@ export const useSexes = makeCachedListHook(api.getSexes);
 export const useSalaires = makeCachedListHook(api.getSalaires);
 export const useRegimesMatrimoniaux = makeCachedListHook(api.getRegimesMatrimoniaux);
 export const useRaisonsCloture = makeCachedListHook(api.getRaisonsCloture);
+export const useSupportsOrigine = makeCachedListHook(api.getSupportsOrigine);
 export const useProfilsProspection = makeCachedListHook(api.getProfilsProspection);
 /** @public référentiel servi, pas encore branché sur un écran */
 export const useProfessions = makeCachedListHook(api.getProfessions);
