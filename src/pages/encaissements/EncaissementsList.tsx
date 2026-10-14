@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import EncaissementTable from '../../components/EncaissementTable';
 import ColumnSelector from '../../components/ColumnSelector';
 import BandeGroupement from '../../components/BandeGroupement';
+import BoutonExporter from '../../components/BoutonExporter';
 import {
   DEFAULT_PAGE_SIZE,
   listEncaissements,
@@ -221,6 +222,13 @@ export default function EncaissementsList() {
       icon={<Wallet />}
       accent="var(--sec-dossier)"
       accentBg="var(--sec-dossier-bg)"
+      actions={
+        <BoutonExporter
+          chemin="/api/encaissements/export"
+          params={{ ...filtresServeur, colonnes: colonnes.visibles }}
+          nomListe="encaissements"
+        />
+      }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
         <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />

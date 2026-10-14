@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import SuiviActionTable from '../../components/SuiviActionTable';
 import ColumnSelector from '../../components/ColumnSelector';
 import BandeGroupement from '../../components/BandeGroupement';
+import BoutonExporter from '../../components/BoutonExporter';
 import {
   DEFAULT_PAGE_SIZE,
   listSuiviActions,
@@ -202,6 +203,13 @@ export default function SuiviActionsList() {
       icon={<ListChecks />}
       accent="var(--sec-accent)"
       accentBg="var(--sec-accent-bg)"
+      actions={
+        <BoutonExporter
+          chemin="/api/suivi-actions/export"
+          params={{ ...filtresServeur, colonnes: colonnes.visibles }}
+          nomListe="suivi-actions"
+        />
+      }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
         <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />

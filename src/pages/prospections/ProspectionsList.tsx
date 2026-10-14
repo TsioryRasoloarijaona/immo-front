@@ -14,7 +14,8 @@ import { useActionsLigneProspection } from '../../components/ActionsLigneProspec
 import BasculeVue from '../../components/parcours/BasculeVue';
 import KanbanProspections from '../../components/parcours/KanbanProspections';
 import { lireVueProspections, memoriserVueProspections, type VueProspections } from '../../lib/kanban';
-import { DEFAULT_PAGE_SIZE, listProspections, listProspectionsGroupes } from '../../lib/api';
+import BoutonExporter from '../../components/BoutonExporter';
+import { DEFAULT_PAGE_SIZE, listProspections, listProspectionsGroupes, paramsExportProspections } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { pluriel } from '../../lib/format';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
@@ -206,6 +207,11 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
       accentBg="var(--sec-prospection-bg)"
       actions={
         <>
+          <BoutonExporter
+            chemin="/api/prospections/export"
+            params={paramsExportProspections(filtresServeur, filtresAvances, colonnes.visibles)}
+            nomListe="prospections"
+          />
           <BasculeVue
             vue={vue}
             onChange={(v) => {

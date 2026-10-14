@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/button';
 import ProspectionFilterBar from '../../components/ProspectionFilterBar';
 import ProspectionTable from '../../components/ProspectionTable';
 import BandeGroupement from '../../components/BandeGroupement';
+import BoutonExporter from '../../components/BoutonExporter';
 import { useActionsLigneProspection } from '../../components/ActionsLigneProspection';
 import { DEFAULT_PAGE_SIZE, listPreProspections, listPreProspectionsGroupes } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
@@ -158,6 +159,11 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
       accentBg="var(--sec-preprospection-bg)"
       actions={
         <>
+          <BoutonExporter
+            chemin="/api/pre-prospections/export"
+            params={{ ...filtresServeur, colonnes: colonnes.visibles }}
+            nomListe="pre-prospections"
+          />
           <Button type="button" size="sm" variant="outline" onClick={() => navigate('/pre-prospections/import')}>
             <Upload data-icon="inline-start" /> Importer des leads
           </Button>
