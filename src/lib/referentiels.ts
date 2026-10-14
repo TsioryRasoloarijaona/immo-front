@@ -138,6 +138,8 @@ export const useColonnesEncaissements = makeCachedListHook(api.getColonnesEncais
 
 export const useColonnesSuiviActions = makeCachedListHook(api.getColonnesSuiviActions);
 
+export const useColonnesImpayes = makeCachedListHook(api.getColonnesImpayes);
+
 export function referentielItems(list: ReferentielItemDto[]): { label: string; value: string }[] {
   return list.map((r) => ({ label: r.description || r.code || r.id, value: r.id }));
 }

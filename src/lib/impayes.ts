@@ -1,0 +1,73 @@
+import type { ImpayeChampDate, ImpayeEchuA, ImpayesFilterParams } from './api';
+
+/** État des filtres de l'écran « Impayés » ; les textes sont débouncés par la page avant l'appel. */
+export type FiltresImpayes = {
+  projetId: string[];
+  trancheId: string[];
+  echu: ImpayeEchuA;
+  champDate: ImpayeChampDate;
+  du: string;
+  au: string;
+  commercialId: string | null;
+  categorieId: string | null;
+  client: string;
+  article: string;
+  q: string;
+};
+
+export const FILTRES_IMPAYES_DEFAUT: FiltresImpayes = {
+  projetId: [],
+  trancheId: [],
+  echu: 'ECHEANCE',
+  champDate: 'ECHEANCE',
+  du: '',
+  au: '',
+  commercialId: null,
+  categorieId: null,
+  client: '',
+  article: '',
+  q: '',
+};
+
+export const ECHU_ITEMS: { label: string; value: ImpayeEchuA }[] = [
+  { label: 'Échu à la date d’échéance', value: 'ECHEANCE' },
+  { label: 'Échu à la date de recouvrement', value: 'RECOUVREMENT' },
+  { label: 'Toutes les échéances', value: 'TOUS' },
+];
+
+/** `DOCUMENT` n'est pas proposé : pour une échéance de vente, c'est la même date que `ECHEANCE`. */
+export const CHAMP_DATE_IMPAYE_ITEMS: { label: string; value: ImpayeChampDate }[] = [
+  { label: 'Date échéance', value: 'ECHEANCE' },
+  { label: 'Date recouvrement', value: 'RECOUVREMENT' },
+];
+
+function texte(valeur: string): string | undefined {
+  const t = valeur.trim();
+  return t === '' ? undefined : t;
+}
+
+function liste(valeurs: string[]): string[] | undefined {
+  return valeurs.length > 0 ? valeurs : undefined;
+}
+
+/** Mêmes paramètres pour la liste et l'export : le classeur reprend exactement l'écran. */
+export function paramsImpayes(f: FiltresImpayes): ImpayesFilterParams {
+  const periode = f.du !== '' || f.au !== '';
+  return {
+    projetId: liste(f.projetId),
+    trancheId: liste(f.trancheId),
+    echu: f.echu,
+    champDate: periode ? f.champDate : undefined,
+    du: f.du || undefined,
+    au: f.au || undefined,
+    commercialId: f.commercialId ?? undefined,
+    categorieId: f.categorieId ?? undefined,
+    client: texte(f.client),
+    article: texte(f.article),
+    q: texte(f.q),
+  };
+}
+
+export function filtresImpayesActifs(f: FiltresImpayes): boolean {
+  return JSON.stringify(f) !== JSON.stringify(FILTRES_IMPAYES_DEFAUT);
+}

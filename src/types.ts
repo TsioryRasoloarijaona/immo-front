@@ -1874,6 +1874,54 @@ export interface EncaissementDto {
   modifieLe?: string | null;
 }
 
+/** Échéance échue et non soldée d'un dossier de vente actif (`GET /api/impayes`). */
+export interface ImpayeDto {
+  echeanceId: UUID;
+  dossierId: UUID;
+  dossierCode?: string;
+  /** Code brut (`StrStatus.Code`) : à passer par `canonicalStatusLabel`. */
+  statutDossier?: string;
+  dateEcheance?: string | null;
+  /** Échéance + `RecoveryAge` jours (90 par défaut). */
+  dateRecouvrement?: string | null;
+  categorie?: string;
+  description?: string;
+  clientId?: UUID;
+  clientNom?: string;
+  projet?: string;
+  tranche?: string;
+  article?: string;
+  /** Null si la chaîne article → tranche → projet est incomplète. */
+  societe?: string | null;
+  commercial?: string;
+  montantAPayer: number;
+  /** Même calcul que le `montantRegle` de l'échéancier de la fiche. */
+  montantRegle: number;
+  /** Toujours > 0, arrondi au centime. */
+  montantReste: number;
+  joursRetard: number;
+  penaliteId?: UUID | null;
+  notes?: string;
+}
+
+/** Sur toutes les lignes du filtre, pas la page. */
+export interface TotauxImpayesDto {
+  montantAPayer: number;
+  montantRegle: number;
+  montantReste: number;
+  nombreDossiers: number;
+}
+
+/** Pas un `PageDto` : `lignes`/`total`, et des totaux sur le filtre complet. */
+export interface ImpayesPageDto {
+  lignes: ImpayeDto[];
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+  totaux: TotauxImpayesDto;
+}
+
 /** Un règlement peut porter plusieurs affectations, sur plusieurs dossiers ; la
  * somme des `montantAffecte` vaut `montantBrut - montantBrutRestant`. */
 export interface AffectationDto {

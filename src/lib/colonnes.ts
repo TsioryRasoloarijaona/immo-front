@@ -24,6 +24,8 @@ export const LIBELLES_GROUPE: Record<string, string> = {
   RATTACHEMENT: 'Rattachement',
   IDENTIFIANTS: 'Identifiants',
   AUDIT: 'Traçabilité',
+  ECHEANCE: 'Échéance',
+  DOSSIER: 'Dossier',
 };
 
 export function libelleGroupe(groupe: string): string {

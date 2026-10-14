@@ -33,6 +33,7 @@ const ProspectionDetail = lazy(() => import('./pages/prospections/ProspectionDet
 const OffresList = lazy(() => import('./pages/prospections/OffresList'));
 const EncaissementsList = lazy(() => import('./pages/encaissements/EncaissementsList'));
 const EncaissementDetail = lazy(() => import('./pages/encaissements/EncaissementDetail'));
+const ImpayesList = lazy(() => import('./pages/impayes/ImpayesList'));
 const ProspectsList = lazy(() => import('./pages/prospects/ProspectsList'));
 const NewProspect = lazy(() => import('./pages/prospects/NewProspect'));
 const ProspectDetail = lazy(() => import('./pages/prospects/ProspectDetail'));
@@ -114,6 +115,7 @@ function AuthenticatedApp() {
                   <Route path="/offres" element={<OffresList />} />
                   <Route path="/encaissements" element={<EncaissementsList />} />
                   <Route path="/encaissements/:id" element={<EncaissementDetail />} />
+                  <Route path="/impayes" element={<ImpayesList />} />
                   <Route path="/prospects" element={<ProspectsList />} />
                   <Route path="/prospects/nouveau" element={<NewProspect />} />
                   <Route path="/prospects/:id" element={<ProspectDetail />} />
