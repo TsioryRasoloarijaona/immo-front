@@ -4,7 +4,9 @@ import Pagination from '../../Pagination';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { addEcheance, addReglement } from '../../../lib/api';
 import { getEtatSchema, supprimerEcheance } from '../../../lib/apiDossierSousListes';
+import { useAuth } from '../../../lib/auth';
 import { useConfirm } from '../../../lib/confirmContext';
+import { estAdministrateur } from '../../../lib/roles';
 import { formatCurrency, formatDate, todayISO } from '../../../lib/format';
 import { useApi, type ApiState } from '../../../lib/useApi';
 import { useEcriture } from '../../../lib/useEcriture';
@@ -32,6 +34,7 @@ export default function OngletEcheancier({
   const etat = useApi(() => getEtatSchema(d.id), [d.id], 'dossier-etat-schema');
   const confirm = useConfirm();
   const { executer } = useEcriture();
+  const administrateur = estAdministrateur(useAuth().user);
 
   // Le serveur reporte l'écart sur une autre ligne : l'état du schéma change à chaque écriture.
   async function relire() {
@@ -99,7 +102,7 @@ export default function OngletEcheancier({
                     await relire();
                   }}
                   onReglementChanged={relire}
-                  onSupprimer={(e) => void supprimer(e)}
+                  onSupprimer={administrateur ? (e) => void supprimer(e) : undefined}
                 />
               ))}
             </TableBody>

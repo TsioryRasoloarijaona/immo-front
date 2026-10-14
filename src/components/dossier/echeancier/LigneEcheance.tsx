@@ -20,8 +20,8 @@ export default function LigneEcheance({
   echeance: EcheanceDto;
   onReglementAdded: (echeanceId: string, body: CreerReglementRequest) => Promise<void>;
   onReglementChanged: () => Promise<void>;
-  /** Le serveur refuse (409) une ligne réglée, autorisée ou rattachée à un recouvrement. */
-  onSupprimer: (echeance: EcheanceDto) => void;
+  /** Absent hors Administrateur (403) ; le serveur refuse (409) une ligne réglée, autorisée ou en recouvrement. */
+  onSupprimer?: (echeance: EcheanceDto) => void;
 }>) {
   const [expanded, setExpanded] = useState(false);
   const [reglementsVersion, setReglementsVersion] = useState(0);
@@ -70,9 +70,11 @@ export default function LigneEcheance({
                 setExpanded(true);
               }}
             />
-            <Button type="button" variant="ghost" size="icon-sm" aria-label="Supprimer l'échéance" onClick={() => onSupprimer(echeance)}>
-              <Trash2 />
-            </Button>
+            {onSupprimer && (
+              <Button type="button" variant="ghost" size="icon-sm" aria-label="Supprimer l'échéance" onClick={() => onSupprimer(echeance)}>
+                <Trash2 />
+              </Button>
+            )}
           </div>
         </TableCell>
       </TableRow>

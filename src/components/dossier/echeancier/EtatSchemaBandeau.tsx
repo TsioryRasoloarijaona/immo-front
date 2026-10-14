@@ -26,7 +26,7 @@ export default function EtatSchemaBandeau({ etat }: Readonly<{ etat: EtatSchemaD
         {equilibre ? (
           <Badge tone="success">Schéma équilibré</Badge>
         ) : (
-          <Badge tone="amber">Écart {formatCurrency(etat.ecart)}</Badge>
+          <Badge tone="amber">Écart avec le prix : {formatCurrency(etat.ecart)}</Badge>
         )}
       </div>
     </div>

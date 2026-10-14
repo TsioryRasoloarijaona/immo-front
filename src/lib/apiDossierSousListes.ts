@@ -26,8 +26,9 @@ export function getEtatSchema(dossierId: UUID): Promise<EtatSchemaDto> {
   return request('GET', `${base(dossierId)}/echeancier/schema`);
 }
 
-/** 409 `ECHEANCE_LIEE` si la ligne est réglée, autorisée ou rattachée à un dossier de recouvrement. */
-export function supprimerEcheance(dossierId: UUID, echeanceId: UUID): Promise<void> {
+/** Administrateur seulement (403 sinon) ; 409 si la ligne est réglée, autorisée ou en recouvrement.
+ * Renvoie l'état du schéma après suppression, écart compris. */
+export function supprimerEcheance(dossierId: UUID, echeanceId: UUID): Promise<EtatSchemaDto> {
   return request('DELETE', `${base(dossierId)}/echeancier/${echeanceId}`);
 }
 
