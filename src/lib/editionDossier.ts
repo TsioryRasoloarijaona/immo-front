@@ -3,7 +3,7 @@ import { listProspects } from './api';
 import { getDroitsEdition, modifierDossier } from './apiEdition';
 import { toApiDateTime } from './format';
 import { errorMessage, refetchAllApis, useApi } from './useApi';
-import type { ProspectListItemDto, UUID } from '../types';
+import type { DossierFicheDto, ProspectListItemDto, UUID } from '../types';
 import type { GroupeEdition, ModifierDossierRequest } from '../types/edition';
 
 export type CleEdition = Exclude<keyof ModifierDossierRequest, 'champsAVider'>;
@@ -83,7 +83,7 @@ export interface EditionDossier {
  * Droits d'édition du dossier (une lecture partagée par tous les onglets) et cycle Modifier → Enregistrer.
  * Après un enregistrement, toutes les lectures montées sont relancées (en-tête, montants, historique…).
  */
-export function useEditionDossier(dossierId: UUID | undefined): EditionDossier {
+export function useEditionDossier(dossierId: UUID | undefined, versionFiche: unknown): EditionDossier {
   const droits = useApi(
     () => (dossierId ? getDroitsEdition(dossierId) : Promise.resolve(null)),
     [dossierId],
@@ -92,7 +92,15 @@ export function useEditionDossier(dossierId: UUID | undefined): EditionDossier {
   const [ouvert, setOuvert] = useState(false);
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
-  const [ecart, setEcart] = useState<number | null>(null);
+  // L'écart du schéma ne vaut que pour la fiche relue juste après le PATCH : un échéancier ou des sous-articles
+  // modifiés ensuite le rendraient faux. La lecture suivante de la fiche l'efface.
+  const [ecart, setEcart] = useState<{ valeur: number; attendRelecture: boolean } | null>(null);
+  const [versionVue, setVersionVue] = useState(versionFiche);
+  if (versionVue !== versionFiche) {
+    setVersionVue(versionFiche);
+    if (ecart?.attendRelecture) setEcart({ valeur: ecart.valeur, attendRelecture: false });
+    else if (ecart) setEcart(null);
+  }
 
   async function enregistrer(corps: ModifierDossierRequest): Promise<boolean> {
     if (!dossierId) return false;
@@ -104,7 +112,7 @@ export function useEditionDossier(dossierId: UUID | undefined): EditionDossier {
     setErreur(null);
     try {
       const resultat = await modifierDossier(dossierId, corps);
-      setEcart(resultat.ecartSchema ?? null);
+      setEcart(resultat.ecartSchema == null ? null : { valeur: resultat.ecartSchema, attendRelecture: true });
       setOuvert(false);
       refetchAllApis();
       return true;
@@ -130,7 +138,7 @@ export function useEditionDossier(dossierId: UUID | undefined): EditionDossier {
     enregistrer,
     busy,
     erreur,
-    ecart,
+    ecart: ecart?.valeur ?? null,
   };
 }
 
@@ -147,11 +155,11 @@ export interface FormulaireEdition {
  * avec ces valeurs part au serveur. `dates` : clés converties en date-heure du fil.
  */
 export function useFormulaireEdition(
-  dossierId: UUID,
+  fiche: DossierFicheDto,
   initiales: () => ValeursEdition,
   dates: ReadonlySet<CleEdition>,
 ): FormulaireEdition {
-  const edition = useEditionDossier(dossierId);
+  const edition = useEditionDossier(fiche.id, fiche);
   const [saisi, setSaisi] = useState<ValeursEdition>(initiales);
   return {
     edition: {

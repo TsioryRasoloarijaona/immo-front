@@ -16,7 +16,7 @@ function remise(e: EnTeteFicheDto | undefined): string | null {
 
 /** Bouton « Modifier la remise / TVA » (groupe PRIX) et avertissement d'écart du schéma après enregistrement. */
 function EditionPrix({ dossier: d, enTete: e }: Readonly<{ dossier: DossierDetailDto; enTete?: EnTeteFicheDto }>) {
-  const edition = useEditionDossier(d.id);
+  const edition = useEditionDossier(d.id, e);
   const [ouvert, setOuvert] = useState(false);
   if (!edition.peut('PRIX') || !e) return null;
   return (
@@ -34,6 +34,7 @@ function EditionPrix({ dossier: d, enTete: e }: Readonly<{ dossier: DossierDetai
         <PrixDialog
           edition={edition}
           remiseMontantHT={e.remiseMontantHT ?? 0}
+          remisePourcentage={e.remisePourcentage ?? 0}
           tauxTva={d.tauxTVA ?? 0}
           onClose={() => setOuvert(false)}
         />

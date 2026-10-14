@@ -16,7 +16,7 @@ function valeursInitiales(a: AnnulationFicheDto): ValeursEdition {
 /** Seul onglet modifiable sur un dossier annulé ou désisté (409 ailleurs). */
 function Annulation({ fiche }: Readonly<{ fiche: DossierFicheDto }>) {
   const { annulation } = fiche;
-  const f = useFormulaireEdition(fiche.id, () => valeursInitiales(annulation), CLES_DATES);
+  const f = useFormulaireEdition(fiche, () => valeursInitiales(annulation), CLES_DATES);
 
   return (
     <>

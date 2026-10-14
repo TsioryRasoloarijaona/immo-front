@@ -67,7 +67,7 @@ function valeursInitiales(d: DatesAutresFicheDto): ValeursEdition {
 
 function DatesAutres({ fiche }: Readonly<{ fiche: DossierFicheDto }>) {
   const { datesAutres } = fiche;
-  const f = useFormulaireEdition(fiche.id, () => valeursInitiales(datesAutres), CLES_DATES);
+  const f = useFormulaireEdition(fiche, () => valeursInitiales(datesAutres), CLES_DATES);
   const ouvert = f.edition.ouvert;
 
   return (

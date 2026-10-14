@@ -18,11 +18,11 @@ function nombre(texte: string): number | null {
 /** Seuls la remise et la TVA réellement changées partent : un envoi recalcule tous les prix du dossier. */
 function corpsPrix(
   saisie: { mode: ModeRemise; remise: string; tva: string; forcer: boolean },
-  initial: { remiseMontantHT: number; tvaPourcent: number },
+  initial: { remiseMontantHT: number; remisePourcent: number; tvaPourcent: number },
 ): ModifierDossierRequest {
   const corps: ModifierDossierRequest = {};
   const valeur = nombre(saisie.remise);
-  if (valeur != null && saisie.mode === 'pourcentage') corps.remisePourcentage = valeur;
+  if (valeur != null && saisie.mode === 'pourcentage' && valeur !== initial.remisePourcent) corps.remisePourcentage = valeur;
   if (valeur != null && saisie.mode === 'montant' && valeur !== initial.remiseMontantHT) corps.remiseMontantHT = valeur;
   const tauxTva = nombre(saisie.tva);
   if (tauxTva != null && tauxTva !== initial.tvaPourcent) corps.tva = tauxTva / 100;
@@ -37,25 +37,35 @@ function corpsPrix(
 export default function PrixDialog({
   edition,
   remiseMontantHT,
+  remisePourcentage,
   tauxTva,
   onClose,
-}: Readonly<{ edition: EditionDossier; remiseMontantHT: number; tauxTva: number; onClose: () => void }>) {
+}: Readonly<{
+  edition: EditionDossier;
+  remiseMontantHT: number;
+  /** Taux actuel, 0–100. */
+  remisePourcentage: number;
+  tauxTva: number;
+  onClose: () => void;
+}>) {
   const idRemise = useId();
   const idTva = useId();
   const tvaPourcent = Math.round(tauxTva * 10000) / 100;
+  const remisePourcent = Math.round(remisePourcentage * 10000) / 10000;
   const [mode, setMode] = useState<ModeRemise>('montant');
   const [remise, setRemise] = useState(String(remiseMontantHT));
   const [tva, setTva] = useState(String(tvaPourcent));
   const [forcer, setForcer] = useState(false);
 
-  // Un montant laissé dans le champ partirait en pourcentage (50 DH → 50 %) : la saisie repart à chaque bascule.
+  // Un montant laissé dans le champ partirait en pourcentage (50 DH → 50 %) : la saisie repart de la valeur
+  // actuelle du mode choisi à chaque bascule.
   function changerMode(suivant: ModeRemise) {
     setMode(suivant);
-    setRemise(suivant === 'montant' ? String(remiseMontantHT) : '');
+    setRemise(String(suivant === 'montant' ? remiseMontantHT : remisePourcent));
   }
 
   async function enregistrer() {
-    const corps = corpsPrix({ mode, remise, tva, forcer }, { remiseMontantHT, tvaPourcent });
+    const corps = corpsPrix({ mode, remise, tva, forcer }, { remiseMontantHT, remisePourcent, tvaPourcent });
     if (await edition.enregistrer(corps)) onClose();
   }
 

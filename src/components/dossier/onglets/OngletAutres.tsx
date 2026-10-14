@@ -71,7 +71,7 @@ function Lecture({ a }: Readonly<{ a: AutresFicheDto }>) {
 
 function Autres({ fiche }: Readonly<{ fiche: DossierFicheDto }>) {
   const decisions = useApi(() => listDecisionsMeilleurTaux(), [], 'decisions-meilleurtaux');
-  const f = useFormulaireEdition(fiche.id, () => valeursInitiales(fiche.autres, decisions.data ?? []), CLES_DATES);
+  const f = useFormulaireEdition(fiche, () => valeursInitiales(fiche.autres, decisions.data ?? []), CLES_DATES);
   const visible = GROUPES_AUTRES.some((g) => f.edition.peut(g));
 
   return (
