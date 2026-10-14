@@ -307,7 +307,7 @@ export function oublierLecturesRecentes(): void {
   getCache.clear();
 }
 
-async function request<T>(
+export async function request<T>(
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   path: string,
   // `lecture` : POST sans effet (simulation) — ne vide pas les caches, sinon un

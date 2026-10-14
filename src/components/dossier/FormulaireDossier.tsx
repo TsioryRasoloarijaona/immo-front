@@ -1,5 +1,10 @@
+import { useState } from 'react';
+import { Pencil } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card } from '../ui';
+import { Button } from '../ui/button';
+import PrixDialog from './edition/PrixDialog';
+import { useEditionDossier } from '../../lib/editionDossier';
 import { ChampLecture, GrilleFiche, PiedFiche } from '../ChampsFiche';
 import { formatCurrency, formatDate, formatPercent, formatPercentValue, formatSurface } from '../../lib/format';
 import type { DossierDetailDto, EnTeteFicheDto } from '../../types';
@@ -9,7 +14,35 @@ function remise(e: EnTeteFicheDto | undefined): string | null {
   return `${formatCurrency(e.remiseMontantHT)} · ${formatPercentValue(e.remisePourcentage, 2)}`;
 }
 
-/** En-tête en lecture seule : prix de l'article et des sous-articles séparés, HT et TTC (FEATURE-vente-fiche.md §A1). */
+/** Bouton « Modifier la remise / TVA » (groupe PRIX) et avertissement d'écart du schéma après enregistrement. */
+function EditionPrix({ dossier: d, enTete: e }: Readonly<{ dossier: DossierDetailDto; enTete?: EnTeteFicheDto }>) {
+  const edition = useEditionDossier(d.id);
+  const [ouvert, setOuvert] = useState(false);
+  if (!edition.peut('PRIX') || !e) return null;
+  return (
+    <div className="mb-2 flex flex-col items-end gap-1">
+      <Button type="button" size="sm" variant="outline" onClick={() => setOuvert(true)}>
+        <Pencil aria-hidden />
+        Modifier la remise / TVA
+      </Button>
+      {edition.ecart != null && (
+        <p role="status" className="text-micro text-(--warning)">
+          Écart du schéma de financement : {formatCurrency(edition.ecart)} à reporter dans l'échéancier.
+        </p>
+      )}
+      {ouvert && (
+        <PrixDialog
+          edition={edition}
+          remiseMontantHT={e.remiseMontantHT ?? 0}
+          tauxTva={d.tauxTVA ?? 0}
+          onClose={() => setOuvert(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** En-tête : prix de l'article et des sous-articles séparés, HT et TTC (FEATURE-vente-fiche.md §A1). */
 export default function FormulaireDossier({
   dossier: d,
   enTete: e,
@@ -19,6 +52,7 @@ export default function FormulaireDossier({
   return (
     <Card padded={false} className="h-full">
       <div className="p-3">
+        <EditionPrix dossier={d} enTete={e} />
         <GrilleFiche>
           <ChampLecture
             label="Tranche"
