@@ -1,4 +1,22 @@
+import { canonicalStatusLabel, normalizeStatus } from './dossierStatus';
 import type { ColonneDto, DossierListItemDto } from '../types';
+
+/** Codes `StrStatus` dont la normalisation ne rejoint pas le libellé canonique (`dossierStatus.ts`). */
+const ALIAS_STATUT: Record<string, string> = {
+  ANNULATION: 'Annulé',
+  REMISEDESCLEFS: 'Remise des clés',
+  LIBRE: 'Libre',
+};
+
+/** Libellé de la colonne Statut : code serveur ou lot libre ramené au libellé canonique, jamais le code brut. */
+export function libelleStatutLigne(d: DossierListItemDto): string {
+  return d.libre ? 'Libre' : libelleStatut(d.statut);
+}
+
+/** Code `StrStatus` → libellé canonique, alias compris (aussi pour les clés de groupe). */
+export function libelleStatut(code: string | null | undefined): string {
+  return ALIAS_STATUT[normalizeStatus(code)] ?? canonicalStatusLabel(code);
+}
 import type { LignesListeDossiers, StatutListeDossierDto } from '../types/dossierListe';
 
 /** Option « Libre » du filtre de statut : pas un code `StrStatus`, elle se traduit par `lignes`. */
@@ -35,7 +53,7 @@ export function uniteDeLigne(lignes: LignesListeDossiers | undefined): string {
 /** Options du filtre : statuts du serveur (sorties signalées), puis « Libre ». */
 export function optionsStatuts(statuts: StatutListeDossierDto[]): { label: string; value: string }[] {
   return [
-    ...statuts.map((s) => ({ label: `${s.libelle ?? s.code}${s.sortie ? ' (sortie)' : ''}`, value: s.code })),
+    ...statuts.map((s) => ({ label: `${libelleStatut(s.code) || s.code}${s.sortie ? ' (sortie)' : ''}`, value: s.code })),
     { label: 'Libre', value: OPTION_LIBRE },
   ];
 }

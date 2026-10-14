@@ -3,7 +3,8 @@ import { MailWarning, TriangleAlert } from 'lucide-react';
 import { Badge } from './ui';
 import DataGrid, { type ColonneGrille, type GroupementGrille } from './DataGrid';
 import { formatPercent, formatPercentValue } from '../lib/format';
-import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
+import { toneForStatus } from '../lib/dossierStatus';
+import { libelleStatutLigne } from '../lib/dossierListe';
 import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_DOSSIERS } from '../lib/dispositions';
 import type { ColonneDto, DossierListItemDto } from '../types';
@@ -35,6 +36,8 @@ const RENDUS: Partial<Record<string, (d: DossierListItemDto, ctx: Contexte) => R
       ) : (
         TIRET
       )}
+      {/* Lot libre : `code` est celui de l'article, la tranche le situe. */}
+      {d.libre && d.trancheCode && <span className="text-muted-foreground">{d.trancheCode}</span>}
     </span>
   ),
   prospectionCode: (d, ctx) =>
@@ -52,12 +55,10 @@ const RENDUS: Partial<Record<string, (d: DossierListItemDto, ctx: Contexte) => R
     ) : (
       TIRET
     ),
-  statut: (d) =>
-    d.libre ? (
-      <Badge tone="neutral">Libre</Badge>
-    ) : (
-      <Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge>
-    ),
+  statut: (d) => {
+    const libelle = libelleStatutLigne(d);
+    return <Badge tone={toneForStatus(libelle)}>{libelle || '—'}</Badge>;
+  },
   origineProspection: (d) => (d.origineProspection ? <Badge tone="info">{d.origineProspection}</Badge> : TIRET),
   trancheCode: (d) => (d.trancheCode ? <Badge tone="neutral">{d.trancheCode}</Badge> : TIRET),
   articleCode: (d) => (d.articleCode ? <Badge tone="neutral" className="font-mono">{d.articleCode}</Badge> : TIRET),
@@ -74,7 +75,7 @@ const RENDUS: Partial<Record<string, (d: DossierListItemDto, ctx: Contexte) => R
 
 // Sans elles, tri et filtre comparent le statut brut du serveur, pas le libellé affiché.
 const VALEURS: Record<string, (d: DossierListItemDto) => unknown> = {
-  statut: (d) => (d.libre ? 'Libre' : canonicalStatusLabel(d.statut)),
+  statut: (d) => libelleStatutLigne(d),
 };
 
 const FORMATS_VALEUR: Record<string, (v: unknown) => string> = {

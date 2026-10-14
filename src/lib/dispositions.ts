@@ -234,8 +234,8 @@ export const DISPOSITION_DOSSIERS: DispositionColonnes = {
   /* La colonne « Prospection » est un lien vers `/prospections/{id}` et `?colonnes=` est une liste close :
      sans `prospectionId`, le lien disparaît en silence. */
   dependances: { prospectionCode: ['prospectionId'] },
-  /* Icônes de ligne (alerte, instruction non lue) et ouverture d'un lot libre sur sa fiche article. */
-  toujoursDemandees: ['libre', 'alerte', 'instructionNonLue'],
+  /* Icônes de ligne (alerte, instruction non lue), lot libre (ouverture sur sa fiche article, tranche à côté du code). */
+  toujoursDemandees: ['libre', 'alerte', 'instructionNonLue', 'trancheCode'],
 };
 
 const ORDRE_PROSPECTS = [

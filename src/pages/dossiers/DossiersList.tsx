@@ -35,12 +35,12 @@ import { DISPOSITION_DOSSIERS } from '../../lib/dispositions';
 import { useColonnesDossiers, useTranchesFiltre } from '../../lib/referentiels';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { debutMoisISO, finMoisISO, pluriel } from '../../lib/format';
-import { canonicalStatusLabel } from '../../lib/dossierStatus';
 import {
   AGREGATS_TOTAUX,
   colonnesListe,
   exigeLesSortis,
   filtreStatuts,
+  libelleStatut,
   optionsListe,
   optionsStatuts,
   routeDeLigne,
@@ -319,10 +319,17 @@ export default function DossiersList() {
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                {/* Libellés OMRAN longs : la liste déborde la largeur du déclencheur et passe à la ligne au besoin. */}
+                <SelectContent
+                  alignItemWithTrigger={false}
+                  align="start"
+                  className="w-auto min-w-(--anchor-width) max-w-[min(30rem,90vw)]"
+                >
                   <SelectGroup>
                     {champDateItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                      <SelectItem key={item.value} value={item.value} className="whitespace-normal">
+                        {item.label}
+                      </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
@@ -481,7 +488,7 @@ export default function DossiersList() {
                     rows={enGroupes ? [] : dossiers}
                     colonnes={colonnes.colonnes}
                     // `enGroupes` et non `groupement.actif` : un filtre de statut bloque le groupement.
-                    groupes={groupesGrille(groupement, groupes.data, lignesGroupes, { statut: canonicalStatusLabel }, enGroupes)}
+                    groupes={groupesGrille(groupement, groupes.data, lignesGroupes, { statut: libelleStatut }, enGroupes)}
                     onOuvrir={(id) => navigate(routeDeLigne(dossiersParId.get(id), id))}
                     onOuvrirProspection={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
                     bandeauRegroupement={false}
