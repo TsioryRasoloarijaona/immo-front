@@ -33,7 +33,8 @@ export default function GenererPeriodicite({
   const { occupe, executer } = useEcriture();
 
   function ouvrir() {
-    setMontant(montantInitial ? String(montantInitial) : '');
+    // Arrondi par défaut : le serveur refuse un montant au-delà du plafond.
+    setMontant(montantInitial ? String(Math.floor(montantInitial * 100) / 100) : '');
     setOuvert(true);
   }
 

@@ -93,7 +93,17 @@ export default function CadeauDialog({
               <Input id="cad-bon" type="date" value={dateBon} onChange={(e) => setDateBon(e.target.value)} />
             </Champ>
             <Champ id="cad-livraison" libelle={livre ? 'Date de livraison *' : 'Date de livraison'}>
-              <Input id="cad-livraison" type="date" value={dateLivraison} onChange={(e) => setDateLivraison(e.target.value)} />
+              <Input
+                id="cad-livraison"
+                type="date"
+                value={dateLivraison}
+                aria-invalid={dateManquante}
+                aria-describedby={dateManquante ? 'cad-livraison-erreur' : undefined}
+                onChange={(e) => setDateLivraison(e.target.value)}
+              />
+              {dateManquante && (
+                <span id="cad-livraison-erreur" className="text-micro text-(--warning)">Veuillez saisir une date de livraison</span>
+              )}
             </Champ>
           </div>
           <label className="flex items-center gap-2 text-label">

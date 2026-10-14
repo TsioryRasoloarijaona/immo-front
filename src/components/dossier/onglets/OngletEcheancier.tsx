@@ -7,6 +7,7 @@ import { getEtatSchema, supprimerEcheance } from '../../../lib/apiDossierSousLis
 import { useAuth } from '../../../lib/auth';
 import { useConfirm } from '../../../lib/confirmContext';
 import { estAdministrateur } from '../../../lib/roles';
+import { arrondiCentime } from '../../../lib/dossierSousListes';
 import { formatCurrency, formatDate, todayISO } from '../../../lib/format';
 import { useApi, type ApiState } from '../../../lib/useApi';
 import { useEcriture } from '../../../lib/useEcriture';
@@ -66,7 +67,7 @@ export default function OngletEcheancier({
               // Lu au montage seulement : sans données chargées, rester fermé plutôt
               // que proposer une échéance du montant total sur un schéma déjà rempli.
               initialOpen={fromCreation && echeances.data?.totalElements === 0}
-              initialMontant={d.totalAPayer ?? d.prix ?? undefined}
+              initialMontant={arrondiCentime(d.totalAPayer ?? d.prix)}
               initialDate={todayISO()}
             />
           </div>

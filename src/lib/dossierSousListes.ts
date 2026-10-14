@@ -40,6 +40,11 @@ export function lireMontant(texte: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** Montant servi à 6 décimales (decimal(26,6)) → valeur de saisie au centime ; `undefined` si absent. */
+export function arrondiCentime(valeur: number | null | undefined): number | undefined {
+  return valeur == null ? undefined : Math.round(valeur * 100) / 100;
+}
+
 /** `2026-11-02T00:00:00` → `2026-11-02` pour un `<input type="date">`. */
 export function versChampDate(valeur: string | null | undefined): string {
   return valeur ? valeur.slice(0, 10) : '';
