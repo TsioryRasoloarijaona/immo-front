@@ -2167,7 +2167,7 @@
           {
             "name": "inclureSansTranche",
             "in": "query",
-            "description": "« Non affectés » : avec `trancheId`, ajoute les pré-prospections **sans tranche** à celles des\ntranches cochées. Sans `trancheId`, sans effet (le périmètre s'applique comme avant).",
+            "description": "« Non affectés », comme le logiciel de bureau : avec `trancheId`, ajoute les pré-prospections **sans\ntranche** à celles des tranches cochées ; sans `trancheId`, ne renvoie **que** les pré-prospections\nsans tranche.",
             "required": false,
             "schema": {
               "type": "boolean",
@@ -8607,7 +8607,7 @@
           {
             "name": "inclureSansTranche",
             "in": "query",
-            "description": "« Non affectés », **identique à la liste** : avec `trancheId`, ajoute les pré-prospections sans\ntranche. Les effectifs retombent sur le `totalElements` de la liste appelée avec les mêmes filtres.",
+            "description": "« Non affectés », **identique à la liste** : avec `trancheId`, ajoute les pré-prospections sans\ntranche ; sans `trancheId`, seulement celles sans tranche. Les effectifs retombent sur le\n`totalElements` de la liste appelée avec les mêmes filtres.",
             "required": false,
             "schema": {
               "type": "boolean",

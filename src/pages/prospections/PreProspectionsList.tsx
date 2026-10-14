@@ -77,7 +77,7 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
   // Mêmes filtres pour la liste et les groupes : la somme des effectifs doit égaler le total.
   const filtresServeur = {
     ...paramsBarre(filters, debouncedSearch),
-    inclureSansTranche: filters.sansTranche && filters.trancheId.length > 0 ? true : undefined,
+    inclureSansTranche: filters.sansTranche || undefined,
     projetId: projetIds.length > 0 ? projetIds : undefined,
   };
 
@@ -177,6 +177,7 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
           trancheItems={trancheItems}
           defauts={defauts}
           mode="pre-prospections"
+          onReset={() => setProjetIds([])}
           extra={
             <MultiSelectDropdown
               label="Projet"

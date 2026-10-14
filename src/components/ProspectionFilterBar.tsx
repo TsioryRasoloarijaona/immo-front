@@ -32,6 +32,7 @@ export default function ProspectionFilterBar({
   extra,
   defauts,
   mode = 'prospections',
+  onReset,
 }: Readonly<{
   state: ProspectionFilterBarState;
   /** À passer quand les défauts dépendent de la session (commercial connecté). */
@@ -46,22 +47,21 @@ export default function ProspectionFilterBar({
   extra?: ReactNode;
   /** Aboutie et date visée : prospections ; « Non affectés » : pré-prospections. */
   mode?: 'prospections' | 'pre-prospections';
+  /** Appelé par « Réinitialiser » après la barre : remet aussi les filtres tenus par la page (`extra`). */
+  onReset?: () => void;
 }>) {
   const prospections = mode === 'prospections';
 
   function reset() {
     const empty = defauts ?? emptyProspectionFilters();
     (Object.keys(empty) as (keyof ProspectionFilterBarState)[]).forEach((key) => onChange(key, empty[key]));
+    onReset?.();
   }
 
-  // « Non affectés » n'élargit que des tranches cochées (règle serveur) : sans elles, la case est inerte.
+  // « Non affectés » d'OMRAN : avec des tranches cochées, les ajoute ; seule, ne garde que les lignes sans tranche.
   const sansTranche = prospections ? undefined : (
     <>
-      <DropdownMenuCheckboxItem
-        checked={state.sansTranche}
-        disabled={state.trancheId.length === 0}
-        onCheckedChange={(v) => onChange('sansTranche', v)}
-      >
+      <DropdownMenuCheckboxItem checked={state.sansTranche} onCheckedChange={(v) => onChange('sansTranche', v)}>
         Non affectés (sans tranche)
       </DropdownMenuCheckboxItem>
       <DropdownMenuSeparator />

@@ -469,7 +469,7 @@ export interface ProspectionFilterParams {
   dateFin?: string;
   search?: string;
   ouvertes?: boolean;
-  /** Pré-prospections : « Non affectés », ajoute les lignes sans tranche aux `trancheId` cochées. */
+  /** Pré-prospections : « Non affectés » — `trancheId` cochées OU sans tranche ; seul, les lignes sans tranche. */
   inclureSansTranche?: boolean;
 }
 

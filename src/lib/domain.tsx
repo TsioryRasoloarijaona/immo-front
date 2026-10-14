@@ -159,7 +159,7 @@ export interface ProspectionFilterBarState {
   dateRenseignee: FiltreTriple;
   /** Prospections seulement : « Aboutie » d'OMRAN. Défaut Tous. */
   aboutie: FiltreTriple;
-  /** Pré-prospections seulement : « Non affectés », avec les tranches cochées. */
+  /** Pré-prospections seulement : « Non affectés » (seul : lignes sans tranche ; avec tranches : les ajoute). */
   sansTranche: boolean;
 }
 
