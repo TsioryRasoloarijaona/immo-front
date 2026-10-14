@@ -135,6 +135,7 @@ import type {
   SynchronisationResultatDto,
   TitreDto,
   TransformerProspectionRequest,
+  TransitionSuggereeDto,
   TrancheDetailDto,
   TrancheListItemDto,
   TypeReglementDto,
@@ -307,7 +308,7 @@ export function oublierLecturesRecentes(): void {
   getCache.clear();
 }
 
-async function request<T>(
+export async function request<T>(
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   path: string,
   // `lecture` : POST sans effet (simulation) — ne vide pas les caches, sinon un
@@ -798,6 +799,10 @@ export function changerStatutDossier(id: UUID, body: ChangerStatutRequest): Prom
 
 export function getEtapesSuivantes(id: UUID): Promise<EtapeSuivanteDto[]> {
   return request('GET', `/api/dossiers/${id}/statut/etapes-suivantes`);
+}
+
+export function getTransitionSuggeree(id: UUID): Promise<TransitionSuggereeDto> {
+  return request('GET', `/api/dossiers/${id}/statut/transition-suggeree`);
 }
 
 export function listHistoriqueDossier(id: UUID, pageable?: Pageable): Promise<PageDto<HistoriqueEvenementDto>> {

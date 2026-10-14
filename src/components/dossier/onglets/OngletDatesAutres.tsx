@@ -1,5 +1,8 @@
 import { Field, FieldGrid } from '../../ui';
+import BarreEdition from '../edition/BarreEdition';
+import { ChampDate, ChampTexte } from '../edition/ChampsSaisie';
 import { formatDate } from '../../../lib/format';
+import { jourSaisi, useFormulaireEdition, type CleEdition, type ValeursEdition } from '../../../lib/editionDossier';
 import type { ApiState } from '../../../lib/useApi';
 import type { DatesAutresFicheDto, DossierFicheDto } from '../../../types';
 import ContenuFiche from './ContenuFiche';
@@ -54,24 +57,53 @@ const GROUPES: { titre: string; dates: { cle: CleDate; libelle: string }[] }[] =
   },
 ];
 
-export default function OngletDatesAutres({ fiche }: Readonly<{ fiche: ApiState<DossierFicheDto> }>) {
+const CLES_DATES = new Set(GROUPES.flatMap((g) => g.dates.map((d) => d.cle as CleEdition)));
+
+function valeursInitiales(d: DatesAutresFicheDto): ValeursEdition {
+  const v: ValeursEdition = { numeroTitre: d.numeroTitre ?? '' };
+  for (const cle of CLES_DATES) v[cle] = jourSaisi(d[cle as CleDate]);
+  return v;
+}
+
+function DatesAutres({ fiche }: Readonly<{ fiche: DossierFicheDto }>) {
+  const { datesAutres } = fiche;
+  const f = useFormulaireEdition(fiche, () => valeursInitiales(datesAutres), CLES_DATES);
+  const ouvert = f.edition.ouvert;
+
   return (
-    <ContenuFiche fiche={fiche}>
-      {({ datesAutres }) => (
-        <>
-          {GROUPES.map((g) => (
-            <section key={g.titre}>
-              <h3 className="mb-2 text-micro font-medium text-muted-foreground">{g.titre}</h3>
-              <FieldGrid>
-                {g.dates.map(({ cle, libelle }) => (
-                  <Field key={cle} label={libelle} value={formatDate(datesAutres[cle])} />
-                ))}
-                {g.titre.startsWith('Conservation') && <Field label="N° de titre" value={datesAutres.numeroTitre} />}
-              </FieldGrid>
-            </section>
-          ))}
-        </>
-      )}
-    </ContenuFiche>
+    <>
+      <BarreEdition edition={f.edition} visible={f.edition.peut('DATES')} onEnregistrer={f.enregistrer} />
+      {GROUPES.map((g) => (
+        <section key={g.titre}>
+          <h3 className="mb-2 text-micro font-medium text-muted-foreground">{g.titre}</h3>
+          <FieldGrid>
+            {g.dates.map(({ cle, libelle }) =>
+              ouvert ? (
+                <ChampDate key={cle} label={libelle} value={f.texte(cle)} onChange={(v) => f.changer(cle, v)} />
+              ) : (
+                <Field key={cle} label={libelle} value={formatDate(datesAutres[cle])} />
+              ),
+            )}
+            {g.titre.startsWith('Conservation') && (
+              <NumeroTitre ouvert={ouvert} valeur={datesAutres.numeroTitre} saisi={f.texte('numeroTitre')} onChange={(v) => f.changer('numeroTitre', v)} />
+            )}
+          </FieldGrid>
+        </section>
+      ))}
+    </>
   );
+}
+
+function NumeroTitre({
+  ouvert,
+  valeur,
+  saisi,
+  onChange,
+}: Readonly<{ ouvert: boolean; valeur?: string | null; saisi: string; onChange: (v: string) => void }>) {
+  if (!ouvert) return <Field label="N° de titre" value={valeur} />;
+  return <ChampTexte label="N° de titre" value={saisi} maxLength={255} onChange={onChange} />;
+}
+
+export default function OngletDatesAutres({ fiche }: Readonly<{ fiche: ApiState<DossierFicheDto> }>) {
+  return <ContenuFiche fiche={fiche}>{(f) => <DatesAutres fiche={f} />}</ContenuFiche>;
 }
