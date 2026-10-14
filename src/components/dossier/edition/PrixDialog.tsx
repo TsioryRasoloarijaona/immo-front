@@ -48,6 +48,12 @@ export default function PrixDialog({
   const [tva, setTva] = useState(String(tvaPourcent));
   const [forcer, setForcer] = useState(false);
 
+  // Un montant laissé dans le champ partirait en pourcentage (50 DH → 50 %) : la saisie repart à chaque bascule.
+  function changerMode(suivant: ModeRemise) {
+    setMode(suivant);
+    setRemise(suivant === 'montant' ? String(remiseMontantHT) : '');
+  }
+
   async function enregistrer() {
     const corps = corpsPrix({ mode, remise, tva, forcer }, { remiseMontantHT, tvaPourcent });
     if (await edition.enregistrer(corps)) onClose();
@@ -58,11 +64,11 @@ export default function PrixDialog({
       <div className="flex flex-col gap-3">
         <div className="flex gap-3 text-body">
           <label className="flex items-center gap-1.5">
-            <input type="radio" name="mode-remise" checked={mode === 'montant'} onChange={() => setMode('montant')} />
+            <input type="radio" name="mode-remise" checked={mode === 'montant'} onChange={() => changerMode('montant')} />
             Montant HT
           </label>
           <label className="flex items-center gap-1.5">
-            <input type="radio" name="mode-remise" checked={mode === 'pourcentage'} onChange={() => setMode('pourcentage')} />
+            <input type="radio" name="mode-remise" checked={mode === 'pourcentage'} onChange={() => changerMode('pourcentage')} />
             Pourcentage du total HT
           </label>
         </div>

@@ -6,10 +6,10 @@ import { useTiersParType, type CleEdition, type FormulaireEdition } from '../../
 import { referentielItems, useBanques } from '../../../lib/referentiels';
 import type { ReferentielItemDto } from '../../../types';
 
-const CASES: { cle: CleEdition; libelle: string; groupe: 'OPTIONS' | 'PENALITES' }[] = [
+const CASES: { cle: CleEdition; libelle: string; groupe: 'OPTIONS' | 'PENALITES' | 'PRIX' }[] = [
   { cle: 'ancienClient', libelle: "C'est un ancien client", groupe: 'OPTIONS' },
   { cle: 'cadeauPlusTard', libelle: 'Client veut choisir le cadeau plus tard', groupe: 'OPTIONS' },
-  { cle: 'integrerModificationsAuPrix', libelle: 'Intégrer les modifications au prix de vente', groupe: 'OPTIONS' },
+  { cle: 'integrerModificationsAuPrix', libelle: 'Intégrer les modifications au prix de vente', groupe: 'PRIX' },
   { cle: 'penalitesDesactivees', libelle: 'Pénalité désactivée', groupe: 'PENALITES' },
 ];
 
@@ -72,7 +72,7 @@ export default function AutresEdition({
           />
         </Section>
       )}
-      {(peut('OPTIONS') || peut('PENALITES')) && (
+      {CASES.some((c) => peut(c.groupe)) && (
         <Section titre="Options">
           {CASES.filter((c) => peut(c.groupe)).map((c) => (
             <ChampCase key={c.cle} label={c.libelle} checked={f.saisi[c.cle] === true} onChange={(v) => f.changer(c.cle, v)} />

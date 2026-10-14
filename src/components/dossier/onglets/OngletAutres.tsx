@@ -9,7 +9,7 @@ import type { AutresFicheDto, DossierFicheDto, ReferentielItemDto } from '../../
 import type { GroupeEdition } from '../../../types/edition';
 import ContenuFiche from './ContenuFiche';
 
-const GROUPES_AUTRES: GroupeEdition[] = ['CLIENT', 'COMMERCIAL', 'GESTIONNAIRES', 'NOTAIRE', 'CREDIT', 'OPTIONS', 'PENALITES', 'NOTE'];
+const GROUPES_AUTRES: GroupeEdition[] = ['CLIENT', 'COMMERCIAL', 'GESTIONNAIRES', 'NOTAIRE', 'CREDIT', 'OPTIONS', 'PENALITES', 'PRIX', 'NOTE'];
 const CLES_DATES: ReadonlySet<CleEdition> = new Set<CleEdition>(['meilleurTauxEnvoi', 'meilleurTauxDecisionDate']);
 
 function ouiNon(valeur: boolean | null | undefined): string {
