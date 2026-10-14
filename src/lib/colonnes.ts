@@ -4,6 +4,9 @@ import type { ColonneDto } from '../types';
 /** Le serveur envoie des clés d'énumération ; un groupe inconnu retombe sur sa clé brute plutôt que de disparaître. */
 export const LIBELLES_GROUPE: Record<string, string> = {
   IDENTITE: 'Identité',
+  CLIENT: 'Client',
+  PRIX: 'Prix',
+  DATES: 'Dates',
   CONTACT: 'Contact',
   CONTEXTE: 'Contexte',
   FINANCIER: 'Financier',

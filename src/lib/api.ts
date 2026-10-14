@@ -1,4 +1,5 @@
 import { clearCachedValues } from './apiCache';
+import type { ChampDateListeDto, LignesListeDossiers, StatutListeDossierDto } from '../types/dossierListe';
 import type {
   ActionRecente,
   ADistribuerDto,
@@ -202,7 +203,7 @@ function detailProblem(problem: Record<string, unknown> | undefined): string | n
   return null;
 }
 
-type QueryValue = string | number | boolean | string[] | undefined | null;
+export type QueryValue = string | number | boolean | string[] | undefined | null;
 
 export interface ParamsGroupes {
   /** Doit être `groupable` dans le catalogue, sinon 400 (`colonnesValides`). */
@@ -250,7 +251,7 @@ function withDepliage(
   return query;
 }
 
-function buildQuery(params?: Record<string, QueryValue>): string {
+export function buildQuery(params?: Record<string, QueryValue>): string {
   if (!params) return '';
   const usp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -723,17 +724,6 @@ export function listOffres(params?: DevisFilterParams, pageable?: Pageable): Pro
   return request('GET', '/api/devis', { query: withPageable(params, pageable) });
 }
 
-export type DossierChampDate =
-  | 'RESERVATION'
-  | 'CONCRETISATION'
-  | 'COMPROMIS'
-  | 'ENVOI_NOTAIRE'
-  | 'CREDIT_DEBLOQUE'
-  | 'MINUTE'
-  | 'REMISE_DES_CLES'
-  | 'FORMALISATION'
-  | 'ANNULATION';
-
 /** Alias et non `interface` à dessein : seul un alias d'objet reçoit la signature
  * d'index implicite qui le rend assignable au `Record` de `withPageable`. */
 export type DossierFilterParams = {
@@ -743,12 +733,20 @@ export type DossierFilterParams = {
   projet?: UUID;
   trancheId?: UUID[];
   /** Défaut serveur RESERVATION ; ignoré sans `dateDebut`/`dateFin`. */
-  champDate?: DossierChampDate;
+  /** Une des 47 valeurs de `GET /api/dossiers/champs-date` (`listChampsDateDossiers`). */
+  champDate?: string;
   /** Date-heure ISO (pas une date seule), borne incluse. */
   dateDebut?: string;
   /** Date-heure ISO (pas une date seule), borne incluse. */
   dateFin?: string;
+  /** `true` : `champDate` vide ; `false` : renseignée. Prioritaire sur la période. */
+  dateVide?: boolean;
   search?: string;
+  /** Sans lui, annulés et désistés sont exclus (sauf `statut` explicite). */
+  inclureSortis?: boolean;
+  lignes?: LignesListeDossiers;
+  /** Tri d'OMRAN : article, tranche, projet, entité ; remplace `sort`. */
+  ordreOmran?: boolean;
 };
 
 export function listDossiers(
@@ -775,6 +773,16 @@ export function listDossiersGroupes(
   return request('GET', '/api/dossiers/groupes', {
     query: withGroupes(withPageable(params, pageable), groupes),
   });
+}
+
+/** Statuts proposés au filtre de la liste, visibles de l'appelant (codes de `?statut=`). */
+export function listStatutsDossiers(): Promise<StatutListeDossierDto[]> {
+  return request('GET', '/api/dossiers/statuts');
+}
+
+/** Les 47 dates du filtre de période, dans l'ordre d'OMRAN. */
+export function listChampsDateDossiers(): Promise<ChampDateListeDto[]> {
+  return request('GET', '/api/dossiers/champs-date');
 }
 
 export function getColonnesDossiers(): Promise<ColonneDto[]> {
@@ -946,7 +954,7 @@ function blobDepuisTexte(text: string, mime: string): Blob {
 
 /** Un `format: byte` peut arriver en JSON (chaîne base64 ou tableau de nombres)
  * au lieu de binaire : les deux formes sont gérées. */
-async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestInit): Promise<Blob> {
+export async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestInit): Promise<Blob> {
   let res: Response;
   try {
     res = await fetch(url, { credentials: 'include', ...init });
@@ -1018,7 +1026,7 @@ function fetchDevisDocumentBlob(prospectionId: UUID, devisId: UUID): Promise<Blo
   return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
 }
 
-function triggerBlobDownload(blob: Blob, filename: string): void {
+export function triggerBlobDownload(blob: Blob, filename: string): void {
   const objectUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = objectUrl;

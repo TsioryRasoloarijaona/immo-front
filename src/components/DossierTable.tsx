@@ -1,19 +1,44 @@
 import { useMemo, type ReactNode } from 'react';
+import { MailWarning, TriangleAlert } from 'lucide-react';
 import { Badge } from './ui';
 import DataGrid, { type ColonneGrille, type GroupementGrille } from './DataGrid';
 import { formatPercent, formatPercentValue } from '../lib/format';
-import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
+import { toneForStatus } from '../lib/dossierStatus';
+import { libelleStatutLigne } from '../lib/dossierListe';
 import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_DOSSIERS } from '../lib/dispositions';
 import type { ColonneDto, DossierListItemDto } from '../types';
 
 const TIRET = <span className="text-muted-foreground">—</span>;
 
+/** Icônes de tête de ligne d'OMRAN : alerte active, instruction non lue adressée à l'utilisateur. */
+function IconesLigne({ d }: Readonly<{ d: DossierListItemDto }>) {
+  return (
+    <>
+      {d.alerte && (
+        <TriangleAlert className="size-3.5 shrink-0 text-(--warning)" aria-label="Alerte active" role="img" />
+      )}
+      {d.instructionNonLue && (
+        <MailWarning className="size-3.5 shrink-0 text-(--info)" aria-label="Instruction non lue" role="img" />
+      )}
+    </>
+  );
+}
+
 const RENDUS: Partial<Record<string, (d: DossierListItemDto, ctx: Contexte) => ReactNode>> = {
   code: (d) => (
-    <Badge tone="neutral" className="font-mono">
-      {d.code}
-    </Badge>
+    <span className="inline-flex items-center gap-1">
+      <IconesLigne d={d} />
+      {d.code ? (
+        <Badge tone="neutral" className="font-mono">
+          {d.code}
+        </Badge>
+      ) : (
+        TIRET
+      )}
+      {/* Lot libre : `code` est celui de l'article, la tranche le situe. */}
+      {d.libre && d.trancheCode && <span className="text-muted-foreground">{d.trancheCode}</span>}
+    </span>
   ),
   prospectionCode: (d, ctx) =>
     d.prospectionId ? (
@@ -30,7 +55,10 @@ const RENDUS: Partial<Record<string, (d: DossierListItemDto, ctx: Contexte) => R
     ) : (
       TIRET
     ),
-  statut: (d) => <Badge tone={toneForStatus(d.statut)}>{canonicalStatusLabel(d.statut) || '—'}</Badge>,
+  statut: (d) => {
+    const libelle = libelleStatutLigne(d);
+    return <Badge tone={toneForStatus(libelle)}>{libelle || '—'}</Badge>;
+  },
   origineProspection: (d) => (d.origineProspection ? <Badge tone="info">{d.origineProspection}</Badge> : TIRET),
   trancheCode: (d) => (d.trancheCode ? <Badge tone="neutral">{d.trancheCode}</Badge> : TIRET),
   articleCode: (d) => (d.articleCode ? <Badge tone="neutral" className="font-mono">{d.articleCode}</Badge> : TIRET),
@@ -41,16 +69,19 @@ const RENDUS: Partial<Record<string, (d: DossierListItemDto, ctx: Contexte) => R
   remise: (d) => (typeof d.remise === 'number' ? formatPercentValue(d.remise, 2) : TIRET),
   probabiliteFinalisation: (d) =>
     typeof d.probabiliteFinalisation === 'number' ? formatPercent(d.probabiliteFinalisation) : TIRET,
+  // Fraction 0–1 comme la probabilité.
+  tva: (d) => (typeof d.tva === 'number' ? formatPercent(d.tva) : TIRET),
 };
 
 // Sans elles, tri et filtre comparent le statut brut du serveur, pas le libellé affiché.
 const VALEURS: Record<string, (d: DossierListItemDto) => unknown> = {
-  statut: (d) => canonicalStatusLabel(d.statut),
+  statut: (d) => libelleStatutLigne(d),
 };
 
 const FORMATS_VALEUR: Record<string, (v: unknown) => string> = {
   remise: (v) => formatPercentValue(typeof v === 'number' ? v : null, 2),
   probabiliteFinalisation: (v) => formatPercent(typeof v === 'number' ? v : null),
+  tva: (v) => formatPercent(typeof v === 'number' ? v : null),
 };
 
 const CLASSES: Record<string, string> = {
@@ -160,7 +191,9 @@ export default function DossierTable({
       onOuvrir={onOuvrir}
       /* `clientNom` et `code` sont décochables : sans repli sur l'id, un
          lecteur d'écran annoncerait « Ouvrir le dossier undefined ». */
-      libelleLigne={(d) => `Ouvrir le dossier ${d.clientNom || d.code || d.id}`}
+      libelleLigne={(d) =>
+        d.libre ? `Ouvrir l'article ${d.articleCode || d.id}` : `Ouvrir le dossier ${d.clientNom || d.code || d.id}`
+      }
       selection={selection}
       bandeauRegroupement={bandeauRegroupement}
       groupes={groupes}
