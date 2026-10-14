@@ -5366,7 +5366,7 @@
           "Dossiers — modification de la fiche"
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
-        "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nRègles d'OMRAN appliquées :\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent, comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
+        "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nRègles d'OMRAN appliquées :\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
         "operationId": "modifier",
         "parameters": [
           {
@@ -5450,7 +5450,7 @@
           "Dossiers"
         ],
         "summary": "Change le statut du dossier de vente",
-        "description": "Change le statut du dossier. La transition doit figurer dans la table des transitions validées\n(sinon **409**, avec `transitionsAutorisees`) — copie des transitions `StrWorkFlow` du logiciel de\nbureau. Un dossier **sans statut** est refusé (**409**, reprise de données nécessaire).\n\n**Type client / prospect, comme OMRAN** (`Sale.cs:ManageTier`), après chaque changement : le client\nprincipal et chaque acquéreur (`ComFolderCustomer`) qui a au moins un dossier actif (statut ni\nannulation ni résiliation) dont le statut porte l'indicateur « Transforme le prospect en client »\n(`StrStatus.BoolField011`) passe d'un type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`) au type\n`CLI` ; un `CLI` qui n'en a plus aucun redevient `PRO` (`CLIRNT`, `CLIPRM`, `CLIROM` restent). `CfgTierKindId` est\nremis à vide dans les deux cas. Une ligne d'historique distincte (type `STATUT`) le dit : « Prospect\ntransformé en client » ou « Retour prospect » (suivie du nom pour un acquéreur) ; la note du\nchangement de statut reste intacte.\n\n**Sortie (ANNULATION ou DESISTEMENT) : le lot est libéré**, comme OMRAN, dans la même transaction.\nChaque article lié au dossier (lot principal et annexes TER / PARKING) perd son `ComFolderId` et\nredevient `DISPONIBLE` ; un sous-article sans « Toujours affecté » (`AlwaysAffected`) perd aussi son\narticle parent. `ComFolder.StkItemId` est conservé : le détail d'un dossier sorti montre toujours son\nlot principal dans `articles`, même revendu depuis. `note` est **obligatoire** (la cause, écrite dans\n`CancelDescription`) ; `date` va dans `CancelDate` (maintenant si absente), pour les deux sorties.\nChaque sous-article libéré reçoit une ligne d'historique « ANNULATION AFFECTATION ». La sortie est\nrefusée (**409**) si un dossier de syndic en cours est rattaché, ou si une facture de chiffre\nd'affaires du dossier n'est pas annulée par un avoir.\n\n**Réactivation ANNULATION → RESERVATION**, comme OMRAN : le lot principal et **tous** les\nsous-articles du dossier (`ComFolderItem`) doivent être libres (sinon **409**) ; tous reprennent le\ndossier (sous-articles rattachés au lot, ligne « AFFECTATION »). `CancelDate` est vidée et\n`CancelDescription` remise à vide.",
+        "description": "Change le statut du dossier selon le **workflow paramétré d'OMRAN** (CONFIGURATION › VENTE › Statuts /\nTransitions), dans cet ordre :\n\n1. **Transition** lue dans `StrWorkFlow` depuis le statut courant (sinon **409**, avec\n   `transitionsAutorisees` = les cibles que l'appelant peut exécuter). Base sans paramétrage : table de repli\n   des 34 transitions. Un dossier **sans statut** est refusé (**409**, reprise de données nécessaire).\n2. **Intervenant** : un des rôles de l'appelant (ou l'appelant lui-même) doit être intervenant de la\n   transition (`StrWorkFlowIntervener`), sinon **403**. L'Administrateur passe toujours.\n3. `date` et `note` sont posées, puis les **champs obligatoires** de la transition et du statut cible sont\n   contrôlés, sur le dossier **et** sur le client et les acquéreurs personnes physiques ; puis les **pièces à\n   joindre** (une pièce « juste à cocher » peut n'être que cochée). Manque → **400**, `detail` = texte\n   d'OMRAN : « Pour exécuter la transition : … Le champ '…' est obligatoire ! … Le document de type : … est\n   obligatoire ! ».\n4. Hors annulation / désistement : **seuil de versement** du statut cible (`CfgTrancheStatus`, ligne de la\n   tranche sinon globale ; versements = réglé des échéances avance, auto-financement et crédit) — refus\n   **409** « Il faut que la sommes des versements soit au moins égal à 12,50 %. Soit un montant de … ».\n   `ignorerSeuil=true` le saute (Administrateur seulement, sinon **403**) et laisse une ligne d'historique.\n   Puis, si le statut le demande, **schéma de financement** : prix après remise = avance + crédit +\n   auto-financement au centime près (sinon **409** « Votre schéma de financement ne correspond pas… »).\n5. La `date` va sur la **date associée** au statut cible (`StrStatus.StrFieldDateId` : CONCRETISATION →\n   `advanceDate`, MEILLEURTAUX → `loanCompanySendDate`, CREDIT DEBLOQUE → `creditApprovalDate`, FORMALISE →\n   `ownershipCertificateDate`…), ignorée s'il n'en a pas. Sans `date`, rien n'est écrit : une date déjà\n   renseignée n'est jamais écrasée d'office (un retour à RESERVATION garde `docDate`) ; `dateActuelle` de\n   `etapes-suivantes` dit si la colonne est déjà remplie.\n   Le seuil de versement n'est contrôlé que pour un utilisateur dont un rôle porte le droit OMRAN\n   `toolVerifyThreshold` (tout le monde si ce droit n'est pas paramétré).\n6. `StatusValidityDate` = aujourd'hui + durée de vie du statut (vide sans durée) ; si elle change, une action\n   système « l'état … du dossier de vente N° … est expiré » est posée avec son alerte à cette date. Les\n   relances de la prospection sont désarmées et leurs alertes éteintes (impayés épargnés). Un statut « avec\n   affectation de gestionnaire » donne au dossier sans gestionnaire le personnel de l'appelant.\n7. L'historique (`StrHistory`) porte la transition exécutée (`StrWorkflowId`).\n\n**Type client / prospect, comme OMRAN** (`Sale.cs:ManageTier`), après chaque changement : le client\nprincipal et chaque acquéreur (`ComFolderCustomer`) qui a au moins un dossier actif (statut ni\nannulation ni résiliation) dont le statut porte l'indicateur « Transforme le prospect en client »\n(`StrStatus.BoolField011`) passe d'un type prospect (`PRO`, `PRORNT`, `PROPRM`, `PROROM`) au type\n`CLI` ; un `CLI` qui n'en a plus aucun redevient `PRO` (`CLIRNT`, `CLIPRM`, `CLIROM` restent). `CfgTierKindId` est\nremis à vide dans les deux cas. Une ligne d'historique distincte (type `STATUT`) le dit : « Prospect\ntransformé en client » ou « Retour prospect » (suivie du nom pour un acquéreur) ; la note du\nchangement de statut reste intacte.\n\n**Sortie (ANNULATION ou DESISTEMENT) : le lot est libéré**, comme OMRAN, dans la même transaction.\nChaque article lié au dossier (lot principal et annexes TER / PARKING) perd son `ComFolderId` et\nredevient `DISPONIBLE` ; un sous-article sans « Toujours affecté » (`AlwaysAffected`) perd aussi son\narticle parent. `ComFolder.StkItemId` est conservé : le détail d'un dossier sorti montre toujours son\nlot principal dans `articles`, même revendu depuis. `note` est **obligatoire** (la cause, écrite dans\n`CancelDescription`) ; `date` va dans `CancelDate` (maintenant si absente), pour les deux sorties.\nChaque sous-article libéré reçoit une ligne d'historique « ANNULATION AFFECTATION ». La sortie est\nrefusée (**409**) si un dossier de syndic en cours est rattaché, ou si une facture de chiffre\nd'affaires du dossier n'est pas annulée par un avoir.\n\n**Réactivation ANNULATION → RESERVATION**, comme OMRAN : le lot principal et **tous** les\nsous-articles du dossier (`ComFolderItem`) doivent être libres (sinon **409**) ; tous reprennent le\ndossier (sous-articles rattachés au lot, ligne « AFFECTATION »). `CancelDate` est vidée et\n`CancelDescription` remise à vide.",
         "operationId": "changerStatut",
         "parameters": [
           {
@@ -5485,7 +5485,7 @@
             }
           },
           "400": {
-            "description": "`statut` absent ou inconnu, ou `note` absente ou vide vers ANNULATION / DESISTEMENT (« La cause est\nobligatoire pour une annulation ou un désistement ») ; rien n'est écrit.",
+            "description": "`statut` absent ou inconnu, `note` absente ou vide vers ANNULATION / DESISTEMENT (« La cause est\nobligatoire pour une annulation ou un désistement »), ou champs obligatoires / pièces à joindre manquants\n(texte d'OMRAN dans `detail`) ; rien n'est écrit.",
             "content": {
               "*/*": {
                 "schema": {
@@ -5495,7 +5495,7 @@
             }
           },
           "403": {
-            "description": "Un article à libérer ou à réoccuper est sur un projet hors du périmètre commercial de l'appelant.",
+            "description": "L'appelant n'est pas intervenant de la transition, `ignorerSeuil` demandé sans être Administrateur, ou un\narticle à libérer ou à réoccuper est sur un projet hors du périmètre commercial de l'appelant.",
             "content": {
               "*/*": {
                 "schema": {
@@ -5515,7 +5515,7 @@
             }
           },
           "409": {
-            "description": "Transition non autorisée depuis le statut courant (le corps liste `transitionsAutorisees`), dossier\nsans statut, réactivation d'un dossier annulé dont le lot a été revendu entre-temps (« Le lot <code>\na été revendu entre-temps : créer un nouveau dossier ») ou dont un sous-article est pris (« Le sous\narticle <code> n'est pas libre… »), sortie avec un dossier de syndic en cours ou une facture sans\navoir ; le statut ne change pas.",
+            "description": "Transition non paramétrée depuis le statut courant (le corps liste `transitionsAutorisees`), dossier\nsans statut, seuil de versement non atteint, schéma de financement différent du prix, réactivation d'un dossier annulé dont le lot a été revendu entre-temps (« Le lot <code>\na été revendu entre-temps : créer un nouveau dossier ») ou dont un sous-article est pris (« Le sous\narticle <code> n'est pas libre… »), sortie avec un dossier de syndic en cours ou une facture sans\navoir ; le statut ne change pas.",
             "content": {
               "*/*": {
                 "schema": {
@@ -10093,16 +10093,19 @@
         }
       }
     },
-    "/api/dossiers/{id}/statut/etapes-suivantes": {
+    "/api/dossiers/{id}/statut/transition-suggeree": {
       "get": {
         "tags": [
           "Dossiers"
         ],
-        "operationId": "getEtapesSuivantes",
+        "summary": "Passage automatique de statut proposé",
+        "description": "Passage automatique à proposer après un règlement ou un enregistrement (OMRAN le propose à la fermeture\ndu dossier) : l'**unique** transition « avec proposition du passage automatique » que l'appelant peut\nexécuter depuis le statut courant, si le **seuil de versement de son statut cible** est atteint (même\ncalcul que le refus de `PATCH …/statut`). `date` = date du dernier règlement d'une échéance avance,\nauto-financement ou crédit. Aucune proposition (tous les champs nuls) sans transition automatique, avec\ndeux ou plus, sans seuil paramétré pour la cible, ou seuil non atteint.",
+        "operationId": "getTransitionSuggeree",
         "parameters": [
           {
             "name": "id",
             "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -10112,7 +10115,64 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Proposition, champs nuls s'il n'y en a pas.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionSuggereeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionSuggereeDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/statut/etapes-suivantes": {
+      "get": {
+        "tags": [
+          "Dossiers"
+        ],
+        "summary": "Statuts que l'utilisateur connecté peut donner au dossier",
+        "description": "Transitions que l'utilisateur connecté peut exécuter depuis le statut courant (`StrWorkFlow` filtré par\nses rôles ; toutes pour l'Administrateur), avec pour chacune la **date associée** au statut cible\n(`champDate` en camelCase, nul si le statut n'en a pas), le libellé de la transition et le drapeau\n« avec proposition du passage automatique ». Liste vide pour un dossier sans statut.",
+        "operationId": "getEtapesSuivantes",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transitions exécutables, vide si aucune.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EtapeSuivanteDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable.",
             "content": {
               "*/*": {
                 "schema": {
@@ -17476,16 +17536,25 @@
       },
       "ChangerStatutRequest": {
         "type": "object",
+        "description": "Changement de statut d'un dossier de vente.",
         "properties": {
           "statut": {
-            "type": "string"
+            "type": "string",
+            "description": "Code du statut cible (StrStatus.Code).",
+            "example": "CONCRETISATION"
           },
           "date": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "description": "Date écrite sur la date associée au statut cible ; ignorée s'il n'en a pas."
           },
           "note": {
-            "type": "string"
+            "type": "string",
+            "description": "Note ; la cause, obligatoire, pour ANNULATION et DESISTEMENT."
+          },
+          "ignorerSeuil": {
+            "type": "boolean",
+            "description": "Administrateur seulement : ne pas vérifier le seuil de versement (tracé dans l'historique)."
           }
         }
       },
@@ -21100,20 +21169,64 @@
           }
         }
       },
-      "EtapeSuivanteDto": {
+      "TransitionSuggereeDto": {
         "type": "object",
+        "description": "Passage automatique de statut proposé après un règlement ou un enregistrement.",
         "properties": {
           "statut": {
-            "type": "string"
+            "type": "string",
+            "description": "Code du statut proposé, null si aucune proposition.",
+            "example": "MINUTE"
+          },
+          "transition": {
+            "type": "string",
+            "description": "Libellé de la transition (StrWorkFlow.Description).",
+            "example": "MINUTE"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date proposée : celle du dernier règlement d'avance, d'auto-financement ou de crédit."
+          }
+        }
+      },
+      "EtapeSuivanteDto": {
+        "type": "object",
+        "description": "Transition que l'utilisateur connecté peut exécuter depuis le statut courant du dossier.",
+        "properties": {
+          "statut": {
+            "type": "string",
+            "description": "Code du statut cible (StrStatus.Code).",
+            "example": "CONCRETISATION"
           },
           "champDate": {
-            "type": "string"
+            "type": "string",
+            "description": "Champ du dossier (camelCase) qui reçoit la date du changement, null si aucun.",
+            "example": "advanceDate"
           },
           "libelleChampDate": {
-            "type": "string"
+            "type": "string",
+            "description": "Libellé de ce champ, ou explication s'il n'y en a pas.",
+            "example": "Date concrétisation"
           },
           "confiance": {
-            "type": "string"
+            "type": "string",
+            "description": "CONFIRME (date associée paramétrée ou confirmée), PLAUSIBLE ou AUCUN.",
+            "example": "CONFIRME"
+          },
+          "transition": {
+            "type": "string",
+            "description": "Libellé de la transition (StrWorkFlow.Description), le code cible en repli.",
+            "example": "CONCRETISATION"
+          },
+          "passageAutomatique": {
+            "type": "boolean",
+            "description": "Transition « avec proposition du passage automatique » (StrWorkFlow.WithAutomaticTransition)."
+          },
+          "dateActuelle": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Valeur actuelle de la date associée sur ce dossier ; renseignée, elle n'est remplacée que par une date saisie."
           }
         }
       },
