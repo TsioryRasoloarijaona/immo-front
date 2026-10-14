@@ -1183,12 +1183,15 @@ export interface DossierListItemDto {
 
   /** En jours entiers. `null` tant que la concrétisation n'a pas eu lieu. */
   delaiConcretisation?: number | null;
-  /** Concrétisation → compromis, malgré le nom. En jours. */
+  /** Concrétisation → envoi au notaire. En jours. */
   delaiNotaire?: number | null;
   /** Compromis → livraison réelle. En jours. */
   delaiLivraison?: number | null;
+  /** Compromis / approbation du crédit (`CreditApprovalDate`). */
   dateCompromis?: string | null;
   dateLivraisonReelle?: string | null;
+  /** Envoi au notaire / avocat (`AgreementDate`). */
+  dateEnvoiNotaire?: string | null;
 
   /** Le notaire, malgré le nom. */
   avocatId?: UUID;
@@ -1326,6 +1329,19 @@ export interface SchemaFinancementDto {
   /** 0–100 (`formatPercentValue`), pas un ratio. */
   remisePercent?: number;
   prixApresRemise?: number;
+  /** Sous-articles libres du lot absents de `articleIds`, rattachés d'office à la création ; comptés dans les prix. */
+  annexesAutomatiques?: AnnexeAutomatiqueDto[];
+}
+
+/** Sous-article du lot (`StkItem.ParentId`) rattaché automatiquement, comme le logiciel de bureau. */
+export interface AnnexeAutomatiqueDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  /** m². */
+  surface?: number;
+  /** Prix de référence TTC compté dans le prix des sous-articles. */
+  prix?: number;
 }
 
 export interface ChangerStatutRequest {
@@ -1367,7 +1383,10 @@ export interface EcheanceDto {
 export interface CreerEcheanceRequest {
   dateEcheance?: string | null;
   montant?: number;
+  /** Par défaut : la description de la catégorie. */
   description?: string;
+  /** Requise par le serveur (400 sinon), à la création comme à la modification ; optionnelle ici tant que
+   * le formulaire d'échéance de `DossierDetail` peut l'envoyer vide. */
   categorieId?: UUID;
   exclureDuPrix?: boolean;
   notes?: string;
@@ -1486,8 +1505,8 @@ export interface CreerReglementRequest {
   banqueId?: UUID;
   /** Requise si `TypeReglementDto.referenceObligatoire` (400 sinon). */
   reference?: string;
-  /** Peut différer de l'acquéreur principal ; candidats : `/payeurs`. */
-  payeurId: UUID;
+  /** Peut différer de l'acquéreur principal ; candidats : `/payeurs`. Absent : le client du dossier. */
+  payeurId?: UUID;
   notes?: string;
   /** Littéral exprès : `POINTED` vaut 400, la preuve de paiement ne pouvant
    * exister avant le règlement. */
@@ -1545,6 +1564,10 @@ export interface MontantsDossierDto {
   netAPayer?: SyntheseMontantDto;
   /** `ANNULATION` ou `DESISTEMENT`. */
   dossierSorti?: boolean;
+  /** Réglé au-delà du dû (≥ 0, formule de `ComSaleFolderView`) ; 0 pour un dossier débiteur. */
+  tropPercu?: number;
+  /** Part du trop-perçu restant à rembourser (≥ 0). */
+  tropPercuReste?: number;
 }
 
 export interface PieceJointeDto {

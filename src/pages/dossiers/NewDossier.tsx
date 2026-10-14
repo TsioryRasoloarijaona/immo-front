@@ -29,6 +29,7 @@ import {
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { formatCurrency, formatPercent, formatPercentValue, formatSurface } from '../../lib/format';
 import { avecCles } from '../../lib/cles';
+import { aDesAnnexes, annexesAutomatiques, arrondiCentimes, prixProposeDesArticles, sansRemise } from '../../lib/annexesAutomatiques';
 
 function libelleArticlesCharges(affiches: number, charges: number): string {
   const s = (n: number) => (n > 1 ? 's' : '');
@@ -37,6 +38,30 @@ function libelleArticlesCharges(affiches: number, charges: number): string {
 import { prospectionDisplayName } from '../../lib/domain';
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../../lib/referentiels';
 import type { ArticleDetailDto, ArticleListItemDto, MontantsOffreDto, SchemaFinancementDto } from '../../types';
+
+/** Sous-articles libres du lot que la création rattache d'office : visibles, car ils entrent dans le prix. */
+function AnnexesAutomatiques({ annexes }: Readonly<{ annexes: ArticleListItemDto[] }>) {
+  if (annexes.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-micro font-medium text-muted-foreground">
+        Sous-articles du lot, rattachés d'office et comptés dans le prix ({annexes.length})
+      </span>
+      {annexes.map((a) => (
+        <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2 text-label">
+          <span className="flex items-center gap-2 font-medium text-foreground">
+            {a.code}
+            <Badge tone="neutral">Rattaché automatiquement</Badge>
+          </span>
+          <span className="flex items-center gap-3 tabular-nums text-muted-foreground">
+            {a.area ? formatSurface(a.area) : '—'}
+            <span className="text-foreground">{formatCurrency(a.prixSuggere ?? 0)}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 type FiltreStatut = 'DISPONIBLE' | 'OCCUPE' | 'all';
 
@@ -76,15 +101,17 @@ function remiseDeduiteDeLOffre(montants: MontantsOffreDto | undefined): { totalT
 /** Montants de la simulation serveur, ceux que la création enregistrera. Rien si aucune remise. */
 function BlocRemise({ schema, avecAnnexes }: Readonly<{ schema: SchemaFinancementDto; avecAnnexes: boolean }>) {
   const { prixAvantRemise, montantRemise, remisePercent, prixApresRemise } = schema;
-  if (montantRemise == null || prixApresRemise == null || montantRemise === 0) return null;
+  if (montantRemise == null || prixApresRemise == null) return null;
+  // Sous le demi-centime : arrondi du prix saisi, pas une remise (même seuil que le serveur).
+  const remise = sansRemise(montantRemise) ? { montant: 0, taux: 0 } : { montant: montantRemise, taux: remisePercent };
   // Prix négocié au-dessus du prix de référence : le serveur déduit une remise négative.
-  const signe = montantRemise > 0 ? '−' : '+';
+  const signe = remise.montant < 0 ? '+' : '−';
   return (
     <div className="mt-4 flex flex-col gap-1.5 border-t border-border pt-3">
       <div className="flex items-center justify-between text-body">
-        <span className="text-muted-foreground">Montant de la remise ({formatPercentValue(remisePercent)})</span>
+        <span className="text-muted-foreground">Montant de la remise ({formatPercentValue(remise.taux)})</span>
         <span className="tabular-nums text-foreground">
-          {signe} {formatCurrency(Math.abs(montantRemise))}
+          {remise.montant === 0 ? '' : `${signe} `}{formatCurrency(Math.abs(remise.montant))}
         </span>
       </div>
       {avecAnnexes && (
@@ -237,8 +264,10 @@ export default function NewDossier() {
 
   const selectedArticles: ArticleDetailDto[] = selectedArticleDetails.data ?? [];
   const showPicker = editingArticles || selectedArticles.length === 0;
-  // `prixSuggere` = prix commercial, ou plancher quand il vaut 0 — même calcul que le serveur.
-  const autoPrixFromArticles = selectedArticles.reduce((sum, a) => sum + (a.prixSuggere ?? 0), 0);
+  // Le serveur rattache d'office les sous-articles libres du lot ; le prix du lot les inclut déjà.
+  const annexesAuto = annexesAutomatiques(selectedArticles);
+  const avecAnnexes = aDesAnnexes(selectedIds.length, annexesAuto);
+  const autoPrixFromArticles = prixProposeDesArticles(selectedArticles);
   const prixPlancherPropose = selectedArticles.some((a) => a.prixSuggereEstPlancher);
   const remiseOffre = remiseDeduiteDeLOffre(latestDevis?.montants);
   // Taux auto seulement si le prix l'est aussi : sinon il s'appliquerait à un prix tapé à la main.
@@ -250,7 +279,7 @@ export default function NewDossier() {
   // Avec une remise, `prix` est le total avant remise : depuis une offre remisée, c'est son `totalTTC`.
   const prixOffre = remiseOffre && remiseNumber !== null ? remiseOffre.totalTTC : latestDevis?.montants?.prixVenteTTC;
   const autoPrix = prixOffre || autoPrixFromArticles;
-  const prixValue = !priceTouched && autoPrix > 0 ? String(autoPrix) : prix;
+  const prixValue = !priceTouched && autoPrix > 0 ? String(arrondiCentimes(autoPrix)) : prix;
 
   // `remisePercent` est un pourcentage 0–100, pas un ratio. Avec une remise, `prix` devient le total
   // avant remise, annexes comprises.
@@ -271,7 +300,7 @@ export default function NewDossier() {
             articleIds: selectedIds,
             prix: debouncedPrixNumber,
             ...(debouncedRemise !== null ? { remisePercent: debouncedRemise } : {}),
-          }).then((schema) => ({ schema, avecAnnexes: selectedIds.length > 1 }))
+          }).then((schema) => ({ schema, avecAnnexes: aDesAnnexes(selectedIds.length, schema.annexesAutomatiques) }))
         : Promise.resolve(null),
     [selectedIds, debouncedPrixNumber, debouncedRemise],
   );
@@ -387,6 +416,7 @@ export default function NewDossier() {
                   />
                 ))}
               </div>
+              <AnnexesAutomatiques annexes={annexesAuto} />
             </div>
           )}
 
@@ -575,7 +605,7 @@ export default function NewDossier() {
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <FormField>
                 <FieldLabel htmlFor="prix">
-                  {libellePrix(remiseRenseignee, selectedIds.length > 1)}
+                  {libellePrix(remiseRenseignee, avecAnnexes)}
                 </FieldLabel>
                 <Input
                   id="prix"

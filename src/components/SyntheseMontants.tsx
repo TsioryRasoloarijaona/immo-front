@@ -51,6 +51,24 @@ function Ligne({
   );
 }
 
+/** Affiché seulement quand le client a trop versé ; les deux montants sont servis, jamais recalculés ici. */
+function TropPercu({ montants }: Readonly<{ montants: MontantsDossierDto }>) {
+  const tropPercu = montants.tropPercu ?? 0;
+  if (tropPercu <= 0) return null;
+  return (
+    <div className="mt-2 flex shrink-0 flex-col gap-0.5 border-t border-border pt-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-micro font-medium text-muted-foreground">Trop-perçu</span>
+        <span className="text-label font-semibold tabular-nums text-(--warning)">{formatCurrency(tropPercu)}</span>
+      </div>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-micro text-muted-foreground">Reste à rembourser</span>
+        <span className="text-body tabular-nums text-foreground">{formatCurrency(montants.tropPercuReste ?? 0)}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function SyntheseMontants({
   montants,
   probabiliteFinalisation,
@@ -118,6 +136,8 @@ export default function SyntheseMontants({
           </tbody>
         </table>
       </div>
+
+      <TropPercu montants={montants} />
 
       {typeof probabiliteFinalisation === 'number' && (
         <div className="mt-2 flex shrink-0 items-baseline justify-between gap-2 border-t border-border pt-2">
