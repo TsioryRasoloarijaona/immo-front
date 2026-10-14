@@ -8,6 +8,17 @@ import { CHAMP_DATE_IMPAYE_ITEMS, ECHU_ITEMS, type FiltresImpayes } from '../../
 
 type Item = { label: string; value: string };
 
+/** Valeur sentinelle du choix « Tous » : sans elle, un filtre choisi ne se retire qu'en réinitialisant tout. */
+const TOUS = '__tous';
+
+function avecTous(libelle: string, items: Item[]): Item[] {
+  return [{ label: libelle, value: TOUS }, ...items];
+}
+
+function sansTous(v: string | null): string | null {
+  return v === TOUS ? null : v;
+}
+
 function ChoixUnique({
   items,
   value,
@@ -98,8 +109,20 @@ export default function FiltresImpayesPanneau({
             <InputGroupInput type="date" aria-label="Au" value={filtres.au} onChange={(e) => changer('au', e.target.value)} />
           </InputGroup>
         </div>
-        <ChoixUnique items={commerciaux} value={filtres.commercialId} placeholder="Commercial…" largeur="w-48" onChange={(v) => changer('commercialId', v)} />
-        <ChoixUnique items={categories} value={filtres.categorieId} placeholder="Catégorie…" largeur="w-44" onChange={(v) => changer('categorieId', v)} />
+        <ChoixUnique
+          items={avecTous('Tous les commerciaux', commerciaux)}
+          value={filtres.commercialId}
+          placeholder="Commercial…"
+          largeur="w-48"
+          onChange={(v) => changer('commercialId', sansTous(v))}
+        />
+        <ChoixUnique
+          items={avecTous('Toutes les catégories', categories)}
+          value={filtres.categorieId}
+          placeholder="Catégorie…"
+          largeur="w-44"
+          onChange={(v) => changer('categorieId', sansTous(v))}
+        />
       </div>
     </div>
   );
