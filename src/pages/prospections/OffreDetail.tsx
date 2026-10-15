@@ -7,6 +7,7 @@ import FicheShell from '../../components/FicheShell';
 import { ChampLecture, GrilleFiche } from '../../components/ChampsFiche';
 import DevisFormSection from '../../components/DevisFormSection';
 import FicheOffreActions from '../../components/offres/FicheOffreActions';
+import BoutonDossierOffre from '../../components/offres/BoutonDossierOffre';
 import Modal from '../../components/Modal';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
@@ -14,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { ApiError, getOffre, modifierOffre, supprimerOffre } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { useConfirm } from '../../lib/confirmContext';
-import { detailOffre, modificationOffre } from '../../lib/offres';
+import { detailOffre, modificationOffre, valeursEditionOffre } from '../../lib/offres';
 import { formatCurrency, formatDate, formatDateTime, formatSurface } from '../../lib/format';
 import type { CreerDevisRequest, FicheDevisDto } from '../../types';
 
@@ -99,6 +100,7 @@ function FicheOffre({ id }: Readonly<{ id: string }>) {
       }
       actions={
         <span className="flex flex-wrap items-center gap-2">
+          <BoutonDossierOffre fiche={fiche} />
           <FicheOffreActions offre={o} compact={false} />
           <Button variant="outline" size="sm" onClick={() => setEdition(true)}>
             <Pencil data-icon="inline-start" /> Modifier
@@ -128,12 +130,7 @@ function FicheOffre({ id }: Readonly<{ id: string }>) {
             bare
             defaultTrancheId={o.trancheId}
             defaultArticleId={o.articleId}
-            edition={{
-              sousArticleIds: fiche.sousArticles.map((s) => s.articleId).filter((v): v is string => !!v),
-              remisePercent: o.montants?.remisePercent,
-              modePaiementId: o.modePaiementId,
-              notes: o.notes,
-            }}
+            edition={valeursEditionOffre(fiche)}
             onAdd={enregistrer}
           />
         </Modal>

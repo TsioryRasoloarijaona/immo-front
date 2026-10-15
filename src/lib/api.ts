@@ -66,6 +66,7 @@ import type {
   ModifierDevisRequest,
   TotauxEncaissementsDto,
   DossierDetailDto,
+  DossierLieDto,
   DossierListItemDto,
   EcheanceDto,
   EncaissementDetailDto,
@@ -829,6 +830,15 @@ export function getDossier(id: UUID): Promise<DossierDetailDto> {
 
 export function createDossier(body: CreerDossierRequest): Promise<DossierDetailDto> {
   return request('POST', '/api/dossiers', { body });
+}
+
+/** 409 « offre déjà transformée » de `createDossier` : le dossier à ouvrir, sinon null. */
+export function dossierExistantDepuisErreur(err: unknown): DossierLieDto | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  const existant = err.problem?.dossierExistant;
+  return existant && typeof existant === 'object' && typeof (existant as { id?: unknown }).id === 'string'
+    ? (existant as DossierLieDto)
+    : null;
 }
 
 export function simulerSchemaFinancement(body: SimulerSchemaFinancementRequest): Promise<SchemaFinancementDto> {

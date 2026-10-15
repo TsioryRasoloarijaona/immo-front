@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Badge, Field, FieldGrid } from '../components/ui';
 import FicheOffreActions from '../components/offres/FicheOffreActions';
 import type { ColonneGrille } from '../components/DataGrid';
+import type { ValeursEditionDevis } from '../components/DevisFormSection';
 import type { DispositionColonnes } from './colonnes';
 import { formatMontantOptionnel, formatPercent, formatPercentValue, formatSurface } from './format';
 import type { ColonneDto, CreerDevisRequest, DevisDto, FicheDevisDto, GroupeColonne, ModifierDevisRequest } from '../types';
@@ -189,6 +190,34 @@ function memesIds(a: readonly string[], b: readonly string[]): boolean {
   const triA = [...a].sort((x, y) => x.localeCompare(y));
   const triB = [...b].sort((x, y) => x.localeCompare(y));
   return triA.every((v, i) => v === triB[i]);
+}
+
+/**
+ * Valeurs de la modale « Modifier » : l'article et les sous-articles actuels sont fournis tels quels, car le
+ * référentiel ne renvoie que les articles libres et l'article d'une offre est souvent occupé (par son dossier).
+ */
+export function valeursEditionOffre(fiche: FicheDevisDto): ValeursEditionDevis {
+  const o = fiche.offre;
+  const sousArticles = fiche.sousArticles.flatMap((s) =>
+    s.articleId ? [{ id: s.articleId, code: s.code, description: s.description, area: s.superficie }] : [],
+  );
+  return {
+    sousArticleIds: sousArticles.map((s) => s.id),
+    remisePercent: o.montants?.remisePercent,
+    modePaiementId: o.modePaiementId,
+    notes: o.notes,
+    article: o.articleId
+      ? {
+          id: o.articleId,
+          code: o.article,
+          description: o.articleDescription,
+          area: o.articleSuperficie,
+          categorieLibelle: o.articleCategorie,
+          typeLibelle: o.articleType,
+        }
+      : undefined,
+    sousArticles,
+  };
 }
 
 /** Corps du `PATCH` : seulement ce que le formulaire a changé, pour que le serveur ne recalcule pas un prix qu'on
