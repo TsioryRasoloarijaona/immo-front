@@ -100,6 +100,10 @@
       "description": "Écran « Mon équipe » du chef commercial. Réservé aux rôles `Commercial Chef`, `Administrateur` et `Direction Générale`.\n\nL'équipe d'un chef = les comptes actifs « Commercial » ou « Commercial Aide » affectés à au moins un de ses projets (`AdmUserHabilitation`). Administrateur et Direction Générale voient tous les commerciaux actifs et tous les projets. Toutes les routes passent par ce même calcul ; un compte désactivé n'est jamais membre.\n\nLes écritures (distribuer, réaffecter, affectations) vont directement dans les tables d'OMRAN, sans validation : un lot est contrôlé en entier avant la première écriture et un lot partiellement invalide n'écrit rien."
     },
     {
+      "name": "Dossiers — règlements",
+      "description": "Règlements d'un dossier de vente répartis sur plusieurs échéances, comme OMRAN : un règlement (`StlSettlement`) porte une ligne (`StlSettlementLine`) par échéance cochée, et n'appartient au dossier que par ces lignes. Le « reste à affecter » vaut montant − somme des lignes ; il est calculé, jamais stocké (aide OMRAN, page RÈGLEMENTS : « Reste à affecter : Montant base - Montant affecté »). L'ancien `POST .../echeancier/{echeanceId}/reglements` reste disponible : c'est la même écriture avec une seule affectation."
+    },
+    {
       "name": "Passerelle",
       "description": "Vérification d'identité appelée par la passerelle (Caddy forward_auth) avant de relayer une requête vers un service annexe /svc/<nom>/*. Pas destinée au frontend."
     },
@@ -4115,6 +4119,118 @@
         }
       }
     },
+    "/api/dossiers/{id}/reglements": {
+      "get": {
+        "tags": [
+          "Dossiers — règlements"
+        ],
+        "summary": "Règlements du dossier avec leur part affectée et leur reste à affecter",
+        "description": "Règlements ayant au moins une ligne sur une échéance de ce dossier, saisie la plus récente d'abord (`DocDate` puis `UserCreateDateTime` décroissants). `montantAffecte` et `resteAAffecter` portent sur toutes les lignes du règlement, `affectations` sur celles de ce dossier seulement.",
+        "operationId": "lister_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste, vide si aucun règlement n'a de ligne sur ce dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReglementDossierDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReglementDossierDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dossiers — règlements"
+        ],
+        "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
+        "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
+        "operationId": "creer_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerReglementDossierRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Règlement enregistré au statut `IN_WORK`, avec ses lignes.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDossierDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "En-tête invalide, répartition vide ou invalide, ligne au-delà du reste dû, ou somme au-delà du montant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDossierDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDossierDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/reglements/{reglementId}/pieces-jointes": {
       "get": {
         "tags": [
@@ -4271,6 +4387,90 @@
         }
       }
     },
+    "/api/dossiers/{id}/reglements/{reglementId}/affectations": {
+      "post": {
+        "tags": [
+          "Dossiers — règlements"
+        ],
+        "summary": "Affecte le reste d'un règlement à d'autres échéances du dossier",
+        "description": "Ajoute des lignes à un règlement `IN_WORK` ou `POINTED` (409 s'il est `CANCELED`), sans modifier son montant ni ses lignes existantes. Mêmes règles par ligne qu'à la création, plus : une échéance qui a déjà une ligne dans ce règlement est refusée (400), et la somme des nouvelles lignes ne dépasse pas le reste à affecter actuel (400 « dépasse le reste à affecter »).",
+        "operationId": "affecter",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "reglementId",
+            "in": "path",
+            "description": "Identifiant du règlement (StlSettlement.PKey), tel que renvoyé par `ReglementDossierDto.id`.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AffecterReglementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes ajoutées ; le règlement à jour est renvoyé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDossierDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Répartition vide ou invalide, échéance déjà dans ce règlement, ligne au-delà du reste dû, ou somme au-delà du reste à affecter.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDossierDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier ou règlement introuvable, ou règlement sans ligne sur ce dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDossierDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Règlement annulé (`CANCELED`).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReglementDossierDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/pieces-jointes": {
       "get": {
         "tags": [
@@ -4416,7 +4616,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Demandes de modification du dossier et montants qui en découlent",
-        "operationId": "lister_2",
+        "operationId": "lister_3",
         "parameters": [
           {
             "name": "id",
@@ -4510,7 +4710,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Modalité de paiement : schéma de financement figé à la vente",
-        "operationId": "lister_3",
+        "operationId": "lister_4",
         "parameters": [
           {
             "name": "id",
@@ -4919,7 +5119,7 @@
           "Dossiers"
         ],
         "summary": "Enregistre un règlement sur une échéance",
-        "description": "Crée un `StlSettlement` + sa `StlSettlementLine` de rattachement à l'échéance `echeanceId`. Le\nrèglement naît toujours au statut `IN_WORK`.\n\n**Saisie complète obligatoire** (400 sur chaque manquement) : `montant` (strictement positif et au\nplus égal au reste à payer de l'échéance), `dateEcheance` et `typeId`. `reference` (n° de chèque...)\nest requise dès que le type choisi a `TypeReglementDto.referenceObligatoire=true` (CHÈQUE, EFFET...) ;\n`banqueId` est requise dès que `TypeReglementDto.banqueObligatoire=true`.\n\n`typeId` alimente le « Mode de versement » de l'**autorisation d'encaissement**, à ouvrir juste\naprès création via `GET /api/dossiers/{id}/reglements/{reglementId}/documents/autorisation-versement`\n(le `reglementId` est l'`id` renvoyé ici). `payeurId` (« Versement effectué par ») est facultatif :\nabsent, c'est le client du dossier.\n\n**Écritures compatibles OMRAN** : le tiers du règlement (`TierId`) est toujours le client du dossier,\nle payeur saisi va dans `TierPayerId` ; `DocDate` = aujourd'hui à minuit ; société du projet, module\nCOM, type de document « encaissement », devise par défaut, description « <type> <banque> N° <réf> du\njj/mm/aaaa ». Voir `FEATURE-interop-omran-ecritures.md` §5.\n\n`dateReglement` et `statut=POINTED` sont **refusés** (400) : pointer un règlement exige une preuve\nde paiement, impossible à fournir avant que le règlement existe. Pour saisir un règlement déjà\nencaissé, enchaîner : ce `POST`, puis `POST .../reglements/{reglementId}/pieces-jointes`, puis\n`PATCH .../reglements/{reglementId}/statut`.",
+        "description": "Crée un `StlSettlement` + sa `StlSettlementLine` de rattachement à l'échéance `echeanceId`. Le\nrèglement naît toujours au statut `IN_WORK`. C'est `POST /api/dossiers/{id}/reglements` avec une seule\naffectation `{echeanceId, montant}` ; pour répartir un règlement sur plusieurs échéances, utiliser celui-ci.\n\n**Saisie complète obligatoire** (400 sur chaque manquement) : `montant` (strictement positif et au\nplus égal au reste à payer de l'échéance), `dateEcheance` et `typeId`. `reference` (n° de chèque...)\nest requise dès que le type choisi a `TypeReglementDto.referenceObligatoire=true` (CHÈQUE, EFFET...) ;\n`banqueId` est requise dès que `TypeReglementDto.banqueObligatoire=true`.\n\n`typeId` alimente le « Mode de versement » de l'**autorisation d'encaissement**, à ouvrir juste\naprès création via `GET /api/dossiers/{id}/reglements/{reglementId}/documents/autorisation-versement`\n(le `reglementId` est l'`id` renvoyé ici). `payeurId` (« Versement effectué par ») est facultatif :\nabsent, c'est le client du dossier.\n\n**Écritures compatibles OMRAN** : le tiers du règlement (`TierId`) est toujours le client du dossier,\nle payeur saisi va dans `TierPayerId` ; `DocDate` = aujourd'hui à minuit ; société du projet, module\nCOM, type de document « encaissement », devise par défaut, description « <type> <banque> N° <réf> du\njj/mm/aaaa ». Voir `FEATURE-interop-omran-ecritures.md` §5.\n\n`dateReglement` et `statut=POINTED` sont **refusés** (400) : pointer un règlement exige une preuve\nde paiement, impossible à fournir avant que le règlement existe. Pour saisir un règlement déjà\nencaissé, enchaîner : ce `POST`, puis `POST .../reglements/{reglementId}/pieces-jointes`, puis\n`PATCH .../reglements/{reglementId}/statut`.",
         "operationId": "addReglement",
         "parameters": [
           {
@@ -5064,7 +5264,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Cadeaux du dossier",
-        "operationId": "lister_4",
+        "operationId": "lister_5",
         "parameters": [
           {
             "name": "id",
@@ -5196,7 +5396,7 @@
           "Dossiers — actions"
         ],
         "summary": "Actions du dossier et leur nombre par type",
-        "operationId": "lister_5",
+        "operationId": "lister_6",
         "parameters": [
           {
             "name": "id",
@@ -5237,7 +5437,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_1",
+        "operationId": "creer_2",
         "parameters": [
           {
             "name": "id",
@@ -5726,7 +5926,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_6",
+        "operationId": "lister_7",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -5762,7 +5962,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_2",
+        "operationId": "creer_3",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10634,7 +10834,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_7",
+        "operationId": "lister_8",
         "parameters": [
           {
             "name": "page",
@@ -15075,7 +15275,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_8",
+        "operationId": "lister_9",
         "parameters": [
           {
             "name": "portee",
@@ -19301,6 +19501,211 @@
           }
         }
       },
+      "AffectationReglementRequest": {
+        "type": "object",
+        "description": "Part d'un règlement imputée à une échéance du dossier (une `StlSettlementLine`).",
+        "properties": {
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Échéance du dossier (`ComDocument.PKey`). Une échéance d'un autre dossier donne 400."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant imputé à l'échéance (`StlSettlementLine.Amount`). **Requis**, strictement positif, et au plus égal\nau reste dû de l'échéance (montant de l'échéance − réglé hors règlements annulés), 400 sinon.",
+            "example": 50000
+          }
+        },
+        "required": [
+          "echeanceId",
+          "montant"
+        ]
+      },
+      "CreerReglementDossierRequest": {
+        "type": "object",
+        "description": "Règlement d'un dossier réparti sur une ou plusieurs de ses échéances.",
+        "properties": {
+          "montant": {
+            "type": "number",
+            "description": "Montant total du règlement (`StlSettlement.Amount`). **Requis**, strictement positif. La somme des\naffectations doit lui être inférieure ou égale (400 « Le reste à affecter doit être >= 0 » sinon) ; la\ndifférence est le reste à affecter, affectable plus tard par `POST .../reglements/{reglementId}/affectations`.",
+            "example": 52200
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'échéance du règlement (`StlSettlement.EcheanceDate`). **Requise**."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de règlement (`StlSettlementType.PKey`), voir `GET /api/referentiels/types-reglement`."
+          },
+          "banqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Banque (`CfgTier.PKey`), requise si le type a `banqueObligatoire = true`."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence (`StlSettlement.Code`), requise si le type a `referenceObligatoire = true`.",
+            "example": "CHQ-000123"
+          },
+          "payeurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers ayant réglé (`TierPayerId`). Absent = le client du dossier (400 s'il n'y en a pas)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Commentaire libre. Facultatif."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Statut à la création : seul `IN_WORK` (ou l'absence) est accepté.",
+            "enum": [
+              "IN_WORK"
+            ],
+            "example": "IN_WORK"
+          },
+          "dateReglement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "**Refusée à la création** (400 si fournie) : se renseigne au passage à `POINTED`.",
+            "readOnly": true
+          },
+          "affectations": {
+            "type": "array",
+            "description": "Répartition du règlement sur les échéances du dossier, une `StlSettlementLine` par élément. **Au moins une**\n(400 sinon : un règlement n'est relié au dossier que par ses lignes). Chaque échéance appartient au\ndossier, n'apparaît qu'une fois, et reçoit un montant strictement positif au plus égal à son reste dû.",
+            "items": {
+              "$ref": "#/components/schemas/AffectationReglementRequest"
+            }
+          }
+        },
+        "required": [
+          "affectations",
+          "dateEcheance",
+          "montant",
+          "typeId"
+        ]
+      },
+      "AffectationReglementDto": {
+        "type": "object",
+        "description": "Une ligne du règlement (`StlSettlementLine`) sur une échéance de ce dossier.",
+        "properties": {
+          "ligneId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la ligne (`StlSettlementLine.PKey`)."
+          },
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Échéance réglée (`ComDocument.PKey`)."
+          },
+          "echeanceLibelle": {
+            "type": "string",
+            "description": "Libellé affiché par l'échéancier : code de catégorie, à défaut description de l'échéance.",
+            "example": "AVANCE"
+          },
+          "echeanceDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de l'échéance (`ComDocument.DocDate`)."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant imputé à cette échéance (`StlSettlementLine.Amount`).",
+            "example": 50000
+          }
+        }
+      },
+      "ReglementDossierDto": {
+        "type": "object",
+        "description": "Un règlement (`StlSettlement`) vu depuis un dossier : total, part affectée et lignes de ce dossier.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "`StlSettlement.PKey`, le `reglementId` des routes statut, pièces jointes et reçu."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence (`StlSettlement.Code`) : n° de chèque, de virement…"
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de saisie (`StlSettlement.DocDate`)."
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'échéance du règlement (`StlSettlement.EcheanceDate`)."
+          },
+          "dateReglement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de règlement effectif (`SettlementDate`), renseignée seulement si `POINTED`."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant total du règlement (`StlSettlement.Amount`).",
+            "example": 52200
+          },
+          "montantAffecte": {
+            "type": "number",
+            "description": "Somme des `StlSettlementLine.Amount` de **toutes** les lignes du règlement, tous dossiers et tous types de\npièce confondus — le même calcul que la fiche encaissement. Vaut 0 pour un règlement `CANCELED` (exclu des\ntotaux)."
+          },
+          "resteAAffecter": {
+            "type": "number",
+            "description": "`montant − montantAffecte`, calculé, jamais stocké (« Reste à affecter : Montant base - Montant affecté »,\naide OMRAN). Identique au `montantBrutRestant` de `GET /api/encaissements/{id}` pour le même règlement."
+          },
+          "montantAffecteAutresDossiers": {
+            "type": "number",
+            "description": "Part de `montantAffecte` portée par des lignes hors de ce dossier (autre dossier ou pièce non vente). 0 en\ngénéral ; positive pour un règlement légataire réparti sur plusieurs dossiers."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeCode": {
+            "type": "string"
+          },
+          "typeLibelle": {
+            "type": "string"
+          },
+          "banqueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "banqueNom": {
+            "type": "string"
+          },
+          "payeurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Qui a réglé (`TierPayerId`, sinon `TierId`)."
+          },
+          "payeurNom": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "statut": {
+            "type": "string",
+            "description": "IN_WORK (saisi), POINTED (encaissé) ou CANCELED ; `null` sur d'anciennes lignes.",
+            "example": "IN_WORK"
+          },
+          "affectations": {
+            "type": "array",
+            "description": "Lignes de ce dossier, par date d'échéance croissante.",
+            "items": {
+              "$ref": "#/components/schemas/AffectationReglementDto"
+            }
+          }
+        }
+      },
       "PieceJointeDto": {
         "type": "object",
         "description": "Métadonnées d'une pièce jointe rattachée à un dossier.",
@@ -19336,6 +19741,22 @@
             "description": "Identifiant/login de l'utilisateur ayant déposé le fichier, tel qu'enregistré en base. Peut être\nnull si non renseigné (legacy) ou pour un dépôt effectué via cette API."
           }
         }
+      },
+      "AffecterReglementRequest": {
+        "type": "object",
+        "description": "Nouvelles lignes à imputer sur le reste à affecter d'un règlement existant.",
+        "properties": {
+          "affectations": {
+            "type": "array",
+            "description": "Lignes ajoutées au règlement, **au moins une**. Mêmes règles qu'à la création (échéance du dossier, une\nseule fois, montant > 0 et ≤ reste dû), plus deux : une échéance qui a déjà une ligne dans ce règlement est\nrefusée, et la somme des nouvelles lignes ne dépasse pas le reste à affecter actuel (400 sinon).",
+            "items": {
+              "$ref": "#/components/schemas/AffectationReglementRequest"
+            }
+          }
+        },
+        "required": [
+          "affectations"
+        ]
       },
       "CreerModalitePaiementRequest": {
         "type": "object",

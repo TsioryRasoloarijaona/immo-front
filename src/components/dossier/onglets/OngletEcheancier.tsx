@@ -2,7 +2,8 @@ import { ErrorState, LoadingState } from '../../ui';
 import { LigneActivite } from '../../FicheShell';
 import Pagination from '../../Pagination';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '../../ui/table';
-import { addEcheance, addReglement } from '../../../lib/api';
+import { useState } from 'react';
+import { addEcheance, getReglementsDossier } from '../../../lib/api';
 import { getEtatSchema, supprimerEcheance } from '../../../lib/apiDossierSousListes';
 import { useAuth } from '../../../lib/auth';
 import { useConfirm } from '../../../lib/confirmContext';
@@ -13,6 +14,8 @@ import { useApi, type ApiState } from '../../../lib/useApi';
 import { useEcriture } from '../../../lib/useEcriture';
 import type { DossierDetailDto, EcheanceDto, PageDto } from '../../../types';
 import AjoutEcheance from '../echeancier/AjoutEcheance';
+import AjoutReglement from '../echeancier/AjoutReglement';
+import ReglementsDossier from '../echeancier/ReglementsDossier';
 import EtatSchemaBandeau from '../echeancier/EtatSchemaBandeau';
 import GenererPeriodicite from '../echeancier/GenererPeriodicite';
 import LigneEcheance from '../echeancier/LigneEcheance';
@@ -33,13 +36,20 @@ export default function OngletEcheancier({
   fromCreation: boolean;
 }>) {
   const etat = useApi(() => getEtatSchema(d.id), [d.id], 'dossier-etat-schema');
+  const reglements = useApi(() => getReglementsDossier(d.id), [d.id]);
+  const [versionReglements, setVersionReglements] = useState(0);
   const confirm = useConfirm();
   const { executer } = useEcriture();
   const administrateur = estAdministrateur(useAuth().user);
 
   // Le serveur reporte l'écart sur une autre ligne : l'état du schéma change à chaque écriture.
   async function relire() {
-    await Promise.all([onChanged(), etat.refetch()]);
+    await Promise.all([onChanged(), etat.refetch(), reglements.refetch()]);
+  }
+
+  async function apresReglement() {
+    setVersionReglements((v) => v + 1);
+    await relire();
   }
 
   async function supprimer(e: EcheanceDto) {
@@ -58,6 +68,7 @@ export default function OngletEcheancier({
         action={
           <div className="flex flex-wrap items-center gap-1.5">
             <ModalitePaiementDialog dossierId={d.id} />
+            <AjoutReglement dossierId={d.id} variante="entete" onCree={apresReglement} />
             <GenererPeriodicite dossierId={d.id} montantInitial={etat.data?.montantInitialPeriodicite} onGenere={relire} />
             <AjoutEcheance
               onAdd={async (body) => {
@@ -98,10 +109,8 @@ export default function OngletEcheancier({
                   key={l.id}
                   dossierId={d.id}
                   echeance={l}
-                  onReglementAdded={async (echeanceId, body) => {
-                    await addReglement(d.id, echeanceId, body);
-                    await relire();
-                  }}
+                  versionReglements={versionReglements}
+                  onReglementAdded={relire}
                   onReglementChanged={relire}
                   onSupprimer={administrateur ? (e) => void supprimer(e) : undefined}
                 />
@@ -118,6 +127,7 @@ export default function OngletEcheancier({
           onPageChange={onPageChange}
         />
       )}
+      <ReglementsDossier dossierId={d.id} reglements={reglements} onChanged={apresReglement} />
     </div>
   );
 }
