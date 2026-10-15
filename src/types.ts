@@ -996,9 +996,58 @@ export interface DevisDto {
   modePaiement?: string;
   montants?: MontantsOffreDto;
   notes?: string;
-  /** Calculé sur le TTC après remise. Vide si l'offre n'a pas de prix : rien à
-   * afficher, pas une erreur. */
+  /** Schéma saisi dans OMRAN s'il existe, sinon calculé sur le TTC après remise.
+   * Vide si l'offre n'a pas de prix : rien à afficher, pas une erreur. */
   schemaFinancement?: LigneSchemaFinancementDto[];
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
+}
+
+/** Corps de `PATCH /api/devis/{id}` : absent = inchangé, n'envoyer que ce qui change. */
+export interface ModifierDevisRequest {
+  trancheId?: UUID;
+  /** Refusé (400) si l'offre a déjà donné un dossier. */
+  articleId?: UUID;
+  /** Liste complète ; `[]` = aucun sous-article. */
+  sousArticleIds?: UUID[];
+  prix?: number;
+  /** En pourcentage (5 = 5 %). */
+  remisePercent?: number;
+  modePaiementId?: UUID;
+  /** `''` efface les notes. */
+  notes?: string;
+}
+
+export interface SousArticleOffreDto {
+  id: UUID;
+  articleId?: UUID;
+  code?: string;
+  description?: string;
+  categorie?: string;
+  superficie?: number;
+  prixAvantRemiseTTC?: number;
+  remiseTTC?: number;
+  prixApresRemiseHT?: number;
+  prixApresRemiseTTC?: number;
+}
+
+export interface DossierLieDto {
+  /** Null pour un dossier de location (pas de fiche dans Arpent). */
+  id?: UUID | null;
+  code?: string;
+  location: boolean;
+}
+
+/** `GET /api/devis/{id}`. */
+export interface FicheDevisDto {
+  offre: DevisDto;
+  sousArticles: SousArticleOffreDto[];
+  /** Null si l'offre n'a donné aucun dossier ; sinon suppression impossible (409). */
+  dossierLie?: DossierLieDto | null;
+  /** Schéma saisi dans OMRAN : un changement de prix qui ne le respecte plus rend 400. */
+  schemaFinancementSaisi: boolean;
 }
 
 /** `sommePrixVenteTTCPage` porte sur la page courante seulement, pas sur
@@ -1826,6 +1875,17 @@ export interface ReglementDto {
   notes?: string;
 }
 
+/** `GET /api/encaissements/totaux` : bande « Total : » sur tout le filtre. */
+export interface TotauxEncaissementsDto {
+  /** Annulés compris, comme `totalElements`. */
+  nombre: number;
+  /** Les sommes excluent les règlements CANCELED. */
+  montantBrut?: number;
+  montantBrutRestant?: number;
+  montantNet?: number;
+  montantBase?: number;
+}
+
 export interface EncaissementDto {
   id: UUID;
   reference?: string;
@@ -1837,6 +1897,9 @@ export interface EncaissementDto {
   dateDocument?: string | null;
   dateEcheance?: string | null;
   dateReglement?: string | null;
+  /** `MotionDate` d'OMRAN : règlement ou échéance, reportée à aujourd'hui si
+   * échue et non pointée. */
+  pointagePrevu?: string | null;
   tierId?: UUID;
   tierNom?: string;
   montantBrut?: number;

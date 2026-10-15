@@ -14,6 +14,7 @@ import ColumnSelector from '../../components/ColumnSelector';
 import BandeGroupement from '../../components/BandeGroupement';
 import BoutonExporter from '../../components/BoutonExporter';
 import FiltreTiers, { type TiersChoisi } from '../../components/encaissements/FiltreTiers';
+import BandeTotalEncaissements from '../../components/encaissements/BandeTotalEncaissements';
 import {
   DEFAULT_PAGE_SIZE,
   listEncaissements,
@@ -49,6 +50,7 @@ const CHAMP_DATE_ITEMS: { label: string; value: ChampDate }[] = [
   { label: 'Date pièce', value: 'DATE_PIECE' },
   { label: 'Date échéance', value: 'DATE_ECHEANCE' },
   { label: 'Date règlement', value: 'DATE_REGLEMENT' },
+  { label: 'Pointage prévu', value: 'POINTAGE_PREVU' },
 ];
 
 const COMPTABILISE_ITEMS: { label: string; value: ComptabiliseFilter }[] = [
@@ -396,6 +398,8 @@ export default function EncaissementsList() {
                 </EtatColonnes>
               )}
             </div>
+            {/* Liste plate seulement : en groupes, chaque groupe porte déjà ses totaux serveur. */}
+            {!enGroupes && <BandeTotalEncaissements filtres={filtresServeur} cle={clesFiltres.slice(0, -1).join('|')} />}
             {/* Sur `pageAffichee` : en mode groupes `liste.data` est nul et la pagination disparaîtrait. */}
             <div className="shrink-0">
               <Pagination

@@ -62,6 +62,9 @@ import type {
   DashboardDto,
   DevisDto,
   DevisPageDto,
+  FicheDevisDto,
+  ModifierDevisRequest,
+  TotauxEncaissementsDto,
   DossierDetailDto,
   DossierListItemDto,
   EcheanceDto,
@@ -740,6 +743,21 @@ export function listOffres(params?: DevisFilterParams, pageable?: Pageable): Pro
   return request('GET', '/api/devis', { query: withPageable(params, pageable) });
 }
 
+/** Hors périmètre commercial → 404, comme une offre inconnue. */
+export function getOffre(id: UUID): Promise<FicheDevisDto> {
+  return request('GET', `/api/devis/${id}`);
+}
+
+/** 400 (avec `detail`) : article vendu, changement d'article d'une offre liée à un dossier, schéma OMRAN incohérent. */
+export function modifierOffre(id: UUID, body: ModifierDevisRequest): Promise<FicheDevisDto> {
+  return request('PATCH', `/api/devis/${id}`, { body });
+}
+
+/** 409 si l'offre a donné un dossier. */
+export function supprimerOffre(id: UUID): Promise<void> {
+  return request('DELETE', `/api/devis/${id}`);
+}
+
 /** Alias et non `interface` à dessein : seul un alias d'objet reçoit la signature
  * d'index implicite qui le rend assignable au `Record` de `withPageable`. */
 export type DossierFilterParams = {
@@ -1273,7 +1291,7 @@ export function modifierStatutReglement(
   return request('PATCH', `/api/dossiers/${dossierId}/reglements/${reglementId}/statut`, { body });
 }
 
-export type EncaissementChampDate = 'DATE_PIECE' | 'DATE_ECHEANCE' | 'DATE_REGLEMENT';
+export type EncaissementChampDate = 'DATE_PIECE' | 'DATE_ECHEANCE' | 'DATE_REGLEMENT' | 'POINTAGE_PREVU';
 
 /** Hors périmètre → 404 et non 403 (pas d'énumération) ; un id non UUID → 404 aussi. */
 export function getEncaissement(id: UUID): Promise<EncaissementDetailDto> {
@@ -1309,6 +1327,11 @@ export function listEncaissements(
   if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
   withDepliage(query, options?.depliage);
   return request('GET', '/api/encaissements', { query });
+}
+
+/** Bande « Total : » sur tout le filtre (mêmes paramètres que la liste) ; CANCELED hors des sommes. */
+export function getTotauxEncaissements(params?: Parameters<typeof listEncaissements>[0]): Promise<TotauxEncaissementsDto> {
+  return request('GET', '/api/encaissements/totaux', { query: { ...params } });
 }
 
 export function getColonnesEncaissements(): Promise<ColonneDto[]> {

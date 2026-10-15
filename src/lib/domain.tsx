@@ -70,6 +70,17 @@ export function encaissementCompteDansLesTotaux(etat: string | undefined): boole
   return etat?.trim().toUpperCase() !== 'CANCELED';
 }
 
+/** Icône d'état d'OMRAN (`SettlementList.SetGridImages`) : cadenas si pointé, alerte si échu et non pointé.
+ * L'« impayé » (croix) n'existe pas ici : aucun règlement ne porte ce statut. */
+export type EncaissementSignal = 'pointe' | 'echu' | null;
+
+export function encaissementSignal(etat: string | undefined, dateEcheance: string | null | undefined, aujourdhui: string): EncaissementSignal {
+  const code = etat?.trim().toUpperCase();
+  if (code === 'POINTED') return 'pointe';
+  if (code === 'IN_WORK' && dateEcheance && dateEcheance.slice(0, 10) <= aujourdhui) return 'echu';
+  return null;
+}
+
 export function encaissementEtatLabel(etat: string | undefined): string {
   if (!etat) return '—';
   return ENCAISSEMENT_ETAT_LABELS[etat.toUpperCase()] ?? etat;

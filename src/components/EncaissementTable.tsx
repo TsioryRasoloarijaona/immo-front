@@ -1,15 +1,37 @@
 import { useMemo, type ReactNode } from 'react';
+import { Lock, TriangleAlert } from 'lucide-react';
 import { Badge } from './ui';
 import DataGrid, { type ColonneGrille, type GroupementGrille } from './DataGrid';
-import { encaissementCompteDansLesTotaux, encaissementEtatLabel, encaissementEtatTone } from '../lib/domain';
+import { encaissementCompteDansLesTotaux, encaissementEtatLabel, encaissementEtatTone, encaissementSignal } from '../lib/domain';
+import { jourISO } from '../lib/format';
 import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_ENCAISSEMENTS } from '../lib/dispositions';
 import type { ColonneDto, EncaissementDto } from '../types';
 
 const TIRET = <span className="text-muted-foreground">—</span>;
 
+const SIGNAUX = {
+  pointe: { Icone: Lock, titre: 'Pointé : règlement verrouillé', classe: 'text-muted-foreground' },
+  echu: { Icone: TriangleAlert, titre: 'Échéance passée et règlement non pointé', classe: 'text-(--warning)' },
+} as const;
+
+function CelluleEtat({ r }: Readonly<{ r: EncaissementDto }>) {
+  const signal = encaissementSignal(r.etat, r.dateEcheance, jourISO(new Date()));
+  const s = signal ? SIGNAUX[signal] : null;
+  return (
+    <span className="inline-flex items-center gap-1">
+      {s && (
+        <span role="img" aria-label={s.titre} title={s.titre} className="inline-flex">
+          <s.Icone aria-hidden className={`size-3 shrink-0 ${s.classe}`} />
+        </span>
+      )}
+      <Badge tone={encaissementEtatTone(r.etat)}>{encaissementEtatLabel(r.etat)}</Badge>
+    </span>
+  );
+}
+
 const RENDUS: Record<string, (r: EncaissementDto) => ReactNode> = {
-  etat: (r) => <Badge tone={encaissementEtatTone(r.etat)}>{encaissementEtatLabel(r.etat)}</Badge>,
+  etat: (r) => <CelluleEtat r={r} />,
   comptabilise: (r) => <Badge tone={r.comptabilise ? 'success' : 'neutral'}>{r.comptabilise ? 'Oui' : 'Non'}</Badge>,
   remisAuCentre: (r) =>
     r.remisAuCentre === undefined ? TIRET : (
@@ -25,6 +47,7 @@ const VALEURS: Record<string, (r: EncaissementDto) => unknown> = {
 const CLASSES: Record<string, string> = {
   dateDocument: 'text-muted-foreground',
   dateReglement: 'text-muted-foreground',
+  pointagePrevu: 'text-muted-foreground',
   dateEcheance: 'text-muted-foreground',
   tierNom: 'font-medium text-foreground',
   dossierCode: 'text-muted-foreground',
