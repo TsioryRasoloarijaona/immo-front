@@ -7397,6 +7397,9 @@
           "400": {
             "description": "Tranche, article, sous-article ou mode de paiement introuvable ou incohérent ; changement d'article\nd'une offre qui a donné un dossier ; schéma de financement saisi dans OMRAN qui ne correspond plus au\nprix de vente TTC après remise (`VerifSchema` d'OMRAN : AVANCE + CRÉDIT + AUTO-FINANCEMENT = prix,\nau centime). Rien n'est écrit. Le message est dans `detail`."
           },
+          "403": {
+            "description": "`trancheId` désigne une tranche dont le projet est hors du périmètre commercial de l'appelant (même\ncontrôle que la création d'offre ou de dossier). Rien n'est écrit."
+          },
           "404": {
             "description": "Offre inconnue ou hors du périmètre commercial."
           }

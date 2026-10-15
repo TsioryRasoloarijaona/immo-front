@@ -7359,7 +7359,7 @@
           "Devis"
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
-        "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis ; les sous-articles sont alors réécrits. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
+        "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
         "operationId": "modifier_4",
         "parameters": [
           {
@@ -22022,7 +22022,7 @@
           },
           "prix": {
             "type": "number",
-            "description": "Prix TTC qui remplace le prix commercial de l'article (ou prix de vente TTC d'une offre libre).\nAbsent : le prix actuel de l'offre est conservé, sauf si l'article change (prix commercial du\nnouvel article)."
+            "description": "Prix TTC qui remplace le prix commercial de l'article (ou prix de vente TTC d'une offre libre).\nAbsent : le prix actuel de l'offre est conservé, sauf si l'article change (prix commercial du\nnouvel article). Tant que l'article et les sous-articles ne changent pas, leurs prix HT/TTC figés\ndans l'offre restent la base de calcul, même si le catalogue a changé depuis."
           },
           "remisePercent": {
             "type": "number",
