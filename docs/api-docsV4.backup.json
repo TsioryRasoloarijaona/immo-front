@@ -132,6 +132,10 @@
       "description": "Onglet « Acquéreurs » de la fiche dossier : le client principal porte sa part sur `ComFolder.PartPercent`, chaque co-acquéreur sur `ComFolderCustomer.PartPercent` (ratio 0–1 en base, pourcentage 0–100 dans l'API). Contrôles d'OMRAN à l'enregistrement (`Sale.cs:Verif`) : « La réparation du client principal doit être > 0 ! », « Le total des répartitions sur les acquéreurs doit être égale à 100% ! », et à l'ajout « Cet tier est déjà affecté en tant que client principal ! »."
     },
     {
+      "name": "Impayés",
+      "description": "Liste des échéances impayées des dossiers de vente — l'écran « Impayés » du module Vente d'OMRAN Estate (« liste des documents impayés des dossiers de vente »). Une ligne est une échéance (`ComDocument`) : catégorie d'encaissement (`IsCredit = 1`), dossier à un statut de vente effective (`StrStatus.BoolField001 = 1` : la réservation, l'annulation et le désistement en sont exclus), échue, et dont le reste à payer est strictement positif. Voir `instructions/FEATURE-impayes.md`."
+    },
+    {
       "name": "Tranches",
       "description": "Tranches (CfgTranche) — phases d'un projet immobilier, leurs conditions commerciales et leurs articles."
     },
@@ -8906,6 +8910,30 @@
         }
       }
     },
+    "/api/referentiels/colonnes/impayes": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Catalogue des colonnes de la liste des impayés (aucune n'est groupable)",
+        "operationId": "getColonnesImpayes",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ColonneDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/colonnes/encaissements": {
       "get": {
         "tags": [
@@ -10904,6 +10932,340 @@
         }
       }
     },
+    "/api/impayes": {
+      "get": {
+        "tags": [
+          "Impayés"
+        ],
+        "summary": "Liste paginée des impayés de vente, avec les totaux du filtre complet",
+        "description": "**Reste à payer : le même calcul que l'échéancier de la fiche dossier.** `montantRegle` est la somme des lignes de règlement affectées à l'échéance, règlements annulés (`CANCELED`) exclus et décaissements (`StlSettlement.IsCredit = 0`) soustraits — exactement le `montantRegle` de `GET /api/dossiers/{id}/echeancier`. `montantReste` = `montantAPayer − montantRegle`, arrondi au centime. Une ligne de cette liste est donc une échéance au statut `EN_RETARD` sur la fiche.\n\n**Échue** (`echu`, défaut `ECHEANCE`) : date d'échéance au plus tard aujourd'hui — l'échéance du jour est impayée. `RECOUVREMENT` : date d'échéance + `RecoveryAge` jours (paramètre OMRAN, 90 par défaut) au plus tard aujourd'hui. `TOUS` : aucune condition de date.\n\n**Société, projet, tranche** : par l'article principal du dossier (article → tranche → projet → société), jamais par `ComDocument.CfgCompanyId`. Une échéance dont la chaîne est incomplète reste listée, avec ces libellés vides.\n\n**Totaux** : `totaux` porte sur toutes les lignes du filtre, pas sur la page ; `total` est le nombre de lignes du filtre.\n\n**Tri** : `sort=<colonne>,asc|desc`, répétable, sur les noms du catalogue `GET /api/referentiels/colonnes/impayes`. Défaut : `dateEcheance,desc`. Les vides finissent en bas.\n\n**Périmètre commercial** : exactement celui de `GET /api/dossiers` — une échéance n'est listée que si son dossier y est visible pour l'appelant (projets affectés, entité juridique active).\n\n**Pas de groupement serveur** : le reste se calcule hors SQL, aucune colonne n'est groupable.",
+        "operationId": "findAll_8",
+        "parameters": [
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id(s) de projet (CfgProject). Répétable, OR. Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche). Répétable, OR. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "echu",
+            "in": "query",
+            "description": "Condition « Échu à ». Défaut : ECHEANCE.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ECHEANCE",
+                "RECOUVREMENT",
+                "TOUS"
+              ]
+            },
+            "example": "ECHEANCE"
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "description": "Date sur laquelle portent `du` et `au`. `DOCUMENT` et `ECHEANCE` désignent la même colonne pour une échéance de vente (`ComDocument.DocDate`, comme la vue OMRAN) ; `RECOUVREMENT` = date d'échéance + `RecoveryAge` jours. Ignoré sans `du` ni `au`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DOCUMENT",
+                "ECHEANCE",
+                "RECOUVREMENT"
+              ]
+            },
+            "example": "ECHEANCE"
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Borne inférieure incluse (ISO, aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Borne supérieure incluse (ISO, aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-14"
+          },
+          {
+            "name": "commercialId",
+            "in": "query",
+            "description": "Id du commercial du dossier (CfgTier).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id de la catégorie de règlement de l'échéance (ComSettlementCategory).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "client",
+            "in": "query",
+            "description": "Sous-chaîne du code ou du nom du client, insensible à la casse.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "article",
+            "in": "query",
+            "description": "Code ou désignation exacts de l'article principal du dossier.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Recherche libre : notes, catégorie, tranche, projet, société, code dossier.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page d'impayés et totaux.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImpayesPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre invalide : valeur hors liste pour `echu` ou `champDate`, date mal formée, identifiant non UUID, ou colonne de tri inconnue (le corps RFC 7807 liste les colonnes acceptées)."
+          }
+        }
+      }
+    },
+    "/api/impayes/export": {
+      "get": {
+        "tags": [
+          "Impayés"
+        ],
+        "summary": "Export Excel de la liste des impayés, filtres et colonnes appliqués",
+        "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres et même tri que `GET /api/impayes`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Fichier `impayes_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
+        "operationId": "exporter_2",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Seule valeur acceptée : `xlsx`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "echu",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ECHEANCE",
+                "RECOUVREMENT",
+                "TOUS"
+              ]
+            }
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DOCUMENT",
+                "ECHEANCE",
+                "RECOUVREMENT"
+              ]
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "commercialId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "client",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "article",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes exportées, dans l'ordre voulu (celui de la grille). Absent : les colonnes par défaut de la liste. Catalogue : `GET /api/referentiels/colonnes/impayes`.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "dateEcheance,dossierCode,clientNom,montantReste"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Tri `propriete,asc|desc`, répétable, comme la liste. Défaut : dateEcheance,desc.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "dateEcheance,desc"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx, feuille DONNEES.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`format` autre que `xlsx`, colonne inconnue, ou un filtre invalide comme sur la liste."
+          }
+        }
+      }
+    },
     "/api/hotline/recherche": {
       "get": {
         "tags": [
@@ -11351,7 +11713,7 @@
         ],
         "summary": "Liste paginée des encaissements (règlements de Dossiers de vente)",
         "description": "Toujours restreint aux règlements liés à au moins une échéance de Dossier de vente (les règlements\nd'achat/location, s'il y en a, ne remontent jamais ici), et aux **encaissements** : un décaissement\n(`StlSettlement.IsCredit` faux, typiquement un remboursement à montant négatif) ne remonte jamais,\ncomme sur l'écran legacy. `montantBrutRestant` (calculé : montant brut moins la part déjà affectée à\nune échéance) et `montantNet` (montant brut moins retenue source/timbre) sont calculés côté serveur,\njamais stockés. `etat` accepte les 3 valeurs confirmées sur données réelles (IN_WORK, POINTED,\nCANCELED) — l'écran legacy propose aussi \"Impayé(e)\"/\"Perdu(e)\" comme filtres mais aucune ligne\nréelle ne les porte à ce jour ; passés tel quel (comparaison insensible à la casse), donc\nutilisables dès qu'un vrai code sera confirmé, sans changement d'API.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), cette liste ne contient que les règlements portant au moins une ligne rattachée à un dossier\nd'un de ses projets affectés. Les règlements dont aucune ligne ne résout de projet restent visibles\nde tous.\n\n**Encaissements non affectés : volontairement absents.** Un règlement encaissé mais pas encore\nimputé à une échéance n'a aucune ligne, donc ne remonte pas ici. L'écran legacy les affiche (il les\nreconnaît sous `StlSettlementRelationView.Origin = 'StlSettlement-NonAffecte'`) : 16 pièces pour\n6 435 400 DH sur les données réelles, toutes à l'état IN_WORK. Les servir suppose de changer le\ncritère \"Vente\" — décision produit en attente, voir\n`instructions/FEATURE-encaissements-conformite-legataire.md` §4. Ne pas confondre avec un filtre\ntrop strict : c'est un choix assumé.",
-        "operationId": "findAll_8",
+        "operationId": "findAll_9",
         "parameters": [
           {
             "name": "entiteId",
@@ -11901,7 +12263,7 @@
         ],
         "summary": "Export Excel de la liste des encaissements, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/encaissements`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Encaissements », fichier `encaissements_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_2",
+        "operationId": "exporter_3",
         "parameters": [
           {
             "name": "format",
@@ -13410,7 +13772,7 @@
         ],
         "summary": "Export Excel de la liste des dossiers, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/dossiers`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Auteur du classeur = utilisateur connecté, titre « Dossiers de vente », fichier `dossiers_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_3",
+        "operationId": "exporter_4",
         "parameters": [
           {
             "name": "format",
@@ -13686,7 +14048,7 @@
         ],
         "summary": "Liste paginée de toutes les offres (devis), tous prospections confondues",
         "description": "Filtre optionnellement par recherche libre sur le code de l'offre, tranche(s), commercial, et plage\nde dates sur la date de l'offre (dateDocument). Chaque ligne porte prospectionId/prospectionCode\npour la colonne \"Prospection\" et le lien cliquable vers la prospection d'origine.\nsommePrixVenteTTCPage est calculé uniquement sur la page renvoyée, pas sur l'ensemble des résultats\nfiltrés — voir la description du champ.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint =\ntrue`), seules les offres portant une tranche d'un de ses projets affectés sont renvoyées (plus\ncelles sans tranche, dont le projet ne se résout pas). Ce filtre s'ajoute aux filtres ci-dessus :\ndemander explicitement une `trancheId` hors périmètre renvoie une page vide, pas une erreur.\n`sommePrixVenteTTCPage` porte donc sur les seules lignes visibles.",
-        "operationId": "findAll_9",
+        "operationId": "findAll_10",
         "parameters": [
           {
             "name": "search",
@@ -14037,7 +14399,7 @@
         "tags": [
           "commercial-controller"
         ],
-        "operationId": "findAll_10",
+        "operationId": "findAll_11",
         "parameters": [
           {
             "name": "pageable",
@@ -14069,7 +14431,7 @@
         ],
         "summary": "Liste des clients",
         "description": "Les tiers portant au moins un dossier de vente sur une entité juridique en exploitation, avec leurs\nagrégats calculés côté serveur (nombre de dossiers, total à payer, total réglé). Une page vide\nsignifie qu'aucun client ne correspond, pas une erreur.\n\n**Filtre par tranche** (`trancheId`, réservé aux administrateurs) : seuls les clients ayant au moins\nun dossier dans cette tranche — même règle d'appartenance que `GET /api/dossiers?trancheId=` (un\narticle lié ou l'article principal du dossier dans la tranche). Les agrégats (`nombreDossiers`,\n`totalAPayer`, `totalRegle`) restent calculés sur **tous** les dossiers du client, pas sur ceux de\nla tranche seule.",
-        "operationId": "findAll_11",
+        "operationId": "findAll_12",
         "parameters": [
           {
             "name": "search",
@@ -14340,7 +14702,7 @@
         ],
         "summary": "Catalogue transverse des articles",
         "description": "Liste paginée de tous les articles racine et sous-articles, toutes tranches confondues — pour\nparcourir/rechercher le patrimoine sans devoir d'abord choisir une Tranche (contrairement à `GET\n/api/tranches/{id}/articles`, point d'entrée à privilégier quand la tranche est déjà connue).\n`search` filtre en sous-chaîne sur `code` OU `description` (insensible à la casse). `trancheId`\nrestreint à une ou plusieurs tranches (OR) sans changer d'écran. `statut` filtre sur la\ndisponibilité mais, à la différence des autres endpoints Article, **n'a pas de valeur par défaut\nici** : absent = tous les statuts (DISPONIBLE + OCCUPE), pour une vraie vue catalogue. Restreint aux\nentités juridiques actives (ADMOD/GHRIZA), comme les autres listings Projet/Tranche/Article. Filtres\nde parité avec la grille legacy \"Articles\" (instructions/from_front.md #4) : `entiteId` (CfgCompany,\nvoir `GET /api/referentiels/entites`), `natureId` (StkKind, voir `GET /api/referentiels/natures`),\n`vocationId` (StkVocation, voir `GET /api/referentiels/vocations`), `etageId` (StkFloor, voir `GET\n/api/referentiels/etages`), et les plages `prixDe`/`prixA` (sur `comSalePrice`) et\n`surfaceDe`/`surfaceA` (sur `area`), bornes inclusives et indépendamment optionnelles.",
-        "operationId": "findAll_12",
+        "operationId": "findAll_13",
         "parameters": [
           {
             "name": "search",
@@ -24092,6 +24454,167 @@
             "type": "string",
             "description": "Résultat du dernier contact, qui dit l'intention (visite, rappel…).",
             "example": "Rendez vous pris"
+          }
+        }
+      },
+      "ImpayeDto": {
+        "type": "object",
+        "description": "Échéance (ComDocument) d'un dossier de vente actif, échue, dont le reste à payer est positif.",
+        "properties": {
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de l'échéance (ComDocument.PKey)."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du dossier de vente (ComFolder.PKey)."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code du dossier de vente.",
+            "example": "RES-2024-0012"
+          },
+          "statutDossier": {
+            "type": "string",
+            "description": "Code du statut du dossier (StrStatus.Code).",
+            "example": "FORMALISE"
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'échéance (ComDocument.DocDate)."
+          },
+          "dateRecouvrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculée : date d'échéance + RecoveryAge jours (90 par défaut)."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Libellé de la catégorie de règlement de l'échéance.",
+            "example": "AVANCE"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé de l'échéance (ComDocument.Description)."
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id du client du dossier (CfgTier.PKey)."
+          },
+          "clientNom": {
+            "type": "string",
+            "description": "Nom affiché du client du dossier."
+          },
+          "projet": {
+            "type": "string",
+            "description": "Libellé du projet, par l'article principal du dossier puis sa tranche."
+          },
+          "tranche": {
+            "type": "string",
+            "description": "Libellé de la tranche de l'article principal du dossier."
+          },
+          "article": {
+            "type": "string",
+            "description": "Code de l'article principal du dossier."
+          },
+          "societe": {
+            "type": "string",
+            "description": "Société du projet ; null si la chaîne article → tranche → projet est incomplète."
+          },
+          "commercial": {
+            "type": "string",
+            "description": "Nom affiché du commercial du dossier."
+          },
+          "montantAPayer": {
+            "type": "number",
+            "description": "Montant de l'échéance (ComDocument.Amount, TTC)."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Calculé : règlements affectés, annulés exclus, décaissements soustraits (comme l'échéancier)."
+          },
+          "montantReste": {
+            "type": "number",
+            "description": "Calculé : montantAPayer − montantRegle, arrondi au centime ; toujours > 0 ici."
+          },
+          "joursRetard": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Calculé : jours écoulés depuis la date d'échéance, jamais négatif.",
+            "example": 42
+          },
+          "penaliteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de l'échéance pénalité de retard liée (ComPenaltyDocumentId) ; null si aucune."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes de l'échéance."
+          }
+        }
+      },
+      "ImpayesPageDto": {
+        "type": "object",
+        "description": "Page d'impayés et totaux du filtre complet.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la page demandée.",
+            "items": {
+              "$ref": "#/components/schemas/ImpayeDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro de la page (à partir de 0)."
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Taille de page demandée."
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre total de lignes du filtre."
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre total de pages."
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxImpayesDto",
+            "description": "Totaux sur toutes les lignes du filtre."
+          }
+        }
+      },
+      "TotauxImpayesDto": {
+        "type": "object",
+        "description": "Totaux sur toutes les lignes du filtre, pas seulement sur la page.",
+        "properties": {
+          "montantAPayer": {
+            "type": "number",
+            "description": "Somme des montantAPayer."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Somme des montantRegle."
+          },
+          "montantReste": {
+            "type": "number",
+            "description": "Somme des montantReste."
+          },
+          "nombreDossiers": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de dossiers distincts parmi les lignes."
           }
         }
       },

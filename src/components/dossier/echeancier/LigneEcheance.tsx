@@ -5,20 +5,23 @@ import { Button } from '../../ui/button';
 import { TableCell, TableRow } from '../../ui/table';
 import { ECHEANCE_STATUT_LABELS, echeanceCategorieTone, echeanceStatut, echeanceStatutTone } from '../../../lib/domain';
 import { formatCurrency, formatDate } from '../../../lib/format';
-import type { CreerReglementRequest, EcheanceDto } from '../../../types';
+import type { EcheanceDto } from '../../../types';
 import AjoutReglement from './AjoutReglement';
 import HistoriqueReglementsEcheance from './LigneReglement';
 
 export default function LigneEcheance({
   dossierId,
   echeance,
+  versionReglements,
   onReglementAdded,
   onReglementChanged,
   onSupprimer,
 }: Readonly<{
   dossierId: string;
   echeance: EcheanceDto;
-  onReglementAdded: (echeanceId: string, body: CreerReglementRequest) => Promise<void>;
+  /** Change à chaque règlement saisi ailleurs dans l'onglet : l'historique déplié se relit. */
+  versionReglements: number;
+  onReglementAdded: () => Promise<void>;
   onReglementChanged: () => Promise<void>;
   /** Absent hors Administrateur (403) ; le serveur refuse (409) une ligne réglée, autorisée ou en recouvrement. */
   onSupprimer?: (echeance: EcheanceDto) => void;
@@ -62,10 +65,9 @@ export default function LigneEcheance({
           <div className="flex items-center justify-end gap-1">
             <AjoutReglement
               dossierId={dossierId}
-              echeanceId={echeance.id}
-              reste={echeance.reste}
-              onAdd={async (echeanceId, body) => {
-                await onReglementAdded(echeanceId, body);
+              echeanceInitiale={echeance.id}
+              onCree={async () => {
+                await onReglementAdded();
                 setReglementsVersion((v) => v + 1);
                 setExpanded(true);
               }}
@@ -84,7 +86,7 @@ export default function LigneEcheance({
             <HistoriqueReglementsEcheance
               dossierId={dossierId}
               echeanceId={echeance.id}
-              refreshKey={reglementsVersion}
+              refreshKey={reglementsVersion + versionReglements}
               onChanged={async () => {
                 setReglementsVersion((v) => v + 1);
                 await onReglementChanged();

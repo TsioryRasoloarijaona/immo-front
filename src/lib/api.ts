@@ -56,6 +56,9 @@ import type {
   CreerCleApiRequest,
   CreerProspectionRequest,
   CreerReglementRequest,
+  CreerReglementDossierRequest,
+  AffecterReglementRequest,
+  ReglementDossierDto,
   DashboardDto,
   DevisDto,
   DevisPageDto,
@@ -1193,8 +1196,25 @@ export function updateEcheance(dossierId: UUID, echeanceId: UUID, body: Modifier
   return request('PATCH', `/api/dossiers/${dossierId}/echeancier/${echeanceId}`, { body });
 }
 
+/** @public endpoint servi, remplacé à l'écran par `createReglementDossier` */
 export function addReglement(dossierId: UUID, echeanceId: UUID, body: CreerReglementRequest): Promise<ReglementDto> {
   return request('POST', `/api/dossiers/${dossierId}/echeancier/${echeanceId}/reglements`, { body });
+}
+
+export function createReglementDossier(dossierId: UUID, body: CreerReglementDossierRequest): Promise<ReglementDossierDto> {
+  return request('POST', `/api/dossiers/${dossierId}/reglements`, { body });
+}
+
+export function getReglementsDossier(dossierId: UUID): Promise<ReglementDossierDto[]> {
+  return request('GET', `/api/dossiers/${dossierId}/reglements`);
+}
+
+export function affecterReglement(
+  dossierId: UUID,
+  reglementId: UUID,
+  body: AffecterReglementRequest,
+): Promise<ReglementDossierDto> {
+  return request('POST', `/api/dossiers/${dossierId}/reglements/${reglementId}/affectations`, { body });
 }
 
 export function listEcheanceReglements(dossierId: UUID, echeanceId: UUID): Promise<ReglementDto[]> {

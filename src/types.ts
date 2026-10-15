@@ -1969,6 +1969,62 @@ export interface CreerReglementRequest {
      fourni à la création. Ne pas l'ajouter. */
 }
 
+/** Part d'un règlement imputée à une échéance : `0 < montant ≤ reste dû` (400 sinon). */
+export interface AffectationReglementRequest {
+  echeanceId: UUID;
+  montant: number;
+}
+
+/** Même en-tête que `CreerReglementRequest` ; au moins une affectation, Σ ≤ `montant`
+ * (la différence reste à affecter). */
+export interface CreerReglementDossierRequest extends CreerReglementRequest {
+  affectations: AffectationReglementRequest[];
+}
+
+/** Σ des nouvelles lignes ≤ `resteAAffecter` ; une échéance déjà dans le règlement vaut 400. */
+export interface AffecterReglementRequest {
+  affectations: AffectationReglementRequest[];
+}
+
+export interface AffectationReglementDto {
+  ligneId: UUID;
+  echeanceId?: UUID;
+  /** Ce que l'échéancier affiche : code de catégorie, à défaut description. */
+  echeanceLibelle?: string;
+  echeanceDate?: string | null;
+  montant?: number;
+}
+
+/** Un règlement vu depuis un dossier (`GET /api/dossiers/{id}/reglements`). */
+export interface ReglementDossierDto {
+  /** `StlSettlement.PKey`, le `reglementId` des routes statut, pièces jointes et reçu. */
+  id: UUID;
+  reference?: string;
+  dateDocument?: string | null;
+  dateEcheance?: string | null;
+  dateReglement?: string | null;
+  /** Total du règlement. */
+  montant?: number;
+  /** Toutes les lignes du règlement, tous dossiers confondus ; 0 si `CANCELED`. */
+  montantAffecte?: number;
+  /** `montant − montantAffecte`, égal au `montantBrutRestant` de la fiche encaissement. */
+  resteAAffecter?: number;
+  /** > 0 seulement pour un règlement légataire réparti sur plusieurs dossiers. */
+  montantAffecteAutresDossiers?: number;
+  typeId?: UUID;
+  typeCode?: string;
+  typeLibelle?: string;
+  banqueId?: UUID;
+  banqueNom?: string;
+  payeurId?: UUID;
+  payeurNom?: string;
+  notes?: string;
+  /** `IN_WORK`, `POINTED` ou `CANCELED` : passer par `encaissementEtatLabel`. */
+  statut?: string;
+  /** Lignes de ce dossier, par date d'échéance croissante. */
+  affectations?: AffectationReglementDto[];
+}
+
 /** Transitions `IN_WORK → POINTED | CANCELED` seulement (409 sinon). Pointer
  * exige au moins une pièce jointe (409 sinon). */
 export interface ModifierStatutReglementRequest {
