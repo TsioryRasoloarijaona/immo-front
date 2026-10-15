@@ -7,6 +7,17 @@ import { useApi, useDebouncedValue } from '../../lib/useApi';
 
 const MIN_CARACTERES = 2;
 
+/** Le tiers d'un encaissement est surtout un client : sans `type`, seuls les prospects remontent.
+ * `type` ne lie qu'une valeur, d'où deux appels (CLI puis PRO). */
+async function chercher(texte: string) {
+  if (texte.length < MIN_CARACTERES) return null;
+  const [clients, prospects] = await Promise.all([
+    listProspects({ search: texte, type: ['CLI'] }, { page: 0, size: 8 }),
+    listProspects({ search: texte, type: ['PRO'] }, { page: 0, size: 8 }),
+  ]);
+  return [...clients.content, ...prospects.content];
+}
+
 export interface TiersChoisi {
   id: string;
   nom: string;
@@ -19,11 +30,8 @@ export default function FiltreTiers({
 }: Readonly<{ choisi: TiersChoisi | null; onChoisir: (tiers: TiersChoisi | null) => void }>) {
   const [saisie, setSaisie] = useState('');
   const recherche = useDebouncedValue(saisie.trim());
-  const resultats = useApi(
-    () => (recherche.length >= MIN_CARACTERES ? listProspects({ search: recherche }, { page: 0, size: 8 }) : Promise.resolve(null)),
-    [recherche],
-  );
-  const lignes = resultats.data?.content ?? [];
+  const resultats = useApi(() => chercher(recherche), [recherche]);
+  const lignes = resultats.data ?? [];
 
   if (choisi) {
     return (
