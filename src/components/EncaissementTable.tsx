@@ -1,7 +1,7 @@
 import { useMemo, type ReactNode } from 'react';
 import { Badge } from './ui';
 import DataGrid, { type ColonneGrille, type GroupementGrille } from './DataGrid';
-import { encaissementEtatLabel, encaissementEtatTone } from '../lib/domain';
+import { encaissementCompteDansLesTotaux, encaissementEtatLabel, encaissementEtatTone } from '../lib/domain';
 import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_ENCAISSEMENTS } from '../lib/dispositions';
 import type { ColonneDto, EncaissementDto } from '../types';
@@ -91,6 +91,12 @@ export default function EncaissementTable({
         valeur: VALEURS[c.nom],
         classe: CLASSES[c.nom],
         titre: TITRES[c.nom],
+        // Un règlement annulé reste visible mais sort du Σ des montants, comme des totaux serveur.
+        valeurSomme:
+          c.type === 'MONTANT'
+            ? (r: EncaissementDto) =>
+                encaissementCompteDansLesTotaux(r.etat) ? (r as unknown as Record<string, unknown>)[c.nom] : null
+            : undefined,
       })),
     [colonnes],
   );

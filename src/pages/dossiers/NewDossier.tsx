@@ -355,6 +355,8 @@ export default function NewDossier() {
         notes: notesValue || undefined,
         cin: cinValue.trim(),
         modePaieId: modePaieId,
+        // L'offre qui a pré-rempli l'écran devient l'offre d'origine du dossier (`StlQuoteId`).
+        ...(latestDevis ? { offreId: latestDevis.id } : {}),
       });
       void navigate(`/dossiers/${dossier.id}?nouveau=1`);
     } catch (err) {

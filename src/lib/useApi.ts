@@ -87,16 +87,14 @@ export function useApi<T>(
       if (isStale()) return;
       // Cache vidé pendant le vol (mutation, logout) : la réponse date d'avant,
       // on relance une fois. Une seule : un fetcher qui vide lui-même le cache
-      // bouclerait ; si le cache a encore bougé, la réponse n'est pas posée.
+      // bouclerait ; si le cache a encore bougé, la réponse est posée mais pas mise en cache.
       if (gen !== cacheGeneration()) {
         gen = cacheGeneration();
         result = await fetcherRef.current();
         if (isStale()) return;
       }
-      if (gen === cacheGeneration()) {
-        if (activeKey !== null) writeCachedValue(activeKey, result);
-        setData(result);
-      }
+      if (activeKey !== null && gen === cacheGeneration()) writeCachedValue(activeKey, result);
+      setData(result);
       setLoading(false);
     } catch (err: unknown) {
       if (isStale()) return;
