@@ -3,6 +3,7 @@ import { FieldGrid } from '../../ui';
 import { ChampCase, ChampDate, ChampListe, ChampTexte } from './ChampsSaisie';
 import RechercheClient from './RechercheClient';
 import { useTiersParType, type CleEdition, type FormulaireEdition } from '../../../lib/editionDossier';
+import { commercialLabel, useAppData } from '../../../lib/appData';
 import { referentielItems, useBanques } from '../../../lib/referentiels';
 import type { ReferentielItemDto } from '../../../types';
 
@@ -28,7 +29,10 @@ export default function AutresEdition({
   decisions,
 }: Readonly<{ f: FormulaireEdition; decisions: ReferentielItemDto[] }>) {
   const peut = f.edition.peut;
-  const employes = useTiersParType('EMP', peut('GESTIONNAIRES') || peut('COMMERCIAL'));
+  const employes = useTiersParType('EMP', peut('GESTIONNAIRES'));
+  // Le serveur n'accepte qu'un tiers de GET /api/commerciaux : même liste que les autres écrans.
+  const { commerciaux, commerciauxLoading } = useAppData();
+  const choixCommerciaux = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
   const fournisseurs = useTiersParType('FOU', peut('NOTAIRE'));
   const banques = useBanques();
   const [client, setClient] = useState<{ id: string; nom: string } | null>(null);
@@ -49,7 +53,7 @@ export default function AutresEdition({
               }}
             />
           )}
-          {peut('COMMERCIAL') && liste('commercialId', 'Changer le commercial', employes.items, employes.chargement)}
+          {peut('COMMERCIAL') && liste('commercialId', 'Commercial', choixCommerciaux, commerciauxLoading)}
         </Section>
       )}
       {(peut('GESTIONNAIRES') || peut('NOTAIRE')) && (

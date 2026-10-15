@@ -3,6 +3,7 @@ import { Pencil } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card } from '../ui';
 import { Button } from '../ui/button';
+import EnTeteDialog from './edition/EnTeteDialog';
 import PrixDialog from './edition/PrixDialog';
 import { useEditionDossier } from '../../lib/editionDossier';
 import { ChampLecture, GrilleFiche, PiedFiche } from '../ChampsFiche';
@@ -14,30 +15,49 @@ function remise(e: EnTeteFicheDto | undefined): string | null {
   return `${formatCurrency(e.remiseMontantHT)} · ${formatPercentValue(e.remisePourcentage, 2)}`;
 }
 
-/** Bouton « Modifier la remise / TVA » (groupe PRIX) et avertissement d'écart du schéma après enregistrement. */
-function EditionPrix({ dossier: d, enTete: e }: Readonly<{ dossier: DossierDetailDto; enTete?: EnTeteFicheDto }>) {
+/**
+ * Boutons « Date du dossier » (groupe DATES) et « Modifier la remise / TVA » (groupe PRIX), avertissement d'écart du
+ * schéma après enregistrement.
+ */
+function EditionEnTete({ dossier: d, enTete: e }: Readonly<{ dossier: DossierDetailDto; enTete?: EnTeteFicheDto }>) {
   const edition = useEditionDossier(d.id, e);
-  const [ouvert, setOuvert] = useState(false);
-  if (!edition.peut('PRIX') || !e) return null;
+  const [ouvert, setOuvert] = useState<'prix' | 'date' | null>(null);
+  const prix = edition.peut('PRIX');
+  if (!e || !(prix || edition.peut('DATES'))) return null;
   return (
     <div className="mb-2 flex flex-col items-end gap-1">
-      <Button type="button" size="sm" variant="outline" onClick={() => setOuvert(true)}>
-        <Pencil aria-hidden />
-        Modifier la remise / TVA
-      </Button>
+      <div className="flex flex-wrap justify-end gap-2">
+        {edition.peut('DATES') && (
+          <Button type="button" size="sm" variant="outline" onClick={() => setOuvert('date')}>
+            <Pencil aria-hidden />
+            Date du dossier
+          </Button>
+        )}
+        {prix && (
+          <Button type="button" size="sm" variant="outline" onClick={() => setOuvert('prix')}>
+            <Pencil aria-hidden />
+            Modifier la remise / TVA
+          </Button>
+        )}
+      </div>
       {edition.ecart != null && (
         <p role="status" className="text-micro text-(--warning)">
           Écart du schéma de financement : {formatCurrency(edition.ecart)} à reporter dans l'échéancier.
         </p>
       )}
-      {ouvert && (
+      {ouvert === 'prix' && (
         <PrixDialog
           edition={edition}
           remiseMontantHT={e.remiseMontantHT ?? 0}
           remisePourcentage={e.remisePourcentage ?? 0}
+          prixVenteHT={e.prixVenteHT ?? 0}
+          prixVenteTTC={e.prixVenteTTC ?? 0}
           tauxTva={d.tauxTVA ?? 0}
-          onClose={() => setOuvert(false)}
+          onClose={() => setOuvert(null)}
         />
+      )}
+      {ouvert === 'date' && (
+        <EnTeteDialog edition={edition} dateDossier={d.dateDocument} onClose={() => setOuvert(null)} />
       )}
     </div>
   );
@@ -53,7 +73,7 @@ export default function FormulaireDossier({
   return (
     <Card padded={false} className="h-full">
       <div className="p-3">
-        <EditionPrix dossier={d} enTete={e} />
+        <EditionEnTete dossier={d} enTete={e} />
         <GrilleFiche>
           <ChampLecture
             label="Tranche"
