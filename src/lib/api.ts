@@ -1219,7 +1219,6 @@ export function addEcheance(dossierId: UUID, body: CreerEcheanceRequest): Promis
   return request('POST', `/api/dossiers/${dossierId}/echeancier`, { body });
 }
 
-/** @public endpoint servi, pas encore branché sur un écran */
 export function updateEcheance(dossierId: UUID, echeanceId: UUID, body: ModifierEcheanceRequest): Promise<EcheanceDto> {
   return request('PATCH', `/api/dossiers/${dossierId}/echeancier/${echeanceId}`, { body });
 }

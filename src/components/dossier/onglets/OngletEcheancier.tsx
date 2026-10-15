@@ -3,7 +3,9 @@ import { LigneActivite } from '../../FicheShell';
 import Pagination from '../../Pagination';
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { useState } from 'react';
-import { addEcheance, getReglementsDossier } from '../../../lib/api';
+import { addEcheance, getReglementsDossier, updateEcheance } from '../../../lib/api';
+import { messageModification } from '../../../lib/modificationEcheance';
+import { useToast } from '../../../lib/toastContext';
 import { getEtatSchema, supprimerEcheance } from '../../../lib/apiDossierSousListes';
 import { useAuth } from '../../../lib/auth';
 import { useConfirm } from '../../../lib/confirmContext';
@@ -12,7 +14,7 @@ import { arrondiCentime } from '../../../lib/dossierSousListes';
 import { formatCurrency, formatDate, todayISO } from '../../../lib/format';
 import { useApi, type ApiState } from '../../../lib/useApi';
 import { useEcriture } from '../../../lib/useEcriture';
-import type { DossierDetailDto, EcheanceDto, PageDto } from '../../../types';
+import type { DossierDetailDto, EcheanceDto, ModifierEcheanceRequest, PageDto } from '../../../types';
 import AjoutEcheance from '../echeancier/AjoutEcheance';
 import AjoutReglement from '../echeancier/AjoutReglement';
 import ReglementsDossier from '../echeancier/ReglementsDossier';
@@ -20,6 +22,7 @@ import EtatSchemaBandeau from '../echeancier/EtatSchemaBandeau';
 import GenererPeriodicite from '../echeancier/GenererPeriodicite';
 import LigneEcheance from '../echeancier/LigneEcheance';
 import ModalitePaiementDialog from '../echeancier/ModalitePaiementDialog';
+import ModifierEcheance from '../echeancier/ModifierEcheance';
 
 export default function OngletEcheancier({
   dossier: d,
@@ -40,6 +43,8 @@ export default function OngletEcheancier({
   const [versionReglements, setVersionReglements] = useState(0);
   const confirm = useConfirm();
   const { executer } = useEcriture();
+  const showToast = useToast();
+  const [enModification, setEnModification] = useState<EcheanceDto | null>(null);
   const administrateur = estAdministrateur(useAuth().user);
 
   // Le serveur reporte l'écart sur une autre ligne : l'état du schéma change à chaque écriture.
@@ -61,6 +66,16 @@ export default function OngletEcheancier({
     if (ok) await executer(async () => { await supprimerEcheance(d.id, e.id); await relire(); }, 'Échéance supprimée.');
   }
 
+  async function modifier(e: EcheanceDto, corps: ModifierEcheanceRequest): Promise<boolean> {
+    const resultat: { ligne?: EcheanceDto } = {};
+    const ok = await executer(async () => {
+      resultat.ligne = await updateEcheance(d.id, e.id, corps);
+      await relire();
+    });
+    if (ok && resultat.ligne) showToast(messageModification(resultat.ligne));
+    return ok;
+  }
+
   return (
     <div className="flex flex-col gap-2.5 p-3">
       {!etat.error && etat.data && <EtatSchemaBandeau etat={etat.data} />}
@@ -71,10 +86,7 @@ export default function OngletEcheancier({
             <AjoutReglement dossierId={d.id} variante="entete" onCree={apresReglement} />
             <GenererPeriodicite dossierId={d.id} montantInitial={etat.data?.montantInitialPeriodicite} onGenere={relire} />
             <AjoutEcheance
-              onAdd={async (body) => {
-                await addEcheance(d.id, body);
-                await relire();
-              }}
+              onAdd={(body) => executer(async () => { await addEcheance(d.id, body); await relire(); }, 'Échéance ajoutée.')}
               // Lu au montage seulement : sans données chargées, rester fermé plutôt
               // que proposer une échéance du montant total sur un schéma déjà rempli.
               initialOpen={fromCreation && echeances.data?.totalElements === 0}
@@ -112,6 +124,7 @@ export default function OngletEcheancier({
                   versionReglements={versionReglements}
                   onReglementAdded={apresReglement}
                   onReglementChanged={relire}
+                  onModifier={setEnModification}
                   onSupprimer={administrateur ? (e) => void supprimer(e) : undefined}
                 />
               ))}
@@ -128,6 +141,14 @@ export default function OngletEcheancier({
         />
       )}
       <ReglementsDossier dossierId={d.id} reglements={reglements} onChanged={apresReglement} />
+      {enModification && (
+        <ModifierEcheance
+          key={enModification.id}
+          echeance={enModification}
+          onEnregistrer={(corps) => modifier(enModification, corps)}
+          onClose={() => setEnModification(null)}
+        />
+      )}
     </div>
   );
 }
