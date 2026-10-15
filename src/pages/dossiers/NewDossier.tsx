@@ -376,8 +376,9 @@ export default function NewDossier() {
         notes: notesValue || undefined,
         cin: cinValue.trim(),
         modePaieId: modePaieId,
-        // L'offre qui a pré-rempli l'écran devient l'offre d'origine du dossier (`StlQuoteId`).
-        ...(latestDevis ? { offreId: latestDevis.id } : {}),
+        // Seule l'offre choisie (`?offre=`) devient l'offre d'origine : le serveur lui applique les contrôles
+        // d'OMRAN et en reprend échéancier et prix, ce qu'on ne peut pas imposer depuis la dernière offre venue.
+        ...(offreDeDepart.explicite && latestDevis ? { offreId: latestDevis.id } : {}),
       });
       void navigate(`/dossiers/${dossier.id}?nouveau=1`);
     } catch (err) {

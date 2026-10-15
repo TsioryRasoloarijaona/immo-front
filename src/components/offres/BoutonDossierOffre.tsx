@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, FolderPlus } from 'lucide-react';
 import { Button } from '../ui/button';
+import { getProspection } from '../../lib/api';
+import { useApi } from '../../lib/useApi';
 import type { FicheDevisDto } from '../../types';
 
 const AIDE_SANS_PROSPECTION = 'Offre sans prospection : créer le dossier depuis une prospection';
@@ -35,10 +37,20 @@ export default function BoutonDossierOffre({ fiche }: Readonly<{ fiche: FicheDev
       </span>
     );
   }
+  return <BoutonCreer prospectionId={prospectionId} offreId={offre.id} />;
+}
+
+/** Même règle que « Créer un dossier » de la fiche prospection : désactivé si la prospection est archivée. */
+function BoutonCreer({ prospectionId, offreId }: Readonly<{ prospectionId: string; offreId: string }>) {
+  const navigate = useNavigate();
+  const prospection = useApi(() => getProspection(prospectionId), [prospectionId]);
+  const fermee = prospection.data?.fermee === true;
   return (
     <Button
       size="sm"
-      onClick={() => void navigate(`/prospections/${prospectionId}/nouveau-dossier?offre=${encodeURIComponent(offre.id)}`)}
+      disabled={fermee}
+      title={fermee ? 'Prospection archivée' : undefined}
+      onClick={() => void navigate(`/prospections/${prospectionId}/nouveau-dossier?offre=${encodeURIComponent(offreId)}`)}
     >
       <FolderPlus data-icon="inline-start" /> Créer le dossier
     </Button>
