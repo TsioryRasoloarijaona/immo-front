@@ -110,7 +110,7 @@ export default function OngletEcheancier({
                   dossierId={d.id}
                   echeance={l}
                   versionReglements={versionReglements}
-                  onReglementAdded={relire}
+                  onReglementAdded={apresReglement}
                   onReglementChanged={relire}
                   onSupprimer={administrateur ? (e) => void supprimer(e) : undefined}
                 />
