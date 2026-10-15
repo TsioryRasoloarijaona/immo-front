@@ -7151,7 +7151,7 @@
             }
           },
           "400": {
-            "description": "Catégorie introuvable, ou ligne laissée sans catégorie.",
+            "description": "Catégorie introuvable, ligne sans catégorie, ou ligne non soldée datée avant le début des finalisations.",
             "content": {
               "*/*": {
                 "schema": {
