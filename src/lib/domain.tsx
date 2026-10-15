@@ -65,6 +65,11 @@ export const ENCAISSEMENT_ETAT_LABELS: Record<string, string> = {
   CANCELED: 'Annulé',
 };
 
+/** Seul CANCELED sort des totaux de montants (règle du back, `StatutReglement.compteDansLesTotaux`). */
+export function encaissementCompteDansLesTotaux(etat: string | undefined): boolean {
+  return etat?.trim().toUpperCase() !== 'CANCELED';
+}
+
 export function encaissementEtatLabel(etat: string | undefined): string {
   if (!etat) return '—';
   return ENCAISSEMENT_ETAT_LABELS[etat.toUpperCase()] ?? etat;

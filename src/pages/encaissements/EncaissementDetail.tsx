@@ -14,7 +14,14 @@ import { Tabs, TabsContent } from '../../components/ui/tabs';
 import { getEncaissement, modifierStatutReglement } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { useConfirm } from '../../lib/confirmContext';
-import { encaissementEtatLabel, encaissementEtatTone, reglementModifiable } from '../../lib/domain';
+import {
+  encaissementCompteDansLesTotaux,
+  encaissementEtatLabel,
+  encaissementEtatTone,
+  reglementModifiable,
+} from '../../lib/domain';
+import BoutonsRecu from '../../components/encaissements/BoutonsRecu';
+import type { EncaissementDetailDto } from '../../types';
 import { formatCurrency, formatDate, formatDateTime } from '../../lib/format';
 
 type EncaissementTab = 'affectations' | 'documents';
@@ -55,6 +62,7 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
   const affectations = e.affectations ?? [];
   const dossiers = new Set(affectations.map((a) => a.dossierCode).filter(Boolean));
   const totalAffecte = affectations.reduce((s, a) => s + (a.montantAffecte ?? 0), 0);
+  const { affecteCompte, libelleTotalAffecte, dossierRecu } = syntheseAffectations(e);
 
   /* Portée des endpoints de preuve et de pointage (`/api/dossiers/{id}/reglements/…`) :
      le serveur accepte n'importe quel dossier des affectations. Le repli couvre
@@ -118,9 +126,12 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
         </EnteteFiche>
       }
       actions={
-        <Button variant="outline" size="sm" onClick={() => navigate('/encaissements')}>
-          Retour à la liste
-        </Button>
+        <span className="flex items-center gap-2">
+          {dossierRecu && <BoutonsRecu dossierId={dossierRecu} reglementId={e.id} reference={e.reference} />}
+          <Button variant="outline" size="sm" onClick={() => navigate('/encaissements')}>
+            Retour à la liste
+          </Button>
+        </span>
       }
     >
       <FicheShell
@@ -133,7 +144,11 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
             <div className="p-3">
               <GrilleFiche>
                 <ChampLecture label="Entité" valeur={e.entiteLibelle} />
+                <ChampLecture label="Date pièce" valeur={formatDate(e.dateDocument)} />
                 <ChampLecture label="Échéance" valeur={formatDate(e.dateEcheance)} />
+                <ChampLecture label="Type" valeur={e.typeLibelle} />
+                <ChampLecture label="Référence" valeur={e.reference} />
+                <ChampLecture label="Banque" valeur={e.banqueNom} />
                 <ChampLecture label="Compte" valeur={e.compteCode} />
                 <ChampLecture label="Dépôt" valeur={e.depotCode} />
 
@@ -165,7 +180,7 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
                 <table className="w-full text-body">
                   <tbody>
                     <LigneMontant libelle="Montant brut" valeur={e.montantBrut} fort />
-                    <LigneMontant libelle="Affecté" valeur={totalAffecte} />
+                    <LigneMontant libelle="Montant affecté" valeur={affecteCompte} />
                     <LigneMontant libelle="Reste à affecter" valeur={e.montantBrutRestant} alerte />
                     <LigneMontant libelle="Montant net" valeur={e.montantNet} separe />
                     <LigneMontant libelle="Montant base" valeur={e.montantBase} />
@@ -274,7 +289,7 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
                     <TableFooter>
                       <TableRow className="hover:bg-muted/50">
                         <TableCell colSpan={4} className="text-micro text-muted-foreground">
-                          Total affecté
+                          {libelleTotalAffecte}
                         </TableCell>
                         <TableCell className="text-right text-micro font-semibold tabular-nums">
                           {formatCurrency(totalAffecte)}
@@ -326,6 +341,17 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
       )}
     </CadreFiche>
   );
+}
+
+function syntheseAffectations(e: EncaissementDetailDto) {
+  const annule = !encaissementCompteDansLesTotaux(e.etat);
+  return {
+    // Affecté du serveur (brut − restant) : 0 pour un règlement annulé, dont les affectations restent listées.
+    affecteCompte: (e.montantBrut ?? 0) - (e.montantBrutRestant ?? 0),
+    libelleTotalAffecte: annule ? 'Total affecté (règlement annulé : hors totaux)' : 'Total affecté',
+    // Le reçu est un document du dossier : celui de la première affectation.
+    dossierRecu: e.affectations?.[0]?.dossierId,
+  };
 }
 
 function couleurMontant(colore: boolean | undefined, fort: boolean | undefined): string {

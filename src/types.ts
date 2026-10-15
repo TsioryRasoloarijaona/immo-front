@@ -1690,6 +1690,8 @@ export interface CreerDossierRequest {
   /** 400 si absents, bien que la spec ne les marque pas `required`. */
   modePaieId?: UUID;
   cin?: string;
+  /** Offre d'origine (`ComFolder.StlQuoteId`) ; 400 si d'une autre prospection. */
+  offreId?: UUID;
 }
 
 /** Ne réserve rien : les articles n'ont pas à être disponibles. */

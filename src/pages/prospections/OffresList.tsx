@@ -386,7 +386,8 @@ function FicheOffreActions({ offre: o }: Readonly<{ offre: DevisDto }>) {
     setGenError(null);
     try {
       if (action === 'view') await viewDevisDocument(o.prospectionId, o.id);
-      else await downloadDevisDocument(o.prospectionId, o.id, `offre-${o.code}.pdf`);
+      // Le code (`26/00314`) porte un `/` : remplacé comme côté back, sinon le nom serait un chemin.
+      else await downloadDevisDocument(o.prospectionId, o.id, `offre-${(o.code ?? o.id).replaceAll(/[/\\]/g, '-')}.pdf`);
     } catch (err) {
       setGenError(err instanceof Error ? err.message : 'Echec de la generation.');
     } finally {
