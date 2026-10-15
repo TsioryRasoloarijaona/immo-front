@@ -12209,7 +12209,7 @@
           {
             "name": "colonnes",
             "in": "query",
-            "description": "Colonnes à sérialiser, répétable ou séparées par des virgules. Absent : les 27 colonnes historiques.\nCatalogue et liste blanche : `GET /api/referentiels/colonnes/encaissements`. Un nom hors catalogue\nrend 400 avec la liste des noms valides. `id` est toujours servi.",
+            "description": "Colonnes à sérialiser, répétable ou séparées par des virgules. Absent : les 27 colonnes `parDefaut` du\ncatalogue (`pointagePrevu` y remplace `dateReglement`, toujours servie si demandée).\nCatalogue et liste blanche : `GET /api/referentiels/colonnes/encaissements`. Un nom hors catalogue\nrend 400 avec la liste des noms valides. `id` est toujours servi.",
             "required": false,
             "schema": {
               "type": "array",
