@@ -20,11 +20,35 @@ import {
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../lib/referentiels';
 import type { CreerDevisRequest } from '../types';
 
+/** Valeurs d'une offre existante, pour réutiliser le formulaire en modification (`PATCH /api/devis/{id}`). */
+export type ValeursEditionDevis = {
+  sousArticleIds: string[];
+  remisePercent?: number;
+  modePaiementId?: string;
+  notes?: string;
+};
+
+/** Textes qui changent entre création et modification : sans article, le prix n'est requis qu'à la création. */
+function textesPrix(isLibre: boolean, edition: boolean) {
+  if (edition) {
+    return { placeholder: 'Inchangé', description: 'Vide : le prix actuel de l’offre est conservé.', requis: false };
+  }
+  return isLibre
+    ? { placeholder: 'Obligatoire', description: 'Requis — offre libre, sans article.', requis: true }
+    : { placeholder: 'Optionnel', description: 'Remplace le prix commercial de l’article.', requis: false };
+}
+
+function libelleBouton(busy: boolean, edition: boolean): string {
+  if (edition) return busy ? 'Enregistrement…' : 'Enregistrer';
+  return busy ? 'Création…' : 'Créer l’offre';
+}
+
 export default function DevisFormSection({
   defaultTrancheId,
   defaultArticleId,
   defaultProspectId,
   defaultCommercialId,
+  edition,
   startOpen,
   bare,
   onAdd,
@@ -33,6 +57,8 @@ export default function DevisFormSection({
   defaultArticleId?: string;
   defaultProspectId?: string;
   defaultCommercialId?: string;
+  /** Formulaire prérempli d'une offre existante : libellés et contrôle du prix adaptés. */
+  edition?: ValeursEditionDevis;
   startOpen?: boolean;
   bare?: boolean;
   onAdd: (body: CreerDevisRequest) => Promise<void>;
@@ -50,11 +76,11 @@ export default function DevisFormSection({
   const [typeIds, setTypeIds] = useState<string[]>([]);
   const [onlyDisponible, setOnlyDisponible] = useState(!defaultArticleId);
   const [articleId, setArticleId] = useState<string | null>(defaultArticleId ?? null);
-  const [sousArticleIds, setSousArticleIds] = useState<string[]>([]);
+  const [sousArticleIds, setSousArticleIds] = useState<string[]>(edition?.sousArticleIds ?? []);
   const [prix, setPrix] = useState('');
-  const [remisePercent, setRemisePercent] = useState('');
-  const [modePaiementId, setModePaiementId] = useState<string | null>(null);
-  const [notes, setNotes] = useState('');
+  const [remisePercent, setRemisePercent] = useState(edition?.remisePercent ? String(edition.remisePercent) : '');
+  const [modePaiementId, setModePaiementId] = useState<string | null>(edition?.modePaiementId ?? null);
+  const [notes, setNotes] = useState(edition?.notes ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +101,7 @@ export default function DevisFormSection({
   const selected = useApi(() => (articleId ? getArticle(articleId) : Promise.resolve(null)), [articleId]);
 
   const isLibre = !articleId;
+  const textes = textesPrix(isLibre, !!edition);
 
   function reset() {
     setProjetId(null);
@@ -92,7 +119,7 @@ export default function DevisFormSection({
 
   async function handleCreate() {
     if (!trancheId) return;
-    if (isLibre && !prix.trim()) {
+    if (textes.requis && !prix.trim()) {
       setError("Prix requis pour une offre libre (sans article).");
       return;
     }
@@ -200,10 +227,8 @@ export default function DevisFormSection({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <FormField>
               <FieldLabel htmlFor="devis-prix">Prix TTC</FieldLabel>
-              <Input id="devis-prix" type="number" value={prix} onChange={(e) => setPrix(e.target.value)} placeholder={isLibre ? 'Obligatoire' : 'Optionnel'} />
-              <FieldDescription className="text-micro">
-                {isLibre ? 'Requis — offre libre, sans article.' : 'Remplace le prix commercial de l’article.'}
-              </FieldDescription>
+              <Input id="devis-prix" type="number" value={prix} onChange={(e) => setPrix(e.target.value)} placeholder={textes.placeholder} />
+              <FieldDescription className="text-micro">{textes.description}</FieldDescription>
             </FormField>
             <FormField>
               <FieldLabel htmlFor="devis-remise">Remise (%)</FieldLabel>
@@ -221,7 +246,7 @@ export default function DevisFormSection({
 
           <div className="flex items-center gap-2">
             <Button type="button" size="sm" disabled={!trancheId || busy} onClick={handleCreate}>
-              {busy ? 'Création…' : 'Créer l’offre'}
+              {libelleBouton(busy, !!edition)}
             </Button>
             {error && <p className="text-body text-destructive">{error}</p>}
           </div>

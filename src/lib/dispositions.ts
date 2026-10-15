@@ -343,6 +343,7 @@ export const DISPOSITION_PROSPECTS: DispositionColonnes = {
 const ORDRE_ENCAISSEMENTS = [
   'etat',
   'dateDocument',
+  'pointagePrevu',
   'dateReglement',
   'tierNom',
   'dossierCode',
@@ -376,6 +377,7 @@ const ORDRE_ENCAISSEMENTS = [
 const POIDS_ENCAISSEMENTS: Record<string, number> = {
   etat: 9,
   dateDocument: 9,
+  pointagePrevu: 9,
   dateReglement: 9,
   tierNom: 16,
   dossierCode: 11,
@@ -424,6 +426,8 @@ export const DISPOSITION_ENCAISSEMENTS: DispositionColonnes = {
   ]),
   /* `dossierCode` sans lien : un règlement peut porter sur plusieurs dossiers, le code affiché ne désigne pas
      toujours une cible unique. */
+  // L'icône d'alerte de la cellule État compare l'échéance à aujourd'hui.
+  dependances: { etat: ['dateEcheance'] },
 };
 
 /** Ordre de l'écran « Impayés » d'OMRAN, celui du catalogue serveur. */
