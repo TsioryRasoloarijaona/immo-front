@@ -17101,7 +17101,7 @@
       },
       "MiseEnPageDto": {
         "type": "object",
-        "description": "Mise en page d'un modèle, stockée en JSON (400 caractères au plus, en-tête et pied compris).",
+        "description": "Mise en page d'un modèle, en JSON ; images de l'en-tête et du pied comptées avec celles du contenu.",
         "properties": {
           "format": {
             "type": "string",

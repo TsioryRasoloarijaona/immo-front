@@ -80,6 +80,10 @@
       "description": "Articles et sous-articles (StkItem) — lots vendables d'une tranche, avec leur disponibilité et leurs éventuels sous-lots (cave/parking annexés)."
     },
     {
+      "name": "Modèles de documents",
+      "description": "Modèles de documents modifiables par un administrateur (FEATURE-modeles-documents.md). Un modèle appartient à une\n**catégorie** (type de fiche source, lot 1 : `DOSSIER_VENTE`) ; son contenu est un **HTML restreint** (liste blanche :\n`p`, `h1`–`h3`, `strong`, `em`, `u`, `br`, listes, `hr`, tableaux, images `data:image/png|jpeg;base64` de 500 Ko au plus,\n2 Mo par version) où les valeurs de la fiche s'écrivent `<span data-champ=\"cle\">libellé</span>`, les lignes répétées\n`data-repeter=\"liste\"` (sur `tr`, `li`, `p`, `span`), les blocs conditionnels `data-si=\"cle\"` (+ `data-valeur` pour un\nbooléen), les titres numérotés `<h2 data-numero>` et les sauts de page `<div data-saut-page></div>`. Tout autre élément,\nattribut ou style → 400 qui nomme l'élément fautif. Chaque enregistrement crée une version, jamais d'écrasement ; pas de\nsuppression : `actif = false`. Concevoir = rôle `Administrateur` ; imprimer = accès à la fiche (404 hors périmètre)."
+    },
+    {
       "name": "Authentification",
       "description": "Connexion/déconnexion par cookie JWT httpOnly."
     },
@@ -324,6 +328,131 @@
         }
       }
     },
+    "/api/modeles-documents/{id}": {
+      "get": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Modèle et contenu de sa version courante",
+        "operationId": "detail",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du modèle (AppModeleDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Modèle trouvé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun modèle avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Modifie un modèle ; un nouveau contenu crée une nouvelle version",
+        "description": "Champs absents = inchangés. `contenu` ou `miseEnPage` présent = nouvelle version (le champ absent des deux est repris\nde la version courante). `libelle`, `ordre` et `actif` seuls ne créent pas de version.",
+        "operationId": "modifier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du modèle (AppModeleDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierModeleDocumentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Modèle modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Libellé invalide ou HTML hors liste blanche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun modèle avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/equipe/affectations/{admUserId}": {
       "put": {
         "tags": [
@@ -414,7 +543,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Modifie une demande de modification",
-        "operationId": "modifier",
+        "operationId": "modifier_1",
         "parameters": [
           {
             "name": "id",
@@ -528,7 +657,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Modifie un cadeau (livraison, bon, notes ; la raison selon le droit)",
-        "operationId": "modifier_1",
+        "operationId": "modifier_2",
         "parameters": [
           {
             "name": "id",
@@ -3192,6 +3321,255 @@
         }
       }
     },
+    "/api/modeles-documents": {
+      "get": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Modèles actifs d'une catégorie, pour « Imprimer »",
+        "operationId": "listerActifs",
+        "parameters": [
+          {
+            "name": "categorie",
+            "in": "query",
+            "description": "Code de la catégorie.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "DOSSIER_VENTE"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Modèles actifs triés par `ordre`, éventuellement vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModeleDocumentResumeDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Catégorie inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModeleDocumentResumeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Crée un modèle et sa version 1",
+        "operationId": "creer_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerModeleDocumentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Modèle créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ requis manquant, code invalide, HTML hors liste blanche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Un modèle de ce code existe déjà dans la catégorie.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/modeles-documents/{id}/versions/{numero}/restaurer": {
+      "post": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Recopie une ancienne version en nouvelle version courante",
+        "operationId": "restaurer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du modèle (AppModeleDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "numero",
+            "in": "path",
+            "description": "Numéro de la version à restaurer.",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "example": 1
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nouvelle version créée, identique à la version restaurée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Modèle ou version introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/modeles-documents/{id}/apercu": {
+      "post": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Aperçu PDF d'un contenu non enregistré, rempli avec une fiche",
+        "operationId": "apercu",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du modèle (AppModeleDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApercuModeleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "PDF de l'aperçu ; rien n'est enregistré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ficheId` manquant ou HTML hors liste blanche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Modèle introuvable, ou fiche introuvable ou hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/equipe/repartir": {
       "post": {
         "tags": [
@@ -4184,7 +4562,7 @@
         ],
         "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
         "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
-        "operationId": "creer_1",
+        "operationId": "creer_2",
         "parameters": [
           {
             "name": "id",
@@ -5470,7 +5848,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_2",
+        "operationId": "creer_3",
         "parameters": [
           {
             "name": "id",
@@ -5995,7 +6373,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_3",
+        "operationId": "creer_4",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6744,7 +7122,7 @@
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
         "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
-        "operationId": "modifier_2",
+        "operationId": "modifier_3",
         "parameters": [
           {
             "name": "id",
@@ -7263,7 +7641,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier_3",
+        "operationId": "modifier_4",
         "parameters": [
           {
             "name": "id",
@@ -7403,7 +7781,7 @@
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
         "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
-        "operationId": "modifier_4",
+        "operationId": "modifier_5",
         "parameters": [
           {
             "name": "id",
@@ -11121,6 +11499,297 @@
         }
       }
     },
+    "/api/modeles-documents/{id}/versions": {
+      "get": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Historique des versions d'un modèle, la plus récente d'abord",
+        "operationId": "versions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du modèle (AppModeleDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Versions du modèle.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VersionModeleDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VersionModeleDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun modèle avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VersionModeleDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/modeles-documents/{id}/generer": {
+      "get": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Génère le document d'une fiche depuis un modèle actif",
+        "description": "Document du modèle **actif** rempli avec la fiche `ficheId` (pour `DOSSIER_VENTE` : contrôle de périmètre du dossier,\n404 hors périmètre). PDF affiché en ligne, DOCX en pièce jointe ; nom de fichier `<code-modele>-<code-fiche>` en\nminuscules (`_` → `-`). Le contenu est revalidé avant chaque génération.",
+        "operationId": "generer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du modèle (AppModeleDocument.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "ficheId",
+            "in": "query",
+            "description": "Fiche source (pour `DOSSIER_VENTE` : ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "`pdf` (défaut) ou `docx`.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "pdf"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document généré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`format` autre que `pdf` ou `docx`.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Modèle introuvable ou inactif, ou fiche hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/modeles-documents/categories": {
+      "get": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Catégories de modèles disponibles",
+        "operationId": "categories",
+        "responses": {
+          "200": {
+            "description": "Catégories (lot 1 : `DOSSIER_VENTE`).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategorieModeleDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategorieModeleDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/modeles-documents/categories/{categorie}/champs": {
+      "get": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Catalogue des champs d'une catégorie",
+        "operationId": "champs",
+        "parameters": [
+          {
+            "name": "categorie",
+            "in": "path",
+            "description": "Code de la catégorie.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "DOSSIER_VENTE"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes de champs et listes répétables.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueChampsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueChampsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Catégorie inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogueChampsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/modeles-documents/admin": {
+      "get": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Tous les modèles, actifs et inactifs",
+        "operationId": "listerTous",
+        "parameters": [
+          {
+            "name": "categorie",
+            "in": "query",
+            "description": "Code de la catégorie ; absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "DOSSIER_VENTE"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Modèles avec leur version courante.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModeleDocumentAdminDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Catégorie inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModeleDocumentAdminDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ModeleDocumentAdminDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/kpi/commerciaux": {
       "get": {
         "tags": [
@@ -13179,7 +13848,7 @@
           "Dossiers — réinitialisation"
         ],
         "summary": "Aperçu de la réinitialisation depuis le stock (avant / après), sans rien écrire",
-        "operationId": "apercu",
+        "operationId": "apercu_1",
         "parameters": [
           {
             "name": "id",
@@ -13923,6 +14592,8 @@
         "tags": [
           "Dossiers"
         ],
+        "summary": "Acte de réservation (PDF ou DOCX)",
+        "description": "Rendu par le modèle `DOSSIER_VENTE/ACTE_RESERVATION` s'il est actif, sinon par l'acte codé en dur.",
         "operationId": "getActeReservation",
         "parameters": [
           {
@@ -13937,6 +14608,7 @@
           {
             "name": "format",
             "in": "query",
+            "description": "`pdf` (défaut) ou `docx`.",
             "required": false,
             "schema": {
               "type": "string",
@@ -13946,7 +14618,29 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Document généré.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`format` autre que `pdf` ou `docx`, ou modèle devenu invalide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable ou hors périmètre.",
             "content": {
               "*/*": {
                 "schema": {
@@ -16402,6 +17096,137 @@
             "type": "string",
             "description": "Libellé du projet (CfgProject.Description).",
             "example": "AYAD RESIDENCE BEL AIR"
+          }
+        }
+      },
+      "MiseEnPageDto": {
+        "type": "object",
+        "description": "Mise en page d'un modèle, stockée en JSON (400 caractères au plus, en-tête et pied compris).",
+        "properties": {
+          "format": {
+            "type": "string",
+            "description": "Format du papier ; seul `A4` est accepté. Absent = A4.",
+            "example": "A4"
+          },
+          "margeHaut": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Marge haute en mm (0 à 60). Absente = 15.",
+            "example": 12
+          },
+          "margeBas": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Marge basse en mm (0 à 60). Absente = 15.",
+            "example": 12
+          },
+          "margeGauche": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Marge gauche en mm (0 à 60). Absente = 15.",
+            "example": 16
+          },
+          "margeDroite": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Marge droite en mm (0 à 60). Absente = 15.",
+            "example": 16
+          },
+          "enTete": {
+            "type": "string",
+            "description": "En-tête de chaque page, HTML restreint (mêmes règles que le contenu). Absent = aucun."
+          },
+          "piedDePage": {
+            "type": "string",
+            "description": "Pied de chaque page, HTML restreint (mêmes règles que le contenu). Absent = aucun."
+          }
+        }
+      },
+      "ModifierModeleDocumentRequest": {
+        "type": "object",
+        "description": "Modification d'un modèle ; un champ absent reste inchangé.",
+        "properties": {
+          "libelle": {
+            "type": "string",
+            "description": "Nouveau nom affiché.",
+            "example": "Acte de réservation"
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nouveau rang dans le menu « Imprimer ».",
+            "example": 10
+          },
+          "actif": {
+            "type": "boolean",
+            "description": "Faux = retiré du menu « Imprimer » (le modèle est conservé)."
+          },
+          "contenu": {
+            "type": "string",
+            "description": "Nouveau contenu : présent (avec ou sans `miseEnPage`) = nouvelle version."
+          },
+          "miseEnPage": {
+            "$ref": "#/components/schemas/MiseEnPageDto",
+            "description": "Nouvelle mise en page : présente (avec ou sans `contenu`) = nouvelle version."
+          }
+        }
+      },
+      "ModeleDocumentDetailDto": {
+        "type": "object",
+        "description": "Modèle et contenu de sa version courante, pour l'éditeur.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du modèle (AppModeleDocument.PKey)."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Code de la catégorie.",
+            "example": "DOSSIER_VENTE"
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du modèle, immuable.",
+            "example": "ACTE_RESERVATION"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Nom affiché.",
+            "example": "Acte de réservation"
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang dans le menu « Imprimer » (croissant).",
+            "example": 10
+          },
+          "actif": {
+            "type": "boolean",
+            "description": "Faux = absent du menu « Imprimer », conservé."
+          },
+          "versionCourante": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro de la version courante ; null si aucune.",
+            "example": 3
+          },
+          "contenu": {
+            "type": "string",
+            "description": "HTML restreint de la version courante ; chaîne vide si aucune."
+          },
+          "miseEnPage": {
+            "$ref": "#/components/schemas/MiseEnPageDto",
+            "description": "Mise en page de la version courante, valeurs par défaut posées."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification."
           }
         }
       },
@@ -19142,6 +19967,60 @@
             "items": {
               "$ref": "#/components/schemas/ProjetPerimetreDto"
             }
+          }
+        }
+      },
+      "CreerModeleDocumentRequest": {
+        "type": "object",
+        "description": "Création d'un modèle : enregistre sa version 1.",
+        "properties": {
+          "categorie": {
+            "type": "string",
+            "description": "Code de la catégorie (voir `GET /categories`).",
+            "example": "DOSSIER_VENTE"
+          },
+          "code": {
+            "type": "string",
+            "description": "Code unique dans la catégorie : majuscules, chiffres et `_`, 60 caractères au plus.",
+            "example": "LETTRE_BIENVENUE"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Nom affiché, 200 caractères au plus.",
+            "example": "Lettre de bienvenue"
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang dans le menu « Imprimer ». Absent = 100.",
+            "example": 20
+          },
+          "contenu": {
+            "type": "string",
+            "description": "HTML restreint du document (règles : FEATURE-modeles-documents.md §5)."
+          },
+          "miseEnPage": {
+            "$ref": "#/components/schemas/MiseEnPageDto",
+            "description": "Mise en page. Absente = A4, marges de 15 mm, sans en-tête ni pied."
+          }
+        }
+      },
+      "ApercuModeleRequest": {
+        "type": "object",
+        "description": "Aperçu d'un contenu non enregistré, rempli avec une fiche réelle.",
+        "properties": {
+          "contenu": {
+            "type": "string",
+            "description": "HTML restreint à prévisualiser (mêmes règles que l'enregistrement)."
+          },
+          "miseEnPage": {
+            "$ref": "#/components/schemas/MiseEnPageDto",
+            "description": "Mise en page à prévisualiser. Absente = valeurs par défaut."
+          },
+          "ficheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fiche source (pour `DOSSIER_VENTE` : ComFolder.PKey), dans le périmètre de l'appelant."
           }
         }
       },
@@ -25205,6 +26084,218 @@
           "timeout": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "ModeleDocumentResumeDto": {
+        "type": "object",
+        "description": "Modèle actif proposé dans « Imprimer » d'une fiche.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du modèle (AppModeleDocument.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du modèle, unique dans sa catégorie.",
+            "example": "ACTE_RESERVATION"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Nom affiché.",
+            "example": "Acte de réservation"
+          }
+        }
+      },
+      "VersionModeleDto": {
+        "type": "object",
+        "description": "Une version enregistrée d'un modèle (jamais modifiée).",
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro de la version, 1, 2, 3…",
+            "example": 2
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'enregistrement."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Auteur de l'enregistrement."
+          },
+          "courante": {
+            "type": "boolean",
+            "description": "Vrai pour la version courante du modèle."
+          }
+        }
+      },
+      "CategorieModeleDto": {
+        "type": "object",
+        "description": "Catégorie de modèles = type de fiche source.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code de la catégorie.",
+            "example": "DOSSIER_VENTE"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé français.",
+            "example": "Dossier de vente"
+          }
+        }
+      },
+      "CatalogueChampsDto": {
+        "type": "object",
+        "description": "Catalogue des champs d'une catégorie de modèles, défini dans le code.",
+        "properties": {
+          "categorie": {
+            "type": "string",
+            "description": "Code de la catégorie.",
+            "example": "DOSSIER_VENTE"
+          },
+          "groupes": {
+            "type": "array",
+            "description": "Groupes de champs simples.",
+            "items": {
+              "$ref": "#/components/schemas/GroupeChampsDto"
+            }
+          },
+          "listes": {
+            "type": "array",
+            "description": "Listes répétables (↻).",
+            "items": {
+              "$ref": "#/components/schemas/ListeChampsDto"
+            }
+          }
+        }
+      },
+      "ChampModeleDto": {
+        "type": "object",
+        "description": "Champ insérable dans un modèle : l'éditeur pose `<span data-champ=\"cle\">libelle</span>`.",
+        "properties": {
+          "cle": {
+            "type": "string",
+            "description": "Clé stable du champ, ex. `client.nom`.",
+            "example": "client.nom"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé français affiché dans l'éditeur.",
+            "example": "Nom du client"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type : décide du format à la génération et de la règle d'un bloc conditionnel.",
+            "enum": [
+              "TEXTE",
+              "MONTANT",
+              "POURCENTAGE",
+              "DATE",
+              "NOMBRE",
+              "BOOLEEN"
+            ]
+          },
+          "exemple": {
+            "type": "string",
+            "description": "Exemple de valeur formatée, pour l'aide de l'éditeur.",
+            "example": "Nor CHEMAOU"
+          }
+        }
+      },
+      "GroupeChampsDto": {
+        "type": "object",
+        "description": "Groupe de champs simples du catalogue (Dossier, Client, Article…).",
+        "properties": {
+          "libelle": {
+            "type": "string",
+            "description": "Libellé du groupe.",
+            "example": "Client"
+          },
+          "champs": {
+            "type": "array",
+            "description": "Champs du groupe, dans l'ordre d'affichage.",
+            "items": {
+              "$ref": "#/components/schemas/ChampModeleDto"
+            }
+          }
+        }
+      },
+      "ListeChampsDto": {
+        "type": "object",
+        "description": "Liste répétable (↻) : ses champs ne sont permis que dans un élément `data-repeter=\"cle\"`.",
+        "properties": {
+          "cle": {
+            "type": "string",
+            "description": "Clé de la liste, valeur de `data-repeter`.",
+            "example": "echeancesSolde"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé français de la liste.",
+            "example": "Échéances du solde"
+          },
+          "champs": {
+            "type": "array",
+            "description": "Champs d'un élément de la liste.",
+            "items": {
+              "$ref": "#/components/schemas/ChampModeleDto"
+            }
+          }
+        }
+      },
+      "ModeleDocumentAdminDto": {
+        "type": "object",
+        "description": "Ligne de la liste d'administration des modèles (actifs et inactifs).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant du modèle (AppModeleDocument.PKey)."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Code de la catégorie.",
+            "example": "DOSSIER_VENTE"
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du modèle, immuable.",
+            "example": "ACTE_RESERVATION"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Nom affiché.",
+            "example": "Acte de réservation"
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang dans le menu « Imprimer » (croissant).",
+            "example": 10
+          },
+          "actif": {
+            "type": "boolean",
+            "description": "Faux = absent du menu « Imprimer », conservé."
+          },
+          "versionCourante": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro de la version courante ; null si le modèle n'a aucune version.",
+            "example": 3
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la dernière modification."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "Auteur de la dernière modification."
           }
         }
       },
