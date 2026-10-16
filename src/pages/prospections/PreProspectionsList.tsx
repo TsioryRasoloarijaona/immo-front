@@ -105,8 +105,9 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
   const clesFiltres = [...clesFiltresSeuls, page];
 
   // Hors `page` : les totaux portent sur tout le filtre et ne bougent pas d'une page à l'autre.
+  // Colonnes affichées, pas le catalogue : un Σ d'une colonne masquée ne doit être ni demandé ni compté.
   const totauxServeur = useTotauxServeur(
-    catalogueUtile,
+    colonnes.colonnes,
     (agregats) => totauxPreProspections(filtresServeur, agregats),
     clesFiltresSeuls.join('|'),
     !enGroupes,
