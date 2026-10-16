@@ -3663,7 +3663,7 @@
           {
             "name": "colonnes",
             "in": "query",
-            "description": "Colonnes à sérialiser, répétable ou séparées par des virgules. Absent : les 13 colonnes historiques. Catalogue et liste blanche : `GET /api/referentiels/colonnes/dossiers`. Un nom hors catalogue rend 400 avec la liste des noms valides. `id` est toujours servi.",
+            "description": "Colonnes à sérialiser, répétable ou séparées par des virgules. Absent : les 13 colonnes historiques. Catalogue et liste blanche : `GET /api/referentiels/colonnes/dossiers`. Un nom hors catalogue rend 400 avec la liste des noms valides. `id` est toujours servi.\n\nLes colonnes renseignées sur moins de 1 % des dossiers réels ont quitté le catalogue (relances, CPF, certificat, actes de précision, minute avocat et client, légalisation, fiches assurance et intervention, remise des clés client, promesses de vente, visite technique, envoi et décision MEILLEURTAUX en libellé, octroi du crédit et ses deux délais, gestionnaire 2, `numeroTitre`…) : les demander rend 400. Leurs dates restent des filtres de période (`champDate`).\n\nLes montants par nature (`avance`, `credit`, `frais`, `netAPayerReste`, `tropPercu`…) sont calculés par page depuis l'échéancier et les règlements : une de ces colonnes demandée coûte deux requêtes par page, aucune si elles sont absentes.",
             "required": false,
             "schema": {
               "type": "array",
@@ -14012,6 +14012,187 @@
         }
       }
     },
+    "/api/dossiers/totaux": {
+      "get": {
+        "tags": [
+          "Dossiers — liste"
+        ],
+        "summary": "Σ des montants par nature sur tout le filtre de la liste (bande de totaux)",
+        "description": "Σ en tête des colonnes de montants par nature, sur **toutes** les lignes filtrées (pas seulement la page) : mêmes filtres, mêmes statuts visibles et même périmètre commercial que `GET /api/dossiers`. Chaque montant est celui de la colonne du même nom, dossier par dossier, puis additionné — jamais un second calcul. `sommes` a une clé par colonne additionnable (`prixContractuel`, `prixContractuelRegle`, `prixContractuelReste`, `prixRegle`, `prixReste`, `netAPayerRegle`, `netAPayerReste`, `avance`, `avanceReglee`, `avanceReste`, `autofinancement`, `autofinancementRegle`, `autofinancementReste`, `credit`, `creditRegle`, `creditReste`, `frais`, `fraisRegles`, `fraisReste`, `tropPercu`, `tropPercuRegle`, `tropPercuReste`) ; les taux ne s'additionnent pas et n'y figurent pas. Les lots libres n'ont pas de montant : `lignes=LIBRES` rend des sommes nulles. Les Σ des colonnes de table (`prix`, `totalAPayer`…) restent servies par `GET /api/dossiers/groupes` (`totaux`).",
+        "operationId": "totaux_1",
+        "parameters": [
+          {
+            "name": "statut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "commercial",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "projet",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RESERVATION",
+                "PROSPECTION",
+                "VALIDITE_STATUT",
+                "CONCRETISATION",
+                "PROMESSE_VENTE",
+                "PROMESSE_VENTE_CLIENT",
+                "ENREGISTREMENT_RESERVATION",
+                "VISITE_TECHNIQUE",
+                "ENVOI_NOTAIRE_PREVU",
+                "ENVOI_NOTAIRE",
+                "MINUTE",
+                "MINUTE_CLIENT",
+                "FORMALISATION",
+                "IMPRESSION_CONTRAT",
+                "EXPEDITION",
+                "RELANCE_1",
+                "ECHEANCE_RELANCE_1",
+                "RELANCE_2",
+                "ECHEANCE_RELANCE_2",
+                "FICHE_BANCAIRE",
+                "ENVOI_MEILLEUR_TAUX",
+                "DECISION_MEILLEUR_TAUX",
+                "COMPROMIS",
+                "CREDIT_DEBLOQUE",
+                "FICHE_INTERVENTION",
+                "FICHE_ASSURANCE",
+                "REMISE_DES_CLES_PREVUE",
+                "REMISE_DES_CLES",
+                "REMISE_DES_CLES_CLIENT",
+                "ENREGISTREMENT_REMISE_DES_CLES",
+                "MODIFICATION_REMISE",
+                "PERMIS_HABITER",
+                "ACTE_PRECISION",
+                "ACTE_PRECISION_CLIENT",
+                "ENREGISTREMENT_ACTE_PRECISION",
+                "MINUTE_AVOCAT",
+                "REMISE_LEGALISATION_CONTRAT",
+                "LEGALISATION_CONTRAT",
+                "DEPOT_ENREGISTREMENT_CONTRAT",
+                "REMISE_LEGALISATION_ACTE_PRECISION",
+                "DEPOT_ENREGISTREMENT_ACTE_PRECISION",
+                "DEPOT_CPF",
+                "RETRAIT_CPF",
+                "REMISE_CERTIFICAT_PROPRIETE",
+                "CREATION",
+                "MODIFICATION",
+                "ANNULATION"
+              ]
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "dateVide",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inclureSortis",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "lignes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DOSSIERS",
+                "DOSSIERS_ET_LIBRES",
+                "LIBRES"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sommes du filtre, une clé par colonne additionnable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotauxDossiersDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Valeur d'énumération invalide (`champDate`, `lignes`)."
+          }
+        }
+      }
+    },
     "/api/dossiers/statuts": {
       "get": {
         "tags": [
@@ -23932,7 +24113,7 @@
           },
           "montantAvance": {
             "type": "number",
-            "description": "Montant de l'avance. Renseigné sur 41,6 % des 358 dossiers réels."
+            "description": "« Montant d'accord » (ComFolder.AgreementAmount). Ce n'est pas l'avance : voir `avance`."
           },
           "probabiliteFinalisation": {
             "type": "number",
@@ -24110,7 +24291,7 @@
           "delaiLivraison": {
             "type": "integer",
             "format": "int32",
-            "description": "Jours entre l'envoi au notaire (`AgreementDate`) et la livraison réelle. Calculé côté serveur.\nCalculable sur 63 / 358.\n\nLe délai de crédit du logiciel de bureau n'est pas exposé : il dépend de `CreditPossessionDate`,\nmesurée à **0 ligne sur 358**, donc il vaudrait `null` partout.",
+            "description": "Jours entre l'envoi au notaire (`AgreementDate`) et la livraison réelle. Calculé côté serveur.\nCalculable sur 63 / 358.\n\nLe délai de crédit du logiciel de bureau n'est pas exposé : il dépend de `CreditPossessionDate`,\nrenseignée sur moins de 1 % des dossiers, donc il vaudrait `null` presque partout.",
             "example": 365
           },
           "dateEnvoiNotaire": {
@@ -24159,139 +24340,30 @@
             "type": "string",
             "description": "Co-acquéreurs (ComFolderCustomer), libellés séparés par des virgules."
           },
-          "datePromesseVente": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Promesse de vente (ComFolder.ReservationDate)."
-          },
-          "datePromesseVenteClient": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Promesse de vente côté client (ComFolder.ReservationDateCustomer)."
-          },
-          "dateEnregistrementReservation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Enregistrement de la réservation (ComFolder.ReservationRegistryDate)."
-          },
           "dateFicheBancaire": {
             "type": "string",
             "format": "date-time",
             "description": "Fiche bancaire (ComFolder.BankRecordDate)."
-          },
-          "dateFicheIntervention": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Fiche intervention (ComFolder.InterventionDate)."
-          },
-          "dateFicheAssurance": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Fiche assurance (ComFolder.InsuranceDate)."
           },
           "datePermisHabiter": {
             "type": "string",
             "format": "date-time",
             "description": "Permis d'habiter de la tranche de l'article principal (CfgTranche.OccupancyPermitsDate)."
           },
-          "dateOctroiCredit": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Attestation de consignation / octroi crédit (ComFolder.CreditPossessionDate)."
-          },
           "dateMinute": {
             "type": "string",
             "format": "date-time",
             "description": "Minute / enregistrement contrat (ComFolder.AgreementSavingDate)."
-          },
-          "dateMinuteClient": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Minute côté client (ComFolder.AgreementSavingDateCustomer)."
-          },
-          "dateMinuteAvocat": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Minute / signature contrat avocat (ComFolder.AgreementSavingDateLawyer)."
-          },
-          "dateRemiseLegalisationContrat": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Remise du contrat pour légalisation (ComFolder.AgreementSavingDateForLegalization)."
-          },
-          "dateLegalisationContrat": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Légalisation du contrat (ComFolder.AgreementSavingDateLegalization)."
-          },
-          "dateDepotEnregistrementContrat": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Dépôt pour enregistrement du contrat (ComFolder.AgreementSavingDateForRegistry)."
           },
           "dateRemiseClesPrevue": {
             "type": "string",
             "format": "date-time",
             "description": "Remise des clés prévisionnelle, celle de la tranche (CfgTranche.DeliveryDate)."
           },
-          "dateRemiseClesClient": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Remise des clés côté client (ComFolder.DeliveryDateRealCustomer)."
-          },
-          "dateEnregistrementRemiseCles": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Enregistrement de la remise des clés (ComFolder.DeliveryRegistryDate)."
-          },
-          "dateExpedition": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Expédition / certificat de propriété (ComFolder.OwnershipCertificateDate)."
-          },
           "dateEnregistrementContrat": {
             "type": "string",
             "format": "date-time",
             "description": "Enregistrement du contrat (ComFolder.AgreementRegistryDate)."
-          },
-          "dateRelance1": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Relance 1 du titre foncier (ComFolder.Revival1)."
-          },
-          "echeanceRelance1": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Échéance de la relance 1 (ComFolder.Revival1ValidityDate)."
-          },
-          "dateRelance2": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Relance 2 du titre foncier (ComFolder.Revival2)."
-          },
-          "echeanceRelance2": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Échéance de la relance 2 (ComFolder.Revival2ValidityDate)."
-          },
-          "dateDepotCpf": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Dépôt à la CPF (ComFolder.FinalTitleDateDeposit)."
-          },
-          "dateRetraitCpf": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Retrait du dossier client de la CPF (ComFolder.FinalTitleDateWithdrawal)."
-          },
-          "dateRemiseCertificat": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Remise du certificat de propriété au client (ComFolder.FinalTitleDate)."
-          },
-          "numeroTitre": {
-            "type": "string",
-            "description": "Numéro du titre foncier définitif (ComFolder.FinalTitleNumber)."
           },
           "dateValiditeStatut": {
             "type": "string",
@@ -24312,58 +24384,15 @@
             "type": "boolean",
             "description": "Date d'envoi au notaire confirmée (ComFolder.IsConfirmedAgreementDate)."
           },
-          "dateVisiteTechnique": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Visite technique / réception (ComFolder.ReceptionDate)."
-          },
-          "dateEnvoiMeilleurTaux": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Envoi du dossier à MEILLEURTAUX (ComFolder.LoanCompanySendDate)."
-          },
           "dateDecisionMeilleurTaux": {
             "type": "string",
             "format": "date-time",
             "description": "Décision de MEILLEURTAUX (ComFolder.LoanCompanyDecisionDate)."
           },
-          "decisionMeilleurTaux": {
-            "type": "string",
-            "description": "Libellé de la décision MEILLEURTAUX (ComLoanCompanyDecision.Description)."
-          },
-          "dateActePrecision": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Acte de précision (ComFolder.PrecisionActDate)."
-          },
-          "dateActePrecisionClient": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Acte de précision côté client (ComFolder.PrecisionActDateCustomer)."
-          },
-          "dateEnregistrementActePrecision": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Enregistrement de l'acte de précision (ComFolder.PrecisionActRegistryDate)."
-          },
-          "dateRemiseLegalisationActePrecision": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Remise pour légalisation de l'acte de précision (PrecisionActDateForLegalization)."
-          },
-          "dateDepotEnregistrementActePrecision": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Dépôt pour enregistrement de l'acte de précision (PrecisionActDateForRegistry)."
-          },
           "dateImpressionContrat": {
             "type": "string",
             "format": "date-time",
             "description": "Impression du contrat de réservation / promesse (ComFolder.ContractPrintDate)."
-          },
-          "gestionnaire2Nom": {
-            "type": "string",
-            "description": "Second gestionnaire du dossier (ComFolder.CfgSaleManager2Id)."
           },
           "banqueCredit": {
             "type": "string",
@@ -24503,20 +24532,106 @@
             "format": "int32",
             "description": "Actions du dossier (réservation, livraison, annulation) datées d'aujourd'hui ou avant."
           },
-          "delaiCredit": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Jours entre l'envoi au notaire et l'octroi du crédit. Calculé."
-          },
-          "delaiCreditRemiseCles": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Jours entre l'octroi du crédit et la remise des clés. Calculé."
-          },
           "delaiMeilleurTaux": {
             "type": "integer",
             "format": "int32",
             "description": "Jours entre l'envoi et la décision MEILLEURTAUX ; 0 si l'une manque, comme OMRAN."
+          },
+          "prixContractuel": {
+            "type": "number",
+            "description": "Prix contractuel (`ComFolder.AgreementPrice`), le chiffre d'affaires du dossier pour OMRAN. Colonne de\ntable : groupable et agrégeable."
+          },
+          "prixContractuelRegle": {
+            "type": "number",
+            "description": "Σ réglé des échéances qui entrent dans le prix contractuel (`ComDocument.ExcludeFromPrice = 0`). Réglé =\nlignes de règlement signées par le sens du règlement (`StlSettlement.IsCredit = 0` en négatif), règlements\nannulés (`CANCELED`) exclus — le même réglé que `GET /api/dossiers/{id}/montants`. Écart assumé à la vue\nd'OMRAN, qui compte aussi les règlements annulés."
+          },
+          "prixContractuelReste": {
+            "type": "number",
+            "description": "`prixContractuel − prixContractuelRegle`."
+          },
+          "prixRegle": {
+            "type": "number",
+            "description": "« Prix de vente réglé » d'OMRAN : réglé des échéances d'avance, d'autofinancement et de crédit (les frais\nn'en font pas partie)."
+          },
+          "prixReste": {
+            "type": "number",
+            "description": "« Prix de vente reste » : prix de vente (`ComFolder.Price`) − `prixRegle`."
+          },
+          "netAPayerRegle": {
+            "type": "number",
+            "description": "« Net à payer réglé » (`TotalSettled` de la vue) : réglé de l'avance, du crédit, de l'autofinancement, des\nfrais, des modifications et des pénalités, moins le réglé des résiliations."
+          },
+          "netAPayerReste": {
+            "type": "number",
+            "description": "« Net à payer reste » (`TotalRest`) : net à payer − `netAPayerRegle`. Net à payer = prix + modifications +\nfrais au crédit + pénalités ; sur un dossier annulé ou résilié, réglé hors annulation − montant de la\nrésiliation. Négatif quand le client a trop payé (voir `tropPercu`)."
+          },
+          "tauxAvance": {
+            "type": "number",
+            "description": "« Taux avance de base » en pourcentage (40 = 40 %) : `avance / prixApresRemise × 100`, 0 si le prix après\nremise est nul ou absent."
+          },
+          "tauxAvanceReel": {
+            "type": "number",
+            "description": "« Taux avance réel » en pourcentage : `avanceReglee / avance × 100`, 0 sans avance."
+          },
+          "avance": {
+            "type": "number",
+            "description": "Σ `ComDocument.Amount` des échéances dont la catégorie est une avance (`IsSaleAdvance`) **et au crédit**\n(`ComSettlementCategory.IsCredit = 1`). Remplace l'ancienne lecture de `ComFolder.AgreementAmount`, toujours\nservie sous `montantAvance` (« Montant d'accord »)."
+          },
+          "avanceReglee": {
+            "type": "number",
+            "description": "Réglé des échéances d'avance, au crédit ou non (même règle de réglé que `prixContractuelRegle`)."
+          },
+          "avanceReste": {
+            "type": "number",
+            "description": "`avance − avanceReglee`."
+          },
+          "autofinancement": {
+            "type": "number",
+            "description": "Σ des échéances d'autofinancement (`IsSaleAutoFinancment`) au crédit."
+          },
+          "autofinancementRegle": {
+            "type": "number",
+            "description": "Réglé des échéances d'autofinancement."
+          },
+          "autofinancementReste": {
+            "type": "number",
+            "description": "`autofinancement − autofinancementRegle`."
+          },
+          "credit": {
+            "type": "number",
+            "description": "Σ des échéances de crédit bancaire (`IsSaleCredit`) au crédit."
+          },
+          "creditRegle": {
+            "type": "number",
+            "description": "Réglé des échéances de crédit bancaire."
+          },
+          "creditReste": {
+            "type": "number",
+            "description": "`credit − creditRegle`."
+          },
+          "frais": {
+            "type": "number",
+            "description": "Σ des échéances de frais (`IsSaleExpense`) au crédit."
+          },
+          "fraisRegles": {
+            "type": "number",
+            "description": "Réglé des échéances de frais."
+          },
+          "fraisReste": {
+            "type": "number",
+            "description": "`frais − fraisRegles`."
+          },
+          "tropPercu": {
+            "type": "number",
+            "description": "« Trop perçu » : ce que le client a payé en plus du net à payer, en positif ; 0 pour un dossier débiteur.\nMême calcul que `GET /api/dossiers/{id}/montants` et la fiche trop-perçu."
+          },
+          "tropPercuRegle": {
+            "type": "number",
+            "description": "Part du trop-perçu déjà remboursée : `tropPercu − tropPercuReste`."
+          },
+          "tropPercuReste": {
+            "type": "number",
+            "description": "Trop-perçu restant à rembourser, comme `GET /api/dossiers/{id}/montants`."
           }
         }
       },
@@ -26728,6 +26843,28 @@
             "type": "integer",
             "format": "int64",
             "description": "Nombre d'actions de ce type sur le dossier."
+          }
+        }
+      },
+      "TotauxDossiersDto": {
+        "type": "object",
+        "properties": {
+          "nombreDossiers": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de dossiers additionnés (lots libres exclus).",
+            "example": 312
+          },
+          "sommes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Σ par colonne (clé = nom du catalogue) : les 22 montants additionnables, jamais les taux.",
+            "example": {
+              "avance": 12500000,
+              "avanceReglee": 9800000
+            }
           }
         }
       },

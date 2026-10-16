@@ -8,6 +8,10 @@ import { libelleStatutLigne } from '../lib/dossierListe';
 import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_DOSSIERS } from '../lib/dispositions';
 import type { ColonneDto, DossierListItemDto } from '../types';
+import type { MontantsNatureDossier } from '../types/dossierListe';
+
+/** Ligne de la liste avec les montants par nature (typés à part, hors `types.ts`). */
+type LigneMontants = DossierListItemDto & MontantsNatureDossier;
 
 const TIRET = <span className="text-muted-foreground">—</span>;
 
@@ -71,6 +75,10 @@ const RENDUS: Partial<Record<string, (d: DossierListItemDto, ctx: Contexte) => R
     typeof d.probabiliteFinalisation === 'number' ? formatPercent(d.probabiliteFinalisation) : TIRET,
   // Fraction 0–1 comme la probabilité.
   tva: (d) => (typeof d.tva === 'number' ? formatPercent(d.tva) : TIRET),
+  // Taux d'avance : déjà en pourcentage 0–100, comme `remise`.
+  tauxAvance: (d: LigneMontants) => (typeof d.tauxAvance === 'number' ? formatPercentValue(d.tauxAvance, 2) : TIRET),
+  tauxAvanceReel: (d: LigneMontants) =>
+    typeof d.tauxAvanceReel === 'number' ? formatPercentValue(d.tauxAvanceReel, 2) : TIRET,
 };
 
 // Sans elles, tri et filtre comparent le statut brut du serveur, pas le libellé affiché.
@@ -78,8 +86,12 @@ const VALEURS: Record<string, (d: DossierListItemDto) => unknown> = {
   statut: (d) => libelleStatutLigne(d),
 };
 
+const pourcentage0a100 = (v: unknown) => formatPercentValue(typeof v === 'number' ? v : null, 2);
+
 const FORMATS_VALEUR: Record<string, (v: unknown) => string> = {
-  remise: (v) => formatPercentValue(typeof v === 'number' ? v : null, 2),
+  remise: pourcentage0a100,
+  tauxAvance: pourcentage0a100,
+  tauxAvanceReel: pourcentage0a100,
   probabiliteFinalisation: (v) => formatPercent(typeof v === 'number' ? v : null),
   tva: (v) => formatPercent(typeof v === 'number' ? v : null),
 };
