@@ -6720,7 +6720,7 @@
           "Dossiers — modification de la fiche"
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
-        "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nRègles d'OMRAN appliquées :\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
+        "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
         "operationId": "modifier_2",
         "parameters": [
           {
@@ -6756,7 +6756,7 @@
             }
           },
           "400": {
-            "description": "Corps vide, champ inconnu dans `champsAVider`, valeurs hors bornes (remise négative, pourcentage hors 0–100, TVA hors 0–1, texte trop long), tiers ou décision introuvable, plafond de remise dépassé, dates dans le désordre.",
+            "description": "Corps vide, champ inconnu dans `champsAVider`, plusieurs saisies de remise ensemble, valeurs hors bornes (remise ou prix de vente négatifs, prix de vente au-dessus du prix avant remise, pourcentage hors 0–100, TVA hors 0–1, texte trop long), tiers ou décision introuvable, commercial qui n'en est pas un, annulation vidée sur un dossier sorti, plafond de remise dépassé, dates dans le désordre.",
             "content": {
               "*/*": {
                 "schema": {
@@ -6766,7 +6766,7 @@
             }
           },
           "403": {
-            "description": "Un champ envoyé appartient à un groupe interdit au rôle.",
+            "description": "Un champ envoyé appartient à un groupe interdit au rôle, ou est dans champsVerrouilles.",
             "content": {
               "*/*": {
                 "schema": {
@@ -21047,10 +21047,15 @@
         "type": "object",
         "description": "Modification partielle de la fiche : seuls les champs présents et non nuls changent ; vider = champsAVider.",
         "properties": {
+          "dateDossier": {
+            "type": "string",
+            "format": "date-time",
+            "description": "En-tête — date du dossier (ComFolder.DocDate), entre la prospection et la concrétisation."
+          },
           "concretisation": {
             "type": "string",
             "format": "date-time",
-            "description": "Onglet Dates — concrétisation (ComFolder.AdvanceDate)."
+            "description": "Onglet Dates — concrétisation (`ComFolder.AdvanceDate`). Premier renseignement libre pour le groupe DATES ; une fois\nposée, la modifier ou la vider est réservé à l'Administrateur (groupe PRIX), sinon 403 (`Sale.cs`, droit\n`toolModifyAdvanceDate`). Voir `champsVerrouilles` de `GET /api/dossiers/{id}/edition`."
           },
           "promesseVente": {
             "type": "string",
@@ -21159,7 +21164,7 @@
           "impressionContrat": {
             "type": "string",
             "format": "date-time",
-            "description": "Dates autres — impression du contrat (ComFolder.ContractPrintDate)."
+            "description": "Dates autres — impression du contrat (ComFolder.ContractPrintDate) ; Administrateur seulement."
           },
           "minuteClient": {
             "type": "string",
@@ -21262,7 +21267,7 @@
           "commercialId": {
             "type": "string",
             "format": "uuid",
-            "description": "Commercial du dossier (CfgTier employé, ComFolder.CfgCommercialId)."
+            "description": "Commercial du dossier (ComFolder.CfgCommercialId) : un tiers de GET /api/commerciaux, sinon 400."
           },
           "gestionnaire1Id": {
             "type": "string",
@@ -21326,6 +21331,14 @@
           "remisePourcentage": {
             "type": "number",
             "description": "Remise en pourcentage 0–100 du total HT avant remise ; exclusif de remiseMontantHT."
+          },
+          "prixVenteHT": {
+            "type": "number",
+            "description": "Saisie par le prix de vente HT après remise : le montant de remise devient total HT avant remise − saisie\n(`Sale.cs`, setter `PriceAfterDiscountHT`). Exclusif de `prixVenteTTC`, `remiseMontantHT` et `remisePourcentage`\n(400 si plusieurs) ; négatif ou supérieur au total HT avant remise ⇒ 400. Mêmes droits et contrôles que la remise\n(groupe PRIX, plafonds de l'article, `forcerRemise`)."
+          },
+          "prixVenteTTC": {
+            "type": "number",
+            "description": "Saisie par le prix de vente TTC après remise : le taux de remise devient 1 − saisie / total TTC avant remise\n(`Sale.cs`, setter `PriceAfterDiscount`), le montant HT en découle. Exclusif de `prixVenteHT`, `remiseMontantHT` et\n`remisePourcentage` (400 si plusieurs) ; négatif ou supérieur au total TTC avant remise ⇒ 400. Mêmes droits et\ncontrôles que la remise."
           },
           "tva": {
             "type": "number",
@@ -21440,6 +21453,16 @@
           "penalitesDesactivees": {
             "type": "boolean",
             "description": "« Pénalité désactivée » (ComFolder.IsPenaltyDisabled)."
+          },
+          "meilleurTauxDecisionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Décision MEILLEURTAUX choisie (ComFolder.ComLoanCompanyDecisionId), null si non décidée."
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Commercial du dossier (ComFolder.CfgCommercialId), null si aucun."
           }
         }
       },
@@ -26568,6 +26591,18 @@
           "sorti": {
             "type": "boolean",
             "description": "Vrai si le dossier est annulé ou désisté : seul le groupe ANNULATION reste modifiable."
+          },
+          "champsVerrouilles": {
+            "type": "array",
+            "description": "Champs en lecture seule pour l'appelant malgré son groupe (403 si envoyés).",
+            "items": {
+              "type": "string",
+              "enum": [
+                "concretisation",
+                "impressionContrat",
+                "remise"
+              ]
+            }
           }
         }
       },

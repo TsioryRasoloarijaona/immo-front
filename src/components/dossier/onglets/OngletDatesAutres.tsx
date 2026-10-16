@@ -2,7 +2,7 @@ import { Field, FieldGrid } from '../../ui';
 import BarreEdition from '../edition/BarreEdition';
 import { ChampDate, ChampTexte } from '../edition/ChampsSaisie';
 import { formatDate } from '../../../lib/format';
-import { jourSaisi, useFormulaireEdition, type CleEdition, type ValeursEdition } from '../../../lib/editionDossier';
+import { champEditable, jourSaisi, useFormulaireEdition, type CleEdition, type ValeursEdition } from '../../../lib/editionDossier';
 import type { ApiState } from '../../../lib/useApi';
 import type { DatesAutresFicheDto, DossierFicheDto } from '../../../types';
 import ContenuFiche from './ContenuFiche';
@@ -78,7 +78,7 @@ function DatesAutres({ fiche }: Readonly<{ fiche: DossierFicheDto }>) {
           <h3 className="mb-2 text-micro font-medium text-muted-foreground">{g.titre}</h3>
           <FieldGrid>
             {g.dates.map(({ cle, libelle }) =>
-              ouvert ? (
+              ouvert && champEditable(f.edition, cle) ? (
                 <ChampDate key={cle} label={libelle} value={f.texte(cle)} onChange={(v) => f.changer(cle, v)} />
               ) : (
                 <Field key={cle} label={libelle} value={formatDate(datesAutres[cle])} />

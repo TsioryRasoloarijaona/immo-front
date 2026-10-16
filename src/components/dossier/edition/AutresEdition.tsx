@@ -3,6 +3,7 @@ import { FieldGrid } from '../../ui';
 import { ChampCase, ChampDate, ChampListe, ChampTexte } from './ChampsSaisie';
 import RechercheClient from './RechercheClient';
 import { useTiersParType, type CleEdition, type FormulaireEdition } from '../../../lib/editionDossier';
+import { commercialLabel, useAppData } from '../../../lib/appData';
 import { referentielItems, useBanques } from '../../../lib/referentiels';
 import type { ReferentielItemDto } from '../../../types';
 
@@ -26,9 +27,17 @@ function Section({ titre, children }: Readonly<{ titre: string; children: ReactN
 export default function AutresEdition({
   f,
   decisions,
-}: Readonly<{ f: FormulaireEdition; decisions: ReferentielItemDto[] }>) {
+  commercialActuelId,
+}: Readonly<{ f: FormulaireEdition; decisions: ReferentielItemDto[]; commercialActuelId?: string | null }>) {
   const peut = f.edition.peut;
-  const employes = useTiersParType('EMP', peut('GESTIONNAIRES') || peut('COMMERCIAL'));
+  const employes = useTiersParType('EMP', peut('GESTIONNAIRES'));
+  // Le serveur n'accepte qu'un tiers de GET /api/commerciaux : même liste que les autres écrans.
+  const { commerciaux, commerciauxLoading } = useAppData();
+  const choixCommerciaux = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
+  // Un dossier peut porter un tiers d'un autre genre (DSI, DGD…) : il reste affiché, et n'est renvoyé que s'il change.
+  if (commercialActuelId && !choixCommerciaux.some((c) => c.value === commercialActuelId)) {
+    choixCommerciaux.unshift({ label: 'Commercial actuel (hors liste des commerciaux)', value: commercialActuelId });
+  }
   const fournisseurs = useTiersParType('FOU', peut('NOTAIRE'));
   const banques = useBanques();
   const [client, setClient] = useState<{ id: string; nom: string } | null>(null);
@@ -49,7 +58,7 @@ export default function AutresEdition({
               }}
             />
           )}
-          {peut('COMMERCIAL') && liste('commercialId', 'Changer le commercial', employes.items, employes.chargement)}
+          {peut('COMMERCIAL') && liste('commercialId', 'Commercial', choixCommerciaux, commerciauxLoading)}
         </Section>
       )}
       {(peut('GESTIONNAIRES') || peut('NOTAIRE')) && (

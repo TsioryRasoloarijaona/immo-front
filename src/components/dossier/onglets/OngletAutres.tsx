@@ -5,7 +5,7 @@ import { listDecisionsMeilleurTaux } from '../../../lib/apiEdition';
 import { formatDate } from '../../../lib/format';
 import { jourSaisi, useFormulaireEdition, type CleEdition, type ValeursEdition } from '../../../lib/editionDossier';
 import { useApi, type ApiState } from '../../../lib/useApi';
-import type { AutresFicheDto, DossierFicheDto, ReferentielItemDto } from '../../../types';
+import type { AutresFicheDto, DossierFicheDto } from '../../../types';
 import type { GroupeEdition } from '../../../types/edition';
 import ContenuFiche from './ContenuFiche';
 
@@ -16,19 +16,17 @@ function ouiNon(valeur: boolean | null | undefined): string {
   return valeur ? 'Oui' : 'Non';
 }
 
-/** La fiche ne porte que le libellé de la décision : l'id se retrouve dans le référentiel. */
-function valeursInitiales(a: AutresFicheDto, decisions: ReferentielItemDto[]): ValeursEdition {
-  const decision = decisions.find((d) => (d.description || d.code) === a.meilleurTauxDecision);
+function valeursInitiales(a: AutresFicheDto): ValeursEdition {
   return {
     clientId: '',
-    commercialId: '',
+    commercialId: a.commercialId ?? '',
     gestionnaire1Id: a.gestionnaire1Id ?? '',
     gestionnaire2Id: a.gestionnaire2Id ?? '',
     notaireId: a.notaireId ?? '',
     banqueCreditId: a.banqueCreditId ?? '',
     agenceCredit: a.agenceCredit ?? '',
     meilleurTauxEnvoi: jourSaisi(a.meilleurTauxEnvoi),
-    meilleurTauxDecisionId: decision?.id ?? '',
+    meilleurTauxDecisionId: a.meilleurTauxDecisionId ?? '',
     meilleurTauxDecisionDate: jourSaisi(a.meilleurTauxDecisionDate),
     ancienClient: !!a.ancienClient,
     cadeauPlusTard: !!a.cadeauPlusTard,
@@ -71,13 +69,13 @@ function Lecture({ a }: Readonly<{ a: AutresFicheDto }>) {
 
 function Autres({ fiche }: Readonly<{ fiche: DossierFicheDto }>) {
   const decisions = useApi(() => listDecisionsMeilleurTaux(), [], 'decisions-meilleurtaux');
-  const f = useFormulaireEdition(fiche, () => valeursInitiales(fiche.autres, decisions.data ?? []), CLES_DATES);
+  const f = useFormulaireEdition(fiche, () => valeursInitiales(fiche.autres), CLES_DATES);
   const visible = GROUPES_AUTRES.some((g) => f.edition.peut(g));
 
   return (
     <>
       <BarreEdition edition={f.edition} visible={visible} onEnregistrer={f.enregistrer} />
-      {f.edition.ouvert ? <AutresEdition f={f} decisions={decisions.data ?? []} /> : <Lecture a={fiche.autres} />}
+      {f.edition.ouvert ? <AutresEdition f={f} decisions={decisions.data ?? []} commercialActuelId={fiche.autres.commercialId} /> : <Lecture a={fiche.autres} />}
     </>
   );
 }

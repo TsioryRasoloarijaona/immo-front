@@ -1571,6 +1571,8 @@ export interface AutresFicheDto {
   meilleurTauxDecision?: string | null;
   meilleurTauxDecisionDate?: string | null;
   penalitesDesactivees?: boolean | null;
+  meilleurTauxDecisionId?: UUID | null;
+  commercialId?: UUID | null;
 }
 
 export interface DossierFicheDto {

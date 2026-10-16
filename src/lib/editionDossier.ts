@@ -4,7 +4,7 @@ import { getDroitsEdition, modifierDossier } from './apiEdition';
 import { toApiDateTime } from './format';
 import { errorMessage, refetchAllApis, useApi } from './useApi';
 import type { DossierFicheDto, ProspectListItemDto, UUID } from '../types';
-import type { GroupeEdition, ModifierDossierRequest } from '../types/edition';
+import type { ChampVerrouille, GroupeEdition, ModifierDossierRequest } from '../types/edition';
 
 export type CleEdition = Exclude<keyof ModifierDossierRequest, 'champsAVider'>;
 
@@ -18,7 +18,7 @@ export function nomTiers(t: ProspectListItemDto): string {
 }
 
 /**
- * Tiers d'un type (`EMP` gestionnaires et commercial, `FOU` notaire — les sélecteurs d'OMRAN), chargés
+ * Tiers d'un type (`EMP` gestionnaires, `FOU` notaire — les sélecteurs d'OMRAN), chargés
  * seulement quand le formulaire est ouvert. Quelques centaines de lignes au plus.
  */
 export function useTiersParType(type: 'EMP' | 'FOU', actif: boolean): { items: { label: string; value: string }[]; chargement: boolean } {
@@ -64,12 +64,21 @@ export function corpsModification(
   return corps;
 }
 
+const VERROUILLABLES: ReadonlySet<string> = new Set<ChampVerrouille>(['concretisation', 'impressionContrat', 'remise']);
+
+/** Faux si le champ est dans les `champsVerrouilles` de l'appelant : il reste en lecture en mode édition. */
+export function champEditable(edition: EditionDossier, cle: string): boolean {
+  return !(VERROUILLABLES.has(cle) && edition.verrouille(cle as ChampVerrouille));
+}
+
 function corpsVide(corps: ModifierDossierRequest): boolean {
   return Object.keys(corps).length === 0;
 }
 
 export interface EditionDossier {
   peut: (groupe: GroupeEdition) => boolean;
+  /** Champ en lecture seule pour l'appelant même si son groupe est modifiable (`champsVerrouilles`). */
+  verrouille: (champ: ChampVerrouille) => boolean;
   ouvert: boolean;
   ouvrir: () => void;
   annuler: () => void;
@@ -126,6 +135,8 @@ export function useEditionDossier(dossierId: UUID | undefined, versionFiche: unk
 
   return {
     peut: (groupe) => droits.data?.groupes.includes(groupe) ?? false,
+    // Tant que les droits ne sont pas lus, tout est verrouillé : jamais d'envoi promis à un 403.
+    verrouille: (champ) => droits.data?.champsVerrouilles.includes(champ) ?? true,
     ouvert,
     ouvrir: () => {
       setErreur(null);

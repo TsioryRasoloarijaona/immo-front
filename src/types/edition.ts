@@ -18,13 +18,19 @@ export interface DroitsEditionDto {
   groupes: GroupeEdition[];
   /** Dossier annulé ou désisté : seul ANNULATION reste modifiable. */
   sorti: boolean;
+  /** Champs en lecture seule pour l'appelant malgré son groupe (403 si envoyés). */
+  champsVerrouilles: ChampVerrouille[];
 }
+
+export type ChampVerrouille = 'concretisation' | 'impressionContrat' | 'remise';
 
 /**
  * Corps partiel de `PATCH /api/dossiers/{id}` : seuls les champs présents changent ; vider un champ = son nom
  * dans `champsAVider`. Dates en `YYYY-MM-DDTHH:mm:ss`.
  */
 export interface ModifierDossierRequest {
+  /** Date du dossier (ComFolder.DocDate) ; ne se vide pas. */
+  dateDossier?: string;
   concretisation?: string;
   promesseVente?: string;
   visiteTechnique?: string;
@@ -84,6 +90,10 @@ export interface ModifierDossierRequest {
   remiseMontantHT?: number;
   /** Pourcentage 0–100 du total HT ; exclusif de `remiseMontantHT`. */
   remisePourcentage?: number;
+  /** Prix de vente HT après remise ; exclusif des autres saisies de remise. */
+  prixVenteHT?: number;
+  /** Prix de vente TTC après remise ; exclusif des autres saisies de remise. */
+  prixVenteTTC?: number;
   /** Ratio 0–1 (0,2 = 20 %). */
   tva?: number;
   forcerRemise?: boolean;
