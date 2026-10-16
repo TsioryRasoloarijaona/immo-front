@@ -4,6 +4,7 @@ import { Table, TableCell, TableHeader, TableRow } from '@tiptap/extension-table
 import Image from '@tiptap/extension-image';
 import TextAlign from '@tiptap/extension-text-align';
 import type { CatalogueChampsDto, ChampModeleDto } from '../../types/modeles';
+import { deposerImageModele, urlImageModele } from '../apiModeles';
 import {
   AttributsModele,
   BlocConditionnel,
@@ -19,6 +20,31 @@ import {
 export type PorteeCondition = 'paragraphe' | 'passage' | 'bloc';
 
 export const IMAGE_MAX_OCTETS = 500 * 1024;
+
+/** `<img data-image="id">` : affichée dans l'éditeur par l'URL de l'API, enregistrée sans `src`. */
+const ImageModele = Image.extend({
+  parseHTML() {
+    return [{ tag: 'img[data-image]' }];
+  },
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      dataImage: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.getAttribute('data-image'),
+        renderHTML: (attrs: Record<string, unknown>) =>
+          typeof attrs.dataImage === 'string' ? { 'data-image': attrs.dataImage } : {},
+      },
+      src: {
+        default: null,
+        parseHTML: (el: HTMLElement) => {
+          const id = el.getAttribute('data-image');
+          return id ? urlImageModele(id) : null;
+        },
+      },
+    };
+  },
+});
 
 /** Mêmes extensions pour le corps, l'en-tête et le pied : un seul HTML restreint. */
 export function extensionsModele(etiqueteur: { courant: Etiqueteur }): Extensions {
@@ -36,7 +62,7 @@ export function extensionsModele(etiqueteur: { courant: Etiqueteur }): Extension
     TableRow,
     TableHeader,
     TableCell,
-    Image.configure({ allowBase64: true, inline: false }),
+    ImageModele.configure({ allowBase64: false, inline: false }),
     RepeterPassage,
     ConditionPassage,
     ChampModele,
@@ -129,8 +155,9 @@ export function nettoyerHtmlModele(html: string): string {
     if (e.getAttribute('colspan') === '1') e.removeAttribute('colspan');
     if (e.getAttribute('rowspan') === '1') e.removeAttribute('rowspan');
   });
+  // `src` ne sert qu'à l'affichage dans l'éditeur : le serveur le refuse.
   doc.querySelectorAll('img').forEach((img) => {
-    for (const nom of img.getAttributeNames()) if (nom !== 'src' && nom !== 'alt') img.removeAttribute(nom);
+    for (const nom of img.getAttributeNames()) if (nom !== 'data-image' && nom !== 'alt') img.removeAttribute(nom);
   });
   return doc.body.innerHTML;
 }
@@ -141,22 +168,14 @@ export function htmlOuNull(html: string): string | null {
   return propre === '' || propre === '<p></p>' ? null : propre;
 }
 
-export function lireImage(fichier: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (fichier.type !== 'image/png' && fichier.type !== 'image/jpeg') {
-      reject(new Error('Image PNG ou JPEG seulement.'));
-      return;
-    }
-    if (fichier.size > IMAGE_MAX_OCTETS) {
-      reject(new Error('Image trop lourde : 500 Ko au plus.'));
-      return;
-    }
-    const lecteur = new FileReader();
-    lecteur.onload = () => {
-      if (typeof lecteur.result === 'string') resolve(lecteur.result);
-      else reject(new Error("Lecture de l'image impossible."));
-    };
-    lecteur.onerror = () => reject(new Error("Lecture de l'image impossible."));
-    lecteur.readAsDataURL(fichier);
-  });
+/** Dépose l'image dans le stockage puis l'insère par son id ; le serveur revérifie type et poids. */
+export async function insererImage(editor: Editor, fichier: File): Promise<void> {
+  if (fichier.type !== 'image/png' && fichier.type !== 'image/jpeg') throw new Error('Image PNG ou JPEG seulement.');
+  if (fichier.size > IMAGE_MAX_OCTETS) throw new Error('Image trop lourde : 500 Ko au plus.');
+  const image = await deposerImageModele(fichier);
+  editor
+    .chain()
+    .focus()
+    .insertContent({ type: 'image', attrs: { dataImage: image.id, src: urlImageModele(image.id) } })
+    .run();
 }

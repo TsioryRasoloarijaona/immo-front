@@ -1,10 +1,11 @@
-import { API_BASE_URL, fetchByteEndpointBlob, ouvrirBlobDansOnglet, request, triggerBlobDownload } from './api';
+import { API_BASE_URL, fetchByteEndpointBlob, ouvrirBlobDansOnglet, postMultipart, request, triggerBlobDownload } from './api';
 import type { UUID } from '../types';
 import type {
   ApercuModeleRequest,
   CatalogueChampsDto,
   CategorieModeleDto,
   CreerModeleDocumentRequest,
+  ImageModeleDto,
   ModeleDocumentAdminDto,
   ModeleDocumentDetailDto,
   ModeleDocumentResumeDto,
@@ -53,6 +54,16 @@ export function listVersionsModele(id: UUID): Promise<VersionModeleDto[]> {
 
 export function restaurerVersionModele(id: UUID, numero: number): Promise<ModeleDocumentDetailDto> {
   return request('POST', `${BASE}/${id}/versions/${numero}/restaurer`);
+}
+
+/** PNG ou JPEG de 500 Ko au plus, vérifié sur ses octets par le serveur ; le contenu le cite par `data-image`. */
+export function deposerImageModele(fichier: File): Promise<ImageModeleDto> {
+  return postMultipart<ImageModeleDto>(`${BASE}/images`, fichier);
+}
+
+/** URL d'affichage dans l'éditeur seulement : le HTML enregistré ne porte jamais de `src`. */
+export function urlImageModele(id: string): string {
+  return `${API_BASE_URL}${BASE}/images/${encodeURIComponent(id)}`;
 }
 
 /** Aperçu d'un contenu non enregistré, ouvert dans un nouvel onglet. */

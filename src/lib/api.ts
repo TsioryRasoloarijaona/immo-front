@@ -931,7 +931,7 @@ export function listPiecesJointes(dossierId: UUID): Promise<PieceJointeDto[]> {
 
 /** Les autres champs voyagent en query string, pas dans le corps. Pas de
  * `Content-Type` à la main : le navigateur doit poser la boundary. */
-async function postMultipart<T>(path: string, file: File, query?: Record<string, QueryValue>): Promise<T> {
+export async function postMultipart<T>(path: string, file: File, query?: Record<string, QueryValue>): Promise<T> {
   const form = new FormData();
   form.set('fichier', file);
   const url = `${API_BASE_URL}${path}${buildQuery(query)}`;

@@ -80,10 +80,6 @@
       "description": "Articles et sous-articles (StkItem) — lots vendables d'une tranche, avec leur disponibilité et leurs éventuels sous-lots (cave/parking annexés)."
     },
     {
-      "name": "Modèles de documents",
-      "description": "Modèles de documents modifiables par un administrateur (FEATURE-modeles-documents.md). Un modèle appartient à une\n**catégorie** (type de fiche source, lot 1 : `DOSSIER_VENTE`) ; son contenu est un **HTML restreint** (liste blanche :\n`p`, `h1`–`h3`, `strong`, `em`, `u`, `br`, listes, `hr`, tableaux, images `data:image/png|jpeg;base64` de 500 Ko au plus,\n2 Mo par version) où les valeurs de la fiche s'écrivent `<span data-champ=\"cle\">libellé</span>`, les lignes répétées\n`data-repeter=\"liste\"` (sur `tr`, `li`, `p`, `span`), les blocs conditionnels `data-si=\"cle\"` (+ `data-valeur` pour un\nbooléen), les titres numérotés `<h2 data-numero>` et les sauts de page `<div data-saut-page></div>`. Tout autre élément,\nattribut ou style → 400 qui nomme l'élément fautif. Chaque enregistrement crée une version, jamais d'écrasement ; pas de\nsuppression : `actif = false`. Concevoir = rôle `Administrateur` ; imprimer = accès à la fiche (404 hors périmètre)."
-    },
-    {
       "name": "Authentification",
       "description": "Connexion/déconnexion par cookie JWT httpOnly."
     },
@@ -118,6 +114,10 @@
     {
       "name": "Utilisateurs (admin)",
       "description": "Actions administratives sur les comptes AdmUser — réservées au rôle Administrateur : liste des comptes, réinitialisation du mot de passe Arpent, et affectation des projets qui composent le périmètre commercial d'un utilisateur. Les comptes eux-mêmes se créent dans Omran, jamais ici."
+    },
+    {
+      "name": "Modèles de documents",
+      "description": "Modèles de documents modifiables par un administrateur (FEATURE-modeles-documents.md). Un modèle appartient à une\n**catégorie** (type de fiche source, lot 1 : `DOSSIER_VENTE`) ; son contenu est un **HTML restreint** (liste blanche :\n`p`, `h1`–`h3`, `strong`, `em`, `u`, `br`, listes, `hr`, tableaux, images `<img data-image=\"<id>\" alt=\"…\">` **sans\n`src`**, l'id venant de `POST /api/modeles-documents/images`) où les valeurs de la fiche s'écrivent\n`<span data-champ=\"cle\">libellé</span>`, les lignes répétées `data-repeter=\"liste\"` (sur `tr`, `li`, `p`, `span`), les\nblocs conditionnels `data-si=\"cle\"` (+ `data-valeur` pour un booléen), les titres numérotés `<h2 data-numero>` et les\nsauts de page `<div data-saut-page></div>`. Tout autre élément, attribut ou style → 400 qui nomme l'élément fautif ;\ntexte de la version (contenu, en-tête et pied) : 1 Mo au plus. Chaque enregistrement crée une version, jamais\nd'écrasement ; pas de suppression : `actif = false`. Concevoir = rôle `Administrateur` ; imprimer = accès à la fiche\n(404 hors périmètre)."
     },
     {
       "name": "Parcours commercial",
@@ -385,7 +385,7 @@
           "Modèles de documents"
         ],
         "summary": "Modifie un modèle ; un nouveau contenu crée une nouvelle version",
-        "description": "Champs absents = inchangés. `contenu` ou `miseEnPage` présent = nouvelle version (le champ absent des deux est repris\nde la version courante). `libelle`, `ordre` et `actif` seuls ne créent pas de version.",
+        "description": "Champs absents = inchangés. `contenu` ou `miseEnPage` présent = nouvelle version (le champ absent des deux est repris\nde la version courante). `libelle`, `ordre` et `actif` seuls ne créent pas de version. Une image citée qui n'a pas été\ndéposée → 400 « Image inconnue ».",
         "operationId": "modifier",
         "parameters": [
           {
@@ -3563,6 +3563,67 @@
                 "schema": {
                   "type": "string",
                   "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/modeles-documents/images": {
+      "post": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Dépose une image (PNG ou JPEG) citable par `data-image`",
+        "description": "Multipart, champ `fichier`. Le type est reconnu sur les **octets** (signature PNG ou JPEG), jamais sur le nom ni le\ntype déclaré ; 500 Ko au plus. L'image est écrite dans S3 puis enregistrée ; elle est immuable et jamais supprimée\n(une ancienne version du modèle peut la citer). Réponse : `{id, contentType, taille}` ; l'éditeur insère\n`<img data-image=\"id\">`.",
+        "operationId": "deposerImage",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Image PNG ou JPEG, 500 Ko au plus."
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Image déposée dans le stockage.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageModeleDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fichier vide, plus de 500 Ko, ou octets ni PNG ni JPEG.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageModeleDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageModeleDto"
                 }
               }
             }
@@ -11567,7 +11628,7 @@
           "Modèles de documents"
         ],
         "summary": "Génère le document d'une fiche depuis un modèle actif",
-        "description": "Document du modèle **actif** rempli avec la fiche `ficheId` (pour `DOSSIER_VENTE` : contrôle de périmètre du dossier,\n404 hors périmètre). PDF affiché en ligne, DOCX en pièce jointe ; nom de fichier `<code-modele>-<code-fiche>` en\nminuscules (`_` → `-`). Le contenu est revalidé avant chaque génération.",
+        "description": "Document du modèle **actif** rempli avec la fiche `ficheId` (pour `DOSSIER_VENTE` : contrôle de périmètre du dossier,\n404 hors périmètre). PDF affiché en ligne, DOCX en pièce jointe ; nom de fichier `<code-modele>-<code-fiche>` en\nminuscules (`_` → `-`). Le contenu est revalidé avant chaque génération ; chaque image citée est lue dans le stockage\nS3 ; une image absente du stockage → 500 « Image <id> introuvable dans le stockage », aucun document partiel.",
         "operationId": "generer",
         "parameters": [
           {
@@ -11626,6 +11687,63 @@
           },
           "404": {
             "description": "Modèle introuvable ou inactif, ou fiche hors périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/modeles-documents/images/{imageId}": {
+      "get": {
+        "tags": [
+          "Modèles de documents"
+        ],
+        "summary": "Octets d'une image de modèle (pour l'éditeur)",
+        "description": "Accessible à tout utilisateur connecté (l'éditeur l'affiche ; les documents générés lisent les images côté serveur).\nRéponse : les octets au `Content-Type` enregistré, `Cache-Control: private` long (une image ne change jamais).",
+        "operationId": "lireImage",
+        "parameters": [
+          {
+            "name": "imageId",
+            "in": "path",
+            "description": "Identifiant de l'image (AppModeleImage.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image, au type enregistré ; cache privé (une image ne change jamais).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucune image avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Image enregistrée mais absente du stockage.",
             "content": {
               "*/*": {
                 "schema": {
@@ -17101,7 +17219,7 @@
       },
       "MiseEnPageDto": {
         "type": "object",
-        "description": "Mise en page d'un modèle, en JSON ; images de l'en-tête et du pied comptées avec celles du contenu.",
+        "description": "Mise en page d'un modèle, en JSON ; texte de l'en-tête et du pied compté avec le contenu (1 Mo).",
         "properties": {
           "format": {
             "type": "string",
@@ -20021,6 +20139,28 @@
             "type": "string",
             "format": "uuid",
             "description": "Fiche source (pour `DOSSIER_VENTE` : ComFolder.PKey), dans le périmètre de l'appelant."
+          }
+        }
+      },
+      "ImageModeleDto": {
+        "type": "object",
+        "description": "Image déposée pour les modèles : le contenu la cite par `<img data-image=\"id\">`, sans `src`.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de l'image (AppModeleImage.PKey), valeur de `data-image`."
+          },
+          "contentType": {
+            "type": "string",
+            "description": "Type vérifié sur les octets : `image/png` ou `image/jpeg`.",
+            "example": "image/png"
+          },
+          "taille": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Taille en octets (500 Ko au plus).",
+            "example": 48213
           }
         }
       },

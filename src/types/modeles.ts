@@ -66,6 +66,14 @@ export interface ModeleDocumentDetailDto extends ModeleDocumentAdminDto {
   miseEnPage: MiseEnPageDto;
 }
 
+/** Image déposée : le contenu la cite par `<img data-image="id">`, sans `src`. */
+export interface ImageModeleDto {
+  id: UUID;
+  /** `image/png` ou `image/jpeg`, vérifié sur les octets. */
+  contentType: string;
+  taille: number;
+}
+
 export interface VersionModeleDto {
   numero: number;
   creeLe?: string | null;

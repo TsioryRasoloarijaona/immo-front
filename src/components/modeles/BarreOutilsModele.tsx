@@ -25,7 +25,7 @@ import {
   Underline,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { lireImage, retirerRegles } from '../../lib/editeurModele/commandes';
+import { insererImage, retirerRegles } from '../../lib/editeurModele/commandes';
 
 function Bouton({
   titre,
@@ -95,8 +95,7 @@ export default function BarreOutilsModele({
   async function ajouterImage(f: File | undefined) {
     if (!f) return;
     try {
-      const src = await lireImage(f);
-      chaine().setImage({ src }).run();
+      await insererImage(editor, f);
     } catch (err) {
       onErreur(err instanceof Error ? err.message : "Image refusée.");
     } finally {

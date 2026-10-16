@@ -108,7 +108,7 @@ export default function PanneauMiseEnPage({
           {pied && <EditorContent editor={pied} />}
         </div>
         <p className="text-micro text-muted-foreground">
-          Répétés sur chaque page. Un logo y est possible : ses images comptent avec celles du document (2 Mo au total).
+          Répétés sur chaque page. Un logo y est possible (PNG ou JPEG, 500 Ko au plus).
         </p>
       </section>
     </div>
