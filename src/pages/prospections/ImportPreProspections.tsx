@@ -14,6 +14,7 @@ import {
   type ImportPreProspectionsParams,
   type StatutImportable,
 } from '../../lib/api';
+import { phraseRepartitionImport } from '../../lib/equipe';
 import { formatDateTime, formatNumber, pluriel } from '../../lib/format';
 import {
   referentielItems,
@@ -207,6 +208,7 @@ export default function ImportPreProspections() {
                   {rapport.trancheCode ? ` sur la tranche ${rapport.trancheCode}` : ''}
                   {libelleDejaImportees(rapport.dejaImportees)}
                   {rapport.erreurs > 0 ? ` — ${rapport.erreurs} en erreur` : ''}.
+                  <span className="block">{phraseRepartitionImport(rapport.repartition, rapport.nonAttribuees)}</span>
                 </span>
               </div>
             )}

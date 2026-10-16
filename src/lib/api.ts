@@ -1,4 +1,5 @@
 import { clearCachedValues } from './apiCache';
+import type { ChampDateListeDto, LignesListeDossiers, StatutListeDossierDto } from '../types/dossierListe';
 import type {
   ActionRecente,
   ADistribuerDto,
@@ -11,7 +12,15 @@ import type {
   MembreAffectationDto,
   ModifierAffectationsRequest,
   ReaffecterRequest,
+  LeadActiviteDto,
+  LeadsActiviteRequest,
+  RepartirRequest,
+  FiltreADistribuer,
+  LigneADistribuerDto,
   ResultatLotDto,
+  ResultatRepartitionDto,
+  NonLuesDto,
+  NotificationsDto,
   PorteeActionsRecentes,
   AffecterProjetsRequest,
   AjouterAutreTrancheRequest,
@@ -47,10 +56,17 @@ import type {
   CreerCleApiRequest,
   CreerProspectionRequest,
   CreerReglementRequest,
+  CreerReglementDossierRequest,
+  AffecterReglementRequest,
+  ReglementDossierDto,
   DashboardDto,
   DevisDto,
   DevisPageDto,
+  FicheDevisDto,
+  ModifierDevisRequest,
+  TotauxEncaissementsDto,
   DossierDetailDto,
+  DossierLieDto,
   DossierListItemDto,
   EcheanceDto,
   EncaissementDetailDto,
@@ -60,6 +76,7 @@ import type {
   HistoriqueDto,
   HistoriqueEvenementDto,
   HotlineResultDto,
+  ImpayesPageDto,
   InteractionDto,
   ModifierEcheanceRequest,
   ModifierProspectRequest,
@@ -67,6 +84,18 @@ import type {
   ModifierStatutReglementRequest,
   ModifierTranchePrincipaleRequest,
   MontantsDossierDto,
+  ActionDossierDto,
+  ActionsDossierDto,
+  CalendrierVisitesDto,
+  CompteursDto,
+  CreerActionDossierRequest,
+  CreerInstructionRequest,
+  DossierFicheDto,
+  InstructionCreeeDto,
+  LigneReajustementDto,
+  ProgrammerVisiteRequest,
+  ReinitialisationDto,
+  VisiteProgrammeeDto,
   OrigineProspectionDto,
   PageDto,
   Pageable,
@@ -115,6 +144,7 @@ import type {
   SynchronisationResultatDto,
   TitreDto,
   TransformerProspectionRequest,
+  TransitionSuggereeDto,
   TrancheDetailDto,
   TrancheListItemDto,
   TypeReglementDto,
@@ -181,7 +211,7 @@ function detailProblem(problem: Record<string, unknown> | undefined): string | n
   return null;
 }
 
-type QueryValue = string | number | boolean | string[] | undefined | null;
+export type QueryValue = string | number | boolean | string[] | undefined | null;
 
 export interface ParamsGroupes {
   /** Doit être `groupable` dans le catalogue, sinon 400 (`colonnesValides`). */
@@ -229,7 +259,7 @@ function withDepliage(
   return query;
 }
 
-function buildQuery(params?: Record<string, QueryValue>): string {
+export function buildQuery(params?: Record<string, QueryValue>): string {
   if (!params) return '';
   const usp = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
@@ -282,7 +312,13 @@ export function clearApiCache(): void {
   clearCachedValues();
 }
 
-async function request<T>(
+/** Retour sur l'onglet : une écriture faite ailleurs n'a pas vidé ce cache, la relecture doit aller au serveur. */
+export function oublierLecturesRecentes(): void {
+  getCache.clear();
+}
+
+/** Exporté pour les modules `lib/api<Domaine>.ts`, qui évitent les conflits sur ce fichier. */
+export async function request<T>(
   method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE',
   path: string,
   // `lecture` : POST sans effet (simulation) — ne vide pas les caches, sinon un
@@ -436,12 +472,16 @@ export interface ProspectionFilterParams {
   origine?: string[];
   commercial?: UUID[];
   trancheId?: UUID[];
-  /** Date-heure ISO (pas une date seule), borne incluse. */
+  /** Projet de la tranche (une ligne sans tranche est écartée) ; listes et groupes de pré-prospections. */
+  projetId?: UUID[];
+  /** `AAAA-MM-JJ` (début du jour) ou date-heure ISO, borne incluse. */
   dateDebut?: string;
-  /** Date-heure ISO (pas une date seule), borne incluse. */
+  /** `AAAA-MM-JJ` = jour entier inclus ; une date-heure ISO reste une borne incluse. */
   dateFin?: string;
   search?: string;
   ouvertes?: boolean;
+  /** Pré-prospections : « Non affectés » — `trancheId` cochées OU sans tranche ; seul, les lignes sans tranche. */
+  inclureSansTranche?: boolean;
 }
 
 /** `colonnes` hors de `ProspectionFilterParams` : /api/pre-prospections le refuse.
@@ -463,6 +503,17 @@ export function listProspections(
   ajouterFiltres(query, options?.filtres);
   if (options?.depliage) withDepliage(query, options.depliage);
   return request('GET', '/api/prospections', { query });
+}
+
+/** Paramètres de `GET /api/prospections/export` : ceux de la liste, filtres avancés aplatis comme pour elle. */
+export function paramsExportProspections(
+  params: ProspectionFilterParams,
+  filtres: FiltresAvancesProspection | undefined,
+  colonnes: string[],
+): Record<string, QueryValue> {
+  const query: Record<string, QueryValue> = { ...params, colonnes };
+  ajouterFiltres(query, filtres);
+  return query;
 }
 
 function ajouterFiltres(query: Record<string, QueryValue>, filtres: FiltresAvancesProspection | undefined): void {
@@ -693,16 +744,20 @@ export function listOffres(params?: DevisFilterParams, pageable?: Pageable): Pro
   return request('GET', '/api/devis', { query: withPageable(params, pageable) });
 }
 
-export type DossierChampDate =
-  | 'RESERVATION'
-  | 'CONCRETISATION'
-  | 'COMPROMIS'
-  | 'ENVOI_NOTAIRE'
-  | 'CREDIT_DEBLOQUE'
-  | 'MINUTE'
-  | 'REMISE_DES_CLES'
-  | 'FORMALISATION'
-  | 'ANNULATION';
+/** Hors périmètre commercial → 404, comme une offre inconnue. */
+export function getOffre(id: UUID): Promise<FicheDevisDto> {
+  return request('GET', `/api/devis/${id}`);
+}
+
+/** 400 (avec `detail`) : article vendu, changement d'article d'une offre liée à un dossier, schéma OMRAN incohérent. */
+export function modifierOffre(id: UUID, body: ModifierDevisRequest): Promise<FicheDevisDto> {
+  return request('PATCH', `/api/devis/${id}`, { body });
+}
+
+/** 409 si l'offre a donné un dossier. */
+export function supprimerOffre(id: UUID): Promise<void> {
+  return request('DELETE', `/api/devis/${id}`);
+}
 
 /** Alias et non `interface` à dessein : seul un alias d'objet reçoit la signature
  * d'index implicite qui le rend assignable au `Record` de `withPageable`. */
@@ -713,12 +768,20 @@ export type DossierFilterParams = {
   projet?: UUID;
   trancheId?: UUID[];
   /** Défaut serveur RESERVATION ; ignoré sans `dateDebut`/`dateFin`. */
-  champDate?: DossierChampDate;
+  /** Une des 47 valeurs de `GET /api/dossiers/champs-date` (`listChampsDateDossiers`). */
+  champDate?: string;
   /** Date-heure ISO (pas une date seule), borne incluse. */
   dateDebut?: string;
   /** Date-heure ISO (pas une date seule), borne incluse. */
   dateFin?: string;
+  /** `true` : `champDate` vide ; `false` : renseignée. Prioritaire sur la période. */
+  dateVide?: boolean;
   search?: string;
+  /** Sans lui, annulés et désistés sont exclus (sauf `statut` explicite). */
+  inclureSortis?: boolean;
+  lignes?: LignesListeDossiers;
+  /** Tri d'OMRAN : article, tranche, projet, entité ; remplace `sort`. */
+  ordreOmran?: boolean;
 };
 
 export function listDossiers(
@@ -747,6 +810,16 @@ export function listDossiersGroupes(
   });
 }
 
+/** Statuts proposés au filtre de la liste, visibles de l'appelant (codes de `?statut=`). */
+export function listStatutsDossiers(): Promise<StatutListeDossierDto[]> {
+  return request('GET', '/api/dossiers/statuts');
+}
+
+/** Les 47 dates du filtre de période, dans l'ordre d'OMRAN. */
+export function listChampsDateDossiers(): Promise<ChampDateListeDto[]> {
+  return request('GET', '/api/dossiers/champs-date');
+}
+
 export function getColonnesDossiers(): Promise<ColonneDto[]> {
   return request('GET', '/api/referentiels/colonnes/dossiers');
 }
@@ -757,6 +830,15 @@ export function getDossier(id: UUID): Promise<DossierDetailDto> {
 
 export function createDossier(body: CreerDossierRequest): Promise<DossierDetailDto> {
   return request('POST', '/api/dossiers', { body });
+}
+
+/** 409 « offre déjà transformée » de `createDossier` : le dossier à ouvrir, sinon null. */
+export function dossierExistantDepuisErreur(err: unknown): DossierLieDto | null {
+  if (!(err instanceof ApiError) || err.status !== 409) return null;
+  const existant = err.problem?.dossierExistant;
+  return existant && typeof existant === 'object' && typeof (existant as { id?: unknown }).id === 'string'
+    ? (existant as DossierLieDto)
+    : null;
 }
 
 export function simulerSchemaFinancement(body: SimulerSchemaFinancementRequest): Promise<SchemaFinancementDto> {
@@ -771,12 +853,76 @@ export function getEtapesSuivantes(id: UUID): Promise<EtapeSuivanteDto[]> {
   return request('GET', `/api/dossiers/${id}/statut/etapes-suivantes`);
 }
 
+export function getTransitionSuggeree(id: UUID): Promise<TransitionSuggereeDto> {
+  return request('GET', `/api/dossiers/${id}/statut/transition-suggeree`);
+}
+
 export function listHistoriqueDossier(id: UUID, pageable?: Pageable): Promise<PageDto<HistoriqueEvenementDto>> {
   return request('GET', `/api/dossiers/${id}/historique`, { query: withPageable(undefined, pageable) });
 }
 
 export function getMontantsDossier(id: UUID): Promise<MontantsDossierDto> {
   return request('GET', `/api/dossiers/${id}/montants`);
+}
+
+/* ---- Fiche complète et actions de la fiche (FEATURE-vente-fiche.md) ---- */
+
+export function getFicheDossier(id: UUID): Promise<DossierFicheDto> {
+  return request('GET', `/api/dossiers/${id}/fiche`);
+}
+
+export function listActionsDossier(id: UUID): Promise<ActionsDossierDto> {
+  return request('GET', `/api/dossiers/${id}/actions`);
+}
+
+export function creerActionDossier(id: UUID, body: CreerActionDossierRequest): Promise<ActionDossierDto> {
+  return request('POST', `/api/dossiers/${id}/actions`, { body });
+}
+
+/** Administrateur, Commercial Chef ou Direction Générale (403 sinon) ; 409 sans commercial. */
+export function creerInstructionDossier(id: UUID, body: CreerInstructionRequest): Promise<InstructionCreeeDto> {
+  return request('POST', `/api/dossiers/${id}/instructions`, { body });
+}
+
+/** Destinataire ou Administrateur seulement (403) ; idempotent. */
+export function marquerInstructionLue(id: UUID, instructionId: UUID): Promise<ActionDossierDto> {
+  return request('PATCH', `/api/dossiers/${id}/instructions/${instructionId}/lue`);
+}
+
+export function getCompteursDossier(id: UUID): Promise<CompteursDto> {
+  return request('GET', `/api/dossiers/${id}/compteurs`);
+}
+
+export function modifierCompteursDossier(id: UUID, body: CompteursDto): Promise<CompteursDto> {
+  return request('PATCH', `/api/dossiers/${id}/compteurs`, { body });
+}
+
+export function getCalendrierVisites(id: UUID, du?: string, au?: string): Promise<CalendrierVisitesDto> {
+  return request('GET', `/api/dossiers/${id}/visites-techniques`, { query: { du, au } });
+}
+
+export function programmerVisiteTechnique(id: UUID, body: ProgrammerVisiteRequest): Promise<VisiteProgrammeeDto> {
+  return request('POST', `/api/dossiers/${id}/visites-techniques`, { body });
+}
+
+/** Administrateur seulement. */
+export function getApercuReinitialisation(id: UUID): Promise<ReinitialisationDto> {
+  return request('GET', `/api/dossiers/${id}/reinitialiser/apercu`);
+}
+
+/** Administrateur seulement. */
+export function reinitialiserDossier(id: UUID): Promise<ReinitialisationDto> {
+  return request('POST', `/api/dossiers/${id}/reinitialiser`);
+}
+
+/** Administrateur seulement. */
+export function verifierReajustementSuperficies(trancheId: UUID): Promise<LigneReajustementDto[]> {
+  return request('GET', `/api/tranches/${trancheId}/reajustement-superficies`);
+}
+
+/** Administrateur seulement ; tout ou rien (404 dossier hors tranche, 409 dossier sans écart). */
+export function validerReajustementSuperficies(trancheId: UUID, dossierIds: UUID[]): Promise<LigneReajustementDto[]> {
+  return request('POST', `/api/tranches/${trancheId}/reajustement-superficies`, { body: { dossierIds } });
 }
 
 export function listPiecesJointes(dossierId: UUID): Promise<PieceJointeDto[]> {
@@ -852,7 +998,7 @@ function blobDepuisTexte(text: string, mime: string): Blob {
 
 /** Un `format: byte` peut arriver en JSON (chaîne base64 ou tableau de nombres)
  * au lieu de binaire : les deux formes sont gérées. */
-async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestInit): Promise<Blob> {
+export async function fetchByteEndpointBlob(url: string, mime: string, init?: RequestInit): Promise<Blob> {
   let res: Response;
   try {
     res = await fetch(url, { credentials: 'include', ...init });
@@ -924,7 +1070,7 @@ function fetchDevisDocumentBlob(prospectionId: UUID, devisId: UUID): Promise<Blo
   return fetchByteEndpointBlob(url, mimeForExtension('pdf'));
 }
 
-function triggerBlobDownload(blob: Blob, filename: string): void {
+export function triggerBlobDownload(blob: Blob, filename: string): void {
   const objectUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = objectUrl;
@@ -1073,13 +1219,29 @@ export function addEcheance(dossierId: UUID, body: CreerEcheanceRequest): Promis
   return request('POST', `/api/dossiers/${dossierId}/echeancier`, { body });
 }
 
-/** @public endpoint servi, pas encore branché sur un écran */
 export function updateEcheance(dossierId: UUID, echeanceId: UUID, body: ModifierEcheanceRequest): Promise<EcheanceDto> {
   return request('PATCH', `/api/dossiers/${dossierId}/echeancier/${echeanceId}`, { body });
 }
 
+/** @public endpoint servi, remplacé à l'écran par `createReglementDossier` */
 export function addReglement(dossierId: UUID, echeanceId: UUID, body: CreerReglementRequest): Promise<ReglementDto> {
   return request('POST', `/api/dossiers/${dossierId}/echeancier/${echeanceId}/reglements`, { body });
+}
+
+export function createReglementDossier(dossierId: UUID, body: CreerReglementDossierRequest): Promise<ReglementDossierDto> {
+  return request('POST', `/api/dossiers/${dossierId}/reglements`, { body });
+}
+
+export function getReglementsDossier(dossierId: UUID): Promise<ReglementDossierDto[]> {
+  return request('GET', `/api/dossiers/${dossierId}/reglements`);
+}
+
+export function affecterReglement(
+  dossierId: UUID,
+  reglementId: UUID,
+  body: AffecterReglementRequest,
+): Promise<ReglementDossierDto> {
+  return request('POST', `/api/dossiers/${dossierId}/reglements/${reglementId}/affectations`, { body });
 }
 
 export function listEcheanceReglements(dossierId: UUID, echeanceId: UUID): Promise<ReglementDto[]> {
@@ -1138,7 +1300,7 @@ export function modifierStatutReglement(
   return request('PATCH', `/api/dossiers/${dossierId}/reglements/${reglementId}/statut`, { body });
 }
 
-export type EncaissementChampDate = 'DATE_PIECE' | 'DATE_ECHEANCE' | 'DATE_REGLEMENT';
+export type EncaissementChampDate = 'DATE_PIECE' | 'DATE_ECHEANCE' | 'DATE_REGLEMENT' | 'POINTAGE_PREVU';
 
 /** Hors périmètre → 404 et non 403 (pas d'énumération) ; un id non UUID → 404 aussi. */
 export function getEncaissement(id: UUID): Promise<EncaissementDetailDto> {
@@ -1176,8 +1338,44 @@ export function listEncaissements(
   return request('GET', '/api/encaissements', { query });
 }
 
+/** Bande « Total : » sur tout le filtre (mêmes paramètres que la liste) ; CANCELED hors des sommes. */
+export function getTotauxEncaissements(params?: Parameters<typeof listEncaissements>[0]): Promise<TotauxEncaissementsDto> {
+  return request('GET', '/api/encaissements/totaux', { query: { ...params } });
+}
+
 export function getColonnesEncaissements(): Promise<ColonneDto[]> {
   return request('GET', '/api/referentiels/colonnes/encaissements');
+}
+
+export type ImpayeEchuA = 'ECHEANCE' | 'RECOUVREMENT' | 'TOUS';
+/** `DOCUMENT` et `ECHEANCE` sont la même colonne pour une échéance de vente. */
+export type ImpayeChampDate = 'DOCUMENT' | 'ECHEANCE' | 'RECOUVREMENT';
+
+export type ImpayesFilterParams = {
+  projetId?: UUID[];
+  trancheId?: UUID[];
+  /** Défaut serveur ECHEANCE (échéance ≤ aujourd'hui). */
+  echu?: ImpayeEchuA;
+  /** Ignoré sans `du` / `au`. */
+  champDate?: ImpayeChampDate;
+  /** `aaaa-mm-jj`, bornes incluses. */
+  du?: string;
+  au?: string;
+  commercialId?: UUID;
+  categorieId?: UUID;
+  client?: string;
+  /** Code ou désignation **exacts**. */
+  article?: string;
+  q?: string;
+};
+
+/** Tri sur un nom du catalogue (inconnu → 400) ; défaut `dateEcheance,desc`. */
+export function listImpayes(params: ImpayesFilterParams, pageable?: Pageable): Promise<ImpayesPageDto> {
+  return request('GET', '/api/impayes', { query: withPageable(params, pageable) });
+}
+
+export function getColonnesImpayes(): Promise<ColonneDto[]> {
+  return request('GET', '/api/referentiels/colonnes/impayes');
 }
 
 export function getColonnesSuiviActions(): Promise<ColonneDto[]> {
@@ -1407,6 +1605,8 @@ export const getPays = (): Promise<PaysDto[]> => request('GET', '/api/referentie
 export const getOriginesProspection = (): Promise<OrigineProspectionDto[]> => request('GET', '/api/referentiels/origines-prospection');
 export const getSupportsForOrigine = (origineId: UUID): Promise<ReferentielItemDto[]> =>
   request('GET', `/api/referentiels/origines-prospection/${origineId}/supports`);
+/** Tous les supports, toutes origines confondues, triés par libellé. */
+export const getSupportsOrigine = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/supports-origine');
 export const getNationalites = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/nationalites');
 export const getEtapesProspection = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/etapes-prospection');
 export const getCategoriesBien = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/categories-bien');
@@ -1510,9 +1710,18 @@ export function listCommerciauxEquipe(params?: ParamsEquipe): Promise<Commercial
   return request('GET', '/api/equipe/commerciaux', { query: { du: params?.du, au: params?.au, projet: params?.projet } });
 }
 
-/** Pré-prospections sans commercial reçues dans la période (30 jours par défaut) ; 400 si `du` > `au`. */
-export function getADistribuer(params?: ParamsEquipe): Promise<ADistribuerDto> {
-  return request('GET', '/api/equipe/a-distribuer', { query: { du: params?.du, au: params?.au, projet: params?.projet } });
+/** Pré-prospections sans commercial reçues dans la période (30 jours par défaut), jamais traitées sauf `toutes` ;
+ * 400 si `du` > `au`. Même total que `listADistribuer` pour le même filtre. */
+export function getADistribuer(filtre: FiltreADistribuer): Promise<ADistribuerDto> {
+  return request('GET', '/api/equipe/a-distribuer', { query: { ...filtre } });
+}
+
+/** Les lignes que compte `getADistribuer`, triées par date croissante ; `size` ramené à 500 au-delà. */
+export function listADistribuer(
+  filtre: FiltreADistribuer,
+  pagination: { page: number; size: number },
+): Promise<PageDto<LigneADistribuerDto>> {
+  return request('GET', '/api/equipe/a-distribuer/lignes', { query: { ...filtre, ...pagination } });
 }
 
 /** Tout ou rien ; la ligne reste une pré-prospection (ni prospect ni tranche exigés). */
@@ -1520,9 +1729,21 @@ export function distribuerPreProspections(body: DistribuerRequest): Promise<Resu
   return request('POST', '/api/equipe/distribuer', { body });
 }
 
-/** Tout ou rien ; les lignes déjà au destinataire sont ignorées (absentes de `lignes`). */
+/** Prospections et pré-prospections déjà affectées, mêlées ; tout ou rien ; les lignes déjà au destinataire sont
+ * ignorées (absentes de `lignes`). */
 export function reaffecterProspections(body: ReaffecterRequest): Promise<ResultatLotDto> {
   return request('POST', '/api/equipe/reaffecter', { body });
+}
+
+/** Nombre d'actions et sommeil des leads demandés (lecture seule) ; les ids hors périmètre sont omis. */
+export function getActiviteLeads(body: LeadsActiviteRequest): Promise<LeadActiviteDto[]> {
+  return request('POST', '/api/equipe/leads/activite', { body, lecture: true });
+}
+
+/** Répartition automatique ; `simulation` n'écrit rien (aperçu) et ne vide pas les caches. Une ligne déjà
+ * attribuée n'est jamais reprise ; 403 si une ligne est hors des projets d'un chef. */
+export function repartirPreProspections(body: RepartirRequest): Promise<ResultatRepartitionDto> {
+  return request('POST', '/api/equipe/repartir', { body, lecture: body.simulation });
 }
 
 export function getAffectationsEquipe(): Promise<AffectationsEquipeDto> {
@@ -1560,6 +1781,25 @@ export function avancerProspection(id: UUID, body: AvancerProspectionRequest): P
 export function getMesPerformances(params?: { du?: string; au?: string }): Promise<PerformanceCommercialDto> {
   return request('GET', '/api/kpi/commerciaux/moi', { query: { du: params?.du, au: params?.au } });
 }
+
+// ---------------------------------------------------------------- Notifications (cloche)
+
+/** Compte appelant seulement, plus récentes d'abord ; `nonLues` = pastille. */
+export function listNotifications(page = 0, size = 20): Promise<NotificationsDto> {
+  return request('GET', '/api/notifications', { query: { page, size } });
+}
+
+/** 404 si la notification n'est pas au compte appelant. */
+export function marquerNotificationLue(id: UUID): Promise<NonLuesDto> {
+  return request('POST', `/api/notifications/${id}/lue`);
+}
+
+export function marquerToutesNotificationsLues(): Promise<NonLuesDto> {
+  return request('POST', '/api/notifications/tout-lu');
+}
+
+/** Flux SSE (`EventSource` avec `withCredentials`) : évènements `notification` (`EvenementNotificationDto`). */
+export const URL_FLUX_NOTIFICATIONS = `${API_BASE_URL}/api/notifications/flux`;
 
 /** Synchrone ; 409 si un cycle tourne déjà. Les caches sont vidés, mais l'appelant
  * doit lancer `refetchAllApis()` pour que les pages montées relisent. */

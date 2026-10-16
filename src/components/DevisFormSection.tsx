@@ -18,13 +18,47 @@ import {
   type ArticleReferentielFilters,
 } from '../lib/api';
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../lib/referentiels';
-import type { CreerDevisRequest } from '../types';
+import type { ArticleListItemDto, CreerDevisRequest } from '../types';
+
+/** Valeurs d'une offre existante, pour réutiliser le formulaire en modification (`PATCH /api/devis/{id}`). */
+export type ValeursEditionDevis = {
+  sousArticleIds: string[];
+  remisePercent?: number;
+  modePaiementId?: string;
+  notes?: string;
+  /** Article actuel : affiché présélectionné même occupé ou hors filtre (le référentiel ne rend que les libres). */
+  article?: ArticleListItemDto;
+  /** Sous-articles actuels, même raison. */
+  sousArticles?: ArticleListItemDto[];
+};
+
+/** Liste du référentiel complétée des éléments actuels de l'offre qu'elle ne contient pas, en tête. */
+function avecActuels(items: ArticleListItemDto[], actuels: ArticleListItemDto[]): ArticleListItemDto[] {
+  const absents = actuels.filter((a) => !items.some((i) => i.id === a.id));
+  return absents.length > 0 ? [...absents, ...items] : items;
+}
+
+/** Textes qui changent entre création et modification : sans article, le prix n'est requis qu'à la création. */
+function textesPrix(isLibre: boolean, edition: boolean) {
+  if (edition) {
+    return { placeholder: 'Inchangé', description: 'Vide : le prix actuel de l’offre est conservé.', requis: false };
+  }
+  return isLibre
+    ? { placeholder: 'Obligatoire', description: 'Requis — offre libre, sans article.', requis: true }
+    : { placeholder: 'Optionnel', description: 'Remplace le prix commercial de l’article.', requis: false };
+}
+
+function libelleBouton(busy: boolean, edition: boolean): string {
+  if (edition) return busy ? 'Enregistrement…' : 'Enregistrer';
+  return busy ? 'Création…' : 'Créer l’offre';
+}
 
 export default function DevisFormSection({
   defaultTrancheId,
   defaultArticleId,
   defaultProspectId,
   defaultCommercialId,
+  edition,
   startOpen,
   bare,
   onAdd,
@@ -33,6 +67,8 @@ export default function DevisFormSection({
   defaultArticleId?: string;
   defaultProspectId?: string;
   defaultCommercialId?: string;
+  /** Formulaire prérempli d'une offre existante : libellés et contrôle du prix adaptés. */
+  edition?: ValeursEditionDevis;
   startOpen?: boolean;
   bare?: boolean;
   onAdd: (body: CreerDevisRequest) => Promise<void>;
@@ -50,11 +86,11 @@ export default function DevisFormSection({
   const [typeIds, setTypeIds] = useState<string[]>([]);
   const [onlyDisponible, setOnlyDisponible] = useState(!defaultArticleId);
   const [articleId, setArticleId] = useState<string | null>(defaultArticleId ?? null);
-  const [sousArticleIds, setSousArticleIds] = useState<string[]>([]);
+  const [sousArticleIds, setSousArticleIds] = useState<string[]>(edition?.sousArticleIds ?? []);
   const [prix, setPrix] = useState('');
-  const [remisePercent, setRemisePercent] = useState('');
-  const [modePaiementId, setModePaiementId] = useState<string | null>(null);
-  const [notes, setNotes] = useState('');
+  const [remisePercent, setRemisePercent] = useState(edition?.remisePercent ? String(edition.remisePercent) : '');
+  const [modePaiementId, setModePaiementId] = useState<string | null>(edition?.modePaiementId ?? null);
+  const [notes, setNotes] = useState(edition?.notes ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,6 +111,19 @@ export default function DevisFormSection({
   const selected = useApi(() => (articleId ? getArticle(articleId) : Promise.resolve(null)), [articleId]);
 
   const isLibre = !articleId;
+  const textes = textesPrix(isLibre, !!edition);
+  // L'article actuel n'appartient qu'à sa tranche ; ses sous-articles qu'à lui.
+  const articleActuel = edition?.article && trancheId === (defaultTrancheId ?? null) ? [edition.article] : [];
+  const articlesAffiches = avecActuels(articles.data ?? [], articleActuel);
+  const sousArticlesActuels = articleId && articleId === defaultArticleId ? (edition?.sousArticles ?? []) : [];
+  const sousArticlesAffiches = avecActuels(sousArticles.data ?? [], sousArticlesActuels);
+
+  /** Un filtre vide la sélection en création ; en modification, l'article actuel reste choisi. */
+  function apresFiltre() {
+    if (edition) return;
+    setArticleId(null);
+    setSousArticleIds([]);
+  }
 
   function reset() {
     setProjetId(null);
@@ -92,7 +141,7 @@ export default function DevisFormSection({
 
   async function handleCreate() {
     if (!trancheId) return;
-    if (isLibre && !prix.trim()) {
+    if (textes.requis && !prix.trim()) {
       setError("Prix requis pour une offre libre (sans article).");
       return;
     }
@@ -146,21 +195,21 @@ export default function DevisFormSection({
               label="Catégorie"
               placeholder="Toutes"
               value={categorieIds}
-              onChange={(ids) => { setCategorieIds(ids); setArticleId(null); setSousArticleIds([]); }}
+              onChange={(ids) => { setCategorieIds(ids); apresFiltre(); }}
               items={referentielItems(categoriesRef.data)}
             />
             <MultiSelectDropdown
               label="Type"
               placeholder="Tous"
               value={typeIds}
-              onChange={(ids) => { setTypeIds(ids); setArticleId(null); setSousArticleIds([]); }}
+              onChange={(ids) => { setTypeIds(ids); apresFiltre(); }}
               items={referentielItems(typesRef.data)}
             />
             <label className="flex items-center gap-1.5 text-body text-muted-foreground">
               <input
                 type="checkbox"
                 checked={onlyDisponible}
-                onChange={(e) => { setOnlyDisponible(e.target.checked); setArticleId(null); setSousArticleIds([]); }}
+                onChange={(e) => { setOnlyDisponible(e.target.checked); apresFiltre(); }}
                 className="size-3.5"
               />
               Disponibles uniquement
@@ -170,10 +219,10 @@ export default function DevisFormSection({
           {trancheId && (
             <div className="flex flex-col gap-1">
               <span className="text-micro font-medium text-muted-foreground">
-                Article (optionnel — offre libre sans article sinon) {articles.data ? `(${articles.data.length})` : ''}
+                Article (optionnel — offre libre sans article sinon) {articles.data ? `(${articlesAffiches.length})` : ''}
               </span>
               <ArticleResultsList
-                items={articles.data ?? []}
+                items={articlesAffiches}
                 loading={articles.loading}
                 selectedId={articleId}
                 onSelect={(id) => { setArticleId(id); setSousArticleIds([]); }}
@@ -191,8 +240,8 @@ export default function DevisFormSection({
                 placeholder="Aucun"
                 value={sousArticleIds}
                 onChange={setSousArticleIds}
-                items={(sousArticles.data ?? []).map((a) => ({ label: [a.code, a.description].filter(Boolean).join(' — '), value: a.id }))}
-                disabled={(sousArticles.data ?? []).length === 0}
+                items={sousArticlesAffiches.map((a) => ({ label: [a.code, a.description].filter(Boolean).join(' — '), value: a.id }))}
+                disabled={sousArticlesAffiches.length === 0}
               />
             </>
           )}
@@ -200,10 +249,8 @@ export default function DevisFormSection({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <FormField>
               <FieldLabel htmlFor="devis-prix">Prix TTC</FieldLabel>
-              <Input id="devis-prix" type="number" value={prix} onChange={(e) => setPrix(e.target.value)} placeholder={isLibre ? 'Obligatoire' : 'Optionnel'} />
-              <FieldDescription className="text-micro">
-                {isLibre ? 'Requis — offre libre, sans article.' : 'Remplace le prix commercial de l’article.'}
-              </FieldDescription>
+              <Input id="devis-prix" type="number" value={prix} onChange={(e) => setPrix(e.target.value)} placeholder={textes.placeholder} />
+              <FieldDescription className="text-micro">{textes.description}</FieldDescription>
             </FormField>
             <FormField>
               <FieldLabel htmlFor="devis-remise">Remise (%)</FieldLabel>
@@ -221,7 +268,7 @@ export default function DevisFormSection({
 
           <div className="flex items-center gap-2">
             <Button type="button" size="sm" disabled={!trancheId || busy} onClick={handleCreate}>
-              {busy ? 'Création…' : 'Créer l’offre'}
+              {libelleBouton(busy, !!edition)}
             </Button>
             {error && <p className="text-body text-destructive">{error}</p>}
           </div>

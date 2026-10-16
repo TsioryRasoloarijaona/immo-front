@@ -12,6 +12,9 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import EncaissementTable from '../../components/EncaissementTable';
 import ColumnSelector from '../../components/ColumnSelector';
 import BandeGroupement from '../../components/BandeGroupement';
+import BoutonExporter from '../../components/BoutonExporter';
+import FiltreTiers, { type TiersChoisi } from '../../components/encaissements/FiltreTiers';
+import BandeTotalEncaissements from '../../components/encaissements/BandeTotalEncaissements';
 import {
   DEFAULT_PAGE_SIZE,
   listEncaissements,
@@ -47,6 +50,7 @@ const CHAMP_DATE_ITEMS: { label: string; value: ChampDate }[] = [
   { label: 'Date pièce', value: 'DATE_PIECE' },
   { label: 'Date échéance', value: 'DATE_ECHEANCE' },
   { label: 'Date règlement', value: 'DATE_REGLEMENT' },
+  { label: 'Pointage prévu', value: 'POINTAGE_PREVU' },
 ];
 
 const COMPTABILISE_ITEMS: { label: string; value: ComptabiliseFilter }[] = [
@@ -73,6 +77,7 @@ export default function EncaissementsList() {
   const [compteId, setCompteId] = useState<string | null>(null);
   const [depotId, setDepotId] = useState<string | null>(null);
   const [trancheId, setTrancheId] = useState<string[]>([]);
+  const [tiers, setTiers] = useState<TiersChoisi | null>(null);
   const [comptabilise, setComptabilise] = useState<ComptabiliseFilter>('all');
   const [champDate, setChampDate] = useState<ChampDate>('DATE_PIECE');
   const [dateDebut, setDateDebut] = useState(debutMoisISO);
@@ -108,6 +113,7 @@ export default function EncaissementsList() {
     setCompteId(null);
     setDepotId(null);
     setTrancheId([]);
+    setTiers(null);
     groupement.reinitialiser();
     setComptabilise('all');
     setChampDate('DATE_PIECE');
@@ -125,7 +131,7 @@ export default function EncaissementsList() {
 
   // Les dates se comparent au défaut (le mois courant), pas au vide.
   const hasActiveFilters =
-    !!search || !!reference || entiteId.length > 0 || typeId.length > 0 || etat.length > 0 || !!compteId || !!depotId || trancheId.length > 0 || comptabilise !== 'all' || champDate !== 'DATE_PIECE' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || !!montantDe || !!montantA;
+    !!search || !!reference || entiteId.length > 0 || typeId.length > 0 || etat.length > 0 || !!compteId || !!depotId || trancheId.length > 0 || !!tiers || comptabilise !== 'all' || champDate !== 'DATE_PIECE' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || !!montantDe || !!montantA;
 
   // Mêmes filtres pour la liste et les groupes : la somme des effectifs doit égaler le total.
   const filtresServeur = {
@@ -135,6 +141,7 @@ export default function EncaissementsList() {
           typeId: typeId.length > 0 ? typeId : undefined,
           etat: etat.length > 0 ? etat : undefined,
           trancheId: trancheId.length > 0 ? trancheId : undefined,
+          tierId: tiers?.id,
           compteId: compteId || undefined,
           depotId: depotId || undefined,
           comptabilise: COMPTABILISE_PARAM[comptabilise],
@@ -156,6 +163,7 @@ export default function EncaissementsList() {
     compteId,
     depotId,
     trancheId.join(','),
+    tiers?.id,
     comptabilise,
     champDate,
     dateDebut,
@@ -221,6 +229,13 @@ export default function EncaissementsList() {
       icon={<Wallet />}
       accent="var(--sec-dossier)"
       accentBg="var(--sec-dossier-bg)"
+      actions={
+        <BoutonExporter
+          chemin="/api/encaissements/export"
+          params={{ ...filtresServeur, colonnes: colonnes.visibles }}
+          nomListe="encaissements"
+        />
+      }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
         <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
@@ -249,6 +264,7 @@ export default function EncaissementsList() {
               {/* Un règlement remonte dès qu'une de ses échéances porte sur un lot de
                   la tranche : à cheval sur deux tranches, il remonte pour les deux. */}
               <MultiSelectDropdown label="Tranche" placeholder="Toutes" value={trancheId} onChange={(v) => resetAndSet(setTrancheId, v)} items={trancheItems} />
+              <FiltreTiers choisi={tiers} onChoisir={(t) => resetAndSet(setTiers, t)} />
               <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
                 <RotateCcw data-icon="inline-start" /> Réinitialiser
               </Button>
@@ -382,15 +398,16 @@ export default function EncaissementsList() {
                 </EtatColonnes>
               )}
             </div>
+            {/* Liste plate seulement : en groupes, chaque groupe porte déjà ses totaux serveur. */}
+            {!enGroupes && <BandeTotalEncaissements filtres={filtresServeur} cle={clesFiltres.slice(0, -1).join('|')} />}
+            {/* Sur `pageAffichee` : en mode groupes `liste.data` est nul et la pagination disparaîtrait. */}
             <div className="shrink-0">
-              {data && (
-                <Pagination
-                  page={pageAffichee.page}
-                  totalPages={pageAffichee.totalPages}
-                  totalElements={pageAffichee.totalElements}
-                  onPageChange={setPage}
-                />
-              )}
+              <Pagination
+                page={pageAffichee.page}
+                totalPages={pageAffichee.totalPages}
+                totalElements={pageAffichee.totalElements}
+                onPageChange={setPage}
+              />
             </div>
           </ResultsRegion>
         )}

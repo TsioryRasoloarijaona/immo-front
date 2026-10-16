@@ -10,6 +10,7 @@ import { Button } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import ProspectTable from '../../components/ProspectTable';
 import EtatColonnes from '../../components/EtatColonnes';
+import BoutonExporter from '../../components/BoutonExporter';
 import { DEFAULT_PAGE_SIZE, listProspects } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useColonnesVisibles } from '../../lib/colonnes';
@@ -43,10 +44,12 @@ export default function ProspectsList() {
   const hasActiveFilters =
     !!search || type.length > 0;
 
+  const filtresServeur = { search: debouncedSearch || undefined, type: type.length > 0 ? type : undefined };
+
   const { data, loading, error } = useApi(
     () =>
       listProspects(
-        { search: debouncedSearch || undefined, type: type.length > 0 ? type : undefined },
+        filtresServeur,
         { page, size: DEFAULT_PAGE_SIZE },
         { colonnes: colonnesDemandees },
       ),
@@ -78,9 +81,16 @@ export default function ProspectsList() {
       accent="var(--sec-prospect)"
       accentBg="var(--sec-prospect-bg)"
       actions={
-        <Button type="button" size="sm" onClick={() => navigate('/prospects/nouveau')}>
-          <Plus data-icon="inline-start" /> Nouveau prospect
-        </Button>
+        <>
+          <BoutonExporter
+            chemin="/api/prospects/export"
+            params={{ ...filtresServeur, colonnes: colonnes.visibles }}
+            nomListe="prospects"
+          />
+          <Button type="button" size="sm" onClick={() => navigate('/prospects/nouveau')}>
+            <Plus data-icon="inline-start" /> Nouveau prospect
+          </Button>
+        </>
       }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">

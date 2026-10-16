@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import Layout from './components/Layout';
 import RouteErrorBoundary from './components/RouteErrorBoundary';
 import { ConfirmProvider } from './components/ConfirmModal';
+import NotificationsProvider from './components/notifications/NotificationsProvider';
 import { PreviewProvider } from './components/PreviewProvider';
 import { ToastProvider } from './components/ToastProvider';
 import { LoadingState } from './components/ui';
@@ -30,8 +31,10 @@ const PreProspectionsList = lazy(() => import('./pages/prospections/PreProspecti
 const ImportPreProspections = lazy(() => import('./pages/prospections/ImportPreProspections'));
 const ProspectionDetail = lazy(() => import('./pages/prospections/ProspectionDetail'));
 const OffresList = lazy(() => import('./pages/prospections/OffresList'));
+const OffreDetail = lazy(() => import('./pages/prospections/OffreDetail'));
 const EncaissementsList = lazy(() => import('./pages/encaissements/EncaissementsList'));
 const EncaissementDetail = lazy(() => import('./pages/encaissements/EncaissementDetail'));
+const ImpayesList = lazy(() => import('./pages/impayes/ImpayesList'));
 const ProspectsList = lazy(() => import('./pages/prospects/ProspectsList'));
 const NewProspect = lazy(() => import('./pages/prospects/NewProspect'));
 const ProspectDetail = lazy(() => import('./pages/prospects/ProspectDetail'));
@@ -60,6 +63,7 @@ const NouvelAppartementSyndic = lazy(() => import('./pages/outils/syndic/NouvelA
 const ProprietaireSyndic = lazy(() => import('./pages/outils/syndic/ProprietaireSyndic'));
 const OuvrirExerciceSyndic = lazy(() => import('./pages/outils/syndic/OuvrirExerciceSyndic'));
 const ReglagesSyndic = lazy(() => import('./pages/outils/syndic/ReglagesSyndic'));
+const Aide = lazy(() => import('./pages/aide/Aide'));
 const ComingSoon = lazy(() => import('./pages/ComingSoon'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
@@ -77,6 +81,7 @@ function AuthenticatedApp() {
     <AppDataProvider>
       <ToastProvider>
       <ConfirmProvider>
+        <NotificationsProvider>
         <PreviewProvider>
           <Layout>
             {/* La frontière enveloppe le Suspense, pas l’inverse : un chunk qui ne se télécharge pas démonterait
@@ -109,8 +114,10 @@ function AuthenticatedApp() {
                   <Route path="/prospections/:id" element={<ProspectionDetail />} />
                   <Route path="/prospections/:id/nouveau-dossier" element={<NewDossier />} />
                   <Route path="/offres" element={<OffresList />} />
+                  <Route path="/offres/:id" element={<OffreDetail />} />
                   <Route path="/encaissements" element={<EncaissementsList />} />
                   <Route path="/encaissements/:id" element={<EncaissementDetail />} />
+                  <Route path="/impayes" element={<ImpayesList />} />
                   <Route path="/prospects" element={<ProspectsList />} />
                   <Route path="/prospects/nouveau" element={<NewProspect />} />
                   <Route path="/prospects/:id" element={<ProspectDetail />} />
@@ -142,6 +149,8 @@ function AuthenticatedApp() {
                   <Route path="/outils/syndic/paiement/nouveau" element={<NouveauPaiementSyndic />} />
                   <Route path="/outils/syndic/paiements" element={<PaiementsSyndic />} />
                   <Route path="/outils/syndic/qui-doit" element={<QuiDoitSyndic />} />
+                  <Route path="/aide" element={<Aide />} />
+                  <Route path="/aide/:slug" element={<Aide />} />
                   <Route path="/bientot/:module" element={<ComingSoon />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
@@ -149,6 +158,7 @@ function AuthenticatedApp() {
             </RouteErrorBoundary>
           </Layout>
         </PreviewProvider>
+        </NotificationsProvider>
       </ConfirmProvider>
       </ToastProvider>
     </AppDataProvider>

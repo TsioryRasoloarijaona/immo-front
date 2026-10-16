@@ -11,15 +11,21 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/u
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import DossierTable from '../../components/DossierTable';
 import BandeGroupement from '../../components/BandeGroupement';
+import BoutonReajustementSuperficies from '../../components/dossier/BoutonReajustementSuperficies';
+import BoutonExporter from '../../components/BoutonExporter';
+import OptionsListeDossiers from '../../components/dossier/liste/OptionsListeDossiers';
+import TotauxDossiers from '../../components/dossier/liste/TotauxDossiers';
 import {
   DEFAULT_PAGE_SIZE,
   DOSSIER_BATCH_DOC_LABELS,
   downloadDossiersDocumentsEnLot,
+  listChampsDateDossiers,
   listDossiers,
   listDossiersGroupes,
+  listStatutsDossiers,
   viewDossiersDocumentsEnLot,
   type DossierBatchDocKind,
-  type DossierChampDate,
+  type DossierFilterParams,
 } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useColonnesVisibles } from '../../lib/colonnes';
@@ -29,71 +35,31 @@ import { DISPOSITION_DOSSIERS } from '../../lib/dispositions';
 import { useColonnesDossiers, useTranchesFiltre } from '../../lib/referentiels';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { debutMoisISO, finMoisISO, pluriel } from '../../lib/format';
-import { DOSSIER_STATUS_PIPELINE, DOSSIER_EXIT_STATUSES, canonicalStatusLabel, normalizeStatus } from '../../lib/dossierStatus';
-import type { DossierListItemDto, PageDto } from '../../types';
+import { useTotauxNature } from '../../lib/totauxDossiers';
+import {
+  AGREGATS_TOTAUX,
+  colonnesListe,
+  exigeLesSortis,
+  filtreStatuts,
+  libelleStatut,
+  optionsListe,
+  optionsStatuts,
+  routeDeLigne,
+  uniteDeLigne,
+} from '../../lib/dossierListe';
+import type { DossierListItemDto } from '../../types';
 
 const BATCH_DOC_ITEMS = (Object.entries(DOSSIER_BATCH_DOC_LABELS) as [DossierBatchDocKind, string][]).map(([value, label]) => ({ label, value }));
 
 /** Référence stable : un `[]` neuf à chaque rendu invaliderait `dossiersParId`. */
 const EMPTY: DossierListItemDto[] = [];
 
-const STATUS_ITEMS = [...DOSSIER_STATUS_PIPELINE, ...DOSSIER_EXIT_STATUSES].map((s) => ({ label: s, value: s }));
+const TRI_LISTE = ['docDate,desc'];
 
-// `?statut=` attend le code brut `StrStatus.Code`, pas le libellé : le libellé rend 0 ligne en 200.
-// Contournement : lot de 500 sans `statut`, filtré et paginé ici via `normalizeStatus`.
-async function fetchDossiersWithStatusWorkaround(
-  baseParams: {
-    search?: string;
-    trancheId?: string[];
-    commercial?: string;
-    champDate?: DossierChampDate;
-    dateDebut?: string;
-    dateFin?: string;
-  },
-  statuses: string[],
-  page: number,
-  size: number,
-  colonnes: string[] | undefined,
-): Promise<PageDto<DossierListItemDto>> {
-  if (statuses.length === 0) {
-    return listDossiers(baseParams, { page, size, sort: ['docDate,desc'] }, { colonnes });
-  }
-  const wanted = new Set(statuses.map((s) => normalizeStatus(s)));
-  /* `?colonnes=` est une liste close : `statut` décoché disparaîtrait de la
-     réponse et le filtre ne matcherait plus rien. On le redemande toujours. */
-  const colonnesAvecStatut = colonnes ? [...new Set([...colonnes, 'statut'])] : undefined;
-  const all = await listDossiers(
-    baseParams,
-    { page: 0, size: 500, sort: ['docDate,desc'] },
-    { colonnes: colonnesAvecStatut },
-  );
-  const filtered = all.content.filter((d) => wanted.has(normalizeStatus(d.statut)));
-  const start = page * size;
-  return {
-    content: filtered.slice(start, start + size),
-    page,
-    size,
-    totalElements: filtered.length,
-    totalPages: Math.max(1, Math.ceil(filtered.length / size)),
-  };
-}
+const GROUPEMENT_ET_LIBRES = 'Le regroupement ne porte que sur des dossiers : retirez « Libre » du filtre de statut.';
 
-// Le filtre statut se fait côté client, après le serveur ; `/groupes` renvoie des effectifs déjà
-// calculés et compterait donc sur un périmètre plus large que la liste.
-const GROUPEMENT_ET_STATUT =
-  'Le regroupement est indisponible tant qu’un statut est filtré — le serveur compterait sur un périmètre plus large que la liste.';
-
-const CHAMP_DATE_ITEMS: { label: string; value: DossierChampDate }[] = [
-  { label: 'Date de réservation', value: 'RESERVATION' },
-  { label: 'Date de concrétisation', value: 'CONCRETISATION' },
-  { label: 'Date de compromis', value: 'COMPROMIS' },
-  { label: "Date d'envoi au notaire", value: 'ENVOI_NOTAIRE' },
-  { label: 'Date de crédit débloqué', value: 'CREDIT_DEBLOQUE' },
-  { label: 'Date de minute', value: 'MINUTE' },
-  { label: 'Date de remise des clés', value: 'REMISE_DES_CLES' },
-  { label: 'Date de formalisation', value: 'FORMALISATION' },
-  { label: "Date d'annulation", value: 'ANNULATION' },
-];
+/** Repli tant que `GET /api/dossiers/champs-date` n'a pas répondu. */
+const CHAMP_DATE_DEFAUT = [{ label: 'Date réservation', value: 'RESERVATION' }];
 
 export default function DossiersList() {
   const navigate = useNavigate();
@@ -103,11 +69,18 @@ export default function DossiersList() {
   const debouncedSearch = useDebouncedValue(search);
   const [status, setStatus] = useState<string[]>([]);
   const [trancheIds, setTrancheIds] = useState<string[]>([]);
-  const [champDate, setChampDate] = useState<DossierChampDate>('RESERVATION');
+  const [champDate, setChampDate] = useState('RESERVATION');
   const [dateDebut, setDateDebut] = useState(debutMoisISO);
   const [dateFin, setDateFin] = useState(finMoisISO);
   const [commercial, setCommercial] = useState('all');
+  const [inclureSortis, setInclureSortis] = useState(false);
+  const [ordreOmran, setOrdreOmran] = useState(false);
   const [page, setPage] = useState(0);
+
+  const statutsServeur = useApi(() => listStatutsDossiers(), [], 'dossiers-statuts');
+  const champsDate = useApi(() => listChampsDateDossiers(), [], 'dossiers-champs-date');
+  const statusItems = optionsStatuts(statutsServeur.data ?? []);
+  const champDateItems = champsDate.data?.map((c) => ({ label: c.libelle, value: c.code })) ?? CHAMP_DATE_DEFAUT;
 
   // `selectedLabels` garde un libellé par id même quand la ligne a quitté la page ou le filtre.
   const [batchDocKind, setBatchDocKind] = useState<DossierBatchDocKind | null>(null);
@@ -118,7 +91,8 @@ export default function DossiersList() {
 
   const catalogue = useColonnesDossiers();
   const colonnes = useColonnesVisibles('dossiers', catalogue.data, DISPOSITION_DOSSIERS);
-  const colonnesDemandees = colonnes.demandees;
+  // Toujours explicite : les champs des icônes de ligne ne sont pas dans la sélection par défaut du serveur.
+  const colonnesDemandees = colonnesListe(colonnes.demandees, catalogue.data, DISPOSITION_DOSSIERS.toujoursDemandees ?? []);
 
   // Changer d'axe de groupement change le jeu de résultats : retour page 0, sinon écran vide.
   const groupement = useGroupement(
@@ -126,17 +100,20 @@ export default function DossiersList() {
     catalogue.data,
     useCallback(() => setPage(0), []),
   );
-  const groupementBloque = status.length > 0 ? GROUPEMENT_ET_STATUT : undefined;
+  const filtreStatut = filtreStatuts(status);
+  const groupementBloque = filtreStatut.lignes === 'LIBRES' ? GROUPEMENT_ET_LIBRES : undefined;
 
-  /* Mêmes filtres pour la liste et les groupes : la somme des effectifs doit
-     égaler le total de la liste. */
-  const filtresServeur = {
+  /* Mêmes filtres pour la liste, les groupes, les totaux et l'export : la somme des effectifs doit
+     égaler le total de la liste. Le statut est filtré par le serveur, sur les codes `StrStatus`. */
+  const filtresServeur: DossierFilterParams = {
     search: debouncedSearch || undefined,
     trancheId: trancheIds.length > 0 ? trancheIds : undefined,
     commercial: commercial !== 'all' ? commercial : undefined,
     champDate: dateDebut || dateFin ? champDate : undefined,
     dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
     dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
+    ...filtreStatut,
+    ...optionsListe(inclureSortis, ordreOmran),
   };
 
   const enGroupes = groupement.actif && !groupementBloque;
@@ -149,6 +126,8 @@ export default function DossiersList() {
     dateDebut,
     dateFin,
     commercial,
+    inclureSortis,
+    ordreOmran,
     page,
   ];
 
@@ -156,12 +135,27 @@ export default function DossiersList() {
     () =>
       enGroupes
         ? Promise.resolve(null)
-        : // Tri sur `docDate` (propriété d'entité), pas `dateDocument` (champ du DTO) :
-          // `sort` est validé contre l'entité, sinon 400.
-          fetchDossiersWithStatusWorkaround(filtresServeur, status, page, DEFAULT_PAGE_SIZE, colonnesDemandees),
+        : // Tri sur `docDate` (propriété d'entité), pas `dateDocument` (champ du DTO) : sinon 400.
+          listDossiers(filtresServeur, { page, size: DEFAULT_PAGE_SIZE, sort: TRI_LISTE }, { colonnes: colonnesDemandees }),
     [...clesFiltres, colonnesDemandees?.join(',') ?? '', enGroupes, groupement.cleDeps],
     'dossiers',
   );
+
+  // Σ en tête : `totaux` de `/groupes` porte sur tout le résultat filtré, pas sur la page.
+  const totaux = useApi(
+    () =>
+      filtreStatut.lignes === 'LIBRES'
+        ? Promise.resolve(null)
+        : listDossiersGroupes(
+            filtresServeur,
+            { groupBy: 'statut', agregats: [...AGREGATS_TOTAUX], inclureSansValeur: true },
+            { page: 0, size: 1 },
+          ),
+    [...clesFiltres.slice(0, -1)],
+    'dossiers-totaux',
+  );
+
+  const totauxNature = useTotauxNature(filtresServeur, clesFiltres.slice(0, -1), colonnes.colonnes);
 
   const groupes = useApi(
     () =>
@@ -219,6 +213,8 @@ export default function DossiersList() {
     setDateDebut(debutMoisISO());
     setDateFin(finMoisISO());
     setCommercial('all');
+    setInclureSortis(false);
+    setOrdreOmran(false);
   }
 
   function toutesLesPeriodes() {
@@ -229,7 +225,10 @@ export default function DossiersList() {
 
   // Les dates se comparent au défaut (le mois courant), pas au vide.
   const hasActiveFilters =
-    !!search || status.length > 0 || trancheIds.length > 0 || champDate !== 'RESERVATION' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || commercial !== 'all';
+    !!search || status.length > 0 || trancheIds.length > 0 || champDate !== 'RESERVATION' || dateDebut !== debutMoisISO() || dateFin !== finMoisISO() || commercial !== 'all' || inclureSortis;
+
+  const paramsExport = { ...filtresServeur, colonnes: colonnes.visibles, sort: TRI_LISTE };
+  const uniteLigne = uniteDeLigne(filtreStatut.lignes);
 
   const commercialItems = [
     { label: 'Tous les commerciaux', value: 'all' },
@@ -291,7 +290,7 @@ export default function DossiersList() {
                 <Search />
               </InputGroupAddon>
               <InputGroupInput
-                placeholder="Recherche multi-critère — client, code de dossier…"
+                placeholder="Recherche — client, CIN, mobile, co-acquéreur, article, code…"
                 value={search}
                 onChange={(e) => resetAndSet(setSearch, e.target.value)}
               />
@@ -300,12 +299,8 @@ export default function DossiersList() {
               label="Statut"
               placeholder="Tous les statuts"
               value={status}
-              onChange={(v) => {
-                // Voir GROUPEMENT_ET_STATUT : groupement et filtre statut ne coexistent pas.
-                if (v.length > 0) groupement.reinitialiser();
-                resetAndSet(setStatus, v);
-              }}
-              items={STATUS_ITEMS}
+              onChange={(v) => resetAndSet(setStatus, v)}
+              items={statusItems}
             />
             <MultiSelectDropdown
               label="Tranche"
@@ -316,17 +311,28 @@ export default function DossiersList() {
             />
             <div className="flex items-center gap-1.5">
               <Select
-                items={CHAMP_DATE_ITEMS}
+                items={champDateItems}
                 value={champDate}
-                onValueChange={(v) => resetAndSet(setChampDate, v as DossierChampDate)}
+                onValueChange={(v) => {
+                  // Date d'annulation : seuls les sortis la portent, on coche « Inclure annulés / désistés ».
+                  setInclureSortis((avant) => avant || exigeLesSortis(v as string));
+                  resetAndSet(setChampDate, v as string);
+                }}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                {/* Libellés OMRAN longs : la liste déborde la largeur du déclencheur et passe à la ligne au besoin. */}
+                <SelectContent
+                  alignItemWithTrigger={false}
+                  align="start"
+                  className="w-auto min-w-(--anchor-width) max-w-[min(30rem,90vw)]"
+                >
                   <SelectGroup>
-                    {CHAMP_DATE_ITEMS.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                    {champDateItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value} className="whitespace-normal">
+                        {item.label}
+                      </SelectItem>
                     ))}
                   </SelectGroup>
                 </SelectContent>
@@ -360,9 +366,17 @@ export default function DossiersList() {
                 </SelectGroup>
               </SelectContent>
             </Select>
+            <OptionsListeDossiers
+              inclureSortis={inclureSortis}
+              onInclureSortis={(v) => resetAndSet(setInclureSortis, v)}
+              ordreOmran={ordreOmran}
+              onOrdreOmran={(v) => resetAndSet(setOrdreOmran, v)}
+            />
             <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
               <RotateCcw data-icon="inline-start" /> Réinitialiser
             </Button>
+            <BoutonExporter chemin="/api/dossiers/export" params={paramsExport} nomListe="dossiers" />
+            <BoutonReajustementSuperficies />
         </div>
 
         <Card padded={false} className="shrink-0">
@@ -430,8 +444,11 @@ export default function DossiersList() {
         {!error && pageAffichee && (
           <ResultsRegion loading={loading}>
             <div className="flex shrink-0 items-center justify-between gap-3">
-              <div className="text-body text-muted-foreground">
-                {pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : 'dossier')}
+              <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+                <span className="text-body text-muted-foreground">
+                  {pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : uniteLigne)}
+                </span>
+                <TotauxDossiers totaux={totaux.data} montants={totauxNature.data} colonnes={colonnes.colonnes} />
               </div>
               {colonnes.catalogueServi.length > 0 && (
                 <ColumnSelector
@@ -474,8 +491,8 @@ export default function DossiersList() {
                     rows={enGroupes ? [] : dossiers}
                     colonnes={colonnes.colonnes}
                     // `enGroupes` et non `groupement.actif` : un filtre de statut bloque le groupement.
-                    groupes={groupesGrille(groupement, groupes.data, lignesGroupes, { statut: canonicalStatusLabel }, enGroupes)}
-                    onOuvrir={(id) => navigate(`/dossiers/${id}`)}
+                    groupes={groupesGrille(groupement, groupes.data, lignesGroupes, { statut: libelleStatut }, enGroupes)}
+                    onOuvrir={(id) => navigate(routeDeLigne(dossiersParId.get(id), id))}
                     onOuvrirProspection={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
                     bandeauRegroupement={false}
                     selection={
@@ -484,9 +501,11 @@ export default function DossiersList() {
                             ids: selectedIds,
                             onToggle: (id) => {
                               const d = dossiersParId.get(id);
-                              if (d) toggleSelected(d);
+                              // Un lot libre n'a pas de dossier : aucun document à générer.
+                              if (d && !d.libre) toggleSelected(d);
                             },
-                            onToggleAll: (ids) => {
+                            onToggleAll: (tous) => {
+                              const ids = tous.filter((id) => !dossiersParId.get(id)?.libre);
                               setSelectedIds(new Set(ids));
                               setSelectedLabels((prev) => {
                                 const next = { ...prev };

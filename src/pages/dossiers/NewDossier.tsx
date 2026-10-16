@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Check, Folder, RotateCcw, Search, X } from 'lucide-react';
 import BoutonEdition from '../../components/BoutonEdition';
 import PageShell from '../../components/PageShell';
@@ -15,11 +15,11 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import {
   createDossier,
+  dossierExistantDepuisErreur,
   getArticle,
   getProspect,
   getProspection,
   getTranche,
-  listDevis,
   listProjetTranches,
   listProjets,
   listProspectionAutresTranches,
@@ -29,6 +29,10 @@ import {
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { formatCurrency, formatPercent, formatPercentValue, formatSurface } from '../../lib/format';
 import { avecCles } from '../../lib/cles';
+import { aDesAnnexes, annexesAutomatiques, arrondiCentimes, prixProposeDesArticles, sansRemise } from '../../lib/annexesAutomatiques';
+import { modePaiementDeDepart, useOffreDeDepart } from '../../lib/offreDossier';
+import BandeauOffreDepart from '../../components/offres/BandeauOffreDepart';
+import SchemaDeLOffre from '../../components/offres/SchemaDeLOffre';
 
 function libelleArticlesCharges(affiches: number, charges: number): string {
   const s = (n: number) => (n > 1 ? 's' : '');
@@ -36,7 +40,31 @@ function libelleArticlesCharges(affiches: number, charges: number): string {
 }
 import { prospectionDisplayName } from '../../lib/domain';
 import { referentielItems, useCategoriesBien, useModesPaiement, useTypesBienReferentiel } from '../../lib/referentiels';
-import type { ArticleDetailDto, ArticleListItemDto, MontantsOffreDto, SchemaFinancementDto } from '../../types';
+import type { ArticleDetailDto, ArticleListItemDto, DossierLieDto, MontantsOffreDto, SchemaFinancementDto } from '../../types';
+
+/** Sous-articles libres du lot que la création rattache d'office : visibles, car ils entrent dans le prix. */
+function AnnexesAutomatiques({ annexes }: Readonly<{ annexes: ArticleListItemDto[] }>) {
+  if (annexes.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-micro font-medium text-muted-foreground">
+        Sous-articles du lot, rattachés d'office et comptés dans le prix ({annexes.length})
+      </span>
+      {annexes.map((a) => (
+        <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg bg-muted/30 px-3 py-2 text-label">
+          <span className="flex items-center gap-2 font-medium text-foreground">
+            {a.code}
+            <Badge tone="neutral">Rattaché automatiquement</Badge>
+          </span>
+          <span className="flex items-center gap-3 tabular-nums text-muted-foreground">
+            {a.area ? formatSurface(a.area) : '—'}
+            <span className="text-foreground">{formatCurrency(a.prixSuggere ?? 0)}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 type FiltreStatut = 'DISPONIBLE' | 'OCCUPE' | 'all';
 
@@ -52,6 +80,21 @@ function AideRemise({ horsBornes, inhabituelle }: Readonly<{ horsBornes: boolean
   return (
     <p className="mt-1 text-micro text-muted-foreground">
       Facultatif. Laissée vide, le prix ci-contre est le prix négocié.
+    </p>
+  );
+}
+
+/** Message du serveur tel quel ; un 409 « offre déjà transformée » propose d'ouvrir son dossier. */
+function ErreurCreation({ message, dossierExistant }: Readonly<{ message: string | null; dossierExistant: DossierLieDto | null }>) {
+  if (!message) return null;
+  return (
+    <p className="flex flex-wrap items-center gap-x-3 text-body text-destructive">
+      {message}
+      {dossierExistant?.id && (
+        <Link to={`/dossiers/${dossierExistant.id}`} className="font-medium text-(--info) hover:underline">
+          Ouvrir le dossier {dossierExistant.code}
+        </Link>
+      )}
     </p>
   );
 }
@@ -76,15 +119,17 @@ function remiseDeduiteDeLOffre(montants: MontantsOffreDto | undefined): { totalT
 /** Montants de la simulation serveur, ceux que la création enregistrera. Rien si aucune remise. */
 function BlocRemise({ schema, avecAnnexes }: Readonly<{ schema: SchemaFinancementDto; avecAnnexes: boolean }>) {
   const { prixAvantRemise, montantRemise, remisePercent, prixApresRemise } = schema;
-  if (montantRemise == null || prixApresRemise == null || montantRemise === 0) return null;
+  if (montantRemise == null || prixApresRemise == null) return null;
+  // Sous le demi-centime : arrondi du prix saisi, pas une remise (même seuil que le serveur).
+  const remise = sansRemise(montantRemise) ? { montant: 0, taux: 0 } : { montant: montantRemise, taux: remisePercent };
   // Prix négocié au-dessus du prix de référence : le serveur déduit une remise négative.
-  const signe = montantRemise > 0 ? '−' : '+';
+  const signe = remise.montant < 0 ? '+' : '−';
   return (
     <div className="mt-4 flex flex-col gap-1.5 border-t border-border pt-3">
       <div className="flex items-center justify-between text-body">
-        <span className="text-muted-foreground">Montant de la remise ({formatPercentValue(remisePercent)})</span>
+        <span className="text-muted-foreground">Montant de la remise ({formatPercentValue(remise.taux)})</span>
         <span className="tabular-nums text-foreground">
-          {signe} {formatCurrency(Math.abs(montantRemise))}
+          {remise.montant === 0 ? '' : `${signe} `}{formatCurrency(Math.abs(remise.montant))}
         </span>
       </div>
       {avecAnnexes && (
@@ -109,8 +154,12 @@ const EMPTY_ARTICLES ={ content: [] as ArticleListItemDto[], page: 0, size: 0, t
 export default function NewDossier() {
   // La route `/prospections/:id/nouveau-dossier` garantit le paramètre.
   const { id = '' } = useParams();
+  const [searchParams] = useSearchParams();
+  const offreParam = searchParams.get('offre');
   const { data: prospection, loading, error } = useApi(() => getProspection(id), [id]);
   const navigate = useNavigate();
+  // `latestDevis` plus bas : l'offre de `?offre=` si présente, sinon la plus récente de la prospection.
+  const offreDeDepart = useOffreDeDepart(prospection?.id, offreParam);
 
   // La recherche d'articles n'existe que par tranche (`GET /api/tranches/{id}/articles`) :
   // élargir veut dire changer de tranche, pas de filtre « toutes tranches ».
@@ -184,14 +233,18 @@ export default function NewDossier() {
     () => (prospection?.id ? listProspectionAutresTranches(prospection.id) : Promise.resolve([])),
     [prospection?.id],
   );
+  const articleDeLOffre = offreDeDepart.articleId;
+  const origineSelection = articleDeLOffre ? "l'offre" : 'la prospection';
   const seedArticleIds = useMemo(() => {
+    // Depuis une offre : son article seul, ses sous-articles libres suivant d'office (règle serveur).
+    if (articleDeLOffre) return [articleDeLOffre];
     const ids = new Set<string>();
     if (prospection?.articleId) ids.add(prospection.articleId);
     for (const a of associes.data ?? []) {
       if (a.articleId) ids.add(a.articleId);
     }
     return Array.from(ids);
-  }, [prospection, associes.data]);
+  }, [articleDeLOffre, prospection, associes.data]);
   const [selectedIdsOverride, setSelectedIdsOverride] = useState<string[] | null>(null);
   const selectedIds = selectedIdsOverride ?? seedArticleIds;
   const isSelectionSeeded = selectedIdsOverride === null && seedArticleIds.length > 0;
@@ -202,15 +255,7 @@ export default function NewDossier() {
     [selectedIds],
   );
 
-  const devisQuery = useApi(
-    () => (prospection?.id ? listDevis(prospection.id, { page: 0, size: 20 }) : Promise.resolve(null)),
-    [prospection?.id],
-  );
-  const latestDevis = useMemo(() => {
-    const list = devisQuery.data?.content ?? [];
-    if (list.length === 0) return null;
-    return [...list].sort((a, b) => (b.dateDocument ?? '').localeCompare(a.dateDocument ?? ''))[0];
-  }, [devisQuery.data]);
+  const latestDevis = offreDeDepart.devis;
 
   const [prix, setPrix] = useState('');
   const [remise, setRemise] = useState('');
@@ -221,9 +266,11 @@ export default function NewDossier() {
   // `cin` et `modePaieId` sont exigés par le serveur (400 sans eux).
   const [cin, setCin] = useState('');
   const [cinTouched, setCinTouched] = useState(false);
-  const [modePaieId, setModePaieId] = useState<string | null>(null);
+  const [modePaieChoisi, setModePaieId] = useState<string | null>(null);
+  const modePaieId = modePaieChoisi ?? modePaiementDeDepart(offreDeDepart);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [dossierExistant, setDossierExistant] = useState<DossierLieDto | null>(null);
 
   const linkedProspect = useApi(
     () => (prospection?.prospectId ? getProspect(prospection.prospectId) : Promise.resolve(null)),
@@ -237,8 +284,10 @@ export default function NewDossier() {
 
   const selectedArticles: ArticleDetailDto[] = selectedArticleDetails.data ?? [];
   const showPicker = editingArticles || selectedArticles.length === 0;
-  // `prixSuggere` = prix commercial, ou plancher quand il vaut 0 — même calcul que le serveur.
-  const autoPrixFromArticles = selectedArticles.reduce((sum, a) => sum + (a.prixSuggere ?? 0), 0);
+  // Le serveur rattache d'office les sous-articles libres du lot ; le prix du lot les inclut déjà.
+  const annexesAuto = annexesAutomatiques(selectedArticles);
+  const avecAnnexes = aDesAnnexes(selectedIds.length, annexesAuto);
+  const autoPrixFromArticles = prixProposeDesArticles(selectedArticles);
   const prixPlancherPropose = selectedArticles.some((a) => a.prixSuggereEstPlancher);
   const remiseOffre = remiseDeduiteDeLOffre(latestDevis?.montants);
   // Taux auto seulement si le prix l'est aussi : sinon il s'appliquerait à un prix tapé à la main.
@@ -250,7 +299,7 @@ export default function NewDossier() {
   // Avec une remise, `prix` est le total avant remise : depuis une offre remisée, c'est son `totalTTC`.
   const prixOffre = remiseOffre && remiseNumber !== null ? remiseOffre.totalTTC : latestDevis?.montants?.prixVenteTTC;
   const autoPrix = prixOffre || autoPrixFromArticles;
-  const prixValue = !priceTouched && autoPrix > 0 ? String(autoPrix) : prix;
+  const prixValue = !priceTouched && autoPrix > 0 ? String(arrondiCentimes(autoPrix)) : prix;
 
   // `remisePercent` est un pourcentage 0–100, pas un ratio. Avec une remise, `prix` devient le total
   // avant remise, annexes comprises.
@@ -271,7 +320,7 @@ export default function NewDossier() {
             articleIds: selectedIds,
             prix: debouncedPrixNumber,
             ...(debouncedRemise !== null ? { remisePercent: debouncedRemise } : {}),
-          }).then((schema) => ({ schema, avecAnnexes: selectedIds.length > 1 }))
+          }).then((schema) => ({ schema, avecAnnexes: aDesAnnexes(selectedIds.length, schema.annexesAutomatiques) }))
         : Promise.resolve(null),
     [selectedIds, debouncedPrixNumber, debouncedRemise],
   );
@@ -314,6 +363,7 @@ export default function NewDossier() {
     if (!canCreate) return;
     setSubmitting(true);
     setSubmitError(null);
+    setDossierExistant(null);
     try {
       const dossier = await createDossier({
         prospectionId,
@@ -326,10 +376,15 @@ export default function NewDossier() {
         notes: notesValue || undefined,
         cin: cinValue.trim(),
         modePaieId: modePaieId,
+        // Seule l'offre choisie (`?offre=`) devient l'offre d'origine : le serveur lui applique les contrôles
+        // d'OMRAN et en reprend échéancier et prix, ce qu'on ne peut pas imposer depuis la dernière offre venue.
+        ...(offreDeDepart.explicite && latestDevis ? { offreId: latestDevis.id } : {}),
       });
       void navigate(`/dossiers/${dossier.id}?nouveau=1`);
     } catch (err) {
+      // Message du serveur tel quel (400/409 de l'offre) ; un 409 « offre déjà transformée » propose son dossier.
       setSubmitError(err instanceof Error ? err.message : 'Échec de la création.');
+      setDossierExistant(dossierExistantDepuisErreur(err));
     } finally {
       setSubmitting(false);
     }
@@ -356,6 +411,7 @@ export default function NewDossier() {
       accentBg="var(--sec-dossier-bg)"
     >
       <div className="flex flex-col gap-3">
+        <BandeauOffreDepart offre={offreDeDepart} demandee={!!offreParam} />
         <Card
           title="Sélectionner un article"
           action={
@@ -371,7 +427,7 @@ export default function NewDossier() {
                   Article{selectedArticles.length > 1 ? 's' : ''} sélectionné{selectedArticles.length > 1 ? 's' : ''} ({selectedArticles.length})
                 </span>
                 {isSelectionSeeded && (
-                  <span className="text-micro text-muted-foreground">— pré-rempli depuis la prospection</span>
+                  <span className="text-micro text-muted-foreground">— pré-rempli depuis {origineSelection}</span>
                 )}
               </div>
               <div className="flex flex-col gap-2">
@@ -387,6 +443,7 @@ export default function NewDossier() {
                   />
                 ))}
               </div>
+              <AnnexesAutomatiques annexes={annexesAuto} />
             </div>
           )}
 
@@ -575,7 +632,7 @@ export default function NewDossier() {
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <FormField>
                 <FieldLabel htmlFor="prix">
-                  {libellePrix(remiseRenseignee, selectedIds.length > 1)}
+                  {libellePrix(remiseRenseignee, avecAnnexes)}
                 </FieldLabel>
                 <Input
                   id="prix"
@@ -689,6 +746,7 @@ export default function NewDossier() {
         </Card>
 
         <Card title="Schéma de financement">
+          <SchemaDeLOffre fiche={offreDeDepart.fiche} />
           {selectedIds.length === 0 || !prixNumber || prixNumber <= 0 ? (
             <p className="text-body text-muted-foreground">
               Sélectionnez au moins un article et un prix retenu pour voir le schéma de financement calculé par le serveur.
@@ -737,7 +795,7 @@ export default function NewDossier() {
           )}
         </Card>
 
-        {submitError && <p className="text-body text-destructive">{submitError}</p>}
+        <ErreurCreation message={submitError} dossierExistant={dossierExistant} />
 
         <div className="flex items-center justify-end border-t border-border pt-4">
           <Button type="button" onClick={handleCreate} disabled={!canCreate || submitting}>

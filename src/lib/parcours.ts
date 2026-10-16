@@ -21,6 +21,19 @@ export function routeFicheProspection(
   return defaut === 'pre-prospection' ? `/pre-prospections/${id}` : `/prospections/${id}`;
 }
 
+/**
+ * Rang à montrer dans la Boîte de tri après une relecture : la même ligne si elle y est encore, sinon la
+ * suivante de l'ancienne file encore présente, à défaut le même rang (FEATURE-tri-a-jour.md §Règle 3).
+ */
+export function rangApresRelecture(avant: readonly string[], index: number, apres: readonly string[]): number {
+  const rangs = new Map(apres.map((id, i) => [id, i]));
+  for (const id of avant.slice(index)) {
+    const rang = rangs.get(id);
+    if (rang !== undefined) return rang;
+  }
+  return Math.min(index, apres.length);
+}
+
 export type StatutEtapeParcours = 'faite' | 'courante' | 'a-venir' | 'sautee';
 
 export interface EtapeParcours {

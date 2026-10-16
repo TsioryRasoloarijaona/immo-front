@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import {
   Calendar,
   ChevronDown,
+  CircleAlert,
   Contact,
   FileText,
   Folder,
@@ -113,6 +114,7 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
         { to: '/clients', libelle: 'Clients', icone: <UserCheck style={{ color: 'var(--sec-client)' }} /> },
         { to: '/dossiers', libelle: 'Dossiers de vente', icone: <Folder style={{ color: 'var(--sec-dossier)' }} /> },
         { to: '/encaissements', libelle: 'Encaissements', icone: <Wallet style={{ color: 'var(--sec-dossier)' }} /> },
+        { to: '/impayes', libelle: 'Impayés', icone: <CircleAlert style={{ color: 'var(--sec-dossier)' }} /> },
       ],
     },
   ];

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { CalendarRange, Download, FileText, Plus, RotateCcw, Search } from 'lucide-react';
+import { CalendarRange, FileText, Plus, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
-import { Badge, EmptyState, ErrorState, Field, FieldGrid, LoadingState, ResultsRegion } from '../../components/ui';
+import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import ColumnSelector from '../../components/ColumnSelector';
 import DevisFormSection from '../../components/DevisFormSection';
 import Modal from '../../components/Modal';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
@@ -11,14 +12,16 @@ import { DialogFooter } from '../../components/ui/dialog';
 import { Field as FormField, FieldLabel } from '../../components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
-import { creerDevis, DEFAULT_PAGE_SIZE, downloadDevisDocument, getProspection, listOffres, listProspections, viewDevisDocument } from '../../lib/api';
+import DataGrid from '../../components/DataGrid';
+import { creerDevis, DEFAULT_PAGE_SIZE, getProspection, listOffres, listProspections } from '../../lib/api';
+import { useColonnesVisibles } from '../../lib/colonnes';
+import { CATALOGUE_OFFRES, COLONNES_OFFRES, detailOffre, DISPOSITION_OFFRES } from '../../lib/offres';
 import { useTranchesFiltre } from '../../lib/referentiels';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { formatCurrency, formatMontantOptionnel, formatPercent, formatPercentValue, jourISO } from '../../lib/format';
+import { formatCurrency, jourISO } from '../../lib/format';
 import { prospectionDisplayName } from '../../lib/domain';
-import type { CreerDevisRequest, DevisDto, ProspectionListItemDto } from '../../types';
+import type { CreerDevisRequest, ProspectionListItemDto } from '../../types';
 
 type PeriodePreset = 'custom' | 'mois-courant' | 'mois-dernier' | 'annee-courante';
 
@@ -69,7 +72,7 @@ export default function OffresList() {
   const [dateDebut, setDateDebut] = useState(() => rangeForPreset(PERIODE_DEFAUT).dateDebut);
   const [dateFin, setDateFin] = useState(() => rangeForPreset(PERIODE_DEFAUT).dateFin);
   const [page, setPage] = useState(0);
-  // Pas de `onOuvrir` exprès : cette liste se consulte sans quitter la page.
+  // Pas de `onOuvrir` : la ligne déplie les montants ; le code de l'offre ouvre sa fiche.
   const [showCreate, setShowCreate] = useState(false);
 
   const { data, loading, error, refetch } = useApi(
@@ -91,6 +94,9 @@ export default function OffresList() {
   const offres = data?.content ?? [];
   // Somme de la page chargée seulement, pas un total plein-filtre.
   const totalPageTTC = data?.sommePrixVenteTTCPage ?? 0;
+  // Sélecteur local : chaque ligne porte déjà tous les montants, cocher une colonne ne refait pas la requête.
+  const colonnes = useColonnesVisibles('offres', CATALOGUE_OFFRES, DISPOSITION_OFFRES);
+  const grille = COLONNES_OFFRES.filter((c) => colonnes.visibles.includes(c.nom));
 
   const tranches = useTranchesFiltre();
   const trancheItems = tranches.data.map((t) => ({
@@ -216,9 +222,18 @@ export default function OffresList() {
           <ResultsRegion loading={loading}>
             <div className="flex shrink-0 items-center justify-between text-body text-muted-foreground">
               <span>{data.totalElements} offre{data.totalElements > 1 ? 's' : ''}</span>
-              {offres.length > 0 && (
-                <span>Total (page) <span className="font-semibold tabular-nums text-(--success)">{formatCurrency(totalPageTTC)}</span></span>
-              )}
+              <span className="flex items-center gap-3">
+                {offres.length > 0 && (
+                  <span>Total (page) <span className="font-semibold tabular-nums text-(--success)">{formatCurrency(totalPageTTC)}</span></span>
+                )}
+                <ColumnSelector
+                  catalogue={colonnes.catalogueServi}
+                  visibles={colonnes.visibles}
+                  onBasculer={colonnes.basculer}
+                  onReinitialiser={colonnes.reinitialiser}
+                  estDefaut={colonnes.estDefaut}
+                />
+              </span>
             </div>
             {offres.length === 0 ? (
               <EmptyState
@@ -245,7 +260,7 @@ export default function OffresList() {
                 <DataGrid
                   cleOrdre="offres"
                   rows={offres}
-                  colonnes={COLONNES}
+                  colonnes={grille}
                   libelleLigne={(o) => `Offre ${o.code ?? ''}`.trim()}
                   rendreDetail={detailOffre}
                 />
@@ -375,175 +390,3 @@ function ResultatsProspections({
   );
 }
 
-// Composant et non rendu inline : l'état de génération est par ligne, une fonction de cellule ne peut pas le porter.
-function FicheOffreActions({ offre: o }: Readonly<{ offre: DevisDto }>) {
-  const [generating, setGenerating] = useState<'view' | 'download' | null>(null);
-  const [genError, setGenError] = useState<string | null>(null);
-
-  async function handleGenerateFiche(action: 'view' | 'download') {
-    if (!o.prospectionId) return;
-    setGenerating(action);
-    setGenError(null);
-    try {
-      if (action === 'view') await viewDevisDocument(o.prospectionId, o.id);
-      else await downloadDevisDocument(o.prospectionId, o.id, `offre-${o.code}.pdf`);
-    } catch (err) {
-      setGenError(err instanceof Error ? err.message : 'Echec de la generation.');
-    } finally {
-      setGenerating(null);
-    }
-  }
-
-  return (
-    // Conteneur neutre : il arrête seulement le clic avant la ligne, qui ouvrirait le détail.
-    <div role="presentation" className="flex flex-col items-end gap-0.5" onClick={(e) => e.stopPropagation()}>
-      <div className="flex items-center gap-1">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="h-5 gap-1 px-1.5 text-micro"
-          disabled={!!generating || !o.prospectionId}
-          title={!o.prospectionId ? 'Prospection introuvable pour cette offre' : undefined}
-          onClick={() => handleGenerateFiche('view')}
-        >
-          <FileText className="size-3" />
-          {generating === 'view' ? 'Generation...' : 'Fiche offre'}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon-sm"
-          className="size-5"
-          disabled={!!generating || !o.prospectionId}
-          title="Telecharger la fiche offre (PDF)"
-          aria-label="Telecharger la fiche offre"
-          onClick={() => handleGenerateFiche('download')}
-        >
-          <Download className="size-3" />
-        </Button>
-      </div>
-      {genError && <span className="text-micro text-destructive">{genError}</span>}
-    </div>
-  );
-}
-
-const montant = formatMontantOptionnel;
-
-function detailOffre(o: DevisDto) {
-  const m = o.montants;
-  if (!m) return <p className="text-body text-muted-foreground">Aucun detail de montants pour cette offre.</p>;
-  return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <div className="mb-1.5 text-micro font-medium text-muted-foreground">Avant remise</div>
-        <FieldGrid>
-          <Field label="TVA" value={m.tvaRatio != null ? formatPercent(m.tvaRatio, 0) : undefined} />
-          <Field label="Prix m2 HT" value={montant(m.prixM2HT)} />
-          <Field label="Prix m2 TTC" value={montant(m.prixM2TTC)} />
-          <Field label="Article HT" value={montant(m.prixArticleHT)} />
-          <Field label="Article TTC" value={montant(m.prixArticleTTC)} />
-          <Field label="Sous-articles HT" value={montant(m.prixSousArticlesHT)} />
-          <Field label="Sous-articles TTC" value={montant(m.prixSousArticlesTTC)} />
-          <Field label="Total HT" value={montant(m.totalHT)} />
-          <Field label="Total TTC" value={montant(m.totalTTC)} />
-        </FieldGrid>
-      </div>
-
-      {(m.remisePercent ?? 0) > 0 && (
-        <div>
-          <div className="mb-1.5 text-micro font-medium text-muted-foreground">Remise</div>
-          <FieldGrid>
-            <Field label="Taux" value={m.remisePercent != null ? formatPercentValue(m.remisePercent) : undefined} />
-            <Field label="Remise HT" value={montant(m.remiseHT)} />
-            <Field label="Remise TTC" value={montant(m.remiseTTC)} />
-            <Field label="Prix m2 apres remise HT" value={montant(m.prixM2ApresRemiseHT)} />
-            <Field label="Prix m2 apres remise TTC" value={montant(m.prixM2ApresRemiseTTC)} />
-            <Field label="Article apres remise HT" value={montant(m.prixArticleApresRemiseHT)} />
-            <Field label="Article apres remise TTC" value={montant(m.prixArticleApresRemiseTTC)} />
-            <Field label="Sous-articles apres remise HT" value={montant(m.prixSousArticlesApresRemiseHT)} />
-            <Field label="Sous-articles apres remise TTC" value={montant(m.prixSousArticlesApresRemiseTTC)} />
-          </FieldGrid>
-        </div>
-      )}
-
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t border-border pt-2.5">
-        <span className="text-micro font-medium text-muted-foreground">Prix de vente final</span>
-        <span className="text-label font-semibold text-foreground">HT {montant(m.prixVenteHT) ?? '-'}</span>
-        <span className="text-label font-semibold text-foreground">TTC {montant(m.prixVenteTTC) ?? '-'}</span>
-      </div>
-
-      {o.notes && <p className="whitespace-pre-wrap text-body text-foreground">{o.notes}</p>}
-    </div>
-  );
-}
-
-const TIRET_MUET = <span className="text-muted-foreground">-</span>;
-
-const COLONNES: ColonneGrille<DevisDto>[] = [
-  { nom: 'prospect', libelle: 'Prospect', largeur: 11, classe: 'font-medium text-foreground', titre: (o) => o.prospect },
-  { nom: 'dateDocument', libelle: 'Date', type: 'DATE', largeur: 7, classe: 'text-muted-foreground' },
-  {
-    nom: 'trancheDescription',
-    libelle: 'Tranche',
-    largeur: 13,
-    valeur: (o) => o.trancheDescription || o.tranche,
-    titre: (o) => o.trancheDescription || o.tranche,
-    rendu: (o) =>
-      o.trancheDescription || o.tranche ? <Badge tone="neutral">{o.trancheDescription || o.tranche}</Badge> : TIRET_MUET,
-  },
-  { nom: 'commercial', libelle: 'Commercial', largeur: 11, classe: 'text-muted-foreground', titre: (o) => o.commercial },
-  {
-    nom: 'articleDescription',
-    libelle: 'Article',
-    largeur: 6,
-    classe: 'text-muted-foreground',
-    valeur: (o) => o.articleDescription || o.article,
-  },
-  { nom: 'modePaiement', libelle: 'Mode de paiement', largeur: 10, classe: 'text-muted-foreground' },
-  {
-    nom: 'remisePercent',
-    libelle: 'Remise',
-    type: 'NOMBRE',
-    largeur: 6,
-    // La remise vit dans `montants`, pas à la racine : sans `valeur` tri et filtre seraient inertes.
-    valeur: (o) => o.montants?.remisePercent ?? 0,
-    rendu: (o) =>
-      (o.montants?.remisePercent ?? 0) > 0 ? (
-        <Badge tone="amber">{formatPercentValue(o.montants?.remisePercent)}</Badge>
-      ) : (
-        <span className="text-muted-foreground">0 %</span>
-      ),
-  },
-  {
-    nom: 'prixVenteTTC',
-    libelle: 'Prix TTC apres remise',
-    type: 'MONTANT',
-    largeur: 12,
-    classe: 'font-semibold text-(--success)',
-    valeur: (o) => o.montants?.prixVenteTTC,
-  },
-  {
-    nom: 'code',
-    libelle: 'Code',
-    largeur: 8,
-    titre: (o) => o.code,
-    rendu: (o) => (
-      <Badge tone="progress" className="font-mono">
-        {o.code ?? '-'}
-      </Badge>
-    ),
-  },
-  {
-    nom: 'prospectionCode',
-    libelle: 'Prospection',
-    largeur: 8,
-    rendu: (o) => (o.prospectionCode ? <Badge tone="info">{o.prospectionCode}</Badge> : TIRET_MUET),
-  },
-  {
-    nom: 'fiche',
-    libelle: 'Fiche',
-    largeur: 9,
-    rendu: (o) => <FicheOffreActions offre={o} />,
-  },
-];

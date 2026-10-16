@@ -32,6 +32,8 @@ export type ColonneGrille<T> = {
   formatValeur?: (valeur: unknown) => string;
   titre?: (row: T) => string | undefined;
   sansSomme?: boolean;
+  /** Valeur comptée par le Σ quand elle diffère de la cellule (ex. règlement annulé : `null`, hors somme). */
+  valeurSomme?: (row: T) => unknown;
 };
 
 const TIRET = <span className="text-muted-foreground">—</span>;
@@ -150,7 +152,7 @@ function resumeColonne<T>(lignes: T[], c: ColonneGrille<T>): string {
   if (NUMERIQUES.includes(type)) {
     let total = 0;
     for (const r of lignes) {
-      const v = valeurDe(r, c);
+      const v = c.valeurSomme ? c.valeurSomme(r) : valeurDe(r, c);
       if (typeof v === 'number') total += v;
     }
     return type === 'MONTANT' ? formatCurrency(total) : formatNumber(total);

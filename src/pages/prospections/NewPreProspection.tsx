@@ -18,6 +18,8 @@ import {
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { formatDateTime } from '../../lib/format';
+import { phraseAttributionCreation } from '../../lib/equipe';
+import { useToast } from '../../lib/toastContext';
 import {
   referentielItems,
   useActionsCommerciales,
@@ -119,6 +121,7 @@ export default function NouvellePreProspectionDialog({ onClose }: Readonly<{ onC
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [resultat, setResultat] = useState<PreProspectionCreeeDto | null>(null);
+  const toast = useToast();
 
   const canCreate = !!nom.trim();
 
@@ -142,6 +145,7 @@ export default function NouvellePreProspectionDialog({ onClose }: Readonly<{ onC
         vocationId: vocationId || undefined,
       };
       const cree = await creerPreProspection(body);
+      toast({ texte: phraseAttributionCreation(cree.preProspection.commercialNom), variante: 'succes' });
       if (cree.doublons.length === 0) {
         void navigate(`/pre-prospections/${cree.preProspection.id}`);
         return;

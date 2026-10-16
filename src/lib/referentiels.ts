@@ -90,6 +90,7 @@ export const useSexes = makeCachedListHook(api.getSexes);
 export const useSalaires = makeCachedListHook(api.getSalaires);
 export const useRegimesMatrimoniaux = makeCachedListHook(api.getRegimesMatrimoniaux);
 export const useRaisonsCloture = makeCachedListHook(api.getRaisonsCloture);
+export const useSupportsOrigine = makeCachedListHook(api.getSupportsOrigine);
 export const useProfilsProspection = makeCachedListHook(api.getProfilsProspection);
 /** @public référentiel servi, pas encore branché sur un écran */
 export const useProfessions = makeCachedListHook(api.getProfessions);
@@ -136,6 +137,8 @@ export const useColonnesProspects = makeCachedListHook(api.getColonnesProspects)
 export const useColonnesEncaissements = makeCachedListHook(api.getColonnesEncaissements);
 
 export const useColonnesSuiviActions = makeCachedListHook(api.getColonnesSuiviActions);
+
+export const useColonnesImpayes = makeCachedListHook(api.getColonnesImpayes);
 
 export function referentielItems(list: ReferentielItemDto[]): { label: string; value: string }[] {
   return list.map((r) => ({ label: r.description || r.code || r.id, value: r.id }));
