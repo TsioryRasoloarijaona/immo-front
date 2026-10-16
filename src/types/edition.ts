@@ -106,4 +106,6 @@ export interface DossierModifieDto {
   champsModifies: string[];
   /** Prix après remise TTC − (avance + crédit + autofinancement), null si nul ou prix inchangé. */
   ecartSchema?: number | null;
+  /** Client changé : codes de ses prospections ouvertes archivées (« Création dossier de vente »). */
+  prospectionsArchivees?: string[];
 }

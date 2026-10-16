@@ -9,7 +9,7 @@ import { useToast } from '../../../lib/toastContext';
 import { getEtatSchema, supprimerEcheance } from '../../../lib/apiDossierSousListes';
 import { useAuth } from '../../../lib/auth';
 import { useConfirm } from '../../../lib/confirmContext';
-import { estAdministrateur } from '../../../lib/roles';
+import { peutSupprimerEcheance } from '../../../lib/roles';
 import { arrondiCentime } from '../../../lib/dossierSousListes';
 import { formatCurrency, formatDate, todayISO } from '../../../lib/format';
 import { useApi, type ApiState } from '../../../lib/useApi';
@@ -45,7 +45,7 @@ export default function OngletEcheancier({
   const { executer } = useEcriture();
   const showToast = useToast();
   const [enModification, setEnModification] = useState<EcheanceDto | null>(null);
-  const administrateur = estAdministrateur(useAuth().user);
+  const suppressionPermise = peutSupprimerEcheance(useAuth().user);
 
   // Le serveur reporte l'écart sur une autre ligne : l'état du schéma change à chaque écriture.
   async function relire() {
@@ -125,7 +125,7 @@ export default function OngletEcheancier({
                   onReglementAdded={apresReglement}
                   onReglementChanged={relire}
                   onModifier={setEnModification}
-                  onSupprimer={administrateur ? (e) => void supprimer(e) : undefined}
+                  onSupprimer={suppressionPermise ? (e) => void supprimer(e) : undefined}
                 />
               ))}
             </TableBody>

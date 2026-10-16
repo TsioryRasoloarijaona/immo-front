@@ -27,6 +27,8 @@ import {
   simulerSchemaFinancement,
 } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { messageProspectionsArchivees } from '../../lib/prospectionsArchivees';
+import { useToast } from '../../lib/toastContext';
 import { formatCurrency, formatPercent, formatPercentValue, formatSurface } from '../../lib/format';
 import { avecCles } from '../../lib/cles';
 import { aDesAnnexes, annexesAutomatiques, arrondiCentimes, prixProposeDesArticles, sansRemise } from '../../lib/annexesAutomatiques';
@@ -158,6 +160,7 @@ export default function NewDossier() {
   const offreParam = searchParams.get('offre');
   const { data: prospection, loading, error } = useApi(() => getProspection(id), [id]);
   const navigate = useNavigate();
+  const showToast = useToast();
   // `latestDevis` plus bas : l'offre de `?offre=` si présente, sinon la plus récente de la prospection.
   const offreDeDepart = useOffreDeDepart(prospection?.id, offreParam);
 
@@ -380,6 +383,8 @@ export default function NewDossier() {
         // d'OMRAN et en reprend échéancier et prix, ce qu'on ne peut pas imposer depuis la dernière offre venue.
         ...(offreDeDepart.explicite && latestDevis ? { offreId: latestDevis.id } : {}),
       });
+      const archivees = messageProspectionsArchivees(dossier.prospectionsArchivees);
+      if (archivees) showToast(archivees);
       void navigate(`/dossiers/${dossier.id}?nouveau=1`);
     } catch (err) {
       // Message du serveur tel quel (400/409 de l'offre) ; un 409 « offre déjà transformée » propose son dossier.
