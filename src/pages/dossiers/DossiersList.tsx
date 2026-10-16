@@ -35,6 +35,7 @@ import { DISPOSITION_DOSSIERS } from '../../lib/dispositions';
 import { useColonnesDossiers, useTranchesFiltre } from '../../lib/referentiels';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { debutMoisISO, finMoisISO, pluriel } from '../../lib/format';
+import { useTotauxNature } from '../../lib/totauxDossiers';
 import {
   AGREGATS_TOTAUX,
   colonnesListe,
@@ -153,6 +154,8 @@ export default function DossiersList() {
     [...clesFiltres.slice(0, -1)],
     'dossiers-totaux',
   );
+
+  const totauxNature = useTotauxNature(filtresServeur, clesFiltres.slice(0, -1), colonnes.colonnes);
 
   const groupes = useApi(
     () =>
@@ -445,7 +448,7 @@ export default function DossiersList() {
                 <span className="text-body text-muted-foreground">
                   {pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : uniteLigne)}
                 </span>
-                <TotauxDossiers totaux={totaux.data} />
+                <TotauxDossiers totaux={totaux.data} montants={totauxNature.data} colonnes={colonnes.colonnes} />
               </div>
               {colonnes.catalogueServi.length > 0 && (
                 <ColumnSelector

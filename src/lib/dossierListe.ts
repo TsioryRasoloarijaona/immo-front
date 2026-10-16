@@ -17,13 +17,51 @@ export function libelleStatutLigne(d: DossierListItemDto): string {
 export function libelleStatut(code: string | null | undefined): string {
   return ALIAS_STATUT[normalizeStatus(code)] ?? canonicalStatusLabel(code);
 }
-import type { LignesListeDossiers, StatutListeDossierDto } from '../types/dossierListe';
+import type {
+  LignesListeDossiers,
+  MontantsNatureDossier,
+  StatutListeDossierDto,
+  TotauxDossiersDto,
+} from '../types/dossierListe';
 
 /** Option « Libre » du filtre de statut : pas un code `StrStatus`, elle se traduit par `lignes`. */
 export const OPTION_LIBRE = '__LIBRE__';
 
 /** Σ en tête de liste : prix HT, prix TTC et total à payer, sur tout le résultat filtré. */
 export const AGREGATS_TOTAUX = ['prixHt', 'prix', 'totalAPayer'] as const;
+
+/** Montants par nature additionnés par `GET /api/dossiers/totaux` (les taux ne s'additionnent pas). */
+const SOMMES_NATURE: ReadonlySet<string> = new Set<keyof MontantsNatureDossier>([
+  'prixContractuel', 'prixContractuelRegle', 'prixContractuelReste', 'prixRegle', 'prixReste',
+  'netAPayerRegle', 'netAPayerReste', 'avance', 'avanceReglee', 'avanceReste', 'autofinancement',
+  'autofinancementRegle', 'autofinancementReste', 'credit', 'creditRegle', 'creditReste', 'frais',
+  'fraisRegles', 'fraisReste', 'tropPercu', 'tropPercuRegle', 'tropPercuReste',
+]);
+
+export type TonSomme = 'regle' | 'reste' | 'neutre';
+
+/** Réglé en vert, reste en rouge, comme les totaux de la grille OMRAN. */
+export function tonSomme(nom: string): TonSomme {
+  if (nom.endsWith('Reste')) return 'reste';
+  if (/Regl(e|ee|es)$/.test(nom)) return 'regle';
+  return 'neutre';
+}
+
+/** `/totaux` relit l'échéancier de tout le filtre : ne l'appeler que si une colonne additionnée est affichée. */
+export function demandeTotauxNature(colonnes: readonly ColonneDto[]): boolean {
+  return colonnes.some((c) => SOMMES_NATURE.has(c.nom));
+}
+
+/** Σ des colonnes de montants par nature affichées, dans l'ordre de la grille. */
+export function sommesAffichees(
+  colonnes: readonly ColonneDto[],
+  totaux: TotauxDossiersDto | null | undefined,
+): { nom: string; libelle: string; valeur: number; ton: TonSomme }[] {
+  if (!totaux) return [];
+  return colonnes
+    .filter((c) => SOMMES_NATURE.has(c.nom) && typeof totaux.sommes[c.nom] === 'number')
+    .map((c) => ({ nom: c.nom, libelle: c.libelle, valeur: totaux.sommes[c.nom], ton: tonSomme(c.nom) }));
+}
 
 /** Sélection du filtre → `?statut=` (codes) et `?lignes=` ; « Libre » seul = les lots libres seuls. */
 export function filtreStatuts(selection: string[]): { statut?: string[]; lignes?: LignesListeDossiers } {
