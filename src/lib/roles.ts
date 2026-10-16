@@ -21,6 +21,18 @@ export function gereLesCadeaux(user: PorteurDeRoles | null | undefined): boolean
   return user?.roles?.some((r) => r === 'Administrateur' || r === 'Commercial Chef') ?? false;
 }
 
+const ROLES_SUPPRESSION_ECHEANCE: ReadonlySet<string> = new Set([
+  'Administrateur',
+  'Commercial Chef',
+  'Direction Générale',
+  'Responsable marketing et communication',
+]);
+
+/** Droit `ComFolderDeleteLine` d'OMRAN : supprimer une ligne de l'échéancier. */
+export function peutSupprimerEcheance(user: PorteurDeRoles | null | undefined): boolean {
+  return user?.roles?.some((r) => ROLES_SUPPRESSION_ECHEANCE.has(r)) ?? false;
+}
+
 /** Commercial de terrain (ni chef ni exempté) : « Ma journée » est sa page d'accueil. */
 export function estCommercialTerrain(user: PorteurDeRoles | null | undefined): boolean {
   return aUnRoleCommercial(user) && !estChefOuExempte(user);

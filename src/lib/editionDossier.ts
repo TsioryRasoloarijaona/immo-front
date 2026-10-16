@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { listProspects } from './api';
 import { getDroitsEdition, modifierDossier } from './apiEdition';
 import { toApiDateTime } from './format';
+import { messageProspectionsArchivees } from './prospectionsArchivees';
+import { useToast } from './toastContext';
 import { errorMessage, refetchAllApis, useApi } from './useApi';
 import type { DossierFicheDto, ProspectListItemDto, UUID } from '../types';
 import type { ChampVerrouille, GroupeEdition, ModifierDossierRequest } from '../types/edition';
@@ -98,6 +100,7 @@ export function useEditionDossier(dossierId: UUID | undefined, versionFiche: unk
     [dossierId],
     'dossier-edition',
   );
+  const showToast = useToast();
   const [ouvert, setOuvert] = useState(false);
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -122,6 +125,8 @@ export function useEditionDossier(dossierId: UUID | undefined, versionFiche: unk
     try {
       const resultat = await modifierDossier(dossierId, corps);
       setEcart(resultat.ecartSchema == null ? null : { valeur: resultat.ecartSchema, attendRelecture: true });
+      const archivees = messageProspectionsArchivees(resultat.prospectionsArchivees);
+      if (archivees) showToast(archivees);
       setOuvert(false);
       refetchAllApis();
       return true;

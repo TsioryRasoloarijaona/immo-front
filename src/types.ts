@@ -1389,6 +1389,8 @@ export interface DossierDetailDto {
   delaiNotaire?: number | null;
   /** Compromis → livraison réelle. En jours. */
   delaiLivraison?: number | null;
+  /** Création seulement : codes des autres prospections ouvertes du client archivées par elle ; vide en lecture. */
+  prospectionsArchivees?: string[];
   trancheId?: UUID;
   trancheCode?: string;
   trancheLibelle?: string;
