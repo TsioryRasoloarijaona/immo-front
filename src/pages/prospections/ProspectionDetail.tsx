@@ -1090,7 +1090,9 @@ export function FicheProspection({
               <div className="p-3">
                 <ArticlesAssociesSection
                   prospectionId={p.id}
+                  principalTrancheId={p.trancheId}
                   items={autresTranches.data ?? []}
+                  onAdded={async () => { await autresTranches.refetch(); showToast('Tranche ajoutée.'); }}
                   onRemove={async (itemId) => { await removeProspectionAutreTranche(p.id, itemId); void autresTranches.refetch(); }}
                   onEdited={async () => { await autresTranches.refetch(); showToast('Article mis à jour.'); }}
                   navigate={navigate}
@@ -1406,6 +1408,7 @@ function ArticleCascadePicker({
   initialTrancheId,
   initialArticleId,
   principalTrancheId,
+  exclureTrancheIds,
 }: Readonly<{
   onModifier?: (trancheId: string, articleId?: string) => Promise<void>;
   onAjouter?: (trancheId: string, articleId?: string) => Promise<void>;
@@ -1413,6 +1416,7 @@ function ArticleCascadePicker({
   initialTrancheId?: string;
   initialArticleId?: string;
   principalTrancheId?: string;
+  exclureTrancheIds?: readonly string[];
 }>) {
   const projets = useApi(() => getProjetsReferentiel(), []);
   const categoriesRef = useCategoriesBien();
@@ -1501,7 +1505,7 @@ function ArticleCascadePicker({
           label="Tranche"
           value={trancheId}
           onChange={(v) => { setTrancheId(v); setArticleId(null); setSousArticleId(null); }}
-          items={referentielItems(tranches.data ?? [])}
+          items={referentielItems((tranches.data ?? []).filter((t) => !exclureTrancheIds?.includes(t.id)))}
           placeholder="Choisir une tranche…"
         />
         <MultiSelectDropdown
@@ -1731,21 +1735,51 @@ function ArticleAssocieRow({
 
 function ArticlesAssociesSection({
   prospectionId,
+  principalTrancheId,
   items,
   onRemove,
   onEdited,
+  onAdded,
   navigate,
 }: Readonly<{
   prospectionId: string;
+  principalTrancheId?: string;
   items: { id: string; trancheId?: string; tranche?: string; articleId?: string; article?: string }[];
   onRemove: (itemId: string) => Promise<void>;
   onEdited: () => Promise<void>;
+  onAdded: () => Promise<void>;
   navigate: (path: string) => void;
 }>) {
+  const [ajout, setAjout] = useState(false);
+  // Le back ne refuse pas les doublons : on retire du choix la tranche principale et celles déjà listées.
+  const exclues = [principalTrancheId, ...items.map((t) => t.trancheId)].filter((v): v is string => !!v);
+
   return (
-    <Card title="Articles associés">
+    <Card
+      title="Autres tranches"
+      action={
+        ajout ? undefined : (
+          <Button type="button" size="sm" variant="outline" onClick={() => setAjout(true)}>
+            <Plus data-icon="inline-start" /> Ajouter une tranche
+          </Button>
+        )
+      }
+    >
+      {ajout && (
+        <div className="mb-3.5 border-b border-border pb-3.5">
+          <ArticleCascadePicker
+            exclureTrancheIds={exclues}
+            onCancel={() => setAjout(false)}
+            onAjouter={async (tId, aId) => {
+              await addProspectionAutreTranche(prospectionId, { trancheId: tId, articleId: aId });
+              setAjout(false);
+              await onAdded();
+            }}
+          />
+        </div>
+      )}
       <div className="flex flex-col gap-2">
-        {items.length === 0 && <span className="text-body text-muted-foreground">Aucun article associé pour l'instant.</span>}
+        {items.length === 0 && <span className="text-body text-muted-foreground">Aucune autre tranche pour l'instant.</span>}
         {items.map((t) => (
           <ArticleAssocieRow key={t.id} prospectionId={prospectionId} item={t} onRemove={onRemove} onEdited={onEdited} navigate={navigate} />
         ))}
