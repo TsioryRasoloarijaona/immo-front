@@ -50,7 +50,7 @@ export function moduleForPath(pathname: string): string | null {
   if (pathname.startsWith('/tranches') || pathname.startsWith('/articles') || pathname.startsWith('/projets')) {
     return 'patrimoine';
   }
-  if (pathname.startsWith('/utilisateurs') || pathname.startsWith('/cles-api')) {
+  if (pathname.startsWith('/utilisateurs') || pathname.startsWith('/cles-api') || pathname.startsWith('/modeles-documents')) {
     return 'administration';
   }
   if (pathname.startsWith('/outils')) {

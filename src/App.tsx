@@ -20,6 +20,8 @@ const Profil = lazy(() => import('./pages/profil/Profil'));
 const UtilisateursList = lazy(() => import('./pages/utilisateurs/UtilisateursList'));
 const ReinitialiserMotDePasse = lazy(() => import('./pages/utilisateurs/ReinitialiserMotDePasse'));
 const ClesApiList = lazy(() => import('./pages/utilisateurs/ClesApiList'));
+const ModelesDocumentsList = lazy(() => import('./pages/modeles/ModelesDocumentsList'));
+const EditeurModele = lazy(() => import('./pages/modeles/EditeurModele'));
 const PerformancesCommerciaux = lazy(() => import('./pages/kpi/PerformancesCommerciaux'));
 const MesPerformances = lazy(() => import('./pages/kpi/MesPerformances'));
 const MonEquipe = lazy(() => import('./pages/equipe/MonEquipe'));
@@ -97,6 +99,8 @@ function AuthenticatedApp() {
                   <Route path="/utilisateurs" element={<UtilisateursList />} />
                   <Route path="/utilisateurs/reinitialiser-mot-de-passe" element={<ReinitialiserMotDePasse />} />
                   <Route path="/cles-api" element={<ClesApiList />} />
+                  <Route path="/modeles-documents" element={<ModelesDocumentsList />} />
+                  <Route path="/modeles-documents/:id" element={<EditeurModele />} />
                   <Route path="/performances" element={<PerformancesCommerciaux />} />
                   <Route path="/mes-performances" element={<MesPerformances />} />
                   <Route path="/equipe" element={<MonEquipe />} />

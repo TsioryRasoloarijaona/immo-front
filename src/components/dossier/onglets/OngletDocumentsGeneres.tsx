@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ClipboardCheck, Download, Eye, FileDown, FileSignature, FileStack, FileText, Landmark, Loader2, Receipt } from 'lucide-react';
+import { ChevronDown, ClipboardCheck, Download, Eye, FileCode2, FileDown, FileSignature, FileStack, FileText, Landmark, Loader2, Receipt } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { Card } from '../../ui';
 import { Button } from '../../ui/button';
@@ -13,6 +13,8 @@ import {
   viewFicheReservation,
   type DossierPdfOnlyDocKind,
 } from '../../../lib/api';
+import { listModelesActifs, telechargerDocumentModele, voirDocumentModele } from '../../../lib/apiModeles';
+import { useApi } from '../../../lib/useApi';
 
 type GeneratedDocKind = 'fiche-reservation' | 'acte-reservation' | DossierPdfOnlyDocKind;
 
@@ -83,26 +85,31 @@ const GENERATED_DOC_KINDS: GeneratedDocKind[] = [
   'fiche-trop-percu',
 ];
 
+/** Carte d'un document : documents codés en dur comme modèles créés par l'utilisateur. */
 function GeneratedDocumentCard({
-  dossierId,
-  code,
-  kind,
+  title,
+  description,
+  Icon,
+  hasDocx,
+  voir,
+  telecharger,
 }: Readonly<{
-  dossierId: string;
-  code?: string | null;
-  kind: GeneratedDocKind;
+  title: string;
+  description: string;
+  Icon: LucideIcon;
+  hasDocx: boolean;
+  voir: () => Promise<void>;
+  telecharger: (format: 'pdf' | 'docx') => Promise<void>;
 }>) {
   const [busy, setBusy] = useState<'view' | 'pdf' | 'docx' | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { title, description, Icon, hasDocx, view, download } = GENERATED_DOC_HANDLERS[kind];
-  const filenameBase = code ? `${code}-${kind}` : kind;
 
   async function handle(action: 'view' | 'pdf' | 'docx') {
     setBusy(action);
     setError(null);
     try {
-      if (action === 'view') await view(dossierId, 'pdf');
-      else await download(dossierId, `${filenameBase}.${action}`, action);
+      if (action === 'view') await voir();
+      else await telecharger(action);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Échec de l'opération.");
     } finally {
@@ -184,7 +191,13 @@ function GeneratedDocumentCard({
   );
 }
 
+/** Code du modèle livré qui remplace l'acte codé en dur : sa carte reste celle de l'acte. */
+const CODE_ACTE_RESERVATION = 'ACTE_RESERVATION';
+
 export default function OngletDocumentsGeneres({ dossierId, code }: Readonly<{ dossierId: string; code?: string | null }>) {
+  const modeles = useApi(() => listModelesActifs('DOSSIER_VENTE'), [], 'modeles-actifs-dossier');
+  const autres = (modeles.data ?? []).filter((m) => m.code !== CODE_ACTE_RESERVATION);
+
   return (
     <div className="p-3">
       <Card title="Documents générés">
@@ -192,9 +205,37 @@ export default function OngletDocumentsGeneres({ dossierId, code }: Readonly<{ d
           Générés à la demande à partir des données du dossier — rien n'est enregistré ici.
         </p>
         <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-          {GENERATED_DOC_KINDS.map((kind) => (
-            <GeneratedDocumentCard key={kind} dossierId={dossierId} code={code} kind={kind} />
-          ))}
+          {GENERATED_DOC_KINDS.map((kind) => {
+            const { title, description, Icon, hasDocx, view, download } = GENERATED_DOC_HANDLERS[kind];
+            const base = code ? `${code}-${kind}` : kind;
+            return (
+              <GeneratedDocumentCard
+                key={kind}
+                title={title}
+                description={description}
+                Icon={Icon}
+                hasDocx={hasDocx}
+                voir={() => view(dossierId, 'pdf')}
+                telecharger={(format) => download(dossierId, `${base}.${format}`, format)}
+              />
+            );
+          })}
+          {!modeles.error &&
+            autres.map((m) => {
+              const suffixe = code ? '-' + code : '';
+              const base = m.code.toLowerCase().replaceAll('_', '-') + suffixe;
+              return (
+                <GeneratedDocumentCard
+                  key={m.id}
+                  title={m.libelle}
+                  description="Modèle de document personnalisé (Administration › Modèles de documents)."
+                  Icon={FileCode2}
+                  hasDocx
+                  voir={() => voirDocumentModele(m.id, dossierId)}
+                  telecharger={(format) => telechargerDocumentModele(m.id, dossierId, format, `${base}.${format}`)}
+                />
+              );
+            })}
         </div>
       </Card>
     </div>

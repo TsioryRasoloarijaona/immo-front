@@ -3772,7 +3772,7 @@
             }
           },
           "409": {
-            "description": "Avec `offreId` seulement. L'offre a déjà donné un dossier de vente : le `detail` nomme son code et\nson id, et la propriété `dossierExistant` (`{id, code, location}`) permet de l'ouvrir. Ou la\nprospection a déjà un dossier de vente : « Un dossier de vente est déjà généré sur cette prospection ! ».",
+            "description": "Avec `offreId` seulement. L'offre a déjà donné un dossier de vente : le `detail` nomme son code et\nson id, et la propriété `dossierExistant` (`{id, code, location}`) permet de l'ouvrir. Ou la\nprospection a déjà un dossier de vente : « Un dossier de vente est déjà généré sur cette prospection ! ».\nOu, avec ou sans offre, l'échéancier créé dépasse le délai maximal de paiement ou le crédit maximal de\nla tranche (mêmes textes OMRAN que `PATCH /api/dossiers/{id}`) ; rien n'est écrit.",
             "content": {
               "*/*": {
                 "schema": {
@@ -6743,7 +6743,7 @@
           "Dossiers — modification de la fiche"
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
-        "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
+        "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
         "operationId": "modifier_2",
         "parameters": [
           {
@@ -6809,7 +6809,7 @@
             }
           },
           "409": {
-            "description": "Dossier annulé ou désisté : seul l'onglet Annulation change.",
+            "description": "Dossier sorti hors onglet Annulation, ou délai / crédit maximal de la tranche dépassé.",
             "content": {
               "*/*": {
                 "schema": {
@@ -6910,7 +6910,7 @@
           "Dossiers"
         ],
         "summary": "Change le statut d'un règlement (pointage / annulation)",
-        "description": "Fait évoluer `StlSettlement.Status`. Transitions autorisées : `IN_WORK → POINTED` et `IN_WORK →\nCANCELED` — les deux cibles sont terminales, donc toute transition partant de `POINTED` ou\n`CANCELED` renvoie 409 avec la liste `transitionsAutorisees`.\n\n**Pointer exige une preuve de paiement** : au moins une pièce jointe doit être présente sur le\nrèglement (409 sinon). Déposez-la d'abord via `POST\n/api/dossiers/{id}/reglements/{reglementId}/pieces-jointes`. Cette règle ne s'applique qu'**au\nmoment de la transition** : les règlements legacy déjà pointés sans pièce jointe restent lisibles,\net retirer une pièce jointe ne dépointe rien.\n\n`dateReglement` est **requise** pour `POINTED` (400 sinon) et écrit `StlSettlement.SettlementDate` :\nstatut et date d'encaissement sont deux encodages du même fait et n'ont jamais divergé sur les 3 244\nrèglements réels. `CANCELED` laisse cette date à `null`.",
+        "description": "Fait évoluer `StlSettlement.Status`. Transitions autorisées : `IN_WORK → POINTED` et `IN_WORK →\nCANCELED` — les deux cibles sont terminales, donc toute transition partant de `POINTED` ou\n`CANCELED` renvoie 409 avec la liste `transitionsAutorisees`.\n\n**Pointer exige une preuve de paiement** : au moins une pièce jointe doit être présente sur le\nrèglement (409 sinon). Déposez-la d'abord via `POST\n/api/dossiers/{id}/reglements/{reglementId}/pieces-jointes`. Cette règle ne s'applique qu'**au\nmoment de la transition** : les règlements legacy déjà pointés sans pièce jointe restent lisibles,\net retirer une pièce jointe ne dépointe rien.\n\n`dateReglement` est **requise** pour `POINTED` (400 sinon) et écrit `StlSettlement.SettlementDate` :\nstatut et date d'encaissement sont deux encodages du même fait et n'ont jamais divergé sur les 3 244\nrèglements réels. `CANCELED` laisse cette date à `null`.\n\n`compteId` est **requis** pour `POINTED` (`Settlement.cs:Verif`, 400 « Si votre pièce possède une date de\npointage, il est obligatoire de lui affecter un compte ! ») et écrit `StlSettlement.StlAccountId`. Le compte\ndoit appartenir à la société du règlement (`ReglementDto.societeId` ; tout compte si elle est nulle), sinon\n400. Si le compte a un rapprochement (`StlAccountPosition`) à une date postérieure ou égale à `dateReglement`,\n409 « Vous ne pouvez pas pointer une pièce à une date inférieure à la date du dernier rapprochement du compte\naffecté jj/mm/aaaa hh:mm:ss ! ». Liste des comptes : `GET /api/referentiels/comptes?societeId=`.",
         "operationId": "modifierStatutReglement",
         "parameters": [
           {
@@ -6956,7 +6956,7 @@
             }
           },
           "400": {
-            "description": "`statut` absent ou inconnu, ou `dateReglement` absente alors que la cible est `POINTED`.",
+            "description": "`statut` absent ou inconnu ; pour `POINTED`, `dateReglement` ou `compteId` absent, compte inconnu ou d'une autre société.",
             "content": {
               "*/*": {
                 "schema": {
@@ -6976,7 +6976,7 @@
             }
           },
           "409": {
-            "description": "Transition interdite (corps : `transitionsAutorisees`), ou passage à `POINTED` sans aucune pièce jointe.",
+            "description": "Transition interdite (corps : `transitionsAutorisees`), `POINTED` sans pièce jointe ou au plus tard au dernier rapprochement.",
             "content": {
               "*/*": {
                 "schema": {
@@ -9177,9 +9177,21 @@
         "tags": [
           "Référentiels"
         ],
-        "summary": "Dropdown \"Compte\" pour GET /api/encaissements",
-        "description": "Comptes bancaires (StlAccount) — un compte par entité juridique en données réelles.",
+        "summary": "Dropdown \"Compte\" (encaissements, pointage d'un règlement)",
+        "description": "Comptes bancaires (StlAccount) triés par libellé ; filtrés sur la société si societeId est donné.",
         "operationId": "getComptes",
+        "parameters": [
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société du règlement à pointer ; absent = tous les comptes.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "OK",
@@ -13558,7 +13570,7 @@
           "Dossiers — fiche"
         ],
         "summary": "Fiche complète du dossier en consultation, par onglet OMRAN",
-        "description": "Chaque onglet de l'écran OMRAN est un objet de la réponse. Une date absente vaut `null` (jalon non atteint) ;\nle front l'affiche « — ». Le « Prix contractuel » est `ComFolder.AgreementPrice` (« Σ des montants des lignes\nde schéma de financement qui ne sont pas paramétrées \"Exclure ce montant du prix contractuel\" », aide OMRAN),\net non le total à payer.\n\n`aDesImpayes` alimente le bandeau « Ce dossier possède des pièces de règlement impayées » : vrai dès qu'une\néchéance du schéma de financement est échue (date dépassée) avec un reste dû positif, les règlements annulés\nne comptant pas. `instructionNonLue` est vrai seulement pour le commercial destinataire d'une instruction\nqu'il n'a pas encore lue (voir `PATCH /api/dossiers/{id}/instructions/{instructionId}/lue`).",
+        "description": "Chaque onglet de l'écran OMRAN est un objet de la réponse. Une date absente vaut `null` (jalon non atteint) ;\nle front l'affiche « — ». Le « Prix contractuel » est `ComFolder.AgreementPrice` (« Σ des montants des lignes\nde schéma de financement qui ne sont pas paramétrées \"Exclure ce montant du prix contractuel\" », aide OMRAN),\net non le total à payer.\n\n`aDesImpayes` alimente le bandeau « Ce dossier possède des pièces de règlement impayées » : vrai dès que le\ndossier a une ligne de l'écran Impayés (`GET /api/impayes`), même règle : catégorie d'encaissement\n(`IsCredit`), statut du dossier « vente effective » (ni réservation, ni annulation, ni désistement), échéance\nau plus tard aujourd'hui et reste dû positif, les règlements annulés ne comptant pas. `instructionNonLue` est vrai seulement pour le commercial destinataire d'une instruction\nqu'il n'a pas encore lue (voir `PATCH /api/dossiers/{id}/instructions/{instructionId}/lue`).",
         "operationId": "fiche",
         "parameters": [
           {
@@ -20686,6 +20698,11 @@
           },
           "statut": {
             "type": "string"
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société du règlement (StlSettlement.CfgCompanyId) : filtre des comptes au pointage ; null si non renseignée."
           }
         }
       },
@@ -22186,8 +22203,14 @@
           "dateReglement": {
             "type": "string",
             "format": "date-time",
-            "description": "Date d'encaissement effectif (`StlSettlement.SettlementDate`). **Requise** pour `POINTED`, ignorée\npour `CANCELED` (qui laisse la colonne à `null`, conformément aux données réelles).",
+            "description": "Date d'encaissement effectif (`StlSettlement.SettlementDate`). **Requise** pour `POINTED`, ignorée\npour `CANCELED` (qui laisse la colonne à `null`, conformément aux données réelles). Pour `POINTED`, elle doit\nêtre postérieure au dernier rapprochement du compte (`StlAccountPosition`), sinon 409.",
             "example": "2026-09-01T10:00:00"
+          },
+          "compteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Compte bancaire du pointage (`StlSettlement.StlAccountId`), à choisir dans\n`GET /api/referentiels/comptes?societeId=<ReglementDto.societeId>`. **Requis** pour `POINTED` (400 « Si votre\npièce possède une date de pointage, il est obligatoire de lui affecter un compte ! ») ; il doit exister et\nappartenir à la société du règlement (tout compte si le règlement n'a pas de société), sinon 400. Ignoré pour\n`CANCELED`.",
+            "example": "acfd8693-0175-42a0-9e0a-37f6dcc7cfdc"
           }
         }
       },

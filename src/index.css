@@ -494,3 +494,69 @@ table {
     @apply font-sans;
   }
 }
+
+/* Éditeur de modèles de documents : la page imite la sortie PDF (A4, Helvetica 9,5 pt, noir sur blanc,
+   quel que soit le thème). Aucune classe dans le HTML enregistré : tout passe par les attributs data-*. */
+.editeur-modele-page {
+  width: 210mm;
+  max-width: 100%;
+  min-height: 297mm;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 9.5pt;
+  line-height: 1.35;
+}
+.editeur-modele-page .ProseMirror,
+.editeur-modele-zone .ProseMirror {
+  outline: none;
+  min-height: 2rem;
+}
+.editeur-modele-page .ProseMirror { min-height: 240mm; }
+.editeur-modele-page h1 { font-size: 14pt; font-weight: 700; margin: 0 0 8pt; }
+.editeur-modele-page h2 { font-size: 11pt; font-weight: 700; margin: 8pt 0 2pt; }
+.editeur-modele-page h3 { font-size: 10pt; font-weight: 700; margin: 6pt 0 2pt; }
+.editeur-modele-page p { margin: 0 0 6pt; }
+.editeur-modele-page ul { list-style: disc; padding-left: 18pt; }
+.editeur-modele-page ol { list-style: decimal; padding-left: 18pt; }
+.editeur-modele-page table { border-collapse: collapse; width: 100%; margin: 4pt 0; }
+.editeur-modele-page td,
+.editeur-modele-page th { border: 0.5pt solid #000; padding: 2pt 4pt; vertical-align: top; }
+.editeur-modele-page img { max-width: 100%; }
+.editeur-modele-page h2[data-numero]::before { content: 'n- '; color: #8a7a96; }
+.editeur-modele-page .ProseMirror-selectednode { outline: 2px solid var(--brand); }
+
+[data-champ] {
+  border-radius: 3px;
+  padding: 0 3px;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  white-space: nowrap;
+}
+.ProseMirror [data-si],
+.ProseMirror [data-repeter] {
+  outline: 1px dashed var(--brand);
+  outline-offset: 2px;
+}
+.ProseMirror [data-saut-page] {
+  height: 0;
+  margin: 10pt 0;
+  border-top: 1px dashed #8a7a96;
+}
+.ProseMirror [data-saut-page]::after {
+  content: 'Saut de page';
+  display: block;
+  font-size: 7.5pt;
+  color: #8a7a96;
+  text-align: center;
+}
+.modele-etiquette {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--brand-bg);
+  color: var(--brand);
+  font-size: 7.5pt;
+  font-weight: 600;
+  vertical-align: 1px;
+  user-select: none;
+}

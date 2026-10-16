@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, CircleHelp, FilePlus2, History, Home, KeyRound, LayoutGrid, LogOut, Users } from 'lucide-react';
+import { BookUser, Bot, Building2, CircleHelp, FileCode2, FilePlus2, History, Home, KeyRound, LayoutGrid, LogOut, Users } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -143,6 +143,16 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                   >
                     <Bot />
                     Clés d'API
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    render={<NavLink to="/modeles-documents" />}
+                    isActive={location.pathname.startsWith('/modeles-documents')}
+                    tooltip="Modèles de documents — actes, lettres, fiches"
+                  >
+                    <FileCode2 />
+                    Modèles de documents
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               </SidebarMenu>

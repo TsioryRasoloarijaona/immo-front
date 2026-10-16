@@ -1092,7 +1092,7 @@ function showBlobInTab(win: Window | null, blob: Blob): void {
 }
 
 /** Onglet ouvert **avant** le premier `await` (geste utilisateur), fermé si le chargement échoue. */
-async function ouvrirBlobDansOnglet(charger: () => Promise<Blob>): Promise<void> {
+export async function ouvrirBlobDansOnglet(charger: () => Promise<Blob>): Promise<void> {
   const win = window.open('', '_blank');
   try {
     showBlobInTab(win, await charger());
