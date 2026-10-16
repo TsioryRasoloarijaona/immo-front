@@ -11,7 +11,13 @@ import ProspectionTable from '../../components/ProspectionTable';
 import BandeGroupement from '../../components/BandeGroupement';
 import BoutonExporter from '../../components/BoutonExporter';
 import { useActionsLigneProspection } from '../../components/ActionsLigneProspection';
-import { DEFAULT_PAGE_SIZE, listPreProspections, listPreProspectionsGroupes } from '../../lib/api';
+import {
+  DEFAULT_PAGE_SIZE,
+  listPreProspections,
+  listPreProspectionsGroupes,
+  totauxPreProspections,
+} from '../../lib/api';
+import { useTotauxServeur } from '../../lib/totauxServeur';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
 import { pluriel } from '../../lib/format';
@@ -84,7 +90,7 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
 
   const enGroupes = groupement.actif;
 
-  const clesFiltres = [
+  const clesFiltresSeuls = [
     debouncedSearch,
     filters.etape.join(','),
     filters.origine.join(','),
@@ -95,8 +101,18 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
     filters.dateDebut,
     filters.dateFin,
     filters.archive,
-    page,
   ];
+  const clesFiltres = [...clesFiltresSeuls, page];
+
+  // Hors `page` : les totaux portent sur tout le filtre et ne bougent pas d'une page à l'autre.
+  // Colonnes affichées, pas le catalogue : un Σ d'une colonne masquée ne doit être ni demandé ni compté.
+  const totauxServeur = useTotauxServeur(
+    colonnes.colonnes,
+    (agregats) => totauxPreProspections(filtresServeur, agregats),
+    clesFiltresSeuls.join('|'),
+    !enGroupes,
+    'pre-prospections-totaux',
+  );
 
   const liste = useApi(
     () =>
@@ -133,6 +149,7 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
     onMutation: () => {
       void liste.refetch();
       void groupes.refetch();
+      totauxServeur?.reessayer();
     },
   });
 
@@ -272,6 +289,7 @@ export default function PreProspectionsList({ nouveau }: Readonly<{ nouveau?: bo
                     bandeauRegroupement={false}
                     actions={actionsLigne.rendu}
                     groupes={groupesGrille(groupement, groupes.data, lignesGroupes)}
+                    totauxServeur={totauxServeur}
                   />
                 </EtatColonnes>
               )}

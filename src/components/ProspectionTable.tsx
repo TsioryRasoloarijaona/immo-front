@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, formatSurface, isPastOrToday } from '../lib
 import { etapeBadgeTone, prospectionDisplayName, relanceEnRetard } from '../lib/domain';
 import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_PROSPECTIONS } from '../lib/dispositions';
+import type { TotauxServeurGrille } from '../lib/totauxServeur';
 import type { ColonneDto, ProspectionListItemDto } from '../types';
 
 const TIRET = <span className="text-muted-foreground">—</span>;
@@ -84,6 +85,7 @@ export default function ProspectionTable({
   entite = 'prospection',
   bandeauRegroupement,
   groupes,
+  totauxServeur,
   actions,
 }: Readonly<{
   rows: ProspectionListItemDto[];
@@ -93,6 +95,8 @@ export default function ProspectionTable({
   /** `false` quand l'écran rend sa propre bande de groupement au-dessus de la grille. */
   bandeauRegroupement?: boolean;
   groupes?: GroupementGrille<ProspectionListItemDto>;
+  /** Σ serveur sur tout le filtre ; absent, Σ client des lignes chargées. */
+  totauxServeur?: TotauxServeurGrille;
   /** Même DTO pour les deux écrans : c'est ce que le lecteur d'écran annonce par ligne. */
   entite?: 'prospection' | 'pré-prospection';
   actions?: (p: ProspectionListItemDto) => ReactNode;
@@ -129,6 +133,7 @@ export default function ProspectionTable({
       classeLigne={(p) => (relanceEnRetard(p) ? 'bg-(--retard-bg) hover:bg-(--retard-bg)' : undefined)}
       bandeauRegroupement={bandeauRegroupement}
       groupes={groupes}
+      totauxServeur={totauxServeur}
       actions={actions}
     />
   );
