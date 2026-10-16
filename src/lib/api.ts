@@ -931,7 +931,7 @@ export function listPiecesJointes(dossierId: UUID): Promise<PieceJointeDto[]> {
 
 /** Les autres champs voyagent en query string, pas dans le corps. Pas de
  * `Content-Type` à la main : le navigateur doit poser la boundary. */
-async function postMultipart<T>(path: string, file: File, query?: Record<string, QueryValue>): Promise<T> {
+export async function postMultipart<T>(path: string, file: File, query?: Record<string, QueryValue>): Promise<T> {
   const form = new FormData();
   form.set('fichier', file);
   const url = `${API_BASE_URL}${path}${buildQuery(query)}`;
@@ -1092,7 +1092,7 @@ function showBlobInTab(win: Window | null, blob: Blob): void {
 }
 
 /** Onglet ouvert **avant** le premier `await` (geste utilisateur), fermé si le chargement échoue. */
-async function ouvrirBlobDansOnglet(charger: () => Promise<Blob>): Promise<void> {
+export async function ouvrirBlobDansOnglet(charger: () => Promise<Blob>): Promise<void> {
   const win = window.open('', '_blank');
   try {
     showBlobInTab(win, await charger());
