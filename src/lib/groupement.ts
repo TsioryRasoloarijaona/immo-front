@@ -7,7 +7,10 @@ import type {
   PageDto,
   PageGroupesDto,
   TriGroupes,
+  TypeColonne,
+  ValeurAgregat,
 } from '../types';
+import { formatCurrency, formatDate, formatNumber } from './format';
 import type { ParamsDepliage, ParamsGroupes } from './api';
 import type { GroupementGrille } from '../components/DataGrid';
 
@@ -25,6 +28,37 @@ export const LIBELLES_FONCTION: Record<FonctionAgregat, string> = {
   MAX: 'Maximum',
   COUNT: 'Nombre',
 };
+
+/** Libellés de la bande des totaux, où plusieurs résumés s'empilent sous une colonne étroite. */
+export const LIBELLES_COURTS_FONCTION: Record<FonctionAgregat, string> = {
+  SUM: 'Somme',
+  AVG: 'Moy.',
+  MIN: 'Min',
+  MAX: 'Max',
+  COUNT: 'Nb',
+};
+
+/** `COUNT` est toujours un entier, hors unité de la colonne (donc sans `formatValeur`).
+ * Sur une colonne DATE le serveur renvoie une chaîne ISO. `null` (MIN/MAX sans valeur)
+ * s'affiche en tiret, jamais « 0 ». */
+export function formatAgregat(
+  valeur: ValeurAgregat | undefined,
+  formatValeur: ((valeur: unknown) => string) | undefined,
+  fonction: FonctionAgregat,
+  type: TypeColonne,
+): string {
+  if (valeur === null || valeur === undefined) return '—';
+  if (fonction === 'COUNT') return formatNumber(Number(valeur));
+  if (formatValeur) return formatValeur(valeur);
+  if (type === 'DATE') return formatDate(String(valeur));
+  if (typeof valeur !== 'number') return String(valeur);
+  return type === 'MONTANT' ? formatCurrency(valeur) : formatNumber(valeur, 2);
+}
+
+/** Fonctions du menu Σ d'une colonne : celles du catalogue, moins la somme d'un taux. */
+export function fonctionsProposees(c: ColonneDto): FonctionAgregat[] {
+  return (c.fonctions ?? []).filter((f) => !(f === 'SUM' && SOMMES_SANS_SENS.has(c.nom)));
+}
 
 /** Contrat serveur : un nom nu vaut une somme, et la clé de retour est alors ce même nom nu. */
 export function jetonAgregat(nom: string, fonction: FonctionAgregat): string {
@@ -103,10 +137,7 @@ export function useGroupement(
   const agregeables = useMemo(
     () =>
       catalogue
-        .map((c) => ({
-          colonne: c,
-          fonctions: (c.fonctions ?? []).filter((f) => !(f === 'SUM' && SOMMES_SANS_SENS.has(c.nom))),
-        }))
+        .map((c) => ({ colonne: c, fonctions: fonctionsProposees(c) }))
         .filter((x) => x.fonctions.length > 0),
     [catalogue],
   );

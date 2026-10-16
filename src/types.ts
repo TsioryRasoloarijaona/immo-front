@@ -559,6 +559,14 @@ export interface PageGroupesDto {
   nombreTotal: number;
 }
 
+/** Résumés Σ d'une liste plate sur toutes les lignes du filtre (`/totaux`). */
+export interface TotauxListeDto {
+  /** Égale le `totalElements` de la liste aux mêmes filtres. */
+  nombreTotal: number;
+  /** Clé = jeton tel qu'envoyé ; `null` pour MIN/MAX/AVG sans valeur ; vide sans `agregats`. */
+  totaux: Partial<Record<string, ValeurAgregat>>;
+}
+
 /** Le bloc vaut `null` sur une pré-prospection : « non disponible », jamais
  * zéro. */
 export interface ActiviteProspectionDto {

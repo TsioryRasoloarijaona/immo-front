@@ -39,6 +39,7 @@ import type {
   ColonneDto,
   GranulariteGroupe,
   PageGroupesDto,
+  TotauxListeDto,
   TriGroupes,
   CommercialListItemDto,
   CompleterProfilRequest,
@@ -585,6 +586,17 @@ export function listPreProspectionsGroupes(
 ): Promise<PageGroupesDto> {
   return request('GET', '/api/pre-prospections/groupes', {
     query: withGroupes(withPageable(params, pageable), groupes),
+  });
+}
+
+/** Résumés Σ sur toutes les lignes du filtre (mêmes filtres que la liste) ; `agregats` vide → seul `nombreTotal`.
+ * Clés de `totaux` = jetons tels qu'envoyés (`jetonAgregat`). */
+export function totauxPreProspections(
+  params: ProspectionFilterParams | undefined,
+  agregats: string[],
+): Promise<TotauxListeDto> {
+  return request('GET', '/api/pre-prospections/totaux', {
+    query: { ...params, agregats: agregats.length > 0 ? agregats : undefined },
   });
 }
 

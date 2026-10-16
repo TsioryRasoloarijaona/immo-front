@@ -11034,6 +11034,152 @@
         }
       }
     },
+    "/api/pre-prospections/totaux": {
+      "get": {
+        "tags": [
+          "Pré-prospections"
+        ],
+        "summary": "Résumés (Σ) de la liste des pré-prospections sur tout le filtre, pas sur une page",
+        "description": "Les résumés Σ de la liste plate (bande « Totaux sur N ligne(s) filtrée(s) »), calculés sur **toutes**\nles pré-prospections du filtre et non sur la page affichée : passer de la page 1 à la page 2 ne les\nchange pas. Pas de pagination, pas de groupe : en mode groupé, les `totaux` de `/groupes` servent.\n\n**Mêmes lignes que la liste** : mêmes filtres, même sens, même périmètre commercial et même\nrestriction aux entités juridiques actives que `GET /api/pre-prospections`. `nombreTotal` égale donc\nle `totalElements` de la liste appelée avec les mêmes filtres.",
+        "operationId": "totauxPreProspections",
+        "parameters": [
+          {
+            "name": "agregats",
+            "in": "query",
+            "description": "Mêmes jetons et mêmes règles que `GET /api/pre-prospections/groupes` : un **nom nu** (`surface`) vaut\nune somme, un nom **qualifié** (`surface:AVG`) applique la fonction nommée (`SUM`, `AVG`, `MIN`,\n`MAX`, `COUNT`). Les fonctions acceptées par colonne sont publiées par le catalogue (`fonctions`) :\nnombre et montant toutes, date `MIN`/`MAX`/`COUNT`, texte `COUNT`. Chaque résultat revient sous le\njeton tel qu'envoyé.\n\nLes colonnes calculées par page (`joursInactivite`, `nbInteractions`, `derniere*`, `dossier*`,\n`statutDossier`) ne sont pas agrégeables : 400. `nbVisites` et `derniereVisiteDate` le sont, comme\ndans `/groupes`.\n\nAbsent ou vide : seul `nombreTotal` est renvoyé, `totaux` vide.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "surface:AVG"
+          },
+          {
+            "name": "etape",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "origine",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "name": "commercial",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "inclureSansTranche",
+            "in": "query",
+            "description": "« Non affectés », **identique à la liste** : avec `trancheId`, ajoute les pré-prospections sans\ntranche ; sans `trancheId`, seulement celles sans tranche.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id(s) de projet de la tranche, comme la liste. Répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "dateDebut",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-01-01"
+          },
+          {
+            "name": "dateFin",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-12-31"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ouvertes",
+            "in": "query",
+            "description": "Filtre d'archivage à trois états, **identique à celui de la liste** : absent = tout, `true` =\nouvertes, `false` = archivées.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "example": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Effectif du filtre et un résumé par jeton demandé",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotauxListeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Jeton d'`agregats` inconnu, colonne non agrégeable ou fonction refusée pour son type."
+          }
+        }
+      }
+    },
     "/api/pre-prospections/groupes": {
       "get": {
         "tags": [
@@ -19208,11 +19354,11 @@
           "employeId": {
             "type": "string",
             "format": "uuid",
-            "description": "Id de l'employé lié (`CfgEmployeeId`). Renseigné sur 77 % des interactions réelles seulement —\n`null` ne veut pas dire auteur inconnu, voir `employeNom`."
+            "description": "Id de l'employé **concerné** (`CfgEmployeeId`) : le commercial de la fiche, que le logiciel de\nbureau y recopie — **pas l'auteur**. Peut donc différer de `employeNom`. `null` sur une partie des\nlignes réelles."
           },
           "employeNom": {
             "type": "string",
-            "description": "**Nom d'affichage de l'auteur — toujours renseigné quand la base le connaît (99,996 % des lignes\nréelles).** L'employé lié quand il existe, sinon le compte qui a saisi l'interaction (`UserName`,\npuis `UserCreate`) — c'est ce que le logiciel de bureau affiche. Ne PAS afficher de repli type «\nSystème » côté client sur la seule absence d'`employeId`.",
+            "description": "**Nom d'affichage de l'auteur — toujours renseigné quand la base le connaît (99,996 % des lignes\nréelles).** L'employé du compte qui a saisi l'action (`AdmUser.CfgEmployeeId`), sinon le libellé\nde ce compte, sinon `UserName`, puis `UserCreate` — ce que « Suivi des actions » affiche sous\nUtilisateur / Personnel. Jamais tiré de `CfgEmployeeId` (le commercial concerné, voir `employeId`).\nNe PAS afficher de repli type « Système » côté client sur la seule absence d'`employeId`.",
             "example": "Khadija ELKORRI"
           },
           "actionTypeId": {
@@ -26122,6 +26268,28 @@
           "dateFinCommercialisation": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "TotauxListeDto": {
+        "type": "object",
+        "description": "Résumés d'une liste plate calculés sur toutes les lignes du filtre, pas sur la page.",
+        "properties": {
+          "nombreTotal": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de lignes du filtre : égale le `totalElements` de la liste.",
+            "example": 637
+          },
+          "totaux": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Une entrée par jeton demandé dans `agregats`, indexée par **le jeton tel qu'envoyé** (`surface` pour\nune somme en nom nu, `surface:AVG` pour une fonction qualifiée). Mêmes calculs que la bande de totaux\nde `/groupes`, sur toutes les lignes du filtre.\n\nValeur `null` pour `MIN`, `MAX` ou `AVG` quand aucune ligne n'a la colonne renseignée. Une date\nrevient en chaîne ISO-8601, comme dans `/groupes`. `COUNT` compte les lignes où la colonne est renseignée. Vide si\n`agregats` est absent.",
+            "example": {
+              "surface:AVG": 112.4,
+              "code:COUNT": 637,
+              "dateDocument:MIN": "2026-09-16T08:30:00"
+            }
           }
         }
       },

@@ -7,10 +7,15 @@ import { cn } from '../lib/utils';
 import {
   LIBELLES_FONCTION,
   TAILLE_LOT_GROUPE,
+  formatAgregat,
   identiteGroupe,
+  jetonAgregat,
   libelleGroupeAffiche,
   type LignesGroupe,
 } from '../lib/groupement';
+import type { TotauxServeurGrille } from '../lib/totauxServeur';
+import BandeTotauxServeur from './BandeTotauxServeur';
+import MenuTotauxColonne from './MenuTotauxColonne';
 import type { ColonneDto, FonctionAgregat, GroupeDto, TypeColonne, ValeurAgregat } from '../types';
 
 /** Tri, filtres et Σ sont côté client, sur les lignes chargées seulement ; le filtrage
@@ -55,23 +60,6 @@ export type GroupementGrille<T> = {
 };
 
 const NUMERIQUES: TypeColonne[] = ['MONTANT', 'NOMBRE'];
-
-/** `COUNT` est toujours un entier, hors unité de la colonne (donc sans `formatValeur`).
- * Sur une colonne DATE le serveur renvoie une chaîne ISO. `null` (MIN/MAX sans valeur)
- * s'affiche en tiret, jamais « 0 ». */
-function formatAgregat<T>(
-  valeur: ValeurAgregat | undefined,
-  colonne: ColonneGrille<T> | undefined,
-  fonction: FonctionAgregat,
-  type: TypeColonne,
-): string {
-  if (valeur === null || valeur === undefined) return '—';
-  if (fonction === 'COUNT') return formatNumber(Number(valeur));
-  if (colonne?.formatValeur) return colonne.formatValeur(valeur);
-  if (type === 'DATE') return formatDate(String(valeur));
-  if (typeof valeur !== 'number') return String(valeur);
-  return type === 'MONTANT' ? formatCurrency(valeur) : formatNumber(valeur, 2);
-}
 
 /** `null` pour une cellule vide, rendue en tiret par l'appelant. */
 function texteParType(valeur: unknown, type: TypeColonne): string | null {
@@ -191,6 +179,54 @@ function glypheOperateur(type: TypeColonne): string {
   return type === 'TEXTE' ? 'A' : '=';
 }
 
+/** Σ d'en-tête : menu de fonctions serveur si `totauxServeur`, sinon bascule du Σ client des lignes chargées. */
+function boutonSigma<T>(
+  c: ColonneGrille<T>,
+  totauxServeur: TotauxServeurGrille | undefined,
+  sommeActive: boolean,
+  basculerSomme: (nom: string) => void,
+): ReactNode {
+  if (totauxServeur) {
+    const fonctions = totauxServeur.fonctions(c.nom);
+    if (fonctions.length === 0) return null;
+    return (
+      <MenuTotauxColonne
+        libelle={c.libelle}
+        fonctions={fonctions}
+        actives={fonctions.filter((f) => totauxServeur.jetons.includes(jetonAgregat(c.nom, f)))}
+        onBasculer={(f) => totauxServeur.basculer(c.nom, f)}
+      />
+    );
+  }
+  if (c.sansSomme) return null;
+  return (
+    <button
+      type="button"
+      className={cn(
+        'shrink-0 rounded px-0.5 hover:bg-muted',
+        sommeActive ? 'text-(--brand)' : 'text-muted-foreground/50',
+      )}
+      onClick={() => basculerSomme(c.nom)}
+      title={
+        NUMERIQUES.includes(typeDe(c)) ? `Afficher le total de ${c.libelle}` : `Compter les ${c.libelle} renseignés`
+      }
+      aria-pressed={sommeActive}
+    >
+      <Sigma className="size-2.75" aria-hidden />
+    </button>
+  );
+}
+
+/** Le bouton « N total(aux) — masquer » compte et vide le Σ en vigueur, serveur ou client. */
+function commandeTotaux(
+  totauxServeur: TotauxServeurGrille | undefined,
+  nbSommes: number,
+  viderSommes: () => void,
+): { nbTotaux: number; masquerTotaux: () => void } {
+  if (totauxServeur) return { nbTotaux: totauxServeur.jetons.length, masquerTotaux: totauxServeur.vider };
+  return { nbTotaux: nbSommes, masquerTotaux: viderSommes };
+}
+
 function libelleAgregat(a: { colonne: ColonneDto; fonction: FonctionAgregat }): string {
   return a.fonction === 'SUM' ? a.colonne.libelle : `${a.colonne.libelle} (${LIBELLES_FONCTION[a.fonction].toLowerCase()})`;
 }
@@ -208,6 +244,7 @@ export default function DataGrid<T extends { id: string }>({
   rendreDetail,
   actions,
   groupes,
+  totauxServeur,
 }: Readonly<{
   rows: T[];
   colonnes: ColonneGrille<T>[];
@@ -230,6 +267,9 @@ export default function DataGrid<T extends { id: string }>({
   actions?: (row: T) => ReactNode;
   /** Fourni, `rows` est ignoré : les lignes de chaque groupe viennent de `etat`. */
   groupes?: GroupementGrille<T>;
+  /** Fourni, remplace le Σ client (lignes chargées) par un menu de fonctions calculées par le serveur
+   * sur tout le filtre, affichées dans une bande sous l'en-tête. */
+  totauxServeur?: TotauxServeurGrille;
 }>) {
   // Un plafond, pas une largeur : en `table-auto`, `max-width` ne mord que sur les colonnes qui dépassent.
   const plafondColonne = (c: ColonneGrille<T>) => `${Math.max(120, (c.largeur ?? 10) * 20)}px`;
@@ -353,7 +393,10 @@ export default function DataGrid<T extends { id: string }>({
 
   const cliquable = Boolean(onOuvrir);
 
-  const nbColonnes = colonnes.length + (rendreDetail ? 3 : 2) + (actions ? 1 : 0);
+  const nbGouttieres = (rendreDetail ? 3 : 2) + (actions ? 1 : 0);
+  const nbColonnes = colonnes.length + nbGouttieres;
+  const { nbTotaux, masquerTotaux } = commandeTotaux(totauxServeur, sommes.size, () => setSommes(new Set()));
+
 
   const gestionnairesLigne = (id: string) => {
     if (!onOuvrir) return {};
@@ -478,7 +521,7 @@ export default function DataGrid<T extends { id: string }>({
       {/* Toujours rendue, vide au repos : la faire apparaître ou disparaître
           décale les lignes de sa hauteur et le clic suivant ouvre une fiche. */}
       <div className="flex h-5 shrink-0 items-center gap-3 border-b border-border/70 bg-card px-2 text-micro text-muted-foreground">
-        {(tri !== null || sommes.size > 0 || cochees.size > 0 || filtreActif || ordrePersonnalise) && (
+        {(tri !== null || nbTotaux > 0 || cochees.size > 0 || filtreActif || ordrePersonnalise) && (
         <>
           {cochees.size > 0 && <span className="shrink-0">{cochees.size} sélectionnée(s)</span>}
           {tri && (
@@ -486,9 +529,9 @@ export default function DataGrid<T extends { id: string }>({
               Tri sur « {parNom.get(tri.nom)?.libelle ?? tri.nom} » — retirer
             </button>
           )}
-          {sommes.size > 0 && (
-            <button type="button" className="shrink-0 hover:text-foreground hover:underline" onClick={() => setSommes(new Set())}>
-              {sommes.size} total(aux) — masquer
+          {nbTotaux > 0 && (
+            <button type="button" className="shrink-0 hover:text-foreground hover:underline" onClick={masquerTotaux}>
+              {nbTotaux} total(aux) — masquer
             </button>
           )}
           {ordrePersonnalise && (
@@ -609,22 +652,7 @@ export default function DataGrid<T extends { id: string }>({
                       ) : (
                         <ChevronDown className="size-3 shrink-0 text-(--brand)" aria-hidden />
                       ))}
-                    {!c.sansSomme && (<button
-                      type="button"
-                      className={cn(
-                        'shrink-0 rounded px-0.5 hover:bg-muted',
-                        sommes.has(c.nom) ? 'text-(--brand)' : 'text-muted-foreground/50',
-                      )}
-                      onClick={() => basculerSomme(c.nom)}
-                      title={
-                        NUMERIQUES.includes(typeDe(c))
-                          ? `Afficher le total de ${c.libelle}`
-                          : `Compter les ${c.libelle} renseignés`
-                      }
-                      aria-pressed={sommes.has(c.nom)}
-                    >
-                      <Sigma className="size-2.75" aria-hidden />
-                    </button>)}
+                    {boutonSigma(c, totauxServeur, sommes.has(c.nom), basculerSomme)}
                   </span>
                 </TableHead>
               );
@@ -656,6 +684,16 @@ export default function DataGrid<T extends { id: string }>({
               </TableHead>
             ))}
           </TableRow>
+          {totauxServeur && (
+            <BandeTotauxServeur
+              totaux={totauxServeur}
+              colonnes={colonnes}
+              gouttieres={nbGouttieres}
+              nbColonnes={nbColonnes}
+              plafond={plafondColonne}
+              aDroite={aDroite}
+            />
+          )}
         </TableHeader>
         <TableBody>
           {groupes
@@ -707,7 +745,7 @@ export default function DataGrid<T extends { id: string }>({
                                   <span className="font-semibold tabular-nums">
                                     {formatAgregat(
                                       g.agregats?.[a.jeton],
-                                      parNom.get(a.colonne.nom),
+                                      parNom.get(a.colonne.nom)?.formatValeur,
                                       a.fonction,
                                       a.colonne.type,
                                     )}
@@ -778,7 +816,7 @@ export default function DataGrid<T extends { id: string }>({
                         <span className="font-semibold tabular-nums">
                           {formatAgregat(
                             groupes.totaux[a.jeton],
-                            parNom.get(a.colonne.nom),
+                            parNom.get(a.colonne.nom)?.formatValeur,
                             a.fonction,
                             a.colonne.type,
                           )}
