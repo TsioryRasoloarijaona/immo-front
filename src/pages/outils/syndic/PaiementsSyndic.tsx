@@ -40,12 +40,9 @@ function Liste({ ctx }: Readonly<{ ctx: ContexteSyndic }>) {
   const pages = data ? Math.max(1, Math.ceil(data.total / data.par_page)) : 1;
 
   const colonnes: ColonneGrille<PaiementListe>[] = [
-    { nom: 'numero', libelle: 'N°', largeur: 10, classe: 'font-mono font-medium text-foreground' },
+    { nom: 'proprietaires', libelle: 'Propriétaire(s)', largeur: 18, classe: 'font-medium text-foreground', valeur: (p) => p.payeur ?? p.proprietaires },
     { nom: 'date', libelle: 'Date', type: 'DATE', largeur: 8 },
     { nom: 'appartement', libelle: 'Appartement', largeur: 9, classe: 'font-mono' },
-    { nom: 'proprietaires', libelle: 'Propriétaire(s)', largeur: 18, valeur: (p) => p.payeur ?? p.proprietaires },
-    { nom: 'mode', libelle: 'Mode', largeur: 8, valeur: (p) => MODE_PAIEMENT[p.mode] },
-    { nom: 'montant_utile', libelle: 'Compte pour', type: 'MONTANT', largeur: 10, sansSomme: true },
     {
       nom: 'statut',
       libelle: 'Statut',
@@ -60,6 +57,9 @@ function Liste({ ctx }: Readonly<{ ctx: ContexteSyndic }>) {
         </span>
       ),
     },
+    { nom: 'mode', libelle: 'Mode', largeur: 8, valeur: (p) => MODE_PAIEMENT[p.mode] },
+    { nom: 'montant_utile', libelle: 'Compte pour', type: 'MONTANT', largeur: 10, sansSomme: true },
+    { nom: 'numero', libelle: 'N°', largeur: 10, classe: 'font-mono text-muted-foreground' },
     {
       nom: 'actions',
       libelle: '',

@@ -137,9 +137,6 @@ function Carnet({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
       valeur: (r) => meta.types_beneficiaire[r.b.type] ?? r.b.type,
       rendu: (r) => <Badge tone={r.b.type === 'salarie' ? 'info' : 'neutral'}>{meta.types_beneficiaire[r.b.type] ?? r.b.type}</Badge>,
     },
-    { nom: 'rib', libelle: 'RIB', largeur: 20, classe: 'font-mono text-muted-foreground', valeur: (r) => r.b.rib },
-    { nom: 'nb_ordres', libelle: 'Ordres', type: 'NOMBRE', largeur: 6, valeur: (r) => r.b.nb_ordres },
-    { nom: 'total_montant', libelle: 'Total viré', type: 'MONTANT', largeur: 11, sansSomme: true, valeur: (r) => r.b.total_montant },
     {
       nom: 'dossier',
       libelle: 'Dossier',
@@ -147,6 +144,9 @@ function Carnet({ ctx }: Readonly<{ ctx: ContexteCharge }>) {
       valeur: (r) => libelleDossier(r.b),
       rendu: (r) => <EtatDossier b={r.b} />,
     },
+    { nom: 'total_montant', libelle: 'Total viré', type: 'MONTANT', largeur: 11, sansSomme: true, valeur: (r) => r.b.total_montant },
+    { nom: 'nb_ordres', libelle: 'Ordres', type: 'NOMBRE', largeur: 6, valeur: (r) => r.b.nb_ordres },
+    { nom: 'rib', libelle: 'RIB', largeur: 20, classe: 'font-mono text-muted-foreground', valeur: (r) => r.b.rib },
     {
       nom: 'actions',
       libelle: '',

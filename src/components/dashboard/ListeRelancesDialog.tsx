@@ -40,15 +40,6 @@ const COLONNES: ColonneGrille<LigneRelance>[] = [
   },
   { nom: 'dateRelance', libelle: 'Échéance', type: 'DATE', largeur: 8 },
   { nom: 'joursDeRetard', libelle: 'Retard (j)', type: 'NOMBRE', largeur: 7 },
-  { nom: 'motif', libelle: 'Motif', largeur: 24, classe: 'text-muted-foreground', titre: (r) => r.motif ?? undefined },
-  {
-    nom: 'commercialNom',
-    libelle: 'Commercial',
-    largeur: 14,
-    classe: 'text-muted-foreground',
-    rendu: (r) => (r.nonAffectee ? 'Non affectée' : r.commercialNom || '—'),
-    valeur: (r) => (r.nonAffectee ? 'Non affectée' : (r.commercialNom ?? '')),
-  },
   {
     nom: 'preProspection',
     libelle: 'Type',
@@ -57,6 +48,15 @@ const COLONNES: ColonneGrille<LigneRelance>[] = [
       r.preProspection ? <Badge tone="amber">Pré-prospection</Badge> : <Badge tone="neutral">Prospection</Badge>,
     valeur: (r) => (r.preProspection ? 'Pré-prospection' : 'Prospection'),
   },
+  {
+    nom: 'commercialNom',
+    libelle: 'Commercial',
+    largeur: 14,
+    classe: 'text-muted-foreground',
+    rendu: (r) => (r.nonAffectee ? 'Non affectée' : r.commercialNom || '—'),
+    valeur: (r) => (r.nonAffectee ? 'Non affectée' : (r.commercialNom ?? '')),
+  },
+  { nom: 'motif', libelle: 'Motif', largeur: 24, classe: 'text-muted-foreground', titre: (r) => r.motif ?? undefined },
   { nom: 'derniereInteractionDate', libelle: 'Dernière action', type: 'DATE', largeur: 9 },
 ];
 

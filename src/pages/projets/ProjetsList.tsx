@@ -11,9 +11,9 @@ import { useApi } from '../../lib/useApi';
 import type { ProjetListItemDto } from '../../types';
 
 const COLONNES: ColonneGrille<ProjetListItemDto>[] = [
-  { nom: 'code', libelle: 'Code', largeur: 14, classe: 'text-muted-foreground' },
   { nom: 'description', libelle: 'Description', largeur: 56, classe: 'font-medium text-foreground', titre: (p) => p.description || undefined },
   { nom: 'ville', libelle: 'Ville', largeur: 30, classe: 'capitalize text-muted-foreground' },
+  { nom: 'code', libelle: 'Code', largeur: 14, classe: 'text-muted-foreground' },
 ];
 
 export default function ProjetsList() {
