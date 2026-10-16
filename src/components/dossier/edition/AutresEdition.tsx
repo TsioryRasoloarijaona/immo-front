@@ -27,12 +27,17 @@ function Section({ titre, children }: Readonly<{ titre: string; children: ReactN
 export default function AutresEdition({
   f,
   decisions,
-}: Readonly<{ f: FormulaireEdition; decisions: ReferentielItemDto[] }>) {
+  commercialActuelId,
+}: Readonly<{ f: FormulaireEdition; decisions: ReferentielItemDto[]; commercialActuelId?: string | null }>) {
   const peut = f.edition.peut;
   const employes = useTiersParType('EMP', peut('GESTIONNAIRES'));
   // Le serveur n'accepte qu'un tiers de GET /api/commerciaux : même liste que les autres écrans.
   const { commerciaux, commerciauxLoading } = useAppData();
   const choixCommerciaux = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
+  // Un dossier peut porter un tiers d'un autre genre (DSI, DGD…) : il reste affiché, et n'est renvoyé que s'il change.
+  if (commercialActuelId && !choixCommerciaux.some((c) => c.value === commercialActuelId)) {
+    choixCommerciaux.unshift({ label: 'Commercial actuel (hors liste des commerciaux)', value: commercialActuelId });
+  }
   const fournisseurs = useTiersParType('FOU', peut('NOTAIRE'));
   const banques = useBanques();
   const [client, setClient] = useState<{ id: string; nom: string } | null>(null);

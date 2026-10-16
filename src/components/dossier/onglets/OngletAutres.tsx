@@ -75,7 +75,7 @@ function Autres({ fiche }: Readonly<{ fiche: DossierFicheDto }>) {
   return (
     <>
       <BarreEdition edition={f.edition} visible={visible} onEnregistrer={f.enregistrer} />
-      {f.edition.ouvert ? <AutresEdition f={f} decisions={decisions.data ?? []} /> : <Lecture a={fiche.autres} />}
+      {f.edition.ouvert ? <AutresEdition f={f} decisions={decisions.data ?? []} commercialActuelId={fiche.autres.commercialId} /> : <Lecture a={fiche.autres} />}
     </>
   );
 }
