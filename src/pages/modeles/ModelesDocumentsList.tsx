@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { FileCode2, Pencil, Plus, RotateCcw } from 'lucide-react';
 import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import { Button } from '../../components/ui/button';
@@ -28,7 +28,18 @@ export default function ModelesDocumentsList() {
 
   const colonnes = useMemo<ColonneGrille<ModeleDocumentAdminDto>[]>(
     () => [
-      { nom: 'libelle', libelle: 'Libellé', largeur: 18, classe: 'font-medium text-foreground' },
+      {
+        nom: 'libelle',
+        libelle: 'Libellé',
+        largeur: 18,
+        classe: 'font-medium text-foreground',
+        titre: (r) => `Ouvrir « ${r.libelle} » dans l'éditeur`,
+        rendu: (r) => (
+          <Link to={`/modeles-documents/${r.id}`} className="text-(--brand) hover:underline">
+            {r.libelle}
+          </Link>
+        ),
+      },
       { nom: 'code', libelle: 'Code', largeur: 14, classe: 'font-mono text-muted-foreground' },
       {
         nom: 'categorie',

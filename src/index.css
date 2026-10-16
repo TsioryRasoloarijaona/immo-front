@@ -510,6 +510,15 @@ table {
   outline: none;
   min-height: 2rem;
 }
+/* Papier toujours blanc : l'encre ne suit pas le thème (sinon les titres prennent --text-h, clair en sombre). */
+.editeur-modele-page,
+.editeur-modele-zone {
+  background: #fff;
+  color: #111;
+}
+:is(.editeur-modele-page, .editeur-modele-zone) :is(h1, h2, h3, p, li, td, th, strong, em, u) {
+  color: #111;
+}
 .editeur-modele-page .ProseMirror { min-height: 240mm; }
 .editeur-modele-page h1 { font-size: 14pt; font-weight: 700; margin: 0 0 8pt; }
 .editeur-modele-page h2 { font-size: 11pt; font-weight: 700; margin: 8pt 0 2pt; }
