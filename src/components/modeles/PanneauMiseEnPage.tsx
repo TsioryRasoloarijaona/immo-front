@@ -28,7 +28,7 @@ function bornerMarge(texte: string): number {
   return Math.min(60, Math.max(0, n));
 }
 
-/** Propriétés du modèle, marges en mm, en-tête et pied (même HTML restreint, 400 caractères avec la mise en page). */
+/** Propriétés du modèle, marges en mm, en-tête et pied (même HTML restreint que le corps). */
 export default function PanneauMiseEnPage({
   proprietes,
   onProprietes,
@@ -108,7 +108,7 @@ export default function PanneauMiseEnPage({
           {pied && <EditorContent editor={pied} />}
         </div>
         <p className="text-micro text-muted-foreground">
-          Répétés sur chaque page. Courts : la mise en page entière (en-tête et pied compris) tient en 400 caractères.
+          Répétés sur chaque page. Un logo y est possible : ses images comptent avec celles du document (2 Mo au total).
         </p>
       </section>
     </div>
