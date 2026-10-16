@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '../../ui';
 import { Button } from '../../ui/button';
 import { TableCell, TableRow } from '../../ui/table';
@@ -15,6 +15,7 @@ export default function LigneEcheance({
   versionReglements,
   onReglementAdded,
   onReglementChanged,
+  onModifier,
   onSupprimer,
 }: Readonly<{
   dossierId: string;
@@ -23,6 +24,7 @@ export default function LigneEcheance({
   versionReglements: number;
   onReglementAdded: () => Promise<void>;
   onReglementChanged: () => Promise<void>;
+  onModifier: (echeance: EcheanceDto) => void;
   /** Absent hors Administrateur (403) ; le serveur refuse (409) une ligne réglée, autorisée ou en recouvrement. */
   onSupprimer?: (echeance: EcheanceDto) => void;
 }>) {
@@ -72,6 +74,9 @@ export default function LigneEcheance({
                 setExpanded(true);
               }}
             />
+            <Button type="button" variant="ghost" size="icon-sm" aria-label="Modifier l'échéance" onClick={() => onModifier(echeance)}>
+              <Pencil />
+            </Button>
             {onSupprimer && (
               <Button type="button" variant="ghost" size="icon-sm" aria-label="Supprimer l'échéance" onClick={() => onSupprimer(echeance)}>
                 <Trash2 />

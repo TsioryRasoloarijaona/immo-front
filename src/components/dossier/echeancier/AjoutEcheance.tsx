@@ -16,7 +16,8 @@ export default function AjoutEcheance({
   initialMontant,
   initialDate,
 }: Readonly<{
-  onAdd: (body: CreerEcheanceRequest) => Promise<void>;
+  /** `false` si le serveur a refusé : la fenêtre reste ouverte avec la saisie. */
+  onAdd: (body: CreerEcheanceRequest) => Promise<boolean>;
   initialOpen?: boolean;
   initialMontant?: number;
   initialDate?: string;
@@ -54,14 +55,15 @@ export default function AjoutEcheance({
           if (!categorieId) return;
           setBusy(true);
           try {
-            await onAdd({
+            const ok = await onAdd({
               categorieId,
-              montant: Number(montant) || 0,
+              // Vide : le serveur prend le montant par défaut de la catégorie (400 si elle n'en a pas).
+              montant: montant === '' ? undefined : Number(montant),
               // `dateEcheance` est en `date-time` : un « YYYY-MM-DD » nu vaut 400.
               dateEcheance: toApiDateTime(dateEcheance) ?? null,
               description: description || undefined,
             });
-            reset();
+            if (ok) reset();
           } finally {
             setBusy(false);
           }
@@ -84,7 +86,7 @@ export default function AjoutEcheance({
             </Select>
           </FormField>
           <FormField>
-            <FieldLabel htmlFor="new-montant">Montant</FieldLabel>
+            <FieldLabel htmlFor="new-montant">Montant (vide : montant par défaut de la catégorie)</FieldLabel>
             <Input id="new-montant" type="number" value={montant} onChange={(e) => setMontant(e.target.value)} />
           </FormField>
           <FormField>
@@ -98,7 +100,7 @@ export default function AjoutEcheance({
         </FieldGroup>
         <DialogFooter className="mt-5">
           <Button type="button" variant="outline" onClick={reset}>Annuler</Button>
-          <Button type="submit" disabled={busy || !montant || !categorieId}>Ajouter</Button>
+          <Button type="submit" disabled={busy || !categorieId}>Ajouter</Button>
         </DialogFooter>
       </form>
     </Modal>
