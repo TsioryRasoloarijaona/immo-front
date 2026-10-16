@@ -5,7 +5,9 @@ import { Button } from './ui/button';
 import { DialogFooter } from './ui/dialog';
 import { Field as FormField, FieldGroup, FieldLabel } from './ui/field';
 import { Input } from './ui/input';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import {
+  getComptesReferentiel,
   listReglementPiecesJointes,
   modifierStatutReglement,
   openReglementPieceJointeFichier,
@@ -16,6 +18,7 @@ import {
 import { useConfirm } from '../lib/confirmContext';
 import { messageErreurStatut, raisonPreuveVerrouillee } from '../lib/reglementRegles';
 import { formatCurrency, formatDate, toApiDateTime, todayISO } from '../lib/format';
+import { referentielItems } from '../lib/referentiels';
 import { useApi } from '../lib/useApi';
 import { cn } from '../lib/utils';
 import type { PieceJointeDto } from '../types';
@@ -31,6 +34,8 @@ export type ReglementAPointer = {
   montant?: number | null;
   typeLibelle?: string | null;
   payeurNom?: string | null;
+  /** Société du règlement : restreint la liste des comptes ; absente, tous les comptes. */
+  societeId?: string | null;
 };
 
 /** Ni type ni description obligatoires : les justificatifs réels n'en portent pas. */
@@ -226,9 +231,41 @@ export function ReglementPieceJointeRow({
   );
 }
 
-/** Règles serveur : `dateReglement` obligatoire (400) et au moins une pièce jointe
- * (409). On lit les pièces d'abord pour proposer le dépôt ici ; le 409 reste géré
- * en dernier recours (course, ligne legacy). */
+/** Comptes de la société du règlement ; le serveur refuse un compte d'une autre société (400). */
+function ChampComptePointage({
+  societeId,
+  value,
+  onChange,
+}: Readonly<{ societeId?: string | null; value: string | null; onChange: (id: string | null) => void }>) {
+  const comptes = useApi(() => getComptesReferentiel(societeId), [societeId]);
+  const items = referentielItems(comptes.data ?? []);
+  return (
+    <FormField>
+      <FieldLabel htmlFor="pointage-compte">Compte *</FieldLabel>
+      <Select items={items} value={value ?? ''} onValueChange={(v) => onChange(v || null)}>
+        <SelectTrigger id="pointage-compte">
+          <SelectValue placeholder={comptes.loading ? 'Chargement…' : 'Choisir le compte…'} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {items.map((item) => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+      {comptes.error && <span className="text-micro text-destructive">{comptes.error}</span>}
+      {!comptes.error && comptes.data?.length === 0 && (
+        <span className="text-micro text-(--amber)">Aucun compte pour la société de ce règlement.</span>
+      )}
+    </FormField>
+  );
+}
+
+/** Règles serveur : `dateReglement` et `compteId` obligatoires (400), au moins une
+ * pièce jointe (409), date après le dernier rapprochement du compte (409). On lit
+ * les pièces d'abord pour proposer le dépôt ici ; les messages serveur sont
+ * affichés tels quels. */
 export function PointerReglementModal({
   dossierId,
   reglement,
@@ -241,6 +278,7 @@ export function PointerReglementModal({
   onPointed: () => Promise<void>;
 }>) {
   const [dateReglement, setDateReglement] = useState(todayISO());
+  const [compteId, setCompteId] = useState<string | null>(null);
   const [piecesVersion, setPiecesVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -267,6 +305,7 @@ export function PointerReglementModal({
               onChange={(e) => setDateReglement(e.target.value)}
             />
           </FormField>
+          <ChampComptePointage societeId={reglement.societeId} value={compteId} onChange={setCompteId} />
         </FieldGroup>
 
         <div className="flex flex-col gap-2 rounded-lg bg-muted/40 px-2.5 py-2">
@@ -301,7 +340,7 @@ export function PointerReglementModal({
         <Button type="button" variant="outline" onClick={onClose} disabled={busy}>Annuler</Button>
         <Button
           type="button"
-          disabled={busy || !dateReglement || sansPreuve || pieces.loading}
+          disabled={busy || !dateReglement || !compteId || sansPreuve || pieces.loading}
           onClick={async () => {
             setBusy(true);
             setError(null);
@@ -309,6 +348,7 @@ export function PointerReglementModal({
               await modifierStatutReglement(dossierId, reglement.id, {
                 statut: 'POINTED',
                 dateReglement: toApiDateTime(dateReglement) ?? null,
+                compteId,
               });
               await onPointed();
               onClose();

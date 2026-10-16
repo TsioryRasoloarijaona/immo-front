@@ -1877,6 +1877,8 @@ export interface ReglementDto {
   payeurId?: UUID;
   payeurNom?: string;
   notes?: string;
+  /** Société du règlement (`StlSettlement.CfgCompanyId`) : filtre des comptes au pointage. */
+  societeId?: UUID | null;
 }
 
 /** `GET /api/encaissements/totaux` : bande « Total : » sur tout le filtre. */
@@ -2098,8 +2100,12 @@ export interface ReglementDossierDto {
  * exige au moins une pièce jointe (409 sinon). */
 export interface ModifierStatutReglementRequest {
   statut: 'POINTED' | 'CANCELED';
-  /** Requise pour `POINTED` (400 sinon) ; ignorée pour `CANCELED`. */
+  /** Requise pour `POINTED` (400 sinon) ; ignorée pour `CANCELED`. Après le
+   * dernier rapprochement du compte (409 sinon). */
   dateReglement?: string | null;
+  /** Requis pour `POINTED` (400 sinon) : un compte de `GET /api/referentiels/comptes?societeId=`
+   * de la société du règlement (400 sinon). Ignoré pour `CANCELED`. */
+  compteId?: UUID | null;
 }
 
 /** Liste indicative, pas fermée : un tiers hors liste peut payer. */

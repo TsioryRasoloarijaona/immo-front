@@ -1433,7 +1433,9 @@ export function listEncaissementsGroupes(
 }
 
 export const getEntitesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/entites');
-export const getComptesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/comptes');
+/** Sans `societeId`, tous les comptes (filtre de l'écran Encaissements) ; avec, ceux de la société (pointage). */
+export const getComptesReferentiel = (societeId?: UUID | null): Promise<ReferentielItemDto[]> =>
+  request('GET', '/api/referentiels/comptes', { query: { societeId } });
 export const getDepotsReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/depots');
 export const getNatures = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/natures');
 export const getEtages = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/etages');

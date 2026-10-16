@@ -114,7 +114,7 @@ export const useBanques = makeCachedListHook(api.getBanques);
 export const useEntitesReferentiel = makeCachedListHook(api.getEntitesReferentiel);
 export const useNatures = makeCachedListHook(api.getNatures);
 export const useEtages = makeCachedListHook(api.getEtages);
-export const useComptesReferentiel = makeCachedListHook(api.getComptesReferentiel);
+export const useComptesReferentiel = makeCachedListHook(() => api.getComptesReferentiel());
 export const useDepotsReferentiel = makeCachedListHook(api.getDepotsReferentiel);
 export const useResultatsInteraction = makeCachedListHook(api.getResultatsInteraction);
 export const useProjetsReferentiel = makeCachedListHook(api.getProjetsReferentiel);

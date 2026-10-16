@@ -334,6 +334,7 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
             montant: e.montantBrut,
             typeLibelle: e.typeLibelle,
             payeurNom: e.tierPayeurNom,
+            societeId: e.entiteId,
           }}
           onClose={() => setPointageOuvert(false)}
           onPointed={refetch}
