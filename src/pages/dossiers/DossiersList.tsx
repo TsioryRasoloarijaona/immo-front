@@ -23,7 +23,7 @@ import {
   listDossiers,
   listDossiersGroupes,
   listStatutsDossiers,
-  totauxColonnesDossiers,
+  totauxColonnes,
   viewDossiersDocumentsEnLot,
   type DossierBatchDocKind,
   type DossierFilterParams,
@@ -165,7 +165,7 @@ export default function DossiersList() {
   const totauxServeur = totauxSurDossiers(
     useTotauxServeur(
       colonnes.colonnes,
-      (agregats) => totauxColonnesDossiers(filtresServeur, agregats),
+      (agregats) => totauxColonnes('dossiers', filtresServeur, agregats),
       clesFiltres.slice(0, -1).join('|'),
       totauxDossiersActifs(enGroupes, filtreStatut.lignes),
       'dossiers-totaux-colonnes',

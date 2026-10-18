@@ -20,7 +20,7 @@ import {
   listProspections,
   listProspectionsGroupes,
   paramsExportProspections,
-  totauxColonnesProspections,
+  totauxColonnes,
 } from '../../lib/api';
 import { useTotauxServeur } from '../../lib/totauxServeur';
 import { useColonnesVisibles } from '../../lib/colonnes';
@@ -131,7 +131,7 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
   // Hors `page` : les totaux portent sur tout le filtre. Colonnes affichées : un Σ masqué n'est pas demandé.
   const totauxServeur = useTotauxServeur(
     colonnes.colonnes,
-    (agregats) => totauxColonnesProspections(filtresServeur, agregats, { filtres: filtresAvances }),
+    (agregats) => totauxColonnes('prospections', filtresServeur, agregats, filtresAvances),
     clesFiltresSeuls.join('|'),
     !listeSuspendue,
     'prospections-totaux',

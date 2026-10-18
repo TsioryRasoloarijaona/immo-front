@@ -13454,6 +13454,7 @@
           {
             "name": "entiteId",
             "in": "query",
+            "description": "Id(s) d'entité juridique (CfgCompany). Répétable, OR. Absent = toutes.",
             "required": false,
             "schema": {
               "type": "array",
@@ -13466,6 +13467,7 @@
           {
             "name": "typeId",
             "in": "query",
+            "description": "Id(s) de type de règlement (StlSettlementType, voir GET /api/referentiels/types-reglement). Répétable, OR.",
             "required": false,
             "schema": {
               "type": "array",
@@ -13478,17 +13480,20 @@
           {
             "name": "etat",
             "in": "query",
+            "description": "État(s) (StlSettlement.Status : IN_WORK/POINTED/CANCELED confirmés). Répétable, OR, insensible à la casse.",
             "required": false,
             "schema": {
               "type": "array",
               "items": {
                 "type": "string"
               }
-            }
+            },
+            "example": "IN_WORK"
           },
           {
             "name": "compteId",
             "in": "query",
+            "description": "Id du compte bancaire de destination (StlAccount, voir GET /api/referentiels/comptes).",
             "required": false,
             "schema": {
               "type": "string",
@@ -13498,6 +13503,7 @@
           {
             "name": "depotId",
             "in": "query",
+            "description": "Id de la catégorie de dépôt (StlDeposit, voir GET /api/referentiels/depots).",
             "required": false,
             "schema": {
               "type": "string",
@@ -13507,6 +13513,7 @@
           {
             "name": "dossierId",
             "in": "query",
+            "description": "Restreint aux règlements d'un seul Dossier (ComFolder.id).",
             "required": false,
             "schema": {
               "type": "string",
@@ -13528,6 +13535,7 @@
           {
             "name": "tierId",
             "in": "query",
+            "description": "Id du tiers réglant (CfgTier.id).",
             "required": false,
             "schema": {
               "type": "string",
@@ -13537,6 +13545,7 @@
           {
             "name": "reference",
             "in": "query",
+            "description": "Sous-chaîne sur la référence (StlSettlement.Code, ex. n° de chèque).",
             "required": false,
             "schema": {
               "type": "string"
@@ -13545,6 +13554,7 @@
           {
             "name": "search",
             "in": "query",
+            "description": "Recherche libre : référence OU nom du tiers réglant.",
             "required": false,
             "schema": {
               "type": "string"
@@ -13553,6 +13563,7 @@
           {
             "name": "comptabilise",
             "in": "query",
+            "description": "true = uniquement comptabilisés, false = uniquement non comptabilisés, absent = tous.",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -13561,6 +13572,7 @@
           {
             "name": "montantDe",
             "in": "query",
+            "description": "Montant brut minimum (inclus).",
             "required": false,
             "schema": {
               "type": "number"
@@ -13569,6 +13581,7 @@
           {
             "name": "montantA",
             "in": "query",
+            "description": "Montant brut maximum (inclus).",
             "required": false,
             "schema": {
               "type": "number"
@@ -13577,6 +13590,7 @@
           {
             "name": "champDate",
             "in": "query",
+            "description": "Jalon sur lequel appliquer dateDebut/dateFin. Ignoré si aucun des deux n'est fourni. Défaut : DATE_PIECE.",
             "required": false,
             "schema": {
               "type": "string",
@@ -13586,25 +13600,30 @@
                 "DATE_REGLEMENT",
                 "POINTAGE_PREVU"
               ]
-            }
+            },
+            "example": "DATE_ECHEANCE"
           },
           {
             "name": "dateDebut",
             "in": "query",
+            "description": "Borne inférieure (incluse) de la plage sur champDate, format ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-08-01T00:00:00"
           },
           {
             "name": "dateFin",
             "in": "query",
+            "description": "Borne supérieure (incluse) de la plage sur champDate, format ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-08-31T23:59:59"
           }
         ],
         "responses": {
@@ -13646,6 +13665,7 @@
           {
             "name": "entiteId",
             "in": "query",
+            "description": "Id(s) d'entité juridique (CfgCompany). Répétable, OR. Absent = toutes.",
             "required": false,
             "schema": {
               "type": "array",
@@ -13658,6 +13678,7 @@
           {
             "name": "typeId",
             "in": "query",
+            "description": "Id(s) de type de règlement (StlSettlementType, voir GET /api/referentiels/types-reglement). Répétable, OR.",
             "required": false,
             "schema": {
               "type": "array",
@@ -13670,17 +13691,20 @@
           {
             "name": "etat",
             "in": "query",
+            "description": "État(s) (StlSettlement.Status : IN_WORK/POINTED/CANCELED confirmés). Répétable, OR, insensible à la casse.",
             "required": false,
             "schema": {
               "type": "array",
               "items": {
                 "type": "string"
               }
-            }
+            },
+            "example": "IN_WORK"
           },
           {
             "name": "compteId",
             "in": "query",
+            "description": "Id du compte bancaire de destination (StlAccount, voir GET /api/referentiels/comptes).",
             "required": false,
             "schema": {
               "type": "string",
@@ -13690,6 +13714,7 @@
           {
             "name": "depotId",
             "in": "query",
+            "description": "Id de la catégorie de dépôt (StlDeposit, voir GET /api/referentiels/depots).",
             "required": false,
             "schema": {
               "type": "string",
@@ -13699,6 +13724,7 @@
           {
             "name": "dossierId",
             "in": "query",
+            "description": "Restreint aux règlements d'un seul Dossier (ComFolder.id).",
             "required": false,
             "schema": {
               "type": "string",
@@ -13720,6 +13746,7 @@
           {
             "name": "tierId",
             "in": "query",
+            "description": "Id du tiers réglant (CfgTier.id).",
             "required": false,
             "schema": {
               "type": "string",
@@ -13729,6 +13756,7 @@
           {
             "name": "reference",
             "in": "query",
+            "description": "Sous-chaîne sur la référence (StlSettlement.Code, ex. n° de chèque).",
             "required": false,
             "schema": {
               "type": "string"
@@ -13737,6 +13765,7 @@
           {
             "name": "search",
             "in": "query",
+            "description": "Recherche libre : référence OU nom du tiers réglant.",
             "required": false,
             "schema": {
               "type": "string"
@@ -13745,6 +13774,7 @@
           {
             "name": "comptabilise",
             "in": "query",
+            "description": "true = uniquement comptabilisés, false = uniquement non comptabilisés, absent = tous.",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -13753,6 +13783,7 @@
           {
             "name": "montantDe",
             "in": "query",
+            "description": "Montant brut minimum (inclus).",
             "required": false,
             "schema": {
               "type": "number"
@@ -13761,6 +13792,7 @@
           {
             "name": "montantA",
             "in": "query",
+            "description": "Montant brut maximum (inclus).",
             "required": false,
             "schema": {
               "type": "number"
@@ -13769,6 +13801,7 @@
           {
             "name": "champDate",
             "in": "query",
+            "description": "Jalon sur lequel appliquer dateDebut/dateFin. Ignoré si aucun des deux n'est fourni. Défaut : DATE_PIECE.",
             "required": false,
             "schema": {
               "type": "string",
@@ -13778,25 +13811,30 @@
                 "DATE_REGLEMENT",
                 "POINTAGE_PREVU"
               ]
-            }
+            },
+            "example": "DATE_ECHEANCE"
           },
           {
             "name": "dateDebut",
             "in": "query",
+            "description": "Borne inférieure (incluse) de la plage sur champDate, format ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-08-01T00:00:00"
           },
           {
             "name": "dateFin",
             "in": "query",
+            "description": "Borne supérieure (incluse) de la plage sur champDate, format ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-08-31T23:59:59"
           }
         ],
         "responses": {
@@ -13891,6 +13929,7 @@
           {
             "name": "entiteId",
             "in": "query",
+            "description": "Id(s) d'entité juridique (CfgCompany). Répétable, OR. Absent = toutes.",
             "required": false,
             "schema": {
               "type": "array",
@@ -13903,6 +13942,7 @@
           {
             "name": "typeId",
             "in": "query",
+            "description": "Id(s) de type de règlement (StlSettlementType, voir GET /api/referentiels/types-reglement). Répétable, OR.",
             "required": false,
             "schema": {
               "type": "array",
@@ -13915,17 +13955,20 @@
           {
             "name": "etat",
             "in": "query",
+            "description": "État(s) (StlSettlement.Status : IN_WORK/POINTED/CANCELED confirmés). Répétable, OR, insensible à la casse.",
             "required": false,
             "schema": {
               "type": "array",
               "items": {
                 "type": "string"
               }
-            }
+            },
+            "example": "IN_WORK"
           },
           {
             "name": "compteId",
             "in": "query",
+            "description": "Id du compte bancaire de destination (StlAccount, voir GET /api/referentiels/comptes).",
             "required": false,
             "schema": {
               "type": "string",
@@ -13935,6 +13978,7 @@
           {
             "name": "depotId",
             "in": "query",
+            "description": "Id de la catégorie de dépôt (StlDeposit, voir GET /api/referentiels/depots).",
             "required": false,
             "schema": {
               "type": "string",
@@ -13944,6 +13988,7 @@
           {
             "name": "dossierId",
             "in": "query",
+            "description": "Restreint aux règlements d'un seul Dossier (ComFolder.id).",
             "required": false,
             "schema": {
               "type": "string",
@@ -13965,6 +14010,7 @@
           {
             "name": "tierId",
             "in": "query",
+            "description": "Id du tiers réglant (CfgTier.id).",
             "required": false,
             "schema": {
               "type": "string",
@@ -13974,6 +14020,7 @@
           {
             "name": "reference",
             "in": "query",
+            "description": "Sous-chaîne sur la référence (StlSettlement.Code, ex. n° de chèque).",
             "required": false,
             "schema": {
               "type": "string"
@@ -13982,6 +14029,7 @@
           {
             "name": "search",
             "in": "query",
+            "description": "Recherche libre : référence OU nom du tiers réglant.",
             "required": false,
             "schema": {
               "type": "string"
@@ -13990,6 +14038,7 @@
           {
             "name": "comptabilise",
             "in": "query",
+            "description": "true = uniquement comptabilisés, false = uniquement non comptabilisés, absent = tous.",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -13998,6 +14047,7 @@
           {
             "name": "montantDe",
             "in": "query",
+            "description": "Montant brut minimum (inclus).",
             "required": false,
             "schema": {
               "type": "number"
@@ -14006,6 +14056,7 @@
           {
             "name": "montantA",
             "in": "query",
+            "description": "Montant brut maximum (inclus).",
             "required": false,
             "schema": {
               "type": "number"
@@ -14014,6 +14065,7 @@
           {
             "name": "champDate",
             "in": "query",
+            "description": "Jalon sur lequel appliquer dateDebut/dateFin. Ignoré si aucun des deux n'est fourni. Défaut : DATE_PIECE.",
             "required": false,
             "schema": {
               "type": "string",
@@ -14023,25 +14075,30 @@
                 "DATE_REGLEMENT",
                 "POINTAGE_PREVU"
               ]
-            }
+            },
+            "example": "DATE_ECHEANCE"
           },
           {
             "name": "dateDebut",
             "in": "query",
+            "description": "Borne inférieure (incluse) de la plage sur champDate, format ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-08-01T00:00:00"
           },
           {
             "name": "dateFin",
             "in": "query",
+            "description": "Borne supérieure (incluse) de la plage sur champDate, format ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-08-31T23:59:59"
           },
           {
             "name": "pageable",
@@ -14092,6 +14149,7 @@
           {
             "name": "entiteId",
             "in": "query",
+            "description": "Id(s) d'entité juridique (CfgCompany). Répétable, OR. Absent = toutes.",
             "required": false,
             "schema": {
               "type": "array",
@@ -14104,6 +14162,7 @@
           {
             "name": "typeId",
             "in": "query",
+            "description": "Id(s) de type de règlement (StlSettlementType, voir GET /api/referentiels/types-reglement). Répétable, OR.",
             "required": false,
             "schema": {
               "type": "array",
@@ -14116,17 +14175,20 @@
           {
             "name": "etat",
             "in": "query",
+            "description": "État(s) (StlSettlement.Status : IN_WORK/POINTED/CANCELED confirmés). Répétable, OR, insensible à la casse.",
             "required": false,
             "schema": {
               "type": "array",
               "items": {
                 "type": "string"
               }
-            }
+            },
+            "example": "IN_WORK"
           },
           {
             "name": "compteId",
             "in": "query",
+            "description": "Id du compte bancaire de destination (StlAccount, voir GET /api/referentiels/comptes).",
             "required": false,
             "schema": {
               "type": "string",
@@ -14136,6 +14198,7 @@
           {
             "name": "depotId",
             "in": "query",
+            "description": "Id de la catégorie de dépôt (StlDeposit, voir GET /api/referentiels/depots).",
             "required": false,
             "schema": {
               "type": "string",
@@ -14145,6 +14208,7 @@
           {
             "name": "dossierId",
             "in": "query",
+            "description": "Restreint aux règlements d'un seul Dossier (ComFolder.id).",
             "required": false,
             "schema": {
               "type": "string",
@@ -14166,6 +14230,7 @@
           {
             "name": "tierId",
             "in": "query",
+            "description": "Id du tiers réglant (CfgTier.id).",
             "required": false,
             "schema": {
               "type": "string",
@@ -14175,6 +14240,7 @@
           {
             "name": "reference",
             "in": "query",
+            "description": "Sous-chaîne sur la référence (StlSettlement.Code, ex. n° de chèque).",
             "required": false,
             "schema": {
               "type": "string"
@@ -14183,6 +14249,7 @@
           {
             "name": "search",
             "in": "query",
+            "description": "Recherche libre : référence OU nom du tiers réglant.",
             "required": false,
             "schema": {
               "type": "string"
@@ -14191,6 +14258,7 @@
           {
             "name": "comptabilise",
             "in": "query",
+            "description": "true = uniquement comptabilisés, false = uniquement non comptabilisés, absent = tous.",
             "required": false,
             "schema": {
               "type": "boolean"
@@ -14199,6 +14267,7 @@
           {
             "name": "montantDe",
             "in": "query",
+            "description": "Montant brut minimum (inclus).",
             "required": false,
             "schema": {
               "type": "number"
@@ -14207,6 +14276,7 @@
           {
             "name": "montantA",
             "in": "query",
+            "description": "Montant brut maximum (inclus).",
             "required": false,
             "schema": {
               "type": "number"
@@ -14215,6 +14285,7 @@
           {
             "name": "champDate",
             "in": "query",
+            "description": "Jalon sur lequel appliquer dateDebut/dateFin. Ignoré si aucun des deux n'est fourni. Défaut : DATE_PIECE.",
             "required": false,
             "schema": {
               "type": "string",
@@ -14224,25 +14295,30 @@
                 "DATE_REGLEMENT",
                 "POINTAGE_PREVU"
               ]
-            }
+            },
+            "example": "DATE_ECHEANCE"
           },
           {
             "name": "dateDebut",
             "in": "query",
+            "description": "Borne inférieure (incluse) de la plage sur champDate, format ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-08-01T00:00:00"
           },
           {
             "name": "dateFin",
             "in": "query",
+            "description": "Borne supérieure (incluse) de la plage sur champDate, format ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-08-31T23:59:59"
           },
           {
             "name": "colonnes",
@@ -15358,11 +15434,13 @@
               "items": {
                 "type": "string"
               }
-            }
+            },
+            "example": "CONCRETISATION"
           },
           {
             "name": "commercial",
             "in": "query",
+            "description": "Id du commercial (CfgTier.id, cfgCommercial).",
             "required": false,
             "schema": {
               "type": "string",
@@ -15372,6 +15450,7 @@
           {
             "name": "projet",
             "in": "query",
+            "description": "Id du projet (CfgProject.id), résolu par la tranche de l'article principal.",
             "required": false,
             "schema": {
               "type": "string",
@@ -15445,25 +15524,30 @@
                 "MODIFICATION",
                 "ANNULATION"
               ]
-            }
+            },
+            "example": "CONCRETISATION"
           },
           {
             "name": "dateDebut",
             "in": "query",
+            "description": "Borne inférieure (incluse) sur champDate, ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-01-01T00:00:00"
           },
           {
             "name": "dateFin",
             "in": "query",
+            "description": "Borne supérieure (incluse) sur champDate, ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-12-31T23:59:59"
           },
           {
             "name": "dateVide",
@@ -15488,7 +15572,8 @@
             "schema": {
               "type": "boolean",
               "default": false
-            }
+            },
+            "example": false
           },
           {
             "name": "lignes",
@@ -15552,11 +15637,13 @@
               "items": {
                 "type": "string"
               }
-            }
+            },
+            "example": "CONCRETISATION"
           },
           {
             "name": "commercial",
             "in": "query",
+            "description": "Id du commercial (CfgTier.id, cfgCommercial).",
             "required": false,
             "schema": {
               "type": "string",
@@ -15566,6 +15653,7 @@
           {
             "name": "projet",
             "in": "query",
+            "description": "Id du projet (CfgProject.id), résolu par la tranche de l'article principal.",
             "required": false,
             "schema": {
               "type": "string",
@@ -15639,25 +15727,30 @@
                 "MODIFICATION",
                 "ANNULATION"
               ]
-            }
+            },
+            "example": "CONCRETISATION"
           },
           {
             "name": "dateDebut",
             "in": "query",
+            "description": "Borne inférieure (incluse) sur champDate, ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-01-01T00:00:00"
           },
           {
             "name": "dateFin",
             "in": "query",
+            "description": "Borne supérieure (incluse) sur champDate, ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-12-31T23:59:59"
           },
           {
             "name": "dateVide",
@@ -15682,7 +15775,8 @@
             "schema": {
               "type": "boolean",
               "default": false
-            }
+            },
+            "example": false
           },
           {
             "name": "lignes",
@@ -15822,11 +15916,13 @@
               "items": {
                 "type": "string"
               }
-            }
+            },
+            "example": "CONCRETISATION"
           },
           {
             "name": "commercial",
             "in": "query",
+            "description": "Id du commercial (CfgTier.id, cfgCommercial).",
             "required": false,
             "schema": {
               "type": "string",
@@ -15836,6 +15932,7 @@
           {
             "name": "projet",
             "in": "query",
+            "description": "Id du projet (CfgProject.id), résolu par la tranche de l'article principal.",
             "required": false,
             "schema": {
               "type": "string",
@@ -15909,25 +16006,30 @@
                 "MODIFICATION",
                 "ANNULATION"
               ]
-            }
+            },
+            "example": "CONCRETISATION"
           },
           {
             "name": "dateDebut",
             "in": "query",
+            "description": "Borne inférieure (incluse) sur champDate, ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-01-01T00:00:00"
           },
           {
             "name": "dateFin",
             "in": "query",
+            "description": "Borne supérieure (incluse) sur champDate, ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-12-31T23:59:59"
           },
           {
             "name": "dateVide",
@@ -15952,7 +16054,8 @@
             "schema": {
               "type": "boolean",
               "default": false
-            }
+            },
+            "example": false
           },
           {
             "name": "pageable",
@@ -16009,11 +16112,13 @@
               "items": {
                 "type": "string"
               }
-            }
+            },
+            "example": "CONCRETISATION"
           },
           {
             "name": "commercial",
             "in": "query",
+            "description": "Id du commercial (CfgTier.id, cfgCommercial).",
             "required": false,
             "schema": {
               "type": "string",
@@ -16023,6 +16128,7 @@
           {
             "name": "projet",
             "in": "query",
+            "description": "Id du projet (CfgProject.id), résolu par la tranche de l'article principal.",
             "required": false,
             "schema": {
               "type": "string",
@@ -16096,25 +16202,30 @@
                 "MODIFICATION",
                 "ANNULATION"
               ]
-            }
+            },
+            "example": "CONCRETISATION"
           },
           {
             "name": "dateDebut",
             "in": "query",
+            "description": "Borne inférieure (incluse) sur champDate, ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-01-01T00:00:00"
           },
           {
             "name": "dateFin",
             "in": "query",
+            "description": "Borne supérieure (incluse) sur champDate, ISO-8601.",
             "required": false,
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-12-31T23:59:59"
           },
           {
             "name": "dateVide",
@@ -16139,7 +16250,8 @@
             "schema": {
               "type": "boolean",
               "default": false
-            }
+            },
+            "example": false
           },
           {
             "name": "lignes",
