@@ -829,7 +829,8 @@ export default function DataGrid<T extends { id: string }>({
             </TableRow>
           )}
         </TableBody>
-        {sommes.size > 0 && (
+        {/* Σ client figé d'un passage en mode groupé : masqué dès que le Σ serveur le remplace. */}
+        {!totauxServeur && sommes.size > 0 && (
           <TableFooter>
             <TableRow className="hover:bg-muted/50">
               {rendreDetail && <TableCell className="w-(--gutter-check) p-0" />}
