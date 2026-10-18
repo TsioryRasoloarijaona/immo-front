@@ -19,8 +19,10 @@ import {
   DEFAULT_PAGE_SIZE,
   listEncaissements,
   listEncaissementsGroupes,
+  totauxColonnesEncaissements,
   type EncaissementChampDate,
 } from '../../lib/api';
+import { useTotauxServeur } from '../../lib/totauxServeur';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { DISPOSITION_ENCAISSEMENTS } from '../../lib/dispositions';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
@@ -172,6 +174,15 @@ export default function EncaissementsList() {
     montantA,
     page,
   ];
+
+  // Σ par colonne sur tout le filtre (hors `page`) ; colonnes affichées seulement.
+  const totauxServeur = useTotauxServeur(
+    colonnes.colonnes,
+    (agregats) => totauxColonnesEncaissements(filtresServeur, agregats),
+    clesFiltres.slice(0, -1).join('|'),
+    !enGroupes,
+    'encaissements-totaux-colonnes',
+  );
 
   const liste = useApi(
     () =>
@@ -394,6 +405,7 @@ export default function EncaissementsList() {
                     onOuvrir={(id) => navigate(`/encaissements/${id}`)}
                     bandeauRegroupement={false}
                     groupes={groupesGrille(groupement, groupes.data, lignesGroupes, { etat: encaissementEtatLabel })}
+                    totauxServeur={totauxServeur}
                   />
                 </EtatColonnes>
               )}

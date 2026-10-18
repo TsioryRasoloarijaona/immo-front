@@ -17,6 +17,8 @@ export interface TotauxServeurGrille {
   chargement: boolean;
   erreur: string | null;
   reessayer: () => void;
+  /** Libellé de la bande à la place de « Totaux sur N ligne(s) filtrée(s) » ; reçoit N déjà formaté. */
+  libelle?: (nombre: string) => string;
 }
 
 /** `cleFiltres` doit changer avec chaque filtre serveur de la liste (pas avec la page) : les totaux portent sur

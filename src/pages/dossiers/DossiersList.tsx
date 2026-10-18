@@ -23,6 +23,7 @@ import {
   listDossiers,
   listDossiersGroupes,
   listStatutsDossiers,
+  totauxColonnesDossiers,
   viewDossiersDocumentsEnLot,
   type DossierBatchDocKind,
   type DossierFilterParams,
@@ -36,6 +37,7 @@ import { useColonnesDossiers, useTranchesFiltre } from '../../lib/referentiels';
 import { useAppData, commercialLabel } from '../../lib/appData';
 import { debutMoisISO, finMoisISO, pluriel } from '../../lib/format';
 import { useTotauxNature } from '../../lib/totauxDossiers';
+import { useTotauxServeur } from '../../lib/totauxServeur';
 import {
   AGREGATS_TOTAUX,
   colonnesListe,
@@ -45,6 +47,8 @@ import {
   optionsListe,
   optionsStatuts,
   routeDeLigne,
+  totauxDossiersActifs,
+  totauxSurDossiers,
   uniteDeLigne,
 } from '../../lib/dossierListe';
 import type { DossierListItemDto } from '../../types';
@@ -156,6 +160,18 @@ export default function DossiersList() {
   );
 
   const totauxNature = useTotauxNature(filtresServeur, clesFiltres.slice(0, -1), colonnes.colonnes);
+
+  // Σ par colonne sur tout le filtre (hors `page`), sur les dossiers seuls.
+  const totauxServeur = totauxSurDossiers(
+    useTotauxServeur(
+      colonnes.colonnes,
+      (agregats) => totauxColonnesDossiers(filtresServeur, agregats),
+      clesFiltres.slice(0, -1).join('|'),
+      totauxDossiersActifs(enGroupes, filtreStatut.lignes),
+      'dossiers-totaux-colonnes',
+    ),
+    filtreStatut.lignes,
+  );
 
   const groupes = useApi(
     () =>
@@ -495,6 +511,7 @@ export default function DossiersList() {
                     onOuvrir={(id) => navigate(routeDeLigne(dossiersParId.get(id), id))}
                     onOuvrirProspection={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
                     bandeauRegroupement={false}
+                    totauxServeur={totauxServeur}
                     selection={
                       batchDocKind
                         ? {

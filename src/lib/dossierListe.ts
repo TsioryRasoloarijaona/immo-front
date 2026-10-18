@@ -1,5 +1,6 @@
 import { canonicalStatusLabel, normalizeStatus } from './dossierStatus';
 import type { ColonneDto, DossierListItemDto } from '../types';
+import type { TotauxServeurGrille } from './totauxServeur';
 
 /** Codes `StrStatus` dont la normalisation ne rejoint pas le libellé canonique (`dossierStatus.ts`). */
 const ALIAS_STATUT: Record<string, string> = {
@@ -81,6 +82,20 @@ const CHAMPS_DATE_DES_SORTIS = new Set(['ANNULATION']);
 
 export function exigeLesSortis(champDate: string): boolean {
   return CHAMPS_DATE_DES_SORTIS.has(champDate);
+}
+
+/** Σ serveur en liste plate seulement, et rien à totaliser sur des lots libres seuls (ce ne sont pas des dossiers). */
+export function totauxDossiersActifs(enGroupes: boolean, lignes: LignesListeDossiers | undefined): boolean {
+  return !enGroupes && lignes !== 'LIBRES';
+}
+
+/** Σ serveur : avec des lots libres affichés, la bande dit qu'ils sont hors des totaux (seuls les dossiers comptent). */
+export function totauxSurDossiers(
+  totaux: TotauxServeurGrille | undefined,
+  lignes: LignesListeDossiers | undefined,
+): TotauxServeurGrille | undefined {
+  if (!totaux || lignes !== 'DOSSIERS_ET_LIBRES') return totaux;
+  return { ...totaux, libelle: (nombre) => `Totaux sur ${nombre} dossier(s) filtré(s), lots libres exclus` };
 }
 
 /** Avec des lots libres, une ligne n'est pas toujours un dossier. */

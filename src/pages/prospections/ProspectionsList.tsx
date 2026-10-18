@@ -15,7 +15,14 @@ import BasculeVue from '../../components/parcours/BasculeVue';
 import KanbanProspections from '../../components/parcours/KanbanProspections';
 import { lireVueProspections, memoriserVueProspections, type VueProspections } from '../../lib/kanban';
 import BoutonExporter from '../../components/BoutonExporter';
-import { DEFAULT_PAGE_SIZE, listProspections, listProspectionsGroupes, paramsExportProspections } from '../../lib/api';
+import {
+  DEFAULT_PAGE_SIZE,
+  listProspections,
+  listProspectionsGroupes,
+  paramsExportProspections,
+  totauxColonnesProspections,
+} from '../../lib/api';
+import { useTotauxServeur } from '../../lib/totauxServeur';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { pluriel } from '../../lib/format';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
@@ -107,7 +114,7 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
 
   const enGroupes = groupement.actif;
 
-  const clesFiltres = [
+  const clesFiltresSeuls = [
     debouncedSearch,
     filters.etape.join(','),
     filters.origine.join(','),
@@ -116,13 +123,23 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
     filters.dateDebut,
     filters.dateFin,
     filters.archive,
-    page,
     cleAvances,
   ];
+  const clesFiltres = [...clesFiltresSeuls, page];
+  const listeSuspendue = enGroupes || attenteDefaut || kanban;
+
+  // Hors `page` : les totaux portent sur tout le filtre. Colonnes affichées : un Σ masqué n'est pas demandé.
+  const totauxServeur = useTotauxServeur(
+    colonnes.colonnes,
+    (agregats) => totauxColonnesProspections(filtresServeur, agregats, { filtres: filtresAvances }),
+    clesFiltresSeuls.join('|'),
+    !listeSuspendue,
+    'prospections-totaux',
+  );
 
   const liste = useApi(
     () =>
-      enGroupes || attenteDefaut || kanban
+      listeSuspendue
         ? Promise.resolve(null)
         : listProspections(
             filtresServeur,
@@ -163,6 +180,7 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
     onMutation: () => {
       void liste.refetch();
       void groupes.refetch();
+      totauxServeur?.reessayer();
     },
   });
 
@@ -193,6 +211,7 @@ export default function ProspectionsList({ nouveau }: Readonly<{ nouveau?: boole
         bandeauRegroupement={false}
         actions={actionsLigne.rendu}
         groupes={groupesGrille(groupement, groupes.data, lignesGroupes)}
+        totauxServeur={totauxServeur}
       />
     </EtatColonnes>
   );
