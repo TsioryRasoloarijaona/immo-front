@@ -7,6 +7,7 @@ import { toneForStatus } from '../lib/dossierStatus';
 import { libelleStatutLigne } from '../lib/dossierListe';
 import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_DOSSIERS } from '../lib/dispositions';
+import type { TotauxServeurGrille } from '../lib/totauxServeur';
 import type { ColonneDto, DossierListItemDto } from '../types';
 import type { MontantsNatureDossier } from '../types/dossierListe';
 
@@ -167,6 +168,7 @@ export default function DossierTable({
   selection,
   bandeauRegroupement,
   groupes,
+  totauxServeur,
 }: Readonly<{
   rows: DossierListItemDto[];
   colonnes: ColonneDto[];
@@ -175,6 +177,7 @@ export default function DossierTable({
   cleOrdre?: string;
   bandeauRegroupement?: boolean;
   groupes?: GroupementGrille<DossierListItemDto>;
+  totauxServeur?: TotauxServeurGrille;
   selection?: { ids: Set<string>; onToggle: (id: string) => void; onToggleAll: (ids: string[]) => void };
 }>) {
   const grille = useMemo<ColonneGrille<DossierListItemDto>[]>(() => {
@@ -209,6 +212,7 @@ export default function DossierTable({
       selection={selection}
       bandeauRegroupement={bandeauRegroupement}
       groupes={groupes}
+      totauxServeur={totauxServeur}
     />
   );
 }

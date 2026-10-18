@@ -14,8 +14,9 @@ type ColonneBande = {
 const CHARGEMENT = '…';
 
 function libelleBande(totaux: TotauxServeurGrille): string {
-  if (totaux.chargement || totaux.nombreTotal === null) return `Totaux sur ${CHARGEMENT} ligne(s) filtrée(s)`;
-  return `Totaux sur ${formatNumber(totaux.nombreTotal)} ligne(s) filtrée(s)`;
+  const nombre =
+    totaux.chargement || totaux.nombreTotal === null ? CHARGEMENT : formatNumber(totaux.nombreTotal);
+  return totaux.libelle ? totaux.libelle(nombre) : `Totaux sur ${nombre} ligne(s) filtrée(s)`;
 }
 
 /** Bande « Totaux » sous l'en-tête et la ligne de filtre : une ligne de libellé pleine largeur, puis les

@@ -6,6 +6,7 @@ import { encaissementCompteDansLesTotaux, encaissementEtatLabel, encaissementEta
 import { jourISO } from '../lib/format';
 import { poidsColonne } from '../lib/colonnes';
 import { DISPOSITION_ENCAISSEMENTS } from '../lib/dispositions';
+import type { TotauxServeurGrille } from '../lib/totauxServeur';
 import type { ColonneDto, EncaissementDto } from '../types';
 
 const TIRET = <span className="text-muted-foreground">—</span>;
@@ -95,6 +96,7 @@ export default function EncaissementTable({
   cleOrdre,
   bandeauRegroupement,
   groupes,
+  totauxServeur,
 }: Readonly<{
   rows: EncaissementDto[];
   colonnes: ColonneDto[];
@@ -102,6 +104,7 @@ export default function EncaissementTable({
   cleOrdre?: string;
   bandeauRegroupement?: boolean;
   groupes?: GroupementGrille<EncaissementDto>;
+  totauxServeur?: TotauxServeurGrille;
 }>) {
   const grille = useMemo<ColonneGrille<EncaissementDto>[]>(
     () =>
@@ -135,6 +138,7 @@ export default function EncaissementTable({
       libelleLigne={(r) => `Ouvrir le règlement ${r.reference || r.description || r.id}`}
       bandeauRegroupement={bandeauRegroupement}
       groupes={groupes}
+      totauxServeur={totauxServeur}
     />
   );
 }
