@@ -505,9 +505,11 @@ export type GroupeColonne =
   | 'REGLES'
   | 'REMISES'
   | 'AUTRES'
-  | 'VISIBILITE';
+  | 'VISIBILITE'
+  // Catalogue de l'état des ventes.
+  | 'VENTE';
 
-/** `POURCENTAGE` : fraction (0,2 = 20 %), catalogue des tranches seulement. */
+/** `POURCENTAGE`: fraction (0,2 = 20 %), catalogue des tranches seulement. */
 export type TypeColonne = 'TEXTE' | 'NOMBRE' | 'MONTANT' | 'POURCENTAGE' | 'DATE' | 'BOOLEEN';
 
 /** Même source que la liste blanche de `?colonnes=` : ne pas coder de
@@ -2748,6 +2750,116 @@ export type ProjetEcritureDto = AvecChampsAVider & Partial<Omit<ProjetDetailDto,
   'id' | 'entiteCode' | 'entiteLibelle' | 'paysLibelle' | 'creePar' | 'creeLe' | 'modifiePar' | 'modifieLe'
   | 'signataireLibelle' | 'responsableTechniqueLibelle' | 'responsableCommercialLibelle'>>;
 
+/** Ligne de répartition d'une entité ; en écriture seuls `actionnaireId` et `nombreParts` sont lus. */
+export interface LigneRepartitionDto {
+  actionnaireId: UUID;
+  actionnaireCode?: string | null;
+  actionnaireLibelle?: string | null;
+  nombreParts: number;
+}
+
+/** Entité juridique (CfgCompany) : `GET /api/entites-juridiques[/{id}]` ; `repartition` null dans la liste. */
+export interface EntiteJuridiqueDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  descriptionLongue?: string;
+  /** false ou null : l'entité et tout son contenu sont masqués dans le CRM. */
+  isActive?: boolean | null;
+  formeJuridique?: string;
+  identifiantFiscal?: string;
+  registreCommerce?: string;
+  dateCreation?: string | null;
+  capital?: number;
+  cnss?: string;
+  patente?: string;
+  ice?: string;
+  /** Nombre de lignes de répartition attendues (Verif OMRAN). */
+  nombreActionnaires?: number;
+  /** Total des parts attendu dans la répartition. */
+  nombreParts?: number;
+  dateLiquidation?: string | null;
+  partMaison?: number;
+  groupeActionnairesId?: UUID | null;
+  groupeActionnairesCode?: string | null;
+  groupeActionnairesLibelle?: string | null;
+  deviseId?: UUID | null;
+  deviseCode?: string | null;
+  deviseLibelle?: string | null;
+  adresse?: string;
+  adresse2?: string;
+  adresse3?: string;
+  codePostal?: string;
+  ville?: string;
+  /** « Courrier fait à ». */
+  villeSignature?: string;
+  telephone?: string;
+  mobile?: string;
+  fax?: string;
+  email?: string;
+  siteWeb?: string;
+  paysId?: UUID | null;
+  paysLibelle?: string | null;
+  representantLegalId?: UUID | null;
+  representantLegalLibelle?: string | null;
+  signataireId?: UUID | null;
+  signataireLibelle?: string | null;
+  responsableTechniqueId?: UUID | null;
+  responsableTechniqueLibelle?: string | null;
+  responsableCommercialId?: UUID | null;
+  responsableCommercialLibelle?: string | null;
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
+  repartition?: LigneRepartitionDto[] | null;
+}
+
+/** Écriture d'une entité ; `repartition` présente = remplacée et contrôlée avec les nombres du même corps. */
+export type EntiteJuridiqueEcritureDto = AvecChampsAVider & Partial<Omit<EntiteJuridiqueDto,
+  'id' | 'groupeActionnairesCode' | 'groupeActionnairesLibelle' | 'deviseCode' | 'deviseLibelle' | 'paysLibelle'
+  | 'representantLegalLibelle' | 'signataireLibelle' | 'responsableTechniqueLibelle' | 'responsableCommercialLibelle'
+  | 'creePar' | 'creeLe' | 'modifiePar' | 'modifieLe'>>;
+
+export interface ActionnaireDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  notes?: string;
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
+}
+
+export type ActionnaireEcritureDto = Partial<Pick<ActionnaireDto, 'code' | 'description' | 'notes'>>;
+
+/** `pourcentage` en fraction (0,25 = 25 %). */
+export interface LigneGroupeDto {
+  actionnaireId: UUID;
+  actionnaireCode?: string | null;
+  actionnaireLibelle?: string | null;
+  pourcentage: number;
+}
+
+export interface GroupeActionnairesDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  lignes: LigneGroupeDto[];
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
+}
+
+/** PATCH : absent = inchangé ; `lignes` présentes = remplacées (Σ = 1, sans doublon). */
+export interface GroupeActionnairesEcritureDto {
+  code?: string;
+  description?: string;
+  lignes?: LigneGroupeDto[];
+}
+
 
 export interface EtapeCountDto {
   etape?: string;
@@ -3516,4 +3628,80 @@ export interface EvenementNotificationDto {
   admUserId: UUID;
   notification: NotificationDto;
   nonLues: number;
+}
+
+// ---------------------------------------------------------------- État des ventes
+
+/** Un article racine en vente ; seules les colonnes demandées par `colonnes` sont présentes. */
+export interface LigneEtatVentesDto {
+  articleId: UUID;
+  articleCode?: string | null;
+  articleLibelle?: string | null;
+  trancheCode?: string | null;
+  categorieCode?: string | null;
+  categorieLibelle?: string | null;
+  typeCode?: string | null;
+  etage?: string | null;
+  immeuble?: string | null;
+  surface?: number | null;
+  /** Prix catalogue si libre, prix du dossier sinon. */
+  prixVenteTTC?: number | null;
+  /** `LIBRE`, `SANS_STATUT` ou un `StrStatus.Code` de dossier. */
+  statutCode?: string;
+  statutLibelle?: string | null;
+  /** null si libre (dossier annulé ou désisté compris). */
+  dossierId?: UUID | null;
+  dossierCode?: string | null;
+  clientNom?: string | null;
+  commercial?: string | null;
+  dateReservation?: string | null;
+  /** null si libre. */
+  montantRegle?: number | null;
+  /** null si libre. */
+  resteARegler?: number | null;
+}
+
+export interface StatutSynthese {
+  code: string;
+  libelle: string;
+  ordre: number;
+}
+
+/** Statut absent de `parStatut` = 0. */
+export type ComptesParStatut = Partial<Record<string, number>>;
+
+export interface LigneSynthese {
+  trancheId: UUID;
+  trancheCode: string;
+  trancheLibelle?: string | null;
+  categorieId: UUID;
+  categorieCode: string;
+  categorieLibelle?: string | null;
+  total: number;
+  parStatut: ComptesParStatut;
+}
+
+export interface TotalCategorieSynthese {
+  categorieId: UUID;
+  categorieCode: string;
+  categorieLibelle?: string | null;
+  total: number;
+  parStatut: ComptesParStatut;
+}
+
+export interface TotalGeneralSynthese {
+  total: number;
+  parStatut: ComptesParStatut;
+}
+
+export interface TotauxSynthese {
+  parCategorie: TotalCategorieSynthese[];
+  general: TotalGeneralSynthese;
+}
+
+/** `statuts` = colonnes du tableau, dans l'ordre (Libre d'abord, Sans statut en dernier s'il compte). */
+export interface SyntheseEtatVentesDto {
+  statuts: StatutSynthese[];
+  lignes: LigneSynthese[];
+  totaux: TotauxSynthese;
 }

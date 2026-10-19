@@ -3,46 +3,10 @@ import MultiSelectDropdown from '../MultiSelectDropdown';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import ChoixUnique from '../ChoixUnique';
 import { CHAMP_DATE_IMPAYE_ITEMS, ECHU_ITEMS, type FiltresImpayes } from '../../lib/impayes';
 
 type Item = { label: string; value: string };
-
-/** Valeur sentinelle du choix « Tous » : sans elle, un filtre choisi ne se retire qu'en réinitialisant tout. */
-const TOUS = '__tous';
-
-function avecTous(libelle: string, items: Item[]): Item[] {
-  return [{ label: libelle, value: TOUS }, ...items];
-}
-
-function sansTous(v: string | null): string | null {
-  return v === TOUS ? null : v;
-}
-
-function ChoixUnique({
-  items,
-  value,
-  placeholder,
-  largeur,
-  onChange,
-}: Readonly<{ items: Item[]; value: string | null; placeholder?: string; largeur: string; onChange: (v: string | null) => void }>) {
-  return (
-    <Select items={items} value={value} onValueChange={(v) => onChange(v)}>
-      <SelectTrigger className={largeur}>
-        <SelectValue placeholder={placeholder} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectGroup>
-          {items.map((item) => (
-            <SelectItem key={item.value} value={item.value}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectGroup>
-      </SelectContent>
-    </Select>
-  );
-}
 
 /** Filtres serveur de l'écran « Impayés » ; `changer` remet la pagination à zéro côté page. */
 export default function FiltresImpayesPanneau({
@@ -110,18 +74,20 @@ export default function FiltresImpayesPanneau({
           </InputGroup>
         </div>
         <ChoixUnique
-          items={avecTous('Tous les commerciaux', commerciaux)}
+          items={commerciaux}
+          tous="Tous les commerciaux"
           value={filtres.commercialId}
           placeholder="Commercial…"
           largeur="w-48"
-          onChange={(v) => changer('commercialId', sansTous(v))}
+          onChange={(v) => changer('commercialId', v)}
         />
         <ChoixUnique
-          items={avecTous('Toutes les catégories', categories)}
+          items={categories}
+          tous="Toutes les catégories"
           value={filtres.categorieId}
           placeholder="Catégorie…"
           largeur="w-44"
-          onChange={(v) => changer('categorieId', sansTous(v))}
+          onChange={(v) => changer('categorieId', v)}
         />
       </div>
     </div>

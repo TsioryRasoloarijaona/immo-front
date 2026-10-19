@@ -31,6 +31,7 @@ export function moduleForPath(pathname: string): string | null {
     pathname.startsWith('/hotline') ||
     pathname.startsWith('/calendrier') ||
     pathname.startsWith('/suivi-actions') ||
+    pathname.startsWith('/etat-des-ventes') ||
     pathname.startsWith('/performances') ||
     pathname.startsWith('/equipe') ||
     pathname.startsWith('/journee') ||
@@ -47,7 +48,7 @@ export function moduleForPath(pathname: string): string | null {
   ) {
     return 'vente';
   }
-  if (pathname.startsWith('/tranches') || pathname.startsWith('/articles') || pathname.startsWith('/projets')) {
+  if (['/tranches', '/articles', '/projets', '/entites-juridiques', '/actionnaires', '/groupes-actionnaires'].some((p) => pathname.startsWith(p))) {
     return 'patrimoine';
   }
   if (pathname.startsWith('/utilisateurs') || pathname.startsWith('/cles-api') || pathname.startsWith('/modeles-documents')) {

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { ColonneGrille } from '../components/DataGrid';
-import type { ColonneDto } from '../types';
+import type { ColonneDto, GroupeColonne, TypeColonne } from '../types';
 
 /** Le serveur envoie des clés d'énumération ; un groupe inconnu retombe sur sa clé brute plutôt que de disparaître. */
 export const LIBELLES_GROUPE: Record<string, string> = {
@@ -34,6 +34,7 @@ export const LIBELLES_GROUPE: Record<string, string> = {
   REMISES: 'Remises anciens clients',
   AUTRES: 'Autres',
   VISIBILITE: 'Visibilité par module',
+  VENTE: 'Vente',
 };
 
 export function libelleGroupe(groupe: string): string {
@@ -56,6 +57,10 @@ export function filtrerColonnes(catalogue: ColonneDto[], requete: string): Colon
     return mots.every((mot) => cible.includes(mot));
   });
 }
+
+/** Colonne d'un catalogue déclaré côté front (liste servie entière, choix local). */
+export const colonneLocale = (nom: string, libelle: string, groupe: GroupeColonne, type: TypeColonne = 'TEXTE', parDefaut = false): ColonneDto =>
+  ({ nom, libelle, groupe, type, parDefaut, groupable: false, agregeable: false, fonctions: [] });
 
 export type DispositionColonnes = {
   /** Un nom absent passe en fin, dans l'ordre du catalogue. */
