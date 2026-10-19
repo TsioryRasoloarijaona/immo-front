@@ -2181,7 +2181,10 @@ export interface TrancheListItemDto {
   code?: string;
   description?: string;
   ville?: string;
-  dateLivraison?: string | null;
+  /** `CfgTranche.DeliveryDate` : date d'octroi des titres fonciers. */
+  dateOctroiTitresFonciers?: string | null;
+  projetId?: UUID;
+  projetCode?: string;
 }
 
 export interface TrancheDetailDto {
@@ -2204,7 +2207,7 @@ export interface TrancheDetailDto {
   dateFinTravaux?: string | null;
   dateDebutCommercialisation?: string | null;
   dateFinCommercialisation?: string | null;
-  dateLivraison?: string | null;
+  dateOctroiTitresFonciers?: string | null;
   estEnVente?: boolean;
   estEnLocation?: boolean;
   tauxPenaliteAnnulation?: number;
@@ -2232,7 +2235,45 @@ export interface TrancheDetailDto {
   maxVisitNumber?: number;
   isWithVerifCredit?: boolean;
   creditPercent?: number;
+  projetCode?: string;
+  entiteId?: UUID;
+  entiteCode?: string;
+  paysId?: UUID;
+  paysLibelle?: string;
+  datePermisHabiter?: string | null;
+  dateReception?: string | null;
+  datePremiereRelance?: string | null;
+  dateFinConcretisation?: string | null;
+  dateDebutFinalisation?: string | null;
+  montantPreReservation?: number;
+  montantPreReservationRemise?: number;
+  avanceSurMontant?: boolean;
+  montantAvance?: number;
+  advancePercentRemise?: number;
+  advancePercentRemiseActive?: boolean;
+  fraisDossier?: number;
+  fraisDossierRemise?: number;
+  penaliteAnnulationSurPrixArticle?: boolean;
+  autresFrais?: number;
+  autresFraisRemise?: number;
+  montantSyndic?: number;
+  montantSyndicRemise?: number;
+  periodeSyndic?: number;
+  codeDroitRetractation?: string;
+  tribunalCommerce?: string;
+  verifierDelaiMaxEcheance?: boolean;
+  ecartTypeConcretisation?: number;
+  ecartTypeFinalisation?: number;
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
 }
+
+/** Écriture d'une tranche : mêmes noms que `TrancheDetailDto` ; taux en fraction ; absent = inchangé (PATCH). */
+export type TrancheEcritureDto = Partial<Omit<TrancheDetailDto,
+  'id' | 'concretisationPercent' | 'projetCode' | 'entiteId' | 'entiteCode' | 'paysLibelle'
+  | 'creePar' | 'creeLe' | 'modifiePar' | 'modifieLe'>>;
 
 export type ArticleStatut = 'DISPONIBLE' | 'OCCUPE';
 
@@ -2338,6 +2379,70 @@ export interface ArticleDetailDto {
   /** Voir `ArticleListItemDto.prixSuggere`. */
   prixSuggere?: number | null;
   prixSuggereEstPlancher?: boolean;
+  /** `AreaFloor` ; `area` = surface définitive. */
+  surfaceProvisoire?: number;
+  prixM2ProvisoireHT?: number;
+  prixM2ProvisoireTTC?: number;
+  prixM2DefinitifHT?: number;
+  prixM2DefinitifTTC?: number;
+  /** Article seul (`SalePrice*`). */
+  prixArticleProvisoireHT?: number;
+  prixArticleProvisoireTTC?: number;
+  prixArticleDefinitifHT?: number;
+  prixArticleDefinitifTTC?: number;
+  /** Article + sous-articles rattachés (`ComSalePrice*`). */
+  prixVenteProvisoireHT?: number;
+  prixVenteProvisoireTTC?: number;
+  prixVenteDefinitifHT?: number;
+  prixVenteDefinitifTTC?: number;
+  remiseMax1?: number;
+  remiseMax2?: number;
+  estTitre?: boolean;
+  toujoursAffecte?: boolean;
+  estSousArticle?: boolean;
+  /** Dossier de vente ou de location (le sien ou celui de son article) : prix, surfaces, classification figés. */
+  occupe?: boolean;
+  vocationId?: UUID;
+  vocationCode?: string;
+  vocationLibelle?: string;
+  notes?: string;
+  surfaceInterieure?: number;
+  surfaceMurs?: number;
+  surfacePartiesCommunes?: number;
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
+}
+
+/** Article ou sous-article ; prix au m² HT ou TTC, jamais les deux par surface. Absent = inchangé (PATCH). */
+export interface ArticleEcritureDto {
+  trancheId?: UUID;
+  code?: string;
+  description?: string;
+  vocationId?: UUID;
+  categorieId?: UUID;
+  typeId?: UUID;
+  immeubleId?: UUID;
+  etageId?: UUID;
+  surfaceProvisoire?: number;
+  surfaceDefinitive?: number;
+  prixM2ProvisoireHT?: number;
+  prixM2ProvisoireTTC?: number;
+  prixM2DefinitifHT?: number;
+  prixM2DefinitifTTC?: number;
+  tauxTva?: number;
+  titreFoncier?: string;
+  estTitre?: boolean;
+  remiseMax1?: number;
+  remiseMax2?: number;
+  adresse?: string;
+  notes?: string;
+  surfaceInterieure?: number;
+  surfaceMurs?: number;
+  surfacePartiesCommunes?: number;
+  /** Création d'un sous-article seulement. */
+  toujoursAffecte?: boolean;
 }
 
 export interface ProjetListItemDto {
@@ -2345,6 +2450,7 @@ export interface ProjetListItemDto {
   code?: string;
   description?: string;
   ville?: string;
+  entiteCode?: string;
 }
 
 export interface ProjetDetailDto {
@@ -2367,7 +2473,20 @@ export interface ProjetDetailDto {
   dateFinTravaux?: string | null;
   dateDebutCommercialisation?: string | null;
   dateFinCommercialisation?: string | null;
+  entiteId?: UUID;
+  entiteCode?: string;
+  entiteLibelle?: string;
+  paysId?: UUID;
+  paysLibelle?: string;
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
 }
+
+/** Écriture d'un programme ; absent = inchangé (PATCH), `""` = vidé. */
+export type ProjetEcritureDto = Partial<Omit<ProjetDetailDto,
+  'id' | 'entiteCode' | 'entiteLibelle' | 'paysLibelle' | 'creePar' | 'creeLe' | 'modifiePar' | 'modifieLe'>>;
 
 
 export interface EtapeCountDto {

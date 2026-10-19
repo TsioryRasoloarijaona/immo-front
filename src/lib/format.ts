@@ -103,6 +103,11 @@ export function formatDate(value: string | null | undefined): string {
   return `${d}/${mo}/${y}`;
 }
 
+/** « Créé par » / « Modifié par » : auteur et date, rien si l'auteur manque (lignes antérieures à la trace). */
+export function libelleTrace(auteur: string | null | undefined, le: string | null | undefined): string | undefined {
+  return auteur ? `${auteur} — ${formatDate(le)}` : undefined;
+}
+
 /** Valeur sans heure (`YYYY-MM-DD` nu) : date seule, « 00:00 » serait une invention. */
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—';

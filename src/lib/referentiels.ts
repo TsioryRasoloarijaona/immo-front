@@ -114,6 +114,13 @@ export const useBanques = makeCachedListHook(api.getBanques);
 export const useEntitesReferentiel = makeCachedListHook(api.getEntitesReferentiel);
 export const useNatures = makeCachedListHook(api.getNatures);
 export const useEtages = makeCachedListHook(api.getEtages);
+// Formulaires d'article : un hook par variante filtrée (un cache par fetcher, voir plus bas).
+export const useImmeubles = makeCachedListHook(api.getImmeubles);
+export const useVocationsArticle = makeCachedListHook(() => api.getVocations(true));
+export const useCategoriesArticle = makeCachedListHook(() => api.getCategoriesBien(false));
+export const useCategoriesSousArticle = makeCachedListHook(() => api.getCategoriesBien(true));
+export const useTypesArticle = makeCachedListHook(() => api.getTypesBienReferentiel(false));
+export const useTypesSousArticle = makeCachedListHook(() => api.getTypesBienReferentiel(true));
 export const useComptesReferentiel = makeCachedListHook(() => api.getComptesReferentiel());
 export const useDepotsReferentiel = makeCachedListHook(api.getDepotsReferentiel);
 export const useResultatsInteraction = makeCachedListHook(api.getResultatsInteraction);

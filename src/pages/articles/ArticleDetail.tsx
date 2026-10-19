@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Eye, FileText, Folder, Home } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Eye, FileText, Folder, Home, Pencil } from 'lucide-react';
 import PageShell from '../../components/PageShell';
+import ActionAdmin from '../../components/patrimoine/ActionAdmin';
+import SousArticlesArticle from '../../components/patrimoine/SousArticlesArticle';
+import PrixArticleFiche from '../../components/patrimoine/PrixArticleFiche';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -59,7 +62,7 @@ export default function ArticleDetail() {
 }
 
 function FicheArticle({ id }: Readonly<{ id: string }>) {
-  const { data: a, loading, error } = useApi(() => getArticle(id), [id]);
+  const { data: a, loading, error, refetch } = useApi(() => getArticle(id), [id]);
   const navigate = useNavigate();
 
   const dossier = useApi(
@@ -91,6 +94,7 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
       icon={<Home />}
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
+      actions={<ActionAdmin to={`/articles/${a.id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />}
     >
       <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate(-1)}>
         <ArrowLeft data-icon="inline-start" /> Retour
@@ -170,19 +174,9 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
           </Card>
         )}
 
-        {a.sousLots && a.sousLots.length > 0 && (
-          <Card title={`Sous-lots (${a.sousLots.length})`}>
-            <div className="flex flex-col gap-2">
-              {a.sousLots.map((s) => (
-                <div key={s.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-muted/30 px-3 py-2 text-label">
-                  <span className="font-medium text-foreground">{s.code}</span>
-                  <span className="text-muted-foreground">{s.description}</span>
-                  <span className="font-medium tabular-nums text-foreground">{formatCurrency(s.salePrice)}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
+        <PrixArticleFiche article={a} />
+
+        <SousArticlesArticle article={a} onModifie={() => void refetch()} />
 
         <Card title={`Pièces jointes (${pieces.data?.length ?? 0})`}>
           {pieces.loading && <LoadingState />}
