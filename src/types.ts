@@ -2549,6 +2549,57 @@ export interface ZoneProjetDto {
   aUneImage: boolean;
 }
 
+/** Onglet de la fiche tranche : corps du PUT (liste complète) et réponse du GET / PUT. */
+export interface LignesTrancheDto<T> {
+  lignes: T[];
+}
+
+/** Ligne d'onglet de tranche : `id` absent au PUT = nouvelle ligne ; une ligne absente du PUT est supprimée. */
+interface LigneOngletTranche {
+  id?: UUID;
+}
+
+export interface LigneTerrainDto extends LigneOngletTranche {
+  terrainId?: UUID;
+  /** Fraction ; absent = 1. */
+  ratio?: number | null;
+  /** Lecture seule : rang recalculé par le serveur. */
+  ordre?: number;
+  terrainCode?: string;
+  terrainDescription?: string;
+  terrainSurface?: number | null;
+}
+
+export interface LigneEtageDto extends LigneOngletTranche {
+  niveauTerrainId?: UUID;
+  niveauCode?: string;
+  niveauDescription?: string;
+}
+
+export interface LignePlancherDto extends LigneOngletTranche {
+  categorieId?: UUID;
+  /** m², ≥ 0. */
+  surface?: number | null;
+  categorieCode?: string;
+  categorieDescription?: string;
+}
+
+export interface LigneFraisDto extends LigneOngletTranche {
+  categorieReglementId?: UUID;
+  /** O.D.T. ; absent = rang dans la liste. */
+  ordre?: number | null;
+  montantHT?: number | null;
+  /** Fraction 0–1. */
+  tauxTva?: number | null;
+  montantTTC?: number | null;
+  /** Fraction 0–1 du prix de vente. */
+  pourcentageDe?: number | null;
+  /** Écriture seule : vrai = le TTC est saisi et le HT calculé. */
+  saisiEnTTC?: boolean;
+  categorieCode?: string;
+  categorieDescription?: string;
+}
+
 /** PATCH : absent = inchangé ; `parentId` lu à la création seulement. */
 export interface ZoneProjetEcritureDto {
   code?: string;
