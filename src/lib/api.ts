@@ -539,16 +539,19 @@ export function listProspectionsGroupes(
   return request('GET', '/api/prospections/groupes', { query });
 }
 
-/** Résumés Σ sur toutes les lignes du filtre (mêmes filtres que la liste, volet avancé aplati comme elle) ;
- * `agregats` vide → seul `nombreTotal`. Clés de `totaux` = jetons tels qu'envoyés. */
-export function totauxColonnesProspections(
-  params: ProspectionFilterParams | undefined,
+/** Résumés Σ sur toutes les lignes du filtre d'une liste (mêmes filtres qu'elle, volet avancé des prospections
+ * aplati comme elle) ; `agregats` vide → seul `nombreTotal`. Clés de `totaux` = jetons tels qu'envoyés.
+ * Dossiers : les lots libres n'y entrent pas (`lignes=LIBRES` → 0). Encaissements : `nombreTotal` compte les
+ * annulés, les sommes de montants les excluent. */
+export function totauxColonnes(
+  ressource: 'prospections' | 'dossiers' | 'encaissements',
+  params: object | undefined,
   agregats: string[],
-  options?: { filtres?: FiltresAvancesProspection },
+  filtresAvances?: FiltresAvancesProspection,
 ): Promise<TotauxListeDto> {
   const query: Record<string, QueryValue> = { ...params, agregats: agregats.length > 0 ? agregats : undefined };
-  ajouterFiltres(query, options?.filtres);
-  return request('GET', '/api/prospections/totaux-colonnes', { query });
+  ajouterFiltres(query, filtresAvances);
+  return request('GET', `/api/${ressource}/totaux-colonnes`, { query });
 }
 
 export function getColonnesProspections(): Promise<ColonneDto[]> {
@@ -831,17 +834,6 @@ export function listDossiersGroupes(
 ): Promise<PageGroupesDto> {
   return request('GET', '/api/dossiers/groupes', {
     query: withGroupes(withPageable(params, pageable), groupes),
-  });
-}
-
-/** Résumés Σ sur les dossiers du filtre (mêmes filtres que la liste) : les lots libres de
- * `lignes=DOSSIERS_ET_LIBRES` n'y entrent pas, `lignes=LIBRES` → `nombreTotal` 0. */
-export function totauxColonnesDossiers(
-  params: DossierFilterParams | undefined,
-  agregats: string[],
-): Promise<TotauxListeDto> {
-  return request('GET', '/api/dossiers/totaux-colonnes', {
-    query: { ...params, agregats: agregats.length > 0 ? agregats : undefined },
   });
 }
 
@@ -1376,17 +1368,6 @@ export function listEncaissements(
 /** Bande « Total : » sur tout le filtre (mêmes paramètres que la liste) ; CANCELED hors des sommes. */
 export function getTotauxEncaissements(params?: Parameters<typeof listEncaissements>[0]): Promise<TotauxEncaissementsDto> {
   return request('GET', '/api/encaissements/totaux', { query: { ...params } });
-}
-
-/** Résumés Σ par colonne sur tout le filtre (mêmes paramètres que la liste) : `nombreTotal` compte les
- * annulés comme la liste, les sommes de montants les excluent. */
-export function totauxColonnesEncaissements(
-  params: Parameters<typeof listEncaissements>[0],
-  agregats: string[],
-): Promise<TotauxListeDto> {
-  return request('GET', '/api/encaissements/totaux-colonnes', {
-    query: { ...params, agregats: agregats.length > 0 ? agregats : undefined },
-  });
 }
 
 export function getColonnesEncaissements(): Promise<ColonneDto[]> {

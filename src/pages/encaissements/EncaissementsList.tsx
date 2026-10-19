@@ -19,7 +19,7 @@ import {
   DEFAULT_PAGE_SIZE,
   listEncaissements,
   listEncaissementsGroupes,
-  totauxColonnesEncaissements,
+  totauxColonnes,
   type EncaissementChampDate,
 } from '../../lib/api';
 import { useTotauxServeur } from '../../lib/totauxServeur';
@@ -178,7 +178,7 @@ export default function EncaissementsList() {
   // Σ par colonne sur tout le filtre (hors `page`) ; colonnes affichées seulement.
   const totauxServeur = useTotauxServeur(
     colonnes.colonnes,
-    (agregats) => totauxColonnesEncaissements(filtresServeur, agregats),
+    (agregats) => totauxColonnes('encaissements', filtresServeur, agregats),
     clesFiltres.slice(0, -1).join('|'),
     !enGroupes,
     'encaissements-totaux-colonnes',
