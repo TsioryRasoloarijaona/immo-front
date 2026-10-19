@@ -8,7 +8,7 @@ export const SECTIONS_ENTITE: SectionSaisie[] = [
     champs: [
       { nom: 'code', libelle: 'Code', type: 'texte', obligatoire: true },
       { nom: 'description', libelle: 'Description', type: 'texte', obligatoire: true },
-      { nom: 'deviseId', libelle: 'Devise', type: 'liste', liste: 'devises' },
+      { nom: 'deviseId', libelle: 'Devise', type: 'liste', liste: 'devises', obligatoire: true },
       { nom: 'identifiantFiscal', libelle: 'Matricule fiscale', type: 'texte' },
       { nom: 'registreCommerce', libelle: 'Registre du commerce', type: 'texte' },
       { nom: 'formeJuridique', libelle: 'Forme juridique', type: 'texte' },

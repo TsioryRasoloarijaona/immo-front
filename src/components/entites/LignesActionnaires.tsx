@@ -65,7 +65,7 @@ export default function LignesActionnaires({ titre, champ, rangees, onChange }: 
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {edition ? (
-                    <Input type="number" inputMode="decimal" step="any" min={0} aria-label={libelleValeur} value={r.saisie}
+                    <Input type="number" inputMode="decimal" step={champ === 'pourcentage' ? 'any' : 1} min={0} aria-label={libelleValeur} value={r.saisie}
                       className="ml-auto h-7 w-32" onChange={(e) => changer(r.cle, { saisie: e.target.value })} />
                   ) : afficher(valeurFil(r, champ))}
                 </TableCell>

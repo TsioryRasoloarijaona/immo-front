@@ -53,6 +53,8 @@ export interface ConfigFiche<T extends Tracee> {
   modifier: (id: string, corps: Corps) => Promise<unknown>;
   supprimer: (id: string) => Promise<void>;
   apresChamp?: (nom: string, valeur: string | boolean, contexte: ContexteSaisie) => void;
+  /** Champs grisés à la création (le groupe exige l'id de l'entité pour charger la répartition). */
+  verrouillesCreation?: string[];
   /** Actions d'en-tête propres à l'écran (bascule Active de l'entité). */
   actions?: (fiche: T, recharger: () => void) => ReactNode;
   pied?: (fiche: T) => ReactNode;
@@ -163,6 +165,7 @@ function Saisie<T extends Tracee>({ config, fiche, onAnnuler, onEnregistre }: Re
   return (
     <div className="flex max-w-240 flex-col gap-3">
       <SectionsSaisie sections={config.sections} brouillon={saisie.brouillon} onChange={changer} listes={config.listes}
+        verrouilles={fiche ? undefined : config.verrouillesCreation}
         champErreur={saisie.champErreur} messageErreur={saisie.erreur} />
       {lignes && <LignesActionnaires titre={lignes.titre} champ={lignes.champ} rangees={rangees} onChange={setRangees} />}
       <PiedSaisie erreur={saisie.erreur} envoi={saisie.envoi} onEnregistrer={enregistrer}

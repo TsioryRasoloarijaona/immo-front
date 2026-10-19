@@ -34,7 +34,7 @@ export default function EntiteJuridiqueDetail() {
     const oui = await confirm({ title: "Groupe d'actionnaires", message: 'Est ce que vous voulez charger les répartitions !!', confirmLabel: 'Charger' });
     if (!oui) return;
     const parts = String(ctx.brouillon.nombreParts);
-    const lignes = await repartitionDepuisGroupe(ctx.id, String(valeur), parts === '' ? undefined : Number(parts));
+    const lignes = await repartitionDepuisGroupe(ctx.id, String(valeur), parts === '' ? undefined : Math.trunc(Number(parts)));
     ctx.remplacerLignes(rangeesDepuis(lignes, 'nombreParts'));
     ctx.modifier('nombreActionnaires', String(lignes.length));
   }
@@ -74,6 +74,7 @@ export default function EntiteJuridiqueDetail() {
       ? remplacerRepartition(entiteId, corps.repartition as LigneRepartitionDto[])
       : updateEntiteJuridique(entiteId, corps)),
     supprimer: deleteEntiteJuridique,
+    verrouillesCreation: ['groupeActionnairesId'],
     apresChamp: (nom, valeur, ctx) => void chargerGroupe(nom, valeur, ctx).catch(signalerErreur),
     actions: (entite, recharger) => (
       <>

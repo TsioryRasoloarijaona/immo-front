@@ -26,7 +26,7 @@ export function rangeesDepuis(lignes: LigneFil[] | null | undefined, champ: Cham
 }
 
 export function valeurFil(rangee: RangeeActionnaire, champ: ChampLigne): number {
-  return Number(rangee.saisie) / facteur(champ);
+  return champ === 'pourcentage' ? Number(rangee.saisie) / 100 : Math.trunc(Number(rangee.saisie));
 }
 
 export function lignesFil(rangees: RangeeActionnaire[], champ: ChampLigne): Record<string, unknown>[] {
