@@ -1,4 +1,6 @@
+import { X } from 'lucide-react';
 import { Card } from '../ui';
+import { Button } from '../ui/button';
 import { Field as FormField, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -21,6 +23,7 @@ const TYPE_INPUT: Partial<Record<ChampDef['type'], string>> = {
   montant: 'number',
   entier: 'number',
   pourcent: 'number',
+  surface: 'number',
 };
 
 function ChampSaisie({ def, valeur, onChange, liste, desactive, erreur }: Readonly<PropsChamp>) {
@@ -38,16 +41,25 @@ function ChampSaisie({ def, valeur, onChange, liste, desactive, erreur }: Readon
   let controle;
   if (def.type === 'liste') {
     const items = liste ?? [];
+    const effacable = !def.obligatoire && !desactive && String(valeur) !== '';
     controle = (
-      <Select items={items} value={String(valeur) || null} disabled={desactive}
-        onValueChange={(v) => onChange(v ?? '')}>
-        <SelectTrigger id={id} className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            {items.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
+      <div className="flex gap-1.5">
+        <Select items={items} value={String(valeur) || null} disabled={desactive}
+          onValueChange={(v) => onChange(v ?? '')}>
+          <SelectTrigger id={id} className="w-full min-w-0"><SelectValue placeholder="Choisir…" /></SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {items.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        {effacable && (
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={`Effacer ${def.libelle}`}
+            onClick={() => onChange('')}>
+            <X />
+          </Button>
+        )}
+      </div>
     );
   } else if (def.type === 'texteLong') {
     controle = <Textarea id={id} value={String(valeur)} disabled={desactive} onChange={(e) => onChange(e.target.value)} />;
@@ -97,7 +109,7 @@ export default function SectionsSaisie({
                 valeur={brouillon[def.nom] ?? ''}
                 onChange={(v) => onChange(def.nom, v)}
                 liste={def.liste ? listes[def.liste] : undefined}
-                desactive={verrouilles.includes(def.nom)}
+                desactive={def.lectureSeule === true || verrouilles.includes(def.nom)}
                 erreur={champErreur === def.nom ? messageErreur ?? null : null}
               />
             ))}

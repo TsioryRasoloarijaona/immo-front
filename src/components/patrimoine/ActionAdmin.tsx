@@ -6,17 +6,19 @@ import { useAuth } from '../../lib/auth';
 import { estAdministrateur } from '../../lib/roles';
 
 /** Action d'écriture du patrimoine : visible pour l'Administrateur seul (le serveur répond 403 aux autres). */
-export default function ActionAdmin({ to, libelle, icone = <Plus data-icon="inline-start" />, variant = 'default' }: Readonly<{
-  to: string;
+export default function ActionAdmin({ to, onClick, libelle, icone = <Plus data-icon="inline-start" />, variant = 'default' }: Readonly<{
+  /** Page à ouvrir ; sinon `onClick`. */
+  to?: string;
+  onClick?: () => void;
   libelle: string;
   icone?: ReactNode;
-  variant?: 'default' | 'outline';
+  variant?: 'default' | 'outline' | 'destructive';
 }>) {
   const { user } = useAuth();
   const navigate = useNavigate();
   if (!estAdministrateur(user)) return null;
   return (
-    <Button type="button" size="sm" variant={variant} onClick={() => void navigate(to)}>
+    <Button type="button" size="sm" variant={variant} onClick={() => (to ? void navigate(to) : onClick?.())}>
       {icone} {libelle}
     </Button>
   );

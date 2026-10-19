@@ -1,15 +1,20 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, LayoutGrid, Pencil } from 'lucide-react';
+import { ArrowLeft, LayoutGrid, Pencil, Trash2 } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
+import FicheSections from '../../components/patrimoine/FicheSections';
 import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
+import ZonesProjet from '../../components/patrimoine/ZonesProjet';
 import { Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { getProjet, listProjetTranches } from '../../lib/api';
+import { deleteProjet } from '../../lib/apiPatrimoine';
+import { useConfirm } from '../../lib/confirmContext';
 import { useApi } from '../../lib/useApi';
-import { formatDate, libelleTrace } from '../../lib/format';
+import { libelleTrace } from '../../lib/format';
+import { SECTIONS_PROJET } from '../../lib/saisieProjet';
 
 export default function ProjetDetail() {
   const { id = '' } = useParams();
@@ -21,6 +26,23 @@ function FicheProjet({ id }: Readonly<{ id: string }>) {
   const [tranchesPage, setTranchesPage] = useState(0);
   const tranches = useApi(() => listProjetTranches(id,{ page: tranchesPage, size: 20 }), [id, tranchesPage]);
   const navigate = useNavigate();
+  const confirm = useConfirm();
+  const [erreurSuppression, setErreurSuppression] = useState<string | null>(null);
+
+  async function supprimer() {
+    const oui = await confirm({
+      title: 'Supprimer le programme',
+      message: 'Le programme, ses zones et ses habilitations seront supprimés. Continuer ?',
+      confirmLabel: 'Supprimer',
+    });
+    if (!oui) return;
+    try {
+      await deleteProjet(id);
+      void navigate('/projets');
+    } catch (err) {
+      setErreurSuppression(err instanceof Error ? err.message : 'Suppression impossible.');
+    }
+  }
 
   if (loading) return <PageShell title="Projet"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Projet"><ErrorState message={error} /></PageShell>;
@@ -41,6 +63,7 @@ function FicheProjet({ id }: Readonly<{ id: string }>) {
       accentBg="var(--sec-projet-bg)"
       actions={
         <div className="flex gap-2">
+          <ActionAdmin onClick={() => void supprimer()} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
           <ActionAdmin to={`/projets/${id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />
           <ActionAdmin to={`/tranches/nouveau?projetId=${id}`} libelle="Nouvelle tranche" />
         </div>
@@ -49,22 +72,19 @@ function FicheProjet({ id }: Readonly<{ id: string }>) {
       <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate('/projets')}>
         <ArrowLeft data-icon="inline-start" /> Retour à la liste
       </Button>
+      {erreurSuppression && <p className="mb-3 text-label text-destructive">{erreurSuppression}</p>}
 
       <div className="flex flex-col gap-3">
-        <Card title="Aperçu" accent="var(--sec-projet)">
+        <FicheSections sections={SECTIONS_PROJET} source={projet} />
+
+        <Card title="Traçabilité">
           <FieldGrid>
-            <Field label="Adresse" value={projet.adresse} />
-            <Field label="Ville" value={projet.ville} />
-            <Field label="Téléphone" value={projet.telephone} />
-            <Field label="Email" value={projet.email} />
-            <Field label="Début des travaux" value={formatDate(projet.dateDebutTravaux)} />
-            <Field label="Fin des travaux" value={formatDate(projet.dateFinTravaux)} />
-            <Field label="Entité" value={projet.entiteLibelle || projet.entiteCode} />
-            <Field label="Pays" value={projet.paysLibelle} />
             <Field label="Créé par" value={libelleTrace(projet.creePar, projet.creeLe)} />
             <Field label="Modifié par" value={libelleTrace(projet.modifiePar, projet.modifieLe)} />
           </FieldGrid>
         </Card>
+
+        <ZonesProjet projetId={id} />
 
         <Card title={`Tranches (${tranches.data?.totalElements ?? 0})`}>
           {tranches.loading && <LoadingState />}

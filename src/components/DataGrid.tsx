@@ -2,7 +2,7 @@ import { Fragment, useCallback, useDeferredValue, useMemo, useState, type Keyboa
 import { ChevronDown, ChevronRight, ChevronUp, Sigma, SquareMinus, SquarePlus } from 'lucide-react';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from './ui/table';
 import { sansAccents, useOrdreColonnes } from '../lib/colonnes';
-import { formatCurrency, formatDate, formatNumber, texteBrut } from '../lib/format';
+import { formatCurrency, formatDate, formatNumber, formatPercent, texteBrut } from '../lib/format';
 import { cn } from '../lib/utils';
 import {
   LIBELLES_FONCTION,
@@ -69,6 +69,8 @@ function texteParType(valeur: unknown, type: TypeColonne): string | null {
       return typeof valeur === 'number' ? formatCurrency(valeur) : texteBrut(valeur);
     case 'NOMBRE':
       return typeof valeur === 'number' ? formatNumber(valeur) : texteBrut(valeur);
+    case 'POURCENTAGE':
+      return typeof valeur === 'number' ? formatPercent(valeur, 2) : texteBrut(valeur);
     case 'DATE':
       return formatDate(texteBrut(valeur));
     case 'BOOLEEN': {
