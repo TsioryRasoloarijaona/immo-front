@@ -77,6 +77,11 @@ function SaisieArticle({ sousArticle, article, parent, depart }: Readonly<{
   const listes = { ...useListesArticle(sousArticle, trancheId), ...useListesFicheArticle() };
   const occupe = article?.occupe === true;
   const verrouilles = [...(article ? ['trancheId'] : []), ...(occupe ? CHAMPS_PROTEGES : [])];
+  // Les présentations sont propres à la tranche : en changer vide le choix.
+  const modifierIdentite = (nom: string, valeur: string | boolean) => {
+    if (nom === 'trancheId') saisie.setBrouillon((b) => ({ ...b, trancheId: valeur, presentationId: '' }));
+    else saisie.modifier(nom, valeur);
+  };
 
   function enregistrer() {
     const corps = corpsArticle(sousArticle, saisie.brouillon, article ? depart : undefined);
@@ -102,7 +107,7 @@ function SaisieArticle({ sousArticle, article, parent, depart }: Readonly<{
       <SectionsSaisie
         sections={sectionsArticle(sousArticle, !article).slice(0, 1)}
         brouillon={saisie.brouillon}
-        onChange={saisie.modifier}
+        onChange={modifierIdentite}
         listes={listes}
         verrouilles={verrouilles}
         champErreur={saisie.champErreur}
