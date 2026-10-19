@@ -505,9 +505,11 @@ export type GroupeColonne =
   | 'REGLES'
   | 'REMISES'
   | 'AUTRES'
-  | 'VISIBILITE';
+  | 'VISIBILITE'
+  // Catalogue de l'état des ventes.
+  | 'VENTE';
 
-/** `POURCENTAGE` : fraction (0,2 = 20 %), catalogue des tranches seulement. */
+/** `POURCENTAGE`: fraction (0,2 = 20 %), catalogue des tranches seulement. */
 export type TypeColonne = 'TEXTE' | 'NOMBRE' | 'MONTANT' | 'POURCENTAGE' | 'DATE' | 'BOOLEEN';
 
 /** Même source que la liste blanche de `?colonnes=` : ne pas coder de

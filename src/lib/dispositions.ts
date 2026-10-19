@@ -595,3 +595,28 @@ export const DISPOSITION_SUIVI_ACTIONS: DispositionColonnes = {
   poids: POIDS_SUIVI_ACTIONS,
   masquees: new Set(['id', 'typeId', 'categorieId', 'tiersId', 'prospectionId', 'dossierId', 'trancheId']),
 };
+
+/** Ordre du catalogue serveur. `statutCode` masqué mais groupable : le groupement lit le catalogue brut. */
+export const DISPOSITION_ETAT_VENTES: DispositionColonnes = {
+  ordre: [],
+  poids: {
+    articleCode: 8,
+    articleLibelle: 14,
+    trancheCode: 7,
+    categorieCode: 5,
+    categorieLibelle: 11,
+    typeCode: 6,
+    etage: 6,
+    immeuble: 7,
+    surface: 7,
+    prixVenteTTC: 11,
+    statutLibelle: 11,
+    dossierCode: 9,
+    clientNom: 16,
+    commercial: 13,
+    dateReservation: 9,
+    montantRegle: 11,
+    resteARegler: 11,
+  },
+  masquees: new Set(['articleId', 'dossierId', 'statutCode']),
+};

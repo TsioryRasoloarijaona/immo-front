@@ -150,6 +150,8 @@ export const useColonnesImpayes = makeCachedListHook(api.getColonnesImpayes);
 
 export const useColonnesTranches = makeCachedListHook(api.getColonnesTranches);
 
+export const useColonnesEtatVentes = makeCachedListHook(api.getColonnesEtatVentes);
+
 // Fiches programme et tranche (`/api/referentiels-patrimoine`).
 export const useStandings = makeCachedListHook(() => getReferentielPatrimoine('standings'));
 export const useNiveauxTerrain = makeCachedListHook(() => getReferentielPatrimoine('niveaux-terrain'));
