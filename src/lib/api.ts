@@ -40,6 +40,8 @@ import type {
   GranulariteGroupe,
   PageGroupesDto,
   TotauxListeDto,
+  LigneEtatVentesDto,
+  SyntheseEtatVentesDto,
   TriGroupes,
   CommercialListItemDto,
   CompleterProfilRequest,
@@ -542,9 +544,9 @@ export function listProspectionsGroupes(
 /** Résumés Σ sur toutes les lignes du filtre d'une liste (mêmes filtres qu'elle, volet avancé des prospections
  * aplati comme elle) ; `agregats` vide → seul `nombreTotal`. Clés de `totaux` = jetons tels qu'envoyés.
  * Dossiers : les lots libres n'y entrent pas (`lignes=LIBRES` → 0). Encaissements : `nombreTotal` compte les
- * annulés, les sommes de montants les excluent. */
+ * annulés, les sommes de montants les excluent. État des ventes : `montantRegle` / `resteARegler` en nom nu. */
 export function totauxColonnes(
-  ressource: 'prospections' | 'dossiers' | 'encaissements',
+  ressource: 'prospections' | 'dossiers' | 'encaissements' | 'etat-des-ventes',
   params: object | undefined,
   agregats: string[],
   filtresAvances?: FiltresAvancesProspection,
@@ -1457,6 +1459,59 @@ export function listEncaissementsGroupes(
   return request('GET', '/api/encaissements/groupes', {
     query: withGroupes(withPageable(params, pageable), groupes),
   });
+}
+
+/** Filtres communs à la liste, aux groupes, aux totaux et à l'export ; la synthèse n'en lit que
+ * `trancheId`, `projetId` et `categorieId`. Statut ou nature inconnus → 400. */
+export type FiltresEtatVentes = {
+  trancheId?: UUID[];
+  projetId?: UUID;
+  /** `LIBRE`, `SANS_STATUT` ou `StrStatus.Code`. */
+  statut?: string[];
+  categorieId?: UUID[];
+  typeId?: UUID[];
+  /** Défaut serveur TOUS ; ARTICLES = `IsUnderItem = 0`, SOUS_ARTICLES = `IsUnderItem = 1`. */
+  nature?: 'TOUS' | 'ARTICLES' | 'SOUS_ARTICLES';
+  search?: string;
+  /** Défaut serveur RESERVATION ; ignoré sans `du` / `au`. */
+  champDate?: 'RESERVATION' | 'CONCRETISATION' | 'FORMALISATION';
+  /** `aaaa-mm-jj`, bornes incluses. */
+  du?: string;
+  au?: string;
+};
+
+export function getSyntheseEtatVentes(
+  params: Pick<FiltresEtatVentes, 'trancheId' | 'projetId' | 'categorieId'>,
+): Promise<SyntheseEtatVentesDto> {
+  return request('GET', '/api/etat-des-ventes/synthese', { query: { ...params } });
+}
+
+/** Tri sur un nom du catalogue ayant un chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId`,
+ * `montantRegle`, `resteARegler` → 400) ; défaut `articleCode,asc`. */
+export function listEtatVentes(
+  params: FiltresEtatVentes,
+  pageable?: Pageable,
+  options?: { colonnes?: string[]; depliage?: ParamsDepliage },
+): Promise<PageDto<LigneEtatVentesDto>> {
+  const query: Record<string, QueryValue> = withPageable(params, pageable);
+  if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
+  withDepliage(query, options?.depliage);
+  return request('GET', '/api/etat-des-ventes', { query });
+}
+
+/** Groupables : se fier à `groupable` du catalogue ; `montantRegle` / `resteARegler` non agrégeables ici. */
+export function listEtatVentesGroupes(
+  params: FiltresEtatVentes,
+  groupes: ParamsGroupes,
+  pageable?: Pageable,
+): Promise<PageGroupesDto> {
+  return request('GET', '/api/etat-des-ventes/groupes', {
+    query: withGroupes(withPageable(params, pageable), groupes),
+  });
+}
+
+export function getColonnesEtatVentes(): Promise<ColonneDto[]> {
+  return request('GET', '/api/referentiels/colonnes/etat-des-ventes');
 }
 
 export const getEntitesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/entites');
