@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Building2 } from 'lucide-react';
 import AdminGuard from '../utilisateurs/AdminGuard';
@@ -61,10 +62,15 @@ function CreationTranche() {
   if (error) return <ErrorState message={error} />;
   if (loading) return <LoadingState />;
   const defauts = brouillonDepuis(CHAMPS, DEFAUTS_TRANCHE);
-  return <SaisieTranche depart={data ? { ...defauts, ...reprisDuProgramme(data) } : defauts} />;
+  return <SaisieTranche depart={data ? { ...defauts, ...reprisDuProgramme(data) } : defauts} entiteDepart={data?.entiteId} />;
 }
 
-function SaisieTranche({ tranche, depart }: Readonly<{ tranche?: TrancheDetailDto; depart: Brouillon }>) {
+function SaisieTranche({ tranche, depart, entiteDepart }: Readonly<{
+  tranche?: TrancheDetailDto;
+  depart: Brouillon;
+  /** Entité du programme choisi : filtre les projets de facturation (Tranche.cs). */
+  entiteDepart?: string;
+}>) {
   const navigate = useNavigate();
   const saisie = useSaisie(CHAMPS, depart);
   const projets = useProjetsReferentiel();
@@ -75,14 +81,19 @@ function SaisieTranche({ tranche, depart }: Readonly<{ tranche?: TrancheDetailDt
   const personnels = usePersonnels();
   const tiersAutrui = useTiersAutrui();
   const plansComptables = usePlansComptables();
-  const entiteId = tranche?.entiteId;
-  const projetsFacturation = useApi(() => getReferentielPatrimoine('projets-facturation', entiteId), [entiteId]);
+  const [entiteChoisie, setEntiteChoisie] = useState(entiteDepart);
+  const entiteId = tranche?.entiteId ?? entiteChoisie;
+  const projetsFacturation = useApi(
+    () => (entiteId ? getReferentielPatrimoine('projets-facturation', entiteId) : Promise.resolve([])),
+    [entiteId],
+  );
 
   function changer(nom: string, valeur: string | boolean) {
     saisie.modifier(nom, valeur);
     if (tranche || nom !== 'projetId' || !valeur) return;
     void getProjet(String(valeur)).then((projet) => {
-      saisie.setBrouillon((b) => ({ ...b, ...reprisDuProgramme(projet) }));
+      setEntiteChoisie(projet.entiteId);
+      saisie.setBrouillon((b) => ({ ...b, ...reprisDuProgramme(projet), projetFacturationId: '' }));
     });
   }
 
