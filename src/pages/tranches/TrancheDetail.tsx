@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Building2, Pencil, Trash2 } from 'lucide-react';
+import { Building2, CalendarClock, Pencil, Trash2, TrendingUp } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import ArticlesTranche from '../../components/patrimoine/ArticlesTranche';
+import DialogueMiseAJourSchemas from '../../components/patrimoine/DialogueMiseAJourSchemas';
+import DialoguePrevisionsBase from '../../components/patrimoine/DialoguePrevisionsBase';
 import FicheSections from '../../components/patrimoine/FicheSections';
 import OngletsTranche from '../../components/patrimoine/OngletsTranche';
 import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
@@ -25,6 +27,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const [erreurSuppression, setErreurSuppression] = useState<string | null>(null);
+  const [dialogue, setDialogue] = useState<'previsions' | 'schemas' | null>(null);
 
   async function supprimer() {
     const oui = await confirm({
@@ -60,7 +63,11 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
       actions={
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <ActionAdmin onClick={() => setDialogue('previsions')} libelle="Prévisions de base" variant="outline"
+            icone={<TrendingUp data-icon="inline-start" />} />
+          <ActionAdmin onClick={() => setDialogue('schemas')} libelle="Mettre à jour les schémas de financement" variant="outline"
+            icone={<CalendarClock data-icon="inline-start" />} />
           <ActionAdmin onClick={() => void supprimer()} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
           <ActionAdmin to={`/tranches/${id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />
           <ActionAdmin to={`/articles/nouveau?trancheId=${id}`} libelle="Nouvel article" />
@@ -91,6 +98,8 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
         <ArticlesTranche trancheId={id} />
         <OngletsTransverses porteur="tranche" id={id} />
       </div>
+      {dialogue === 'previsions' && <DialoguePrevisionsBase trancheId={id} onClose={() => setDialogue(null)} />}
+      {dialogue === 'schemas' && <DialogueMiseAJourSchemas trancheId={id} onClose={() => setDialogue(null)} />}
     </PageShell>
   );
 }
