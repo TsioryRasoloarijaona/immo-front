@@ -12,7 +12,11 @@ import { estAdministrateur } from '../../lib/roles';
 import type { ArticleDetailDto } from '../../types';
 
 /** Sous-articles de l'article ; un article principal libre gagne les actions d'ajout, d'affectation et de désaffectation. */
-export default function SousArticlesArticle({ article, onModifie }: Readonly<{ article: ArticleDetailDto; onModifie: () => void }>) {
+export default function SousArticlesArticle({
+  article,
+  onModifie,
+  onOuvrir,
+}: Readonly<{ article: ArticleDetailDto; onModifie: () => void; onOuvrir: (id: string) => void }>) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const confirm = useConfirm();
@@ -53,7 +57,7 @@ export default function SousArticlesArticle({ article, onModifie }: Readonly<{ a
         {sousLots.length === 0 && <p className="text-label text-muted-foreground">Aucun sous-article rattaché.</p>}
         {sousLots.map((s) => (
           <div key={s.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-muted/30 px-3 py-2 text-label">
-            <button type="button" className="font-medium text-foreground hover:underline" onClick={() => void navigate(`/articles/${s.id}`)}>
+            <button type="button" className="font-medium text-foreground hover:underline" onClick={() => onOuvrir(s.id)}>
               {s.code}
             </button>
             <span className="text-muted-foreground">{s.description}</span>

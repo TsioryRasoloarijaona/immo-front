@@ -70,10 +70,16 @@ export default function ArticleDetail() {
   return <FicheArticle key={id} id={id} />;
 }
 
-export function FicheArticle({ id, variante = 'page' }: Readonly<{ id: string; variante?: VarianteFiche }>) {
+/** `onFermer` : en dialogue, ferme le dialogue au lieu de quitter l'écran après une suppression. */
+export function FicheArticle({
+  id,
+  variante = 'page',
+  onFermer,
+}: Readonly<{ id: string; variante?: VarianteFiche; onFermer?: () => void }>) {
   const { data: a, loading, error, refetch } = useApi(() => getArticle(id), [id]);
   const navigate = useNavigate();
   const { ouvrirFicheDossier, ouvrirFicheArticle } = usePreview();
+  const ouvrirArticle = (cible: string) => (variante === 'page' ? void navigate(`/articles/${cible}`) : ouvrirFicheArticle(cible));
   const confirm = useConfirm();
   const [erreurSuppression, setErreurSuppression] = useState<string | null>(null);
   const listes = useListesFicheArticle();
@@ -88,7 +94,8 @@ export function FicheArticle({ id, variante = 'page' }: Readonly<{ id: string; v
     if (!oui) return;
     try {
       await deleteArticle(id);
-      void navigate('/articles');
+      if (onFermer) onFermer();
+      else void navigate('/articles');
     } catch (err) {
       setErreurSuppression(err instanceof Error ? err.message : 'Suppression impossible.');
     }
@@ -152,7 +159,7 @@ export function FicheArticle({ id, variante = 'page' }: Readonly<{ id: string; v
       {a.lotParentId && (
         <button
           type="button"
-          onClick={() => (variante === 'page' ? navigate(`/articles/${a.lotParentId}`) : a.lotParentId && ouvrirFicheArticle(a.lotParentId))}
+          onClick={() => a.lotParentId && ouvrirArticle(a.lotParentId)}
           className="mb-3 flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground hover:underline"
         >
           Fait partie de <span className="font-medium text-foreground">{a.lotParentCode || a.lotParentDescription}</span>
@@ -216,7 +223,7 @@ export function FicheArticle({ id, variante = 'page' }: Readonly<{ id: string; v
 
         <PrixArticleFiche article={a} />
 
-        <SousArticlesArticle article={a} onModifie={() => void refetch()} />
+        <SousArticlesArticle article={a} onModifie={() => void refetch()} onOuvrir={ouvrirArticle} />
 
         <Card title="Contenances">
           {contenances.error && <ErrorState message={contenances.error} />}

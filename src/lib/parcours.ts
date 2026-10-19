@@ -154,6 +154,16 @@ export async function toastProspectLie(
   };
 }
 
+/** Pré-prospection ou prospection à l'écran : en dialogue, pas de route à corriger, l'habillage suit la donnée
+ * dès qu'elle est lue (un appelant sans le type passe `pre: false`). */
+export function habillagePre(
+  enDialogue: boolean,
+  p: { typeProspectionCode?: string | null } | null | undefined,
+  pre: boolean,
+): boolean {
+  return enDialogue && p ? p.typeProspectionCode === CODE_PRE_PROSPECTION : pre;
+}
+
 export function texteProspectionTransformee(nom: string, maj: Pick<ProspectionDetailDto, 'code'>): string {
   return maj.code ? `${nom} est maintenant une prospection (${maj.code}).` : `${nom} est maintenant une prospection.`;
 }

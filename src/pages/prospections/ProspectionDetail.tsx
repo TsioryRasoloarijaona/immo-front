@@ -89,7 +89,7 @@ import {
   type ArticleReferentielFilters,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { CODE_PRE_PROSPECTION, CODE_PROSPECTION, calculerParcours, estTransformable, texteProspectionTransformee, toastProspectLie } from '../../lib/parcours';
+import { CODE_PRE_PROSPECTION, CODE_PROSPECTION, calculerParcours, habillagePre, estTransformable, texteProspectionTransformee, toastProspectLie } from '../../lib/parcours';
 import { useToast } from '../../lib/toastContext';
 import ContactsProspect from '../../components/ContactsProspect';
 import TransformerProspectionDialog from '../../components/TransformerProspectionDialog';
@@ -488,17 +488,18 @@ export default function ProspectionDetail() {
 // pré-prospection et prospection sont la même ligne en base.
 export function FicheProspection({
   id,
-  pre: isPreRoute,
+  pre,
   variante = 'page',
 }: Readonly<{
   id: string;
   pre: boolean;
   variante?: VarianteFiche;
 }>) {
+  const { data: p, loading, error, refetch } = useApi(() => getProspection(id), [id], 'prospection');
+  const isPreRoute = habillagePre(variante === 'dialogue', p, pre);
   const listPath = isPreRoute ? '/pre-prospections' : '/prospections';
   const listLabel = isPreRoute ? 'Pré-prospections' : 'Prospections';
   const sectionAccent = isPreRoute ? 'var(--sec-preprospection)' : 'var(--sec-prospection)';
-  const { data: p, loading, error, refetch } = useApi(() => getProspection(id), [id], 'prospection');
   /* Le prospect lié rendu par « Créer prospect » / rattachement : la relecture
      peut revenir avec l'ancien état (base de lecture en retard), et le bouton
      redeviendrait cliquable — risque de double création. */
@@ -1422,6 +1423,7 @@ function ArticleCascadePicker({
   exclureTrancheIds?: readonly string[];
 }>) {
   const projets = useApi(() => getProjetsReferentiel(), []);
+  const { ouvrirFicheProspection } = usePreview();
   const categoriesRef = useCategoriesBien();
   const typesRef = useTypesBienReferentiel();
 
@@ -1597,7 +1599,7 @@ function ArticleCascadePicker({
         </p>
       )}
       {existante ? (
-        <ProspectionExistanteNotice existante={existante} message={error} />
+        <ProspectionExistanteNotice existante={existante} message={error} ouvrirEnDialogue={(pid) => ouvrirFicheProspection(pid, false)} />
       ) : (
         error && <p className="text-body text-destructive">{error}</p>
       )}

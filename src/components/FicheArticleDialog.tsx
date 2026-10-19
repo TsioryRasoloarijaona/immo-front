@@ -6,7 +6,7 @@ import { FicheArticle } from '../pages/articles/ArticleDetail';
 export default function FicheArticleDialog({ id, onClose }: Readonly<{ id: string; onClose: () => void }>) {
   return (
     <ModalFiche title="Article" onClose={onClose} pleineHauteur={false}>
-      <FicheArticle id={id} variante="dialogue" />
+      <FicheArticle id={id} variante="dialogue" onFermer={onClose} />
     </ModalFiche>
   );
 }
