@@ -53,8 +53,13 @@ export default function SaisieOnglet<L>({ colonne, ligne, onChange }: Readonly<{
   const valeur = ligne[colonne.nom] as Valeur;
   const texte = typeof valeur === 'string' ? valeur : '';
   switch (colonne.type) {
-    case 'case':
-      return <input type="checkbox" aria-label={colonne.libelle} checked={!!valeur} onChange={(e) => onChange(e.target.checked)} />;
+    case 'case': {
+      const etiquette = colonne.etiquette?.(ligne);
+      const caseACocher = <input type="checkbox" aria-label={etiquette ?? colonne.libelle} checked={!!valeur}
+        onChange={(e) => onChange(e.target.checked)} />;
+      if (!etiquette) return caseACocher;
+      return <label className="flex items-center gap-1.5 whitespace-nowrap">{caseACocher}{etiquette}</label>;
+    }
     case 'date':
       return (
         <Input type="date" aria-label={colonne.libelle} value={texte.slice(0, 10)} className="h-7 w-36"

@@ -3,20 +3,18 @@ import { Plus } from 'lucide-react';
 import { ErrorState, LoadingState } from '../ui';
 import { Button } from '../ui/button';
 import TableLignes from './TableLignes';
-import { getOngletTranche, putOngletTranche, type OngletTranche } from '../../lib/apiPatrimoine';
 import { useAuth } from '../../lib/auth';
-import { changerRangee, type ColonneOnglet, type Rangee } from '../../lib/ongletsTranche';
+import { changerRangee, type ColonneOnglet, type Rangee, type SourceLignes } from '../../lib/ongletsTranche';
 import { estAdministrateur } from '../../lib/roles';
 import { useToast } from '../../lib/toastContext';
 import { useApi } from '../../lib/useApi';
 
 /**
- * Grille d'un onglet de la fiche tranche : lignes ajoutées / modifiées / retirées en place, envoyées d'un bloc par
- * « Enregistrer » (PUT liste complète). Lecture seule hors Administrateur.
+ * Grille d'un onglet de fiche (tranche, contenances d'article) : lignes ajoutées / modifiées / retirées en place,
+ * envoyées d'un bloc par « Enregistrer » (PUT liste complète). Lecture seule hors Administrateur.
  */
-export default function GrilleOnglet<L extends { id?: string }>({ trancheId, onglet, colonnes, nouvelle, normaliser, pied, onEnregistre }: Readonly<{
-  trancheId: string;
-  onglet: OngletTranche;
+export default function GrilleOnglet<L extends { id?: string }>({ source, colonnes, nouvelle, normaliser, pied, onEnregistre }: Readonly<{
+  source: SourceLignes<L>;
   colonnes: ColonneOnglet<L>[];
   nouvelle: L;
   /** Recalcul d'une ligne après chaque saisie (frais : HT ↔ TTC). */
@@ -28,7 +26,7 @@ export default function GrilleOnglet<L extends { id?: string }>({ trancheId, ong
   const admin = estAdministrateur(user);
   const showToast = useToast();
   const [version, setVersion] = useState(0);
-  const { data, loading, error } = useApi(() => getOngletTranche<L>(trancheId, onglet), [trancheId, onglet, version]);
+  const { data, loading, error } = useApi(source.charger, [source.cle, version]);
   const [brouillon, setBrouillon] = useState<Rangee<L>[] | null>(null);
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
@@ -45,7 +43,7 @@ export default function GrilleOnglet<L extends { id?: string }>({ trancheId, ong
     setEnvoi(true);
     setErreur(null);
     try {
-      await putOngletTranche(trancheId, onglet, rangees.map((r) => r.ligne));
+      await source.enregistrer(rangees.map((r) => r.ligne));
       setBrouillon(null);
       setVersion((v) => v + 1);
       showToast('Onglet enregistré.');

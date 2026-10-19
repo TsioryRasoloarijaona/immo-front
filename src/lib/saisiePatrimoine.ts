@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { formatCurrency, formatDate, formatNumber, formatPercent, formatSurface, texteBrut, toApiDateTime } from './format';
 
 /** Formulaires programme / tranche / article : champs déclarés une fois, saisis en texte, convertis à l'envoi. */
-export type TypeChamp = 'texte' | 'texteLong' | 'date' | 'montant' | 'entier' | 'surface' | 'pourcent' | 'booleen' | 'liste';
+/** `multi` : cases d'une liste, ids joints par `,` dans le brouillon, tableau sur le fil (vues d'un article). */
+export type TypeChamp = 'texte' | 'texteLong' | 'date' | 'montant' | 'entier' | 'surface' | 'pourcent' | 'booleen' | 'liste'
+  | 'multi';
+
+export type Choix = { label: string; value: string }[];
 
 export interface ChampDef {
   /** Nom du champ sur le fil (DTO d'écriture et de détail). */
@@ -18,9 +22,17 @@ export interface ChampDef {
   lectureSeule?: boolean;
 }
 
+/** Libellés des ids d'un champ `liste` ou `multi` dont le détail ne porte que l'id. */
+function libellesDepuis(liste: Choix, ids: unknown): string | undefined {
+  const tous = Array.isArray(ids) ? ids : [ids];
+  const libelles = liste.filter((c) => tous.includes(c.value)).map((c) => c.label);
+  return libelles.length > 0 ? libelles.join(', ') : undefined;
+}
+
 /** Valeur d'un champ (hors case à cocher) pour la fiche en lecture, `undefined` si vide (affiché « — »). */
-export function valeurFiche(def: ChampDef, source: object): string | undefined {
+export function valeurFiche(def: ChampDef, source: object, liste?: Choix): string | undefined {
   const valeurs = source as Record<string, unknown>;
+  if (liste) return libellesDepuis(liste, valeurs[def.nom]);
   const v = def.type === 'liste' ? valeurs[def.champLibelle ?? def.nom.replace(/Id$/, 'Libelle')] : valeurs[def.nom];
   if (v === null || v === undefined || v === '') return undefined;
   if (typeof v !== 'number') return def.type === 'date' ? formatDate(texteBrut(v)) : texteBrut(v);
@@ -46,6 +58,7 @@ export type Brouillon = Record<string, string | boolean>;
 const arrondi = (n: number) => Math.round(n * 1e8) / 1e8;
 
 function texteBrouillon(def: ChampDef, valeur: unknown): string {
+  if (def.type === 'multi') return Array.isArray(valeur) ? valeur.map(String).sort((a, b) => a.localeCompare(b)).join(',') : '';
   if (typeof valeur !== 'string' && typeof valeur !== 'number') return '';
   if (def.type === 'pourcent') return String(arrondi(Number(valeur) * 100));
   if (def.type === 'date') return String(valeur).slice(0, 10);
@@ -56,6 +69,7 @@ function versFil(def: ChampDef, valeur: string | boolean): unknown {
   if (def.type === 'booleen') return valeur === true;
   const texte = String(valeur);
   if (def.type === 'texte' || def.type === 'texteLong') return texte;
+  if (def.type === 'multi') return texte === '' ? [] : texte.split(',');
   if (texte.trim() === '') return undefined;
   switch (def.type) {
     case 'date':
@@ -86,7 +100,7 @@ export function brouillonDepuis(champs: ChampDef[], source?: object): Brouillon 
 /**
  * Corps d'écriture. Avec `initial` (PATCH) : seuls les champs changés partent — renvoyer un prix inchangé le
  * ferait recalculer côté serveur, et toucherait un champ protégé d'un article occupé. Une date, une liste ou un
- * nombre effacé part dans `champsAVider` (programme, tranche ; l'article l'ignore).
+ * nombre effacé part dans `champsAVider`.
  */
 export function corpsDepuis(champs: ChampDef[], brouillon: Brouillon, initial?: Brouillon): Record<string, unknown> {
   const corps: Record<string, unknown> = {};

@@ -16,6 +16,10 @@
       "description": "Actions et alertes (ComActionMessage) d'un article ; programme et tranche n'en ont pas (aucune colonne)."
     },
     {
+      "name": "Fiche article",
+      "description": "Onglet Contenances de l'article et types de présentation de sa tranche."
+    },
+    {
       "name": "Notes",
       "description": "Notes (AdmMessage) des programmes, tranches et articles ; écriture Administrateur."
     },
@@ -58,6 +62,10 @@
     {
       "name": "Audit",
       "description": "Journal d'audit OMRAN (AdmWebHistorics) des programmes, tranches, articles et entités juridiques."
+    },
+    {
+      "name": "Référentiels du patrimoine",
+      "description": "Listes de choix des fiches programme, tranche et article."
     },
     {
       "name": "Utilisateurs (admin)",
@@ -214,10 +222,6 @@
     {
       "name": "Dossiers — compteurs",
       "description": "Compteurs eau, électricité et gaz de l'article du dossier (bouton « Compteurs »)."
-    },
-    {
-      "name": "Référentiels du patrimoine",
-      "description": "Listes de choix des fiches programme et tranche."
     }
   ],
   "paths": {
@@ -1900,6 +1904,120 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/AcquereursDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}/contenances": {
+      "get": {
+        "tags": [
+          "Fiche article"
+        ],
+        "summary": "Contenances de l'article (StkItemContenance), par ordre de la contenance",
+        "operationId": "contenances",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes de l'onglet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneContenanceDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Article introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneContenanceDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Fiche article"
+        ],
+        "summary": "Enregistre la liste complète des contenances de l'article",
+        "operationId": "enregistrerContenances",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LignesTrancheDtoLigneContenanceDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes enregistrées, relues.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneContenanceDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ligne invalide : le détail nomme lignes[i].<champ> ; rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneContenanceDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneContenanceDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Article introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneContenanceDto"
                 }
               }
             }
@@ -8870,7 +8988,7 @@
           "Articles"
         ],
         "summary": "Crée un sous-article rattaché à l'article",
-        "description": "Crée un sous-article (`IsUnderItem = IsUnderItemOrigin = 1`) rattaché à l'article `id`, qui doit être un article\nprincipal non occupé. Tranche, vocation et nature sont celles de l'article (`trancheId` dans le corps → 400) ;\nimmeuble par défaut celui de l'article ; catégorie et type paramétrés « pour les sous-articles » ; `estTitre`\nfaux par défaut. Le prix de vente de l'article est recalculé.",
+        "description": "Crée un sous-article (`IsUnderItem = IsUnderItemOrigin = 1`) rattaché à l'article `id`, qui doit être un article\nprincipal non occupé. Tranche, vocation et nature sont celles de l'article (`trancheId` ou `vocationId` dans le\ncorps → 400) ;\nimmeuble par défaut celui de l'article ; catégorie et type paramétrés « pour les sous-articles » ; `estTitre`\nfaux par défaut. Le prix de vente de l'article est recalculé.",
         "operationId": "creerSousArticle",
         "parameters": [
           {
@@ -11282,12 +11400,46 @@
           }
         }
       },
+      "delete": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Supprime un article, ses sous-articles rattachés et leurs lignes",
+        "description": "409 si l'article ou l'un de ses sous-articles rattachés est affecté à un dossier (vente, location, syndic), ou\nencore cité par une prospection, un dossier, une offre, un historique de statut ou un terrain de tranche (le\ndétail les compte) ; une autre clé étrangère de la base → 409 nommant la contrainte. Sinon, dans une transaction :\nles sous-articles rattachés, les vues, contenances, tracés de plan, pièces jointes et notes de chacun, puis\nl'article ; une ligne d'audit `Deleted` par objet. Un sous-article supprimé seul fait recalculer le prix de vente\nde son article.",
+        "operationId": "supprimer_7",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Supprimé avec vues, contenances, tracés, pièces et notes."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Article introuvable."
+          },
+          "409": {
+            "description": "Article ou sous-article occupé, encore référencé ou porteur de dépenses."
+          }
+        }
+      },
       "patch": {
         "tags": [
           "Articles"
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
-        "description": "Champ absent ou `null` = inchangé. La tranche ne se modifie pas (400). Si l'article est **occupé** (dossier de\nvente ou de location, le sien ou celui de son article) : seuls description, notes, adresse, titre foncier,\ntitré, surfaces intérieure/murs/parties communes, immeuble et étage restent modifiables ; toute autre valeur\ndifférente → 409 nommant le dossier. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article.",
+        "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` ou `vocationId` dans le corps → 400. Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
         "operationId": "modifier_9",
         "parameters": [
           {
@@ -11649,6 +11801,55 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/StockTrancheDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/presentations": {
+      "get": {
+        "tags": [
+          "Fiche article"
+        ],
+        "summary": "Types de présentation (StkPresentationType) de la tranche, par code",
+        "operationId": "presentations",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Types de la tranche (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
                 }
               }
             }
@@ -14563,6 +14764,30 @@
         }
       }
     },
+    "/api/referentiels-patrimoine/vues": {
+      "get": {
+        "tags": [
+          "Référentiels du patrimoine"
+        ],
+        "summary": "Vues d'article (StkVue), triées par code",
+        "operationId": "vues",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels-patrimoine/tiers-autrui": {
       "get": {
         "tags": [
@@ -14719,6 +14944,30 @@
         }
       }
     },
+    "/api/referentiels-patrimoine/orientations": {
+      "get": {
+        "tags": [
+          "Référentiels du patrimoine"
+        ],
+        "summary": "Orientations d'article (StkOrientation), triées par code",
+        "operationId": "orientations",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels-patrimoine/niveaux-terrain": {
       "get": {
         "tags": [
@@ -14726,6 +14975,78 @@
         ],
         "summary": "Niveaux (LndLevel), champ « Nbr. étage » de la tranche, triés par code",
         "operationId": "niveauxTerrain",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-patrimoine/facades": {
+      "get": {
+        "tags": [
+          "Référentiels du patrimoine"
+        ],
+        "summary": "Façades d'article (StkFacade), triées par code",
+        "operationId": "facades",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-patrimoine/contenances": {
+      "get": {
+        "tags": [
+          "Référentiels du patrimoine"
+        ],
+        "summary": "Contenances (StkContenance) et leurs options, triées par Sorting puis code",
+        "operationId": "contenances_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContenanceDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-patrimoine/categories-charge": {
+      "get": {
+        "tags": [
+          "Référentiels du patrimoine"
+        ],
+        "summary": "Catégories de charge d'article (StkCostCategory), triées par code",
+        "operationId": "categoriesCharge",
         "responses": {
           "200": {
             "description": "OK",
@@ -23271,7 +23592,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_7",
+        "operationId": "supprimer_8",
         "parameters": [
           {
             "name": "id",
@@ -23470,7 +23791,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_8",
+        "operationId": "supprimer_9",
         "parameters": [
           {
             "name": "id",
@@ -23640,7 +23961,7 @@
       },
       "LignesTrancheDtoLigneTerrainDto": {
         "type": "object",
-        "description": "Liste complète d'un onglet de la fiche tranche : corps du PUT et réponse du GET / PUT.",
+        "description": "Liste complète d'un onglet de fiche (tranche, contenances de l'article) : corps du PUT et réponse du GET / PUT.",
         "properties": {
           "lignes": {
             "type": "array",
@@ -23798,7 +24119,7 @@
       },
       "LignesTrancheDtoLignePlancherDto": {
         "type": "object",
-        "description": "Liste complète d'un onglet de la fiche tranche : corps du PUT et réponse du GET / PUT.",
+        "description": "Liste complète d'un onglet de fiche (tranche, contenances de l'article) : corps du PUT et réponse du GET / PUT.",
         "properties": {
           "lignes": {
             "type": "array",
@@ -23863,7 +24184,7 @@
       },
       "LignesTrancheDtoLigneFraisDto": {
         "type": "object",
-        "description": "Liste complète d'un onglet de la fiche tranche : corps du PUT et réponse du GET / PUT.",
+        "description": "Liste complète d'un onglet de fiche (tranche, contenances de l'article) : corps du PUT et réponse du GET / PUT.",
         "properties": {
           "lignes": {
             "type": "array",
@@ -23902,7 +24223,7 @@
       },
       "LignesTrancheDtoLigneFinalisationDto": {
         "type": "object",
-        "description": "Liste complète d'un onglet de la fiche tranche : corps du PUT et réponse du GET / PUT.",
+        "description": "Liste complète d'un onglet de fiche (tranche, contenances de l'article) : corps du PUT et réponse du GET / PUT.",
         "properties": {
           "lignes": {
             "type": "array",
@@ -23941,7 +24262,7 @@
       },
       "LignesTrancheDtoLigneEtageDto": {
         "type": "object",
-        "description": "Liste complète d'un onglet de la fiche tranche : corps du PUT et réponse du GET / PUT.",
+        "description": "Liste complète d'un onglet de fiche (tranche, contenances de l'article) : corps du PUT et réponse du GET / PUT.",
         "properties": {
           "lignes": {
             "type": "array",
@@ -24037,7 +24358,7 @@
       },
       "LignesTrancheDtoLigneCommissionDto": {
         "type": "object",
-        "description": "Liste complète d'un onglet de la fiche tranche : corps du PUT et réponse du GET / PUT.",
+        "description": "Liste complète d'un onglet de fiche (tranche, contenances de l'article) : corps du PUT et réponse du GET / PUT.",
         "properties": {
           "lignes": {
             "type": "array",
@@ -24604,6 +24925,73 @@
           "libelle": {
             "type": "string",
             "description": "« Tiers => Tranche => Article », libellé d'OMRAN (« Non affecté » sans tranche)."
+          }
+        }
+      },
+      "LigneContenanceDto": {
+        "type": "object",
+        "description": "Ligne de l'onglet Contenances de l'article (StkItemContenance).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne ; absent au PUT = nouvelle ligne."
+          },
+          "contenanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Contenance (StkContenance), obligatoire."
+          },
+          "nombre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "ItemsNumber : nombre, ≥ 0 ; absent = 0."
+          },
+          "avecOption1": {
+            "type": "boolean",
+            "description": "Option 1 cochée ; refusée (400) si l'option 1 de la contenance est vide."
+          },
+          "quantiteOption1": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Quantité de l'option 1 ; refusée (400) sans IsOption1WithQuantity."
+          },
+          "avecOption2": {
+            "type": "boolean"
+          },
+          "quantiteOption2": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "avecOption3": {
+            "type": "boolean"
+          },
+          "quantiteOption3": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "contenanceCode": {
+            "type": "string",
+            "description": "Code de la contenance.",
+            "readOnly": true
+          },
+          "contenanceDescription": {
+            "type": "string",
+            "description": "Description de la contenance.",
+            "readOnly": true
+          }
+        }
+      },
+      "LignesTrancheDtoLigneContenanceDto": {
+        "type": "object",
+        "description": "Liste complète d'un onglet de fiche (tranche, contenances de l'article) : corps du PUT et réponse du GET / PUT.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de l'onglet ; au PUT, une ligne absente est supprimée.",
+            "items": {
+              "$ref": "#/components/schemas/LigneContenanceDto"
+            }
           }
         }
       },
@@ -30593,7 +30981,7 @@
           "trancheId": {
             "type": "string",
             "format": "uuid",
-            "description": "Tranche (StkHierarchyId). Obligatoire pour un article, non modifiable, interdit pour un sous-article (celle du parent)."
+            "description": "Tranche (StkHierarchyId). Obligatoire pour un article, non modifiable, interdit pour un sous-article (400, celle du parent)."
           },
           "code": {
             "type": "string",
@@ -30606,7 +30994,7 @@
           "vocationId": {
             "type": "string",
             "format": "uuid",
-            "description": "Vocation (StkVocation), défaut VENTE, PROJET refusée. Ignorée pour un sous-article."
+            "description": "Vocation (StkVocation), défaut VENTE, PROJET refusée. Interdite pour un sous-article (400)."
           },
           "categorieId": {
             "type": "string",
@@ -30695,6 +31083,186 @@
           "toujoursAffecte": {
             "type": "boolean",
             "description": "AlwaysAffected, à la création d'un sous-article seulement (défaut faux)."
+          },
+          "presentationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de présentation (StkPresentationType) de la tranche de l'article ; un changement remplace les contenances par celles du type."
+          },
+          "orientationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Orientation (StkOrientation)."
+          },
+          "categorieChargeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de charge (StkCostCategory)."
+          },
+          "facadeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Façade (StkFacade)."
+          },
+          "entiteSyndicId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Entité de gestion du syndic (CfgCompany, CfgCompanySyndicId)."
+          },
+          "vueIds": {
+            "type": "array",
+            "description": "Vues (StkVue) : l'ensemble remplace celui de l'article ; [] retire tout, absent = inchangé.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "avanceMinimum": {
+            "type": "number",
+            "description": "ComSaleMinAdvance : avance minimum, ≥ 0."
+          },
+          "loyerMensuelHT": {
+            "type": "number",
+            "description": "AmountHT : loyer mensuel HT, ≥ 0."
+          },
+          "nombreCautions": {
+            "type": "integer",
+            "format": "int32",
+            "description": "CautionNumber : nombre de cautions, ≥ 0."
+          },
+          "anomalies": {
+            "type": "string",
+            "description": "Anomalies (1000 caractères au plus)."
+          },
+          "contenanceLibre": {
+            "type": "string",
+            "description": "Contenance en texte libre (1000 caractères au plus)."
+          },
+          "disponibleVenteWeb": {
+            "type": "boolean",
+            "description": "IsAvailableForSaleInWebSite : disponible pour la vente sur le web."
+          },
+          "disponibleLocationWeb": {
+            "type": "boolean",
+            "description": "IsAvailableForRentInWebSite : disponible pour la location sur le web."
+          },
+          "dateEnregistrement": {
+            "type": "string",
+            "format": "date-time",
+            "description": "RegistryDate : date d'enregistrement."
+          },
+          "numeroEnregistrement": {
+            "type": "string",
+            "description": "RegistryNumber : numéro d'enregistrement."
+          },
+          "lieuEnregistrement": {
+            "type": "string",
+            "description": "RegistryPlace : lieu d'enregistrement."
+          },
+          "cpfImmatriculation": {
+            "type": "string",
+            "description": "ImmatriculationCPF."
+          },
+          "dateImmatriculation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ImmatriculationDate."
+          },
+          "titreFoncierMere": {
+            "type": "string",
+            "description": "TitleNumberMother : titre foncier mère."
+          },
+          "intituleTitreFoncier": {
+            "type": "string",
+            "description": "TitleName : intitulé du titre foncier."
+          },
+          "dateTitreFoncier": {
+            "type": "string",
+            "format": "date-time",
+            "description": "TitleDate : date du titre foncier."
+          },
+          "proprieteDite": {
+            "type": "string",
+            "description": "PropertyCalled : propriété dite."
+          },
+          "fractionDivise": {
+            "type": "string",
+            "description": "FractionDivided : fraction divise."
+          },
+          "fractionDiviseTerrain": {
+            "type": "string",
+            "description": "FractionDividedLand : fraction divise du terrain."
+          },
+          "partiesDivises": {
+            "type": "number",
+            "description": "DividedPart : parties divises, ≥ 0."
+          },
+          "partiesIndivises": {
+            "type": "number",
+            "description": "UndividedPart : parties indivises, ≥ 0."
+          },
+          "quotaTerrainGroupe": {
+            "type": "string",
+            "description": "GroupLandQuota : quote-part du terrain du groupe."
+          },
+          "notesTitreFoncier": {
+            "type": "string",
+            "description": "TitleNotes : notes du titre foncier."
+          },
+          "referenceElectricite": {
+            "type": "string",
+            "description": "ElectricityRef (50 caractères au plus, comme chaque compteur)."
+          },
+          "policeElectricite": {
+            "type": "string",
+            "description": "ElectricityMeterPolice."
+          },
+          "compteurElectricite": {
+            "type": "string",
+            "description": "ElectricityMeter."
+          },
+          "releveElectricite": {
+            "type": "string",
+            "description": "ElectricityMeterIndex."
+          },
+          "referenceEau": {
+            "type": "string",
+            "description": "WaterRef."
+          },
+          "policeEau": {
+            "type": "string",
+            "description": "WaterMeterPolice."
+          },
+          "compteurEau": {
+            "type": "string",
+            "description": "WaterMeter."
+          },
+          "releveEau": {
+            "type": "string",
+            "description": "WaterMeterIndex."
+          },
+          "referenceGaz": {
+            "type": "string",
+            "description": "GasRef."
+          },
+          "policeGaz": {
+            "type": "string",
+            "description": "GasMeterPolice."
+          },
+          "compteurGaz": {
+            "type": "string",
+            "description": "GasMeter."
+          },
+          "releveGaz": {
+            "type": "string",
+            "description": "GasMeterIndex."
+          },
+          "champsAVider": {
+            "type": "array",
+            "description": "PATCH : champs à vider (date, référence → NULL ; nombre → 0 ; case → faux ; texte → \"\"). Classification, surfaces, prix, TVA, textes du socle et vues → 400.",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -30963,6 +31531,144 @@
           "modifieLe": {
             "type": "string",
             "format": "date-time"
+          },
+          "orientationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorieChargeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "facadeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entiteSyndicId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vueIds": {
+            "type": "array",
+            "description": "Vues de l'article (StkItemVue.StkVueId).",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "avanceMinimum": {
+            "type": "number"
+          },
+          "loyerMensuelHT": {
+            "type": "number"
+          },
+          "nombreCautions": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "anomalies": {
+            "type": "string"
+          },
+          "contenanceLibre": {
+            "type": "string"
+          },
+          "disponibleVenteWeb": {
+            "type": "boolean"
+          },
+          "disponibleLocationWeb": {
+            "type": "boolean"
+          },
+          "dateEnregistrement": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "numeroEnregistrement": {
+            "type": "string"
+          },
+          "lieuEnregistrement": {
+            "type": "string"
+          },
+          "cpfImmatriculation": {
+            "type": "string"
+          },
+          "dateImmatriculation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "titreFoncierMere": {
+            "type": "string"
+          },
+          "intituleTitreFoncier": {
+            "type": "string"
+          },
+          "dateTitreFoncier": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "proprieteDite": {
+            "type": "string"
+          },
+          "fractionDivise": {
+            "type": "string"
+          },
+          "fractionDiviseTerrain": {
+            "type": "string"
+          },
+          "partiesDivises": {
+            "type": "number"
+          },
+          "partiesIndivises": {
+            "type": "number"
+          },
+          "quotaTerrainGroupe": {
+            "type": "string"
+          },
+          "notesTitreFoncier": {
+            "type": "string"
+          },
+          "referenceElectricite": {
+            "type": "string"
+          },
+          "policeElectricite": {
+            "type": "string"
+          },
+          "compteurElectricite": {
+            "type": "string"
+          },
+          "releveElectricite": {
+            "type": "string"
+          },
+          "referenceEau": {
+            "type": "string"
+          },
+          "policeEau": {
+            "type": "string"
+          },
+          "compteurEau": {
+            "type": "string"
+          },
+          "releveEau": {
+            "type": "string"
+          },
+          "referenceGaz": {
+            "type": "string"
+          },
+          "policeGaz": {
+            "type": "string"
+          },
+          "compteurGaz": {
+            "type": "string"
+          },
+          "releveGaz": {
+            "type": "string"
+          },
+          "superficieNette": {
+            "type": "number",
+            "description": "Calculée à la lecture (AreaNet de StkItemView) : surface + Σ sous-articles rattachés ; terrain : surface − surface des équipements."
+          },
+          "superficieTitree": {
+            "type": "number",
+            "description": "Calculée à la lecture (TitledArea de StkItemView) : surface si titré, + Σ sous-articles rattachés titrés."
           }
         }
       },
@@ -33047,6 +33753,25 @@
           }
         }
       },
+      "ReferentielItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sorting": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "EcheanceSchemaDto": {
         "type": "object",
         "description": "Échéance que « Mettre à jour les schémas de financement » déplace au début des finalisations.",
@@ -33086,25 +33811,6 @@
           "reste": {
             "type": "number",
             "description": "Reste dû calculé : montant − règlements non annulés ; toujours > 0 ici."
-          }
-        }
-      },
-      "ReferentielItemDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "code": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "sorting": {
-            "type": "integer",
-            "format": "int32"
           }
         }
       },
@@ -33964,6 +34670,41 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "ContenanceDto": {
+        "type": "object",
+        "description": "Contenance (StkContenance) et ses options : option vide = case grisée ; quantité seulement si optionNAvecQuantite.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "option1": {
+            "type": "string",
+            "description": "Libellé de l'option 1, null si l'option n'existe pas."
+          },
+          "option1AvecQuantite": {
+            "type": "boolean"
+          },
+          "option2": {
+            "type": "string"
+          },
+          "option2AvecQuantite": {
+            "type": "boolean"
+          },
+          "option3": {
+            "type": "string"
+          },
+          "option3AvecQuantite": {
+            "type": "boolean"
           }
         }
       },

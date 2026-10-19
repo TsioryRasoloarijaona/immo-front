@@ -7,7 +7,7 @@ import { getChoixOngletTranche, getEntitesFinalisation, getReferentielPatrimoine
 import { commercialLabel, useAppData } from '../../lib/appData';
 import { colonnesCommissions } from '../../lib/commissionsTranche';
 import { formatSurface } from '../../lib/format';
-import { montantsFrais, somme, type ColonneOnglet } from '../../lib/ongletsTranche';
+import { montantsFrais, somme, sourceOngletTranche, type ColonneOnglet } from '../../lib/ongletsTranche';
 import { useApi } from '../../lib/useApi';
 import type {
   EntiteFinalisationDto, LigneCommissionDto, LigneEtageDto, LigneFinalisationDto, LigneFraisDto, LignePlancherDto,
@@ -96,13 +96,13 @@ export default function OngletsTranche({ trancheId, onPlancherEnregistre }: Read
         </TabsList>
         <div className="p-4.5">
           <TabsContent value="terrains">
-            <GrilleOnglet trancheId={trancheId} onglet="terrains" colonnes={colonnesTerrains} nouvelle={{ ratio: 1 }} />
+            <GrilleOnglet<LigneTerrainDto> source={sourceOngletTranche(trancheId, 'terrains')} colonnes={colonnesTerrains} nouvelle={{ ratio: 1 }} />
           </TabsContent>
           <TabsContent value="etages">
-            <GrilleOnglet trancheId={trancheId} onglet="etages" colonnes={colonnesEtages} nouvelle={{}} />
+            <GrilleOnglet<LigneEtageDto> source={sourceOngletTranche(trancheId, 'etages')} colonnes={colonnesEtages} nouvelle={{}} />
           </TabsContent>
           <TabsContent value="plancher">
-            <GrilleOnglet trancheId={trancheId} onglet="plancher-couvert" colonnes={colonnesPlancher} nouvelle={{ surface: 0 }}
+            <GrilleOnglet<LignePlancherDto> source={sourceOngletTranche(trancheId, 'plancher-couvert')} colonnes={colonnesPlancher} nouvelle={{ surface: 0 }}
               onEnregistre={onPlancherEnregistre}
               pied={(lignes) => (
                 <p className="text-label text-muted-foreground">
@@ -111,16 +111,16 @@ export default function OngletsTranche({ trancheId, onPlancherEnregistre }: Read
               )} />
           </TabsContent>
           <TabsContent value="frais">
-            <GrilleOnglet trancheId={trancheId} onglet="frais" colonnes={colonnesFrais} normaliser={montantsFrais}
+            <GrilleOnglet<LigneFraisDto> source={sourceOngletTranche(trancheId, 'frais')} colonnes={colonnesFrais} normaliser={montantsFrais}
               nouvelle={{ saisiEnTTC: false, montantHT: 0, tauxTva: 0, montantTTC: 0 }} />
           </TabsContent>
           <TabsContent value="finalisations">
-            <GrilleOnglet trancheId={trancheId} onglet="finalisations" colonnes={colonnesFinalisations} nouvelle={{}}
+            <GrilleOnglet<LigneFinalisationDto> source={sourceOngletTranche(trancheId, 'finalisations')} colonnes={colonnesFinalisations} nouvelle={{}}
               normaliser={finalisation.normaliser}
               pied={() => <p className="text-label text-muted-foreground">{AIDE_FINALISATIONS}</p>} />
           </TabsContent>
           <TabsContent value="commissions">
-            <GrilleOnglet<LigneCommissionDto> trancheId={trancheId} onglet="commissions" colonnes={commissions} nouvelle={{}} />
+            <GrilleOnglet<LigneCommissionDto> source={sourceOngletTranche(trancheId, 'commissions')} colonnes={commissions} nouvelle={{}} />
           </TabsContent>
         </div>
       </Tabs>
