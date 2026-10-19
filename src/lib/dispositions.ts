@@ -622,3 +622,11 @@ export const DISPOSITION_ETAT_VENTES: DispositionColonnes = {
   // Le ton du badge de statut se lit sur le code.
   toujoursDemandees: ['statutCode'],
 };
+
+export const DISPOSITION_SUIVI_COMMERCIAUX: DispositionColonnes = {
+  ordre: [],
+  poids: { jour: 7, dateSaisie: 9, commercialNom: 13, type: 11, resultat: 18, joint: 7, personneNom: 16, projet: 10 },
+  masquees: new Set(['id', 'prospectionId']),
+  // Le clic sur une ligne ouvre la prospection.
+  toujoursDemandees: ['prospectionId'],
+};
