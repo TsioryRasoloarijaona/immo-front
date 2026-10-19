@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Building2, Calendar, Coins, Pencil, Scale } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
+import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, TogglePill } from '../../components/ui';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
@@ -275,6 +276,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
             />
           )}
         </Card>
+        <OngletsTransverses porteur="tranche" id={id} />
         </div>
       </div>
     </PageShell>
