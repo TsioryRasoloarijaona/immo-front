@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import LienFiche from '../../components/LienFiche';
+import { usePreview } from '../../lib/previewContext';
 import { ArchiveRestore, ArrowUpRight, Download, Eye, FileText, Minus, Pencil, Phone, Plus, Send, UserPlus, Users, X } from 'lucide-react';
 import BoutonEdition from '../../components/BoutonEdition';
 import CadreFiche, { EnteteFiche, type VarianteFiche } from '../../components/CadreFiche';
@@ -22,7 +24,7 @@ import MarqueurTri from '../../components/MarqueurTri';
 import { OngletAutres, OngletProfils } from '../../components/SousCollectionsProspection';
 import RefSelect from '../../components/RefSelect';
 import MentionPrixPlancher from '../../components/MentionPrixPlancher';
-import { Button } from '../../components/ui/button';
+import { Button, buttonVariants } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Textarea } from '../../components/ui/textarea';
 import { Separator } from '../../components/ui/separator';
@@ -87,7 +89,7 @@ import {
   type ArticleReferentielFilters,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { CODE_PRE_PROSPECTION, CODE_PROSPECTION, calculerParcours, estTransformable, texteProspectionTransformee, toastProspectLie } from '../../lib/parcours';
+import { CODE_PRE_PROSPECTION, CODE_PROSPECTION, calculerParcours, habillagePre, estTransformable, texteProspectionTransformee, toastProspectLie } from '../../lib/parcours';
 import { useToast } from '../../lib/toastContext';
 import ContactsProspect from '../../components/ContactsProspect';
 import TransformerProspectionDialog from '../../components/TransformerProspectionDialog';
@@ -486,17 +488,18 @@ export default function ProspectionDetail() {
 // pré-prospection et prospection sont la même ligne en base.
 export function FicheProspection({
   id,
-  pre: isPreRoute,
+  pre,
   variante = 'page',
 }: Readonly<{
   id: string;
   pre: boolean;
   variante?: VarianteFiche;
 }>) {
+  const { data: p, loading, error, refetch } = useApi(() => getProspection(id), [id], 'prospection');
+  const isPreRoute = habillagePre(variante === 'dialogue', p, pre);
   const listPath = isPreRoute ? '/pre-prospections' : '/prospections';
   const listLabel = isPreRoute ? 'Pré-prospections' : 'Prospections';
   const sectionAccent = isPreRoute ? 'var(--sec-preprospection)' : 'var(--sec-prospection)';
-  const { data: p, loading, error, refetch } = useApi(() => getProspection(id), [id], 'prospection');
   /* Le prospect lié rendu par « Créer prospect » / rattachement : la relecture
      peut revenir avec l'ancien état (base de lecture en retard), et le bouton
      redeviendrait cliquable — risque de double création. */
@@ -520,6 +523,7 @@ export function FicheProspection({
   // `user.employeeId` est l'id CfgTier du compte : même espace d'ids que `commerciaux`.
   const ownCommercial = commerciaux.find((c) => c.id === user?.employeeId) ?? null;
   const navigate = useNavigate();
+  const { ouvrirFicheDossier, ouvrirFicheProspect } = usePreview();
   const showToast = useToast();
   const toastErreur = (err: unknown, defaut: string) =>
     showToast({ texte: err instanceof Error ? err.message : defaut, variante: 'erreur' });
@@ -850,7 +854,7 @@ export function FicheProspection({
     );
   } else if (dossierIssu) {
     actionPrincipale = (
-      <Button size="sm" onClick={() => navigate(`/dossiers/${dossierIssu.id}`)}>
+      <Button size="sm" onClick={() => ouvrirFicheDossier(dossierIssu.id)}>
         <ArrowUpRight data-icon="inline-start" /> Dossier {dossierIssu.code ?? ''}
       </Button>
     );
@@ -878,9 +882,9 @@ export function FicheProspection({
           aideCode="Attribué par le système, non modifiable."
           nom={
             p.prospectId ? (
-              <Link to={`/prospects/${p.prospectId}`} className="hover:underline" title="Ouvrir la fiche prospect — elle se modifie depuis l'onglet Contacts.">
+              <LienFiche cible={{ type: 'prospect', id: p.prospectId }} className="hover:underline" title="Ouvrir la fiche prospect — elle se modifie depuis l'onglet Contacts.">
                 {p.prospectNom || p.prospectCode || 'Voir la fiche'}
-              </Link>
+              </LienFiche>
             ) : (
               name
             )
@@ -1318,9 +1322,9 @@ export function FicheProspection({
                           <Field label="Adresse" value={linkedProspect.data.adresse} />
                         </FieldGrid>
                         <div>
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/prospects/${p.prospectId}`)}>
+                          <LienFiche cible={{ type: 'prospect', id: p.prospectId }} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
                             <ArrowUpRight data-icon="inline-start" /> Ouvrir la fiche prospect
-                          </Button>
+                          </LienFiche>
                         </div>
 
                         {/* Le retrait passe par le prospect : le DELETE n'existe que
@@ -1377,7 +1381,7 @@ export function FicheProspection({
             if (maj.prospectId) setProspectLie({ id: maj.id, prospectId: maj.prospectId });
             void refetch();
             void parcours.refetch();
-            toastProspectLie(name, maj, mode)
+            toastProspectLie(name, maj, mode, ouvrirFicheProspect)
               .then(showToast)
               .catch(() => showToast(mode === 'cree' ? `${name} est maintenant un prospect.` : `${name} est rattaché au prospect existant.`));
           }}
@@ -1419,6 +1423,7 @@ function ArticleCascadePicker({
   exclureTrancheIds?: readonly string[];
 }>) {
   const projets = useApi(() => getProjetsReferentiel(), []);
+  const { ouvrirFicheProspection } = usePreview();
   const categoriesRef = useCategoriesBien();
   const typesRef = useTypesBienReferentiel();
 
@@ -1594,7 +1599,7 @@ function ArticleCascadePicker({
         </p>
       )}
       {existante ? (
-        <ProspectionExistanteNotice existante={existante} message={error} />
+        <ProspectionExistanteNotice existante={existante} message={error} ouvrirEnDialogue={(pid) => ouvrirFicheProspection(pid, false)} />
       ) : (
         error && <p className="text-body text-destructive">{error}</p>
       )}

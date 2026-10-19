@@ -9,6 +9,7 @@ import ProspectPreviewDialog from './ProspectPreviewDialog';
 const FicheProspectionDialog = lazy(() => import('./FicheProspectionDialog'));
 const FicheDossierDialog = lazy(() => import('./FicheDossierDialog'));
 const FicheProspectDialog = lazy(() => import('./FicheProspectDialog'));
+const FicheArticleDialog = lazy(() => import('./FicheArticleDialog'));
 
 type FicheEmpilee = FicheCible & { cle: number };
 
@@ -39,8 +40,10 @@ export function PreviewProvider({ children }: Readonly<{ children: ReactNode }>)
       previewDossier: (id: string) => setTarget({ type: 'dossier', id }),
       previewProspect: (id: string) => setTarget({ type: 'prospect', id }),
       ouvrirFicheProspection: (id: string, pre: boolean) => empiler({ type: 'prospection', id, pre }),
-      ouvrirFicheDossier: (id: string) => empiler({ type: 'dossier', id }),
+      ouvrirFicheDossier: (id: string, onglet?: string) => empiler({ type: 'dossier', id, onglet }),
       ouvrirFicheProspect: (id: string) => empiler({ type: 'prospect', id }),
+      ouvrirFicheArticle: (id: string) => empiler({ type: 'article', id }),
+      ouvrirFiche: empiler,
     };
   }, []);
 
@@ -58,8 +61,9 @@ export function PreviewProvider({ children }: Readonly<{ children: ReactNode }>)
           {f.type === 'prospection' && (
             <FicheProspectionDialog id={f.id} pre={f.pre} onClose={() => fermer(f.cle)} />
           )}
-          {f.type === 'dossier' && <FicheDossierDialog id={f.id} onClose={() => fermer(f.cle)} />}
+          {f.type === 'dossier' && <FicheDossierDialog id={f.id} onglet={f.onglet} onClose={() => fermer(f.cle)} />}
           {f.type === 'prospect' && <FicheProspectDialog id={f.id} onClose={() => fermer(f.cle)} />}
+          {f.type === 'article' && <FicheArticleDialog id={f.id} onClose={() => fermer(f.cle)} />}
         </Suspense>
       ))}
     </PreviewContext.Provider>

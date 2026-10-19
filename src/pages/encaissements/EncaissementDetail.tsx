@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import LienFiche from '../../components/LienFiche';
 import { Ban, ClipboardCheck, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import CadreFiche, { EnteteFiche } from '../../components/CadreFiche';
@@ -265,9 +266,9 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
                         <TableRow key={a.id}>
                           <TableCell>
                             {a.dossierId ? (
-                              <Link to={`/dossiers/${a.dossierId}`} className="text-(--info) hover:underline">
+                              <LienFiche cible={{ type: 'dossier', id: a.dossierId }} className="text-(--info) hover:underline">
                                 {a.dossierCode || 'Voir'}
-                              </Link>
+                              </LienFiche>
                             ) : (
                               a.dossierCode
                             )}

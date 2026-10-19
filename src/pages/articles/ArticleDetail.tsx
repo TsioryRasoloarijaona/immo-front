@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowUpRight, Eye, FileText, Folder, Home, Pencil, Trash2 } from 'lucide-react';
-import PageShell from '../../components/PageShell';
+import CadreFiche, { type VarianteFiche } from '../../components/CadreFiche';
+import { usePreview } from '../../lib/previewContext';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import FicheSections from '../../components/patrimoine/FicheSections';
 import GrilleOnglet from '../../components/patrimoine/GrilleOnglet';
@@ -69,9 +70,16 @@ export default function ArticleDetail() {
   return <FicheArticle key={id} id={id} />;
 }
 
-function FicheArticle({ id }: Readonly<{ id: string }>) {
+/** `onFermer` : en dialogue, ferme le dialogue au lieu de quitter l'écran après une suppression. */
+export function FicheArticle({
+  id,
+  variante = 'page',
+  onFermer,
+}: Readonly<{ id: string; variante?: VarianteFiche; onFermer?: () => void }>) {
   const { data: a, loading, error, refetch } = useApi(() => getArticle(id), [id]);
   const navigate = useNavigate();
+  const { ouvrirFicheDossier, ouvrirFicheArticle } = usePreview();
+  const ouvrirArticle = (cible: string) => (variante === 'page' ? void navigate(`/articles/${cible}`) : ouvrirFicheArticle(cible));
   const confirm = useConfirm();
   const [erreurSuppression, setErreurSuppression] = useState<string | null>(null);
   const listes = useListesFicheArticle();
@@ -86,7 +94,8 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
     if (!oui) return;
     try {
       await deleteArticle(id);
-      void navigate('/articles');
+      if (onFermer) onFermer();
+      else void navigate('/articles');
     } catch (err) {
       setErreurSuppression(err instanceof Error ? err.message : 'Suppression impossible.');
     }
@@ -99,19 +108,21 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
 
   const pieces = useApi(() => listArticlePiecesJointes(id), [id]);
 
-  if (loading) return <PageShell title="Article"><LoadingState /></PageShell>;
-  if (error) return <PageShell title="Article"><ErrorState message={error} /></PageShell>;
+  if (loading) return <CadreFiche variante={variante} title="Article"><LoadingState /></CadreFiche>;
+  if (error) return <CadreFiche variante={variante} title="Article"><ErrorState message={error} /></CadreFiche>;
   if (!a) {
     return (
-      <PageShell title="Article introuvable" crumbs={[{ label: 'Tranches', to: '/tranches' }]}>
+      <CadreFiche variante={variante} title="Article introuvable" crumbs={[{ label: 'Tranches', to: '/tranches' }]}>
         <p>Cet article n'existe pas.</p>
-      </PageShell>
+      </CadreFiche>
     );
   }
 
   return (
-    <PageShell
+    <CadreFiche
+      variante={variante}
       title={a.code || 'Article'}
+      typeFiche="Article"
       crumbs={[
         { label: 'Patrimoine' },
         { label: 'Articles', to: '/articles' },
@@ -129,12 +140,14 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
       }
     >
       {erreurSuppression && <p role="alert" className="mb-3 text-label text-destructive">{erreurSuppression}</p>}
-      <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate(-1)}>
-        <ArrowLeft data-icon="inline-start" /> Retour
-      </Button>
+      {variante === 'page' && (
+        <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate(-1)}>
+          <ArrowLeft data-icon="inline-start" /> Retour
+        </Button>
+      )}
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
-        <h2 className="text-hero font-semibold tracking-tight text-foreground">{a.code}</h2>
+        {variante === 'page' && <h2 className="text-hero font-semibold tracking-tight text-foreground">{a.code}</h2>}
         {a.dossierId ? (
           <Badge tone={toneForStatus(canonicalStatusLabel(a.dossierStatut))}>{canonicalStatusLabel(a.dossierStatut)}</Badge>
         ) : (
@@ -146,7 +159,7 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
       {a.lotParentId && (
         <button
           type="button"
-          onClick={() => navigate(`/articles/${a.lotParentId}`)}
+          onClick={() => a.lotParentId && ouvrirArticle(a.lotParentId)}
           className="mb-3 flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground hover:underline"
         >
           Fait partie de <span className="font-medium text-foreground">{a.lotParentCode || a.lotParentDescription}</span>
@@ -186,7 +199,7 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
             title="Dossier de vente"
             accent="var(--sec-dossier)"
             action={
-              <Button type="button" variant="outline" size="sm" onClick={() => navigate(`/dossiers/${a.dossierId}`)}>
+              <Button type="button" variant="outline" size="sm" onClick={() => a.dossierId && ouvrirFicheDossier(a.dossierId)}>
                 <Folder data-icon="inline-start" /> Ouvrir le dossier <ArrowUpRight data-icon="inline-end" />
               </Button>
             }
@@ -210,7 +223,7 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
 
         <PrixArticleFiche article={a} />
 
-        <SousArticlesArticle article={a} onModifie={() => void refetch()} />
+        <SousArticlesArticle article={a} onModifie={() => void refetch()} onOuvrir={ouvrirArticle} />
 
         <Card title="Contenances">
           {contenances.error && <ErrorState message={contenances.error} />}
@@ -247,6 +260,6 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
         </Card>
         <OngletsTransverses porteur="article" id={a.id} />
       </div>
-    </PageShell>
+    </CadreFiche>
   );
 }

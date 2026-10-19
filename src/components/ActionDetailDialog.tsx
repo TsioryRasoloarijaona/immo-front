@@ -1,5 +1,4 @@
 import { Fragment, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, Folder, Mail, Phone, Users } from 'lucide-react';
 import Modal from './Modal';
 import HotlineResultDialog from './HotlineResultDialog';
@@ -8,6 +7,7 @@ import { Button } from './ui/button';
 import { DialogFooter } from './ui/dialog';
 import { getProspect, type CritereHotline } from '../lib/api';
 import { useApi } from '../lib/useApi';
+import { usePreview } from '../lib/previewContext';
 import { LIBELLES_GROUPE } from '../lib/colonnes';
 import { DISPOSITION_SUIVI_ACTIONS } from '../lib/dispositions';
 import { personDisplayName } from '../lib/domain';
@@ -94,7 +94,7 @@ export default function ActionDetailDialog({
   catalogue: ColonneDto[];
   onClose: () => void;
 }>) {
-  const navigate = useNavigate();
+  const { ouvrirFicheProspection, ouvrirFicheDossier, ouvrirFicheProspect } = usePreview();
   const [critereHotline, setCritereHotline] = useState<CritereHotline | null>(null);
 
   // `tiersId` n'arrive que parce que la liste le demande (`CLES_OUVERTURE_SUIVI_ACTION`).
@@ -170,7 +170,7 @@ export default function ActionDetailDialog({
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
             {action.tiersId && (
-              <Button type="button" variant="ghost" size="sm" onClick={() => navigate(`/prospects/${action.tiersId}`)}>
+              <Button type="button" variant="ghost" size="sm" onClick={() => action.tiersId && ouvrirFicheProspect(action.tiersId)}>
                 Fiche <ArrowUpRight data-icon="inline-end" />
               </Button>
             )}
@@ -224,12 +224,12 @@ export default function ActionDetailDialog({
       <DialogFooter className="mt-5">
         <Button type="button" variant="outline" onClick={onClose}>Fermer</Button>
         {action.dossierId && (
-          <Button type="button" variant="outline" onClick={() => navigate(`/dossiers/${action.dossierId}`)}>
+          <Button type="button" variant="outline" onClick={() => action.dossierId && ouvrirFicheDossier(action.dossierId)}>
             <Folder data-icon="inline-start" /> Ouvrir le dossier
           </Button>
         )}
         {action.prospectionId && (
-          <Button type="button" onClick={() => navigate(`/prospections/${action.prospectionId}`)}>
+          <Button type="button" onClick={() => action.prospectionId && ouvrirFicheProspection(action.prospectionId, false)}>
             <Users data-icon="inline-start" /> Ouvrir la prospection
           </Button>
         )}

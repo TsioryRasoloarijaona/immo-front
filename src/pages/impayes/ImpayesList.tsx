@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { CircleAlert, RotateCcw } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
@@ -17,6 +16,7 @@ import { DISPOSITION_IMPAYES } from '../../lib/dispositions';
 import { FILTRES_IMPAYES_DEFAUT, filtresImpayesActifs, paramsImpayes, type FiltresImpayes } from '../../lib/impayes';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
+import { usePreview } from '../../lib/previewContext';
 import { commercialLabel, useAppData } from '../../lib/appData';
 import {
   referentielItems,
@@ -27,7 +27,7 @@ import {
 } from '../../lib/referentiels';
 
 export default function ImpayesList() {
-  const navigate = useNavigate();
+  const { ouvrirFicheDossier } = usePreview();
   const { user } = useAuth();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const { commerciaux } = useAppData();
@@ -132,7 +132,7 @@ export default function ImpayesList() {
                   <ImpayeTable
                     rows={lignes}
                     colonnes={colonnes.colonnes}
-                    onOuvrir={(l) => navigate(`/dossiers/${l.dossierId}?onglet=financier`)}
+                    onOuvrir={(l) => ouvrirFicheDossier(l.dossierId, 'financier')}
                   />
                 </EtatColonnes>
               )}

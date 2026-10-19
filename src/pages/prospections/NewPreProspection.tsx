@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import LienFiche from '../../components/LienFiche';
 import { AlertTriangle, Check } from 'lucide-react';
 import Modal from '../../components/Modal';
 import { Card } from '../../components/ui';
@@ -177,9 +178,9 @@ export default function NouvellePreProspectionDialog({ onClose }: Readonly<{ onC
             <ul className="mt-2 flex flex-col gap-1 text-body text-foreground">
               {doublons.map((d) => (
                 <li key={d.id} className="flex items-center justify-between gap-3">
-                  <Link to={`/prospections/${d.id}`} className="font-medium underline-offset-2 hover:underline">
+                  <LienFiche cible={{ type: 'prospection', id: d.id, pre: false }} className="font-medium underline-offset-2 hover:underline">
                     {d.code || d.id}
-                  </Link>
+                  </LienFiche>
                   <span className="text-muted-foreground">{formatDateTime(d.dateCreation)}</span>
                 </li>
               ))}

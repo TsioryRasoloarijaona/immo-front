@@ -13,6 +13,7 @@ import DataGrid from '../../components/DataGrid';
 import { listArticles } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useTranchesReferentiel } from '../../lib/referentiels';
+import { usePreview } from '../../lib/previewContext';
 import { formatNumber } from '../../lib/format';
 import { colonnesArticles, useFiltresArticles } from '../../lib/articlesListe';
 
@@ -49,7 +50,8 @@ export default function ArticlesList() {
     'articles',
   );
   const rows = data?.content ?? [];
-  const colonnes = useMemo(() => colonnesArticles(navigate), [navigate]);
+  const { ouvrirFicheDossier } = usePreview();
+  const colonnes = useMemo(() => colonnesArticles(ouvrirFicheDossier), [ouvrirFicheDossier]);
   const trancheItems = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
 
   return (

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { ArrowUpRight } from 'lucide-react';
 import { Badge } from './ui';
+import LienFiche from './LienFiche';
 import { ElementResume, LigneActivite } from './FicheShell';
 import { formatDate, formatDateTime } from '../lib/format';
 import type { ActiviteProspectionDto, BadgeTone } from '../types';
@@ -42,13 +42,13 @@ export function DossierIssuBanner({
         {dossierCode ? <span className="font-semibold"> {dossierCode}</span> : null}.
       </span>
       {statutDossier && <Badge tone="success">{statutDossier}</Badge>}
-      <Link
-        to={`/dossiers/${dossierId}`}
+      <LienFiche
+        cible={{ type: 'dossier', id: dossierId }}
         className="inline-flex items-center gap-1 font-semibold underline underline-offset-2 hover:no-underline"
       >
         Ouvrir le dossier
         <ArrowUpRight aria-hidden className="size-3.5" />
-      </Link>
+      </LienFiche>
     </div>
   );
 }

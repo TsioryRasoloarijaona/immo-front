@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ChartNoAxesColumn, RotateCcw } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState, PerimetreBanner, ResultsRegion } from '../../components/ui';
@@ -38,6 +37,7 @@ import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupe
 import { useTotauxServeur } from '../../lib/totauxServeur';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAuth } from '../../lib/auth';
+import { usePreview } from '../../lib/previewContext';
 import { pluriel } from '../../lib/format';
 import {
   referentielItems,
@@ -57,7 +57,7 @@ function avecId(p: PageDto<LigneEtatVentesDto>): PageDto<LigneEtatVentes> {
 }
 
 export default function EtatDesVentes() {
-  const navigate = useNavigate();
+  const { ouvrirFicheArticle } = usePreview();
   const { user } = useAuth();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
   const projetItems = referentielItems(useProjetsReferentiel().data);
@@ -227,7 +227,7 @@ export default function EtatDesVentes() {
                     <EtatVentesTable
                       rows={enGroupes ? [] : (liste.data?.content ?? [])}
                       colonnes={colonnes.colonnes}
-                      onOuvrir={(id) => navigate(`/articles/${id}`)}
+                      onOuvrir={ouvrirFicheArticle}
                       groupes={groupesGrille(groupement, groupes.data, lignesGroupes, {
                         statutCode: (brut) => libelleStatutVente(statuts, brut),
                       })}

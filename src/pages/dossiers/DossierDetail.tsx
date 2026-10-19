@@ -40,6 +40,7 @@ import {
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import { useToast } from '../../lib/toastContext';
+import { usePreview } from '../../lib/previewContext';
 import type { DossierDetailDto, DossierFicheDto } from '../../types';
 
 export default function DossierDetail() {
@@ -98,7 +99,11 @@ function ongletInitial(variante: VarianteFiche, onglet: string | null): string {
   return variante === 'page' && onglet === 'financier' ? 'financier' : 'statut';
 }
 
-export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; variante?: VarianteFiche }>) {
+export function FicheDossier({
+  id,
+  variante = 'page',
+  onglet,
+}: Readonly<{ id: string; variante?: VarianteFiche; onglet?: string }>) {
   const { data: d, loading, error, refetch } = useApi(() => getDossier(id), [id], 'dossier');
   const fiche = useApi(() => getFicheDossier(id), [id], 'dossier-fiche');
   // Ne pas supprimer : `ArticleCompactPreview` lit `statut`, `tranche*`, `salePrice*`, `titreFoncier`,
@@ -122,7 +127,8 @@ export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; v
   const [searchParams] = useSearchParams();
   // En dialogue, l'URL est celle de la page derrière : `?nouveau` ne la concerne pas.
   const fromCreation = variante === 'page' && searchParams.get('nouveau') === '1';
-  const [tab, setTab] = useState(() => ongletInitial(variante, searchParams.get('onglet')));
+  const [tab, setTab] = useState(() => onglet ?? ongletInitial(variante, searchParams.get('onglet')));
+  const { ouvrirFicheProspection } = usePreview();
 
   // Les `refetch` de useApi sont stables : la fonction l'est aussi (dépendance d'un effet d'OngletActions).
   const relireActionsListe = actions.refetch;
@@ -187,7 +193,7 @@ export function FicheDossier({ id, variante = 'page' }: Readonly<{ id: string; v
             <Phone data-icon="inline-start" /> Appeler
           </Button>
           {d.prospectionId && (
-            <Button variant="outline" size="sm" onClick={() => navigate(`/prospections/${d.prospectionId}`)}>
+            <Button variant="outline" size="sm" onClick={() => d.prospectionId && ouvrirFicheProspection(d.prospectionId, false)}>
               <ArrowUpRight data-icon="inline-start" /> Prospection
             </Button>
           )}

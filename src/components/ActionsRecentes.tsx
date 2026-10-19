@@ -77,7 +77,7 @@ export default function ActionsRecentes() {
   const [ouvert, setOuvert] = useState(false);
   const [portee, setPortee] = useState<PorteeActionsRecentes>(lireOnglet);
   const { isMobile, setOpenMobile } = useSidebar();
-  const { ouvrirFicheProspection, ouvrirFicheDossier, ouvrirFicheProspect } = usePreview();
+  const { ouvrirFiche } = usePreview();
 
   const changerPortee = (valeur: PorteeActionsRecentes) => {
     setPortee(valeur);
@@ -89,11 +89,7 @@ export default function ActionsRecentes() {
     setOpenMobile(false);
     // Popover fermé d'abord : deux pièges à focus ouverts en même temps se
     // disputent le focus. Le timer survit au démontage de la barre mobile.
-    window.setTimeout(() => {
-      if (cible.type === 'prospection') ouvrirFicheProspection(cible.id, cible.pre);
-      else if (cible.type === 'dossier') ouvrirFicheDossier(cible.id);
-      else ouvrirFicheProspect(cible.id);
-    }, 0);
+    window.setTimeout(() => ouvrirFiche(cible), 0);
   };
 
   return (
