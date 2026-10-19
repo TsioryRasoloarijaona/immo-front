@@ -29,6 +29,7 @@ const Calendrier = lazy(() => import('./pages/calendrier/Calendrier'));
 const Hotline = lazy(() => import('./pages/hotline/Hotline'));
 const SuiviActionsList = lazy(() => import('./pages/actions/SuiviActionsList'));
 const EtatDesVentes = lazy(() => import('./pages/etatVentes/EtatDesVentes'));
+const SuiviCommerciaux = lazy(() => import('./pages/suiviCommerciaux/SuiviCommerciaux'));
 const ProspectionsList = lazy(() => import('./pages/prospections/ProspectionsList'));
 const PreProspectionsList = lazy(() => import('./pages/prospections/PreProspectionsList'));
 const ImportPreProspections = lazy(() => import('./pages/prospections/ImportPreProspections'));
@@ -118,6 +119,7 @@ function AuthenticatedApp() {
                   <Route path="/calendrier" element={<Calendrier />} />
                   <Route path="/suivi-actions" element={<SuiviActionsList />} />
                   <Route path="/etat-des-ventes" element={<EtatDesVentes />} />
+                  <Route path="/suivi-commerciaux" element={<SuiviCommerciaux />} />
                   <Route path="/prospections" element={<ProspectionsList />} />
                   {/* La saisie est une boîte, pas une page : la route rend la liste avec la boîte ouverte. */}
                   <Route path="/prospections/nouveau" element={<ProspectionsList nouveau />} />

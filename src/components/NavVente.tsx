@@ -14,6 +14,7 @@ import {
   ListChecks,
   Phone,
   Sun,
+  Target,
   Trophy,
   UserCheck,
   UserCircle,
@@ -122,7 +123,11 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
 
   const mesActions: Entree = { to: SUIVI_ACTIONS, libelle: 'Mes actions', icone: <ListChecks /> };
   // Ouvert à tous : le serveur restreint les tranches au périmètre de chacun.
-  const etatVentes: Entree = { to: '/etat-des-ventes', libelle: 'État des ventes', icone: <ChartNoAxesColumn /> };
+  const tableauxDeBord: Entree[] = [
+    { to: '/etat-des-ventes', libelle: 'État des ventes', icone: <ChartNoAxesColumn /> },
+    // Le serveur restreint aux commerciaux de la portée de chacun.
+    { to: '/suivi-commerciaux', libelle: 'Suivi des commerciaux', icone: <Target /> },
+  ];
   if (terrain) {
     groupes.push({
       cle: 'moi',
@@ -130,7 +135,7 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
       entrees: [
         { to: '/mes-performances', libelle: 'Mes performances', icone: <Gauge /> },
         mesActions,
-        etatVentes,
+        ...tableauxDeBord,
         { to: '/profil', libelle: 'Mon profil', icone: <UserCircle /> },
       ],
     });
@@ -139,16 +144,16 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
     const pilotage: Entree[] = [{ to: '/equipe', libelle: 'Mon équipe', icone: <UsersRound /> }];
     if (admin) pilotage.push({ to: '/performances', libelle: 'Performances commerciales', icone: <Trophy /> });
     // Le serveur ne sert le suivi général qu'à l'administrateur ; les autres n'y voient que leurs actions.
-    pilotage.push(admin ? { ...mesActions, libelle: 'Suivi des actions' } : mesActions, etatVentes);
+    pilotage.push(admin ? { ...mesActions, libelle: 'Suivi des actions' } : mesActions, ...tableauxDeBord);
     groupes.push({ cle: 'pilotage', titre: 'Pilotage', entrees: pilotage });
   } else if (estChefOuExempte(user)) {
     groupes.push({
       cle: 'equipe',
       titre: 'Mon équipe',
-      entrees: [{ to: '/equipe', libelle: 'Distribution & équipe', icone: <UsersRound /> }, mesActions, etatVentes],
+      entrees: [{ to: '/equipe', libelle: 'Distribution & équipe', icone: <UsersRound /> }, mesActions, ...tableauxDeBord],
     });
   } else {
-    groupes.push({ cle: 'suivi', titre: 'Suivi', entrees: [mesActions, etatVentes] });
+    groupes.push({ cle: 'suivi', titre: 'Suivi', entrees: [mesActions, ...tableauxDeBord] });
   }
   return groupes;
 }
