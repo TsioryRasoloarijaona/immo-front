@@ -2389,7 +2389,55 @@ export interface ArticleListItemDto {
   prixSuggereEstPlancher?: boolean;
 }
 
-export interface ArticleDetailDto {
+/** Champs de la fiche article (FEATURE-patrimoine-article-fiche.md §1), mêmes noms en lecture et en écriture. */
+export interface FicheArticleChamps {
+  orientationId?: UUID | null;
+  categorieChargeId?: UUID | null;
+  facadeId?: UUID | null;
+  /** `CfgCompanySyndicId` : entité de gestion du syndic. */
+  entiteSyndicId?: UUID | null;
+  /** `ComSaleMinAdvance`, ≥ 0. */
+  avanceMinimum?: number;
+  /** `AmountHT`, ≥ 0. */
+  loyerMensuelHT?: number;
+  nombreCautions?: number;
+  anomalies?: string;
+  /** Texte libre (`Contenance`), distinct de l'onglet Contenances. */
+  contenanceLibre?: string;
+  /** Les colonnes disent « disponible » (§9.6). */
+  disponibleVenteWeb?: boolean;
+  disponibleLocationWeb?: boolean;
+  dateEnregistrement?: string | null;
+  numeroEnregistrement?: string;
+  lieuEnregistrement?: string;
+  cpfImmatriculation?: string;
+  dateImmatriculation?: string | null;
+  titreFoncierMere?: string;
+  intituleTitreFoncier?: string;
+  dateTitreFoncier?: string | null;
+  proprieteDite?: string;
+  fractionDivise?: string;
+  fractionDiviseTerrain?: string;
+  partiesDivises?: number;
+  partiesIndivises?: number;
+  quotaTerrainGroupe?: string;
+  notesTitreFoncier?: string;
+  /** Compteurs : 50 caractères au plus. */
+  referenceElectricite?: string;
+  policeElectricite?: string;
+  compteurElectricite?: string;
+  releveElectricite?: string;
+  referenceEau?: string;
+  policeEau?: string;
+  compteurEau?: string;
+  releveEau?: string;
+  referenceGaz?: string;
+  policeGaz?: string;
+  compteurGaz?: string;
+  releveGaz?: string;
+}
+
+export interface ArticleDetailDto extends FicheArticleChamps {
   id: UUID;
   code?: string;
   description?: string;
@@ -2476,10 +2524,15 @@ export interface ArticleDetailDto {
   creeLe?: string | null;
   modifiePar?: string;
   modifieLe?: string | null;
+  vueIds?: UUID[];
+  /** Calculée à la lecture : surface + Σ sous-articles rattachés (terrain : surface − équipements). */
+  superficieNette?: number;
+  /** Calculée à la lecture : surface si titré + Σ sous-articles rattachés titrés. */
+  superficieTitree?: number;
 }
 
 /** Article ou sous-article ; prix au m² HT ou TTC, jamais les deux par surface. Absent = inchangé (PATCH). */
-export interface ArticleEcritureDto {
+export interface ArticleEcritureDto extends FicheArticleChamps {
   trancheId?: UUID;
   code?: string;
   description?: string;
@@ -2506,6 +2559,12 @@ export interface ArticleEcritureDto {
   surfacePartiesCommunes?: number;
   /** Création d'un sous-article seulement. */
   toujoursAffecte?: boolean;
+  /** Type de présentation de la tranche ; un changement remplace les contenances. Lu en `presentationTypeId`. */
+  presentationId?: UUID | null;
+  /** Ensemble des vues : remplace l'existant ; `[]` retire tout, absent = inchangé. */
+  vueIds?: UUID[];
+  /** PATCH : champs de la fiche à vider (un champ du socle → 400). */
+  champsAVider?: string[];
 }
 
 /** Colonnes du tableau Liste de la page PROGRAMMES de l'aide OMRAN. */
@@ -2584,6 +2643,36 @@ export interface LignePlancherDto extends LigneOngletTranche {
   surface?: number | null;
   categorieCode?: string;
   categorieDescription?: string;
+}
+
+/** Ligne de l'onglet Contenances de l'article (`PUT /api/articles/{id}/contenances`, même convention). */
+export interface LigneContenanceDto extends LigneOngletTranche {
+  contenanceId?: UUID;
+  /** ≥ 0 ; absent = 0. */
+  nombre?: number | null;
+  /** Refusée (400) si l'option N de la contenance est vide. */
+  avecOption1?: boolean;
+  /** Refusée (400) sans `optionNAvecQuantite`. */
+  quantiteOption1?: number | null;
+  avecOption2?: boolean;
+  quantiteOption2?: number | null;
+  avecOption3?: boolean;
+  quantiteOption3?: number | null;
+  contenanceCode?: string;
+  contenanceDescription?: string;
+}
+
+/** `GET /api/referentiels-patrimoine/contenances` : option null = case grisée. */
+export interface ContenanceDto {
+  id: UUID;
+  code?: string;
+  description?: string;
+  option1?: string | null;
+  option1AvecQuantite: boolean;
+  option2?: string | null;
+  option2AvecQuantite: boolean;
+  option3?: string | null;
+  option3AvecQuantite: boolean;
 }
 
 export interface LigneFraisDto extends LigneOngletTranche {

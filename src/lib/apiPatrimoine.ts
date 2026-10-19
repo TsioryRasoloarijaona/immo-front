@@ -2,6 +2,8 @@ import { request } from './api';
 import type {
   ArticleDetailDto,
   ArticleEcritureDto,
+  ContenanceDto,
+  LigneContenanceDto,
   LignesTrancheDto,
   ProjetDetailDto,
   ProjetEcritureDto,
@@ -53,7 +55,12 @@ export function deleteZone(projetId: UUID, zoneId: UUID): Promise<void> {
 
 export type ReferentielPatrimoine =
   | 'standings' | 'niveaux-terrain' | 'rubriques-tranche' | 'personnels' | 'plans-comptables' | 'tiers-autrui'
-  | 'projets-facturation';
+  | 'projets-facturation' | 'orientations' | 'categories-charge' | 'facades' | 'vues';
+
+/** Contenances et leurs options (option null = case grisée de l'onglet Contenances). */
+export function getReferentielContenances(): Promise<ContenanceDto[]> {
+  return request('GET', '/api/referentiels-patrimoine/contenances');
+}
 
 /** `projets-facturation` : Administrateur seul (403 sinon), `entiteId` absent = entités actives. */
 export function getReferentielPatrimoine(nom: ReferentielPatrimoine, entiteId?: UUID): Promise<ReferentielItemDto[]> {
@@ -93,12 +100,32 @@ export function createArticle(body: ArticleEcritureDto): Promise<ArticleDetailDt
   return request('POST', '/api/articles', { body });
 }
 
-/** Article occupé : 409 sur tout champ protégé (prix, surfaces, classification, remises). */
+/** Types de présentation de la tranche (choix de `presentationId`) ; 404 entité inactive. */
+export function getPresentationsTranche(trancheId: UUID): Promise<ReferentielItemDto[]> {
+  return request('GET', `/api/tranches/${trancheId}/presentations`);
+}
+
+/** Article occupé : 409 sur tout champ protégé (prix, surfaces, classification, remises, titre foncier).
+ * Terrain (nature TER) : 400, il se modifie depuis la fiche terrain. */
 export function updateArticle(id: UUID, body: ArticleEcritureDto): Promise<ArticleDetailDto> {
   return request('PATCH', `/api/articles/${id}`, { body });
 }
 
-/** `trancheId` interdit dans le corps (400) : la tranche est celle de l'article. */
+/** 409 : article ou sous-article rattaché occupé (vente, location, syndic) ou encore référencé (le message dit quoi). */
+export function deleteArticle(id: UUID): Promise<void> {
+  return request('DELETE', `/api/articles/${id}`);
+}
+
+export function getContenancesArticle(id: UUID): Promise<LignesTrancheDto<LigneContenanceDto>> {
+  return request('GET', `/api/articles/${id}/contenances`);
+}
+
+/** Liste complète, une transaction ; 400 `lignes[i].<champ>` (option grisée, quantité interdite), rien n'est écrit. */
+export function putContenancesArticle(id: UUID, lignes: LigneContenanceDto[]): Promise<LignesTrancheDto<LigneContenanceDto>> {
+  return request('PUT', `/api/articles/${id}/contenances`, { body: { lignes } });
+}
+
+/** `trancheId` ou `vocationId` interdits dans le corps (400) : ce sont ceux de l'article. */
 export function createSousArticle(articleId: UUID, body: ArticleEcritureDto): Promise<ArticleDetailDto> {
   return request('POST', `/api/articles/${articleId}/sous-articles`, { body });
 }
