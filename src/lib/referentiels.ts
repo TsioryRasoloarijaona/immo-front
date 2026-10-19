@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as api from './api';
+import { getReferentielPatrimoine } from './apiPatrimoine';
 import { onCacheClear } from './apiCache';
 import { errorMessage } from './useApi';
 import type { ReferentielItemDto } from '../types';
@@ -146,6 +147,16 @@ export const useColonnesEncaissements = makeCachedListHook(api.getColonnesEncais
 export const useColonnesSuiviActions = makeCachedListHook(api.getColonnesSuiviActions);
 
 export const useColonnesImpayes = makeCachedListHook(api.getColonnesImpayes);
+
+export const useColonnesTranches = makeCachedListHook(api.getColonnesTranches);
+
+// Fiches programme et tranche (`/api/referentiels-patrimoine`).
+export const useStandings = makeCachedListHook(() => getReferentielPatrimoine('standings'));
+export const useNiveauxTerrain = makeCachedListHook(() => getReferentielPatrimoine('niveaux-terrain'));
+export const useRubriquesTranche = makeCachedListHook(() => getReferentielPatrimoine('rubriques-tranche'));
+export const usePersonnels = makeCachedListHook(() => getReferentielPatrimoine('personnels'));
+export const usePlansComptables = makeCachedListHook(() => getReferentielPatrimoine('plans-comptables'));
+export const useTiersAutrui = makeCachedListHook(() => getReferentielPatrimoine('tiers-autrui'));
 
 export function referentielItems(list: ReferentielItemDto[]): { label: string; value: string }[] {
   return list.map((r) => ({ label: r.description || r.code || r.id, value: r.id }));

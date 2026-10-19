@@ -3,122 +3,37 @@ import { useNavigate } from 'react-router-dom';
 import { Home, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
-import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import BarreFiltresArticles from '../../components/patrimoine/BarreFiltresArticles';
+import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
+import DataGrid from '../../components/DataGrid';
 import { listArticles } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
-import {
-  useCategoriesBien,
-  useEntitesReferentiel,
-  useEtages,
-  useNatures,
-  useTranchesReferentiel,
-  useTypesBienReferentiel,
-  useVocations,
-  referentielItems,
-} from '../../lib/referentiels';
-import { formatNumber, formatPercent, formatSurface, libellePrix } from '../../lib/format';
-import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-import type { ArticleListItemDto, ArticleStatut } from '../../types';
-
-type StatutFilter = ArticleStatut | 'all';
-
-const STATUT_ITEMS: { label: string; value: StatutFilter }[] = [
-  { label: 'Tous les statuts', value: 'all' },
-  { label: 'Disponible', value: 'DISPONIBLE' },
-  { label: 'Occupé', value: 'OCCUPE' },
-];
-
-// `valeur` de la colonne « État » : sans lui, tri et filtre compareraient le `statut` brut.
-function articleEtatLabel(a: Pick<ArticleListItemDto, 'statut' | 'dossierId' | 'dossierStatut'>): string {
-  if (a.dossierId) return canonicalStatusLabel(a.dossierStatut) || '';
-  return a.statut === 'DISPONIBLE' ? 'Libre' : 'Occupé';
-}
-
-function articleEtatBadge(a: Pick<ArticleListItemDto, 'statut' | 'dossierId' | 'dossierStatut'>) {
-  if (a.dossierId) {
-    const label = canonicalStatusLabel(a.dossierStatut);
-    return <Badge tone={toneForStatus(label)}>{label}</Badge>;
-  }
-  if (a.statut === 'DISPONIBLE') return <Badge tone="success">Libre</Badge>;
-  return <Badge tone="neutral">Occupé</Badge>;
-}
-
-const M2 = (v: unknown) => (typeof v === 'number' && v ? formatSurface(v) : <span className="text-muted-foreground">—</span>);
+import { useTranchesReferentiel } from '../../lib/referentiels';
+import { formatNumber } from '../../lib/format';
+import { colonnesArticles, useFiltresArticles } from '../../lib/articlesListe';
 
 export default function ArticlesList() {
   const navigate = useNavigate();
-  const categories = useCategoriesBien();
-  const types = useTypesBienReferentiel();
-  const entites = useEntitesReferentiel();
-  const natures = useNatures();
-  const vocations = useVocations();
-  const etages = useEtages();
-
   const tranches = useTranchesReferentiel();
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [trancheId, setTrancheId] = useState<string[]>([]);
-  const [statut, setStatut] = useState<StatutFilter>('all');
-  const [categorieId, setCategorieId] = useState<string[]>([]);
-  const [typeId, setTypeId] = useState<string[]>([]);
-  const [entiteId, setEntiteId] = useState<string | null>(null);
-  const [natureId, setNatureId] = useState<string | null>(null);
-  const [vocationId, setVocationId] = useState<string | null>(null);
-  const [etageId, setEtageId] = useState<string | null>(null);
-  const [prixDe, setPrixDe] = useState('');
-  const [prixA, setPrixA] = useState('');
-  const [surfaceDe, setSurfaceDe] = useState('');
-  const [surfaceA, setSurfaceA] = useState('');
   const [page, setPage] = useState(0);
-  const debouncedPrixDe = useDebouncedValue(prixDe);
-  const debouncedPrixA = useDebouncedValue(prixA);
-  const debouncedSurfaceDe = useDebouncedValue(surfaceDe);
-  const debouncedSurfaceA = useDebouncedValue(surfaceA);
-
-  function resetAndSet<T>(setter: (v: T) => void, v: T) {
-    setPage(0);
-    setter(v);
-  }
+  const filtres = useFiltresArticles(() => setPage(0));
 
   function resetFilters() {
     setPage(0);
     setSearch('');
     setTrancheId([]);
-    setStatut('all');
-    setCategorieId([]);
-    setTypeId([]);
-    setEntiteId(null);
-    setNatureId(null);
-    setVocationId(null);
-    setEtageId(null);
-    setPrixDe('');
-    setPrixA('');
-    setSurfaceDe('');
-    setSurfaceA('');
+    filtres.reinitialiser();
   }
 
-  const hasActiveFilters =
-    !!search ||
-    trancheId.length > 0 ||
-    statut !== 'all' ||
-    categorieId.length > 0 ||
-    typeId.length > 0 ||
-    !!entiteId ||
-    !!natureId ||
-    !!vocationId ||
-    !!etageId ||
-    !!prixDe ||
-    !!prixA ||
-    !!surfaceDe ||
-    !!surfaceA;
+  const hasActiveFilters = !!search || trancheId.length > 0 || filtres.actifs;
 
   const { data, loading, error } = useApi(
     () =>
@@ -126,143 +41,16 @@ export default function ArticlesList() {
         {
           search: debouncedSearch || undefined,
           trancheId: trancheId.length > 0 ? trancheId : undefined,
-          statut: statut !== 'all' ? statut : undefined,
-          categorieId: categorieId.length > 0 ? categorieId : undefined,
-          typeId: typeId.length > 0 ? typeId : undefined,
-          entiteId: entiteId || undefined,
-          natureId: natureId || undefined,
-          vocationId: vocationId || undefined,
-          etageId: etageId || undefined,
-          prixDe: debouncedPrixDe ? Number(debouncedPrixDe) : undefined,
-          prixA: debouncedPrixA ? Number(debouncedPrixA) : undefined,
-          surfaceDe: debouncedSurfaceDe ? Number(debouncedSurfaceDe) : undefined,
-          surfaceA: debouncedSurfaceA ? Number(debouncedSurfaceA) : undefined,
+          ...filtres.params,
         },
         { page, size: 20 },
       ),
-    [
-      debouncedSearch,
-      trancheId.join(','),
-      statut,
-      categorieId.join(','),
-      typeId.join(','),
-      entiteId,
-      natureId,
-      vocationId,
-      etageId,
-      debouncedPrixDe,
-      debouncedPrixA,
-      debouncedSurfaceDe,
-      debouncedSurfaceA,
-      page,
-    ],
+    [debouncedSearch, trancheId.join(','), filtres.cle, page],
     'articles',
   );
   const rows = data?.content ?? [];
-
-  const colonnes = useMemo<ColonneGrille<ArticleListItemDto>[]>(
-    () => [
-      { nom: 'description', libelle: 'Description', largeur: 11, classe: 'text-muted-foreground', titre: (a) => a.description || undefined },
-      { nom: 'clientNom', libelle: 'Client', largeur: 8, classe: 'text-muted-foreground', titre: (a) => a.clientNom || undefined },
-      { nom: 'etat', libelle: 'État', largeur: 7, valeur: articleEtatLabel, rendu: articleEtatBadge },
-      {
-        nom: 'salePrice',
-        libelle: 'Prix de vente',
-        type: 'MONTANT',
-        largeur: 9,
-        classe: 'text-muted-foreground',
-        // `valeur` suit le même repli sur le plancher que le rendu, sinon le tri le classerait mal.
-        valeur: (a) => a.salePrice || a.salePriceFloor,
-        rendu: (a) => libellePrix(a.salePrice, a.salePriceFloor) ?? <span className="text-muted-foreground">—</span>,
-      },
-      {
-        nom: 'tauxTVA',
-        libelle: 'TVA',
-        type: 'NOMBRE',
-        largeur: 5,
-        classe: 'text-muted-foreground',
-        rendu: (a) => (a.tauxTVA != null ? formatPercent(a.tauxTVA) : <span className="text-muted-foreground">—</span>),
-        formatValeur: (v) => formatPercent(typeof v === 'number' ? v : null),
-      },
-      {
-        nom: 'dossierCode',
-        libelle: 'N° Dossier',
-        largeur: 6,
-        classe: 'text-muted-foreground',
-        titre: (a) => a.dossierCode || undefined,
-        rendu: (a) =>
-          a.dossierCode ? (
-            <button
-              type="button"
-              className="hover:text-foreground hover:underline"
-              onClick={(e) => {
-                if (!a.dossierId) return;
-                e.stopPropagation();
-                void navigate(`/dossiers/${a.dossierId}`);
-              }}
-            >
-              {a.dossierCode}
-            </button>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
-      },
-      { nom: 'categorieLibelle', libelle: 'Catégorie', largeur: 8, classe: 'text-muted-foreground', titre: (a) => a.categorieLibelle || undefined },
-      { nom: 'typeLibelle', libelle: 'Type', largeur: 9, classe: 'text-muted-foreground', titre: (a) => a.typeLibelle || undefined },
-      { nom: 'presentationTypeCode', libelle: 'Présent.', largeur: 5, classe: 'text-muted-foreground', titre: (a) => a.presentationTypeLibelle || undefined },
-      {
-        nom: 'natureCode',
-        libelle: 'Nature',
-        largeur: 6,
-        classe: 'text-muted-foreground',
-        valeur: (a) => a.natureCode || a.natureLibelle,
-        titre: (a) => a.natureLibelle || undefined,
-      },
-      {
-        nom: 'etageCode',
-        libelle: 'Étage',
-        largeur: 5,
-        classe: 'text-muted-foreground',
-        valeur: (a) => a.etageCode || a.etageLibelle,
-        titre: (a) => a.etageLibelle || undefined,
-      },
-      { nom: 'area', libelle: 'Superficie', type: 'NOMBRE', largeur: 6, classe: 'text-muted-foreground', rendu: (a) => M2(a.area) },
-      {
-        nom: 'superficieSousArticles',
-        libelle: 'Superf. sous-art.',
-        type: 'NOMBRE',
-        largeur: 7,
-        classe: 'text-muted-foreground',
-        rendu: (a) => M2(a.superficieSousArticles),
-      },
-      {
-        nom: 'code',
-        libelle: 'Code',
-        largeur: 8,
-        classe: 'font-medium text-foreground',
-        titre: (a) => a.code || undefined,
-        rendu: (a) => (
-          <>
-            {a.code || '—'}
-            {a.sousArticle && (
-              <Badge tone="neutral" className="ml-1.5 align-middle">
-                Sous-article
-              </Badge>
-            )}
-          </>
-        ),
-      },
-    ],
-    [navigate],
-  );
-
+  const colonnes = useMemo(() => colonnesArticles(navigate), [navigate]);
   const trancheItems = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
-  const categorieItems = referentielItems(categories.data);
-  const typeItems = referentielItems(types.data);
-  const entiteItems = referentielItems(entites.data);
-  const natureItems = referentielItems(natures.data);
-  const vocationItems = referentielItems(vocations.data);
-  const etageItems = referentielItems(etages.data);
 
   return (
     <PageShell
@@ -275,98 +63,37 @@ export default function ArticlesList() {
       actions={<ActionAdmin to="/articles/nouveau" libelle="Nouvel article" />}
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <InputGroup className="min-w-55 flex-1">
-              <InputGroupAddon>
-                <Search />
-              </InputGroupAddon>
-              <InputGroupInput
-                placeholder="Recherche — code, description…"
-                value={search}
-                onChange={(e) => resetAndSet(setSearch, e.target.value)}
+        <BarreFiltresArticles
+          filtres={filtres}
+          onReinitialiser={resetFilters}
+          avant={
+            <>
+              <InputGroup className="min-w-55 flex-1">
+                <InputGroupAddon>
+                  <Search />
+                </InputGroupAddon>
+                <InputGroupInput
+                  placeholder="Recherche — code, description…"
+                  value={search}
+                  onChange={(e) => {
+                    setPage(0);
+                    setSearch(e.target.value);
+                  }}
+                />
+              </InputGroup>
+              <MultiSelectDropdown
+                label="Tranche"
+                placeholder={tranches.loading ? 'Chargement…' : 'Toutes'}
+                value={trancheId}
+                onChange={(v) => {
+                  setPage(0);
+                  setTrancheId(v);
+                }}
+                items={trancheItems}
               />
-            </InputGroup>
-            <MultiSelectDropdown
-              label="Tranche"
-              placeholder={tranches.loading ? 'Chargement…' : 'Toutes'}
-              value={trancheId}
-              onChange={(v) => resetAndSet(setTrancheId, v)}
-              items={trancheItems}
-            />
-            <Select items={STATUT_ITEMS} value={statut} onValueChange={(v) => resetAndSet(setStatut, v as StatutFilter)}>
-              <SelectTrigger className="w-40">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {STATUT_ITEMS.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <MultiSelectDropdown label="Catégorie" placeholder="Toutes" value={categorieId} onChange={(v) => resetAndSet(setCategorieId, v)} items={categorieItems} />
-            <MultiSelectDropdown label="Type" placeholder="Tous" value={typeId} onChange={(v) => resetAndSet(setTypeId, v)} items={typeItems} />
-            <Select items={entiteItems} value={entiteId} onValueChange={(v) => resetAndSet(setEntiteId, v)}>
-              <SelectTrigger className="w-38">
-                <SelectValue placeholder={entites.loading ? 'Chargement…' : 'Entité…'} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {entiteItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <Select items={natureItems} value={natureId} onValueChange={(v) => resetAndSet(setNatureId, v)}>
-              <SelectTrigger className="w-34">
-                <SelectValue placeholder={natures.loading ? 'Chargement…' : 'Nature…'} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {natureItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <Select items={vocationItems} value={vocationId} onValueChange={(v) => resetAndSet(setVocationId, v)}>
-              <SelectTrigger className="w-38">
-                <SelectValue placeholder={vocations.loading ? 'Chargement…' : 'Vocation…'} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {vocationItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <Select items={etageItems} value={etageId} onValueChange={(v) => resetAndSet(setEtageId, v)}>
-              <SelectTrigger className="w-34">
-                <SelectValue placeholder={etages.loading ? 'Chargement…' : 'Étage…'} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {etageItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-1.5">
-              <Input type="number" placeholder="Prix de" className="w-27.5" value={prixDe} onChange={(e) => resetAndSet(setPrixDe, e.target.value)} />
-              <Input type="number" placeholder="à" className="w-22" value={prixA} onChange={(e) => resetAndSet(setPrixA, e.target.value)} />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Input type="number" placeholder="Surface de" className="w-27.5" value={surfaceDe} onChange={(e) => resetAndSet(setSurfaceDe, e.target.value)} />
-              <Input type="number" placeholder="à" className="w-22" value={surfaceA} onChange={(e) => resetAndSet(setSurfaceA, e.target.value)} />
-            </div>
-            <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
-              <RotateCcw data-icon="inline-start" /> Réinitialiser
-            </Button>
-        </div>
+            </>
+          }
+        />
 
         {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}

@@ -68,12 +68,12 @@
       "description": "Cloche de l'application : notifications du **compte appelant** uniquement (`AppNotification.AdmUserId`),\njamais celles d'un autre compte. Types : `LEADS_ATTRIBUES` (leads attribués au commercial du compte,\nregroupés par lot), `LEADS_A_DISTRIBUER` (leads importés restés sans commercial, aux chefs du projet ou,\nsans projet, à l'administration) et `RESUME_DEMI_JOURNEE` (09:00 et 14:00, heure de Casablanca).\nL'auteur d'une attribution n'est jamais notifié de son propre geste."
     },
     {
-      "name": "Pré-prospections",
-      "description": "Leads bruts non encore qualifiés : ComProspection de type légataire `ComPreProspection` (`StrEntity`), le discriminant d'OMRAN lui-même — une pré-prospection peut donc déjà porter un prospect ou un commercial tant qu'elle n'a pas été transformée. Même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
-    },
-    {
       "name": "Programmes",
       "description": "Programmes immobiliers (CfgProject), en lecture et en écriture (Administrateur)."
+    },
+    {
+      "name": "Pré-prospections",
+      "description": "Leads bruts non encore qualifiés : ComProspection de type légataire `ComPreProspection` (`StrEntity`), le discriminant d'OMRAN lui-même — une pré-prospection peut donc déjà porter un prospect ou un commercial tant qu'elle n'a pas été transformée. Même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
     {
       "name": "Dossiers — visites techniques",
@@ -178,6 +178,10 @@
     {
       "name": "Dossiers — modification de la fiche",
       "description": "Fiche du dossier de vente modifiable, onglet par onglet, comme l'écran OMRAN (`Yes.Com.Front.Sales/Sale.cs:FilterToolsByRights`). Chaque champ appartient à un groupe de droits (voir `GET /api/dossiers/{id}/edition`). Voir FEATURE-vente-edition.md."
+    },
+    {
+      "name": "Référentiels du patrimoine",
+      "description": "Listes de choix des fiches programme et tranche."
     },
     {
       "name": "Clients",
@@ -1004,8 +1008,8 @@
         "tags": [
           "Tranches"
         ],
-        "summary": "Liste paginée des tranches, à plat",
-        "description": "Toutes les tranches, tous projets confondus, ou filtrées sur un seul projet via `projetId`. Évite le\ncontournement N+1 (GET /api/projets puis GET /api/projets/{id}/tranches pour chacun) pour peupler\nune checklist de filtre côté front — voir instructions/filtres-avances.md point 2.",
+        "summary": "Liste paginée des tranches, à plat, à colonnes choisies",
+        "description": "Toutes les tranches, tous projets confondus, ou filtrées sur un seul projet via `projetId`. Évite le\ncontournement N+1 (GET /api/projets puis GET /api/projets/{id}/tranches pour chacun) pour peupler\nune checklist de filtre côté front — voir instructions/filtres-avances.md point 2.\n\n`?colonnes=` choisit les colonnes sérialisées (catalogue `GET /api/referentiels/colonnes/tranches`, `id` toujours\nservi) ; absent = colonnes par défaut. Un nom inconnu → 400 dont le corps liste `colonnesValides`. `search` filtre\nsans casse sur le code, le libellé, la ville et le code du programme, combiné à `projetId`.",
         "operationId": "findAll",
         "parameters": [
           {
@@ -1019,6 +1023,28 @@
             }
           },
           {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sans casse dans le code, le libellé, la ville et le code du programme.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes du catalogue /api/referentiels/colonnes/tranches ; absent = colonnes par défaut.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,description,standingLibelle,visibleSav"
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -1029,7 +1055,7 @@
         ],
         "responses": {
           "200": {
-            "description": "OK",
+            "description": "Page de tranches, colonnes demandées seules.",
             "content": {
               "*/*": {
                 "schema": {
@@ -1037,6 +1063,9 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Colonne inconnue : le corps liste les noms valides."
           }
         }
       },
@@ -2772,9 +2801,18 @@
         "tags": [
           "Programmes"
         ],
-        "summary": "Liste paginée des programmes des entités actives",
+        "summary": "Liste paginée des programmes des entités actives (colonnes de la liste OMRAN)",
         "operationId": "findAll_3",
         "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sans casse dans le code, le libellé, la ville et l'entité.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "name": "pageable",
             "in": "query",
@@ -2851,6 +2889,126 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projets/{id}/zones": {
+      "get": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Zones du programme : arbre rendu à plat (parentId), trié par Sorting",
+        "operationId": "zones",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du programme (CfgProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Zones, tableau JSON.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ZoneProjetDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Programme introuvable ou de son entité inactive."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Ajoute une zone au programme",
+        "operationId": "creerZone",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du programme (CfgProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoneProjetEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Zone créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneProjetDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Code ou description manquant.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneProjetDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneProjetDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Programme ou zone parente introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneProjetDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris sous le même parent du programme.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneProjetDto"
                 }
               }
             }
@@ -7466,6 +7624,7 @@
           "Tranches"
         ],
         "summary": "Modifie une tranche (champ absent ou null = inchangé)",
+        "description": "Champ absent ou `null` = inchangé. Pour vider : `champsAVider: [\"dateOctroiTitresFonciers\", \"standingId\"]` — date\net référence → NULL, nombre → 0, case → faux, texte → `\"\"` (jamais NULL là où OMRAN écrit une valeur). Nom inconnu,\nchamp obligatoire (`code`, `description`, `projetId`) ou champ à la fois listé et renseigné → 400 dont le `detail`\nnomme `champsAVider`. Une référence inconnue (standing, niveau, rubrique, personnel, tiers, projet de facturation,\nplan comptable) → 400 nommant le champ. Crédit max > 100 % → 400.",
         "operationId": "modifier_3",
         "parameters": [
           {
@@ -7982,7 +8141,7 @@
         ],
         "responses": {
           "404": {
-            "description": "Programme introuvable.",
+            "description": "Programme introuvable ou de son entité inactive.",
             "content": {
               "*/*": {
                 "schema": {
@@ -7993,12 +8152,46 @@
           }
         }
       },
+      "delete": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Supprime un programme sans tranche ni article",
+        "description": "Supprime le programme et, dans la même transaction, ses habilitations, ses zones, ses pièces jointes et ses\nnotes (`AdmAttachedFile` / `AdmMessage` dont `CategoryId` = id), comme OMRAN. 409 si une tranche ou un article\nle référence (le message les compte), ou si une autre table le référence encore (clé étrangère nommée).",
+        "operationId": "supprimer_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du programme (CfgProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Programme supprimé avec ses habilitations, zones, pièces et notes."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Programme introuvable ou de son entité inactive."
+          },
+          "409": {
+            "description": "Une tranche, un article ou une autre table référence le programme."
+          }
+        }
+      },
       "patch": {
         "tags": [
           "Programmes"
         ],
         "summary": "Modifie un programme (champ absent ou null = inchangé)",
-        "description": "Modifie un programme. Champ absent ou `null` = inchangé, `\"\"` = vidé (sauf code et description, obligatoires).\nUne date ou le pays ne se vident pas. La règle fin ≥ début porte sur la valeur résultante (corps, sinon base).",
+        "description": "Modifie un programme. Champ absent ou `null` = inchangé, `\"\"` = vidé (sauf code et description, obligatoires).\nPour vider une date, le pays, le signataire ou un responsable : `champsAVider: [\"dateDebutTravaux\", \"paysId\"]`\n(NULL en base ; un texte listé est écrit `\"\"`). Nom inconnu, champ obligatoire, ou champ à la fois listé et\nrenseigné → 400 dont le `detail` nomme `champsAVider`. Signataire et responsables : un tiers inconnu → 400 nommant\nle champ. La règle fin ≥ début porte sur la valeur résultante (corps, sinon base). Programme d'une entité inactive\n→ 404, comme toutes les routes `/api/projets/{id}…`.",
         "operationId": "modifier_4",
         "parameters": [
           {
@@ -8069,6 +8262,132 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ProjetDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/projets/{id}/zones/{zoneId}": {
+      "delete": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Supprime une zone sans sous-zone ni référence",
+        "operationId": "supprimerZone",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du programme (CfgProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "zoneId",
+            "in": "path",
+            "description": "Id de la zone (CfgProjectZone.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Zone supprimée."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Programme ou zone introuvable."
+          },
+          "409": {
+            "description": "La zone a des sous-zones ou est référencée (SAV, GRH)."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Modifie une zone (absent ou null = inchangé)",
+        "operationId": "modifierZone",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du programme (CfgProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "zoneId",
+            "in": "path",
+            "description": "Id de la zone (CfgProjectZone.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZoneProjetEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Zone modifiée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneProjetDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneProjetDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Programme ou zone introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneProjetDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris sous le même parent du programme.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ZoneProjetDto"
                 }
               }
             }
@@ -8482,7 +8801,7 @@
         ],
         "summary": "Supprime une ligne d'échéancier (droit OMRAN ComFolderDeleteLine)",
         "description": "Refusée (409) si l'échéance a une ligne de règlement (même annulée), une ligne d'autorisation de versement, une ligne de facture, ou si elle est versée dans un dossier de recouvrement (`ComDocument.cs:VerifyLinksForDeletion`). Sinon ses actions et alertes sont supprimées, les lignes qui la désignaient comme pénalité sont détachées, puis l'écart est reporté si sa catégorie « met à jour le schéma ». Réservée, comme le droit OMRAN `ComFolderDeleteLine`, aux rôles Administrateur, Commercial Chef, Direction Générale et Responsable marketing et communication (403 sinon) ; la réponse est l'état du schéma après suppression.",
-        "operationId": "supprimer_2",
+        "operationId": "supprimer_3",
         "parameters": [
           {
             "name": "id",
@@ -8795,7 +9114,7 @@
         ],
         "summary": "Supprime une offre, ses sous-articles et son schéma de financement",
         "description": "Supprime l'offre avec ses sous-articles (`StlQuoteItem`) et son schéma (`StlQuoteDocument`), comme\nla cascade de la base. Le numéro d'offre (`AdmSequence`) n'est pas rendu. Même périmètre que la liste.",
-        "operationId": "supprimer_3",
+        "operationId": "supprimer_4",
         "parameters": [
           {
             "name": "id",
@@ -10762,6 +11081,30 @@
         }
       }
     },
+    "/api/referentiels/colonnes/tranches": {
+      "get": {
+        "tags": [
+          "Référentiels"
+        ],
+        "summary": "Catalogue des colonnes de la liste des tranches (POURCENTAGE = fraction)",
+        "operationId": "getColonnesTranches",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ColonneDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/colonnes/suivi-actions": {
       "get": {
         "tags": [
@@ -11075,6 +11418,186 @@
           "Référentiels"
         ],
         "operationId": "getActionsCommerciales",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-patrimoine/tiers-autrui": {
+      "get": {
+        "tags": [
+          "Référentiels du patrimoine"
+        ],
+        "summary": "Fournisseurs (CfgTier de type FOU), sélecteur « Tiers autrui » de la tranche",
+        "operationId": "tiersAutrui",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-patrimoine/standings": {
+      "get": {
+        "tags": [
+          "Référentiels du patrimoine"
+        ],
+        "summary": "Standings de tranche (CfgTrancheStanding), triés par code",
+        "operationId": "standings",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-patrimoine/rubriques-tranche": {
+      "get": {
+        "tags": [
+          "Référentiels du patrimoine"
+        ],
+        "summary": "Rubriques de tranche (StkTrancheHeading), triées par Sorting",
+        "operationId": "rubriquesTranche",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-patrimoine/projets-facturation": {
+      "get": {
+        "tags": [
+          "Référentiels du patrimoine"
+        ],
+        "summary": "Projets de facturation (PrjProject) des entités actives, pour l'Administrateur",
+        "operationId": "projetsFacturation",
+        "parameters": [
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Entité (CfgCompany) de la tranche. Absent = toutes les entités actives ; entité inactive = liste vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-patrimoine/plans-comptables": {
+      "get": {
+        "tags": [
+          "Référentiels du patrimoine"
+        ],
+        "summary": "Comptes du plan comptable (ActAccount), triés par code",
+        "operationId": "plansComptables",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-patrimoine/personnels": {
+      "get": {
+        "tags": [
+          "Référentiels du patrimoine"
+        ],
+        "summary": "Personnels (CfgTier de type EMP), sélecteur des signataires et responsables",
+        "operationId": "personnels",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-patrimoine/niveaux-terrain": {
+      "get": {
+        "tags": [
+          "Référentiels du patrimoine"
+        ],
+        "summary": "Niveaux (LndLevel), champ « Nbr. étage » de la tranche, triés par code",
+        "operationId": "niveauxTerrain",
         "responses": {
           "200": {
             "description": "OK",
@@ -12218,7 +12741,7 @@
         ],
         "responses": {
           "404": {
-            "description": "Programme introuvable.",
+            "description": "Programme introuvable ou de son entité inactive.",
             "content": {
               "*/*": {
                 "schema": {
@@ -12226,6 +12749,43 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/projets/defauts-entite/{entiteId}": {
+      "get": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Valeurs par défaut d'un programme tirées de l'entité (code et description compris)",
+        "description": "Corps de création pré-rempli comme `CfgProject:GetDefaultValuesFromCompany` d'OMRAN : code, description,\nadresses, ville, pays, téléphones, email, site, ville de signature, signataire, responsables et description\nlongue de l'entité. Le code de l'entité est souvent déjà pris par un autre programme : l'utilisateur le corrige\navant d'enregistrer (409 sinon). Entité inconnue ou inactive → 404.",
+        "operationId": "defautsEntite",
+        "parameters": [
+          {
+            "name": "entiteId",
+            "in": "path",
+            "description": "Id de l'entité (CfgCompany.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Corps de création pré-rempli.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjetEcritureDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Entité introuvable ou inactive."
           }
         }
       }
@@ -18651,7 +19211,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_4",
+        "operationId": "supprimer_5",
         "parameters": [
           {
             "name": "id",
@@ -19600,6 +20160,173 @@
           "ecartTypeFinalisation": {
             "type": "number",
             "description": "Défaut 3."
+          },
+          "standingId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Standing (CfgTrancheStanding), voir /api/referentiels-patrimoine/standings."
+          },
+          "niveauTerrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "« Nbr. étage » (LndLevel), voir /api/referentiels-patrimoine/niveaux-terrain."
+          },
+          "rubriqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Rubrique (StkTrancheHeading)."
+          },
+          "responsableSavId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Responsable S.A.V (CfgClaimsManagerId), un personnel."
+          },
+          "adresseSav": {
+            "type": "string",
+            "description": "Adresse S.A.V."
+          },
+          "visibleProjet": {
+            "type": "boolean",
+            "description": "IsForProject, défaut faux."
+          },
+          "visibleRom": {
+            "type": "boolean",
+            "description": "IsForRom, défaut faux."
+          },
+          "visibleAchat": {
+            "type": "boolean",
+            "description": "IsForBuy (module Achat), défaut faux."
+          },
+          "visibleSav": {
+            "type": "boolean",
+            "description": "IsForSav, défaut faux."
+          },
+          "visiblePrm": {
+            "type": "boolean",
+            "description": "IsForPrm, défaut faux."
+          },
+          "cadeauParrain": {
+            "type": "boolean",
+            "description": "IsWithGiftForProposer : cadeau au parrain."
+          },
+          "cadeauAncienClient": {
+            "type": "boolean",
+            "description": "IsWithGiftForOldCustomer : cadeau à l'ancien client."
+          },
+          "cadeauOrigineProspection": {
+            "type": "boolean",
+            "description": "IsWithGiftForProspectionOrigin : cadeau selon la source de contact."
+          },
+          "cadeauxCumules": {
+            "type": "boolean",
+            "description": "AccumulatedGifts : cadeaux cumulables."
+          },
+          "tiersAutruiId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "« Tiers autrui » (CfgTierOtherId), un fournisseur."
+          },
+          "projetFacturationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "« Projet de facturation pour les dépenses » (PrjProject)."
+          },
+          "planComptableId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "« Plan compt. » (ActAccount)."
+          },
+          "dateMainLeveeAfh": {
+            "type": "string",
+            "format": "date-time",
+            "description": "RaisedHandDateAFH : date main levée AFH."
+          },
+          "dateCertificatDefinitif1": {
+            "type": "string",
+            "format": "date-time",
+            "description": "TitleDate1 : date certificat définitif 1."
+          },
+          "dateMainLeveeBancaire": {
+            "type": "string",
+            "format": "date-time",
+            "description": "RaisedHandDateBank : date main levée bancaire."
+          },
+          "dateCertificatDefinitif2": {
+            "type": "string",
+            "format": "date-time",
+            "description": "TitleDate2 : date certificat définitif 2."
+          },
+          "dateDepotLotissementMunicipalite": {
+            "type": "string",
+            "format": "date-time",
+            "description": "MunicipalityDateDeposit : dépôt du dossier de lotissement à la municipalité."
+          },
+          "dateRetraitLotissementMunicipalite": {
+            "type": "string",
+            "format": "date-time",
+            "description": "MunicipalityDateWithdrawal : retrait du dossier de lotissement de la municipalité."
+          },
+          "dateDepotLotissementNonApprouveOtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "OTCDateNonApprovedDeposit : dépôt du lotissement non approuvé à l'OTC."
+          },
+          "dateReglementFraisOtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "OTCDateSettlement : règlement des frais de l'OTC."
+          },
+          "dateDepotLotissementApprouveOtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "OTCDateApprovedDeposit : dépôt du lotissement approuvé à l'OTC."
+          },
+          "dateRetraitPlansMutationOtc": {
+            "type": "string",
+            "format": "date-time",
+            "description": "OTCDateMutationWithdrawal : retrait des plans de mutation de l'OTC."
+          },
+          "dateAchevementPartages": {
+            "type": "string",
+            "format": "date-time",
+            "description": "SharingDate : achèvement des partages."
+          },
+          "dateDepotPartageCpf": {
+            "type": "string",
+            "format": "date-time",
+            "description": "SharingDateDeposit : dépôt du dossier de partage à la CPF."
+          },
+          "datePaiementFraisPartageCpf": {
+            "type": "string",
+            "format": "date-time",
+            "description": "CPFSharingSettlementDate : paiement des frais de partage CPF."
+          },
+          "dateRetraitPartageCpf": {
+            "type": "string",
+            "format": "date-time",
+            "description": "CPFSharingWithdrawalDate : retrait du dossier de partage à la CPF."
+          },
+          "dateRetraitCertificatsIndividuels": {
+            "type": "string",
+            "format": "date-time",
+            "description": "TitleDate : retrait des certificats de propriété individuels."
+          },
+          "dateVerificationCertificats": {
+            "type": "string",
+            "format": "date-time",
+            "description": "TitleDateVerification : vérification des certificats."
+          },
+          "dateRepartitionCharges": {
+            "type": "string",
+            "format": "date-time",
+            "description": "RepartitionDate : répartition des charges."
+          },
+          "champsAVider": {
+            "type": "array",
+            "description": "PATCH : noms de champs à vider (date, référence → NULL ; nombre → 0 ; case → faux ; texte → \"\").",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -19875,6 +20602,158 @@
             "type": "string"
           },
           "modifieLe": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "standingId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "standingLibelle": {
+            "type": "string"
+          },
+          "niveauTerrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "« Nbr. étage » (LndLevel)."
+          },
+          "niveauTerrainLibelle": {
+            "type": "string"
+          },
+          "rubriqueId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rubriqueLibelle": {
+            "type": "string"
+          },
+          "responsableSavId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "responsableSavLibelle": {
+            "type": "string"
+          },
+          "adresseSav": {
+            "type": "string"
+          },
+          "visibleProjet": {
+            "type": "boolean"
+          },
+          "visibleRom": {
+            "type": "boolean"
+          },
+          "visibleAchat": {
+            "type": "boolean"
+          },
+          "visibleSav": {
+            "type": "boolean"
+          },
+          "visiblePrm": {
+            "type": "boolean"
+          },
+          "cadeauParrain": {
+            "type": "boolean"
+          },
+          "cadeauAncienClient": {
+            "type": "boolean"
+          },
+          "cadeauOrigineProspection": {
+            "type": "boolean"
+          },
+          "cadeauxCumules": {
+            "type": "boolean"
+          },
+          "tiersAutruiId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "tiersAutruiLibelle": {
+            "type": "string"
+          },
+          "projetFacturationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projetFacturationLibelle": {
+            "type": "string"
+          },
+          "planComptableId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "planComptableLibelle": {
+            "type": "string"
+          },
+          "plancherCouvert": {
+            "type": "number",
+            "description": "CoveredFloorArea, m², lecture seule (Σ des planchers couverts)."
+          },
+          "dateMainLeveeAfh": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateCertificatDefinitif1": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateMainLeveeBancaire": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateCertificatDefinitif2": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDepotLotissementMunicipalite": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateRetraitLotissementMunicipalite": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDepotLotissementNonApprouveOtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateReglementFraisOtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDepotLotissementApprouveOtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateRetraitPlansMutationOtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateAchevementPartages": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDepotPartageCpf": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "datePaiementFraisPartageCpf": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateRetraitPartageCpf": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateRetraitCertificatsIndividuels": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateVerificationCertificats": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateRepartitionCharges": {
             "type": "string",
             "format": "date-time"
           }
@@ -21873,6 +22752,28 @@
             "type": "string",
             "format": "date-time",
             "description": "Fin de commercialisation, postérieure ou égale au début."
+          },
+          "signataireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "« Courrier signataire » (AdmSignatoryId → CfgTier), voir /api/referentiels-patrimoine/personnels."
+          },
+          "responsableTechniqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Responsable technique (CfgTechnicalManagerId → CfgTier), un personnel."
+          },
+          "responsableCommercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Responsable commercial (CfgSalesManagerId → CfgTier), un personnel."
+          },
+          "champsAVider": {
+            "type": "array",
+            "description": "PATCH : noms de champs à vider (date, pays, personnel → NULL ; texte → \"\").",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -21975,6 +22876,91 @@
           "modifieLe": {
             "type": "string",
             "format": "date-time"
+          },
+          "signataireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "« Courrier signataire » (AdmSignatoryId), null si non renseigné."
+          },
+          "signataireLibelle": {
+            "type": "string"
+          },
+          "responsableTechniqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Responsable technique (CfgTechnicalManagerId)."
+          },
+          "responsableTechniqueLibelle": {
+            "type": "string"
+          },
+          "responsableCommercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Responsable commercial (CfgSalesManagerId)."
+          },
+          "responsableCommercialLibelle": {
+            "type": "string"
+          }
+        }
+      },
+      "ZoneProjetEcritureDto": {
+        "type": "object",
+        "description": "Création ou modification d'une zone. En PATCH, absent ou null = inchangé ; le parent ne change pas.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code, unique parmi les zones du même parent du programme. Obligatoire."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé. Obligatoire."
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Zone parente (création seulement) ; absente = racine."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1000 caractères au plus)."
+          }
+        }
+      },
+      "ZoneProjetDto": {
+        "type": "object",
+        "description": "Zone d'un programme (CfgProjectZone), ligne d'un arbre rendu à plat.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Zone parente ; null = racine."
+          },
+          "niveau": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Profondeur : 0 à la racine, parent + 1 en dessous."
+          },
+          "sorting": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang parmi les zones du même parent."
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "aUneImage": {
+            "type": "boolean",
+            "description": "Vrai si une image (ImageData) est enregistrée ; non modifiable ici."
           }
         }
       },
@@ -26424,15 +27410,24 @@
       },
       "TrancheListItemDto": {
         "type": "object",
+        "description": "Ligne de liste de tranche ; sans ?colonnes=, seules les colonnes par défaut du catalogue sont présentes.",
         "properties": {
           "id": {
             "type": "string",
             "format": "uuid"
           },
+          "projetId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Programme (CfgProject) de la tranche."
+          },
           "code": {
             "type": "string"
           },
           "description": {
+            "type": "string"
+          },
+          "projetCode": {
             "type": "string"
           },
           "ville": {
@@ -26443,13 +27438,261 @@
             "format": "date-time",
             "description": "CfgTranche.DeliveryDate : date d'octroi des titres fonciers (ex-dateLivraison)."
           },
-          "projetId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Programme (CfgProject) de la tranche."
-          },
-          "projetCode": {
+          "standingLibelle": {
             "type": "string"
+          },
+          "entiteCode": {
+            "type": "string"
+          },
+          "estEnVente": {
+            "type": "boolean"
+          },
+          "descriptionLongue": {
+            "type": "string"
+          },
+          "niveauTerrainLibelle": {
+            "type": "string"
+          },
+          "rubriqueLibelle": {
+            "type": "string"
+          },
+          "plancherCouvert": {
+            "type": "number"
+          },
+          "responsableSavLibelle": {
+            "type": "string"
+          },
+          "villeSignature": {
+            "type": "string",
+            "description": "SignatureCity du programme."
+          },
+          "signataireLibelle": {
+            "type": "string",
+            "description": "Signataire du programme."
+          },
+          "representantLegalLibelle": {
+            "type": "string",
+            "description": "Représentant légal de l'entité."
+          },
+          "responsableCommercialLibelle": {
+            "type": "string",
+            "description": "Responsable commercial du programme."
+          },
+          "responsableTechniqueLibelle": {
+            "type": "string",
+            "description": "Responsable technique du programme."
+          },
+          "dateDebutTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "datePermisHabiter": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "datePremiereRelance": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDebutCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinConcretisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDebutFinalisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "adresseSav": {
+            "type": "string"
+          },
+          "paysLibelle": {
+            "type": "string"
+          },
+          "montantPreReservation": {
+            "type": "number"
+          },
+          "advancePercent": {
+            "type": "number"
+          },
+          "fraisDossier": {
+            "type": "number"
+          },
+          "tauxPenaliteAnnulation": {
+            "type": "number"
+          },
+          "penaliteAnnulationSurPrixArticle": {
+            "type": "boolean"
+          },
+          "penaliteTransfertArticle": {
+            "type": "number"
+          },
+          "penaliteTransfertTranche": {
+            "type": "number"
+          },
+          "penaliteTransfertClient": {
+            "type": "number"
+          },
+          "autresFrais": {
+            "type": "number"
+          },
+          "montantSyndic": {
+            "type": "number"
+          },
+          "periodeSyndic": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiPremierEngagement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiDeuxiemeEngagement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "tauxPenalitePremierEngagement": {
+            "type": "number"
+          },
+          "tauxPenaliteDeuxiemeEngagement": {
+            "type": "number"
+          },
+          "delaiSoldePaiement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiGarantie": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiGarantieSupplement": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "codeDroitRetractation": {
+            "type": "string"
+          },
+          "tribunalCommerce": {
+            "type": "string"
+          },
+          "delaiMinimumIntervention": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "maxVisitNumber": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "cadeauParrain": {
+            "type": "boolean"
+          },
+          "cadeauAncienClient": {
+            "type": "boolean"
+          },
+          "cadeauOrigineProspection": {
+            "type": "boolean"
+          },
+          "cadeauxCumules": {
+            "type": "boolean"
+          },
+          "montantPreReservationRemise": {
+            "type": "number"
+          },
+          "advancePercentRemise": {
+            "type": "number"
+          },
+          "advancePercentRemiseActive": {
+            "type": "boolean"
+          },
+          "fraisDossierRemise": {
+            "type": "number"
+          },
+          "tauxPenaliteAnnulationRemise": {
+            "type": "number"
+          },
+          "penaliteTransfertArticleRemise": {
+            "type": "number"
+          },
+          "penaliteTransfertTrancheRemise": {
+            "type": "number"
+          },
+          "penaliteTransfertClientRemise": {
+            "type": "number"
+          },
+          "montantSyndicRemise": {
+            "type": "number"
+          },
+          "autresFraisRemise": {
+            "type": "number"
+          },
+          "delaiNotaireMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "delaiToutSoldeMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ecartTypeConcretisation": {
+            "type": "number"
+          },
+          "ecartTypeFinalisation": {
+            "type": "number"
+          },
+          "tiersAutruiLibelle": {
+            "type": "string"
+          },
+          "projetFacturationLibelle": {
+            "type": "string"
+          },
+          "planComptableLibelle": {
+            "type": "string"
+          },
+          "estEnLocation": {
+            "type": "boolean"
+          },
+          "visibleProjet": {
+            "type": "boolean"
+          },
+          "visibleAchat": {
+            "type": "boolean"
+          },
+          "visibleSav": {
+            "type": "boolean"
+          },
+          "visibleRom": {
+            "type": "boolean"
+          },
+          "visiblePrm": {
+            "type": "boolean"
+          },
+          "creePar": {
+            "type": "string"
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "modifiePar": {
+            "type": "string"
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -26994,6 +28237,7 @@
               "TEXTE",
               "NOMBRE",
               "MONTANT",
+              "POURCENTAGE",
               "DATE",
               "BOOLEEN"
             ],
@@ -28607,6 +29851,75 @@
           "entiteCode": {
             "type": "string",
             "description": "Code de l'entité (CfgCompany) du programme."
+          },
+          "adresse": {
+            "type": "string"
+          },
+          "villeSignature": {
+            "type": "string",
+            "description": "« Courrier fait à » (SignatureCity)."
+          },
+          "signataireLibelle": {
+            "type": "string",
+            "description": "« Courrier signataire »."
+          },
+          "representantLegalLibelle": {
+            "type": "string",
+            "description": "Représentant légal de l'entité (CfgCompany.CfgTierId)."
+          },
+          "responsableCommercialLibelle": {
+            "type": "string"
+          },
+          "responsableTechniqueLibelle": {
+            "type": "string"
+          },
+          "descriptionLongue": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "fax": {
+            "type": "string"
+          },
+          "mobile": {
+            "type": "string"
+          },
+          "telephone": {
+            "type": "string"
+          },
+          "siteWeb": {
+            "type": "string"
+          },
+          "dateDebutTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinTravaux": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateDebutCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dateFinCommercialisation": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "creePar": {
+            "type": "string"
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "modifiePar": {
+            "type": "string"
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

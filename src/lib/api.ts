@@ -1504,8 +1504,9 @@ export function listSousArticlesLibres(trancheId: UUID, pageable?: Pageable): Pr
   return request('GET', `/api/tranches/${trancheId}/sous-articles-libres`, { query: withPageable(undefined, pageable) });
 }
 
-export function listProjets(pageable?: Pageable): Promise<PageDto<ProjetListItemDto>> {
-  return request('GET', '/api/projets', { query: withPageable(undefined, pageable) });
+/** `search` : code, libellé, ville et entité, sans casse, côté serveur. */
+export function listProjets(pageable?: Pageable, params?: { search?: string }): Promise<PageDto<ProjetListItemDto>> {
+  return request('GET', '/api/projets', { query: withPageable(params, pageable) });
 }
 
 export function getProjet(id: UUID): Promise<ProjetDetailDto> {
@@ -1516,8 +1517,16 @@ export function listProjetTranches(projetId: UUID, pageable?: Pageable): Promise
   return request('GET', `/api/projets/${projetId}/tranches`, { query: withPageable(undefined, pageable) });
 }
 
-export function listTranches(params?: { projetId?: UUID }, pageable?: Pageable): Promise<PageDto<TrancheListItemDto>> {
+/** Sans `colonnes`, les colonnes par défaut du catalogue ; un nom hors catalogue renvoie 400. */
+export function listTranches(
+  params?: { projetId?: UUID; search?: string; colonnes?: string[] },
+  pageable?: Pageable,
+): Promise<PageDto<TrancheListItemDto>> {
   return request('GET', '/api/tranches', { query: withPageable(params, pageable) });
+}
+
+export function getColonnesTranches(): Promise<ColonneDto[]> {
+  return request('GET', '/api/referentiels/colonnes/tranches');
 }
 
 export function getArticle(id: UUID): Promise<ArticleDetailDto> {

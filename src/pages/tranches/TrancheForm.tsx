@@ -5,8 +5,18 @@ import SectionsSaisie from '../../components/patrimoine/SectionsSaisie';
 import PiedSaisie from '../../components/patrimoine/PiedSaisie';
 import { ErrorState, LoadingState } from '../../components/ui';
 import { getProjet, getTranche } from '../../lib/api';
-import { createTranche, updateTranche } from '../../lib/apiPatrimoine';
-import { referentielItems, usePays, useProjetsReferentiel } from '../../lib/referentiels';
+import { createTranche, getReferentielPatrimoine, updateTranche } from '../../lib/apiPatrimoine';
+import {
+  referentielItems,
+  useNiveauxTerrain,
+  usePays,
+  usePersonnels,
+  usePlansComptables,
+  useProjetsReferentiel,
+  useRubriquesTranche,
+  useStandings,
+  useTiersAutrui,
+} from '../../lib/referentiels';
 import { brouillonDepuis, champsDe, corpsDepuis, useSaisie, type Brouillon } from '../../lib/saisiePatrimoine';
 import { SECTIONS_TRANCHE, DEFAUTS_TRANCHE, CHAMPS_REPRIS_DU_PROGRAMME } from '../../lib/saisieTranche';
 import { useApi } from '../../lib/useApi';
@@ -59,6 +69,14 @@ function SaisieTranche({ tranche, depart }: Readonly<{ tranche?: TrancheDetailDt
   const saisie = useSaisie(CHAMPS, depart);
   const projets = useProjetsReferentiel();
   const pays = usePays();
+  const standings = useStandings();
+  const niveaux = useNiveauxTerrain();
+  const rubriques = useRubriquesTranche();
+  const personnels = usePersonnels();
+  const tiersAutrui = useTiersAutrui();
+  const plansComptables = usePlansComptables();
+  const entiteId = tranche?.entiteId;
+  const projetsFacturation = useApi(() => getReferentielPatrimoine('projets-facturation', entiteId), [entiteId]);
 
   function changer(nom: string, valeur: string | boolean) {
     saisie.modifier(nom, valeur);
@@ -82,7 +100,17 @@ function SaisieTranche({ tranche, depart }: Readonly<{ tranche?: TrancheDetailDt
         sections={SECTIONS_TRANCHE}
         brouillon={saisie.brouillon}
         onChange={changer}
-        listes={{ projets: referentielItems(projets.data), pays: referentielItems(pays.data) }}
+        listes={{
+          projets: referentielItems(projets.data),
+          pays: referentielItems(pays.data),
+          standings: referentielItems(standings.data),
+          niveaux: referentielItems(niveaux.data),
+          rubriques: referentielItems(rubriques.data),
+          personnels: referentielItems(personnels.data),
+          tiersAutrui: referentielItems(tiersAutrui.data),
+          plansComptables: referentielItems(plansComptables.data),
+          projetsFacturation: referentielItems(projetsFacturation.data ?? []),
+        }}
         verrouilles={tranche ? ['projetId'] : []}
         champErreur={saisie.champErreur}
         messageErreur={saisie.erreur}

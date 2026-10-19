@@ -497,9 +497,18 @@ export type GroupeColonne =
   | 'ACTION'
   | 'RATTACHEMENT'
   | 'IDENTIFIANTS'
-  | 'AUDIT';
+  | 'AUDIT'
+  // Catalogue des tranches (onglets de la fiche OMRAN).
+  | 'GENERAL'
+  | 'PROGRAMME'
+  | 'COORDONNEES'
+  | 'REGLES'
+  | 'REMISES'
+  | 'AUTRES'
+  | 'VISIBILITE';
 
-export type TypeColonne = 'TEXTE' | 'NOMBRE' | 'MONTANT' | 'DATE' | 'BOOLEEN';
+/** `POURCENTAGE` : fraction (0,2 = 20 %), catalogue des tranches seulement. */
+export type TypeColonne = 'TEXTE' | 'NOMBRE' | 'MONTANT' | 'POURCENTAGE' | 'DATE' | 'BOOLEEN';
 
 /** Même source que la liste blanche de `?colonnes=` : ne pas coder de
  * catalogue en dur côté front. */
@@ -2176,15 +2185,16 @@ export interface PieceJointeDto {
 }
 
 
-export interface TrancheListItemDto {
+/** Ligne de `GET /api/tranches` : colonnes du catalogue `colonnes/tranches` (noms de `TrancheDetailDto`), seules
+ * les demandées sont présentes (`?colonnes=`, défaut : id, code, description, projet, ville, octroi T.F, standing,
+ * entité, vente). */
+export interface TrancheListItemDto extends Partial<Omit<TrancheDetailDto, 'id'>> {
   id: UUID;
-  code?: string;
-  description?: string;
-  ville?: string;
-  /** `CfgTranche.DeliveryDate` : date d'octroi des titres fonciers. */
-  dateOctroiTitresFonciers?: string | null;
-  projetId?: UUID;
-  projetCode?: string;
+  villeSignature?: string;
+  signataireLibelle?: string;
+  representantLegalLibelle?: string;
+  responsableCommercialLibelle?: string;
+  responsableTechniqueLibelle?: string;
 }
 
 export interface TrancheDetailDto {
@@ -2268,11 +2278,62 @@ export interface TrancheDetailDto {
   creeLe?: string | null;
   modifiePar?: string;
   modifieLe?: string | null;
+  standingId?: UUID | null;
+  standingLibelle?: string | null;
+  /** « Nbr. étage » (LndLevel). */
+  niveauTerrainId?: UUID | null;
+  niveauTerrainLibelle?: string | null;
+  rubriqueId?: UUID | null;
+  rubriqueLibelle?: string | null;
+  responsableSavId?: UUID | null;
+  responsableSavLibelle?: string | null;
+  adresseSav?: string;
+  visibleProjet?: boolean;
+  visibleRom?: boolean;
+  visibleAchat?: boolean;
+  visibleSav?: boolean;
+  visiblePrm?: boolean;
+  cadeauParrain?: boolean;
+  cadeauAncienClient?: boolean;
+  cadeauOrigineProspection?: boolean;
+  cadeauxCumules?: boolean;
+  tiersAutruiId?: UUID | null;
+  tiersAutruiLibelle?: string | null;
+  projetFacturationId?: UUID | null;
+  projetFacturationLibelle?: string | null;
+  planComptableId?: UUID | null;
+  planComptableLibelle?: string | null;
+  /** CoveredFloorArea, m², lecture seule. */
+  plancherCouvert?: number;
+  dateMainLeveeAfh?: string | null;
+  dateCertificatDefinitif1?: string | null;
+  dateMainLeveeBancaire?: string | null;
+  dateCertificatDefinitif2?: string | null;
+  dateDepotLotissementMunicipalite?: string | null;
+  dateRetraitLotissementMunicipalite?: string | null;
+  dateDepotLotissementNonApprouveOtc?: string | null;
+  dateReglementFraisOtc?: string | null;
+  dateDepotLotissementApprouveOtc?: string | null;
+  dateRetraitPlansMutationOtc?: string | null;
+  dateAchevementPartages?: string | null;
+  dateDepotPartageCpf?: string | null;
+  datePaiementFraisPartageCpf?: string | null;
+  dateRetraitPartageCpf?: string | null;
+  dateRetraitCertificatsIndividuels?: string | null;
+  dateVerificationCertificats?: string | null;
+  dateRepartitionCharges?: string | null;
+}
+
+/** PATCH : noms des champs à vider (date, référence → NULL ; nombre → 0 ; case → faux ; texte → `""`). */
+interface AvecChampsAVider {
+  champsAVider?: string[];
 }
 
 /** Écriture d'une tranche : mêmes noms que `TrancheDetailDto` ; taux en fraction ; absent = inchangé (PATCH). */
-export type TrancheEcritureDto = Partial<Omit<TrancheDetailDto,
-  'id' | 'concretisationPercent' | 'projetCode' | 'entiteId' | 'entiteCode' | 'paysLibelle'
+export type TrancheEcritureDto = AvecChampsAVider & Partial<Omit<TrancheDetailDto,
+  'id' | 'concretisationPercent' | 'projetCode' | 'entiteId' | 'entiteCode' | 'paysLibelle' | 'standingLibelle'
+  | 'niveauTerrainLibelle' | 'rubriqueLibelle' | 'responsableSavLibelle' | 'tiersAutruiLibelle'
+  | 'projetFacturationLibelle' | 'planComptableLibelle' | 'plancherCouvert'
   | 'creePar' | 'creeLe' | 'modifiePar' | 'modifieLe'>>;
 
 export type ArticleStatut = 'DISPONIBLE' | 'OCCUPE';
@@ -2445,12 +2506,55 @@ export interface ArticleEcritureDto {
   toujoursAffecte?: boolean;
 }
 
+/** Colonnes du tableau Liste de la page PROGRAMMES de l'aide OMRAN. */
 export interface ProjetListItemDto {
   id: UUID;
   code?: string;
   description?: string;
   ville?: string;
   entiteCode?: string;
+  adresse?: string;
+  /** « Courrier fait à ». */
+  villeSignature?: string;
+  signataireLibelle?: string | null;
+  representantLegalLibelle?: string | null;
+  responsableCommercialLibelle?: string | null;
+  responsableTechniqueLibelle?: string | null;
+  descriptionLongue?: string;
+  email?: string;
+  fax?: string;
+  mobile?: string;
+  telephone?: string;
+  siteWeb?: string;
+  dateDebutTravaux?: string | null;
+  dateFinTravaux?: string | null;
+  dateDebutCommercialisation?: string | null;
+  dateFinCommercialisation?: string | null;
+  creePar?: string;
+  creeLe?: string | null;
+  modifiePar?: string;
+  modifieLe?: string | null;
+}
+
+export interface ZoneProjetDto {
+  id: UUID;
+  /** null = racine. */
+  parentId?: UUID | null;
+  /** 0 à la racine. */
+  niveau?: number;
+  sorting?: number;
+  code?: string;
+  description?: string;
+  notes?: string;
+  aUneImage: boolean;
+}
+
+/** PATCH : absent = inchangé ; `parentId` lu à la création seulement. */
+export interface ZoneProjetEcritureDto {
+  code?: string;
+  description?: string;
+  parentId?: UUID | null;
+  notes?: string;
 }
 
 export interface ProjetDetailDto {
@@ -2482,11 +2586,20 @@ export interface ProjetDetailDto {
   creeLe?: string | null;
   modifiePar?: string;
   modifieLe?: string | null;
+  /** « Courrier signataire ». */
+  signataireId?: UUID | null;
+  signataireLibelle?: string | null;
+  responsableTechniqueId?: UUID | null;
+  responsableTechniqueLibelle?: string | null;
+  responsableCommercialId?: UUID | null;
+  responsableCommercialLibelle?: string | null;
 }
 
-/** Écriture d'un programme ; absent = inchangé (PATCH), `""` = vidé. */
-export type ProjetEcritureDto = Partial<Omit<ProjetDetailDto,
-  'id' | 'entiteCode' | 'entiteLibelle' | 'paysLibelle' | 'creePar' | 'creeLe' | 'modifiePar' | 'modifieLe'>>;
+/** Écriture d'un programme ; absent = inchangé (PATCH), `""` = vidé, `champsAVider` pour une date, le pays, un
+ * personnel. Aussi la réponse de `GET /api/projets/defauts-entite/{entiteId}`. */
+export type ProjetEcritureDto = AvecChampsAVider & Partial<Omit<ProjetDetailDto,
+  'id' | 'entiteCode' | 'entiteLibelle' | 'paysLibelle' | 'creePar' | 'creeLe' | 'modifiePar' | 'modifieLe'
+  | 'signataireLibelle' | 'responsableTechniqueLibelle' | 'responsableCommercialLibelle'>>;
 
 
 export interface EtapeCountDto {

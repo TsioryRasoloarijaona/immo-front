@@ -1,29 +1,44 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Building2, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import Pagination from '../../components/Pagination';
+import ColumnSelector from '../../components/ColumnSelector';
+import DataGrid from '../../components/DataGrid';
+import EtatColonnes from '../../components/EtatColonnes';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
-import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
+import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { DEFAULT_PAGE_SIZE, listTranches } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
-import { formatDate } from '../../lib/format';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { grilleDepuisCatalogue, useColonnesVisibles, type DispositionColonnes } from '../../lib/colonnes';
+import { useColonnesTranches } from '../../lib/referentiels';
+import type { TrancheListItemDto } from '../../types';
+
+/** `id` et `projetId` sont servis par défaut pour la navigation, jamais affichés. */
+const DISPOSITION: DispositionColonnes = {
+  ordre: ['description', 'code', 'projetCode', 'standingLibelle', 'entiteCode', 'ville', 'dateOctroiTitresFonciers', 'estEnVente'],
+  poids: { description: 30, code: 12, projetCode: 16, standingLibelle: 12, entiteCode: 10, ville: 14 },
+  masquees: new Set(['id', 'projetId']),
+};
 
 export default function TranchesList() {
+  const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
-  const { data, error } = useApi(() => listTranches(undefined, { page, size: DEFAULT_PAGE_SIZE }), [page]);
-  const navigate = useNavigate();
-
-  const q = search.trim().toLowerCase();
-  const tranches = (data?.content ?? []).filter(
-    (t) => !q || `${t.description ?? ''} ${t.code ?? ''} ${t.ville ?? ''} ${t.projetCode ?? ''}`.toLowerCase().includes(q),
+  const debouncedSearch = useDebouncedValue(search);
+  const catalogue = useColonnesTranches();
+  const colonnes = useColonnesVisibles('tranches', catalogue.data, DISPOSITION);
+  const demandees = colonnes.demandees;
+  const { data, loading, error } = useApi(
+    () => listTranches({ search: debouncedSearch || undefined, colonnes: demandees }, { page, size: DEFAULT_PAGE_SIZE }),
+    [debouncedSearch, page, demandees?.join(',') ?? ''],
   );
-
-  if (error) return <PageShell title="Tranches"><ErrorState message={error} /></PageShell>;
-  if (!data) return <PageShell title="Tranches"><LoadingState /></PageShell>;
+  const grille = useMemo(
+    () => grilleDepuisCatalogue<TrancheListItemDto>(colonnes.colonnes, DISPOSITION.poids, 'description'),
+    [colonnes.colonnes],
+  );
+  const rows = data?.content ?? [];
 
   return (
     <PageShell
@@ -35,56 +50,59 @@ export default function TranchesList() {
       actions={<ActionAdmin to="/tranches/nouveau" libelle="Nouvelle tranche" />}
       fullHeight
     >
-      <div className="flex min-h-0 flex-1 flex-col gap-2.5 pt-1">
-        <div className="flex shrink-0 items-center gap-3">
-          <InputGroup className="max-w-md">
-            <InputGroupAddon>
-              <Search />
-            </InputGroupAddon>
-            <InputGroupInput
-              placeholder="Rechercher un programme, une ville, un code…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </InputGroup>
-          {search && <span className="text-micro text-muted-foreground">Recherche sur la page chargée.</span>}
-        </div>
+      <div className="flex h-full min-h-0 flex-col gap-3 pt-1">
+        <InputGroup className="max-w-md shrink-0">
+          <InputGroupAddon>
+            <Search />
+          </InputGroupAddon>
+          <InputGroupInput
+            placeholder="Rechercher un code, une description, une ville, un programme…"
+            value={search}
+            onChange={(e) => {
+              setPage(0);
+              setSearch(e.target.value);
+            }}
+          />
+        </InputGroup>
 
-        {tranches.length === 0 ? (
-          <EmptyState title="Aucun résultat" />
-        ) : (
-          <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent [&>*:first-child]:pl-3 [&>*:last-child]:pr-3">
-                  <TableHead className="text-muted-foreground">Description</TableHead>
-                  <TableHead className="text-muted-foreground">Code</TableHead>
-                  <TableHead className="text-muted-foreground">Programme</TableHead>
-                  <TableHead className="text-muted-foreground">Ville</TableHead>
-                  <TableHead className="text-muted-foreground">Octroi des T.F</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tranches.map((t) => (
-                  <TableRow
-                    key={t.id}
-                    className="cursor-pointer hover:bg-(--surface-hover) [&>*:first-child]:pl-3 [&>*:last-child]:pr-3"
-                    onClick={() => navigate(`/tranches/${t.id}`)}
-                  >
-                    <TableCell className="max-w-[360px] truncate font-medium text-foreground" title={t.description ?? undefined}>
-                      {t.description || '—'}
-                    </TableCell>
-                    <TableCell className="font-mono text-micro text-muted-foreground">{t.code || '—'}</TableCell>
-                    <TableCell className="max-w-[240px] truncate text-muted-foreground">{t.projetCode || '—'}</TableCell>
-                    <TableCell className="capitalize text-muted-foreground">{t.ville || '—'}</TableCell>
-                    <TableCell className="tabular-nums text-muted-foreground">{formatDate(t.dateOctroiTitresFonciers)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+        {loading && !data && <LoadingState />}
+        {error && <ErrorState message={error} />}
+        {!error && data && (
+          <ResultsRegion loading={loading}>
+            <div className="flex shrink-0 items-center justify-between gap-3">
+              <div className="text-body text-muted-foreground">
+                {data.totalElements} tranche{data.totalElements > 1 ? 's' : ''}
+              </div>
+              {colonnes.catalogueServi.length > 0 && (
+                <ColumnSelector
+                  catalogue={colonnes.catalogueServi}
+                  visibles={colonnes.visibles}
+                  onBasculer={colonnes.basculer}
+                  onReinitialiser={colonnes.reinitialiser}
+                  estDefaut={colonnes.estDefaut}
+                />
+              )}
+            </div>
+            {rows.length === 0 ? (
+              <EmptyState title={search ? 'Aucun résultat' : 'Aucune tranche'} />
+            ) : (
+              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+                <EtatColonnes pret={grille.length > 0} erreur={catalogue.error}>
+                  <DataGrid
+                    cleOrdre="tranches"
+                    rows={rows}
+                    colonnes={grille}
+                    onOuvrir={(id) => navigate(`/tranches/${id}`)}
+                    libelleLigne={(t) => `Ouvrir la tranche ${t.description || t.code || ''}`.trim()}
+                  />
+                </EtatColonnes>
+              </div>
+            )}
+            <div className="shrink-0">
+              <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
+            </div>
+          </ResultsRegion>
         )}
-        <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
       </div>
     </PageShell>
   );

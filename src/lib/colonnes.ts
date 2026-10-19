@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import type { ColonneGrille } from '../components/DataGrid';
 import type { ColonneDto } from '../types';
 
 /** Le serveur envoie des clés d'énumération ; un groupe inconnu retombe sur sa clé brute plutôt que de disparaître. */
@@ -26,6 +27,13 @@ export const LIBELLES_GROUPE: Record<string, string> = {
   AUDIT: 'Traçabilité',
   ECHEANCE: 'Échéance',
   DOSSIER: 'Dossier',
+  GENERAL: 'Général',
+  PROGRAMME: 'Programme',
+  COORDONNEES: 'Coordonnées',
+  REGLES: 'Règles de gestion',
+  REMISES: 'Remises anciens clients',
+  AUTRES: 'Autres',
+  VISIBILITE: 'Visibilité par module',
 };
 
 export function libelleGroupe(groupe: string): string {
@@ -67,6 +75,18 @@ const POIDS_DEFAUT = 10;
 
 export function poidsColonne(nom: string, poids: Record<string, number>): number {
   return poids[nom] ?? POIDS_DEFAUT;
+}
+
+/** Grille suivant le catalogue à la lettre : `principale` en gras, les autres atténuées, Σ masqué sur les taux. */
+export function grilleDepuisCatalogue<T>(colonnes: ColonneDto[], poids: Record<string, number>, principale: string): ColonneGrille<T>[] {
+  return colonnes.map((c) => ({
+    nom: c.nom,
+    libelle: c.libelle,
+    type: c.type,
+    largeur: poidsColonne(c.nom, poids),
+    classe: c.nom === principale ? 'font-medium text-foreground' : 'text-muted-foreground',
+    sansSomme: c.type === 'POURCENTAGE',
+  }));
 }
 
 const PREFIXE_STOCKAGE = 'arpent.colonnes.';
