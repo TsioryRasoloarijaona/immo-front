@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, LayoutGrid, Pencil } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
+import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import { Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
@@ -93,6 +94,7 @@ function FicheProjet({ id }: Readonly<{ id: string }>) {
             />
           )}
         </Card>
+        <OngletsTransverses porteur="projet" id={id} />
       </div>
     </PageShell>
   );

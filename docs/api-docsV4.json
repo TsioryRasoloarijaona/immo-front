@@ -40,8 +40,20 @@
       "description": "Profil de l'utilisateur authentifié et changement volontaire de son mot de passe. Aucun portail de première connexion : mustChangePassword/profileCompleted ne bloquent plus aucune route."
     },
     {
+      "name": "Actions d'article",
+      "description": "Actions et alertes (ComActionMessage) d'un article ; programme et tranche n'en ont pas (aucune colonne)."
+    },
+    {
+      "name": "Audit",
+      "description": "Journal d'audit OMRAN (AdmWebHistorics) des programmes, tranches et articles."
+    },
+    {
       "name": "Dossiers — réinitialisation",
       "description": "Bouton « Réinitialiser » de la fiche dossier : « Le système recharge les données de l'article et des sous articles à partir du module stock » (aide OMRAN). Pour l'article : superficie, taux de TVA et prix du m² HT ; pour chaque sous-article : superficie, TVA, prix avant remise HT et descriptifs (code, description, adresse, contenance, catégorie, type, étage, bâtiment…). Comme `Sale.cs:Reinitialise`, les sous-articles du stock (`StkItem.ParentId` = article) absents du dossier sont d'abord ajoutés (ligne `ComFolderItem`, sous-article affecté au dossier) et listés dans `sousArticlesAjoutes` ; un sous-article déjà affecté à un autre dossier n'est pas pris. Puis la remise est recalculée comme `Sale.cs:RecalcDiscount` : le montant de remise HT est conservé, le taux change (« Montant remise / Total HT »), et les prix après remise suivent. Le schéma de financement n'est pas modifié ; une valeur absente du stock laisse celle du dossier. Réservé au rôle Administrateur."
+    },
+    {
+      "name": "Notes",
+      "description": "Notes (AdmMessage) des programmes, tranches et articles ; écriture Administrateur."
     },
     {
       "name": "Dossiers — fiche",
@@ -3475,6 +3487,137 @@
         }
       }
     },
+    "/api/notes": {
+      "get": {
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Notes d'un programme, d'une tranche ou d'un article, plus récentes d'abord",
+        "operationId": "lister_1",
+        "parameters": [
+          {
+            "name": "porteur",
+            "in": "query",
+            "description": "projet, tranche ou article.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "article"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "description": "PKey du porteur.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste, éventuellement vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoteDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`porteur` absent ou différent de projet, tranche, article.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoteDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun objet visible de ce type avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/NoteDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Ajoute une note en texte simple (échappée en HTML pour OMRAN)",
+        "operationId": "creer_3",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerNoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Note créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Texte vide (« Veuillez saisir une note ! ») ou porteur invalide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Aucun objet visible de ce type avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/mon-compte/changer-mot-de-passe": {
       "post": {
         "tags": [
@@ -3570,7 +3713,7 @@
           "Modèles de documents"
         ],
         "summary": "Crée un modèle et sa version 1",
-        "operationId": "creer_3",
+        "operationId": "creer_4",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4582,7 +4725,7 @@
           "Dossiers — sous-articles"
         ],
         "summary": "Sous-articles du dossier et prix qui en dépendent",
-        "operationId": "lister_1",
+        "operationId": "lister_2",
         "parameters": [
           {
             "name": "id",
@@ -4771,7 +4914,7 @@
         ],
         "summary": "Règlements du dossier avec leur part affectée et leur reste à affecter",
         "description": "Règlements ayant au moins une ligne sur une échéance de ce dossier, saisie la plus récente d'abord (`DocDate` puis `UserCreateDateTime` décroissants). `montantAffecte` et `resteAAffecter` portent sur toutes les lignes du règlement, `affectations` sur celles de ce dossier seulement.",
-        "operationId": "lister_2",
+        "operationId": "lister_3",
         "parameters": [
           {
             "name": "id",
@@ -4819,7 +4962,7 @@
         ],
         "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
         "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
-        "operationId": "creer_4",
+        "operationId": "creer_5",
         "parameters": [
           {
             "name": "id",
@@ -5261,7 +5404,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Demandes de modification du dossier et montants qui en découlent",
-        "operationId": "lister_3",
+        "operationId": "lister_4",
         "parameters": [
           {
             "name": "id",
@@ -5355,7 +5498,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Modalité de paiement : schéma de financement figé à la vente",
-        "operationId": "lister_4",
+        "operationId": "lister_5",
         "parameters": [
           {
             "name": "id",
@@ -5932,7 +6075,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Cadeaux du dossier",
-        "operationId": "lister_5",
+        "operationId": "lister_6",
         "parameters": [
           {
             "name": "id",
@@ -6064,7 +6207,7 @@
           "Dossiers — actions"
         ],
         "summary": "Actions du dossier et leur nombre par type",
-        "operationId": "lister_6",
+        "operationId": "lister_7",
         "parameters": [
           {
             "name": "id",
@@ -6105,7 +6248,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_5",
+        "operationId": "creer_6",
         "parameters": [
           {
             "name": "id",
@@ -6594,7 +6737,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_7",
+        "operationId": "lister_8",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -6630,7 +6773,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_6",
+        "operationId": "creer_7",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7045,7 +7188,7 @@
         ],
         "summary": "Crée un article principal (prix calculés comme OMRAN)",
         "description": "Crée un article principal (`IsUnderItem = 0`). Obligatoires : `trancheId`, `code` (unique dans la tranche, sans\ncasse), `description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « pour les sous-articles »),\n`immeubleId`, `etageId`. Défauts : vocation VENTE (PROJET refusée), surface provisoire 1, surface définitive =\nprovisoire, prix 0, TVA 0, `estTitre` vrai. Pour chaque surface, le prix au m² se saisit **soit** HT **soit** TTC\n(les deux → 400) ; le serveur calcule l'autre et les prix de l'article comme OMRAN (intermédiaires non arrondis,\néchelle 6 HALF_UP au stockage). `prixVente*` = article + sous-articles rattachés.",
-        "operationId": "creer_7",
+        "operationId": "creer_8",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7422,6 +7565,126 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ArticleDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/{id}/actions": {
+      "get": {
+        "tags": [
+          "Actions d'article"
+        ],
+        "summary": "Actions portant sur l'article (dossiers compris), plus récentes d'abord",
+        "operationId": "lister_9",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste, éventuellement vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActionDossierDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Article introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActionDossierDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Actions d'article"
+        ],
+        "summary": "Ajoute une action ou une alerte (date d'alerte) sur l'article",
+        "operationId": "creer_9",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerActionDossierRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Action créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionDossierDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "typeId absent ou inconnu, note vide, type « Instruction ».",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionDossierDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionDossierDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Article introuvable.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionDossierDto"
                 }
               }
             }
@@ -12789,7 +13052,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_8",
+        "operationId": "lister_10",
         "parameters": [
           {
             "name": "page",
@@ -18088,6 +18351,81 @@
         }
       }
     },
+    "/api/audit": {
+      "get": {
+        "tags": [
+          "Audit"
+        ],
+        "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
+        "operationId": "lister_11",
+        "parameters": [
+          {
+            "name": "objetId",
+            "in": "query",
+            "description": "PKey du programme, de la tranche ou de l'article.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page, à partir de 0.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 0
+            }
+          },
+          {
+            "name": "size",
+            "in": "query",
+            "description": "Taille de page, 1 à 200.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Une page, éventuellement vide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneAuditDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`objetId` absent ou mal formé, `page` < 0, `size` hors 1..200.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneAuditDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Ni programme, ni tranche, ni article visible avec cet id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneAuditDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/articles/{id}/pieces-jointes": {
       "get": {
         "tags": [
@@ -18185,7 +18523,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_9",
+        "operationId": "lister_12",
         "parameters": [
           {
             "name": "portee",
@@ -18478,6 +18816,38 @@
         }
       }
     },
+    "/api/notes/{id}": {
+      "delete": {
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Supprime une note d'un objet du patrimoine",
+        "operationId": "supprimer_4",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "AdmMessage.PKey.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Note supprimée."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Note introuvable, ou d'un objet hors patrimoine."
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/sous-articles/{ligneId}": {
       "delete": {
         "tags": [
@@ -18651,7 +19021,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_4",
+        "operationId": "supprimer_5",
         "parameters": [
           {
             "name": "id",
@@ -22307,6 +22677,73 @@
             "format": "int64",
             "description": "Notifications non lues restantes du compte appelant.",
             "example": 3
+          }
+        }
+      },
+      "CreerNoteRequest": {
+        "type": "object",
+        "description": "Saisie d'une note en texte simple ; le serveur l'échappe en HTML pour OMRAN.",
+        "properties": {
+          "porteur": {
+            "type": "string",
+            "description": "Type du porteur.",
+            "enum": [
+              "projet",
+              "tranche",
+              "article"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du programme, de la tranche ou de l'article."
+          },
+          "texte": {
+            "type": "string",
+            "description": "Texte de la note (sauts de ligne conservés). Vide → 400."
+          },
+          "rappel": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de rappel (ReminderDate), facultative."
+          }
+        },
+        "required": [
+          "id",
+          "porteur",
+          "texte"
+        ]
+      },
+      "NoteDto": {
+        "type": "object",
+        "description": "Note d'un programme, d'une tranche ou d'un article (AdmMessage).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "AdmMessage.PKey."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "DocDate : date de saisie."
+          },
+          "auteur": {
+            "type": "string",
+            "description": "UserName : nom affiché de l'auteur."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description : « jj/MM/aaaa HH:mm auteur », écrite à la saisie."
+          },
+          "texte": {
+            "type": "string",
+            "description": "Notes en texte brut (balises retirées, entités décodées) : à afficher comme texte, jamais en HTML."
+          },
+          "rappel": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ReminderDate : date de rappel, null si aucune."
           }
         }
       },
@@ -31361,6 +31798,103 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/LigneTriDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ChangementAuditDto": {
+        "type": "object",
+        "description": "Propriété d'une ligne d'audit : valeurs telles qu'OMRAN les écrit (dates jj/MM/aaaa HH:mm:ss).",
+        "properties": {
+          "propriete": {
+            "type": "string",
+            "description": "Nom de colonne, ou de la navigation pour une clé étrangère (ex. CfgProject)."
+          },
+          "ancienneValeur": {
+            "type": "string",
+            "description": "Valeur avant ; vide pour un ajout."
+          },
+          "nouvelleValeur": {
+            "type": "string",
+            "description": "Valeur après."
+          }
+        }
+      },
+      "LigneAuditDto": {
+        "type": "object",
+        "description": "Ligne du journal d'audit OMRAN (AdmWebHistorics), écrite par OMRAN ou par le CRM.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "AdmWebHistorics.PKey."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ActionDateTime."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "UserDescription : nom affiché de l'auteur."
+          },
+          "action": {
+            "type": "string",
+            "description": "Action brute, à traduire à l'écran.",
+            "enum": [
+              "Added",
+              "Modified",
+              "Deleted"
+            ]
+          },
+          "typeObjet": {
+            "type": "string",
+            "description": "ObjectType OMRAN (ex. Yes.Cfg.CfgTranche)."
+          },
+          "libelleTypeObjet": {
+            "type": "string",
+            "description": "ObjectTypeLabel (ex. « Tranche »)."
+          },
+          "libelleObjet": {
+            "type": "string",
+            "description": "ObjectLabel : code ou nom de l'objet."
+          },
+          "parentTypeObjet": {
+            "type": "string",
+            "description": "ParentObjectType d'une ligne enfant, sinon null."
+          },
+          "details": {
+            "type": "array",
+            "description": "Propriétés changées ; vide si Details est illisible.",
+            "items": {
+              "$ref": "#/components/schemas/ChangementAuditDto"
+            }
+          }
+        }
+      },
+      "PageDtoLigneAuditDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneAuditDto"
             }
           },
           "page": {

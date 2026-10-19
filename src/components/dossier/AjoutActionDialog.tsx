@@ -8,17 +8,22 @@ import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { referentielItems, useTypesContactProspection } from '../../lib/referentiels';
 import { toApiDateTime } from '../../lib/format';
-import { creerActionDossier } from '../../lib/api';
 import { errorMessage } from '../../lib/useApi';
+import type { CreerActionDossierRequest } from '../../types';
 
 /** Une instruction passe par son propre bouton : le serveur la refuse ici (400). */
 const TYPE_INSTRUCTION = '6441143f-1111-1111-2222-9db192573333';
 
+/** Saisie d'une action (GEN0005) ; `enregistrer` choisit le porteur (dossier, article). */
 export default function AjoutActionDialog({
-  dossierId,
+  enregistrer,
   onClose,
   onCreated,
-}: Readonly<{ dossierId: string; onClose: () => void; onCreated: () => void }>) {
+}: Readonly<{
+  enregistrer: (body: CreerActionDossierRequest) => Promise<unknown>;
+  onClose: () => void;
+  onCreated: () => void;
+}>) {
   const types = useTypesContactProspection();
   const items = referentielItems(types.data.filter((t) => t.id.toLowerCase() !== TYPE_INSTRUCTION));
   const [typeId, setTypeId] = useState<string | null>(null);
@@ -37,7 +42,7 @@ export default function AjoutActionDialog({
           setBusy(true);
           setError(null);
           try {
-            await creerActionDossier(dossierId, {
+            await enregistrer({
               typeId,
               note: note.trim(),
               date: toApiDateTime(date),
