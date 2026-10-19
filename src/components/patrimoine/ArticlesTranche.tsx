@@ -1,23 +1,23 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import BarreFiltresArticles from './BarreFiltresArticles';
 import DataGrid from '../DataGrid';
 import Pagination from '../Pagination';
 import { Card, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../ui';
 import { listTrancheArticles } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { usePreview } from '../../lib/previewContext';
 import { colonnesArticles, useFiltresArticles } from '../../lib/articlesListe';
 
 /** Onglet Articles de la tranche : mêmes filtres et colonnes que `/articles`, sur `GET /api/tranches/{id}/articles`. */
 export default function ArticlesTranche({ trancheId }: Readonly<{ trancheId: string }>) {
-  const navigate = useNavigate();
+  const { ouvrirFicheDossier, ouvrirFicheArticle } = usePreview();
   const [page, setPage] = useState(0);
   const filtres = useFiltresArticles(() => setPage(0));
   const { data, loading, error } = useApi(
     () => listTrancheArticles(trancheId, filtres.params, { page, size: 20 }),
     [trancheId, filtres.cle, page],
   );
-  const colonnes = useMemo(() => colonnesArticles(navigate), [navigate]);
+  const colonnes = useMemo(() => colonnesArticles(ouvrirFicheDossier), [ouvrirFicheDossier]);
 
   return (
     <Card title={`Articles (${data?.totalElements ?? 0})`}>
@@ -41,7 +41,7 @@ export default function ArticlesTranche({ trancheId }: Readonly<{ trancheId: str
                   cleOrdre="articles-tranche"
                   rows={data.content}
                   colonnes={colonnes}
-                  onOuvrir={(id) => navigate(`/articles/${id}`)}
+                  onOuvrir={ouvrirFicheArticle}
                   libelleLigne={(a) => `Ouvrir la fiche de ${a.code}`}
                 />
               </div>

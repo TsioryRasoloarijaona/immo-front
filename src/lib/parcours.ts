@@ -145,11 +145,12 @@ export async function toastProspectLie(
   nom: string,
   maj: ProspectionDetailDto,
   mode: 'cree' | 'rattache',
+  ouvrirProspect: (id: string) => void,
 ): Promise<ToastOptions> {
   const prospectId = maj.prospectId ?? (await getProspection(maj.id)).prospectId;
   return {
     texte: mode === 'cree' ? `${nom} est maintenant un prospect.` : `${nom} est rattaché au prospect existant.`,
-    action: prospectId ? { libelle: 'Ouvrir le prospect →', vers: `/prospects/${prospectId}` } : undefined,
+    action: prospectId ? { libelle: 'Ouvrir le prospect →', surClic: () => ouvrirProspect(prospectId) } : undefined,
   };
 }
 

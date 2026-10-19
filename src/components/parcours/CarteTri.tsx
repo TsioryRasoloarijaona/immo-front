@@ -1,14 +1,15 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { Clock, Copy, MapPin } from 'lucide-react';
 import { Badge } from '../ui';
+import LienFiche from '../LienFiche';
+import type { FicheCible } from '../../lib/previewContext';
 import { formatDateTime, formatRecuIlYa, formatTelephone } from '../../lib/format';
 import type { DoublonTriDto, LigneTriDto } from '../../types';
 
 const CRITERES: Record<string, string> = { TELEPHONE: 'même numéro', EMAIL: 'même e-mail', NOM: 'même nom' };
 
-function routeDoublon(d: DoublonTriDto): string {
-  return d.nature === 'PROSPECT' ? `/prospects/${d.id}` : `/prospections/${d.id}`;
+function cibleDoublon(d: DoublonTriDto): FicheCible {
+  return d.nature === 'PROSPECT' ? { type: 'prospect', id: d.id } : { type: 'prospection', id: d.id, pre: false };
 }
 
 function Puce({ children }: Readonly<{ children: ReactNode }>) {
@@ -47,9 +48,9 @@ export default function CarteTri({ ligne, onOuvrir }: Readonly<{ ligne: LigneTri
           <ul className="flex flex-col gap-0.5">
             {ligne.doublons.map((d) => (
               <li key={`${d.nature}-${d.id}`}>
-                <Link to={routeDoublon(d)} className="font-medium text-(--amber) underline-offset-2 hover:underline">
+                <LienFiche cible={cibleDoublon(d)} className="font-medium text-(--amber) underline-offset-2 hover:underline">
                   {d.nature === 'PROSPECT' ? 'Prospect' : 'Prospection'} {d.nom || d.code}
-                </Link>
+                </LienFiche>
                 {' — '}
                 {d.criteres.map((c) => CRITERES[c] ?? c).join(', ')}
                 {d.fermee ? ' (archivée)' : ''}

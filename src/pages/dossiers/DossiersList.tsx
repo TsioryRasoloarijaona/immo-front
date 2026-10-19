@@ -35,6 +35,7 @@ import EtatColonnes from '../../components/EtatColonnes';
 import { DISPOSITION_DOSSIERS } from '../../lib/dispositions';
 import { useColonnesDossiers, useTranchesFiltre } from '../../lib/referentiels';
 import { useAppData, commercialLabel } from '../../lib/appData';
+import { usePreview } from '../../lib/previewContext';
 import { debutMoisISO, finMoisISO, pluriel } from '../../lib/format';
 import { useTotauxNature } from '../../lib/totauxDossiers';
 import { useTotauxServeur } from '../../lib/totauxServeur';
@@ -46,7 +47,7 @@ import {
   libelleStatut,
   optionsListe,
   optionsStatuts,
-  routeDeLigne,
+  ouvrirLigne,
   totauxDossiersActifs,
   totauxSurDossiers,
   uniteDeLigne,
@@ -67,6 +68,7 @@ const CHAMP_DATE_DEFAUT = [{ label: 'Date réservation', value: 'RESERVATION' }]
 
 export default function DossiersList() {
   const navigate = useNavigate();
+  const { ouvrirFicheProspection, ouvrirFicheArticle } = usePreview();
   const { commerciaux } = useAppData();
 
   const [search, setSearch] = useState('');
@@ -508,8 +510,8 @@ export default function DossiersList() {
                     colonnes={colonnes.colonnes}
                     // `enGroupes` et non `groupement.actif` : un filtre de statut bloque le groupement.
                     groupes={groupesGrille(groupement, groupes.data, lignesGroupes, { statut: libelleStatut }, enGroupes)}
-                    onOuvrir={(id) => navigate(routeDeLigne(dossiersParId.get(id), id))}
-                    onOuvrirProspection={(prospectionId) => navigate(`/prospections/${prospectionId}`)}
+                    onOuvrir={(id) => ouvrirLigne(dossiersParId.get(id), id, (chemin) => void navigate(chemin), ouvrirFicheArticle)}
+                    onOuvrirProspection={(prospectionId) => ouvrirFicheProspection(prospectionId, false)}
                     bandeauRegroupement={false}
                     totauxServeur={totauxServeur}
                     selection={

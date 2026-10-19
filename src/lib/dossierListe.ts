@@ -126,7 +126,13 @@ export function colonnesListe(
   return [...new Set([...catalogue.filter((c) => c.parDefaut).map((c) => c.nom), ...toujours.filter((n) => noms.has(n))])];
 }
 
-/** Une ligne « Libre » s'ouvre sur la fiche de l'article, un dossier sur la sienne. */
-export function routeDeLigne(ligne: DossierListItemDto | undefined, id: string): string {
-  return ligne?.libre ? `/articles/${id}` : `/dossiers/${id}`;
+/** Une ligne « Libre » ouvre la fiche de l'article en dialogue, un dossier sa page. */
+export function ouvrirLigne(
+  ligne: DossierListItemDto | undefined,
+  id: string,
+  naviguer: (chemin: string) => void,
+  ouvrirArticle: (id: string) => void,
+): void {
+  if (ligne?.libre) ouvrirArticle(id);
+  else naviguer(`/dossiers/${id}`);
 }
