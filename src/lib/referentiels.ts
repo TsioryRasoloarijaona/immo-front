@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import * as api from './api';
-import { getReferentielPatrimoine } from './apiPatrimoine';
+import { getReferentielContenances, getReferentielPatrimoine } from './apiPatrimoine';
 import { onCacheClear } from './apiCache';
 import { errorMessage } from './useApi';
 import type { ReferentielItemDto } from '../types';
@@ -159,6 +159,11 @@ export const useRubriquesTranche = makeCachedListHook(() => getReferentielPatrim
 export const usePersonnels = makeCachedListHook(() => getReferentielPatrimoine('personnels'));
 export const usePlansComptables = makeCachedListHook(() => getReferentielPatrimoine('plans-comptables'));
 export const useTiersAutrui = makeCachedListHook(() => getReferentielPatrimoine('tiers-autrui'));
+export const useOrientations = makeCachedListHook(() => getReferentielPatrimoine('orientations'));
+export const useCategoriesCharge = makeCachedListHook(() => getReferentielPatrimoine('categories-charge'));
+export const useFacades = makeCachedListHook(() => getReferentielPatrimoine('facades'));
+export const useVues = makeCachedListHook(() => getReferentielPatrimoine('vues'));
+export const useContenances = makeCachedListHook(getReferentielContenances);
 
 export function referentielItems(list: ReferentielItemDto[]): { label: string; value: string }[] {
   return list.map((r) => ({ label: r.description || r.code || r.id, value: r.id }));

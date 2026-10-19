@@ -1,6 +1,22 @@
-import type { BlocCommissionDto, LigneFraisDto, ReferentielItemDto } from '../types';
+import type { BlocCommissionDto, LigneFraisDto, LignesTrancheDto, ReferentielItemDto } from '../types';
+import { getOngletTranche, putOngletTranche, type OngletTranche } from './apiPatrimoine';
 import { libelleBloc } from './commissionsTranche';
 import { formatCurrency, formatDate, formatNumber, formatPercent, formatSurface } from './format';
+
+/** Lecture et écriture (liste complète) des lignes d'une grille ; `cle` change quand la source change. */
+export interface SourceLignes<L> {
+  cle: string;
+  charger: () => Promise<LignesTrancheDto<L>>;
+  enregistrer: (lignes: L[]) => Promise<unknown>;
+}
+
+export function sourceOngletTranche<L>(trancheId: string, onglet: OngletTranche): SourceLignes<L> {
+  return {
+    cle: `${trancheId}/${onglet}`,
+    charger: () => getOngletTranche<L>(trancheId, onglet),
+    enregistrer: (lignes) => putOngletTranche(trancheId, onglet, lignes),
+  };
+}
 
 /** Colonne d'une grille d'onglet de tranche : `nom` = champ du fil ; `type` règle la saisie et l'affichage. */
 export interface ColonneOnglet<L> {
@@ -14,6 +30,8 @@ export interface ColonneOnglet<L> {
   facultatif?: boolean;
   /** Champ calculé pour cette ligne : affiché, non saisi. */
   calcule?: (ligne: L) => boolean;
+  /** `case` : libellé propre à la ligne (option d'une contenance) ; `undefined` = sans objet, affiché « — ». */
+  etiquette?: (ligne: L) => string | null | undefined;
 }
 
 export type Valeur = string | number | boolean | BlocCommissionDto | null | undefined;
@@ -34,12 +52,19 @@ const FORMATS_NOMBRE: Partial<Record<ColonneOnglet<unknown>['type'], (n: number 
   pourcent: (n) => formatPercent(n, 2),
 };
 
+function libelleCase<L>(colonne: ColonneOnglet<L>, ligne: L, coche: boolean): string {
+  const oui = coche ? 'Oui' : 'Non';
+  if (!colonne.etiquette) return oui;
+  const etiquette = colonne.etiquette(ligne);
+  return etiquette ? `${etiquette} : ${oui}` : '—';
+}
+
 /** Valeur affichée d'une cellule en lecture. */
 export function afficherValeur<L>(colonne: ColonneOnglet<L>, ligne: L): string {
   const valeur = ligne[colonne.nom] as Valeur;
   switch (colonne.type) {
     case 'case':
-      return valeur ? 'Oui' : 'Non';
+      return libelleCase(colonne, ligne, !!valeur);
     case 'choix': {
       const choix = choixDe(colonne, ligne).find((c) => c.id === valeur);
       return choix ? libelleChoix(choix) : '—';

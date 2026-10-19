@@ -6,7 +6,7 @@ import PiedSaisie from '../../components/patrimoine/PiedSaisie';
 import PrixArticleSaisie from '../../components/patrimoine/PrixArticleSaisie';
 import { ErrorState, LoadingState } from '../../components/ui';
 import { getArticle } from '../../lib/api';
-import { createArticle, createSousArticle, updateArticle } from '../../lib/apiPatrimoine';
+import { createArticle, createSousArticle, getPresentationsTranche, updateArticle } from '../../lib/apiPatrimoine';
 import {
   referentielItems,
   useCategoriesArticle,
@@ -18,7 +18,9 @@ import {
   useTypesSousArticle,
   useVocationsArticle,
 } from '../../lib/referentiels';
-import { brouillonArticle, champsArticle, CHAMPS_PROTEGES, corpsArticle, sectionsArticle } from '../../lib/saisieArticle';
+import {
+  brouillonArticle, champsArticle, CHAMPS_PROTEGES, corpsArticle, sectionsArticle, useListesFicheArticle,
+} from '../../lib/saisieArticle';
 import { useSaisie, type Brouillon } from '../../lib/saisiePatrimoine';
 import { useApi } from '../../lib/useApi';
 import type { ArticleDetailDto } from '../../types';
@@ -70,7 +72,9 @@ function SaisieArticle({ sousArticle, article, parent, depart }: Readonly<{
 }>) {
   const navigate = useNavigate();
   const saisie = useSaisie(champsArticle(sousArticle), depart);
-  const listes = useListesArticle(sousArticle);
+  const choisie = saisie.brouillon.trancheId;
+  const trancheId = article?.trancheId ?? parent?.trancheId ?? (typeof choisie === 'string' ? choisie : '');
+  const listes = { ...useListesArticle(sousArticle, trancheId), ...useListesFicheArticle() };
   const occupe = article?.occupe === true;
   const verrouilles = [...(article ? ['trancheId'] : []), ...(occupe ? CHAMPS_PROTEGES : [])];
 
@@ -92,7 +96,7 @@ function SaisieArticle({ sousArticle, article, parent, depart }: Readonly<{
       {article?.occupe && (
         <p role="note" className="text-body text-muted-foreground">
           Article affecté au dossier <span className="font-medium text-foreground">{article.dossierCode ?? 'de son article'}</span> :
-          prix, surfaces et classification ne se modifient plus.
+          prix, surfaces, classification et titre foncier ne se modifient plus.
         </p>
       )}
       <SectionsSaisie
@@ -109,6 +113,7 @@ function SaisieArticle({ sousArticle, article, parent, depart }: Readonly<{
         sections={sectionsArticle(sousArticle, !article).slice(1)}
         brouillon={saisie.brouillon}
         onChange={saisie.modifier}
+        listes={listes}
         verrouilles={verrouilles}
         champErreur={saisie.champErreur}
         messageErreur={saisie.erreur}
@@ -119,7 +124,8 @@ function SaisieArticle({ sousArticle, article, parent, depart }: Readonly<{
   );
 }
 
-function useListesArticle(sousArticle: boolean) {
+function useListesArticle(sousArticle: boolean, trancheId: string) {
+  const presentations = useApi(() => (trancheId ? getPresentationsTranche(trancheId) : Promise.resolve([])), [trancheId]);
   const tranches = useTranchesFiltre();
   const vocations = useVocationsArticle();
   const categoriesArticle = useCategoriesArticle();
@@ -135,5 +141,6 @@ function useListesArticle(sousArticle: boolean) {
     types: referentielItems(sousArticle ? typesSous.data : typesArticle.data),
     immeubles: referentielItems(immeubles.data),
     etages: referentielItems(etages.data),
+    presentations: referentielItems(presentations.data ?? []),
   };
 }

@@ -1,8 +1,15 @@
 import { Card, Field, FieldGrid, TogglePill } from '../ui';
-import { valeurFiche, type SectionSaisie } from '../../lib/saisiePatrimoine';
+import { valeurFiche, type Choix, type SectionSaisie } from '../../lib/saisiePatrimoine';
 
-/** Fiche en lecture tirée du même catalogue que le formulaire : une carte par section, « — » pour un champ vide. */
-export default function FicheSections({ sections, source }: Readonly<{ sections: SectionSaisie[]; source: object }>) {
+/**
+ * Fiche en lecture tirée du même catalogue que le formulaire : une carte par section, « — » pour un champ vide.
+ * `listes` : choix des champs dont le détail ne porte que l'id (libellé retrouvé par l'id).
+ */
+export default function FicheSections({ sections, source, listes = {} }: Readonly<{
+  sections: SectionSaisie[];
+  source: object;
+  listes?: Record<string, Choix>;
+}>) {
   const valeurs = source as Record<string, unknown>;
   return (
     <>
@@ -15,7 +22,7 @@ export default function FicheSections({ sections, source }: Readonly<{ sections:
                 label={def.libelle}
                 value={def.type === 'booleen'
                   ? <TogglePill on={valeurs[def.nom] === true} onLabel="Oui" offLabel="Non" />
-                  : valeurFiche(def, source)}
+                  : valeurFiche(def, source, listes[def.liste ?? ''])}
               />
             ))}
           </FieldGrid>

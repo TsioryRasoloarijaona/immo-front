@@ -5,15 +5,15 @@ import { Field as FormField, FieldLabel } from '../ui/field';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Textarea } from '../ui/textarea';
-import type { Brouillon, ChampDef, SectionSaisie } from '../../lib/saisiePatrimoine';
+import type { Brouillon, ChampDef, Choix, SectionSaisie } from '../../lib/saisiePatrimoine';
 
-export type ListesChoix = Record<string, { label: string; value: string }[]>;
+export type ListesChoix = Record<string, Choix>;
 
 interface PropsChamp {
   def: ChampDef;
   valeur: string | boolean;
   onChange: (valeur: string | boolean) => void;
-  liste?: { label: string; value: string }[];
+  liste?: Choix;
   desactive: boolean;
   erreur: string | null;
 }
@@ -26,7 +26,31 @@ const TYPE_INPUT: Partial<Record<ChampDef['type'], string>> = {
   surface: 'number',
 };
 
-function ChampSaisie({ def, valeur, onChange, liste, desactive, erreur }: Readonly<PropsChamp>) {
+/** Champ `multi` : une case par choix, ids joints par `,`. */
+function CasesMulti({ def, valeur, onChange, liste = [], desactive }: Readonly<PropsChamp>) {
+  const coches = String(valeur).split(',').filter(Boolean);
+  const basculer = (id: string, oui: boolean) =>
+    onChange((oui ? [...coches, id] : coches.filter((c) => c !== id)).sort((a, b) => a.localeCompare(b)).join(','));
+  return (
+    <fieldset className="sm:col-span-2 lg:col-span-3">
+      <legend className="mb-1.5 text-label font-medium text-foreground">{def.libelle}</legend>
+      {liste.length === 0 && <p className="text-micro text-muted-foreground">Aucun choix disponible.</p>}
+      <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+        {liste.map((c) => (
+          <label key={c.value} className="flex items-center gap-2 text-label text-foreground">
+            <input type="checkbox" checked={coches.includes(c.value)} disabled={desactive}
+              onChange={(e) => basculer(c.value, e.target.checked)} />
+            {c.label}
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function ChampSaisie(props: Readonly<PropsChamp>) {
+  const { def, valeur, onChange, liste, desactive, erreur } = props;
+  if (def.type === 'multi') return <CasesMulti {...props} />;
   const id = `champ-${def.nom}`;
   const libelle = `${def.libelle}${def.obligatoire ? ' *' : ''}${def.type === 'pourcent' ? ' (%)' : ''}`;
   if (def.type === 'booleen') {

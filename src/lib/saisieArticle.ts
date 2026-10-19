@@ -1,5 +1,22 @@
-import { brouillonDepuis, champsDe, corpsDepuis, type Brouillon, type ChampDef, type SectionSaisie } from './saisiePatrimoine';
+import { referentielItems, useCategoriesCharge, useEntitesReferentiel, useFacades, useOrientations, useVues } from './referentiels';
+import { brouillonDepuis, champsDe, corpsDepuis, type Brouillon, type ChampDef, type Choix, type SectionSaisie } from './saisiePatrimoine';
 import type { ArticleDetailDto } from '../types';
+
+/** Choix des champs de la fiche (section Autres) : le détail n'en porte que les ids. */
+export function useListesFicheArticle(): Record<string, Choix> {
+  const orientations = useOrientations();
+  const categoriesCharge = useCategoriesCharge();
+  const facades = useFacades();
+  const entites = useEntitesReferentiel();
+  const vues = useVues();
+  return {
+    orientations: referentielItems(orientations.data),
+    categoriesCharge: referentielItems(categoriesCharge.data),
+    facades: referentielItems(facades.data),
+    entites: referentielItems(entites.data),
+    vues: referentielItems(vues.data),
+  };
+}
 
 export type ModePrix = 'HT' | 'TTC';
 export type Surface = 'Provisoire' | 'Definitif';
@@ -14,37 +31,83 @@ export function sectionsArticle(sousArticle: boolean, creation: boolean): Sectio
     { nom: 'typeId', libelle: 'Type', type: 'liste', liste: 'types', obligatoire: true },
     { nom: 'immeubleId', libelle: 'Immeuble', type: 'liste', liste: 'immeubles', obligatoire: true },
     { nom: 'etageId', libelle: 'Étage', type: 'liste', liste: 'etages', obligatoire: true },
+    // Lu en `presentationTypeId` ; un changement remplace les contenances de l'article.
+    { nom: 'presentationId', libelle: 'Type de présentation', type: 'liste', liste: 'presentations', champLibelle: 'presentationTypeLibelle' },
     // `toujoursAffecte` ne s'écrit qu'à la création d'un sous-article (PATCH l'ignore) : absent en modification.
     ...(sousArticle && creation ? [{ nom: 'toujoursAffecte', libelle: 'Toujours affecté', type: 'booleen' } as const] : []),
   ];
-  return [
-    { titre: 'Identité', champs: identite },
-    {
-      titre: 'Remises',
-      champs: [
-        { nom: 'remiseMax1', libelle: 'Remise max 1', type: 'pourcent' },
-        { nom: 'remiseMax2', libelle: 'Remise max 2', type: 'pourcent' },
-      ],
-    },
-    {
-      titre: 'Foncier',
-      champs: [
-        { nom: 'titreFoncier', libelle: 'Titre foncier', type: 'texte' },
-        { nom: 'estTitre', libelle: 'Titré', type: 'booleen' },
-      ],
-    },
-    {
-      titre: 'Divers',
-      champs: [
-        { nom: 'adresse', libelle: 'Adresse', type: 'texte' },
-        { nom: 'surfaceInterieure', libelle: 'Surface intérieure', type: 'montant' },
-        { nom: 'surfaceMurs', libelle: 'Surface des murs', type: 'montant' },
-        { nom: 'surfacePartiesCommunes', libelle: 'Surface des parties communes', type: 'montant' },
-        { nom: 'notes', libelle: 'Notes', type: 'texteLong' },
-      ],
-    },
-  ];
+  return [{ titre: 'Identité', champs: identite }, ...SECTIONS_FICHE];
 }
+
+const compteurs = ([fil, nom]: readonly [string, string]): ChampDef[] => [
+  { nom: `reference${fil}`, libelle: `Référence ${nom}`, type: 'texte' },
+  { nom: `police${fil}`, libelle: `Police ${nom}`, type: 'texte' },
+  { nom: `compteur${fil}`, libelle: `Compteur ${nom}`, type: 'texte' },
+  { nom: `releve${fil}`, libelle: `Relevé ${nom}`, type: 'texte' },
+];
+
+/** Sections de la fiche après l'identité (onglets OMRAN Superficies / Valorisation, foncier, Autres, Anomalie). */
+const SECTIONS_FICHE: SectionSaisie[] = [
+  {
+    titre: 'Superficies',
+    champs: [
+      { nom: 'superficieNette', libelle: 'Superficie nette', type: 'surface', lectureSeule: true },
+      { nom: 'superficieTitree', libelle: 'Superficie titrée', type: 'surface', lectureSeule: true },
+      { nom: 'surfaceInterieure', libelle: 'Surface intérieure', type: 'surface' },
+      { nom: 'surfaceMurs', libelle: 'Surface des murs', type: 'surface' },
+      { nom: 'surfacePartiesCommunes', libelle: 'Surface des parties communes', type: 'surface' },
+    ],
+  },
+  {
+    titre: 'Valorisation',
+    champs: [
+      { nom: 'remiseMax1', libelle: 'Remise max 1', type: 'pourcent' },
+      { nom: 'remiseMax2', libelle: 'Remise max 2', type: 'pourcent' },
+      { nom: 'avanceMinimum', libelle: 'Avance minimum', type: 'montant' },
+      { nom: 'loyerMensuelHT', libelle: 'Loyer mensuel HT', type: 'montant' },
+      { nom: 'nombreCautions', libelle: 'Nombre de cautions', type: 'entier' },
+    ],
+  },
+  {
+    titre: 'Identification foncière',
+    champs: [
+      { nom: 'estTitre', libelle: 'Titré', type: 'booleen' },
+      { nom: 'titreFoncier', libelle: 'Titre foncier', type: 'texte' },
+      { nom: 'titreFoncierMere', libelle: 'Titre foncier mère', type: 'texte' },
+      { nom: 'intituleTitreFoncier', libelle: 'Intitulé du titre foncier', type: 'texte' },
+      { nom: 'dateTitreFoncier', libelle: 'Date du titre foncier', type: 'date' },
+      { nom: 'proprieteDite', libelle: 'Propriété dite', type: 'texte' },
+      { nom: 'numeroEnregistrement', libelle: "Numéro d'enregistrement", type: 'texte' },
+      { nom: 'dateEnregistrement', libelle: "Date d'enregistrement", type: 'date' },
+      { nom: 'lieuEnregistrement', libelle: "Lieu d'enregistrement", type: 'texte' },
+      { nom: 'cpfImmatriculation', libelle: 'Immatriculation CPF', type: 'texte' },
+      { nom: 'dateImmatriculation', libelle: "Date d'immatriculation", type: 'date' },
+      { nom: 'fractionDivise', libelle: 'Fraction divise', type: 'texte' },
+      { nom: 'fractionDiviseTerrain', libelle: 'Fraction divise du terrain', type: 'texte' },
+      { nom: 'partiesDivises', libelle: 'Parties divises', type: 'entier' },
+      { nom: 'partiesIndivises', libelle: 'Parties indivises', type: 'entier' },
+      { nom: 'quotaTerrainGroupe', libelle: 'Quote-part du terrain du groupe', type: 'texte' },
+      { nom: 'notesTitreFoncier', libelle: 'Notes du titre foncier', type: 'texteLong' },
+    ],
+  },
+  {
+    titre: 'Autres',
+    champs: [
+      { nom: 'orientationId', libelle: 'Orientation', type: 'liste', liste: 'orientations' },
+      { nom: 'categorieChargeId', libelle: 'Catégorie de charge', type: 'liste', liste: 'categoriesCharge' },
+      { nom: 'facadeId', libelle: 'Façade', type: 'liste', liste: 'facades' },
+      { nom: 'entiteSyndicId', libelle: 'Entité syndic', type: 'liste', liste: 'entites' },
+      { nom: 'adresse', libelle: 'Adresse', type: 'texte' },
+      { nom: 'disponibleVenteWeb', libelle: 'Disponible pour la vente sur le web', type: 'booleen' },
+      { nom: 'disponibleLocationWeb', libelle: 'Disponible pour la location sur le web', type: 'booleen' },
+      { nom: 'vueIds', libelle: 'Vues', type: 'multi', liste: 'vues' },
+      { nom: 'contenanceLibre', libelle: 'Contenance (texte libre)', type: 'texteLong' },
+      { nom: 'notes', libelle: 'Notes', type: 'texteLong' },
+    ],
+  },
+  { titre: 'Compteurs', champs: ([['Electricite', 'électricité'], ['Eau', 'eau'], ['Gaz', 'gaz']] as const).flatMap(compteurs) },
+  { titre: 'Anomalie', champs: [{ nom: 'anomalies', libelle: 'Anomalies', type: 'texteLong' }] },
+];
 
 /** Champs saisis dans la carte « Surfaces et prix » ; les prix au m² y sont gérés à part (sens HT ou TTC). */
 export const CHAMPS_SURFACES: ChampDef[] = [
@@ -53,8 +116,8 @@ export const CHAMPS_SURFACES: ChampDef[] = [
   { nom: 'tauxTva', libelle: 'TVA', type: 'pourcent' },
 ];
 
-/** Un article occupé ne modifie plus ses prix, surfaces et classification (§5.4.4) : champs figés. */
-export const CHAMPS_PROTEGES = ['code', 'vocationId', 'categorieId', 'typeId', 'remiseMax1', 'remiseMax2',
+/** Un article occupé ne modifie plus ses prix, surfaces, classification ni son titre foncier : champs figés. */
+export const CHAMPS_PROTEGES = ['code', 'vocationId', 'categorieId', 'typeId', 'remiseMax1', 'remiseMax2', 'titreFoncier',
   ...CHAMPS_SURFACES.map((c) => c.nom)];
 
 export function champsArticle(sousArticle: boolean): ChampDef[] {
@@ -62,8 +125,11 @@ export function champsArticle(sousArticle: boolean): ChampDef[] {
 }
 
 export function brouillonArticle(sousArticle: boolean, article?: Partial<ArticleDetailDto>): Brouillon {
-  // Noms historiques du détail : `area` = surface définitive, `tauxTVA` = taux de TVA.
-  const source = { estTitre: !sousArticle, ...article, surfaceDefinitive: article?.area, tauxTva: article?.tauxTVA };
+  // Noms du détail : `area` = surface définitive, `tauxTVA` = taux de TVA, `presentationTypeId` = présentation.
+  const source = {
+    estTitre: !sousArticle, ...article,
+    surfaceDefinitive: article?.area, tauxTva: article?.tauxTVA, presentationId: article?.presentationTypeId,
+  };
   return {
     ...brouillonDepuis(champsArticle(sousArticle), source),
     modeProvisoire: 'HT',

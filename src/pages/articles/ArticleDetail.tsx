@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Eye, FileText, Folder, Home, Pencil } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Eye, FileText, Folder, Home, Pencil, Trash2 } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
+import FicheSections from '../../components/patrimoine/FicheSections';
+import GrilleOnglet from '../../components/patrimoine/GrilleOnglet';
 import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import SousArticlesArticle from '../../components/patrimoine/SousArticlesArticle';
 import PrixArticleFiche from '../../components/patrimoine/PrixArticleFiche';
@@ -10,6 +12,11 @@ import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } f
 import { Button } from '../../components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import { getArticle, getDossier, listArticlePiecesJointes, openArticlePieceJointeFichier } from '../../lib/api';
+import { deleteArticle } from '../../lib/apiPatrimoine';
+import { useConfirm } from '../../lib/confirmContext';
+import { grilleContenances, sourceContenances } from '../../lib/ongletsArticle';
+import { useContenances } from '../../lib/referentiels';
+import { sectionsArticle, useListesFicheArticle } from '../../lib/saisieArticle';
 import { useApi } from '../../lib/useApi';
 import { formatCurrency, formatDate, formatPercent, formatSurface, libellePrix } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
@@ -65,6 +72,25 @@ export default function ArticleDetail() {
 function FicheArticle({ id }: Readonly<{ id: string }>) {
   const { data: a, loading, error, refetch } = useApi(() => getArticle(id), [id]);
   const navigate = useNavigate();
+  const confirm = useConfirm();
+  const [erreurSuppression, setErreurSuppression] = useState<string | null>(null);
+  const listes = useListesFicheArticle();
+  const contenances = useContenances();
+
+  async function supprimer() {
+    const oui = await confirm({
+      title: "Supprimer l'article",
+      message: "L'article, ses sous-articles rattachés, vues, contenances, pièces jointes et notes seront supprimés. Continuer ?",
+      confirmLabel: 'Supprimer',
+    });
+    if (!oui) return;
+    try {
+      await deleteArticle(id);
+      void navigate('/articles');
+    } catch (err) {
+      setErreurSuppression(err instanceof Error ? err.message : 'Suppression impossible.');
+    }
+  }
 
   const dossier = useApi(
     () => (a?.dossierId ? getDossier(a.dossierId) : Promise.resolve(null)),
@@ -95,8 +121,14 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
       icon={<Home />}
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
-      actions={<ActionAdmin to={`/articles/${a.id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />}
+      actions={
+        <div className="flex flex-wrap gap-2">
+          <ActionAdmin onClick={() => void supprimer()} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
+          <ActionAdmin to={`/articles/${a.id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />
+        </div>
+      }
     >
+      {erreurSuppression && <p role="alert" className="mb-3 text-label text-destructive">{erreurSuppression}</p>}
       <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate(-1)}>
         <ArrowLeft data-icon="inline-start" /> Retour
       </Button>
@@ -144,9 +176,10 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
               label="Prix de vente commercial"
               value={libellePrix(a.comSalePrice, a.comSalePriceFloor)}
             />
-            <Field label="Titre foncier" value={a.titreFoncier} />
           </FieldGrid>
         </Card>
+
+        <FicheSections sections={sectionsArticle(a.estSousArticle === true, false).slice(1)} source={a} listes={listes} />
 
         {a.dossierId && (
           <Card
@@ -178,6 +211,12 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
         <PrixArticleFiche article={a} />
 
         <SousArticlesArticle article={a} onModifie={() => void refetch()} />
+
+        <Card title="Contenances">
+          {contenances.error && <ErrorState message={contenances.error} />}
+          <GrilleOnglet source={sourceContenances(a.id, a.presentationTypeId)} nouvelle={{ nombre: 1 }}
+            {...grilleContenances(contenances.data)} />
+        </Card>
 
         <Card title={`Pièces jointes (${pieces.data?.length ?? 0})`}>
           {pieces.loading && <LoadingState />}
