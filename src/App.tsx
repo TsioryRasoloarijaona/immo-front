@@ -53,6 +53,12 @@ const ArticleDetail = lazy(() => import('./pages/articles/ArticleDetail'));
 const ProjetForm = lazy(() => import('./pages/projets/ProjetForm'));
 const TrancheForm = lazy(() => import('./pages/tranches/TrancheForm'));
 const ArticleForm = lazy(() => import('./pages/articles/ArticleForm'));
+const EntitesJuridiquesList = lazy(() => import('./pages/entites/EntitesJuridiquesList'));
+const EntiteJuridiqueDetail = lazy(() => import('./pages/entites/EntiteJuridiqueDetail'));
+const ActionnairesList = lazy(() => import('./pages/entites/ActionnairesList'));
+const ActionnaireDetail = lazy(() => import('./pages/entites/ActionnaireDetail'));
+const GroupesActionnairesList = lazy(() => import('./pages/entites/GroupesActionnairesList'));
+const GroupeActionnairesDetail = lazy(() => import('./pages/entites/GroupeActionnairesDetail'));
 const NouvelOrdre = lazy(() => import('./pages/outils/virements/NouvelOrdre'));
 const HistoriqueVirements = lazy(() => import('./pages/outils/virements/HistoriqueVirements'));
 const BeneficiairesVirement = lazy(() => import('./pages/outils/virements/Beneficiaires'));
@@ -145,6 +151,15 @@ function AuthenticatedApp() {
                   <Route path="/articles/:id" element={<ArticleDetail />} />
                   <Route path="/articles/:id/modifier" element={<ArticleForm />} />
                   <Route path="/articles/:id/sous-articles/nouveau" element={<ArticleForm sousArticle />} />
+                  <Route path="/entites-juridiques" element={<EntitesJuridiquesList />} />
+                  <Route path="/entites-juridiques/nouveau" element={<EntiteJuridiqueDetail />} />
+                  <Route path="/entites-juridiques/:id" element={<EntiteJuridiqueDetail />} />
+                  <Route path="/actionnaires" element={<ActionnairesList />} />
+                  <Route path="/actionnaires/nouveau" element={<ActionnaireDetail />} />
+                  <Route path="/actionnaires/:id" element={<ActionnaireDetail />} />
+                  <Route path="/groupes-actionnaires" element={<GroupesActionnairesList />} />
+                  <Route path="/groupes-actionnaires/nouveau" element={<GroupeActionnairesDetail />} />
+                  <Route path="/groupes-actionnaires/:id" element={<GroupeActionnairesDetail />} />
                   <Route path="/outils" element={<Navigate to="/outils/virements/nouveau" replace />} />
                   <Route path="/outils/virements" element={<Navigate to="/outils/virements/nouveau" replace />} />
                   <Route path="/outils/virements/nouveau" element={<NouvelOrdre />} />

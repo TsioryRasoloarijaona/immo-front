@@ -10,12 +10,10 @@ import DataGrid from '../../components/DataGrid';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import { DEFAULT_PAGE_SIZE, listProjets } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
-import { grilleDepuisCatalogue, useColonnesVisibles, type DispositionColonnes } from '../../lib/colonnes';
-import type { ColonneDto, GroupeColonne, ProjetListItemDto, TypeColonne } from '../../types';
+import { colonneLocale as colonne, grilleDepuisCatalogue, useColonnesVisibles, type DispositionColonnes } from '../../lib/colonnes';
+import type { ColonneDto, ProjetListItemDto } from '../../types';
 
 /** Tableau Liste de la page PROGRAMMES de l'aide OMRAN ; le serveur renvoie toutes les colonnes, le choix est local. */
-const colonne = (nom: string, libelle: string, groupe: GroupeColonne, type: TypeColonne = 'TEXTE', parDefaut = false): ColonneDto =>
-  ({ nom, libelle, groupe, type, parDefaut, groupable: false, agregeable: false, fonctions: [] });
 
 const CATALOGUE: ColonneDto[] = [
   colonne('description', 'Description', 'GENERAL', 'TEXTE', true),
