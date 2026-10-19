@@ -96,6 +96,10 @@
       "description": "Articles et sous-articles (StkItem) — lots vendables d'une tranche, avec leur disponibilité et leurs éventuels sous-lots (cave/parking annexés)."
     },
     {
+      "name": "État des ventes",
+      "description": "État des ventes (écran OMRAN « Suivi des dossiers de vente ») : une ligne par article racine en vente — `StkItem.ParentId` vide, vocation `VENTE`, tranche `IsForSale = 1` ; les parkings autonomes (`IsUnderItem = 1` sans parent) comptent, les sous-articles rattachés non. Synthèse, liste, groupes, totaux et export partagent exactement les mêmes filtres et la même visibilité (entités actives et périmètre commercial) : la somme des lignes de la liste filtrée égale la cellule de la synthèse."
+    },
+    {
       "name": "Authentification",
       "description": "Connexion/déconnexion par cookie JWT httpOnly."
     },
@@ -11467,6 +11471,30 @@
         }
       }
     },
+    "/api/referentiels/colonnes/etat-des-ventes": {
+      "get": {
+        "tags": [
+          "État des ventes"
+        ],
+        "summary": "Catalogue des colonnes de l'état des ventes",
+        "operationId": "colonnes",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ColonneDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/colonnes/encaissements": {
       "get": {
         "tags": [
@@ -14646,6 +14674,1006 @@
         }
       }
     },
+    "/api/etat-des-ventes": {
+      "get": {
+        "tags": [
+          "État des ventes"
+        ],
+        "summary": "Liste paginée des articles racines en vente et de leur statut",
+        "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : `prixVenteTTC` = prix catalogue (`ComSalePrice`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; `statutLibelle`, `clientNom`, `commercial`, `dossierId`, `montantRegle` et `resteARegler` ne sont pas triables (400). `montantRegle` = prix de vente réglé du dossier, même calcul que la liste des dossiers ; demandé, il coûte deux requêtes par page.",
+        "operationId": "lister_11",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Code(s) de statut : LIBRE, SANS_STATUT ou StrStatus.Code ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "LIBRE"
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de catégorie d'article (StkItemCategory.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de type d'article (StkItemType.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "nature",
+            "in": "query",
+            "description": "TOUS (défaut), ARTICLES (IsUnderItem = 0) ou SOUS_ARTICLES (IsUnderItem = 1).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TOUS",
+                "ARTICLES",
+                "SOUS_ARTICLES"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Sous-chaîne du code article, de la catégorie, du type, du dossier, du nom, téléphone ou CIN du client.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "description": "Date du dossier filtrée par du / au ; défaut RESERVATION.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RESERVATION",
+                "PROSPECTION",
+                "VALIDITE_STATUT",
+                "CONCRETISATION",
+                "PROMESSE_VENTE",
+                "PROMESSE_VENTE_CLIENT",
+                "ENREGISTREMENT_RESERVATION",
+                "VISITE_TECHNIQUE",
+                "ENVOI_NOTAIRE_PREVU",
+                "ENVOI_NOTAIRE",
+                "MINUTE",
+                "MINUTE_CLIENT",
+                "FORMALISATION",
+                "IMPRESSION_CONTRAT",
+                "EXPEDITION",
+                "RELANCE_1",
+                "ECHEANCE_RELANCE_1",
+                "RELANCE_2",
+                "ECHEANCE_RELANCE_2",
+                "FICHE_BANCAIRE",
+                "ENVOI_MEILLEUR_TAUX",
+                "DECISION_MEILLEUR_TAUX",
+                "COMPROMIS",
+                "CREDIT_DEBLOQUE",
+                "FICHE_INTERVENTION",
+                "FICHE_ASSURANCE",
+                "REMISE_DES_CLES_PREVUE",
+                "REMISE_DES_CLES",
+                "REMISE_DES_CLES_CLIENT",
+                "ENREGISTREMENT_REMISE_DES_CLES",
+                "MODIFICATION_REMISE",
+                "PERMIS_HABITER",
+                "ACTE_PRECISION",
+                "ACTE_PRECISION_CLIENT",
+                "ENREGISTREMENT_ACTE_PRECISION",
+                "MINUTE_AVOCAT",
+                "REMISE_LEGALISATION_CONTRAT",
+                "LEGALISATION_CONTRAT",
+                "DEPOT_ENREGISTREMENT_CONTRAT",
+                "REMISE_LEGALISATION_ACTE_PRECISION",
+                "DEPOT_ENREGISTREMENT_ACTE_PRECISION",
+                "DEPOT_CPF",
+                "RETRAIT_CPF",
+                "REMISE_CERTIFICAT_PROPRIETE",
+                "CREATION",
+                "MODIFICATION",
+                "ANNULATION"
+              ]
+            },
+            "example": "RESERVATION"
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Borne basse incluse, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-03-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Borne haute incluse, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-03-31"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "articleCode,categorieCode,statutLibelle,clientNom,prixVenteTTC"
+          },
+          {
+            "name": "groupeColonne",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "statutCode"
+          },
+          {
+            "name": "groupeValeur",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "RESERVATION"
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "MOIS"
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page d'articles, colonnes demandées seules.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneEtatVentesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Colonne, tri, statut ou nature inconnu."
+          }
+        }
+      }
+    },
+    "/api/etat-des-ventes/totaux-colonnes": {
+      "get": {
+        "tags": [
+          "État des ventes"
+        ],
+        "summary": "Résumés (Σ) par colonne sur tous les articles du filtre, pas sur une page",
+        "description": "Effectif du filtre et un résumé par jeton d'`agregats` (`surface`, `prixVenteTTC`, `colonne:FONCTION`). `montantRegle` et `resteARegler` (nom nu) sont aussi acceptés : sommes, sur tous les dossiers du filtre, du calcul de la liste des dossiers.",
+        "operationId": "totauxColonnes_1",
+        "parameters": [
+          {
+            "name": "agregats",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "surface,prixVenteTTC,montantRegle,resteARegler"
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Code(s) de statut : LIBRE, SANS_STATUT ou StrStatus.Code ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "LIBRE"
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de catégorie d'article (StkItemCategory.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de type d'article (StkItemType.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "nature",
+            "in": "query",
+            "description": "TOUS (défaut), ARTICLES (IsUnderItem = 0) ou SOUS_ARTICLES (IsUnderItem = 1).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TOUS",
+                "ARTICLES",
+                "SOUS_ARTICLES"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Sous-chaîne du code article, de la catégorie, du type, du dossier, du nom, téléphone ou CIN du client.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "description": "Date du dossier filtrée par du / au ; défaut RESERVATION.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RESERVATION",
+                "PROSPECTION",
+                "VALIDITE_STATUT",
+                "CONCRETISATION",
+                "PROMESSE_VENTE",
+                "PROMESSE_VENTE_CLIENT",
+                "ENREGISTREMENT_RESERVATION",
+                "VISITE_TECHNIQUE",
+                "ENVOI_NOTAIRE_PREVU",
+                "ENVOI_NOTAIRE",
+                "MINUTE",
+                "MINUTE_CLIENT",
+                "FORMALISATION",
+                "IMPRESSION_CONTRAT",
+                "EXPEDITION",
+                "RELANCE_1",
+                "ECHEANCE_RELANCE_1",
+                "RELANCE_2",
+                "ECHEANCE_RELANCE_2",
+                "FICHE_BANCAIRE",
+                "ENVOI_MEILLEUR_TAUX",
+                "DECISION_MEILLEUR_TAUX",
+                "COMPROMIS",
+                "CREDIT_DEBLOQUE",
+                "FICHE_INTERVENTION",
+                "FICHE_ASSURANCE",
+                "REMISE_DES_CLES_PREVUE",
+                "REMISE_DES_CLES",
+                "REMISE_DES_CLES_CLIENT",
+                "ENREGISTREMENT_REMISE_DES_CLES",
+                "MODIFICATION_REMISE",
+                "PERMIS_HABITER",
+                "ACTE_PRECISION",
+                "ACTE_PRECISION_CLIENT",
+                "ENREGISTREMENT_ACTE_PRECISION",
+                "MINUTE_AVOCAT",
+                "REMISE_LEGALISATION_CONTRAT",
+                "LEGALISATION_CONTRAT",
+                "DEPOT_ENREGISTREMENT_CONTRAT",
+                "REMISE_LEGALISATION_ACTE_PRECISION",
+                "DEPOT_ENREGISTREMENT_ACTE_PRECISION",
+                "DEPOT_CPF",
+                "RETRAIT_CPF",
+                "REMISE_CERTIFICAT_PROPRIETE",
+                "CREATION",
+                "MODIFICATION",
+                "ANNULATION"
+              ]
+            },
+            "example": "RESERVATION"
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Borne basse incluse, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-03-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Borne haute incluse, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-03-31"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Effectif du filtre et un résumé par jeton demandé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotauxListeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Jeton d'agregats inconnu ou fonction refusée."
+          }
+        }
+      }
+    },
+    "/api/etat-des-ventes/synthese": {
+      "get": {
+        "tags": [
+          "État des ventes"
+        ],
+        "summary": "Tableau tranche × catégorie × statut (nombre d'articles racines)",
+        "description": "Compte les articles par tranche × catégorie × statut. Statut `LIBRE` : article sans dossier, ou dont le dossier est annulé ou désisté (`StrStatus.BoolField002` / `BoolField003`). `SANS_STATUT` : dossier sans statut, colonne présente seulement si elle compte au moins un article. Sinon le `StrStatus.Code` du dossier. `parStatut` omet les statuts à zéro ; `totaux` donne les mêmes comptes par catégorie et au total.",
+        "operationId": "synthese",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de catégorie d'article (StkItemCategory.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comptes du filtre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyntheseEtatVentesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Id mal formé."
+          }
+        }
+      }
+    },
+    "/api/etat-des-ventes/groupes": {
+      "get": {
+        "tags": [
+          "État des ventes"
+        ],
+        "summary": "Liste de l'état des ventes repliée en groupes, avec effectifs et agrégats",
+        "operationId": "grouper_3",
+        "parameters": [
+          {
+            "name": "groupBy",
+            "in": "query",
+            "description": "Colonne de groupement (catalogue, groupable = true).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "categorieCode"
+          },
+          {
+            "name": "agregats",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "surface,prixVenteTTC"
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "MOIS"
+          },
+          {
+            "name": "tri",
+            "in": "query",
+            "description": "LIBELLE (défaut) ou NOMBRE (effectif décroissant).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LIBELLE",
+                "NOMBRE"
+              ]
+            },
+            "example": "NOMBRE"
+          },
+          {
+            "name": "inclureSansValeur",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Code(s) de statut : LIBRE, SANS_STATUT ou StrStatus.Code ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "LIBRE"
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de catégorie d'article (StkItemCategory.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de type d'article (StkItemType.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "nature",
+            "in": "query",
+            "description": "TOUS (défaut), ARTICLES (IsUnderItem = 0) ou SOUS_ARTICLES (IsUnderItem = 1).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TOUS",
+                "ARTICLES",
+                "SOUS_ARTICLES"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Sous-chaîne du code article, de la catégorie, du type, du dossier, du nom, téléphone ou CIN du client.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "description": "Date du dossier filtrée par du / au ; défaut RESERVATION.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RESERVATION",
+                "PROSPECTION",
+                "VALIDITE_STATUT",
+                "CONCRETISATION",
+                "PROMESSE_VENTE",
+                "PROMESSE_VENTE_CLIENT",
+                "ENREGISTREMENT_RESERVATION",
+                "VISITE_TECHNIQUE",
+                "ENVOI_NOTAIRE_PREVU",
+                "ENVOI_NOTAIRE",
+                "MINUTE",
+                "MINUTE_CLIENT",
+                "FORMALISATION",
+                "IMPRESSION_CONTRAT",
+                "EXPEDITION",
+                "RELANCE_1",
+                "ECHEANCE_RELANCE_1",
+                "RELANCE_2",
+                "ECHEANCE_RELANCE_2",
+                "FICHE_BANCAIRE",
+                "ENVOI_MEILLEUR_TAUX",
+                "DECISION_MEILLEUR_TAUX",
+                "COMPROMIS",
+                "CREDIT_DEBLOQUE",
+                "FICHE_INTERVENTION",
+                "FICHE_ASSURANCE",
+                "REMISE_DES_CLES_PREVUE",
+                "REMISE_DES_CLES",
+                "REMISE_DES_CLES_CLIENT",
+                "ENREGISTREMENT_REMISE_DES_CLES",
+                "MODIFICATION_REMISE",
+                "PERMIS_HABITER",
+                "ACTE_PRECISION",
+                "ACTE_PRECISION_CLIENT",
+                "ENREGISTREMENT_ACTE_PRECISION",
+                "MINUTE_AVOCAT",
+                "REMISE_LEGALISATION_CONTRAT",
+                "LEGALISATION_CONTRAT",
+                "DEPOT_ENREGISTREMENT_CONTRAT",
+                "REMISE_LEGALISATION_ACTE_PRECISION",
+                "DEPOT_ENREGISTREMENT_ACTE_PRECISION",
+                "DEPOT_CPF",
+                "RETRAIT_CPF",
+                "REMISE_CERTIFICAT_PROPRIETE",
+                "CREATION",
+                "MODIFICATION",
+                "ANNULATION"
+              ]
+            },
+            "example": "RESERVATION"
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Borne basse incluse, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-03-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Borne haute incluse, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-03-31"
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes, paginés comme une liste.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageGroupesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Colonne non groupable ou agrégat inconnu."
+          }
+        }
+      }
+    },
+    "/api/etat-des-ventes/export": {
+      "get": {
+        "tags": [
+          "État des ventes"
+        ],
+        "summary": "Export Excel de l'état des ventes, filtres et colonnes appliqués",
+        "operationId": "exporter_3",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Code(s) de statut : LIBRE, SANS_STATUT ou StrStatus.Code ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "LIBRE"
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de catégorie d'article (StkItemCategory.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de type d'article (StkItemType.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "nature",
+            "in": "query",
+            "description": "TOUS (défaut), ARTICLES (IsUnderItem = 0) ou SOUS_ARTICLES (IsUnderItem = 1).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TOUS",
+                "ARTICLES",
+                "SOUS_ARTICLES"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Sous-chaîne du code article, de la catégorie, du type, du dossier, du nom, téléphone ou CIN du client.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "champDate",
+            "in": "query",
+            "description": "Date du dossier filtrée par du / au ; défaut RESERVATION.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "RESERVATION",
+                "PROSPECTION",
+                "VALIDITE_STATUT",
+                "CONCRETISATION",
+                "PROMESSE_VENTE",
+                "PROMESSE_VENTE_CLIENT",
+                "ENREGISTREMENT_RESERVATION",
+                "VISITE_TECHNIQUE",
+                "ENVOI_NOTAIRE_PREVU",
+                "ENVOI_NOTAIRE",
+                "MINUTE",
+                "MINUTE_CLIENT",
+                "FORMALISATION",
+                "IMPRESSION_CONTRAT",
+                "EXPEDITION",
+                "RELANCE_1",
+                "ECHEANCE_RELANCE_1",
+                "RELANCE_2",
+                "ECHEANCE_RELANCE_2",
+                "FICHE_BANCAIRE",
+                "ENVOI_MEILLEUR_TAUX",
+                "DECISION_MEILLEUR_TAUX",
+                "COMPROMIS",
+                "CREDIT_DEBLOQUE",
+                "FICHE_INTERVENTION",
+                "FICHE_ASSURANCE",
+                "REMISE_DES_CLES_PREVUE",
+                "REMISE_DES_CLES",
+                "REMISE_DES_CLES_CLIENT",
+                "ENREGISTREMENT_REMISE_DES_CLES",
+                "MODIFICATION_REMISE",
+                "PERMIS_HABITER",
+                "ACTE_PRECISION",
+                "ACTE_PRECISION_CLIENT",
+                "ENREGISTREMENT_ACTE_PRECISION",
+                "MINUTE_AVOCAT",
+                "REMISE_LEGALISATION_CONTRAT",
+                "LEGALISATION_CONTRAT",
+                "DEPOT_ENREGISTREMENT_CONTRAT",
+                "REMISE_LEGALISATION_ACTE_PRECISION",
+                "DEPOT_ENREGISTREMENT_ACTE_PRECISION",
+                "DEPOT_CPF",
+                "RETRAIT_CPF",
+                "REMISE_CERTIFICAT_PROPRIETE",
+                "CREATION",
+                "MODIFICATION",
+                "ANNULATION"
+              ]
+            },
+            "example": "RESERVATION"
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Borne basse incluse, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-03-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Borne haute incluse, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-03-31"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "articleCode,categorieCode,statutLibelle,prixVenteTTC"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Tri `colonne,asc|desc`, répétable, comme la liste. Défaut : articleCode,asc.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "articleCode,asc"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx, feuille DONNEES.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      }
+    },
     "/api/equipe/entonnoir": {
       "get": {
         "tags": [
@@ -15536,7 +16564,7 @@
         ],
         "summary": "Résumés (Σ) par colonne sur tous les encaissements du filtre, pas sur une page",
         "description": "Les résumés Σ choisis par l'utilisateur en tête de colonne (bande « Totaux sur N ligne(s)\nfiltrée(s) »), calculés sur **tous** les encaissements du filtre et non sur la page affichée. Pas de\npagination, pas de tri, pas de groupe : en mode groupé, les `totaux` de `/groupes` servent. Distinct\nde `GET /api/encaissements/totaux` (bande fixe « Total : »), qui ne change pas.\n\n**Mêmes lignes que la liste** : mêmes filtres, même sens, périmètre commercial compris.\n`nombreTotal` égale le `totalElements` de `GET /api/encaissements` avec les mêmes filtres, règlements\n`CANCELED` compris ; les sommes et moyennes de montants les excluent, comme `/groupes` et `/totaux`.",
-        "operationId": "totauxColonnes_1",
+        "operationId": "totauxColonnes_2",
         "parameters": [
           {
             "name": "agregats",
@@ -15750,7 +16778,7 @@
         ],
         "summary": "Liste des encaissements repliée en groupes, avec effectifs et totaux",
         "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par\nvaleur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Pourquoi cet endpoint plutôt qu'un groupement côté front** : la liste est paginée. Grouper une\npage ne donnerait que des groupes tronqués et des totaux faux. Les effectifs et totaux ci-dessous\nportent sur **tout le périmètre filtré**, pas sur une page.\n\n**Les filtres sont exactement ceux de `GET /api/encaissements`** — mêmes noms, même sémantique,\nrestriction `IsCredit = 1` et périmètre commercial compris. Un même jeu de filtres des deux côtés\ngarantit que la somme des effectifs des groupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET\n/api/encaissements` avec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/encaissements` (booléens\n`groupable` / `agregeable`). **`dossierId` et `dossierCode` n'en sont pas**, et ce n'est pas un\noubli : un règlement n'a pas de dossier, il a des lignes rattachées à des échéances. Mesuré sur les\ndonnées réelles — 643 règlements, 654 couples (règlement, dossier), 8 règlements portant sur\nplusieurs dossiers — grouper par ce chemin compterait ces 8 plusieurs fois et la somme des effectifs\nne retomberait plus sur le total de la liste. Même chose pour `montantBrutRestant` et `montantNet`,\ncalculés en Java et absents de la base.",
-        "operationId": "grouper_3",
+        "operationId": "grouper_4",
         "parameters": [
           {
             "name": "groupBy",
@@ -16022,7 +17050,7 @@
         ],
         "summary": "Export Excel de la liste des encaissements, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/encaissements`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Encaissements », fichier `encaissements_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_3",
+        "operationId": "exporter_4",
         "parameters": [
           {
             "name": "format",
@@ -17502,7 +18530,7 @@
         ],
         "summary": "Résumés (Σ) par colonne sur tous les dossiers du filtre, pas sur une page",
         "description": "Les résumés Σ de la liste plate (bande « Totaux sur N ligne(s) filtrée(s) »), calculés sur **tous** les dossiers du filtre et non sur la page affichée. Pas de pagination, pas de tri, pas de groupe : en mode groupé, les `totaux` de `/groupes` servent. Distinct de `GET /api/dossiers/totaux` (bande fixe des montants par nature), qui ne change pas.\n\n**Mêmes dossiers que la liste** : mêmes filtres, même sens, sortis exclus par défaut, mêmes statuts visibles et même périmètre commercial que `GET /api/dossiers`.\n\n**Lots libres exclus** : ils ne sont pas des dossiers. Avec `lignes=DOSSIERS` (défaut), `nombreTotal` égale le `totalElements` de la liste ; avec `DOSSIERS_ET_LIBRES`, il compte les seuls dossiers (la liste ajoute les lots libres) ; avec `LIBRES`, il vaut 0 (pas de 400).",
-        "operationId": "totauxColonnes_2",
+        "operationId": "totauxColonnes_3",
         "parameters": [
           {
             "name": "agregats",
@@ -17731,7 +18759,7 @@
         ],
         "summary": "Liste des dossiers repliée en groupes, avec effectifs et totaux",
         "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par valeur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Totaux de la liste (Σ en tête)** : le champ `totaux` de la réponse porte les agrégats demandés sur **toutes** les lignes filtrées. Avec `inclureSansValeur=true`, il couvre exactement la population de `GET /api/dossiers` (hors lots libres, qui n'ont pas de prix de vente).\n\n**Les filtres sont exactement ceux de `GET /api/dossiers`** — mêmes noms, même sémantique, sortis exclus par défaut, périmètre commercial compris. Un même jeu de filtres des deux côtés garantit que la somme des effectifs des groupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET /api/dossiers` avec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/dossiers` (booléens `groupable` / `agregeable`). Une colonne calculée par page (dernière communication, alerte, sous-articles…) n'est ni l'un ni l'autre.",
-        "operationId": "grouper_4",
+        "operationId": "grouper_5",
         "parameters": [
           {
             "name": "groupBy",
@@ -17979,7 +19007,7 @@
         ],
         "summary": "Export Excel de la liste des dossiers, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/dossiers`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Auteur du classeur = utilisateur connecté, titre « Dossiers de vente », fichier `dossiers_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_4",
+        "operationId": "exporter_5",
         "parameters": [
           {
             "name": "format",
@@ -18917,7 +19945,7 @@
           "Audit"
         ],
         "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
-        "operationId": "lister_11",
+        "operationId": "lister_12",
         "parameters": [
           {
             "name": "objetId",
@@ -19083,7 +20111,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_12",
+        "operationId": "lister_13",
         "parameters": [
           {
             "name": "portee",
@@ -31281,6 +32309,254 @@
             "items": {
               "$ref": "#/components/schemas/ProspectionListItemDto"
             }
+          }
+        }
+      },
+      "LigneEtatVentesDto": {
+        "type": "object",
+        "description": "Un article racine en vente et son statut ; seules les colonnes demandées par ?colonnes= sont présentes.",
+        "properties": {
+          "articleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StkItem.PKey de l'article racine."
+          },
+          "articleCode": {
+            "type": "string"
+          },
+          "articleLibelle": {
+            "type": "string"
+          },
+          "trancheCode": {
+            "type": "string"
+          },
+          "categorieCode": {
+            "type": "string",
+            "description": "Code de la catégorie (StkItemCategory : APP, PAR, COM…)."
+          },
+          "categorieLibelle": {
+            "type": "string"
+          },
+          "typeCode": {
+            "type": "string",
+            "description": "Code du type d'article (StkItemType : T2, T3…)."
+          },
+          "etage": {
+            "type": "string",
+            "description": "Code de l'étage (StkFloor)."
+          },
+          "immeuble": {
+            "type": "string",
+            "description": "Code de l'immeuble (StkBuilding)."
+          },
+          "surface": {
+            "type": "number",
+            "description": "StkItem.Area, en m²."
+          },
+          "prixVenteTTC": {
+            "type": "number",
+            "description": "Prix catalogue de l'article (ComSalePrice) si libre, prix du dossier (ComFolder.Price) sinon."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "LIBRE, SANS_STATUT ou StrStatus.Code du dossier.",
+            "example": "RESERVATION"
+          },
+          "statutLibelle": {
+            "type": "string",
+            "example": "Réservation"
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Null si l'article est libre (dossier annulé ou désisté compris)."
+          },
+          "dossierCode": {
+            "type": "string"
+          },
+          "clientNom": {
+            "type": "string",
+            "description": "Nom affiché du client du dossier."
+          },
+          "commercial": {
+            "type": "string",
+            "description": "Nom affiché du commercial du dossier."
+          },
+          "dateReservation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ComFolder.DocDate."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Prix de vente réglé du dossier, calcul de la liste des dossiers ; null si libre."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Prix de vente − réglé ; null si libre."
+          }
+        }
+      },
+      "PageDtoLigneEtatVentesDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneEtatVentesDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "LigneSynthese": {
+        "type": "object",
+        "properties": {
+          "trancheId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trancheCode": {
+            "type": "string"
+          },
+          "trancheLibelle": {
+            "type": "string"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorieCode": {
+            "type": "string"
+          },
+          "categorieLibelle": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "parStatut": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Nombre d'articles par code de statut ; un statut absent vaut 0."
+          }
+        }
+      },
+      "StatutSynthese": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "example": "RESERVATION"
+          },
+          "libelle": {
+            "type": "string",
+            "example": "Réservation"
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang de la colonne, croissant."
+          }
+        }
+      },
+      "SyntheseEtatVentesDto": {
+        "type": "object",
+        "description": "Tableau tranche × catégorie × statut de l'état des ventes ; pourcentages calculés au front.",
+        "properties": {
+          "statuts": {
+            "type": "array",
+            "description": "Colonnes du tableau : LIBRE, statuts de dossier par StrStatus.Sorting, puis SANS_STATUT s'il compte au moins un article.",
+            "items": {
+              "$ref": "#/components/schemas/StatutSynthese"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Une ligne par tranche × catégorie, triées par code de tranche puis de catégorie.",
+            "items": {
+              "$ref": "#/components/schemas/LigneSynthese"
+            }
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxSynthese"
+          }
+        }
+      },
+      "TotalCategorieSynthese": {
+        "type": "object",
+        "properties": {
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "categorieCode": {
+            "type": "string"
+          },
+          "categorieLibelle": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "parStatut": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Nombre d'articles par code de statut ; un statut absent vaut 0."
+          }
+        }
+      },
+      "TotalGeneralSynthese": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "parStatut": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Nombre d'articles par code de statut ; un statut absent vaut 0."
+          }
+        }
+      },
+      "TotauxSynthese": {
+        "type": "object",
+        "properties": {
+          "parCategorie": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TotalCategorieSynthese"
+            }
+          },
+          "general": {
+            "$ref": "#/components/schemas/TotalGeneralSynthese"
           }
         }
       },

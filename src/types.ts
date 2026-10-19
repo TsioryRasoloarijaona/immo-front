@@ -3370,3 +3370,79 @@ export interface EvenementNotificationDto {
   notification: NotificationDto;
   nonLues: number;
 }
+
+// ---------------------------------------------------------------- État des ventes
+
+/** Un article racine en vente ; seules les colonnes demandées par `colonnes` sont présentes. */
+export interface LigneEtatVentesDto {
+  articleId: UUID;
+  articleCode?: string | null;
+  articleLibelle?: string | null;
+  trancheCode?: string | null;
+  categorieCode?: string | null;
+  categorieLibelle?: string | null;
+  typeCode?: string | null;
+  etage?: string | null;
+  immeuble?: string | null;
+  surface?: number | null;
+  /** Prix catalogue si libre, prix du dossier sinon. */
+  prixVenteTTC?: number | null;
+  /** `LIBRE`, `SANS_STATUT` ou un `StrStatus.Code` de dossier. */
+  statutCode?: string;
+  statutLibelle?: string | null;
+  /** null si libre (dossier annulé ou désisté compris). */
+  dossierId?: UUID | null;
+  dossierCode?: string | null;
+  clientNom?: string | null;
+  commercial?: string | null;
+  dateReservation?: string | null;
+  /** null si libre. */
+  montantRegle?: number | null;
+  /** null si libre. */
+  resteARegler?: number | null;
+}
+
+export interface StatutSynthese {
+  code: string;
+  libelle: string;
+  ordre: number;
+}
+
+/** Statut absent de `parStatut` = 0. */
+export type ComptesParStatut = Partial<Record<string, number>>;
+
+export interface LigneSynthese {
+  trancheId: UUID;
+  trancheCode: string;
+  trancheLibelle?: string | null;
+  categorieId: UUID;
+  categorieCode: string;
+  categorieLibelle?: string | null;
+  total: number;
+  parStatut: ComptesParStatut;
+}
+
+export interface TotalCategorieSynthese {
+  categorieId: UUID;
+  categorieCode: string;
+  categorieLibelle?: string | null;
+  total: number;
+  parStatut: ComptesParStatut;
+}
+
+export interface TotalGeneralSynthese {
+  total: number;
+  parStatut: ComptesParStatut;
+}
+
+export interface TotauxSynthese {
+  parCategorie: TotalCategorieSynthese[];
+  general: TotalGeneralSynthese;
+}
+
+/** `statuts` = colonnes du tableau, dans l'ordre (Libre d'abord, Sans statut en dernier s'il compte). */
+export interface SyntheseEtatVentesDto {
+  statuts: StatutSynthese[];
+  lignes: LigneSynthese[];
+  totaux: TotauxSynthese;
+}
