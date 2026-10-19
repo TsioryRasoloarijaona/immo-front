@@ -140,6 +140,10 @@
       "description": "Leads bruts non encore qualifiés : ComProspection de type légataire `ComPreProspection` (`StrEntity`), le discriminant d'OMRAN lui-même — une pré-prospection peut donc déjà porter un prospect ou un commercial tant qu'elle n'a pas été transformée. Même forme que /api/prospections.\n\nCollection soumise au périmètre commercial : sur **toutes** les routes portant un identifiant, une ressource hors du périmètre de l'appelant renvoie 404 (jamais 403 — un 403 confirmerait son existence), et un identifiant qui n'est pas un UUID valide renvoie 404 lui aussi, plutôt que le 400 habituel : il est refusé avant d'atteindre le contrôleur. Voir `perimetreRestreint` sur GET /api/mon-compte.\n\n**Entités juridiques en exploitation.** Ne sont renvoyées que les pré-prospections rattachées à une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction **globale et permanente**, distincte du périmètre commercial : elle s'applique à tout appelant, rôles exemptés compris. Une pré-prospection **sans tranche** n'est rattachée à aucune entité et reste donc visible — le lead n'est pas perdu."
     },
     {
+      "name": "Onglets de la tranche",
+      "description": "Terrains, Étages, Plancher couvert et Frais de vente de la fiche tranche ; lecture ouverte, écriture Administrateur par liste complète."
+    },
+    {
       "name": "Calendrier",
       "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front.\n\n**Entités juridiques en exploitation.** Seuls les événements rattachés — par leur prospection ou par leur dossier — à une entité juridique active (`CfgCompany.IsActive`) sont renvoyés : aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un événement qu'aucune prospection ni aucun dossier ne rattache à une entité reste affiché."
     },
@@ -184,12 +188,12 @@
       "description": "Onglet « Acquéreurs » de la fiche dossier : le client principal porte sa part sur `ComFolder.PartPercent`, chaque co-acquéreur sur `ComFolderCustomer.PartPercent` (ratio 0–1 en base, pourcentage 0–100 dans l'API). Contrôles d'OMRAN à l'enregistrement (`Sale.cs:Verif`) : « La réparation du client principal doit être > 0 ! », « Le total des répartitions sur les acquéreurs doit être égale à 100% ! », et à l'ajout « Cet tier est déjà affecté en tant que client principal ! »."
     },
     {
-      "name": "Impayés",
-      "description": "Liste des échéances impayées des dossiers de vente — l'écran « Impayés » du module Vente d'OMRAN Estate (« liste des documents impayés des dossiers de vente »). Une ligne est une échéance (`ComDocument`) : catégorie d'encaissement (`IsCredit = 1`), dossier à un statut de vente effective (`StrStatus.BoolField001 = 1` : la réservation, l'annulation et le désistement en sont exclus), échue, et dont le reste à payer est strictement positif. Voir `instructions/FEATURE-impayes.md`."
-    },
-    {
       "name": "Tranches",
       "description": "Tranches (CfgTranche) — phases d'un projet immobilier, leurs conditions commerciales et leurs articles."
+    },
+    {
+      "name": "Impayés",
+      "description": "Liste des échéances impayées des dossiers de vente — l'écran « Impayés » du module Vente d'OMRAN Estate (« liste des documents impayés des dossiers de vente »). Une ligne est une échéance (`ComDocument`) : catégorie d'encaissement (`IsCredit = 1`), dossier à un statut de vente effective (`StrStatus.BoolField001 = 1` : la réservation, l'annulation et le désistement en sont exclus), échue, et dont le reste à payer est strictement positif. Voir `instructions/FEATURE-impayes.md`."
     },
     {
       "name": "Dossiers — réajustement des superficies",
@@ -349,6 +353,462 @@
                   "items": {
                     "$ref": "#/components/schemas/ProjetPerimetreDto"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/terrains": {
+      "get": {
+        "tags": [
+          "Onglets de la tranche"
+        ],
+        "summary": "Onglet Terrains de la tranche, triés par rang",
+        "operationId": "terrains",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes de l'onglet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneTerrainDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneTerrainDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Onglets de la tranche"
+        ],
+        "summary": "Enregistre la liste complète des terrains (doublon de terrain ignoré)",
+        "operationId": "enregistrerTerrains",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LignesTrancheDtoLigneTerrainDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes enregistrées, relues.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneTerrainDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ligne invalide : le détail nomme lignes[i].<champ> ; rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneTerrainDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneTerrainDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneTerrainDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/plancher-couvert": {
+      "get": {
+        "tags": [
+          "Onglets de la tranche"
+        ],
+        "summary": "Onglet Plancher couvert de la tranche, trié par code de catégorie",
+        "operationId": "plancherCouvert",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes de l'onglet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLignePlancherDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLignePlancherDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Onglets de la tranche"
+        ],
+        "summary": "Enregistre le plancher couvert ; plancherCouvert de la tranche = Σ des surfaces",
+        "operationId": "enregistrerPlancherCouvert",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LignesTrancheDtoLignePlancherDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes enregistrées, relues.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLignePlancherDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ligne invalide : le détail nomme lignes[i].<champ> ; rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLignePlancherDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLignePlancherDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLignePlancherDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/frais": {
+      "get": {
+        "tags": [
+          "Onglets de la tranche"
+        ],
+        "summary": "Onglet Frais de vente de la tranche, triés par O.D.T.",
+        "operationId": "frais",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes de l'onglet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Onglets de la tranche"
+        ],
+        "summary": "Enregistre les frais de vente ; le serveur calcule HT ↔ TTC (doublon de catégorie ignoré)",
+        "operationId": "enregistrerFrais",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes enregistrées, relues.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ligne invalide : le détail nomme lignes[i].<champ> ; rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/etages": {
+      "get": {
+        "tags": [
+          "Onglets de la tranche"
+        ],
+        "summary": "Onglet Étages de la tranche, triés par code de niveau",
+        "operationId": "etages",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes de l'onglet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneEtageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneEtageDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Onglets de la tranche"
+        ],
+        "summary": "Enregistre la liste complète des étages (doublon de niveau ignoré)",
+        "operationId": "enregistrerEtages",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LignesTrancheDtoLigneEtageDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes enregistrées, relues.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneEtageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ligne invalide : le détail nomme lignes[i].<champ> ; rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneEtageDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneEtageDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneEtageDto"
                 }
               }
             }
@@ -8343,6 +8803,40 @@
           }
         }
       },
+      "delete": {
+        "tags": [
+          "Onglets de la tranche",
+          "Tranches"
+        ],
+        "summary": "Supprime une tranche sans article ni autre référence bloquante",
+        "operationId": "supprimer_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Tranche supprimée avec ses onglets, habilitations, pièces et notes."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive."
+          },
+          "409": {
+            "description": "Article, prospection, offre… référencent la tranche : le détail les compte."
+          }
+        }
+      },
       "patch": {
         "tags": [
           "Tranches"
@@ -8882,7 +9376,7 @@
         ],
         "summary": "Supprime un programme sans tranche ni article",
         "description": "Supprime le programme et, dans la même transaction, ses habilitations, ses zones, ses pièces jointes et ses\nnotes (`AdmAttachedFile` / `AdmMessage` dont `CategoryId` = id), comme OMRAN. 409 si une tranche ou un article\nle référence (le message les compte), ou si une autre table le référence encore (clé étrangère nommée).",
-        "operationId": "supprimer_2",
+        "operationId": "supprimer_3",
         "parameters": [
           {
             "name": "id",
@@ -9345,7 +9839,7 @@
           "Entités juridiques"
         ],
         "summary": "Supprime une entité sans programme ni autre référence",
-        "operationId": "supprimer_3",
+        "operationId": "supprimer_4",
         "parameters": [
           {
             "name": "id",
@@ -9819,7 +10313,7 @@
         ],
         "summary": "Supprime une ligne d'échéancier (droit OMRAN ComFolderDeleteLine)",
         "description": "Refusée (409) si l'échéance a une ligne de règlement (même annulée), une ligne d'autorisation de versement, une ligne de facture, ou si elle est versée dans un dossier de recouvrement (`ComDocument.cs:VerifyLinksForDeletion`). Sinon ses actions et alertes sont supprimées, les lignes qui la désignaient comme pénalité sont détachées, puis l'écart est reporté si sa catégorie « met à jour le schéma ». Réservée, comme le droit OMRAN `ComFolderDeleteLine`, aux rôles Administrateur, Commercial Chef, Direction Générale et Responsable marketing et communication (403 sinon) ; la réponse est l'état du schéma après suppression.",
-        "operationId": "supprimer_4",
+        "operationId": "supprimer_5",
         "parameters": [
           {
             "name": "id",
@@ -10132,7 +10626,7 @@
         ],
         "summary": "Supprime une offre, ses sous-articles et son schéma de financement",
         "description": "Supprime l'offre avec ses sous-articles (`StlQuoteItem`) et son schéma (`StlQuoteDocument`), comme\nla cascade de la base. Le numéro d'offre (`AdmSequence`) n'est pas rendu. Même périmètre que la liste.",
-        "operationId": "supprimer_5",
+        "operationId": "supprimer_6",
         "parameters": [
           {
             "name": "id",
@@ -10721,6 +11215,54 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PageDtoArticleListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/terrains-disponibles": {
+      "get": {
+        "tags": [
+          "Onglets de la tranche"
+        ],
+        "summary": "Choix de l'onglet Terrains : articles de nature Terrain et de vocation Projet, par code",
+        "operationId": "terrainsDisponibles",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/categories-frais": {
+      "get": {
+        "tags": [
+          "Onglets de la tranche"
+        ],
+        "summary": "Choix de l'onglet Frais : catégories crédit et frais de vente, hors les trois par défaut",
+        "operationId": "categoriesFrais",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
                 }
               }
             }
@@ -20308,7 +20850,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_6",
+        "operationId": "supprimer_7",
         "parameters": [
           {
             "name": "id",
@@ -20507,7 +21049,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_7",
+        "operationId": "supprimer_8",
         "parameters": [
           {
             "name": "id",
@@ -20631,6 +21173,207 @@
             "type": "string",
             "description": "Libellé du projet (CfgProject.Description).",
             "example": "AYAD RESIDENCE BEL AIR"
+          }
+        }
+      },
+      "LigneTerrainDto": {
+        "type": "object",
+        "description": "Ligne de l'onglet Terrains (CfgTrancheStkItem).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne ; absent au PUT = nouvelle ligne."
+          },
+          "terrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Terrain (StkItem), obligatoire ; choix : /api/tranches/terrains-disponibles."
+          },
+          "ratio": {
+            "type": "number",
+            "description": "Ratio (fraction, affichée en %) ; absent = 1. Aucun contrôle de Σ."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang (Sorting), recalculé par le serveur selon l'ordre de la liste.",
+            "readOnly": true
+          },
+          "terrainCode": {
+            "type": "string",
+            "description": "Code du terrain.",
+            "readOnly": true
+          },
+          "terrainDescription": {
+            "type": "string",
+            "description": "Description du terrain.",
+            "readOnly": true
+          },
+          "terrainSurface": {
+            "type": "number",
+            "description": "Superficie du terrain (StkItem.Area), m².",
+            "readOnly": true
+          }
+        }
+      },
+      "LignesTrancheDtoLigneTerrainDto": {
+        "type": "object",
+        "description": "Liste complète d'un onglet de la fiche tranche : corps du PUT et réponse du GET / PUT.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de l'onglet ; au PUT, une ligne absente est supprimée.",
+            "items": {
+              "$ref": "#/components/schemas/LigneTerrainDto"
+            }
+          }
+        }
+      },
+      "LignePlancherDto": {
+        "type": "object",
+        "description": "Ligne de l'onglet Plancher couvert (CfgTrancheCoveredFloor).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne ; absent au PUT = nouvelle ligne."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie d'article (StkItemCategory) de nature Bâtiment, obligatoire."
+          },
+          "surface": {
+            "type": "number",
+            "description": "Superficie (Area), m², ≥ 0 ; absente = 0."
+          },
+          "categorieCode": {
+            "type": "string",
+            "description": "Code de la catégorie.",
+            "readOnly": true
+          },
+          "categorieDescription": {
+            "type": "string",
+            "description": "Description de la catégorie.",
+            "readOnly": true
+          }
+        }
+      },
+      "LignesTrancheDtoLignePlancherDto": {
+        "type": "object",
+        "description": "Liste complète d'un onglet de la fiche tranche : corps du PUT et réponse du GET / PUT.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de l'onglet ; au PUT, une ligne absente est supprimée.",
+            "items": {
+              "$ref": "#/components/schemas/LignePlancherDto"
+            }
+          }
+        }
+      },
+      "LigneFraisDto": {
+        "type": "object",
+        "description": "Ligne de l'onglet Frais de vente (CfgTrancheSettlementCategory).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne ; absent au PUT = nouvelle ligne."
+          },
+          "categorieReglementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de règlement, obligatoire ; choix : /api/tranches/categories-frais."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "O.D.T. (Sorting) ; absent = rang dans la liste."
+          },
+          "montantHT": {
+            "type": "number",
+            "description": "Montant HT ; recalculé depuis le TTC si saisiEnTTC."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "Taux de TVA (fraction entre 0 et 1) ; absent = 0."
+          },
+          "montantTTC": {
+            "type": "number",
+            "description": "Montant TTC = HT × (1 + TVA) ; recalculé depuis le HT sauf si saisiEnTTC."
+          },
+          "pourcentageDe": {
+            "type": "number",
+            "description": "Pourcentage du prix de vente (PercentOf, fraction entre 0 et 1)."
+          },
+          "saisiEnTTC": {
+            "type": "boolean",
+            "description": "Vrai : le TTC est saisi et le HT calculé ; faux ou absent : l'inverse.",
+            "writeOnly": true
+          },
+          "categorieCode": {
+            "type": "string",
+            "description": "Code de la catégorie.",
+            "readOnly": true
+          },
+          "categorieDescription": {
+            "type": "string",
+            "description": "Description de la catégorie.",
+            "readOnly": true
+          }
+        }
+      },
+      "LignesTrancheDtoLigneFraisDto": {
+        "type": "object",
+        "description": "Liste complète d'un onglet de la fiche tranche : corps du PUT et réponse du GET / PUT.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de l'onglet ; au PUT, une ligne absente est supprimée.",
+            "items": {
+              "$ref": "#/components/schemas/LigneFraisDto"
+            }
+          }
+        }
+      },
+      "LigneEtageDto": {
+        "type": "object",
+        "description": "Ligne de l'onglet Étages (CfgTrancheLevel) ; sans lien avec l'étage d'un article (StkFloor).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne ; absent au PUT = nouvelle ligne."
+          },
+          "niveauTerrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Niveau (LndLevel), obligatoire ; choix : /api/referentiels-patrimoine/niveaux-terrain."
+          },
+          "niveauCode": {
+            "type": "string",
+            "description": "Code du niveau.",
+            "readOnly": true
+          },
+          "niveauDescription": {
+            "type": "string",
+            "description": "Description du niveau.",
+            "readOnly": true
+          }
+        }
+      },
+      "LignesTrancheDtoLigneEtageDto": {
+        "type": "object",
+        "description": "Liste complète d'un onglet de la fiche tranche : corps du PUT et réponse du GET / PUT.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de l'onglet ; au PUT, une ligne absente est supprimée.",
+            "items": {
+              "$ref": "#/components/schemas/LigneEtageDto"
+            }
           }
         }
       },
@@ -29586,6 +30329,25 @@
           }
         }
       },
+      "ReferentielItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sorting": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "PageDtoSuiviActionDto": {
         "type": "object",
         "properties": {
@@ -29848,25 +30610,6 @@
             "format": "int64",
             "description": "Nombre total de lignes agrégées — l'effectif dont `totaux` est tiré. Avec `inclureSansValeur=true`,\négale le `totalElements` de la liste non groupée.",
             "example": 643
-          }
-        }
-      },
-      "ReferentielItemDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "code": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "sorting": {
-            "type": "integer",
-            "format": "int32"
           }
         }
       },

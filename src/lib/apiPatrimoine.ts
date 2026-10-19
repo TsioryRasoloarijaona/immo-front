@@ -2,6 +2,7 @@ import { request } from './api';
 import type {
   ArticleDetailDto,
   ArticleEcritureDto,
+  LignesTrancheDto,
   ProjetDetailDto,
   ProjetEcritureDto,
   ReferentielItemDto,
@@ -66,6 +67,26 @@ export function createTranche(body: TrancheEcritureDto): Promise<TrancheDetailDt
 /** `projetId` différent de l'actuel : 400. */
 export function updateTranche(id: UUID, body: TrancheEcritureDto): Promise<TrancheDetailDto> {
   return request('PATCH', `/api/tranches/${id}`, { body });
+}
+
+/** 409 : article, prospection, offre… référencent la tranche (le message les compte). */
+export function deleteTranche(id: UUID): Promise<void> {
+  return request('DELETE', `/api/tranches/${id}`);
+}
+
+export type OngletTranche = 'terrains' | 'etages' | 'plancher-couvert' | 'frais';
+
+export function getOngletTranche<T>(id: UUID, onglet: OngletTranche): Promise<LignesTrancheDto<T>> {
+  return request('GET', `/api/tranches/${id}/${onglet}`);
+}
+
+/** Liste complète, une transaction ; 400 `lignes[i].<champ>`, rien n'est écrit. Renvoie la liste relue. */
+export function putOngletTranche<T>(id: UUID, onglet: OngletTranche, lignes: T[]): Promise<LignesTrancheDto<T>> {
+  return request('PUT', `/api/tranches/${id}/${onglet}`, { body: { lignes } });
+}
+
+export function getChoixOngletTranche(nom: 'terrains-disponibles' | 'categories-frais'): Promise<ReferentielItemDto[]> {
+  return request('GET', `/api/tranches/${nom}`);
 }
 
 export function createArticle(body: ArticleEcritureDto): Promise<ArticleDetailDto> {
