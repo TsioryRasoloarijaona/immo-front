@@ -17,7 +17,9 @@ import {
   choixCommerciauxSuivi,
   filtresDepuisChoix,
   filtresListeDefaut,
+  periodeAppliquee,
   periodeDuJour,
+  useChoixCumules,
   type ChoixSyntheseSuivi,
   type FiltresListeSuivi,
   type Periode,
@@ -39,7 +41,8 @@ export default function SuiviCommerciaux() {
   );
   // Un commercial ne voit que lui : pas de choix à lui proposer.
   const equipe = useApi(() => (chef ? listCommerciauxEquipe(periodeDuJour()) : Promise.resolve([])), [chef], 'suivi-commerciaux-equipe');
-  const commerciaux = chef ? choixCommerciauxSuivi(equipe.data, synthese.data?.totaux.parCommercial) : [];
+  const commerciaux = useChoixCumules(chef ? choixCommerciauxSuivi(equipe.data, synthese.data?.totaux.parCommercial) : []);
+  const appliquee = periodeAppliquee(periode);
 
   const [filtres, setFiltres] = useState<FiltresListeSuivi>(() => filtresListeDefaut(periodeDuJour()));
   const [page, setPage] = useState(0);
@@ -49,11 +52,11 @@ export default function SuiviCommerciaux() {
   }
   const reinitialiser = () => {
     setPage(0);
-    setFiltres(filtresListeDefaut(periode));
+    setFiltres(filtresListeDefaut(appliquee));
   };
   function choisir(choix: ChoixSyntheseSuivi) {
     setPage(0);
-    setFiltres(filtresDepuisChoix(choix, periode));
+    setFiltres(filtresDepuisChoix(choix, appliquee));
     listeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -95,7 +98,12 @@ export default function SuiviCommerciaux() {
                   {synthese.data.lignes.length === 0 ? (
                     <EmptyState title="Aucune activité sur cette période" />
                   ) : (
-                    <SyntheseJour synthese={synthese.data} plusieursJours={periode.du !== periode.au} onChoisir={choisir} />
+                    <SyntheseJour
+                      synthese={synthese.data}
+                      plusieursJours={appliquee.du !== appliquee.au}
+                      commercialIds={commercialIds}
+                      onChoisir={choisir}
+                    />
                   )}
                 </div>
               </ResultsRegion>
@@ -108,7 +116,7 @@ export default function SuiviCommerciaux() {
               setPage={setPage}
               changer={changer}
               reinitialiser={reinitialiser}
-              actifs={JSON.stringify(filtres) !== JSON.stringify(filtresListeDefaut(periode))}
+              actifs={JSON.stringify(filtres) !== JSON.stringify(filtresListeDefaut(appliquee))}
               commerciaux={commerciaux}
             />
           </div>

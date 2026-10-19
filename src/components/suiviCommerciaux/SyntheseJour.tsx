@@ -63,12 +63,18 @@ function Objectif({ l, objectif }: Readonly<{ l: LigneSyntheseSuiviAffichee; obj
 export default function SyntheseJour({
   synthese,
   plusieursJours,
+  commercialIds,
   onChoisir,
 }: Readonly<{
   synthese: SyntheseSuiviCommerciauxDto;
   plusieursJours: boolean;
+  commercialIds: readonly string[];
   onChoisir: (choix: ChoixSyntheseSuivi) => void;
 }>) {
+  const clic = (l: LigneSyntheseSuiviAffichee, filtre: ChoixSyntheseSuivi | undefined) => {
+    const choix = l.choix;
+    return choix && filtre ? () => onChoisir({ ...choix, ...filtre }) : undefined;
+  };
   return (
     <Table>
       <TableHeader>
@@ -85,7 +91,7 @@ export default function SyntheseJour({
         </TableRow>
       </TableHeader>
       <TableBody>
-        {lignesSyntheseSuivi(synthese, plusieursJours).map((l) => {
+        {lignesSyntheseSuivi(synthese, plusieursJours, commercialIds).map((l) => {
           const contexte = [l.commercial, l.jour ? formatJourSemaine(l.jour) : 'période'].join(' · ');
           return (
             <TableRow key={l.cle} className={cn(l.niveau === 'total' && 'bg-muted/50 font-medium')}>
@@ -95,7 +101,8 @@ export default function SyntheseJour({
                 <Nombre
                   n={l.ligne.personnesJointes}
                   libelle={`${contexte}, personnes jointes`}
-                  onChoisir={() => onChoisir({ ...l.choix, joint: true })}
+                  // Un total additionne des personnes distinctes par jour : la liste ne peut pas le rejouer.
+                  onChoisir={clic(l, l.niveau === 'ligne' ? { joint: true } : undefined)}
                 />
               </TableCell>
               <TableCell>
@@ -106,7 +113,7 @@ export default function SyntheseJour({
                   <Nombre
                     n={l.ligne[c.nom]}
                     libelle={`${contexte}, ${c.libelle.toLowerCase()}`}
-                    onChoisir={c.filtre && (() => onChoisir({ ...l.choix, ...c.filtre }))}
+                    onChoisir={clic(l, c.filtre)}
                   />
                 </TableCell>
               ))}

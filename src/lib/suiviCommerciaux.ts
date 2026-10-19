@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { FiltresSuiviCommerciaux } from './api';
 import { jourISO } from './format';
 import type { ColonneDto, CommercialEquipeDto, GroupeDto, LigneSyntheseSuiviDto, SyntheseSuiviCommerciauxDto } from '../types';
@@ -63,6 +64,12 @@ export function filtresDepuisChoix(choix: ChoixSyntheseSuivi, periode: Periode):
   };
 }
 
+/** Période que le serveur applique à la synthèse : `au` vide = aujourd'hui, `du` vide = `au`. */
+export function periodeAppliquee(p: Periode): Periode {
+  const au = p.au || jourISO(new Date());
+  return { du: p.du || au, au };
+}
+
 export type LigneSyntheseSuiviAffichee = {
   cle: string;
   commercial: string;
@@ -70,16 +77,27 @@ export type LigneSyntheseSuiviAffichee = {
   jour: string | null;
   niveau: 'ligne' | 'total';
   ligne: LigneSyntheseSuiviDto;
-  choix: ChoixSyntheseSuivi;
+  /** `null` : la liste ne sait pas rejouer ce total (plusieurs commerciaux cochés, elle n'en filtre qu'un). */
+  choix: ChoixSyntheseSuivi | null;
 };
 
 function choixDe(l: LigneSyntheseSuiviDto): ChoixSyntheseSuivi {
   return { commercialCle: l.commercialCle ?? undefined, jour: l.jour ?? undefined };
 }
 
+/** Totaux tous commerciaux : calculés sur les commerciaux cochés, que la liste doit reprendre. */
+function choixTousCommerciaux(jour: string | null, commercialIds: readonly string[]): ChoixSyntheseSuivi | null {
+  if (commercialIds.length > 1) return null;
+  return { commercialCle: commercialIds[0], jour: jour ?? undefined };
+}
+
 /** Jours de chaque commercial suivis de son total, puis les totaux par jour et le général ; sur un seul jour,
  * les totaux par commercial et par jour répéteraient les lignes et sont omis. */
-export function lignesSyntheseSuivi(s: SyntheseSuiviCommerciauxDto, plusieursJours: boolean): LigneSyntheseSuiviAffichee[] {
+export function lignesSyntheseSuivi(
+  s: SyntheseSuiviCommerciauxDto,
+  plusieursJours: boolean,
+  commercialIds: readonly string[],
+): LigneSyntheseSuiviAffichee[] {
   const sortie: LigneSyntheseSuiviAffichee[] = [];
   for (const c of s.totaux.parCommercial) {
     const commercial = c.commercialNom ?? '—';
@@ -92,15 +110,17 @@ export function lignesSyntheseSuivi(s: SyntheseSuiviCommerciauxDto, plusieursJou
   }
   if (plusieursJours) {
     for (const j of s.totaux.parJour) {
-      sortie.push({ cle: `jour|${j.jour}`, commercial: 'Tous les commerciaux', jour: j.jour, niveau: 'total', ligne: j, choix: choixDe(j) });
+      const choix = choixTousCommerciaux(j.jour, commercialIds);
+      sortie.push({ cle: `jour|${j.jour}`, commercial: 'Tous les commerciaux', jour: j.jour, niveau: 'total', ligne: j, choix });
     }
   }
-  sortie.push({ cle: 'general', commercial: 'Total général', jour: null, niveau: 'total', ligne: s.totaux.general, choix: {} });
+  const choix = choixTousCommerciaux(null, commercialIds);
+  sortie.push({ cle: 'general', commercial: 'Total général', jour: null, niveau: 'total', ligne: s.totaux.general, choix });
   return sortie;
 }
 
-/** Choix du filtre de commerciaux : l'équipe (chef et exemptés), plus ceux que la synthèse a montrés (le chef
- * lui-même). Clé = employé, sinon compte, comme `commercialCle`. */
+/** Choix du filtre de commerciaux : l'équipe (sans les chefs, que le serveur n'y met pas), plus ceux que la
+ * synthèse a montrés. Clé = employé, sinon compte, comme `commercialCle`. */
 export function choixCommerciauxSuivi(
   equipe: readonly CommercialEquipeDto[] | null,
   parCommercial: readonly LigneSyntheseSuiviDto[] | undefined,
@@ -108,7 +128,17 @@ export function choixCommerciauxSuivi(
   const parCle = new Map<string, string>();
   for (const c of equipe ?? []) parCle.set(c.commercialId ?? c.admUserId, c.nom ?? c.code ?? '—');
   for (const c of parCommercial ?? []) if (c.commercialCle) parCle.set(c.commercialCle, c.commercialNom ?? '—');
-  return [...parCle].map(([value, label]) => ({ label, value })).sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+  return [...parCle].map(([value, label]) => ({ label, value }));
+}
+
+/** Choix cumulés au fil des réponses : filtrer la synthèse sur un commercial ne doit pas retirer les autres du menu. */
+export function useChoixCumules(items: readonly Item[]): Item[] {
+  const [vus, setVus] = useState<Item[]>([]);
+  const nouveaux = items.filter((i) => !vus.some((v) => v.value === i.value));
+  if (nouveaux.length === 0) return vus;
+  const cumules = [...vus, ...nouveaux].sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+  setVus(cumules);
+  return cumules;
 }
 
 /** La liste n'a pas de dépliage serveur : seuls se groupent les axes que ses filtres savent rejouer. */
