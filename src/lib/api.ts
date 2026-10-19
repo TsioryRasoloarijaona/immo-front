@@ -964,9 +964,20 @@ export function listPiecesJointes(dossierId: UUID): Promise<PieceJointeDto[]> {
 
 /** Les autres champs voyagent en query string, pas dans le corps. Pas de
  * `Content-Type` à la main : le navigateur doit poser la boundary. */
-export async function postMultipart<T>(path: string, file: File, query?: Record<string, QueryValue>): Promise<T> {
+export function postMultipart<T>(path: string, file: File, query?: Record<string, QueryValue>): Promise<T> {
   const form = new FormData();
   form.set('fichier', file);
+  return envoyerFormulaire<T>(path, form, query);
+}
+
+/** Plusieurs fichiers dans des parties `fichiers` répétées (attachement en masse). */
+export function postMultipartFichiers<T>(path: string, files: readonly File[], query?: Record<string, QueryValue>): Promise<T> {
+  const form = new FormData();
+  files.forEach((f) => form.append('fichiers', f));
+  return envoyerFormulaire<T>(path, form, query);
+}
+
+async function envoyerFormulaire<T>(path: string, form: FormData, query?: Record<string, QueryValue>): Promise<T> {
   const url = `${API_BASE_URL}${path}${buildQuery(query)}`;
   let res: Response;
   try {
@@ -1138,7 +1149,7 @@ export async function ouvrirBlobDansOnglet(charger: () => Promise<Blob>): Promis
 /** `.../fichier` répond 302 vers une URL présignée : un `fetch` avec credentials est
  * rejeté par le CORS du stockage, une navigation non. D'où un onglet, ouvert sans
  * `await` en amont (bloqueur de popups) ; « Voir » et « Télécharger » y sont identiques. */
-function openStoredFileInTab(url: string): void {
+export function openStoredFileInTab(url: string): void {
   const win = window.open('', '_blank');
   if (!win) {
     throw new ApiError(0, "Le navigateur a bloqué l'ouverture d'un nouvel onglet.");
