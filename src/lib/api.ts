@@ -42,6 +42,10 @@ import type {
   TotauxListeDto,
   LigneEtatVentesDto,
   SyntheseEtatVentesDto,
+  LigneSuiviCommerciauxDto,
+  SyntheseSuiviCommerciauxDto,
+  MensuelSuiviCommerciauxDto,
+  ObjectifCommercialDto,
   TriGroupes,
   CommercialListItemDto,
   CompleterProfilRequest,
@@ -546,7 +550,7 @@ export function listProspectionsGroupes(
  * Dossiers : les lots libres n'y entrent pas (`lignes=LIBRES` → 0). Encaissements : `nombreTotal` compte les
  * annulés, les sommes de montants les excluent. État des ventes : `montantRegle` / `resteARegler` en nom nu. */
 export function totauxColonnes(
-  ressource: 'prospections' | 'dossiers' | 'encaissements' | 'etat-des-ventes',
+  ressource: 'prospections' | 'dossiers' | 'encaissements' | 'etat-des-ventes' | 'suivi-commerciaux',
   params: object | undefined,
   agregats: string[],
   filtresAvances?: FiltresAvancesProspection,
@@ -1512,6 +1516,74 @@ export function listEtatVentesGroupes(
 
 export function getColonnesEtatVentes(): Promise<ColonneDto[]> {
   return request('GET', '/api/referentiels/colonnes/etat-des-ventes');
+}
+
+/** Filtres de la liste, des groupes, des totaux et de l'export du suivi des commerciaux. `commercialCle` hors
+ * portée → 403 ; sans lui, interactions de tous les commerciaux visibles. `joint` ne vise que les appels. */
+export type FiltresSuiviCommerciaux = {
+  /** `aaaa-mm-jj`, bornes incluses ; `jour` les remplace. */
+  du?: string;
+  au?: string;
+  jour?: string;
+  commercialCle?: UUID;
+  joint?: boolean;
+  /** Code du type (`Téléphone Sortant`, `Téléphone entrant`, `Visite`…). */
+  type?: string;
+  search?: string;
+};
+
+/** Période ≤ 92 jours (sinon 400), défaut aujourd'hui ; `commercialIds` hors portée → 403. */
+export function getSyntheseSuiviCommerciaux(params: {
+  du?: string;
+  au?: string;
+  commercialIds?: UUID[];
+  projetId?: UUID;
+}): Promise<SyntheseSuiviCommerciauxDto> {
+  return request('GET', '/api/suivi-commerciaux/synthese', { query: { ...params } });
+}
+
+/** Tri : colonnes du catalogue ayant un chemin, plus `id` ; défaut `dateSaisie,desc`. */
+export function listSuiviCommerciaux(
+  params: FiltresSuiviCommerciaux,
+  pageable?: Pageable,
+  colonnes?: string[],
+): Promise<PageDto<LigneSuiviCommerciauxDto>> {
+  const query: Record<string, QueryValue> = withPageable(params, pageable);
+  if (colonnes && colonnes.length > 0) query.colonnes = colonnes;
+  return request('GET', '/api/suivi-commerciaux', { query });
+}
+
+export function listSuiviCommerciauxGroupes(
+  params: FiltresSuiviCommerciaux,
+  groupes: ParamsGroupes,
+  pageable?: Pageable,
+): Promise<PageGroupesDto> {
+  return request('GET', '/api/suivi-commerciaux/groupes', {
+    query: withGroupes(withPageable(params, pageable), groupes),
+  });
+}
+
+export function getColonnesSuiviCommerciaux(): Promise<ColonneDto[]> {
+  return request('GET', '/api/referentiels/colonnes/suivi-commerciaux');
+}
+
+/** Vue OMRAN mois / année ; sans `trancheIds`, les tranches habilitées de l'appelant. */
+export function getSuiviCommerciauxMensuel(params: {
+  annee: number;
+  mois: number;
+  trancheIds?: UUID[];
+  commercialIds?: UUID[];
+}): Promise<MensuelSuiviCommerciauxDto> {
+  return request('GET', '/api/suivi-commerciaux/mensuel', { query: { ...params } });
+}
+
+export function getObjectifCommercial(): Promise<ObjectifCommercialDto> {
+  return request('GET', '/api/suivi-commerciaux/objectif');
+}
+
+/** Administrateur seulement (403 sinon) ; entier 1..1000 (400 sinon). */
+export function modifierObjectifCommercial(body: ObjectifCommercialDto): Promise<ObjectifCommercialDto> {
+  return request('PUT', '/api/suivi-commerciaux/objectif', { body });
 }
 
 export const getEntitesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/entites');

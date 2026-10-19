@@ -3609,3 +3609,88 @@ export interface SyntheseEtatVentesDto {
   lignes: LigneSynthese[];
   totaux: TotauxSynthese;
 }
+
+// ---------------------------------------------------------------- Suivi des commerciaux
+
+/** Une interaction attribuée à son auteur ; seules les colonnes demandées par `?colonnes=` sont présentes. */
+export interface LigneSuiviCommerciauxDto {
+  id: UUID;
+  /** `aaaa-mm-jj`, jour de DocDate (heure de Casablanca). */
+  jour?: string | null;
+  dateSaisie?: string | null;
+  commercialNom?: string | null;
+  /** Code du type : « Téléphone Sortant », « Téléphone entrant », « Visite »… */
+  type?: string | null;
+  resultat?: string | null;
+  /** Appel joint ; null pour une interaction qui n'est pas un appel. */
+  joint?: boolean | null;
+  personneNom?: string | null;
+  prospectionId?: UUID | null;
+  projet?: string | null;
+}
+
+/** Ligne commercial × jour, ou somme dans `totaux` (alors `atteint` / `taux` null). */
+export interface LigneSyntheseSuiviDto {
+  /** Employé du compte, sinon le compte ; null dans `parJour` et `general`. */
+  commercialCle: UUID | null;
+  commercialNom: string | null;
+  /** null dans `parCommercial` et `general`. */
+  jour: string | null;
+  appelsPasses: number;
+  appelsRecus: number;
+  contactsJoints: number;
+  /** Personnes distinctes jointes ce jour ; dans un total, somme des cellules. */
+  personnesJointes: number;
+  visitesProspection: number;
+  visitesVente: number;
+  visitesPrevues: number;
+  visitesPrevuesNonConsignees: number;
+  atteint: boolean | null;
+  /** personnesJointes / objectif, 2 décimales. */
+  taux: number | null;
+  /** `parCommercial` seulement : personnesJointes / nombre de jours de la période. */
+  moyennePersonnesJointes: number | null;
+}
+
+export interface SyntheseSuiviCommerciauxDto {
+  objectif: number;
+  /** Une ligne par commercial et par jour (commercial filtré sans activité : zéros ; sinon omis). */
+  lignes: LigneSyntheseSuiviDto[];
+  totaux: {
+    parCommercial: LigneSyntheseSuiviDto[];
+    parJour: LigneSyntheseSuiviDto[];
+    general: LigneSyntheseSuiviDto;
+  };
+}
+
+/** Ratios à dénominateur nul : null. `commercialCle` / `commercialNom` null pour Total et Moyenne. */
+export interface IndicateursCommercial {
+  commercialCle: UUID | null;
+  commercialNom: string | null;
+  nbProspections: number;
+  nbVisitesProspection: number;
+  nbVisitesVente: number;
+  nbVentes: number;
+  nbVentesIssuesProspection: number;
+  prixArticles: number;
+  versements: number;
+  perfVente: number | null;
+  perfVisite: number | null;
+  perfProspection: number | null;
+  perfRecouvrement: number | null;
+}
+
+export interface BlocMensuel {
+  lignes: IndicateursCommercial[];
+  total: IndicateursCommercial;
+  moyenne: IndicateursCommercial;
+}
+
+export interface MensuelSuiviCommerciauxDto {
+  mois: BlocMensuel;
+  annee: BlocMensuel;
+}
+
+export interface ObjectifCommercialDto {
+  objectifPersonnesJointesJour: number;
+}
