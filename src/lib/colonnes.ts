@@ -34,6 +34,7 @@ export const LIBELLES_GROUPE: Record<string, string> = {
   REMISES: 'Remises anciens clients',
   AUTRES: 'Autres',
   VISIBILITE: 'Visibilité par module',
+  VENTE: 'Vente',
 };
 
 export function libelleGroupe(groupe: string): string {

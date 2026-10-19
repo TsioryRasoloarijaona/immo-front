@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Calendar,
+  ChartNoAxesColumn,
   ChevronDown,
   CircleAlert,
   Contact,
@@ -120,6 +121,8 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
   ];
 
   const mesActions: Entree = { to: SUIVI_ACTIONS, libelle: 'Mes actions', icone: <ListChecks /> };
+  // Ouvert à tous : le serveur restreint les tranches au périmètre de chacun.
+  const etatVentes: Entree = { to: '/etat-des-ventes', libelle: 'État des ventes', icone: <ChartNoAxesColumn /> };
   if (terrain) {
     groupes.push({
       cle: 'moi',
@@ -127,6 +130,7 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
       entrees: [
         { to: '/mes-performances', libelle: 'Mes performances', icone: <Gauge /> },
         mesActions,
+        etatVentes,
         { to: '/profil', libelle: 'Mon profil', icone: <UserCircle /> },
       ],
     });
@@ -135,16 +139,16 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
     const pilotage: Entree[] = [{ to: '/equipe', libelle: 'Mon équipe', icone: <UsersRound /> }];
     if (admin) pilotage.push({ to: '/performances', libelle: 'Performances commerciales', icone: <Trophy /> });
     // Le serveur ne sert le suivi général qu'à l'administrateur ; les autres n'y voient que leurs actions.
-    pilotage.push(admin ? { ...mesActions, libelle: 'Suivi des actions' } : mesActions);
+    pilotage.push(admin ? { ...mesActions, libelle: 'Suivi des actions' } : mesActions, etatVentes);
     groupes.push({ cle: 'pilotage', titre: 'Pilotage', entrees: pilotage });
   } else if (estChefOuExempte(user)) {
     groupes.push({
       cle: 'equipe',
       titre: 'Mon équipe',
-      entrees: [{ to: '/equipe', libelle: 'Distribution & équipe', icone: <UsersRound /> }, mesActions],
+      entrees: [{ to: '/equipe', libelle: 'Distribution & équipe', icone: <UsersRound /> }, mesActions, etatVentes],
     });
   } else {
-    groupes.push({ cle: 'suivi', titre: 'Suivi', entrees: [mesActions] });
+    groupes.push({ cle: 'suivi', titre: 'Suivi', entrees: [mesActions, etatVentes] });
   }
   return groupes;
 }
