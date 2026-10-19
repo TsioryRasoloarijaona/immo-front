@@ -5,7 +5,7 @@ import { LigneActivite } from '../../FicheShell';
 import { Button } from '../../ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../ui/table';
 import { formatDate, formatDateTime } from '../../../lib/format';
-import { marquerInstructionLue } from '../../../lib/api';
+import { creerActionDossier, marquerInstructionLue } from '../../../lib/api';
 import { useAuth } from '../../../lib/auth';
 import type { ApiState } from '../../../lib/useApi';
 import type { ActionDossierDto, ActionsDossierDto } from '../../../types';
@@ -31,6 +31,31 @@ function useMarquerInstructionsLues(dossierId: string, actions: ActionDossierDto
       .then(onLues)
       .catch(() => undefined);
   }, [actions, dossierId, onLues, user?.employeeId]);
+}
+
+/** Tableau des actions, partagé par la fiche dossier et la fiche article. */
+export function TableActions({ actions }: Readonly<{ actions: ActionDossierDto[] }>) {
+  return (
+    <div className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Date</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Catégorie</TableHead>
+            <TableHead>Note</TableHead>
+            <TableHead>Alerte</TableHead>
+            <TableHead>Par</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {actions.map((a) => (
+            <LigneAction key={a.id} action={a} />
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
 }
 
 function LigneAction({ action: a }: Readonly<{ action: ActionDossierDto }>) {
@@ -90,29 +115,11 @@ export default function OngletActions({
         <EmptyState title="Aucune action" message="Aucune action n'a encore été saisie sur ce dossier." />
       )}
       {actions.data && actions.data.actions.length > 0 && (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Catégorie</TableHead>
-                <TableHead>Note</TableHead>
-                <TableHead>Alerte</TableHead>
-                <TableHead>Par</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {actions.data.actions.map((a) => (
-                <LigneAction key={a.id} action={a} />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <TableActions actions={actions.data.actions} />
       )}
       {ajoutOuvert && (
         <AjoutActionDialog
-          dossierId={dossierId}
+          enregistrer={(body) => creerActionDossier(dossierId, body)}
           onClose={() => setAjoutOuvert(false)}
           onCreated={() => {
             setAjoutOuvert(false);

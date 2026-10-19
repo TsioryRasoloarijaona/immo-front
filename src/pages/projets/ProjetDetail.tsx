@@ -4,6 +4,7 @@ import { ArrowLeft, LayoutGrid, Pencil, Trash2 } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import FicheSections from '../../components/patrimoine/FicheSections';
+import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import ZonesProjet from '../../components/patrimoine/ZonesProjet';
 import { Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -113,6 +114,7 @@ function FicheProjet({ id }: Readonly<{ id: string }>) {
             />
           )}
         </Card>
+        <OngletsTransverses porteur="projet" id={id} />
       </div>
     </PageShell>
   );

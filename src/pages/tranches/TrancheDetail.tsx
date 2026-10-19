@@ -4,6 +4,7 @@ import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import ArticlesTranche from '../../components/patrimoine/ArticlesTranche';
 import FicheSections from '../../components/patrimoine/FicheSections';
+import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import { Badge, Card, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { getTranche } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
@@ -62,6 +63,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
         </Card>
 
         <ArticlesTranche trancheId={id} />
+        <OngletsTransverses porteur="tranche" id={id} />
       </div>
     </PageShell>
   );
