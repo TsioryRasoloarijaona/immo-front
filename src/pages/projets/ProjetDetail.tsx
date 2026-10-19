@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, LayoutGrid } from 'lucide-react';
+import { ArrowLeft, LayoutGrid, Pencil } from 'lucide-react';
 import PageShell from '../../components/PageShell';
+import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import { Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { getProjet, listProjetTranches } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { formatDate } from '../../lib/format';
+import { formatDate, libelleTrace } from '../../lib/format';
 
 export default function ProjetDetail() {
   const { id = '' } = useParams();
@@ -37,6 +38,12 @@ function FicheProjet({ id }: Readonly<{ id: string }>) {
       icon={<LayoutGrid />}
       accent="var(--sec-projet)"
       accentBg="var(--sec-projet-bg)"
+      actions={
+        <div className="flex gap-2">
+          <ActionAdmin to={`/projets/${id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />
+          <ActionAdmin to={`/tranches/nouveau?projetId=${id}`} libelle="Nouvelle tranche" />
+        </div>
+      }
     >
       <Button variant="outline" size="sm" className="mb-3" onClick={() => navigate('/projets')}>
         <ArrowLeft data-icon="inline-start" /> Retour à la liste
@@ -51,6 +58,10 @@ function FicheProjet({ id }: Readonly<{ id: string }>) {
             <Field label="Email" value={projet.email} />
             <Field label="Début des travaux" value={formatDate(projet.dateDebutTravaux)} />
             <Field label="Fin des travaux" value={formatDate(projet.dateFinTravaux)} />
+            <Field label="Entité" value={projet.entiteLibelle || projet.entiteCode} />
+            <Field label="Pays" value={projet.paysLibelle} />
+            <Field label="Créé par" value={libelleTrace(projet.creePar, projet.creeLe)} />
+            <Field label="Modifié par" value={libelleTrace(projet.modifiePar, projet.modifieLe)} />
           </FieldGrid>
         </Card>
 

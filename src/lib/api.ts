@@ -1466,6 +1466,7 @@ export const getComptesReferentiel = (societeId?: UUID | null): Promise<Referent
 export const getDepotsReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/depots');
 export const getNatures = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/natures');
 export const getEtages = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/etages');
+export const getImmeubles = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/immeubles');
 
 export function getTranche(id: UUID): Promise<TrancheDetailDto> {
   return request('GET', `/api/tranches/${id}`);
@@ -1496,6 +1497,11 @@ export function listTrancheArticles(
   pageable?: Pageable,
 ): Promise<PageDto<ArticleListItemDto>> {
   return request('GET', `/api/tranches/${trancheId}/articles`, { query: withPageable(params, pageable) });
+}
+
+/** Rattachables : sous-articles sans article, non toujours affectés, sans dossier. */
+export function listSousArticlesLibres(trancheId: UUID, pageable?: Pageable): Promise<PageDto<ArticleListItemDto>> {
+  return request('GET', `/api/tranches/${trancheId}/sous-articles-libres`, { query: withPageable(undefined, pageable) });
 }
 
 export function listProjets(pageable?: Pageable): Promise<PageDto<ProjetListItemDto>> {
@@ -1612,13 +1618,17 @@ export function listActionsRecentes(
   });
 }
 
-export const getVocations = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/vocations');
+/** `pourArticle` : sans la vocation PROJET, refusée sur un article. */
+export const getVocations = (pourArticle?: boolean): Promise<ReferentielItemDto[]> =>
+  request('GET', '/api/referentiels/vocations', { query: { pourArticle } });
 export const getTypesResidence = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-residence');
 export const getTypesRelationContact = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-relation-contact');
 export const getTypesPieceIdentite = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-piece-identite');
 export const getTypesPieceJointe = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-piece-jointe');
 export const getTypesContactProspection = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-contact-prospection');
-export const getTypesBienReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/types-bien');
+/** `pourSousArticle` renseigné : nature Bâtiment et « pour les sous-articles » égal ; absent = tous. */
+export const getTypesBienReferentiel = (pourSousArticle?: boolean): Promise<ReferentielItemDto[]> =>
+  request('GET', '/api/referentiels/types-bien', { query: { pourSousArticle } });
 export const getTitres = (): Promise<TitreDto[]> => request('GET', '/api/referentiels/titres');
 export const getTierTypes = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/tier-types');
 export const getTierKindsForType = (typeId: UUID): Promise<ReferentielItemDto[]> =>
@@ -1638,7 +1648,9 @@ export const getSupportsForOrigine = (origineId: UUID): Promise<ReferentielItemD
 export const getSupportsOrigine = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/supports-origine');
 export const getNationalites = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/nationalites');
 export const getEtapesProspection = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/etapes-prospection');
-export const getCategoriesBien = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/categories-bien');
+/** Même filtre que `getTypesBienReferentiel`. */
+export const getCategoriesBien = (pourSousArticle?: boolean): Promise<ReferentielItemDto[]> =>
+  request('GET', '/api/referentiels/categories-bien', { query: { pourSousArticle } });
 export const getCategoriesEcheance = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/categories-echeance');
 export const getActionsCommerciales = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/actions-commerciales');
 export const getModesPaiement = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/modes-paiement');

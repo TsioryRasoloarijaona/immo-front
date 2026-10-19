@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
+import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import { DEFAULT_PAGE_SIZE, listProjets } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
 import type { ProjetListItemDto } from '../../types';
@@ -13,6 +14,7 @@ import type { ProjetListItemDto } from '../../types';
 const COLONNES: ColonneGrille<ProjetListItemDto>[] = [
   { nom: 'description', libelle: 'Description', largeur: 56, classe: 'font-medium text-foreground', titre: (p) => p.description || undefined },
   { nom: 'ville', libelle: 'Ville', largeur: 30, classe: 'capitalize text-muted-foreground' },
+  { nom: 'entiteCode', libelle: 'Entité', largeur: 14, classe: 'text-muted-foreground' },
   { nom: 'code', libelle: 'Code', largeur: 14, classe: 'text-muted-foreground' },
 ];
 
@@ -37,6 +39,7 @@ export default function ProjetsList() {
       icon={<LayoutGrid />}
       accent="var(--sec-projet)"
       accentBg="var(--sec-projet-bg)"
+      actions={<ActionAdmin to="/projets/nouveau" libelle="Nouveau programme" />}
     >
       <div className="mb-3">
         <InputGroup className="max-w-md">

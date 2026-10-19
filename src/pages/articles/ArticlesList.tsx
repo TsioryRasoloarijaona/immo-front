@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
+import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
@@ -271,6 +272,7 @@ export default function ArticlesList() {
       icon={<Home />}
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
+      actions={<ActionAdmin to="/articles/nouveau" libelle="Nouvel article" />}
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
         <div className="flex shrink-0 flex-wrap items-center gap-2">

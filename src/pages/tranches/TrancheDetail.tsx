@@ -1,14 +1,15 @@
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Building2, Calendar, Coins, Scale } from 'lucide-react';
+import { Building2, Calendar, Coins, Pencil, Scale } from 'lucide-react';
 import PageShell from '../../components/PageShell';
+import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState, TogglePill } from '../../components/ui';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
 import Pagination from '../../components/Pagination';
 import { getTranche, listTrancheArticles } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { formatCurrency, formatDate, formatPercent, formatSurface, libellePrix } from '../../lib/format';
+import { formatCurrency, formatDate, formatPercent, formatSurface, libellePrix, libelleTrace } from '../../lib/format';
 import type { ArticleStatut, TrancheDetailDto } from '../../types';
 
 type FieldFmt = 'percent' | 'currency' | 'days' | 'hours' | 'number' | 'toggle';
@@ -132,6 +133,12 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
       icon={<Building2 />}
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
+      actions={
+        <div className="flex gap-2">
+          <ActionAdmin to={`/tranches/${id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />
+          <ActionAdmin to={`/articles/nouveau?trancheId=${id}`} libelle="Nouvel article" />
+        </div>
+      }
       fullHeight
     >
       <div className="flex min-h-0 flex-1 flex-col gap-3 pt-1">
@@ -157,7 +164,10 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
             <Field label="Fin des travaux" value={formatDate(t.dateFinTravaux)} />
             <Field label="Début commercialisation" value={formatDate(t.dateDebutCommercialisation)} />
             <Field label="Fin commercialisation" value={formatDate(t.dateFinCommercialisation)} />
-            <Field label="Livraison" value={formatDate(t.dateLivraison)} />
+            <Field label="Octroi des T.F" value={formatDate(t.dateOctroiTitresFonciers)} />
+            <Field label="Programme" value={t.projetCode} />
+            <Field label="Créé par" value={libelleTrace(t.creePar, t.creeLe)} />
+            <Field label="Modifié par" value={libelleTrace(t.modifiePar, t.modifieLe)} />
           </FieldGrid>
         </Card>
 
