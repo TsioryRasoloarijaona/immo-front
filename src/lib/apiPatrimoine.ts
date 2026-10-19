@@ -2,7 +2,12 @@ import { request } from './api';
 import type {
   ArticleDetailDto,
   ArticleEcritureDto,
+  EcheanceSchemaDto,
+  EntiteFinalisationDto,
   LignesTrancheDto,
+  MiseAJourSchemasDto,
+  PrevisionsBaseDto,
+  StockTrancheDto,
   ProjetDetailDto,
   ProjetEcritureDto,
   ReferentielItemDto,
@@ -74,7 +79,7 @@ export function deleteTranche(id: UUID): Promise<void> {
   return request('DELETE', `/api/tranches/${id}`);
 }
 
-export type OngletTranche = 'terrains' | 'etages' | 'plancher-couvert' | 'frais';
+export type OngletTranche = 'terrains' | 'etages' | 'plancher-couvert' | 'frais' | 'finalisations' | 'commissions';
 
 export function getOngletTranche<T>(id: UUID, onglet: OngletTranche): Promise<LignesTrancheDto<T>> {
   return request('GET', `/api/tranches/${id}/${onglet}`);
@@ -87,6 +92,38 @@ export function putOngletTranche<T>(id: UUID, onglet: OngletTranche, lignes: T[]
 
 export function getChoixOngletTranche(nom: 'terrains-disponibles' | 'categories-frais'): Promise<ReferentielItemDto[]> {
   return request('GET', `/api/tranches/${nom}`);
+}
+
+export function getEntitesFinalisation(): Promise<EntiteFinalisationDto[]> {
+  return request('GET', '/api/tranches/entites-finalisation');
+}
+
+export function getPrevisionsBase(id: UUID): Promise<PrevisionsBaseDto> {
+  return request('GET', `/api/tranches/${id}/previsions-base`);
+}
+
+export function getStockTranche(id: UUID): Promise<StockTrancheDto> {
+  return request('GET', `/api/tranches/${id}/previsions-base/stock`);
+}
+
+/** Administrateur ; rien n'est écrit. 400 « Toutes les dates doivent avoir une valeur ! ». */
+export function genererPrevisionsBase(id: UUID, entete: PrevisionsBaseDto): Promise<PrevisionsBaseDto> {
+  return request('POST', `/api/tranches/${id}/previsions-base/generer`, { body: entete });
+}
+
+/** 400 : Σ quantités ≠ nombre d'articles, ou mois en double. Renvoie les prévisions relues. */
+export function putPrevisionsBase(id: UUID, body: PrevisionsBaseDto): Promise<PrevisionsBaseDto> {
+  return request('PUT', `/api/tranches/${id}/previsions-base`, { body });
+}
+
+/** Administrateur ; 400 sans date de début des finalisations. */
+export function getApercuSchemas(id: UUID): Promise<EcheanceSchemaDto[]> {
+  return request('GET', `/api/tranches/${id}/mettre-a-jour-schemas/apercu`);
+}
+
+/** Argent : déplace les échéances de l'aperçu, une transaction. */
+export function mettreAJourSchemas(id: UUID): Promise<MiseAJourSchemasDto> {
+  return request('POST', `/api/tranches/${id}/mettre-a-jour-schemas`);
 }
 
 export function createArticle(body: ArticleEcritureDto): Promise<ArticleDetailDto> {

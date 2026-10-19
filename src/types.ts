@@ -2600,6 +2600,102 @@ export interface LigneFraisDto extends LigneOngletTranche {
   categorieDescription?: string;
 }
 
+/** Onglet Finalisations : une ligne par type de dossier (unique, sinon 400). */
+export interface LigneFinalisationDto extends LigneOngletTranche {
+  entiteDossierId?: UUID;
+  /** Obligatoire ; statut du type de dossier choisi. */
+  statutFinalisation1Id?: UUID;
+  statutFinalisation2Id?: UUID | null;
+}
+
+/** Choix de l'onglet Finalisations (`GET /api/tranches/entites-finalisation`). */
+export interface EntiteFinalisationDto {
+  id: UUID;
+  code: string;
+  description: string;
+  statuts: ReferentielItemDto[];
+}
+
+/** Bloc de commission : montant fixe (`baseSurMontant`, défaut vrai) ou fraction du prix de vente TTC. */
+export interface BlocCommissionDto {
+  baseSurMontant?: boolean | null;
+  /** Fraction : 0.015 = 1,5 %. */
+  pourcentage?: number | null;
+  montant?: number | null;
+}
+
+/** Onglet Commission vendeur ; deux lignes de même clé aux périodes chevauchantes → 400. */
+export interface LigneCommissionDto extends LigneOngletTranche {
+  dateDebut?: string | null;
+  /** Absente = sans fin. */
+  dateFin?: string | null;
+  commercialId?: UUID | null;
+  categorieArticleId?: UUID | null;
+  personnelId?: UUID | null;
+  actionCommercialeId?: UUID | null;
+  concretisation?: BlocCommissionDto | null;
+  concretisationExterne?: BlocCommissionDto | null;
+  finalisation1?: BlocCommissionDto | null;
+  finalisation1Externe?: BlocCommissionDto | null;
+  finalisation2?: BlocCommissionDto | null;
+  finalisation2Externe?: BlocCommissionDto | null;
+}
+
+/** Ligne mensuelle des prévisions de base ; les montants sont calculés par le serveur (lecture seule). */
+export interface LignePrevisionDto {
+  id?: UUID | null;
+  /** Le 15 du mois (OMRAN). */
+  date?: string | null;
+  annee?: number | null;
+  mois?: number | null;
+  quantiteConcretisation?: number | null;
+  quantiteFinalisation?: number | null;
+  notes?: string | null;
+  versementConcretisation?: number | null;
+  versementFinalisation?: number | null;
+  versementTotal?: number | null;
+  chiffreAffaires?: number | null;
+}
+
+/** Prévisions de base : en-tête (colonnes Base* de la tranche) + lignes. */
+export interface PrevisionsBaseDto {
+  nombreArticles?: number | null;
+  valorisationStock?: number | null;
+  /** Fraction 0–1. */
+  pourcentageConcretisation?: number | null;
+  debutConcretisation?: string | null;
+  finConcretisation?: string | null;
+  debutFinalisation?: string | null;
+  finFinalisation?: string | null;
+  /** Absent = 1. */
+  ecartTypeConcretisation?: number | null;
+  ecartTypeFinalisation?: number | null;
+  lignes: LignePrevisionDto[];
+}
+
+/** « Charger à partir du stock ». */
+export interface StockTrancheDto {
+  nombreArticles: number;
+  valorisationStock: number;
+}
+
+/** Échéance que la mise à jour des schémas déplacerait (aperçu). */
+export interface EcheanceSchemaDto {
+  echeanceId: UUID;
+  dossierId: UUID;
+  dossierCode: string | null;
+  client: string | null;
+  categorie: string | null;
+  ancienneDate: string;
+  nouvelleDate: string;
+  reste: number;
+}
+
+export interface MiseAJourSchemasDto {
+  documentsModifies: number;
+  dossiersConcernes: number;
+}
+
 /** PATCH : absent = inchangé ; `parentId` lu à la création seulement. */
 export interface ZoneProjetEcritureDto {
   code?: string;
