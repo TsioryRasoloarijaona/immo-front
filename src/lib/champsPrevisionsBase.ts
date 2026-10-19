@@ -32,12 +32,16 @@ export const SECTIONS_PREVISIONS: SectionSaisie[] = [
 
 const calcule = () => true;
 
+/** Une ligne saisie perd ses montants : ils ne sont recalculés que par le serveur (« — » d'ici là). */
+export const sansMontants = (ligne: LignePrevisionDto): LignePrevisionDto =>
+  ({ ...ligne, versementConcretisation: null, versementFinalisation: null, versementTotal: null, chiffreAffaires: null });
+
 /** Lignes mensuelles : quantités saisies, versements et chiffre d'affaires recalculés par le serveur. */
 export const COLONNES_PREVISIONS: ColonneOnglet<LignePrevisionDto>[] = [
-  { nom: 'annee', libelle: 'Année', type: 'nombre' },
-  { nom: 'mois', libelle: 'Mois', type: 'nombre' },
-  { nom: 'quantiteConcretisation', libelle: 'Qté concrétisation', type: 'nombre' },
-  { nom: 'quantiteFinalisation', libelle: 'Qté finalisation', type: 'nombre' },
+  { nom: 'annee', libelle: 'Année', type: 'entier' },
+  { nom: 'mois', libelle: 'Mois', type: 'entier' },
+  { nom: 'quantiteConcretisation', libelle: 'Qté concrétisation', type: 'entier' },
+  { nom: 'quantiteFinalisation', libelle: 'Qté finalisation', type: 'entier' },
   { nom: 'versementConcretisation', libelle: 'Versement concrétisation', type: 'montant', calcule },
   { nom: 'versementFinalisation', libelle: 'Versement finalisation', type: 'montant', calcule },
   { nom: 'versementTotal', libelle: 'Versement total', type: 'montant', calcule },

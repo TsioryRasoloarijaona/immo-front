@@ -7,7 +7,7 @@ import { DialogFooter } from '../ui/dialog';
 import SectionsSaisie from './SectionsSaisie';
 import TableLignes from './TableLignes';
 import { genererPrevisionsBase, getPrevisionsBase, getStockTranche, putPrevisionsBase } from '../../lib/apiPatrimoine';
-import { COLONNES_PREVISIONS, SECTIONS_PREVISIONS } from '../../lib/champsPrevisionsBase';
+import { COLONNES_PREVISIONS, SECTIONS_PREVISIONS, sansMontants } from '../../lib/champsPrevisionsBase';
 import { formatNumber } from '../../lib/format';
 import { changerRangee, somme, type Rangee } from '../../lib/ongletsTranche';
 import { brouillonDepuis, champsDe, corpsDepuis, useSaisie } from '../../lib/saisiePatrimoine';
@@ -84,7 +84,7 @@ function SaisiePrevisions({ trancheId, initiales, onClose }: Readonly<{
           <Button type="button" size="sm" variant="ghost" onClick={ajouter}><Plus data-icon="inline-start" /> Ajouter une ligne</Button>
         </div>
         <TableLignes colonnes={COLONNES_PREVISIONS} rangees={rangees} editable version={version}
-          onChange={(cle, nom, valeur) => setRangees(changerRangee(rangees, cle, nom, valeur))}
+          onChange={(cle, nom, valeur) => setRangees(changerRangee(rangees, cle, nom, valeur, sansMontants))}
           onRetirer={(cle) => setRangees(rangees.filter((r) => r.cle !== cle))} />
         <p className="flex flex-wrap gap-x-4 text-label">
           <Total libelle="Σ concrétisation" total={somme(lignes, (l) => l.quantiteConcretisation)} attendu={attendu} />

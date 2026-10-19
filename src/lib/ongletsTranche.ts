@@ -7,7 +7,7 @@ export interface ColonneOnglet<L> {
   nom: keyof L & string;
   libelle: string;
   /** `bloc` : bloc de commission (montant ou % du prix de vente TTC). */
-  type: 'choix' | 'montant' | 'surface' | 'nombre' | 'pourcent' | 'case' | 'date' | 'texte' | 'bloc';
+  type: 'choix' | 'montant' | 'surface' | 'nombre' | 'entier' | 'pourcent' | 'case' | 'date' | 'texte' | 'bloc';
   /** `choix` : valeurs proposées (id → code — description), ou celles qui dépendent de la ligne. */
   choix?: ReferentielItemDto[] | ((ligne: L) => ReferentielItemDto[]);
   /** `choix` : « — » proposé (valeur nulle). */

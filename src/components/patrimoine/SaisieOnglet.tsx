@@ -4,18 +4,23 @@ import { toApiDateTime } from '../../lib/format';
 import { choixDe, libelleChoix, type ColonneOnglet, type Valeur } from '../../lib/ongletsTranche';
 import type { BlocCommissionDto } from '../../types';
 
-/** Saisie d'un nombre ; `pourcent` : saisi en %, transmis en fraction. Non contrôlé pour garder « 12, » en cours de frappe. */
-function SaisieNombre({ libelle, pourcent, valeur, onChange }: Readonly<{
+/**
+ * Saisie d'un nombre ; `pourcent` : saisi en %, transmis en fraction ; `entier` : tronqué (int32 sur le fil).
+ * Non contrôlé pour garder « 12, » en cours de frappe.
+ */
+function SaisieNombre({ libelle, pourcent, entier = false, valeur, onChange }: Readonly<{
   libelle: string;
   pourcent: boolean;
+  entier?: boolean;
   valeur: Valeur;
   onChange: (v: number | null) => void;
 }>) {
   const facteur = pourcent ? 100 : 1;
   const initiale = typeof valeur === 'number' ? String(Math.round(valeur * facteur * 1e4) / 1e4) : '';
+  const lire = (texte: string) => (entier ? Math.trunc(Number(texte)) : Number(texte) / facteur);
   return (
-    <Input type="number" inputMode="decimal" step="any" aria-label={libelle} defaultValue={initiale} className="h-7 w-28"
-      onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value) / facteur)} />
+    <Input type="number" inputMode={entier ? 'numeric' : 'decimal'} step={entier ? 1 : 'any'} aria-label={libelle}
+      defaultValue={initiale} className="h-7 w-28" onChange={(e) => onChange(e.target.value === '' ? null : lire(e.target.value))} />
   );
 }
 
@@ -74,6 +79,7 @@ export default function SaisieOnglet<L>({ colonne, ligne, onChange }: Readonly<{
       );
     }
     default:
-      return <SaisieNombre libelle={colonne.libelle} pourcent={colonne.type === 'pourcent'} valeur={valeur} onChange={onChange} />;
+      return <SaisieNombre libelle={colonne.libelle} pourcent={colonne.type === 'pourcent'} entier={colonne.type === 'entier'}
+        valeur={valeur} onChange={onChange} />;
   }
 }
