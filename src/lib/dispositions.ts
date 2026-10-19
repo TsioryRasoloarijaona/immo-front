@@ -619,4 +619,6 @@ export const DISPOSITION_ETAT_VENTES: DispositionColonnes = {
     resteARegler: 11,
   },
   masquees: new Set(['articleId', 'dossierId', 'statutCode']),
+  // Le ton du badge de statut se lit sur le code.
+  toujoursDemandees: ['statutCode'],
 };
