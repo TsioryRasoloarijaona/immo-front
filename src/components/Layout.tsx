@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, CircleHelp, FileCode2, FilePlus2, History, Home, KeyRound, LayoutGrid, LogOut, Users } from 'lucide-react';
+import { BookUser, Bot, Building2, CircleHelp, FileCode2, FilePlus2, History, Home, KeyRound, Landmark, LayoutGrid, LogOut, UserRound, Users, UsersRound } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +24,12 @@ import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
 import { estAdministrateur } from '../lib/roles';
 import NavVente from './NavVente';
+
+const ENTREES_ENTITES = [
+  { to: '/entites-juridiques', libelle: 'Entités juridiques', Icone: Landmark },
+  { to: '/actionnaires', libelle: 'Actionnaires', Icone: UserRound },
+  { to: '/groupes-actionnaires', libelle: "Groupes d'actionnaires", Icone: UsersRound },
+];
 
 export default function Layout({ children }: Readonly<{ children: ReactNode }>) {
   const location = useLocation();
@@ -89,6 +95,14 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                     Articles
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                {isAdmin && ENTREES_ENTITES.map(({ to, libelle, Icone }) => (
+                  <SidebarMenuItem key={to}>
+                    <SidebarMenuButton render={<NavLink to={to} />} isActive={location.pathname.startsWith(to)} tooltip={libelle}>
+                      <Icone style={{ color: 'var(--sec-projet)' }} />
+                      {libelle}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
               </SidebarMenu>
             </SidebarGroup>
           )}
