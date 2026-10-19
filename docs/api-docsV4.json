@@ -156,6 +156,10 @@
       "description": "État des ventes (écran OMRAN « Suivi des dossiers de vente ») : une ligne par article racine en vente — `StkItem.ParentId` vide, vocation `VENTE`, tranche `IsForSale = 1` ; les parkings autonomes (`IsUnderItem = 1` sans parent) comptent, les sous-articles rattachés non. Synthèse, liste, groupes, totaux et export partagent exactement les mêmes filtres et la même visibilité (entités actives et périmètre commercial) : la somme des lignes de la liste filtrée égale la cellule de la synthèse."
     },
     {
+      "name": "Règles de vente de la tranche",
+      "description": "Finalisations, commissions, prévisions de base et mise à jour des schémas ; écriture Administrateur."
+    },
+    {
       "name": "Calendrier",
       "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front.\n\n**Entités juridiques en exploitation.** Seuls les événements rattachés — par leur prospection ou par leur dossier — à une entité juridique active (`CfgCompany.IsActive`) sont renvoyés : aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un événement qu'aucune prospection ni aucun dossier ne rattache à une entité reste affiché."
     },
@@ -482,6 +486,121 @@
         }
       }
     },
+    "/api/tranches/{id}/previsions-base": {
+      "get": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "Prévisions de base : en-tête de la tranche et lignes mensuelles",
+        "operationId": "previsionsBase",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "En-tête et lignes.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsBaseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsBaseDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "Enregistre l'en-tête et remplace les lignes des prévisions de base",
+        "description": "Écrit l'en-tête (colonnes `Base*` de la tranche) et remplace toutes les lignes `CfgPrevision`. Refus OMRAN, dans cet\nordre : Σ `quantiteConcretisation` ≠ `nombreArticles`, Σ `quantiteFinalisation` ≠ `nombreArticles`, deux lignes du même\nmois → 400. Une ligne dont les deux quantités valent 0 n'est pas enregistrée. Les montants des lignes sont recalculés.",
+        "operationId": "enregistrerPrevisions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrevisionsBaseDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Prévisions enregistrées, relues.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsBaseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Saisie refusée (message OMRAN ou lignes[i].<champ> dans le détail) ; rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsBaseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsBaseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsBaseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tranches/{id}/plancher-couvert": {
       "get": {
         "tags": [
@@ -710,6 +829,121 @@
         }
       }
     },
+    "/api/tranches/{id}/finalisations": {
+      "get": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "Onglet Finalisations : statuts où s'appliquent les commissions de finalisation",
+        "operationId": "finalisations",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes de l'onglet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFinalisationDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFinalisationDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "Enregistre les finalisations (type de dossier en double → 400)",
+        "description": "Liste complète (`id` connu = mise à jour, absent = création, ligne absente = suppression). `entiteDossierId` est\nobligatoire et unique dans la tranche ; `statutFinalisation1Id` obligatoire, `statutFinalisation2Id` facultatif, tous\ndeux statuts du type de dossier choisi (sinon 400 nommant `lignes[i].statutFinalisationNId`). Le CRM paramètre\nseulement : il n'applique pas les commissions de finalisation aux dossiers.",
+        "operationId": "enregistrerFinalisations",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LignesTrancheDtoLigneFinalisationDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes enregistrées, relues.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFinalisationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Saisie refusée (message OMRAN ou lignes[i].<champ> dans le détail) ; rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFinalisationDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFinalisationDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFinalisationDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tranches/{id}/etages": {
       "get": {
         "tags": [
@@ -817,6 +1051,121 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/LignesTrancheDtoLigneEtageDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/commissions": {
+      "get": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "Onglet Commission vendeur, trié par date début",
+        "operationId": "commissions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes de l'onglet.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneCommissionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneCommissionDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "Enregistre la liste complète des commissions vendeur",
+        "description": "Liste complète, réconciliée comme les autres onglets. Refus OMRAN : `dateDebut` > `dateFin` → 400 nommant\n`lignes[i].dateFin` (« La Date début doit être < à la Date fin! ») ; deux lignes de même clé (personnel, action,\ncommercial, catégorie ; absent = absent) dont les périodes se chevauchent → 400 « … On ne doit pas avoir un\nchevauchement des périodes pour deux lignes de paramétrage identiques ». Le chevauchement suit exactement\n`CfgTranche.Verif` d'OMRAN (fin absente = période sans fin). Un bloc absent vaut base sur le montant, 0 %, 0 DH.",
+        "operationId": "enregistrerCommissions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LignesTrancheDtoLigneCommissionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes enregistrées, relues.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneCommissionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Saisie refusée (message OMRAN ou lignes[i].<champ> dans le détail) ; rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneCommissionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneCommissionDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneCommissionDto"
                 }
               }
             }
@@ -1973,6 +2322,144 @@
                   "items": {
                     "$ref": "#/components/schemas/LigneReajustementDto"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/previsions-base/generer": {
+      "post": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "« Générer » : lignes réparties en cloche, sans rien écrire",
+        "description": "Lit l'en-tête **dans le corps** (rien n'est lu ni écrit en base). Chaque période (concrétisation, finalisation) répartit\n`nombreArticles` sur ses mois selon une loi normale normalisée (écart type de la période, absent = 1), arrondi au pair,\nécart reporté au mois du milieu ; un mois commun aux deux périodes donne une seule ligne ; les mois à zéro sont retirés.\nRefus : une des quatre dates absente → 400 « Toutes les dates doivent avoir une valeur ! ».",
+        "operationId": "calculerPrevisions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrevisionsBaseDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "En-tête reçu et lignes générées.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsBaseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Une des quatre dates manque.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsBaseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsBaseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrevisionsBaseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/mettre-a-jour-schemas": {
+      "post": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "Mettre à jour les schémas de financement : échéances ramenées au début des finalisations",
+        "description": "Déplace la date de chaque échéance de l'aperçu au début des finalisations de la tranche, en une seule transaction ;\nmontants et règlements inchangés, auteur et date de modification tamponnés, une ligne d'audit par échéance. L'aide\nOMRAN parle de la date d'octroi des titres fonciers : le code d'OMRAN utilise la date de début des finalisations, que\nle CRM reprend.",
+        "operationId": "modifierSchemas",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nombre d'échéances et de dossiers modifiés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MiseAJourSchemasDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "La tranche n'a pas de date de début des finalisations.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MiseAJourSchemasDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MiseAJourSchemasDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/MiseAJourSchemasDto"
                 }
               }
             }
@@ -10887,7 +11374,7 @@
             "description": "Article introuvable."
           },
           "409": {
-            "description": "Article ou sous-article occupé, ou encore référencé."
+            "description": "Article ou sous-article occupé, encore référencé ou porteur de dépenses."
           }
         }
       },
@@ -11222,6 +11709,49 @@
         }
       }
     },
+    "/api/tranches/{id}/previsions-base/stock": {
+      "get": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "« Charger à partir du stock » : nombre d'articles et valorisation du stock de la tranche",
+        "operationId": "stock",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stock recalculé sur les articles.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockTrancheDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockTrancheDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tranches/{id}/presentations": {
       "get": {
         "tags": [
@@ -11263,6 +11793,82 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/mettre-a-jour-schemas/apercu": {
+      "get": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "Aperçu : échéances que la mise à jour des schémas déplacerait",
+        "description": "Même sélection que l'exécution : échéances des dossiers **courants** des articles de la tranche\n(`StkItem.ComFolderId` ; les dossiers annulés ou désistés en sont donc exclus), dont la catégorie est « basée sur la date\ndes finalisations » (`IsConfermentBasedDate`), dont la date est antérieure au début des finalisations et dont le reste\ndû calculé (montant − règlements non annulés) est positif.",
+        "operationId": "apercuSchemas",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Échéances sélectionnées, rien n'est modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EcheanceSchemaDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "La tranche n'a pas de date de début des finalisations.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EcheanceSchemaDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EcheanceSchemaDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EcheanceSchemaDto"
                   }
                 }
               }
@@ -11443,6 +12049,30 @@
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tranches/entites-finalisation": {
+      "get": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "Choix de l'onglet Finalisations : les trois types de dossier de vente et leurs statuts",
+        "operationId": "entitesFinalisation",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EntiteFinalisationDto"
                   }
                 }
               }
@@ -22579,6 +23209,121 @@
           }
         }
       },
+      "LignePrevisionDto": {
+        "type": "object",
+        "description": "Ligne mensuelle des prévisions de base (CfgPrevision).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne ; nul pour une ligne générée.",
+            "readOnly": true
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du mois (le 15, comme OMRAN) ; au PUT, sert si annee / mois sont absents."
+          },
+          "annee": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Année (Year)."
+          },
+          "mois": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Mois de 1 à 12 (Month)."
+          },
+          "quantiteConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Articles concrétisés ce mois (Quantity) ; absent = 0."
+          },
+          "quantiteFinalisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Articles finalisés ce mois (TurnoverQuantity) ; absent = 0."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes."
+          },
+          "versementConcretisation": {
+            "type": "number",
+            "description": "Versement concrétisation = quantité × valorisation × % concrétisation / nombre d'articles.",
+            "readOnly": true
+          },
+          "versementFinalisation": {
+            "type": "number",
+            "description": "Versement finalisation = quantité × valorisation × (1 − %) / nombre d'articles.",
+            "readOnly": true
+          },
+          "versementTotal": {
+            "type": "number",
+            "description": "Versement total = concrétisation + finalisation.",
+            "readOnly": true
+          },
+          "chiffreAffaires": {
+            "type": "number",
+            "description": "Chiffre d'affaires TTC = quantité finalisée × valorisation / nombre d'articles.",
+            "readOnly": true
+          }
+        }
+      },
+      "PrevisionsBaseDto": {
+        "type": "object",
+        "description": "Prévisions de base de la tranche : en-tête (colonnes Base* de CfgTranche) et lignes mensuelles.",
+        "properties": {
+          "nombreArticles": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'articles en stock (CountItemBasePrevision)."
+          },
+          "valorisationStock": {
+            "type": "number",
+            "description": "Valorisation du stock TTC (TotalSaleBasePrevision)."
+          },
+          "pourcentageConcretisation": {
+            "type": "number",
+            "description": "Pourcentage de concrétisation, fraction (BaseConcretisationPercent)."
+          },
+          "debutConcretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date début de concrétisation (BaseMarketingStartDate)."
+          },
+          "finConcretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date fin de concrétisation (BaseEndDateConcretisation)."
+          },
+          "debutFinalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date début de finalisation (BaseStartDateFinalisation)."
+          },
+          "finFinalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date fin de finalisation (BaseMarketingEndDate)."
+          },
+          "ecartTypeConcretisation": {
+            "type": "number",
+            "description": "Écart type de la concrétisation (BaseEcarttypeConcretisation) ; absent = 1."
+          },
+          "ecartTypeFinalisation": {
+            "type": "number",
+            "description": "Écart type de la finalisation (BaseEcarttypeFinalisation) ; absent = 1."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes mensuelles, triées par année et mois.",
+            "items": {
+              "$ref": "#/components/schemas/LignePrevisionDto"
+            }
+          }
+        }
+      },
       "LignePlancherDto": {
         "type": "object",
         "description": "Ligne de l'onglet Plancher couvert (CfgTrancheCoveredFloor).",
@@ -22687,6 +23432,45 @@
           }
         }
       },
+      "LigneFinalisationDto": {
+        "type": "object",
+        "description": "Ligne de l'onglet Finalisations (CfgTrancheFolderEntity) : une par type de dossier.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne ; absent au PUT = nouvelle ligne."
+          },
+          "entiteDossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de dossier (StrEntity), obligatoire et unique ; choix : /api/tranches/entites-finalisation."
+          },
+          "statutFinalisation1Id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut de finalisation 1, obligatoire, statut du type de dossier choisi."
+          },
+          "statutFinalisation2Id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut de finalisation 2, facultatif, statut du type de dossier choisi."
+          }
+        }
+      },
+      "LignesTrancheDtoLigneFinalisationDto": {
+        "type": "object",
+        "description": "Liste complète d'un onglet de fiche (tranche, contenances de l'article) : corps du PUT et réponse du GET / PUT.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de l'onglet ; au PUT, une ligne absente est supprimée.",
+            "items": {
+              "$ref": "#/components/schemas/LigneFinalisationDto"
+            }
+          }
+        }
+      },
       "LigneEtageDto": {
         "type": "object",
         "description": "Ligne de l'onglet Étages (CfgTrancheLevel) ; sans lien avec l'étage d'un article (StkFloor).",
@@ -22722,6 +23506,102 @@
             "description": "Lignes de l'onglet ; au PUT, une ligne absente est supprimée.",
             "items": {
               "$ref": "#/components/schemas/LigneEtageDto"
+            }
+          }
+        }
+      },
+      "BlocCommissionDto": {
+        "type": "object",
+        "description": "Bloc de commission : montant fixe, ou pourcentage du prix de vente TTC.",
+        "properties": {
+          "baseSurMontant": {
+            "type": "boolean",
+            "description": "Vrai : commission = montant ; faux : pourcentage × prix TTC. Absent = vrai."
+          },
+          "pourcentage": {
+            "type": "number",
+            "description": "Pourcentage (fraction : 0.015 = 1,5 %) ; absent = 0."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant fixe en dirhams ; absent = 0."
+          }
+        }
+      },
+      "LigneCommissionDto": {
+        "type": "object",
+        "description": "Ligne de l'onglet Commission vendeur (ComSalesCommission) : période, clé et six blocs.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne ; absent au PUT = nouvelle ligne."
+          },
+          "dateDebut": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date début (StartDate) ; doit être ≤ dateFin."
+          },
+          "dateFin": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date fin (EndDate) ; absente = période sans fin."
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Commercial / gestionnaire (CfgTierId) ; absent = tous."
+          },
+          "categorieArticleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie d'article (StkItemCategoryId) ; absente = toutes."
+          },
+          "personnelId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Personnel (ComEmployeeId) ; choix : /api/referentiels-patrimoine/personnels."
+          },
+          "actionCommercialeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Action commerciale (ComActionId) ; absente = toutes."
+          },
+          "concretisation": {
+            "$ref": "#/components/schemas/BlocCommissionDto",
+            "description": "Concrétisation (SaleCommission…)."
+          },
+          "concretisationExterne": {
+            "$ref": "#/components/schemas/BlocCommissionDto",
+            "description": "Concrétisation, prestataire (SaleCommission…Extern)."
+          },
+          "finalisation1": {
+            "$ref": "#/components/schemas/BlocCommissionDto",
+            "description": "Finalisation 1 (DeliveryCommission…)."
+          },
+          "finalisation1Externe": {
+            "$ref": "#/components/schemas/BlocCommissionDto",
+            "description": "Finalisation 1, prestataire (DeliveryCommission…Extern)."
+          },
+          "finalisation2": {
+            "$ref": "#/components/schemas/BlocCommissionDto",
+            "description": "Finalisation 2 (DeliveryCommission…2)."
+          },
+          "finalisation2Externe": {
+            "$ref": "#/components/schemas/BlocCommissionDto",
+            "description": "Finalisation 2, prestataire (DeliveryCommission…Extern2)."
+          }
+        }
+      },
+      "LignesTrancheDtoLigneCommissionDto": {
+        "type": "object",
+        "description": "Liste complète d'un onglet de fiche (tranche, contenances de l'article) : corps du PUT et réponse du GET / PUT.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de l'onglet ; au PUT, une ligne absente est supprimée.",
+            "items": {
+              "$ref": "#/components/schemas/LigneCommissionDto"
             }
           }
         }
@@ -24327,6 +25207,22 @@
           "motifExclusion": {
             "type": "string",
             "description": "Raison pour laquelle le dossier ne peut pas être réajusté (POST = 409) ; null sinon."
+          }
+        }
+      },
+      "MiseAJourSchemasDto": {
+        "type": "object",
+        "description": "Résultat de « Mettre à jour les schémas de financement ».",
+        "properties": {
+          "documentsModifies": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Échéances dont la date a été déplacée."
+          },
+          "dossiersConcernes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Dossiers distincts de ces échéances."
           }
         }
       },
@@ -32063,6 +32959,21 @@
           }
         }
       },
+      "StockTrancheDto": {
+        "type": "object",
+        "description": "Stock de la tranche pour « Charger à partir du stock », recalculé comme la vue StkTrancheValorisation.",
+        "properties": {
+          "nombreArticles": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Articles de vocation Vente, hors sous-articles (CountItem)."
+          },
+          "valorisationStock": {
+            "type": "number",
+            "description": "Σ des prix de vente TTC des articles de vocation Vente, sous-articles compris (PriceAllItem)."
+          }
+        }
+      },
       "ReferentielItemDto": {
         "type": "object",
         "properties": {
@@ -32079,6 +32990,74 @@
           "sorting": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "EcheanceSchemaDto": {
+        "type": "object",
+        "description": "Échéance que « Mettre à jour les schémas de financement » déplace au début des finalisations.",
+        "properties": {
+          "echeanceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de l'échéance (ComDocument)."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Dossier courant de l'article (StkItem.ComFolderId)."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code du dossier."
+          },
+          "client": {
+            "type": "string",
+            "description": "Client du dossier."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Catégorie de l'échéance."
+          },
+          "ancienneDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date actuelle de l'échéance (DocDate)."
+          },
+          "nouvelleDate": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date après mise à jour : début des finalisations de la tranche."
+          },
+          "reste": {
+            "type": "number",
+            "description": "Reste dû calculé : montant − règlements non annulés ; toujours > 0 ici."
+          }
+        }
+      },
+      "EntiteFinalisationDto": {
+        "type": "object",
+        "description": "Type de dossier proposé dans l'onglet Finalisations, avec ses statuts.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de StrEntity."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code (ComFolder, PrmFolderSale, RomFolderSale)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé."
+          },
+          "statuts": {
+            "type": "array",
+            "description": "Statuts de ce type de dossier, par ordre (Sorting) ; choix des deux statuts.",
+            "items": {
+              "$ref": "#/components/schemas/ReferentielItemDto"
+            }
           }
         }
       },
