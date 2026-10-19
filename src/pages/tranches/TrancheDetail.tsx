@@ -1,12 +1,16 @@
-import { useParams } from 'react-router-dom';
-import { Building2, Pencil } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Building2, Pencil, Trash2 } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import ArticlesTranche from '../../components/patrimoine/ArticlesTranche';
 import FicheSections from '../../components/patrimoine/FicheSections';
+import OngletsTranche from '../../components/patrimoine/OngletsTranche';
 import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import { Badge, Card, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { getTranche } from '../../lib/api';
+import { deleteTranche } from '../../lib/apiPatrimoine';
+import { useConfirm } from '../../lib/confirmContext';
 import { useApi } from '../../lib/useApi';
 import { libelleTrace } from '../../lib/format';
 import { SECTIONS_TRANCHE } from '../../lib/saisieTranche';
@@ -17,9 +21,28 @@ export default function TrancheDetail() {
 }
 
 function FicheTranche({ id }: Readonly<{ id: string }>) {
-  const { data: t, loading, error } = useApi(() => getTranche(id), [id]);
+  const { data: t, loading, error, refetch } = useApi(() => getTranche(id), [id]);
+  const navigate = useNavigate();
+  const confirm = useConfirm();
+  const [erreurSuppression, setErreurSuppression] = useState<string | null>(null);
 
-  if (loading) return <PageShell title="Tranche"><LoadingState /></PageShell>;
+  async function supprimer() {
+    const oui = await confirm({
+      title: 'Supprimer la tranche',
+      message: 'La tranche, ses onglets, ses habilitations, pièces jointes et notes seront supprimés. Continuer ?',
+      confirmLabel: 'Supprimer',
+    });
+    if (!oui) return;
+    try {
+      await deleteTranche(id);
+      void navigate('/tranches');
+    } catch (err) {
+      setErreurSuppression(err instanceof Error ? err.message : 'Suppression impossible.');
+    }
+  }
+
+  // `!t` : un rechargement (plancher couvert enregistré) garde la fiche et l'onglet ouvert.
+  if (loading && !t) return <PageShell title="Tranche"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Tranche"><ErrorState message={error} /></PageShell>;
   if (!t) {
     return (
@@ -38,12 +61,14 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
       accentBg="var(--sec-tranche-bg)"
       actions={
         <div className="flex gap-2">
+          <ActionAdmin onClick={() => void supprimer()} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
           <ActionAdmin to={`/tranches/${id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />
           <ActionAdmin to={`/articles/nouveau?trancheId=${id}`} libelle="Nouvel article" />
         </div>
       }
     >
       <div className="flex flex-col gap-3 pt-1">
+        {erreurSuppression && <p className="text-label text-destructive">{erreurSuppression}</p>}
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 className="text-title font-semibold tracking-tight text-foreground">{t.description}</h2>
           <span className="font-mono text-micro text-muted-foreground">{t.code}</span>
@@ -62,6 +87,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
           </FieldGrid>
         </Card>
 
+        <OngletsTranche trancheId={id} onPlancherEnregistre={() => void refetch()} />
         <ArticlesTranche trancheId={id} />
         <OngletsTransverses porteur="tranche" id={id} />
       </div>
