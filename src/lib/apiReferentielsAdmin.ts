@@ -19,10 +19,6 @@ export function listLignesReferentiel(slug: string, filtres: FiltresReferentiel 
   return request('GET', `${RACINE}/${slug}`, { query: { ...filtres } });
 }
 
-export function getLigneReferentiel(slug: string, id: UUID): Promise<LigneReferentiel> {
-  return request('GET', `${RACINE}/${slug}/${id}`);
-}
-
 /** Administrateur ; 400 champ invalide, 404 tranche non visible, 409 doublon. */
 export function creerLigneReferentiel(slug: string, body: LigneReferentiel): Promise<LigneReferentiel> {
   return request('POST', `${RACINE}/${slug}`, { body });
