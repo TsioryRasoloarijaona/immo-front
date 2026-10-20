@@ -46,6 +46,8 @@ import type {
   SyntheseSuiviCommerciauxDto,
   MensuelSuiviCommerciauxDto,
   ObjectifCommercialDto,
+  LigneSuiviAffectationsDto,
+  StatutSuiviAffectationsDto,
   TriGroupes,
   CommercialListItemDto,
   CompleterProfilRequest,
@@ -550,7 +552,8 @@ export function listProspectionsGroupes(
  * Dossiers : les lots libres n'y entrent pas (`lignes=LIBRES` → 0). Encaissements : `nombreTotal` compte les
  * annulés, les sommes de montants les excluent. État des ventes : `montantRegle` / `resteARegler` en nom nu. */
 export function totauxColonnes(
-  ressource: 'prospections' | 'dossiers' | 'encaissements' | 'etat-des-ventes' | 'suivi-commerciaux',
+  ressource: 'prospections' | 'dossiers' | 'encaissements' | 'etat-des-ventes' | 'suivi-commerciaux'
+    | 'suivi-affectations',
   params: object | undefined,
   agregats: string[],
   filtresAvances?: FiltresAvancesProspection,
@@ -1586,6 +1589,59 @@ export function getObjectifCommercial(): Promise<ObjectifCommercialDto> {
 /** Administrateur seulement (403 sinon) ; entier 1..1000 (400 sinon). */
 export function modifierObjectifCommercial(body: ObjectifCommercialDto): Promise<ObjectifCommercialDto> {
   return request('PUT', '/api/suivi-commerciaux/objectif', { body });
+}
+
+/** Filtres de la liste, des groupes, des totaux et de l'export du suivi des affectations (OR dans un filtre, AND
+ * entre filtres). Statut, état, sens inconnus ou `du` > `au` → 400 ; tranche hors périmètre → liste vide. */
+export type FiltresSuiviAffectations = {
+  entiteId?: UUID[];
+  projetId?: UUID;
+  trancheId?: UUID[];
+  /** Ids de `ComSettlementCategory` et/ou `SANS_CATEGORIE`. */
+  categorieId?: string[];
+  /** Ids de `StlSettlementType`. */
+  typeId?: UUID[];
+  /** `StrStatus.Code` (voir `getStatutsSuiviAffectations`) et/ou `SANS_STATUT`, casse indifférente. */
+  statut?: string[];
+  etatPiece?: ('IN_WORK' | 'POINTED' | 'CANCELED' | 'SANS_ETAT')[];
+  /** Défaut serveur TOUS. */
+  sens?: 'TOUS' | 'CREDIT' | 'DEBIT';
+  search?: string;
+  /** `aaaa-mm-jj`, bornes incluses, sur `dateMouvement`. */
+  du?: string;
+  au?: string;
+};
+
+/** Tri : colonnes du catalogue ayant un chemin, plus `id` ; défaut `dateMouvement,desc`. */
+export function listSuiviAffectations(
+  params: FiltresSuiviAffectations,
+  pageable?: Pageable,
+  options?: { colonnes?: string[]; depliage?: ParamsDepliage },
+): Promise<PageDto<LigneSuiviAffectationsDto>> {
+  const query: Record<string, QueryValue> = withPageable(params, pageable);
+  if (options?.colonnes && options.colonnes.length > 0) query.colonnes = options.colonnes;
+  withDepliage(query, options?.depliage);
+  return request('GET', '/api/suivi-affectations', { query });
+}
+
+/** Effectif d'un groupe : pièces annulées comprises ; Σ `montantAffecte` : hors annulées. */
+export function listSuiviAffectationsGroupes(
+  params: FiltresSuiviAffectations,
+  groupes: ParamsGroupes,
+  pageable?: Pageable,
+): Promise<PageGroupesDto> {
+  return request('GET', '/api/suivi-affectations/groupes', {
+    query: withGroupes(withPageable(params, pageable), groupes),
+  });
+}
+
+export function getColonnesSuiviAffectations(): Promise<ColonneDto[]> {
+  return request('GET', '/api/referentiels/colonnes/suivi-affectations');
+}
+
+/** Tous les statuts de dossier de vente (sorties comprises), ordre du workflow ; sans `SANS_STATUT`. */
+export function getStatutsSuiviAffectations(): Promise<StatutSuiviAffectationsDto[]> {
+  return request('GET', '/api/suivi-affectations/statuts');
 }
 
 export const getEntitesReferentiel = (): Promise<ReferentielItemDto[]> => request('GET', '/api/referentiels/entites');
