@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { ArrowUpRight, ChevronDown, ChevronRight, Phone, PhoneOff, UserPlus } from 'lucide-react';
 import { Avatar, Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from './ui';
 import { Button } from './ui/button';
@@ -9,6 +8,8 @@ import { TimelineList, TimelineRow } from './Timeline';
 import HistoriqueStatuts from './HistoriqueStatuts';
 import { getDossier, getProspection } from '../lib/api';
 import { useApi } from '../lib/useApi';
+import { usePreview } from '../lib/previewContext';
+import { CODE_PRE_PROSPECTION } from '../lib/parcours';
 import { etapeBadgeTone, interactionIcon, personDisplayName, prospectionDisplayName } from '../lib/domain';
 import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
 import { formatCurrency, formatDate, formatDateTime, formatFourchetteMontant, formatFourchetteSurface, formatPercentValue, formatTelephone } from '../lib/format';
@@ -18,7 +19,7 @@ type HotlineTab = 'general' | 'prospections' | 'dossiers' | 'reglements' | 'inte
 
 // Dépliée sur place plutôt que navigation : l'agent est en ligne, il ne doit pas perdre la fiche.
 function HotlineProspectionRow({ prospection: p, expanded, onToggle }: Readonly<{ prospection: ProspectionListItemDto; expanded: boolean; onToggle: () => void }>) {
-  const navigate = useNavigate();
+  const { ouvrirFicheProspection } = usePreview();
   const detail = useApi(() => (expanded ? getProspection(p.id) : Promise.resolve(null)), [expanded, p.id]);
 
   return (
@@ -43,7 +44,7 @@ function HotlineProspectionRow({ prospection: p, expanded, onToggle }: Readonly<
         <TableCell className="text-right tabular-nums">{p.prix ? formatCurrency(p.prix) : '—'}</TableCell>
         <TableCell className="text-muted-foreground">{formatDate(p.dateDocument)}</TableCell>
         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-          <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-body" onClick={() => navigate(`/prospections/${p.id}`)}>
+          <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-body" onClick={() => ouvrirFicheProspection(p.id, p.typeProspectionCode === CODE_PRE_PROSPECTION)}>
             Fiche complète <ArrowUpRight className="size-3" />
           </Button>
         </TableCell>
@@ -79,7 +80,7 @@ function HotlineProspectionRow({ prospection: p, expanded, onToggle }: Readonly<
 }
 
 function HotlineDossierRow({ dossier: d, expanded, onToggle }: Readonly<{ dossier: DossierListItemDto; expanded: boolean; onToggle: () => void }>) {
-  const navigate = useNavigate();
+  const { ouvrirFicheDossier } = usePreview();
   const detail = useApi(() => (expanded ? getDossier(d.id) : Promise.resolve(null)), [expanded, d.id]);
 
   return (
@@ -104,7 +105,7 @@ function HotlineDossierRow({ dossier: d, expanded, onToggle }: Readonly<{ dossie
         <TableCell className="text-right tabular-nums">{formatCurrency(d.totalAPayer)}</TableCell>
         <TableCell className="text-muted-foreground">{formatDate(d.dateDocument)}</TableCell>
         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-          <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-body" onClick={() => navigate(`/dossiers/${d.id}`)}>
+          <Button type="button" variant="ghost" size="sm" className="h-6 gap-1 px-1.5 text-body" onClick={() => ouvrirFicheDossier(d.id)}>
             Fiche complète <ArrowUpRight className="size-3" />
           </Button>
         </TableCell>
@@ -145,7 +146,7 @@ function HotlineDossierRow({ dossier: d, expanded, onToggle }: Readonly<{ dossie
 }
 
 function FicheCard({ fiche }: Readonly<{ fiche: HotlineFicheDto }>) {
-  const navigate = useNavigate();
+  const { ouvrirFicheProspect } = usePreview();
   const { tier } = fiche;
   const name = personDisplayName(tier);
   const prospections = fiche.prospections ?? [];
@@ -172,7 +173,7 @@ function FicheCard({ fiche }: Readonly<{ fiche: HotlineFicheDto }>) {
         </div>
       }
       action={
-        <Button type="button" variant="outline" size="sm" onClick={() => navigate(`/prospects/${tier.id}`)}>
+        <Button type="button" variant="outline" size="sm" onClick={() => ouvrirFicheProspect(tier.id)}>
           Voir la fiche complète <ArrowUpRight data-icon="inline-end" />
         </Button>
       }

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import LienFiche from '../../components/LienFiche';
 import { AlertTriangle, ArrowLeft, Check, FileText, RotateCcw, Upload, UserPlus } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import RefSelect from '../../components/RefSelect';
@@ -384,9 +385,9 @@ export default function ImportPreProspections() {
 function CodeLigne({ ligne }: Readonly<{ ligne: LigneImportDto }>) {
   if (ligne.preProspectionId) {
     return (
-      <Link to={`/pre-prospections/${ligne.preProspectionId}`} className="font-medium underline-offset-2 hover:underline">
+      <LienFiche cible={{ type: 'prospection', id: ligne.preProspectionId, pre: true }} className="font-medium underline-offset-2 hover:underline">
         {ligne.code || ligne.preProspectionId}
-      </Link>
+      </LienFiche>
     );
   }
   if (ligne.statut === 'NOUVELLE' || ligne.statut === 'DOUBLON') {
@@ -400,9 +401,9 @@ function LiensDoublons({ ids }: Readonly<{ ids: string[] }>) {
   return (
     <span className="ml-1">
       {ids.map((id, i) => (
-        <Link key={id} to={`/prospections/${id}`} className="underline-offset-2 hover:underline">
+        <LienFiche key={id} cible={{ type: 'prospection', id, pre: false }} className="underline-offset-2 hover:underline">
           {i > 0 ? ', ' : ''}voir{ids.length > 1 ? ` ${i + 1}` : ''}
-        </Link>
+        </LienFiche>
       ))}
     </span>
   );

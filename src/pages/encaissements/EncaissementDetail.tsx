@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import LienFiche from '../../components/LienFiche';
 import { Ban, ClipboardCheck, Wallet } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import CadreFiche, { EnteteFiche } from '../../components/CadreFiche';
@@ -141,7 +142,7 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
            statut s'écrit, par la barre d'action. */
         formulaire={
           <Card padded={false} className="h-full">
-            <div className="p-3">
+            <div className="p-2.5">
               <GrilleFiche>
                 <ChampLecture label="Entité" valeur={e.entiteLibelle} />
                 <ChampLecture label="Date pièce" valeur={formatDate(e.dateDocument)} />
@@ -157,7 +158,7 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
                 <ChampLecture label="Versement effectué par" valeur={e.tierPayeurNom} />
                 <ChampLecture label="N° de reçu" valeur={e.recuCode} />
                 <ChampLecture label="Libellé" valeur={e.description} multiligne />
-                {e.notes && <ChampLecture label="Notes" valeur={e.notes} multiligne apres={8} />}
+                {e.notes && <ChampLecture label="Notes" valeur={e.notes} multiligne />}
               </GrilleFiche>
             </div>
           </Card>
@@ -265,9 +266,9 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
                         <TableRow key={a.id}>
                           <TableCell>
                             {a.dossierId ? (
-                              <Link to={`/dossiers/${a.dossierId}`} className="text-(--info) hover:underline">
+                              <LienFiche cible={{ type: 'dossier', id: a.dossierId }} className="text-(--info) hover:underline">
                                 {a.dossierCode || 'Voir'}
-                              </Link>
+                              </LienFiche>
                             ) : (
                               a.dossierCode
                             )}

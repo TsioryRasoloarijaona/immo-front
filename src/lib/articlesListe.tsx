@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import type { NavigateFunction } from 'react-router-dom';
 import { Badge } from '../components/ui';
 import type { ColonneGrille } from '../components/DataGrid';
 import type { ArticleListFilters } from './api';
@@ -117,7 +116,7 @@ const tiret = <span className="text-muted-foreground">—</span>;
 const surfaceOuTiret = (v: unknown) => (typeof v === 'number' && v ? formatSurface(v) : tiret);
 
 /** Colonnes de la liste des articles ; le prix est `comSalePrice` (article + sous-articles affectés). */
-export function colonnesArticles(navigate: NavigateFunction): ColonneGrille<ArticleListItemDto>[] {
+export function colonnesArticles(ouvrirDossier: (id: string) => void): ColonneGrille<ArticleListItemDto>[] {
   return [
     { nom: 'description', libelle: 'Description', largeur: 11, classe: 'text-muted-foreground', titre: (a) => a.description || undefined },
     { nom: 'clientNom', libelle: 'Client', largeur: 8, classe: 'text-muted-foreground', titre: (a) => a.clientNom || undefined },
@@ -155,7 +154,7 @@ export function colonnesArticles(navigate: NavigateFunction): ColonneGrille<Arti
             onClick={(e) => {
               if (!a.dossierId) return;
               e.stopPropagation();
-              void navigate(`/dossiers/${a.dossierId}`);
+              ouvrirDossier(a.dossierId);
             }}
           >
             {a.dossierCode}

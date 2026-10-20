@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
 import { Copy, ShieldAlert, Check } from 'lucide-react';
+import LienFiche from './LienFiche';
 import type { ProspectionDetailDto } from '../types';
 
 /* Un bandeau, pas une pastille : le marqueur ne change pas l'étape, une fiche
@@ -53,9 +53,9 @@ export default function MarqueurTri({ p }: Readonly<{ p: ProspectionDetailDto }>
           {/* Le lien se conditionne à l'id, jamais au code : `CfgTier.Code` n'est
               pas unique en base, un lien sur le code mènerait n'importe où. */}
           {p.doublonDeId ? (
-            <Link to={`/prospects/${p.doublonDeId}`} className="font-medium underline underline-offset-2">
+            <LienFiche cible={{ type: 'prospect', id: p.doublonDeId }} className="font-medium underline underline-offset-2">
               {p.doublonDeNom || p.doublonDeCode}
-            </Link>
+            </LienFiche>
           ) : (
             <span className="font-medium" title="Code ambigu en base — le serveur ne peut pas désigner un tiers unique.">
               {p.doublonDeCode}

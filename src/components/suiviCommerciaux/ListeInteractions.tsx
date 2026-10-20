@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { RotateCcw } from 'lucide-react';
 import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../ui';
 import { Button } from '../ui/button';
@@ -14,6 +13,7 @@ import { DEFAULT_PAGE_SIZE, listSuiviCommerciaux, listSuiviCommerciauxGroupes, t
 import { grilleDepuisCatalogue, useColonnesVisibles } from '../../lib/colonnes';
 import { DISPOSITION_SUIVI_COMMERCIAUX } from '../../lib/dispositions';
 import { pluriel } from '../../lib/format';
+import { usePreview } from '../../lib/previewContext';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
 import { useColonnesSuiviCommerciaux } from '../../lib/referentiels';
 import { catalogueGroupement, filtresDuGroupe, paramsSuivi, type FiltresListeSuivi } from '../../lib/suiviCommerciaux';
@@ -53,7 +53,7 @@ export default function ListeInteractions({
   actifs: boolean;
   commerciaux: { label: string; value: string }[];
 }>) {
-  const navigate = useNavigate();
+  const { ouvrirFicheProspection } = usePreview();
   const search = useDebouncedValue(filtres.search);
   const params = paramsSuivi({ ...filtres, search });
   const cle = JSON.stringify(params);
@@ -99,7 +99,7 @@ export default function ListeInteractions({
 
   function ouvrir(id: string) {
     const prospectionId = lignes.find((l) => l.id === id)?.prospectionId;
-    if (prospectionId) void navigate(`/prospections/${prospectionId}`);
+    if (prospectionId) ouvrirFicheProspection(prospectionId, false);
   }
 
   return (

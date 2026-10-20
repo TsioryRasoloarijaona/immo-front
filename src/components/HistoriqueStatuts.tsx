@@ -1,6 +1,5 @@
 import { Badge } from './ui';
-import LienFiche from './patrimoine/LienFiche';
-import { usePreview } from '../lib/previewContext';
+import LienFiche from './LienFiche';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
 import { formatDateTime } from '../lib/format';
@@ -14,7 +13,6 @@ export default function HistoriqueStatuts({ lignes, avecOrigine = false, sansArt
   avecOrigine?: boolean;
   sansArticle?: boolean;
 }>) {
-  const { ouvrirFicheDossier } = usePreview();
   return (
     <div className="overflow-x-auto">
       <Table>
@@ -40,9 +38,13 @@ export default function HistoriqueStatuts({ lignes, avecOrigine = false, sansArt
                 <TableCell>{etat ? <Badge tone={toneForStatus(etat)}>{etat}</Badge> : '—'}</TableCell>
                 {avecOrigine && <TableCell>{h.origine ? LIBELLE_ORIGINE[h.origine] : '—'}</TableCell>}
                 <TableCell className="whitespace-nowrap">
-                  <LienFiche onOuvrir={h.dossierId ? () => ouvrirFicheDossier(h.dossierId as string) : undefined}>
-                    {h.dossierCode || (h.dossierId ? 'Voir le dossier' : '—')}
-                  </LienFiche>
+                  {h.dossierId ? (
+                    <LienFiche cible={{ type: 'dossier', id: h.dossierId }} className="font-medium text-(--brand) hover:underline">
+                      {h.dossierCode || 'Voir le dossier'}
+                    </LienFiche>
+                  ) : (
+                    h.dossierCode || '—'
+                  )}
                 </TableCell>
                 {avecOrigine && <TableCell>{h.client || '—'}</TableCell>}
                 {!sansArticle && <TableCell className="whitespace-nowrap text-muted-foreground">{h.articleCode || '—'}</TableCell>}

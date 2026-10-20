@@ -1,12 +1,11 @@
 import { Badge } from '../ui';
 import EtatListe from './EtatListe';
-import LienFiche from './LienFiche';
+import LienFiche from '../LienFiche';
 import TableauLecture, { type ColonneLecture } from './TableauLecture';
 import { listDossiersArticle } from '../../lib/apiArticleOnglets';
 import { LIBELLE_ORIGINE } from '../../lib/articleOnglets';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import { formatCurrency } from '../../lib/format';
-import { usePreview } from '../../lib/previewContext';
 import { useApi } from '../../lib/useApi';
 import type { ArticleDossierDto } from '../../types/articleOnglets';
 
@@ -15,16 +14,18 @@ const montant = (v?: number | null) => (v == null ? '—' : formatCurrency(v));
 /** Ventes, locations et syndics de l'article ; seule une vente ouvre sa fiche (en dialogue). */
 export default function DossiersArticle({ articleId }: Readonly<{ articleId: string }>) {
   const dossiers = useApi(() => listDossiersArticle(articleId), [articleId]);
-  const { ouvrirFicheDossier } = usePreview();
   const colonnes: ColonneLecture<ArticleDossierDto>[] = [
     { titre: 'Origine', rendu: (d) => (d.origine ? <Badge tone="neutral">{LIBELLE_ORIGINE[d.origine]}</Badge> : '—') },
     {
       titre: 'Code',
-      rendu: (d) => (
-        <LienFiche onOuvrir={d.origine === 'VENTE' && d.id ? () => ouvrirFicheDossier(d.id as string) : undefined}>
-          {d.code || '—'}
-        </LienFiche>
-      ),
+      rendu: (d) =>
+        d.origine === 'VENTE' && d.id ? (
+          <LienFiche cible={{ type: 'dossier', id: d.id }} className="font-medium text-(--brand) hover:underline">
+            {d.code || '—'}
+          </LienFiche>
+        ) : (
+          d.code || '—'
+        ),
     },
     { titre: 'Statut', rendu: (d) => (d.statut ? <Badge tone={toneForStatus(canonicalStatusLabel(d.statut))}>{canonicalStatusLabel(d.statut)}</Badge> : '—') },
     { titre: 'Client', rendu: (d) => d.client || '—' },
