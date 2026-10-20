@@ -13276,56 +13276,6 @@
             "example": "categorieLibelle"
           },
           {
-            "name": "agregats",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "example": "montantAffecte"
-          },
-          {
-            "name": "granularite",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "JOUR",
-                "MOIS",
-                "ANNEE"
-              ]
-            },
-            "example": "MOIS"
-          },
-          {
-            "name": "tri",
-            "in": "query",
-            "description": "LIBELLE (défaut) ou NOMBRE (effectif décroissant).",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "LIBELLE",
-                "NOMBRE"
-              ]
-            },
-            "example": "NOMBRE"
-          },
-          {
-            "name": "inclureSansValeur",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "default": false
-            },
-            "example": false
-          },
-          {
             "name": "entiteId",
             "in": "query",
             "description": "Id(s) d'entité (société du projet, CfgCompany.id), répétable.",
@@ -13459,6 +13409,59 @@
             "example": "2025-12-31"
           },
           {
+            "name": "inclureSansValeur",
+            "in": "query",
+            "description": "Vrai : groupe des lignes sans valeur inclus.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": true
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Pas d'une colonne date.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "MOIS"
+          },
+          {
+            "name": "tri",
+            "in": "query",
+            "description": "LIBELLE (défaut) ou NOMBRE (effectif décroissant).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LIBELLE",
+                "NOMBRE"
+              ]
+            },
+            "example": "NOMBRE"
+          },
+          {
+            "name": "agregats",
+            "in": "query",
+            "description": "Jetons d'agrégat par groupe.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "montantAffecte"
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -13492,16 +13495,6 @@
         "summary": "Export Excel du suivi des affectations, filtres et colonnes appliqués",
         "operationId": "exporter_1",
         "parameters": [
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "xlsx"
-            },
-            "example": "xlsx"
-          },
           {
             "name": "entiteId",
             "in": "query",
@@ -13648,6 +13641,17 @@
             "example": "categorieLibelle,trancheCode,articleCode,montantAffecte,dateMouvement"
           },
           {
+            "name": "format",
+            "in": "query",
+            "description": "Seul xlsx est accepté.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
             "name": "sort",
             "in": "query",
             "description": "Tri `colonne,asc|desc`, répétable, comme la liste. Défaut : dateMouvement,desc.",
@@ -13662,7 +13666,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Classeur .xlsx, feuille DONNEES.",
+            "description": "Classeur Excel, une feuille DONNEES.",
             "content": {
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
                 "schema": {
@@ -13673,7 +13677,7 @@
             }
           },
           "400": {
-            "description": "Bad Request"
+            "description": "Format autre que xlsx, colonne, tri ou filtre invalide."
           }
         }
       }
@@ -35170,6 +35174,10 @@
             "type": "string",
             "format": "uuid",
             "description": "StlSettlement.PKey de la pièce de règlement."
+          },
+          "pieceOuvrable": {
+            "type": "boolean",
+            "description": "Vrai si la fiche /encaissements/{pieceId} s'ouvre (IsCredit = 1) ; faux pour un débit ou un IsCredit vide."
           },
           "pieceLibelle": {
             "type": "string",

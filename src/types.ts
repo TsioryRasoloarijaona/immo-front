@@ -3915,6 +3915,9 @@ export interface LigneSuiviAffectationsDto {
   /** « Sans statut » si le dossier n'en a pas. */
   statutDossierLibelle?: string | null;
   pieceId?: UUID;
+  /** Vrai si `/encaissements/:pieceId` s'ouvre (`IsCredit = 1`) ; faux pour un débit ou un `IsCredit` vide.
+   * Hors défaut : à demander dans `colonnes`. */
+  pieceOuvrable?: boolean;
   pieceLibelle?: string | null;
   pieceReference?: string | null;
   recuReference?: string | null;
