@@ -4,7 +4,7 @@ import { FolderX } from 'lucide-react';
 import { Button } from '../ui/button';
 import DialogueDesistement from './DialogueDesistement';
 import { useAuth } from '../../lib/auth';
-import { useDesistementDuDossier } from '../../lib/desistements';
+import { useDesistementDuDossier, useDossierEligibleDesistement } from '../../lib/desistements';
 import { estChefOuExempte } from '../../lib/roles';
 
 /** Écriture réservée à Administrateur, Direction Générale et Commercial Chef (le serveur répond 403 aux autres). */
@@ -13,8 +13,11 @@ export default function BoutonDesistement({ dossierId }: Readonly<{ dossierId: s
   const navigate = useNavigate();
   const existant = useDesistementDuDossier(dossierId);
   const [ouvert, setOuvert] = useState(false);
+  const autorise = estChefOuExempte(user);
+  const eligible = useDossierEligibleDesistement(dossierId, autorise && !existant.loading && !existant.data);
 
-  if (!estChefOuExempte(user) || (existant.loading && !existant.data)) return null;
+  if (!autorise || (existant.loading && !existant.data)) return null;
+  if (!existant.data && !eligible.data) return null;
 
   const ouvrirFiche = (id: string) => navigate(`/desistements/${id}`);
   return (

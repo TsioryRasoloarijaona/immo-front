@@ -28,6 +28,10 @@ export default function ModifierDesistementDialog({
   const [motifId, setMotifId] = useState(d.motifId ?? '');
   const [observations, setObservations] = useState(d.observations ?? '');
   const [remise, setRemise] = useState(versPourcent(d.remise));
+  const [penalite, setPenalite] = useState(String(d.penaliteApresRemise ?? 0));
+  const montantPenalite = montantSaisi(penalite);
+  const remiseModifiee = remise !== versPourcent(d.remise);
+  const penaliteModifiee = penalite !== String(d.penaliteApresRemise ?? 0);
   const [typeId, setTypeId] = useState(d.typeReglementId ?? '');
   const [banqueId, setBanqueId] = useState(d.banqueId ?? '');
   const [reference, setReference] = useState(d.reference ?? '');
@@ -37,7 +41,7 @@ export default function ModifierDesistementDialog({
     <FormulaireModal
       title="Modifier le désistement"
       libelle="Enregistrer"
-      valide={!brouillon || (pourcent !== null && pourcent >= 0 && pourcent <= 100)}
+      valide={!brouillon || (pourcent !== null && pourcent >= 0 && pourcent <= 100 && montantPenalite !== null && montantPenalite >= 0)}
       onClose={onClose}
       onSubmit={async () => {
         await modifierDesistement(d.id, {
@@ -46,7 +50,9 @@ export default function ModifierDesistementDialog({
           dateLegalisation: toApiDateTime(dateLegalisation),
           motifId: motifId || undefined,
           observations,
-          remise: brouillon && pourcent !== null ? versFraction(pourcent) : undefined,
+          // Un seul des deux est envoyé : le serveur recalcule l'autre (remise ↔ pénalité).
+          remise: brouillon && remiseModifiee && pourcent !== null ? versFraction(pourcent) : undefined,
+          penaliteApresRemise: brouillon && penaliteModifiee && !remiseModifiee ? (montantPenalite ?? undefined) : undefined,
           typeReglementId: typeId || undefined,
           banqueId: banqueId || undefined,
           reference: reference || undefined,
@@ -60,6 +66,7 @@ export default function ModifierDesistementDialog({
         <ChampDate label="Date de légalisation" value={dateLegalisation} onChange={setDateLegalisation} />
         <ChampListe label="Motif" items={referentielItems(motifs.data)} value={motifId} onChange={setMotifId} chargement={motifs.loading} />
         {brouillon && <ChampTexte label="Remise sur la pénalité (%)" value={remise} maxLength={8} onChange={setRemise} />}
+        {brouillon && <ChampTexte label="Pénalité après remise (DH)" value={penalite} maxLength={14} onChange={setPenalite} />}
         <ChampListe
           label="Type de règlement"
           items={referentielItems(types.data)}

@@ -1,4 +1,4 @@
-import { ApiError, getDesistementDuDossier, type DesistementsFilterParams } from './api';
+import { ApiError, getDesistementDuDossier, simulerDesistement, type DesistementsFilterParams } from './api';
 import { useApi } from './useApi';
 import type { BadgeTone, DesistementDto, EtatDesistement } from '../types';
 
@@ -57,6 +57,14 @@ export const ETATS_DESISTEMENT: Record<EtatDesistement, { libelle: string; tone:
 /** La légalisation est exigée dès que la pénalité après remise n'est pas nulle (409/400 sinon). */
 export function legalisationRequise(penaliteApresRemise: number | null | undefined): boolean {
   return (penaliteApresRemise ?? 0) !== 0;
+}
+
+/** Éligible = la simulation répond 200 ; un 409 (non éligible) ou toute erreur masque le bouton. */
+export function useDossierEligibleDesistement(dossierId: string, actif: boolean) {
+  return useApi<boolean>(
+    () => (actif ? simulerDesistement(dossierId).then(() => true, () => false) : Promise.resolve(false)),
+    [dossierId, actif],
+  );
 }
 
 /** Le désistement du dossier, ou `null` s'il n'en a pas (404). */
