@@ -167,7 +167,7 @@ export const DEFAULT_PAGE_SIZE = 20;
 
 type ParamsRequete = Record<string, string | number | boolean | string[] | undefined | null>;
 
-function withPageable(params: ParamsRequete | undefined, pageable?: Pageable): ParamsRequete {
+export function withPageable(params: ParamsRequete | undefined, pageable?: Pageable): ParamsRequete {
   return {
     ...params,
     page: pageable?.page ?? 0,
