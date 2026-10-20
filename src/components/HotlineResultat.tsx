@@ -5,7 +5,7 @@ import { Button } from './ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { TimelineList, TimelineRow } from './Timeline';
-import HistoriqueTiersTable from './HistoriqueTiersTable';
+import HistoriqueStatuts from './HistoriqueStatuts';
 import { getDossier, getProspection } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { usePreview } from '../lib/previewContext';
@@ -376,7 +376,7 @@ function FicheCard({ fiche }: Readonly<{ fiche: HotlineFicheDto }>) {
             {historique.length === 0 ? (
               <EmptyState title="Aucun historique" />
             ) : (
-              <HistoriqueTiersTable lignes={historique} />
+              <HistoriqueStatuts lignes={historique} />
             )}
           </TabsContent>
         </div>

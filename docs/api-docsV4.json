@@ -12,6 +12,10 @@
   ],
   "tags": [
     {
+      "name": "Pièces jointes du patrimoine",
+      "description": "Pièces jointes des articles, tranches et programmes (AdmAttachedFile, CategoryId = PKey du porteur)."
+    },
+    {
       "name": "Actions d'article",
       "description": "Actions et alertes (ComActionMessage) d'un article ; programme et tranche n'en ont pas (aucune colonne)."
     },
@@ -108,6 +112,10 @@
       "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. Sans filtre `categorieId`, les **annexes** (`IsUnderItem` — parkings, terrasses, jardins, mêmes racines sans parent) sont écartées, comme dans l'écran Articles du logiciel de bureau ; cocher explicitement leur catégorie les fait réapparaître. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
     },
     {
+      "name": "Articles — onglets",
+      "description": "Onglets de lecture de la fiche article : prospections, dossiers, historique."
+    },
+    {
       "name": "Synchronisation",
       "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
     },
@@ -170,6 +178,10 @@
     {
       "name": "Mon équipe",
       "description": "Écran « Mon équipe » du chef commercial. Réservé aux rôles `Commercial Chef`, `Administrateur` et `Direction Générale`.\n\nL'équipe d'un chef = les comptes actifs « Commercial » ou « Commercial Aide » affectés à au moins un de ses projets (`AdmUserHabilitation`). Administrateur et Direction Générale voient tous les commerciaux actifs et tous les projets. Toutes les routes passent par ce même calcul ; un compte désactivé n'est jamais membre.\n\nLes écritures (distribuer, réaffecter, affectations) vont directement dans les tables d'OMRAN, sans validation : un lot est contrôlé en entier avant la première écriture et un lot partiellement invalide n'écrit rien."
+    },
+    {
+      "name": "Référentiels (administration)",
+      "description": "Écran Configuration : les référentiels OMRAN (Articles, Prospections de terrains, Autres) en lecture pour tout compte\nconnecté et en écriture pour l'Administrateur. Une seule implémentation pilotée par le descripteur de chaque\nréférentiel (`GET /api/referentiels-admin`) : une ligne lue ou écrite est un objet JSON dont les clés sont les `nom`\ndes champs, plus `id`. Hors portée des clés d'API (403). Voir `FEATURE-patrimoine-referentiels.md`."
     },
     {
       "name": "Dossiers — règlements",
@@ -2033,6 +2045,193 @@
         }
       }
     },
+    "/api/{porteur}/{id}/pieces-jointes": {
+      "get": {
+        "tags": [
+          "Pièces jointes du patrimoine"
+        ],
+        "summary": "Liste les pièces jointes d'un article, d'une tranche ou d'un programme",
+        "description": "Pièces jointes rattachées au porteur (`AdmAttachedFile.CategoryId` = PKey de l'article, de la tranche ou du programme),\nsans filtre sur le type ni sur `Category`, la plus récente d'abord. Les lignes « cochées mais jamais déposées » et les\npièces supprimées logiquement sont exclues. Porteur d'une entité juridique inactive → 404, comme sa fiche.",
+        "operationId": "lister_1",
+        "parameters": [
+          {
+            "name": "porteur",
+            "in": "path",
+            "description": "Genre du porteur : articles, tranches ou projets.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du porteur (StkItem, CfgTranche ou CfgProject).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pièces jointes, la plus récente d'abord (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PieceJointeDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Porteur inconnu, ou de l'entité juridique inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PieceJointeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Pièces jointes du patrimoine"
+        ],
+        "summary": "Dépose une pièce jointe sur un article, une tranche ou un programme",
+        "description": "Multipart `fichier` ; `description`, `typeId` et `groupe` facultatifs. Extensions admises (pour **tous** les dépôts du\nCRM, dossiers et règlements compris) : pdf, jpg, jpeg, jfif, png, gif, webp, heic, doc, docx, xls, xlsx, txt — l'extension\nseule décide, le type MIME déclaré n'est pas lu ; fichier sans extension ou d'une autre extension (svg, dwg…) → 400\nnommant la liste. Plus de 50 Mo → 413, rien n'est écrit. La légende (`description`, sinon le nom d'origine) est\nassainie : séparateurs de chemin et caractères de contrôle retirés. Écrit `Category` (`Yes.Stk.Building.Item`,\n`Yes.Cfg.CfgTranche` ou `Yes.Cfg.CfgProject`), `CategoryDescription` (code de l'article, description de la tranche,\ncode du programme) et une ligne d'audit `Added`.",
+        "operationId": "ajouter",
+        "parameters": [
+          {
+            "name": "porteur",
+            "in": "path",
+            "description": "Genre du porteur : articles, tranches ou projets.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du porteur (StkItem, CfgTranche ou CfgProject).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "description": "Légende libre. Absent = nom de fichier d'origine (assaini).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Type de document (AdmAttachedFileType.PKey), voir GET /api/referentiels/types-piece-jointe.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "groupe",
+            "in": "query",
+            "description": "Groupe libre (FoderGroup), voir GET /api/articles/groupes-piece-jointe.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Contenu du fichier à déposer."
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Pièce jointe créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fichier absent ou vide, sans extension ou d'extension non admise.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Porteur inconnu ou masqué, ou typeId inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Fichier de plus de 50 Mo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/utilisateurs/{admUserId}/reinitialiser-mot-de-passe": {
       "post": {
         "tags": [
@@ -2580,6 +2779,145 @@
         }
       }
     },
+    "/api/tranches/{id}/pieces-jointes/masse": {
+      "post": {
+        "tags": [
+          "Pièces jointes du patrimoine"
+        ],
+        "summary": "Attache des fichiers aux articles de la tranche dont le code est le nom du fichier",
+        "description": "Écran OMRAN « Attachement de fichiers » (`ItemList.AttachFile`). Pour chaque fichier, le nom sans extension est comparé\nau code des articles **de nature Bâtiment** de la tranche (sous-articles et terrains exclus), en égalité **stricte,\nsensible à la casse**. Article trouvé : s'il porte déjà une pièce du même `typeId`, la plus récente est **remplacée**\n(même PKey, contenu, extension, groupe, légende et type réécrits, nouvel objet de stockage) → `REMPLACE` ; sinon une\npièce `Yes.Stk.Building.Item` est créée → `ATTACHE`. Aucun article → `CODE_INTROUVABLE` (« Code article\nintrouvable »). Fichier refusé (vide, extension, taille) → `REFUSE` avec le motif. **Une transaction par fichier** : un\nrefus n'annule pas les autres, et un échec en cours de lot laisse écrits les fichiers déjà traités. Le front découpe\nles envois en lots de moins de 50 Mo et de 100 fichiers au plus (limite du nombre de parties multipart).",
+        "operationId": "attacherEnMasse",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Type de document (AdmAttachedFileType.PKey), voir GET /api/referentiels/types-piece-jointe.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "groupe",
+            "in": "query",
+            "description": "Groupe libre (FoderGroup), voir GET /api/articles/groupes-piece-jointe.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "description": "Légende commune. Absent = nom de chaque fichier (assaini).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichiers": {
+                    "type": "array",
+                    "description": "Fichiers, partie répétée ; nom sans extension = code de l'article.",
+                    "items": {
+                      "type": "string",
+                      "format": "binary"
+                    }
+                  }
+                },
+                "required": [
+                  "fichiers"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bilan, une ligne par fichier, dans l'ordre d'envoi.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BilanAttachementDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "typeId ou fichiers absents.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BilanAttachementDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BilanAttachementDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche inconnue ou masquée, ou typeId inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BilanAttachementDto"
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Requête de plus de 50 Mo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/BilanAttachementDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tranches/{id}/mettre-a-jour-schemas": {
       "post": {
         "tags": [
@@ -2679,6 +3017,173 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/SynchronisationResultatDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-admin/{table}": {
+      "get": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Lignes d'un référentiel",
+        "description": "Lignes complètes, triées par ordre (`sorting`) puis code quand la table en a. Un référentiel par tranche (types de\nprésentation, quotes-parts exonérées, seuils de versement) ne liste jamais une ligne d'une tranche dont l'entité\njuridique est inactive ; un seuil sans tranche est global. Les seuils de versement ne listent que ceux des dossiers\nde vente (`ComFolder`) : les lignes des autres entités de workflow restent intactes et invisibles. `trancheId` et\n`global` sont ignorés par un référentiel sans tranche.",
+        "operationId": "lignes",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "description": "Slug du référentiel (voir GET /api/referentiels-admin).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "orientations"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Texte cherché dans les valeurs textuelles (casse ignorée).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Référentiel par tranche : lignes de cette tranche seulement.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "global",
+            "in": "query",
+            "description": "Référentiel par tranche : vrai = lignes sans tranche seulement.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes visibles, clés = noms des champs du descripteur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Slug inconnu, ou tranche filtrée inconnue ou non visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Crée une ligne",
+        "description": "Tous les champs obligatoires du descripteur sont requis ; une clé hors descripteur → 400. Texte : au plus\n`longueurMax` caractères, les obligatoires sont rognés ; `REFERENCE` : PKey d'une ligne de la liste de choix (sinon\n400 nommant le champ), une tranche inconnue ou d'une entité inactive → 404 ; `FRACTION` entre 0 et 1 ; `OPERATEUR`\n0 (sans contrôle), 1 (`>=`) ou 2 (`>`). Unicité : une autre ligne de même clé (code ; nature + code pour catégories et\ntypes ; tranche + code pour les présentations ; tranche + année pour les quotes-parts ; tranche + statut pour les\nseuils, une tranche absente comptant comme une valeur) → 409. Un seuil est toujours écrit pour les dossiers de vente\net son statut doit être un statut de dossier de vente (sinon 400).",
+        "operationId": "creerLigne",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "description": "Slug du référentiel (voir GET /api/referentiels-admin).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Ligne créée, relue (avec son id).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ inconnu, obligatoire manquant, valeur ou référence invalide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Slug inconnu, ou tranche inconnue ou non visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Doublon de la clé d'unicité, ou code d'une ligne protégée modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
                 }
               }
             }
@@ -4994,7 +5499,7 @@
           "Notes"
         ],
         "summary": "Notes d'un programme, d'une tranche ou d'un article, plus récentes d'abord",
-        "operationId": "lister_1",
+        "operationId": "lister_2",
         "parameters": [
           {
             "name": "porteur",
@@ -5837,7 +6342,7 @@
           "Entités juridiques"
         ],
         "summary": "Liste des entités, actives ou non (colonnes de la liste OMRAN)",
-        "operationId": "lister_2",
+        "operationId": "lister_3",
         "parameters": [
           {
             "name": "actif",
@@ -6507,7 +7012,7 @@
           "Dossiers — sous-articles"
         ],
         "summary": "Sous-articles du dossier et prix qui en dépendent",
-        "operationId": "lister_3",
+        "operationId": "lister_4",
         "parameters": [
           {
             "name": "id",
@@ -6549,7 +7054,7 @@
         ],
         "summary": "Ajoute un sous-article et recalcule le taux de remise",
         "description": "L'article doit être un sous-article libre (`IsUnderItem`, sans `ParentId`, ni dossier ni location, pas « toujours affecté ») de la tranche et de la vocation du dossier, comme le sélecteur d'OMRAN (`UnderItems.cs`). Il est rattaché au dossier et à l'article principal.",
-        "operationId": "ajouter",
+        "operationId": "ajouter_1",
         "parameters": [
           {
             "name": "id",
@@ -6696,7 +7201,7 @@
         ],
         "summary": "Règlements du dossier avec leur part affectée et leur reste à affecter",
         "description": "Règlements ayant au moins une ligne sur une échéance de ce dossier, saisie la plus récente d'abord (`DocDate` puis `UserCreateDateTime` décroissants). `montantAffecte` et `resteAAffecter` portent sur toutes les lignes du règlement, `affectations` sur celles de ce dossier seulement.",
-        "operationId": "lister_4",
+        "operationId": "lister_5",
         "parameters": [
           {
             "name": "id",
@@ -6935,7 +7440,7 @@
             }
           },
           "400": {
-            "description": "Fichier absent ou vide.",
+            "description": "Fichier absent ou vide, sans extension ou d'extension non admise.",
             "content": {
               "*/*": {
                 "schema": {
@@ -6946,6 +7451,16 @@
           },
           "404": {
             "description": "Dossier ou règlement introuvable, règlement non rattaché à ce dossier, ou `typeId` inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Fichier de plus de 50 Mo.",
             "content": {
               "*/*": {
                 "schema": {
@@ -7158,7 +7673,7 @@
             }
           },
           "400": {
-            "description": "Fichier absent ou vide.",
+            "description": "Fichier absent ou vide, sans extension ou d'extension non admise.",
             "content": {
               "*/*": {
                 "schema": {
@@ -7176,6 +7691,16 @@
                 }
               }
             }
+          },
+          "413": {
+            "description": "Fichier de plus de 50 Mo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
           }
         }
       }
@@ -7186,7 +7711,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Demandes de modification du dossier et montants qui en découlent",
-        "operationId": "lister_5",
+        "operationId": "lister_6",
         "parameters": [
           {
             "name": "id",
@@ -7227,7 +7752,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Ajoute une demande de modification",
-        "operationId": "ajouter_1",
+        "operationId": "ajouter_2",
         "parameters": [
           {
             "name": "id",
@@ -7280,7 +7805,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Modalité de paiement : schéma de financement figé à la vente",
-        "operationId": "lister_6",
+        "operationId": "lister_7",
         "parameters": [
           {
             "name": "id",
@@ -7327,7 +7852,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Ajoute une ligne de modalité de paiement",
-        "operationId": "ajouter_2",
+        "operationId": "ajouter_3",
         "parameters": [
           {
             "name": "id",
@@ -7857,7 +8382,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Cadeaux du dossier",
-        "operationId": "lister_7",
+        "operationId": "lister_8",
         "parameters": [
           {
             "name": "id",
@@ -7904,7 +8429,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Ajoute un cadeau au dossier",
-        "operationId": "ajouter_3",
+        "operationId": "ajouter_4",
         "parameters": [
           {
             "name": "id",
@@ -7989,7 +8514,7 @@
           "Dossiers — actions"
         ],
         "summary": "Actions du dossier et leur nombre par type",
-        "operationId": "lister_8",
+        "operationId": "lister_9",
         "parameters": [
           {
             "name": "id",
@@ -8519,7 +9044,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_9",
+        "operationId": "lister_10",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -9360,7 +9885,7 @@
           "Actions d'article"
         ],
         "summary": "Actions portant sur l'article (dossiers compris), plus récentes d'abord",
-        "operationId": "lister_10",
+        "operationId": "lister_11",
         "parameters": [
           {
             "name": "id",
@@ -9699,6 +10224,201 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-admin/{table}/{id}": {
+      "get": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Une ligne d'un référentiel",
+        "description": "Même ligne que dans la liste. Les types de présentation portent `contenances`, la liste de leurs lignes de contenance.",
+        "operationId": "ligne",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "description": "Slug du référentiel (voir GET /api/referentiels-admin).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey de la ligne.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La ligne.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Slug inconnu, ligne inconnue, hors écran ou d'une tranche non visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Supprime une ligne",
+        "description": "Refusée (409) pour une ligne protégée, pour une ligne encore citée par une autre table (le `detail` nomme la\ncontrainte), et quand la base effacerait en cascade des données d'article : tracés de plan d'un étage, vues ou\ncontenances d'article, catégories et types d'une nature (le `detail` nomme la table enfant et le nombre de lignes).\nSeule exception : les contenances d'un type de présentation partent avec lui.",
+        "operationId": "supprimerLigne",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "description": "Slug du référentiel (voir GET /api/referentiels-admin).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey de la ligne.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Ligne supprimée (et ses lignes enfants propres)."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Slug inconnu, ligne inconnue, hors écran ou d'une tranche non visible."
+          },
+          "409": {
+            "description": "Ligne protégée, référencée ailleurs, ou porteuse de lignes en cascade."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Modifie une ligne (champ absent = inchangé)",
+        "description": "Seuls les champs présents changent ; `null` vide un champ facultatif et un obligatoire refuse d'être vidé (400). Mêmes\ncontrôles qu'à la création, sur la ligne résultante. Le code d'une ligne protégée (vocations `VENTE`, `PROJET` ; natures\n`BAT`, `TER`, `PROS TER`, `LOT DE TERRAIN`, reconnues par PKey comme par code) ne change pas → 409 ; sa description\nreste modifiable. `contenances` présent remplace toutes les lignes de contenance de la présentation.",
+        "operationId": "modifierLigne",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "description": "Slug du référentiel (voir GET /api/referentiels-admin).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey de la ligne.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ligne modifiée, relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ inconnu, obligatoire manquant, valeur ou référence invalide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Slug inconnu, ligne inconnue, hors écran ou d'une tranche non visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Doublon de la clé d'unicité, ou code d'une ligne protégée modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
                 }
               }
             }
@@ -11785,6 +12505,55 @@
         }
       }
     },
+    "/api/{porteur}/{id}/pieces-jointes/{pieceId}/fichier": {
+      "get": {
+        "tags": [
+          "Pièces jointes du patrimoine"
+        ],
+        "summary": "Affiche ou télécharge une pièce jointe (redirection vers l'URL présignée)",
+        "description": "**Renvoie une redirection `302` vers une URL présignée**, pas le contenu : le fichier transite directement entre le\nclient et le stockage S3. L'URL vaut autorisation quelques minutes ; elle n'est délivrée qu'après vérification que la\npièce appartient au porteur. Disposition `inline` (affichage d'un plan sans téléchargement), nom = légende de la pièce.",
+        "operationId": "fichier",
+        "parameters": [
+          {
+            "name": "porteur",
+            "in": "path",
+            "description": "Genre du porteur : articles, tranches ou projets.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du porteur (StkItem, CfgTranche ou CfgProject).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pieceId",
+            "in": "path",
+            "description": "Id de la pièce jointe (AdmAttachedFile.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirection vers l'URL présignée du fichier."
+          },
+          "404": {
+            "description": "Porteur inconnu ou masqué, pièce d'un autre porteur, ou sans fichier."
+          }
+        }
+      }
+    },
     "/api/utilisateurs": {
       "get": {
         "tags": [
@@ -12369,7 +13138,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_11",
+        "operationId": "lister_12",
         "parameters": [
           {
             "name": "du",
@@ -13053,7 +13822,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_12",
+        "operationId": "lister_13",
         "parameters": [
           {
             "name": "entiteId",
@@ -16124,6 +16893,80 @@
         }
       }
     },
+    "/api/referentiels-admin": {
+      "get": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Descripteurs des référentiels administrables (champs, types, choix)",
+        "description": "Les 19 référentiels, dans l'ordre des menus OMRAN. Pour chacun : ses champs (type, obligatoire, appartenance à la clé\nd'unicité, longueur maximale), la route de la liste de choix de chaque référence, les valeurs d'un opérateur, les\nchamps des lignes enfants (`LIGNES`), et les codes protégés.",
+        "operationId": "descripteurs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DescripteurReferentielDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-admin/choix/{liste}": {
+      "get": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Liste de choix sans route existante (catégories comptables, types de marché, statuts, règlements)",
+        "operationId": "choix",
+        "parameters": [
+          {
+            "name": "liste",
+            "in": "path",
+            "description": "Slug de la liste, tel que donné par ChampReferentielDto.choix.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "statuts-vente"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes triées par ordre puis code.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Liste inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prospects/{id}/reglements": {
       "get": {
         "tags": [
@@ -17990,7 +18833,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_13",
+        "operationId": "lister_14",
         "parameters": [
           {
             "name": "page",
@@ -19031,7 +19874,7 @@
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
         "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : `prixVenteTTC` = prix catalogue (`ComSalePrice`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; `statutLibelle`, `clientNom`, `commercial`, `dossierId`, `montantRegle` et `resteARegler` ne sont pas triables (400). `montantRegle` = prix de vente réglé du dossier, même calcul que la liste des dossiers ; demandé, il coûte deux requêtes par page.",
-        "operationId": "lister_14",
+        "operationId": "lister_15",
         "parameters": [
           {
             "name": "trancheId",
@@ -24319,7 +25162,7 @@
           "Audit"
         ],
         "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
-        "operationId": "lister_15",
+        "operationId": "lister_16",
         "parameters": [
           {
             "name": "objetId",
@@ -24388,6 +25231,56 @@
         }
       }
     },
+    "/api/articles/{id}/prospections": {
+      "get": {
+        "tags": [
+          "Articles — onglets"
+        ],
+        "summary": "Prospections portant l'article (pré-prospections exclues)",
+        "description": "Équivalent de `ComSaleProspectionView WHERE StkItemId = id` d'OMRAN, recalculé sur `ComProspection` : prospections\ndont `StkItemId` est l'article, pré-prospections exclues, prospections sans tranche incluses. Périmètre commercial de\n`GET /api/prospections` (par la tranche de la prospection). Mêmes lignes que la liste des prospections, sans pagination.",
+        "operationId": "prospections",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Liste, la plus récente d'abord (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProspectionListItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Article inconnu, ou de l'entité juridique inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProspectionListItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/articles/{id}/plans": {
       "get": {
         "tags": [
@@ -24438,19 +25331,19 @@
         }
       }
     },
-    "/api/articles/{id}/pieces-jointes": {
+    "/api/articles/{id}/historique": {
       "get": {
         "tags": [
-          "Articles"
+          "Articles — onglets"
         ],
-        "summary": "Liste les pièces jointes de l'article",
-        "description": "Retourne toutes les pièces jointes rattachées à l'article `id` (`AdmAttachedFile.CategoryId =\nStkItem.PKey`, même convention polymorphe sans FK déclarée que pour les pièces jointes de Dossier).\nCe sont essentiellement des plans (types `PLAN`/`PLAN_ARCHITECTE`/`PLAN_ETAGE`), mais aucun filtrage\nsur `type`/`Category` n'est appliqué ici — tout ce qui est rattaché à l'article ressort. Triées par\ndate de dépôt décroissante. Les lignes \"cochées mais jamais déposées\" (checklist sans fichier réel)\nsont exclues. Liste vide si aucune pièce jointe.",
-        "operationId": "getPiecesJointes_1",
+        "summary": "Historique des statuts des dossiers de l'article",
+        "description": "Lignes `StrFolderStatusHistory` dont `StkItemId` est l'article, plus celles d'un **transfert produit légalisé**\n(`ComSaleWithdrawalProduct.IsLegalized = 1`) dont l'article est l'ancien ou le nouveau. Tri par date décroissante (OMRAN\ntrie par date croissante ; le CRM garde l'ordre de l'historique du tiers). Une ligne d'un dossier de vente hors\npérimètre commercial est masquée ; une ligne sans dossier de vente (location, syndic) l'est si l'article est hors\npérimètre, comme dans l'onglet Dossiers. Origine : `ComFolderId` → VENTE, sinon `RntFolderId` → LOCATION, sinon `SynFolderId` →\nSYNDIC. Auteur : le compte de la ligne, sinon la ligne `StrHistory` jumelle du dossier de vente, sinon « Système ».",
+        "operationId": "historique_1",
         "parameters": [
           {
             "name": "id",
             "in": "path",
-            "description": "Identifiant de l'article (StkItem.PKey).",
+            "description": "Id de l'article (StkItem.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -24460,26 +25353,26 @@
         ],
         "responses": {
           "200": {
-            "description": "Liste des pièces jointes (peut être vide).",
+            "description": "Lignes, la plus récente d'abord (peut être vide).",
             "content": {
               "*/*": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/PieceJointeDto"
+                    "$ref": "#/components/schemas/ArticleHistoriqueDto"
                   }
                 }
               }
             }
           },
           "404": {
-            "description": "Article introuvable.",
+            "description": "Article inconnu, ou de l'entité juridique inactive.",
             "content": {
               "*/*": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/PieceJointeDto"
+                    "$ref": "#/components/schemas/ArticleHistoriqueDto"
                   }
                 }
               }
@@ -24488,29 +25381,19 @@
         }
       }
     },
-    "/api/articles/{id}/pieces-jointes/{pieceId}/fichier": {
+    "/api/articles/{id}/dossiers": {
       "get": {
         "tags": [
-          "Articles"
+          "Articles — onglets"
         ],
-        "summary": "Affiche ou télécharge une pièce jointe de l'article (ex. un plan)",
-        "description": "**Renvoie une redirection `302` vers une URL présignée**, pas le contenu binaire : le fichier est\nstocké sur S3/MinIO et transite directement entre le client et le stockage, sans passer par le\nbackend.\n\nL'URL signée est valable quelques minutes et vaut autorisation d'accès ; elle n'est délivrée\nqu'après vérification que la pièce appartient bien à cet article.\n\n**La disposition est `inline`** : le plan s'affiche dans un onglet ou une visionneuse sans être\ntéléchargé, ce qui est l'usage courant ici. Le nom proposé reprend la description de la pièce.",
-        "operationId": "getFichier_1",
+        "summary": "Dossiers de vente, de location et de syndic de l'article",
+        "description": "Union d'OMRAN (`CfgTierSale.GetFoldersForStkItem`) : dossiers de **vente** dont l'article est l'article principal\n(`ComFolder.StkItemId`) ou une ligne (`ComFolderItem.StkItemId`, cas d'un sous-article), **tous statuts** (annulés et\nrésiliés compris), sous le périmètre commercial et les statuts visibles de la liste des dossiers ; puis dossiers de\n**location** (`RntFolder.StkItemId`) et de **syndic** (`SynFolder.StkItemId`), visibles si l'article est dans le\npérimètre. Les lignes de location `RntFolderItem` ne sont pas reprises. Montants : voir `ArticleDossierDto`.",
+        "operationId": "dossiers",
         "parameters": [
           {
             "name": "id",
             "in": "path",
-            "description": "Identifiant de l'article (StkItem.PKey).",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "pieceId",
-            "in": "path",
-            "description": "Identifiant de la pièce jointe (AdmAttachedFile.PKey).",
+            "description": "Id de l'article (StkItem.PKey).",
             "required": true,
             "schema": {
               "type": "string",
@@ -24519,11 +25402,69 @@
           }
         ],
         "responses": {
-          "302": {
-            "description": "Redirection vers l'URL présignée du fichier."
+          "200": {
+            "description": "Ventes, puis locations, puis syndics (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ArticleDossierDto"
+                  }
+                }
+              }
+            }
           },
           "404": {
-            "description": "Article introuvable, pièce jointe introuvable pour cet article, ou aucun fichier stocké pour cette pièce."
+            "description": "Article inconnu, ou de l'entité juridique inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ArticleDossierDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/articles/groupes-piece-jointe": {
+      "get": {
+        "tags": [
+          "Pièces jointes du patrimoine"
+        ],
+        "summary": "Groupes de pièce jointe déjà utilisés (suggestions de saisie)",
+        "description": "Valeurs distinctes non vides de `AdmAttachedFile.FoderGroup` (toutes pièces confondues), triées, pour proposer une\nsaisie libre avec suggestions comme OMRAN.",
+        "operationId": "groupes_1",
+        "responses": {
+          "200": {
+            "description": "Valeurs distinctes non vides de FoderGroup, triées.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -24535,7 +25476,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_16",
+        "operationId": "lister_17",
         "parameters": [
           {
             "name": "portee",
@@ -24626,6 +25567,58 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/{porteur}/{id}/pieces-jointes/{pieceId}": {
+      "delete": {
+        "tags": [
+          "Pièces jointes du patrimoine"
+        ],
+        "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
+        "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
+        "operationId": "supprimer_8",
+        "parameters": [
+          {
+            "name": "porteur",
+            "in": "path",
+            "description": "Genre du porteur : articles, tranches ou projets.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey du porteur (StkItem, CfgTranche ou CfgProject).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pieceId",
+            "in": "path",
+            "description": "Id de la pièce jointe (AdmAttachedFile.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Pièce retirée des listes."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Porteur inconnu ou masqué, pièce d'un autre porteur ou déjà supprimée."
           }
         }
       }
@@ -24834,7 +25827,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_8",
+        "operationId": "supprimer_9",
         "parameters": [
           {
             "name": "id",
@@ -25033,7 +26026,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_9",
+        "operationId": "supprimer_10",
         "parameters": [
           {
             "name": "id",
@@ -26237,6 +27230,46 @@
           }
         }
       },
+      "PieceJointeDto": {
+        "type": "object",
+        "description": "Métadonnées d'une pièce jointe rattachée à un dossier.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant de la pièce jointe (AdmAttachedFile.PKey)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Légende/description libre de la pièce jointe (ex. \"CIN client\", \"Contrat signé\")."
+          },
+          "category": {
+            "type": "string",
+            "description": "Catégorie legacy brute de la pièce jointe (ex. \"Yes.Com.Sales.Sale\", \"Dossier de vente N° ... du\n...\"). Purement informatif, sans logique métier dessus côté API."
+          },
+          "type": {
+            "type": "string",
+            "description": "Type de document (ex. \"PIECE D'IDENTITE\", \"CONTRAT\", \"FICHE PERMISSION REMISE DES CLES\"...),\nréférentiel AdmAttachedFileType. Null si non renseigné en base (cas de certains dépôts anciens ou\nfaits hors de cette API)."
+          },
+          "extension": {
+            "type": "string",
+            "description": "Extension du fichier, avec le point (ex. \".pdf\")."
+          },
+          "dateCreation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date/heure de dépôt du fichier. Peut être absente (null) sur d'anciennes pièces jointes créées avant\nle suivi de cette colonne dans les données legacy."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "Identifiant/login de l'utilisateur ayant déposé le fichier, tel qu'enregistré en base. Peut être\nnull si non renseigné (legacy) ou pour un dépôt effectué via cette API."
+          },
+          "groupe": {
+            "type": "string",
+            "description": "Groupe libre de la pièce (AdmAttachedFile.FoderGroup, ex. « PLAN ») ; null si aucun."
+          }
+        }
+      },
       "ReinitialiserMotDePasseRequest": {
         "type": "object",
         "description": "Corps facultatif de la réinitialisation de mot de passe. Absent ou `{}` : le mot de passe est envoyé\nà l'adresse connue du compte (AdmUser.Email, à défaut la fiche employé), ou seulement renvoyé dans\nla réponse si le compte n'en a aucune.",
@@ -27283,6 +28316,35 @@
           "message": {
             "type": "string",
             "description": "Message OMRAN de la ligne (« l'article : X est ajouté », « … n'a pas été modifié »…)."
+          }
+        }
+      },
+      "BilanAttachementDto": {
+        "type": "object",
+        "description": "Résultat de l'attachement en masse pour un fichier.",
+        "properties": {
+          "nomFichier": {
+            "type": "string",
+            "description": "Nom d'origine du fichier envoyé."
+          },
+          "resultat": {
+            "type": "string",
+            "description": "ATTACHE : nouvelle pièce ; REMPLACE : pièce du même type écrasée ; CODE_INTROUVABLE : aucun article ; REFUSE : fichier rejeté.",
+            "enum": [
+              "ATTACHE",
+              "REMPLACE",
+              "CODE_INTROUVABLE",
+              "REFUSE"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Motif lisible d'un refus ou d'un code introuvable ; null sinon."
+          },
+          "pieceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pièce créée ou remplacée (AdmAttachedFile.PKey) ; null si rien n'a été écrit."
           }
         }
       },
@@ -31506,42 +32568,6 @@
             "items": {
               "$ref": "#/components/schemas/AffectationReglementDto"
             }
-          }
-        }
-      },
-      "PieceJointeDto": {
-        "type": "object",
-        "description": "Métadonnées d'une pièce jointe rattachée à un dossier.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Identifiant de la pièce jointe (AdmAttachedFile.PKey)."
-          },
-          "description": {
-            "type": "string",
-            "description": "Légende/description libre de la pièce jointe (ex. \"CIN client\", \"Contrat signé\")."
-          },
-          "category": {
-            "type": "string",
-            "description": "Catégorie legacy brute de la pièce jointe (ex. \"Yes.Com.Sales.Sale\", \"Dossier de vente N° ... du\n...\"). Purement informatif, sans logique métier dessus côté API."
-          },
-          "type": {
-            "type": "string",
-            "description": "Type de document (ex. \"PIECE D'IDENTITE\", \"CONTRAT\", \"FICHE PERMISSION REMISE DES CLES\"...),\nréférentiel AdmAttachedFileType. Null si non renseigné en base (cas de certains dépôts anciens ou\nfaits hors de cette API)."
-          },
-          "extension": {
-            "type": "string",
-            "description": "Extension du fichier, avec le point (ex. \".pdf\")."
-          },
-          "dateCreation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date/heure de dépôt du fichier. Peut être absente (null) sur d'anciennes pièces jointes créées avant\nle suivi de cette colonne dans les données legacy."
-          },
-          "creePar": {
-            "type": "string",
-            "description": "Identifiant/login de l'utilisateur ayant déposé le fichier, tel qu'enregistré en base. Peut être\nnull si non renseigné (legacy) ou pour un dépôt effectué via cette API."
           }
         }
       },
@@ -36268,6 +37294,134 @@
           },
           "option3AvecQuantite": {
             "type": "boolean"
+          }
+        }
+      },
+      "ChampReferentielDto": {
+        "type": "object",
+        "description": "Champ d'un référentiel administrable ; son nom est la clé du corps JSON et de la ligne lue.",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "description": "Clé JSON du champ.",
+            "example": "code"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé à afficher.",
+            "example": "Code"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type de saisie.",
+            "enum": [
+              "TEXTE",
+              "ENTIER",
+              "DECIMAL",
+              "FRACTION",
+              "BOOLEEN",
+              "COULEUR",
+              "REFERENCE",
+              "OPERATEUR",
+              "LIGNES"
+            ]
+          },
+          "obligatoire": {
+            "type": "boolean",
+            "description": "Vrai si le champ est requis à la création et ne peut pas être vidé."
+          },
+          "unique": {
+            "type": "boolean",
+            "description": "Vrai si le champ entre dans la clé d'unicité de la table (seul ou avec d'autres)."
+          },
+          "longueurMax": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Longueur maximale d'un texte, null sinon.",
+            "example": 255
+          },
+          "choix": {
+            "type": "string",
+            "description": "REFERENCE : route GET de la liste de choix (ReferentielItemDto[]), null sinon.",
+            "example": "/api/referentiels/natures"
+          },
+          "options": {
+            "type": "array",
+            "description": "OPERATEUR : valeurs permises, null sinon.",
+            "items": {
+              "$ref": "#/components/schemas/OptionDto"
+            }
+          },
+          "champs": {
+            "type": "array",
+            "description": "LIGNES : champs de chaque ligne enfant, null sinon.",
+            "items": {
+              "$ref": "#/components/schemas/ChampReferentielDto"
+            }
+          }
+        }
+      },
+      "DescripteurReferentielDto": {
+        "type": "object",
+        "description": "Référentiel administrable : de quoi générer sa grille et son dialogue de saisie.",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "Clé de l'URL /api/referentiels-admin/{slug}.",
+            "example": "orientations"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé OMRAN du référentiel.",
+            "example": "Orientations"
+          },
+          "famille": {
+            "type": "string",
+            "description": "Menu OMRAN où il se range.",
+            "enum": [
+              "ARTICLES",
+              "PROSPECTIONS_TERRAINS",
+              "AUTRES"
+            ]
+          },
+          "parTranche": {
+            "type": "boolean",
+            "description": "Vrai si chaque ligne porte une tranche : la liste accepte trancheId (et global)."
+          },
+          "codesProteges": {
+            "type": "array",
+            "description": "Codes protégés (ni supprimés ni recodés), vide si aucun.",
+            "example": [
+              "VENTE",
+              "PROJET"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "champs": {
+            "type": "array",
+            "description": "Champs, dans l'ordre d'affichage.",
+            "items": {
+              "$ref": "#/components/schemas/ChampReferentielDto"
+            }
+          }
+        }
+      },
+      "OptionDto": {
+        "type": "object",
+        "description": "Valeur permise d'un champ OPERATEUR.",
+        "properties": {
+          "valeur": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Valeur envoyée et lue.",
+            "example": 1
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé à afficher.",
+            "example": ">="
           }
         }
       },
@@ -41070,6 +42224,132 @@
           "y": {
             "type": "number",
             "description": "Ordonnée de l'image dans le SVG d'origine."
+          }
+        }
+      },
+      "ArticleHistoriqueDto": {
+        "type": "object",
+        "description": "Une ligne de l'onglet Historique d'un article (StrFolderStatusHistory), la plus récente en premier.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrFolderStatusHistory.PKey."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du changement de statut (DocDate)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Détail de la ligne, comme OMRAN : pour une ligne de transfert produit légalisé, le préfixe « TRANSFERT PRODUIT : ancien\n=> nouveau » (codes des articles) suivi, sans séparateur, de la note saisie (`StrFolderStatusHistory.Description`) ;\nsinon la note seule (souvent null)."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Auteur : libellé du compte ; « Système » pour une ligne de location ou de syndic sans compte."
+          },
+          "statutDescription": {
+            "type": "string",
+            "description": "État atteint : libellé du statut."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Dossier de vente concerné ; null pour une location ou un syndic."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "N° du dossier de vente ; null pour une location ou un syndic."
+          },
+          "articleCode": {
+            "type": "string",
+            "description": "Code de l'article de la ligne (le sous-article pour une affectation)."
+          },
+          "origine": {
+            "type": "string",
+            "description": "Nature du dossier de la ligne ; null si la ligne ne vise aucun dossier.",
+            "enum": [
+              "VENTE",
+              "LOCATION",
+              "SYNDIC"
+            ]
+          },
+          "client": {
+            "type": "string",
+            "description": "Nom du client de la ligne (CfgTierId)."
+          }
+        }
+      },
+      "ArticleDossierDto": {
+        "type": "object",
+        "description": "Une ligne de l'onglet Dossiers d'un article (vente, location ou syndic).",
+        "properties": {
+          "origine": {
+            "type": "string",
+            "description": "Nature du dossier : vente (ComFolder), location (RntFolder) ou syndic (SynFolder).",
+            "enum": [
+              "VENTE",
+              "LOCATION",
+              "SYNDIC"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du dossier (ComFolder, RntFolder ou SynFolder selon origine)."
+          },
+          "code": {
+            "type": "string",
+            "description": "N° du dossier."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Libellé du statut du dossier (StrStatus)."
+          },
+          "client": {
+            "type": "string",
+            "description": "Nom du client du dossier."
+          },
+          "articleCode": {
+            "type": "string",
+            "description": "Code de l'article du dossier."
+          },
+          "societe": {
+            "type": "string",
+            "description": "Entité juridique du programme de l'article (libellé)."
+          },
+          "tranche": {
+            "type": "string",
+            "description": "Code de la tranche de l'article."
+          },
+          "programme": {
+            "type": "string",
+            "description": "Code du programme de l'article."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Catégorie de l'article (libellé)."
+          },
+          "type": {
+            "type": "string",
+            "description": "Type de l'article (libellé)."
+          },
+          "presentation": {
+            "type": "string",
+            "description": "Type de présentation de l'article (libellé)."
+          },
+          "total": {
+            "type": "number",
+            "description": "Vente : net à payer du dossier (`MontantsDossier`, même calcul que l'onglet Montants de la fiche dossier : prix de vente\n+ frais exclus du prix ; sur un dossier annulé ou résilié, le déjà encaissé). Location et syndic : null (OMRAN lit ces\nmontants dans des vues non reprises)."
+          },
+          "regle": {
+            "type": "number",
+            "description": "Vente : total réglé du dossier (règlements signés, `MontantsDossier`). Location et syndic : null."
+          },
+          "reste": {
+            "type": "number",
+            "description": "Vente : `total` − `regle`, 0 sur un dossier sorti. Location et syndic : null."
           }
         }
       },

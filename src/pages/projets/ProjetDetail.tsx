@@ -5,6 +5,7 @@ import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import FicheSections from '../../components/patrimoine/FicheSections';
 import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
+import PiecesJointesBloc from '../../components/patrimoine/PiecesJointesBloc';
 import ZonesProjet from '../../components/patrimoine/ZonesProjet';
 import { Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -114,6 +115,7 @@ function FicheProjet({ id }: Readonly<{ id: string }>) {
             />
           )}
         </Card>
+        <PiecesJointesBloc porteur="projets" id={id} />
         <OngletsTransverses porteur="projet" id={id} />
       </div>
     </PageShell>

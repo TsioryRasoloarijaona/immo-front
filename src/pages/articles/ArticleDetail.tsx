@@ -8,12 +8,13 @@ import FicheShell from '../../components/FicheShell';
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
 import GrilleOnglet from '../../components/patrimoine/GrilleOnglet';
 import OngletPlanArticle from '../../components/patrimoine/OngletPlanArticle';
-import { DossierVenteArticle, IdentiteArticle, PiecesArticle } from '../../components/patrimoine/OngletsArticle';
+import { DossierVenteArticle, IdentiteArticle } from '../../components/patrimoine/OngletsArticle';
+import PiecesJointesBloc from '../../components/patrimoine/PiecesJointesBloc';
 import SousArticlesArticle from '../../components/patrimoine/SousArticlesArticle';
 import PrixArticleFiche from '../../components/patrimoine/PrixArticleFiche';
 import { Badge, ErrorState, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
-import { getArticle, getDossier, listArticlePiecesJointes } from '../../lib/api';
+import { getArticle, getDossier } from '../../lib/api';
 import { deleteArticle } from '../../lib/apiPatrimoine';
 import { useConfirm } from '../../lib/confirmContext';
 import { grilleContenances, sourceContenances } from '../../lib/ongletsArticle';
@@ -64,8 +65,6 @@ export function FicheArticle({
     () => (a?.dossierId ? getDossier(a.dossierId) : Promise.resolve(null)),
     [a?.dossierId],
   );
-
-  const pieces = useApi(() => listArticlePiecesJointes(id), [id]);
 
   if (loading) return <CadreFiche variante={variante} title="Article"><LoadingState /></CadreFiche>;
   if (error) return <CadreFiche variante={variante} title="Article"><ErrorState message={error} /></CadreFiche>;
@@ -163,12 +162,7 @@ export function FicheArticle({
               </>
             ),
           },
-          {
-            id: 'pieces',
-            libelle: 'Pièces jointes',
-            compteur: pieces.data?.length ?? 0,
-            contenu: <PiecesArticle articleId={a.id} pieces={pieces} />,
-          },
+          { id: 'pieces', libelle: 'Pièces jointes', contenu: <PiecesJointesBloc porteur="articles" id={a.id} /> },
           { id: 'plan', libelle: 'Plan', contenu: <OngletPlanArticle articleId={a.id} /> },
           ...ongletsTransverses('article', a.id),
         ]}

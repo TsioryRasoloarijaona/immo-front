@@ -55,6 +55,7 @@ const PlansAccueil = lazy(() => import('./pages/tranches/PlansAccueil'));
 const PlansTranche = lazy(() => import('./pages/tranches/PlansTranche'));
 const ArticlesList = lazy(() => import('./pages/articles/ArticlesList'));
 const ArticleDetail = lazy(() => import('./pages/articles/ArticleDetail'));
+const AttachementMasse = lazy(() => import('./pages/articles/AttachementMasse'));
 const ProjetForm = lazy(() => import('./pages/projets/ProjetForm'));
 const TrancheForm = lazy(() => import('./pages/tranches/TrancheForm'));
 const ArticleForm = lazy(() => import('./pages/articles/ArticleForm'));
@@ -64,6 +65,7 @@ const ActionnairesList = lazy(() => import('./pages/entites/ActionnairesList'));
 const ActionnaireDetail = lazy(() => import('./pages/entites/ActionnaireDetail'));
 const GroupesActionnairesList = lazy(() => import('./pages/entites/GroupesActionnairesList'));
 const GroupeActionnairesDetail = lazy(() => import('./pages/entites/GroupeActionnairesDetail'));
+const ReferentielPage = lazy(() => import('./pages/configuration/ReferentielPage'));
 const NouvelOrdre = lazy(() => import('./pages/outils/virements/NouvelOrdre'));
 const HistoriqueVirements = lazy(() => import('./pages/outils/virements/HistoriqueVirements'));
 const BeneficiairesVirement = lazy(() => import('./pages/outils/virements/Beneficiaires'));
@@ -158,6 +160,7 @@ function AuthenticatedApp() {
                   <Route path="/tranches/:id/plans" element={<PlansTranche />} />
                   <Route path="/articles" element={<ArticlesList />} />
                   <Route path="/articles/nouveau" element={<ArticleForm />} />
+                  <Route path="/articles/attachement-masse" element={<AttachementMasse />} />
                   <Route path="/articles/:id" element={<ArticleDetail />} />
                   <Route path="/articles/:id/modifier" element={<ArticleForm />} />
                   <Route path="/articles/:id/sous-articles/nouveau" element={<ArticleForm sousArticle />} />
@@ -170,6 +173,8 @@ function AuthenticatedApp() {
                   <Route path="/groupes-actionnaires" element={<GroupesActionnairesList />} />
                   <Route path="/groupes-actionnaires/nouveau" element={<GroupeActionnairesDetail />} />
                   <Route path="/groupes-actionnaires/:id" element={<GroupeActionnairesDetail />} />
+                  <Route path="/configuration/referentiels" element={<ReferentielPage />} />
+                  <Route path="/configuration/referentiels/:slug" element={<ReferentielPage />} />
                   <Route path="/outils" element={<Navigate to="/outils/virements/nouveau" replace />} />
                   <Route path="/outils/virements" element={<Navigate to="/outils/virements/nouveau" replace />} />
                   <Route path="/outils/virements/nouveau" element={<NouvelOrdre />} />
