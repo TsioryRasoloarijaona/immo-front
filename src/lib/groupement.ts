@@ -137,6 +137,9 @@ export function useGroupement(
   const agregeables = useMemo(
     () =>
       catalogue
+        /* Ni groupable ni agrégeable = colonne calculée en Java, sans chemin : `/groupes` la refuse (400). Filtrer
+           sur `agregeable` seul retirerait MIN/MAX des dates et COUNT des colonnes de groupement. */
+        .filter((c) => c.groupable || c.agregeable)
         .map((c) => ({ colonne: c, fonctions: fonctionsProposees(c) }))
         .filter((x) => x.fonctions.length > 0),
     [catalogue],

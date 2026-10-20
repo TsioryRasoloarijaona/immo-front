@@ -41131,7 +41131,7 @@
           },
           "prixArticleHt": {
             "type": "number",
-            "description": "ComFolder.ItemPriceHT ; libre : SalePrice / (1 + Vat)."
+            "description": "HT après remise : ComFolder.ItemPriceAfterHT ; libre : SalePrice / (1 + Vat)."
           },
           "prixArticleTtc": {
             "type": "number",
@@ -41139,7 +41139,7 @@
           },
           "prixSousArticlesHt": {
             "type": "number",
-            "description": "ComFolder.UnderItemsPriceHT ; libre : (ComSalePrice − SalePrice) / (1 + Vat)."
+            "description": "HT après remise : ComFolder.UnderItemsPriceAfterHT ; libre : (ComSalePrice − SalePrice) / (1 + Vat)."
           },
           "prixSousArticlesTtc": {
             "type": "number",
