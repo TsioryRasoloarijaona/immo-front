@@ -53,7 +53,7 @@ function FicheTerrain({ id }: Readonly<{ id: string }>) {
     }
   }
 
-  if (loading) return <CadreFiche title="Terrain"><LoadingState /></CadreFiche>;
+  if (loading && !t) return <CadreFiche title="Terrain"><LoadingState /></CadreFiche>;
   if (error) return <CadreFiche title="Terrain"><ErrorState message={error} /></CadreFiche>;
   if (!t) {
     return (
