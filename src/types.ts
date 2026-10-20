@@ -2184,6 +2184,8 @@ export interface PieceJointeDto {
   dateCreation?: string | null;
   /** `null` sur les pièces jointes créées hors de cette API. */
   creePar?: string | null;
+  /** Groupe libre (`FoderGroup`, ex. « PLAN ») ; `null` si aucun. */
+  groupe?: string | null;
 }
 
 

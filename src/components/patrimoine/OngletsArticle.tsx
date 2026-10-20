@@ -1,86 +1,10 @@
-import { useState } from 'react';
-import { ArrowUpRight, Eye, FileText, Folder } from 'lucide-react';
-import { Badge, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../ui';
+import { ArrowUpRight, Folder } from 'lucide-react';
+import { Badge, ErrorState, Field, FieldGrid } from '../ui';
 import { Button } from '../ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
-import { openArticlePieceJointeFichier } from '../../lib/api';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-import { pieceJointeTypeTone } from '../../lib/domain';
 import { formatCurrency, formatDate, formatPercent, formatSurface, libellePrix } from '../../lib/format';
 import type { ApiState } from '../../lib/useApi';
-import type { ArticleDetailDto, DossierDetailDto, PieceJointeDto } from '../../types';
-
-// Lecture seule : aucun endpoint d'envoi ni de suppression pour les pièces d'un article.
-function ArticlePieceJointeRow({ articleId, piece }: Readonly<{ articleId: string; piece: PieceJointeDto }>) {
-  const [error, setError] = useState<string | null>(null);
-  const ext = piece.extension?.replace(/^\./, '') || '';
-  const filename = `${piece.description || 'document'}${ext ? '.' + ext : ''}`;
-
-  // URL présignée servie en `inline` : une seule action « Ouvrir », cf. PieceJointeRow (DossierDetail).
-  function handle() {
-    setError(null);
-    try {
-      openArticlePieceJointeFichier(articleId, piece.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de l'opération.");
-    }
-  }
-
-  return (
-    <TableRow className="hover:bg-muted/40">
-      <TableCell>
-        <span className="flex min-w-0 items-center gap-2">
-          <FileText className="size-4 shrink-0 text-muted-foreground" />
-          <span className="truncate font-medium text-foreground">{filename}</span>
-        </span>
-      </TableCell>
-      <TableCell className="text-muted-foreground">{piece.creePar || '—'}</TableCell>
-      <TableCell>
-        {piece.type ? <Badge tone={pieceJointeTypeTone(piece.type)}>{piece.type}</Badge> : <span className="text-muted-foreground">—</span>}
-      </TableCell>
-      <TableCell className="text-right text-muted-foreground">{formatDate(piece.dateCreation)}</TableCell>
-      <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-1">
-          {error && <span className="text-micro text-destructive">{error}</span>}
-          <Button type="button" variant="ghost" size="sm" onClick={handle}>
-            <Eye data-icon="inline-start" /> Ouvrir <ArrowUpRight data-icon="inline-end" />
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-}
-
-export function PiecesArticle({ articleId, pieces }: Readonly<{ articleId: string; pieces: ApiState<PieceJointeDto[]> }>) {
-  const { data, loading, error } = pieces;
-  return (
-    <>
-      {loading && <LoadingState />}
-      {error && <ErrorState message={error} />}
-      {data?.length === 0 && <EmptyState title="Aucune pièce jointe" message="Aucun plan n'a été attaché à cet article." />}
-      {data && data.length > 0 && (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Fichier</TableHead>
-                <TableHead>Déposé par</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.map((p) => (
-                <ArticlePieceJointeRow key={p.id} articleId={articleId} piece={p} />
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
-    </>
-  );
-}
+import type { ArticleDetailDto, DossierDetailDto } from '../../types';
 
 export function IdentiteArticle({ article: a }: Readonly<{ article: ArticleDetailDto }>) {
   return (

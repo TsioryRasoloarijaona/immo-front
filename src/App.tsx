@@ -53,6 +53,7 @@ const TranchesList = lazy(() => import('./pages/tranches/TranchesList'));
 const TrancheDetail = lazy(() => import('./pages/tranches/TrancheDetail'));
 const ArticlesList = lazy(() => import('./pages/articles/ArticlesList'));
 const ArticleDetail = lazy(() => import('./pages/articles/ArticleDetail'));
+const AttachementMasse = lazy(() => import('./pages/articles/AttachementMasse'));
 const ProjetForm = lazy(() => import('./pages/projets/ProjetForm'));
 const TrancheForm = lazy(() => import('./pages/tranches/TrancheForm'));
 const ArticleForm = lazy(() => import('./pages/articles/ArticleForm'));
@@ -155,6 +156,7 @@ function AuthenticatedApp() {
                   <Route path="/tranches/:id/modifier" element={<TrancheForm />} />
                   <Route path="/articles" element={<ArticlesList />} />
                   <Route path="/articles/nouveau" element={<ArticleForm />} />
+                  <Route path="/articles/attachement-masse" element={<AttachementMasse />} />
                   <Route path="/articles/:id" element={<ArticleDetail />} />
                   <Route path="/articles/:id/modifier" element={<ArticleForm />} />
                   <Route path="/articles/:id/sous-articles/nouveau" element={<ArticleForm sousArticle />} />
