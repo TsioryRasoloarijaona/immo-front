@@ -7148,7 +7148,7 @@
             }
           },
           "400": {
-            "description": "Fichier absent ou vide.",
+            "description": "Fichier absent ou vide, sans extension ou d'extension non admise.",
             "content": {
               "*/*": {
                 "schema": {
@@ -7159,6 +7159,16 @@
           },
           "404": {
             "description": "Dossier ou règlement introuvable, règlement non rattaché à ce dossier, ou `typeId` inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Fichier de plus de 50 Mo.",
             "content": {
               "*/*": {
                 "schema": {
@@ -7371,7 +7381,7 @@
             }
           },
           "400": {
-            "description": "Fichier absent ou vide.",
+            "description": "Fichier absent ou vide, sans extension ou d'extension non admise.",
             "content": {
               "*/*": {
                 "schema": {
@@ -7382,6 +7392,16 @@
           },
           "404": {
             "description": "Dossier introuvable, ou typeId ne correspond à aucun type connu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Fichier de plus de 50 Mo.",
             "content": {
               "*/*": {
                 "schema": {
@@ -23635,7 +23655,7 @@
           "Articles — onglets"
         ],
         "summary": "Historique des statuts des dossiers de l'article",
-        "description": "Lignes `StrFolderStatusHistory` dont `StkItemId` est l'article, plus celles d'un **transfert produit légalisé**\n(`ComSaleWithdrawalProduct.IsLegalized = 1`) dont l'article est l'ancien ou le nouveau. Tri par date décroissante (OMRAN\ntrie par date croissante ; le CRM garde l'ordre de l'historique du tiers). Une ligne d'un dossier de vente hors\npérimètre commercial est masquée. Origine : `ComFolderId` → VENTE, sinon `RntFolderId` → LOCATION, sinon `SynFolderId` →\nSYNDIC. Auteur : le compte de la ligne, sinon la ligne `StrHistory` jumelle du dossier de vente, sinon « Système ».",
+        "description": "Lignes `StrFolderStatusHistory` dont `StkItemId` est l'article, plus celles d'un **transfert produit légalisé**\n(`ComSaleWithdrawalProduct.IsLegalized = 1`) dont l'article est l'ancien ou le nouveau. Tri par date décroissante (OMRAN\ntrie par date croissante ; le CRM garde l'ordre de l'historique du tiers). Une ligne d'un dossier de vente hors\npérimètre commercial est masquée ; une ligne sans dossier de vente (location, syndic) l'est si l'article est hors\npérimètre, comme dans l'onglet Dossiers. Origine : `ComFolderId` → VENTE, sinon `RntFolderId` → LOCATION, sinon `SynFolderId` →\nSYNDIC. Auteur : le compte de la ligne, sinon la ligne `StrHistory` jumelle du dossier de vente, sinon « Système ».",
         "operationId": "historique_1",
         "parameters": [
           {
