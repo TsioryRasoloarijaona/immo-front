@@ -15,14 +15,17 @@ export default function ActionsFicheArticle({ article, ecranSousArticles, onSupp
   onModifie: () => void;
 }>) {
   const [rattachement, setRattachement] = useState(false);
-  if (ecranSousArticles && article.lotParentId) return null;
+  const rattache = ecranSousArticles && !!article.lotParentId;
+  if (rattache && article.toujoursAffecte) return null;
   return (
     <div className="flex flex-wrap gap-2">
       <ActionAdmin onClick={onSupprimer} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
-      {ecranSousArticles && article.estSousArticle && (
+      {ecranSousArticles && article.estSousArticle && !rattache && (
         <ActionAdmin onClick={() => setRattachement(true)} libelle="Rattachement" variant="outline" icone={<Link2 data-icon="inline-start" />} />
       )}
-      <ActionAdmin to={`/articles/${article.id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />
+      {!rattache && (
+        <ActionAdmin to={`/articles/${article.id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />
+      )}
       {rattachement && <SousArticleDialog article={article} onClose={() => setRattachement(false)} onSaved={onModifie} />}
     </div>
   );

@@ -1,10 +1,11 @@
+import { useState } from 'react';
 import Modal from '../Modal';
 import PiedSaisie from './PiedSaisie';
 import SectionsSaisie from './SectionsSaisie';
 import { createSousArticle, listLignesArticles, updateSousArticle } from '../../lib/apiSousArticles';
 import { useListesArticle } from '../../lib/saisieArticle';
 import { brouillonDepuis, corpsDepuis, useSaisie, type ChampDef } from '../../lib/saisiePatrimoine';
-import { useApi } from '../../lib/useApi';
+import { useApi, useDebouncedValue } from '../../lib/useApi';
 import type { ArticleDetailDto, ArticleEcritureDto } from '../../types';
 
 const PARENT: ChampDef = { nom: 'parentId', libelle: 'Article parent (même tranche et vocation)', type: 'liste', liste: 'parents' };
@@ -20,8 +21,8 @@ const CHAMPS_CREATION: ChampDef[] = [
   { nom: 'typeId', libelle: 'Type de sous-article', type: 'liste', liste: 'types', obligatoire: true },
   { nom: 'immeubleId', libelle: 'Immeuble', type: 'liste', liste: 'immeubles', obligatoire: true },
   { nom: 'etageId', libelle: 'Étage', type: 'liste', liste: 'etages', obligatoire: true },
-  { nom: 'surfaceProvisoire', libelle: 'Surface provisoire', type: 'surface' },
-  { nom: 'surfaceDefinitive', libelle: 'Surface définitive', type: 'surface' },
+  { nom: 'surfaceProvisoire', libelle: 'Surface provisoire', type: 'surface', obligatoire: true },
+  { nom: 'surfaceDefinitive', libelle: 'Surface définitive', type: 'surface', obligatoire: true },
   PARENT,
   TOUJOURS_AFFECTE,
 ];
@@ -33,24 +34,34 @@ export default function SousArticleDialog({ article, onClose, onSaved }: Readonl
   onSaved: (a: ArticleDetailDto) => void;
 }>) {
   const champs = article ? [PARENT, TOUJOURS_AFFECTE] : CHAMPS_CREATION;
-  const saisie = useSaisie(champs, brouillonDepuis(champs, article ? { toujoursAffecte: article.toujoursAffecte } : {}));
+  const [depart] = useState(() => brouillonDepuis(champs, article ? { toujoursAffecte: article.toujoursAffecte } : {}));
+  const saisie = useSaisie(champs, depart);
+  const [recherche, setRecherche] = useState('');
+  const rechercheParent = useDebouncedValue(recherche.trim());
   const choisie = saisie.brouillon.trancheId;
   const trancheId = article?.trancheId ?? (typeof choisie === 'string' ? choisie : '');
+  const vocation = article?.vocationId ?? saisie.brouillon.vocationId;
+  const vocationId = typeof vocation === 'string' && vocation ? vocation : undefined;
   const listes = useListesArticle(true, trancheId);
   const parents = useApi(
     () => (trancheId
-      ? listLignesArticles('articles', { trancheId: [trancheId], statut: 'DISPONIBLE', colonnes: ['id', 'code', 'description', 'estSousArticle'] },
-        { page: 0, size: 200 })
+      ? listLignesArticles('articles', {
+        trancheId: [trancheId], statut: 'DISPONIBLE', vocationId, search: rechercheParent || undefined,
+        colonnes: ['id', 'code', 'description', 'estSousArticle'],
+      }, { page: 0, size: 200 })
       : Promise.resolve(null)),
-    [trancheId],
+    [trancheId, vocationId, rechercheParent],
   );
+  const surfacesValides = article !== undefined || ['surfaceProvisoire', 'surfaceDefinitive'].every((n) => Number(saisie.brouillon[n]) > 0);
+  const corps = corpsDepuis(champs, saisie.brouillon, article ? depart : undefined);
+  const inchange = article !== undefined && Object.keys(corps).length === 0;
   const choixParents = (parents.data?.content ?? [])
     .filter((p) => p.estSousArticle !== true)
     .map((p) => ({ label: [p.code, p.description].filter(Boolean).join(' — '), value: p.id }));
 
   function enregistrer() {
-    const corps = corpsDepuis(champs, saisie.brouillon) as ArticleEcritureDto;
-    const action = article ? () => updateSousArticle(article.id, corps) : () => createSousArticle(corps);
+    const saisieCorps = corps as ArticleEcritureDto;
+    const action = article ? () => updateSousArticle(article.id, saisieCorps) : () => createSousArticle(saisieCorps);
     void saisie.envoyer(action, (a) => {
       onSaved(a);
       onClose();
@@ -59,6 +70,15 @@ export default function SousArticleDialog({ article, onClose, onSaved }: Readonl
 
   return (
     <Modal title={article ? 'Rattacher le sous-article' : 'Nouveau sous-article'} onClose={onClose} width={760}>
+      <input
+        type="search"
+        value={recherche}
+        onChange={(e) => setRecherche(e.target.value)}
+        placeholder="Rechercher un article parent…"
+        aria-label="Rechercher un article parent"
+        disabled={!trancheId}
+        className="h-8 w-full rounded-md border border-border bg-background px-2 text-body"
+      />
       <SectionsSaisie
         sections={[{ titre: article ? 'Rattachement' : 'Sous-article libre', champs }]}
         brouillon={saisie.brouillon}
@@ -67,7 +87,7 @@ export default function SousArticleDialog({ article, onClose, onSaved }: Readonl
         champErreur={saisie.champErreur}
         messageErreur={saisie.erreur}
       />
-      <PiedSaisie erreur={saisie.erreur} envoi={saisie.envoi} onEnregistrer={enregistrer} libelle={article ? 'Enregistrer' : 'Créer'} />
+      <PiedSaisie erreur={saisie.erreur} envoi={saisie.envoi} onEnregistrer={enregistrer} desactive={inchange || !surfacesValides} libelle={article ? 'Enregistrer' : 'Créer'} />
     </Modal>
   );
 }
