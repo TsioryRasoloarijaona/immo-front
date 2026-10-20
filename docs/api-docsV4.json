@@ -16420,6 +16420,16 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "nature",
+            "in": "query",
+            "description": "Code de la nature (StkKind), ex. TER : ne garde que ses références ; remplace Bâtiment si pourSousArticle est renseigné. Code inconnu = 400. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TER"
           }
         ],
         "responses": {
@@ -17510,6 +17520,16 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "nature",
+            "in": "query",
+            "description": "Code de la nature (StkKind), ex. TER : ne garde que ses références ; remplace Bâtiment si pourSousArticle est renseigné. Code inconnu = 400. Absent = toutes.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TER"
           }
         ],
         "responses": {

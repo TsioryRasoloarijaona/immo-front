@@ -3,8 +3,8 @@ import { useTiersParType } from './editionDossier';
 import { choixDepuisLignes } from './fraisTerrain';
 import { libelleChoix } from './ongletsTranche';
 import {
-  referentielItems, useCategoriesBien, useCategoriesCharge, useEntitesReferentiel, useNiveauxTerrain, useOrientations, usePays,
-  useTypesBienReferentiel, useVocations,
+  referentielItems, useCategoriesTerrain, useCategoriesCharge, useEntitesReferentiel, useNiveauxTerrain, useOrientations, usePays,
+  useTypesTerrain, useVocations,
 } from './referentiels';
 import { listLignesReferentiel } from './apiReferentielsAdmin';
 import { ajouterPrixM2, brouillonPrixM2, CHAMPS_SURFACES } from './saisieArticle';
@@ -105,8 +105,8 @@ export function useListesTerrain(paysId: string): Record<string, Choix> {
   const entites = useEntitesReferentiel();
   const pays = usePays();
   const vocations = useVocations();
-  const categories = useCategoriesBien();
-  const types = useTypesBienReferentiel();
+  const categories = useCategoriesTerrain();
+  const types = useTypesTerrain();
   const niveaux = useNiveauxTerrain();
   const orientations = useOrientations();
   const categoriesCharge = useCategoriesCharge();
