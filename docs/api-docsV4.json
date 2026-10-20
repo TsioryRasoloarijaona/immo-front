@@ -20329,7 +20329,7 @@
           "État des ventes"
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
-        "description": "Filtres partagés avec la synthèse, plus `statut`, `famille`, `etat`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : `prixVenteTTC` = prix catalogue (`ComSalePrice`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; `statutLibelle`, `clientNom`, `commercial`, `dossierId`, `montantRegle` et `resteARegler` ne sont pas triables (400). `montantRegle` = prix de vente réglé du dossier, même calcul que la liste des dossiers ; demandé, il coûte deux requêtes par page.",
+        "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : prix du catalogue `StkItem` (formules de la branche libre de la vue OMRAN `ComSaleMonitoringView`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; les colonnes sans chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId` et les montants du dossier : `montantRegle`, `avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) ne sont ni triables ni groupables (400).\n\nMontants du dossier : même calcul que `GET /api/dossiers` (une seule formule) ; null sur une ligne libre. En demander un coûte deux requêtes par page, un prix au m² une de plus ; aucune si aucun n'est demandé. Un dossier qui retient deux articles racines apparaît sur deux lignes avec les mêmes montants, comme OMRAN.",
         "operationId": "lister_15",
         "parameters": [
           {
@@ -20499,43 +20499,6 @@
             "example": "2025-03-31"
           },
           {
-            "name": "famille",
-            "in": "query",
-            "description": "Famille(s) d'article, répétable ; inconnue = 400.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "APPARTEMENT",
-                  "PARKING",
-                  "MAGASIN",
-                  "AUTRE"
-                ]
-              }
-            },
-            "example": "APPARTEMENT"
-          },
-          {
-            "name": "etat",
-            "in": "query",
-            "description": "État(s) LIBRE, RESERVE (sans statut compris) ou VENDU, répétable ; inconnu = 400.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "LIBRE",
-                  "RESERVE",
-                  "VENDU"
-                ]
-              }
-            },
-            "example": "VENDU"
-          },
-          {
             "name": "colonnes",
             "in": "query",
             "required": false,
@@ -20611,7 +20574,7 @@
           "État des ventes"
         ],
         "summary": "Résumés (Σ) par colonne sur tous les articles du filtre, pas sur une page",
-        "description": "Effectif du filtre et un résumé par jeton d'`agregats` (`surface`, `prixVenteTTC`, `colonne:FONCTION`). `montantRegle` et `resteARegler` (nom nu) sont aussi acceptés : sommes, sur tous les dossiers du filtre, du calcul de la liste des dossiers.",
+        "description": "Effectif du filtre et un résumé par jeton d'`agregats` (`surface`, `prixVenteTTC`, `prixHt`, `colonne:FONCTION`). Les montants du dossier sommables (`montantRegle`, `resteARegler`, `avance`, `netAPayer`, `tropPercu`… : `fonctions = [\"SUM\"]` au catalogue) sont acceptés en nom nu : somme des lignes de la liste filtrée, donc un dossier à deux articles racines compte deux fois. Taux et prix au m² : 400.",
         "operationId": "totauxColonnes_3",
         "parameters": [
           {
@@ -20791,43 +20754,6 @@
               "format": "date"
             },
             "example": "2025-03-31"
-          },
-          {
-            "name": "famille",
-            "in": "query",
-            "description": "Famille(s) d'article, répétable ; inconnue = 400.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "APPARTEMENT",
-                  "PARKING",
-                  "MAGASIN",
-                  "AUTRE"
-                ]
-              }
-            },
-            "example": "APPARTEMENT"
-          },
-          {
-            "name": "etat",
-            "in": "query",
-            "description": "État(s) LIBRE, RESERVE (sans statut compris) ou VENDU, répétable ; inconnu = 400.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "LIBRE",
-                  "RESERVE",
-                  "VENDU"
-                ]
-              }
-            },
-            "example": "VENDU"
           }
         ],
         "responses": {
@@ -20906,155 +20832,6 @@
           },
           "400": {
             "description": "Id mal formé."
-          }
-        }
-      }
-    },
-    "/api/etat-des-ventes/synthese-vendus-libres": {
-      "get": {
-        "tags": [
-          "État des ventes"
-        ],
-        "summary": "Tableau tranche × famille en Libres / Réservés / Vendus, avec totaux et pourcentages",
-        "description": "Compte les articles racines par tranche × famille en trois états, calculés une fois dans la base de l'état des ventes : `LIBRE` (aucun dossier actif ; un dossier annulé ou désisté libère le lot), `RESERVE` (dossier en `RESERVATION` ou sans statut ; `sansStatut` les isole, déjà comptés dans `reserves`), `VENDU` (tout autre statut hors sortie). Famille par code de catégorie : `APP` → `APPARTEMENT`, `PAR` → `PARKING`, `COM` → `MAGASIN`, tout autre code → `AUTRE`. Les sous-articles rattachés (parking d'un appartement) ne sont comptés nulle part. Une ligne par tranche × famille non vide ; pourcentages arrondis à une décimale, base = total de la ligne, 0 si total nul. Chaque cellule égale le `totalElements` de `GET /api/etat-des-ventes?trancheId=&famille=&etat=`. Même visibilité que la liste : une tranche hors périmètre demandée explicitement ne rend aucune ligne (pas de 403).",
-        "operationId": "syntheseVendusLibres",
-        "parameters": [
-          {
-            "name": "trancheId",
-            "in": "query",
-            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "projetId",
-            "in": "query",
-            "description": "Id du projet (CfgProject.id) de la tranche.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "famille",
-            "in": "query",
-            "description": "Famille(s), répétable ; absent = les quatre ; inconnue = 400.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "APPARTEMENT",
-                  "PARKING",
-                  "MAGASIN",
-                  "AUTRE"
-                ]
-              }
-            },
-            "example": "APPARTEMENT"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Comptes du filtre, dans le périmètre de l'utilisateur.",
-            "content": {
-              "*/*": {
-                "schema": {
-                  "$ref": "#/components/schemas/SyntheseVendusLibresDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Id mal formé ou famille inconnue."
-          }
-        }
-      }
-    },
-    "/api/etat-des-ventes/synthese-vendus-libres/export": {
-      "get": {
-        "tags": [
-          "État des ventes"
-        ],
-        "summary": "Export Excel du tableau Libres / Réservés / Vendus, mêmes filtres et mêmes lignes",
-        "description": "Mêmes filtres et mêmes lignes que `GET /api/etat-des-ventes/synthese-vendus-libres`. Colonnes : Tranche (code), Famille (libellé), Libres, Réservés, Vendus, Total, % Libres, % Réservés, % Vendus (valeurs du JSON, ex. 33.3). Après les familles de chaque tranche, une ligne « Total tranche » ; en fin, « Total général ».",
-        "operationId": "exporterVendusLibres",
-        "parameters": [
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "default": "xlsx"
-            },
-            "example": "xlsx"
-          },
-          {
-            "name": "trancheId",
-            "in": "query",
-            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "format": "uuid"
-              }
-            }
-          },
-          {
-            "name": "projetId",
-            "in": "query",
-            "description": "Id du projet (CfgProject.id) de la tranche.",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "famille",
-            "in": "query",
-            "description": "Famille(s), répétable ; absent = les quatre ; inconnue = 400.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "APPARTEMENT",
-                  "PARKING",
-                  "MAGASIN",
-                  "AUTRE"
-                ]
-              }
-            },
-            "example": "APPARTEMENT"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Classeur .xlsx, feuille « Libres Réservés Vendus ».",
-            "content": {
-              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Format autre que xlsx, id mal formé ou famille inconnue."
           }
         }
       }
@@ -21294,43 +21071,6 @@
             "example": "2025-03-31"
           },
           {
-            "name": "famille",
-            "in": "query",
-            "description": "Famille(s) d'article, répétable ; inconnue = 400.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "APPARTEMENT",
-                  "PARKING",
-                  "MAGASIN",
-                  "AUTRE"
-                ]
-              }
-            },
-            "example": "APPARTEMENT"
-          },
-          {
-            "name": "etat",
-            "in": "query",
-            "description": "État(s) LIBRE, RESERVE (sans statut compris) ou VENDU, répétable ; inconnu = 400.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "LIBRE",
-                  "RESERVE",
-                  "VENDU"
-                ]
-              }
-            },
-            "example": "VENDU"
-          },
-          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -21539,43 +21279,6 @@
               "format": "date"
             },
             "example": "2025-03-31"
-          },
-          {
-            "name": "famille",
-            "in": "query",
-            "description": "Famille(s) d'article, répétable ; inconnue = 400.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "APPARTEMENT",
-                  "PARKING",
-                  "MAGASIN",
-                  "AUTRE"
-                ]
-              }
-            },
-            "example": "APPARTEMENT"
-          },
-          {
-            "name": "etat",
-            "in": "query",
-            "description": "État(s) LIBRE, RESERVE (sans statut compris) ou VENDU, répétable ; inconnu = 400.",
-            "required": false,
-            "schema": {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "enum": [
-                  "LIBRE",
-                  "RESERVE",
-                  "VENDU"
-                ]
-              }
-            },
-            "example": "VENDU"
           },
           {
             "name": "colonnes",
@@ -39830,6 +39533,10 @@
             "type": "number",
             "description": "« Prix de vente reste » : prix de vente (`ComFolder.Price`) − `prixRegle`."
           },
+          "netAPayer": {
+            "type": "number",
+            "description": "« Net à payer » (`Total` de la vue) : prix + modifications + frais au crédit + pénalités ; sur un dossier\nannulé ou résilié, réglé hors annulation − montant de la résiliation. Calculé, ce n'est pas `totalAPayer`\n(colonne stockée `ComFolder.TotalToPay`, qui peut différer)."
+          },
           "netAPayerRegle": {
             "type": "number",
             "description": "« Net à payer réglé » (`TotalSettled` de la vue) : réglé de l'avance, du crédit, de l'autofinancement, des\nfrais, des modifications et des pénalités, moins le réglé des résiliations."
@@ -39893,6 +39600,30 @@
           "fraisReste": {
             "type": "number",
             "description": "`frais − fraisRegles`."
+          },
+          "modifications": {
+            "type": "number",
+            "description": "« Modifications » : `ComFolder.ModificationsAmount`, 0 si absent."
+          },
+          "modificationsReglees": {
+            "type": "number",
+            "description": "Réglé des échéances de modification (`IsSaleModification`), au crédit ou non."
+          },
+          "modificationsReste": {
+            "type": "number",
+            "description": "`modifications − modificationsReglees`."
+          },
+          "penalites": {
+            "type": "number",
+            "description": "« Pénalités » : Σ des échéances de pénalité (`IsSalePenality`), signées par la catégorie (au crédit +,\nsinon −), comme la vue `ComSaleFolderView`."
+          },
+          "penalitesRegles": {
+            "type": "number",
+            "description": "Réglé des échéances de pénalité."
+          },
+          "penalitesReste": {
+            "type": "number",
+            "description": "`penalites − penalitesRegles`."
           },
           "tropPercu": {
             "type": "number",
@@ -41392,11 +41123,159 @@
           },
           "montantRegle": {
             "type": "number",
-            "description": "Prix de vente réglé du dossier, calcul de la liste des dossiers ; null si libre."
+            "description": "Prix de vente réglé du dossier (prixRegle de la liste des dossiers) ; null si libre."
           },
           "resteARegler": {
             "type": "number",
-            "description": "Prix de vente − réglé ; null si libre."
+            "description": "Prix de vente − réglé (prixReste de la liste des dossiers) ; null si libre."
+          },
+          "prixArticleHt": {
+            "type": "number",
+            "description": "ComFolder.ItemPriceHT ; libre : SalePrice / (1 + Vat)."
+          },
+          "prixArticleTtc": {
+            "type": "number",
+            "description": "ComFolder.ItemPriceAfter ; libre : SalePrice."
+          },
+          "prixSousArticlesHt": {
+            "type": "number",
+            "description": "ComFolder.UnderItemsPriceHT ; libre : (ComSalePrice − SalePrice) / (1 + Vat)."
+          },
+          "prixSousArticlesTtc": {
+            "type": "number",
+            "description": "ComFolder.UnderItemsPriceAfter ; libre : ComSalePrice − SalePrice."
+          },
+          "prixHt": {
+            "type": "number",
+            "description": "ComFolder.PriceHT ; libre : StkItem.ComSalePriceHT."
+          },
+          "remiseMontant": {
+            "type": "number",
+            "description": "ComFolder.DiscountAmount ; libre : 0."
+          },
+          "prixContractuel": {
+            "type": "number",
+            "description": "ComFolder.AgreementPrice ; libre : ComSalePrice."
+          },
+          "prixVenteM2Ttc": {
+            "type": "number",
+            "description": "Prix de vente au m² TTC du dossier, annexes comprises : même valeur que `prixVenteM2Ttc` de `GET /api/dossiers`. Null sur une ligne libre. Rapport : jamais sommé."
+          },
+          "prixVenteM2Ht": {
+            "type": "number",
+            "description": "Prix de vente au m² HT du dossier, annexes comprises, comme `prixVenteM2Ht` de `GET /api/dossiers`. Null sur une ligne libre. Jamais sommé."
+          },
+          "netAPayer": {
+            "type": "number",
+            "description": "« Net à payer » du dossier : prix + modifications + frais au crédit + pénalités (sur un dossier annulé ou résilié : réglé hors annulation − résiliation). Même calcul que `netAPayer` de `GET /api/dossiers`, pas la colonne stockée `TotalToPay`. Null sur une ligne libre."
+          },
+          "netAPayerRegle": {
+            "type": "number",
+            "description": "Comme `netAPayerRegle` de `GET /api/dossiers`. Null sur une ligne libre."
+          },
+          "netAPayerReste": {
+            "type": "number",
+            "description": "`netAPayer − netAPayerRegle`. Null sur une ligne libre."
+          },
+          "avance": {
+            "type": "number",
+            "description": "Σ des échéances d'avance (`IsSaleAdvance`) au crédit, comme `avance` de `GET /api/dossiers`. Null sur une ligne libre."
+          },
+          "avanceReglee": {
+            "type": "number",
+            "description": "Réglé des échéances d'avance, au crédit ou non. Null sur une ligne libre."
+          },
+          "avanceReste": {
+            "type": "number",
+            "description": "`avance − avanceReglee`. Null sur une ligne libre."
+          },
+          "autofinancement": {
+            "type": "number",
+            "description": "Σ des échéances d'autofinancement au crédit, comme la liste des dossiers. Null sur une ligne libre."
+          },
+          "autofinancementRegle": {
+            "type": "number",
+            "description": "Réglé des échéances d'autofinancement. Null sur une ligne libre."
+          },
+          "autofinancementReste": {
+            "type": "number",
+            "description": "`autofinancement − autofinancementRegle`. Null sur une ligne libre."
+          },
+          "credit": {
+            "type": "number",
+            "description": "Σ des échéances de crédit bancaire au crédit, comme la liste des dossiers. Null sur une ligne libre."
+          },
+          "creditRegle": {
+            "type": "number",
+            "description": "Réglé des échéances de crédit bancaire (décaissements en négatif). Null sur une ligne libre."
+          },
+          "creditReste": {
+            "type": "number",
+            "description": "`credit − creditRegle`. Null sur une ligne libre."
+          },
+          "frais": {
+            "type": "number",
+            "description": "Σ des échéances de frais au crédit (hors prix de vente), comme la liste des dossiers. Null sur une ligne libre."
+          },
+          "fraisRegles": {
+            "type": "number",
+            "description": "Réglé des échéances de frais. Null sur une ligne libre."
+          },
+          "fraisReste": {
+            "type": "number",
+            "description": "`frais − fraisRegles`. Null sur une ligne libre."
+          },
+          "modifications": {
+            "type": "number",
+            "description": "`ComFolder.ModificationsAmount` (0 si absent). Null sur une ligne libre."
+          },
+          "modificationsReglees": {
+            "type": "number",
+            "description": "Réglé des échéances de modification (`IsSaleModification`). Null sur une ligne libre."
+          },
+          "modificationsReste": {
+            "type": "number",
+            "description": "`modifications − modificationsReglees`. Null sur une ligne libre."
+          },
+          "tropPercu": {
+            "type": "number",
+            "description": "Ce que le client a payé en plus du net à payer, en positif ; 0 pour un dossier débiteur. Null sur une ligne libre."
+          },
+          "tropPercuRegle": {
+            "type": "number",
+            "description": "Part du trop-perçu déjà remboursée. Null sur une ligne libre."
+          },
+          "tropPercuReste": {
+            "type": "number",
+            "description": "Trop-perçu restant à rembourser. Null sur une ligne libre."
+          },
+          "penalites": {
+            "type": "number",
+            "description": "Σ des échéances de pénalité (`IsSalePenality`), signées par la catégorie (au crédit +, sinon −). Null sur une ligne libre."
+          },
+          "penalitesRegles": {
+            "type": "number",
+            "description": "Réglé des échéances de pénalité. Null sur une ligne libre."
+          },
+          "penalitesReste": {
+            "type": "number",
+            "description": "`penalites − penalitesRegles`. Null sur une ligne libre."
+          },
+          "prixContractuelRegle": {
+            "type": "number",
+            "description": "Réglé des échéances comprises dans le prix (`ExcludeFromPrice = 0`), comme la liste des dossiers. Null sur une ligne libre."
+          },
+          "prixContractuelReste": {
+            "type": "number",
+            "description": "`ComFolder.AgreementPrice − prixContractuelRegle`. Null sur une ligne libre."
+          },
+          "tauxAvance": {
+            "type": "number",
+            "description": "Avance en % du prix après remise (40 = 40 %), 0 si ce prix est nul. Null sur une ligne libre. Jamais sommé."
+          },
+          "tauxAvanceReel": {
+            "type": "number",
+            "description": "Avance réglée en % de l'avance, 0 sans avance. Null sur une ligne libre. Jamais sommé."
           }
         }
       },
@@ -41502,138 +41381,6 @@
           },
           "totaux": {
             "$ref": "#/components/schemas/TotauxSynthese"
-          }
-        }
-      },
-      "CompteVendusLibres": {
-        "type": "object",
-        "description": "Comptes d'articles racines ; libres + reserves + vendus = total.",
-        "properties": {
-          "trancheId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Id de tranche (CfgTranche.id) ; null dans totauxFamille et general."
-          },
-          "trancheCode": {
-            "type": "string",
-            "description": "Code de tranche ; null dans totauxFamille et general."
-          },
-          "trancheLibelle": {
-            "type": "string",
-            "description": "Libellé de tranche ; null dans totauxFamille et general."
-          },
-          "familleCode": {
-            "type": "string",
-            "description": "Famille ; null dans totalTranche et general.",
-            "enum": [
-              "APPARTEMENT",
-              "PARKING",
-              "MAGASIN",
-              "AUTRE"
-            ],
-            "example": "APPARTEMENT"
-          },
-          "libres": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Sans dossier actif (dossier annulé ou désisté compris)."
-          },
-          "reserves": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Dossier en RESERVATION ou sans statut."
-          },
-          "vendus": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Dossier à tout autre statut hors sortie."
-          },
-          "sansStatut": {
-            "type": "integer",
-            "format": "int64",
-            "description": "Dossiers sans statut, déjà comptés dans reserves."
-          },
-          "total": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "pctLibres": {
-            "type": "number",
-            "format": "double",
-            "description": "Part des libres dans total, en %, 1 décimale ; 0 si total nul.",
-            "example": 33.3
-          },
-          "pctReserves": {
-            "type": "number",
-            "format": "double",
-            "description": "Part des réservés dans total, en %, 1 décimale ; 0 si total nul."
-          },
-          "pctVendus": {
-            "type": "number",
-            "format": "double",
-            "description": "Part des vendus dans total, en %, 1 décimale ; 0 si total nul."
-          }
-        }
-      },
-      "FamilleVendusLibres": {
-        "type": "object",
-        "properties": {
-          "code": {
-            "type": "string",
-            "enum": [
-              "APPARTEMENT",
-              "PARKING",
-              "MAGASIN",
-              "AUTRE"
-            ],
-            "example": "APPARTEMENT"
-          },
-          "libelle": {
-            "type": "string",
-            "example": "Appartements"
-          },
-          "ordre": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Rang de la famille, croissant."
-          }
-        }
-      },
-      "SyntheseVendusLibresDto": {
-        "type": "object",
-        "description": "Tableau tranche × famille en Libres / Réservés / Vendus, totaux et pourcentages calculés au serveur.",
-        "properties": {
-          "familles": {
-            "type": "array",
-            "description": "Familles du filtre, ordre fixe : Appartements, Parkings, Magasins, Autres.",
-            "items": {
-              "$ref": "#/components/schemas/FamilleVendusLibres"
-            }
-          },
-          "lignes": {
-            "type": "array",
-            "description": "Une ligne par tranche × famille non vide, triées par code de tranche puis ordre de famille.",
-            "items": {
-              "$ref": "#/components/schemas/CompteVendusLibres"
-            }
-          },
-          "totalTranche": {
-            "type": "array",
-            "description": "Toutes familles d'une tranche, même ordre que les lignes ; familleCode null.",
-            "items": {
-              "$ref": "#/components/schemas/CompteVendusLibres"
-            }
-          },
-          "totauxFamille": {
-            "type": "array",
-            "description": "Toutes tranches d'une famille, familles à total nul omises ; champs de tranche null.",
-            "items": {
-              "$ref": "#/components/schemas/CompteVendusLibres"
-            }
-          },
-          "general": {
-            "$ref": "#/components/schemas/CompteVendusLibres",
-            "description": "Total général du filtre ; champs de tranche et de famille null."
           }
         }
       },

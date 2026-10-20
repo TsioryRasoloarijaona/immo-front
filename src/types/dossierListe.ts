@@ -27,6 +27,8 @@ export interface MontantsNatureDossier {
   prixContractuelReste?: number | null;
   prixRegle?: number | null;
   prixReste?: number | null;
+  /** Calculé (prix + modifications + frais + pénalités) ; ≠ `totalAPayer` (colonne stockée). */
+  netAPayer?: number | null;
   netAPayerRegle?: number | null;
   /** Négatif quand le client a trop payé. */
   netAPayerReste?: number | null;
@@ -46,6 +48,14 @@ export interface MontantsNatureDossier {
   frais?: number | null;
   fraisRegles?: number | null;
   fraisReste?: number | null;
+  /** `ComFolder.ModificationsAmount`. */
+  modifications?: number | null;
+  modificationsReglees?: number | null;
+  modificationsReste?: number | null;
+  /** Σ signée des échéances de pénalité (crédit +, débit −). */
+  penalites?: number | null;
+  penalitesRegles?: number | null;
+  penalitesReste?: number | null;
   tropPercu?: number | null;
   tropPercuRegle?: number | null;
   tropPercuReste?: number | null;
