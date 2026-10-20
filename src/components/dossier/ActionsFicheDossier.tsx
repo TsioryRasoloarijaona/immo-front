@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { useAuth } from '../../lib/auth';
 import { estAdministrateur, estChefOuExempte } from '../../lib/roles';
 import { useToast } from '../../lib/toastContext';
+import BoutonDesistement from '../desistement/BoutonDesistement';
 import CalendrierVisitesDialog from './CalendrierVisitesDialog';
 import CompteursDialog from './CompteursDialog';
 import InstructionDialog from './InstructionDialog';
@@ -41,6 +42,7 @@ export default function ActionsFicheDossier({
       <Button variant="outline" size="sm" onClick={() => setOuvert('compteurs')}>
         <Gauge data-icon="inline-start" /> Compteurs
       </Button>
+      <BoutonDesistement dossierId={dossierId} />
       {estAdministrateur(user) && (
         <Button variant="outline" size="sm" onClick={() => setOuvert('reinitialiser')}>
           <RotateCcw data-icon="inline-start" /> Réinitialiser

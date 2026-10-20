@@ -89,6 +89,13 @@ import type {
   HistoriqueEvenementDto,
   HotlineResultDto,
   ImpayesPageDto,
+  CreerDesistementRequest,
+  DesistementDto,
+  DesistementsPageDto,
+  ModifierDesistementRequest,
+  RembourserDesistementRequest,
+  SimulationDesistementDto,
+  ValiderDesistementRequest,
   InteractionDto,
   ModifierEcheanceRequest,
   ModifierProspectRequest,
@@ -1417,6 +1424,62 @@ export function listImpayes(params: ImpayesFilterParams, pageable?: Pageable): P
 
 export function getColonnesImpayes(): Promise<ColonneDto[]> {
   return request('GET', '/api/referentiels/colonnes/impayes');
+}
+
+export type DesistementsFilterParams = {
+  /** Code du désistement, du dossier ou nom du client. */
+  q?: string;
+  trancheId?: UUID;
+  /** `aaaa-mm-jj`, bornes incluses. */
+  demandeDu?: string;
+  demandeAu?: string;
+  validationDu?: string;
+  validationAu?: string;
+  legalisationDu?: string;
+  legalisationAu?: string;
+};
+
+/** Tri fixe (date de demande décroissante) : seuls `page` et `size` sont lus. */
+export function listDesistements(params: DesistementsFilterParams, pageable?: Pageable): Promise<DesistementsPageDto> {
+  return request('GET', '/api/desistements', { query: withPageable(params, pageable) });
+}
+
+export function getDesistement(id: UUID): Promise<DesistementDto> {
+  return request('GET', `/api/desistements/${id}`);
+}
+
+/** 404 si le dossier n'a aucun désistement. */
+export function getDesistementDuDossier(dossierId: UUID): Promise<DesistementDto> {
+  return request('GET', `/api/dossiers/${dossierId}/desistement`);
+}
+
+/** 409 si le statut du dossier ne permet pas de désistement. */
+export function simulerDesistement(dossierId: UUID): Promise<SimulationDesistementDto> {
+  return request('GET', `/api/dossiers/${dossierId}/desistement/simulation`);
+}
+
+export function creerDesistement(dossierId: UUID, body: CreerDesistementRequest): Promise<DesistementDto> {
+  return request('POST', `/api/dossiers/${dossierId}/desistement`, { body });
+}
+
+export function modifierDesistement(id: UUID, body: ModifierDesistementRequest): Promise<DesistementDto> {
+  return request('PATCH', `/api/desistements/${id}`, { body });
+}
+
+export function supprimerDesistement(id: UUID): Promise<void> {
+  return request('DELETE', `/api/desistements/${id}`);
+}
+
+export function validerDesistement(id: UUID, body: ValiderDesistementRequest): Promise<DesistementDto> {
+  return request('POST', `/api/desistements/${id}/validation`, { body });
+}
+
+export function rembourserDesistement(id: UUID, body: RembourserDesistementRequest): Promise<DesistementDto> {
+  return request('POST', `/api/desistements/${id}/remboursement`, { body });
+}
+
+export function getMotifsDesistement(): Promise<ReferentielItemDto[]> {
+  return request('GET', '/api/referentiels/motifs-desistement');
 }
 
 export function getColonnesSuiviActions(): Promise<ColonneDto[]> {

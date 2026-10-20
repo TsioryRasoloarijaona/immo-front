@@ -2012,6 +2012,111 @@ export interface ImpayesPageDto {
   totaux: TotauxImpayesDto;
 }
 
+/** Taux et remise en fraction (0,10 = 10 %). */
+export interface SimulationDesistementDto {
+  prixVente: number;
+  totalRegle: number;
+  taux: number;
+  basePrix: boolean;
+  remise: number;
+  penaliteApresRemise: number;
+  resteFraisARegler: number;
+  aRembourser: number;
+}
+
+export type EtatDesistement = 'BROUILLON' | 'VALIDE' | 'LEGALISE';
+
+/** Montants enregistrés (figés à la validation) ; taux et remise en fraction. */
+export interface DesistementDto {
+  id: UUID;
+  code: string | null;
+  etat: EtatDesistement;
+  dossierId: UUID | null;
+  dossierCode: string | null;
+  clientId: UUID | null;
+  clientNom: string | null;
+  trancheId: UUID | null;
+  trancheLibelle: string | null;
+  articleId: UUID | null;
+  articleCode: string | null;
+  dateDemande: string | null;
+  dateDecision: string | null;
+  dateValidation: string | null;
+  dateLegalisation: string | null;
+  motifId: UUID | null;
+  motifLibelle: string | null;
+  observations: string | null;
+  prixVente: number | null;
+  totalRegle: number | null;
+  resteARegler: number | null;
+  taux: number | null;
+  remise: number | null;
+  penaliteApresRemise: number | null;
+  resteFraisARegler: number | null;
+  aRembourser: number | null;
+  /** 0 avant validation. */
+  resteARembourser: number;
+  typeReglementId: UUID | null;
+  typeReglementLibelle: string | null;
+  reference: string | null;
+  banqueId: UUID | null;
+  banqueNom: string | null;
+  contactId: UUID | null;
+  contactNom: string | null;
+}
+
+export interface TotauxDesistementsDto {
+  totalRegle: number;
+  penaliteApresRemise: number;
+  resteFraisARegler: number;
+  aRembourser: number;
+}
+
+export interface DesistementsPageDto {
+  lignes: DesistementDto[];
+  page: number;
+  size: number;
+  total: number;
+  totalPages: number;
+  totaux: TotauxDesistementsDto;
+}
+
+export interface CreerDesistementRequest {
+  dateDemande: string;
+  observations?: string;
+  motifId?: UUID;
+}
+
+/** Champ absent = inchangé ; `remise` / `penaliteApresRemise` : brouillon seulement (409 sinon). */
+export interface ModifierDesistementRequest {
+  observations?: string;
+  motifId?: UUID;
+  dateDemande?: string;
+  dateDecision?: string;
+  dateLegalisation?: string;
+  remise?: number;
+  penaliteApresRemise?: number;
+  typeReglementId?: UUID;
+  reference?: string;
+  banqueId?: UUID;
+  contactId?: UUID;
+}
+
+export interface ValiderDesistementRequest {
+  dateValidation: string;
+  /** Obligatoire si la pénalité après remise n'est pas nulle. */
+  dateLegalisation?: string;
+}
+
+export interface RembourserDesistementRequest {
+  montant: number;
+  dateEcheance: string;
+  typeId: UUID;
+  banqueId?: UUID;
+  reference?: string;
+  notes?: string;
+}
+
 /** Un règlement peut porter plusieurs affectations, sur plusieurs dossiers ; la
  * somme des `montantAffecte` vaut `montantBrut - montantBrutRestant`. */
 export interface AffectationDto {
