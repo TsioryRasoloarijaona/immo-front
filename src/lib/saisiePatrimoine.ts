@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { formatCurrency, formatDate, formatNumber, formatPercent, formatSurface, texteBrut, toApiDateTime } from './format';
+import { formatCurrency, formatDate, formatNumber, formatPercent, formatRatio, formatSurface, texteBrut, toApiDateTime } from './format';
 
 /** Formulaires programme / tranche / article : champs déclarés une fois, saisis en texte, convertis à l'envoi. */
 /** `multi` : cases d'une liste, ids joints par `,` dans le brouillon, tableau sur le fil (vues d'un article). */
-export type TypeChamp = 'texte' | 'texteLong' | 'date' | 'montant' | 'entier' | 'surface' | 'pourcent' | 'booleen' | 'liste'
+export type TypeChamp = 'texte' | 'texteLong' | 'date' | 'montant' | 'entier' | 'surface' | 'pourcent' | 'ratio' | 'booleen' | 'liste'
   | 'multi';
 
 export type Choix = { label: string; value: string }[];
@@ -41,6 +41,8 @@ export function valeurFiche(def: ChampDef, source: object, liste?: Choix): strin
       return formatCurrency(v);
     case 'pourcent':
       return formatPercent(v, 2);
+    case 'ratio':
+      return formatRatio(v);
     case 'surface':
       return formatSurface(v);
     default:
@@ -79,6 +81,7 @@ function versFil(def: ChampDef, valeur: string | boolean): unknown {
     case 'montant':
     case 'entier':
     case 'surface':
+    case 'ratio':
       return Number(texte);
     default:
       return texte;

@@ -5,6 +5,8 @@ import { champsDe, type ChampDef, type SectionSaisie, type TypeChamp } from './s
 import type { BadgeTone, ReferentielItemDto } from '../types';
 import type { EtudeFaisabiliteDto, LigneTrancheEtudeDto, SaisieEtudeDto, ValeursFaisabilite } from '../types/faisabilite';
 
+export const MESSAGE_BLOQUEE = 'Étude bloquée — débloquez-la pour modifier.';
+
 const saisie = (nom: string, libelle: string, type: TypeChamp, extra: Partial<ChampDef> = {}): ChampDef =>
   ({ nom, libelle, type, ...extra });
 /** Valeur calculée par le serveur (aperçu `POST /calcul`) : affichée, jamais envoyée. */
@@ -54,14 +56,14 @@ export const SECTIONS_TERRAIN: SectionSaisie[] = [
     titre: 'Surfaces',
     champs: [
       saisie('superficie', 'Superficie du terrain', 'surface'),
-      saisie('coefEquipements', 'Coefficient équipements', 'pourcent'),
+      saisie('coefEquipements', 'Coefficient équipements', 'ratio'),
       saisie('superficieEquipements', 'Superficie équipements', 'surface'),
       calcule('superficieNette', 'Superficie nette', 'surface'),
-      saisie('coefEmprise', "Coefficient d'emprise au sol (COS)", 'pourcent'),
+      saisie('coefEmprise', "Coefficient d'emprise au sol (COS)", 'ratio'),
       saisie('empriseAuSol', 'Emprise au sol', 'surface'),
-      saisie('cuf', "Coefficient d'utilisation du foncier (CUF)", 'pourcent'),
+      saisie('cuf', "Coefficient d'utilisation du foncier (CUF)", 'ratio'),
       saisie('plancherCouvert', 'Plancher couvert', 'surface'),
-      saisie('coefVendable', 'Coefficient vendable', 'pourcent'),
+      saisie('coefVendable', 'Coefficient vendable', 'ratio'),
       saisie('plancherVendable', 'Plancher vendable', 'surface'),
       calcule('surfaceNonBatie', 'Surface non bâtie', 'surface'),
     ],
@@ -231,11 +233,13 @@ export function choixAvec(liste: ReferentielItemDto[], id: string | null | undef
   return [...liste, { id, ...repli }];
 }
 
-/** Tranche neuve de rang `rang` : dates des phases de l'étude (OMRAN `AddCfgTranche`). */
-export function trancheNeuve(fiche: EtudeFaisabiliteDto, rang: number): LigneTrancheEtudeDto {
+/** Tranche neuve de rang `rang` : dates des phases de l'étude (OMRAN `AddCfgTranche`), premier code « Tranche N » libre. */
+export function trancheNeuve(fiche: EtudeFaisabiliteDto, rang: number, codesPris: readonly string[] = []): LigneTrancheEtudeDto {
   const v = fiche.valeurs;
+  let n = rang;
+  while (codesPris.includes(`Tranche ${n}`)) n += 1;
   return {
-    code: `Tranche ${rang}`,
+    code: `Tranche ${n}`,
     sorting: rang,
     trancheId: null,
     poids: null,

@@ -1487,7 +1487,7 @@
           "Études de faisabilité"
         ],
         "summary": "Remplace les tranches de l'étude et leurs ventilations",
-        "description": "Liste complète comme les unités. `code` et `sorting` obligatoires, `code` unique dans la liste (409) ; `trancheId` :\ntranche visible de la société de l'étude (400). `unites` de chaque tranche : ventilations recréées, `uniteEtudeId` = ligne\nd'unité de cette étude (400). Verif : somme des poids exactement 1, puis quantité ventilée de chaque unité (arrondi à 2\ndécimales).",
+        "description": "Liste complète comme les unités. `code` et `sorting` obligatoires, `code` unique dans la liste (409) ; `trancheId` :\ntranche visible de la société de l'étude (400). `unites` de chaque tranche : ventilations recréées, `uniteEtudeId` = ligne\nd'unité de cette étude (400). Verif : somme des poids exactement 1, puis quantité ventilée de chaque unité (arrondi à 2\ndécimales). Retirer une tranche qui porte des lignes de prévision → 409.",
         "operationId": "remplacerTranches",
         "parameters": [
           {
@@ -1565,7 +1565,7 @@
             }
           },
           "409": {
-            "description": "Code de tranche en double, ou Étude bloquée (« Étude bloquée »).",
+            "description": "Code en double, tranche retirée avec prévisions, ou Étude bloquée (« Étude bloquée »).",
             "content": {
               "*/*": {
                 "schema": {
@@ -12316,7 +12316,7 @@
           "Études de faisabilité"
         ],
         "summary": "Modifie une étude ; bloc A et phases recalculés, Verif sur les grilles enregistrées",
-        "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). `previsionsARecalculer` est vrai si l'étude a des prévisions.",
+        "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel. `previsionsARecalculer` est vrai si l'étude a des prévisions.",
         "operationId": "modifier_6",
         "parameters": [
           {

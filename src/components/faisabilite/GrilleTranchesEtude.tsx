@@ -7,7 +7,7 @@ import SaisieOnglet from '../patrimoine/SaisieOnglet';
 import TableLignes from '../patrimoine/TableLignes';
 import { listTranchesEtude, remplacerTranchesEtude } from '../../lib/apiFaisabilite';
 import { useAuth } from '../../lib/auth';
-import { choixAvec, trancheNeuve } from '../../lib/faisabilite';
+import { MESSAGE_BLOQUEE, choixAvec, trancheNeuve } from '../../lib/faisabilite';
 import { afficherValeur, changerRangee, type ColonneOnglet, type Rangee, type Valeur } from '../../lib/ongletsTranche';
 import { estAdministrateur } from '../../lib/roles';
 import { useToast } from '../../lib/toastContext';
@@ -77,7 +77,7 @@ function avecVentilation(ligne: LigneTrancheEtudeDto, uniteEtudeId: string, nom:
 /** Tranches de l'étude et ventilation des unités : PUT de la liste complète, Verif du serveur affichée telle quelle. */
 export default function GrilleTranchesEtude({ fiche, onEnregistre }: Readonly<{ fiche: EtudeFaisabiliteDto; onEnregistre: () => Promise<void> }>) {
   const { user } = useAuth();
-  const editable = estAdministrateur(user);
+  const editable = estAdministrateur(user) && !fiche.bloquee;
   const showToast = useToast();
   const choixTranches = useApi(() => (fiche.societeId ? listTranchesEtude(fiche.societeId) : Promise.resolve([])), [fiche.societeId]);
   const [brouillon, setBrouillon] = useState<Rangee<LigneTrancheEtudeDto>[] | null>(null);
@@ -108,7 +108,7 @@ export default function GrilleTranchesEtude({ fiche, onEnregistre }: Readonly<{ 
 
   function ajouter() {
     compteur.current += 1;
-    setBrouillon([...rangees, { cle: `n${compteur.current}`, ligne: trancheNeuve(fiche, rangees.length + 1) }]);
+    setBrouillon([...rangees, { cle: `n${compteur.current}`, ligne: trancheNeuve(fiche, rangees.length + 1, rangees.map((r) => r.ligne.code)) }]);
   }
 
   async function enregistrer() {
@@ -129,6 +129,7 @@ export default function GrilleTranchesEtude({ fiche, onEnregistre }: Readonly<{ 
 
   return (
     <div className="flex flex-col gap-3">
+      {fiche.bloquee && <p className="text-micro text-muted-foreground">{MESSAGE_BLOQUEE}</p>}
       <TableLignes colonnes={colonnes} rangees={rangees} editable={editable} version={version}
         onChange={(cle, nom, valeur) => setBrouillon(changerRangee(rangees, cle, nom, valeur))}
         onRetirer={(cle) => setBrouillon(rangees.filter((r) => r.cle !== cle))} />

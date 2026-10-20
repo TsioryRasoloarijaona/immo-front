@@ -2,7 +2,7 @@ import GrilleOnglet from '../patrimoine/GrilleOnglet';
 import { getEtudeFaisabilite, remplacerUnitesEtude } from '../../lib/apiFaisabilite';
 import { listLignesReferentiel } from '../../lib/apiReferentielsAdmin';
 import { useAuth } from '../../lib/auth';
-import { choixAvec } from '../../lib/faisabilite';
+import { MESSAGE_BLOQUEE, choixAvec } from '../../lib/faisabilite';
 import { texteBrut } from '../../lib/format';
 import type { ColonneOnglet, SourceLignes } from '../../lib/ongletsTranche';
 import { estAdministrateur } from '../../lib/roles';
@@ -32,7 +32,7 @@ export default function GrilleUnitesEtude({ fiche, onEnregistre }: Readonly<{ fi
     enregistrer: (lignes) => remplacerUnitesEtude(fiche.id, lignes),
   };
   return (
-    <GrilleOnglet source={source} colonnes={colonnes} onEnregistre={onEnregistre}
+    <GrilleOnglet source={source} colonnes={colonnes} onEnregistre={onEnregistre} verrou={fiche.bloquee ? MESSAGE_BLOQUEE : undefined}
       nouvelle={{ sorting: fiche.unites.length + 1, uniteBaseId: '', quantite: null }} />
   );
 }
