@@ -1,4 +1,5 @@
 import { Field, FieldGrid } from '../../ui';
+import LienDesistement from '../../desistement/LienDesistement';
 import BarreEdition from '../edition/BarreEdition';
 import { ChampDate, ChampTexte } from '../edition/ChampsSaisie';
 import { formatDate } from '../../../lib/format';
@@ -14,12 +15,13 @@ function valeursInitiales(a: AnnulationFicheDto): ValeursEdition {
 }
 
 /** Seul onglet modifiable sur un dossier annulé ou désisté (409 ailleurs). */
-function Annulation({ fiche }: Readonly<{ fiche: DossierFicheDto }>) {
+function Annulation({ fiche, dossierId }: Readonly<{ fiche: DossierFicheDto; dossierId: string }>) {
   const { annulation } = fiche;
   const f = useFormulaireEdition(fiche, () => valeursInitiales(annulation), CLES_DATES);
 
   return (
     <>
+      <LienDesistement dossierId={dossierId} />
       <BarreEdition edition={f.edition} visible={f.edition.peut('ANNULATION')} onEnregistrer={f.enregistrer} />
       {f.edition.ouvert ? (
         <FieldGrid>
@@ -46,6 +48,9 @@ function Annulation({ fiche }: Readonly<{ fiche: DossierFicheDto }>) {
   );
 }
 
-export default function OngletAnnulation({ fiche }: Readonly<{ fiche: ApiState<DossierFicheDto> }>) {
-  return <ContenuFiche fiche={fiche}>{(f) => <Annulation fiche={f} />}</ContenuFiche>;
+export default function OngletAnnulation({
+  fiche,
+  dossierId,
+}: Readonly<{ fiche: ApiState<DossierFicheDto>; dossierId: string }>) {
+  return <ContenuFiche fiche={fiche}>{(f) => <Annulation fiche={f} dossierId={dossierId} />}</ContenuFiche>;
 }

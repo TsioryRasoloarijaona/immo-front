@@ -240,7 +240,7 @@ export function FicheDossier({
           { id: 'autres-montants', libelle: 'Autres montants', contenu: <OngletAutresMontants fiche={fiche} /> },
           { id: 'dates', libelle: 'Dates', contenu: <OngletDates fiche={fiche} /> },
           { id: 'dates-autres', libelle: 'Dates autres', contenu: <OngletDatesAutres fiche={fiche} /> },
-          { id: 'annulation', libelle: 'Annulation / Résiliation', contenu: <OngletAnnulation fiche={fiche} /> },
+          { id: 'annulation', libelle: 'Annulation / Résiliation', contenu: <OngletAnnulation fiche={fiche} dossierId={d.id} /> },
           { id: 'autres', libelle: 'Autres', contenu: <OngletAutres fiche={fiche} /> },
           {
             id: 'articles',
