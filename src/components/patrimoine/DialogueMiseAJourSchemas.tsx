@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import Modal from '../Modal';
+import LienFiche from '../LienFiche';
 import { EmptyState, ErrorState, LoadingState } from '../ui';
 import { Button } from '../ui/button';
 import { DialogFooter } from '../ui/dialog';
@@ -27,7 +27,7 @@ function Apercu({ echeances }: Readonly<{ echeances: EcheanceSchemaDto[] }>) {
       <TableBody>
         {echeances.map((e) => (
           <TableRow key={e.echeanceId}>
-            <TableCell><Link to={`/dossiers/${e.dossierId}`} className="font-mono text-micro hover:underline">{e.dossierCode ?? '—'}</Link></TableCell>
+            <TableCell><LienFiche cible={{ type: 'dossier', id: e.dossierId }} className="font-mono text-micro hover:underline">{e.dossierCode ?? '—'}</LienFiche></TableCell>
             <TableCell>{e.client ?? '—'}</TableCell>
             <TableCell>{e.categorie ?? '—'}</TableCell>
             <TableCell>{formatDate(e.ancienneDate)}</TableCell>

@@ -3,6 +3,7 @@ import { ArrowUpRight, FolderPlus } from 'lucide-react';
 import { Button } from '../ui/button';
 import { getProspection } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
+import { usePreview } from '../../lib/previewContext';
 import type { FicheDevisDto } from '../../types';
 
 const AIDE_SANS_PROSPECTION = 'Offre sans prospection : créer le dossier depuis une prospection';
@@ -12,7 +13,7 @@ const AIDE_SANS_PROSPECTION = 'Offre sans prospection : créer le dossier depuis
  * prérempli depuis elle (rien n'est créé au clic). Même règle d'accès que « Créer un dossier » de la prospection.
  */
 export default function BoutonDossierOffre({ fiche }: Readonly<{ fiche: FicheDevisDto }>) {
-  const navigate = useNavigate();
+  const { ouvrirFicheDossier } = usePreview();
   const { offre, dossierLie } = fiche;
 
   if (dossierLie) {
@@ -20,7 +21,7 @@ export default function BoutonDossierOffre({ fiche }: Readonly<{ fiche: FicheDev
     if (!dossierLie.id) return null;
     const dossierId = dossierLie.id;
     return (
-      <Button size="sm" onClick={() => void navigate(`/dossiers/${dossierId}`)}>
+      <Button size="sm" onClick={() => ouvrirFicheDossier(dossierId)}>
         <ArrowUpRight data-icon="inline-start" /> Ouvrir le dossier {dossierLie.code ?? ''}
       </Button>
     );

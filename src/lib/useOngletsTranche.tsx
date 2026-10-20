@@ -1,18 +1,16 @@
-import { useState } from 'react';
-import { Card } from '../ui';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import GrilleOnglet from './GrilleOnglet';
-import { getActionsCommerciales, getCategoriesBien } from '../../lib/api';
-import { getChoixOngletTranche, getEntitesFinalisation, getReferentielPatrimoine } from '../../lib/apiPatrimoine';
-import { commercialLabel, useAppData } from '../../lib/appData';
-import { colonnesCommissions } from '../../lib/commissionsTranche';
-import { formatSurface } from '../../lib/format';
-import { montantsFrais, somme, sourceOngletTranche, type ColonneOnglet } from '../../lib/ongletsTranche';
-import { useApi } from '../../lib/useApi';
+import type { OngletFiche } from '../components/FicheShell';
+import GrilleOnglet from '../components/patrimoine/GrilleOnglet';
+import { getActionsCommerciales, getCategoriesBien } from './api';
+import { getChoixOngletTranche, getEntitesFinalisation, getReferentielPatrimoine } from './apiPatrimoine';
+import { commercialLabel, useAppData } from './appData';
+import { colonnesCommissions } from './commissionsTranche';
+import { formatSurface } from './format';
+import { montantsFrais, somme, sourceOngletTranche, type ColonneOnglet } from './ongletsTranche';
+import { useApi } from './useApi';
 import type {
   EntiteFinalisationDto, LigneCommissionDto, LigneEtageDto, LigneFinalisationDto, LigneFraisDto, LignePlancherDto,
   LigneTerrainDto, ReferentielItemDto,
-} from '../../types';
+} from '../types';
 
 function useChoix<T = ReferentielItemDto>(charger: () => Promise<T[]>) {
   return useApi(charger, []).data ?? [];
@@ -35,13 +33,11 @@ function statutsFinalisation(entites: EntiteFinalisationDto[]) {
   };
 }
 
-/** Onglets Terrains, Étages, Plancher couvert, Frais de vente, Finalisations et Commission vendeur de la fiche tranche. */
-export default function OngletsTranche({ trancheId, onPlancherEnregistre }: Readonly<{
-  trancheId: string;
-  /** Le plancher couvert de la fiche (Σ des surfaces) a changé. */
-  onPlancherEnregistre: () => void;
-}>) {
-  const [onglet, setOnglet] = useState('terrains');
+/**
+ * Onglets Terrains, Étages, Plancher couvert, Frais de vente, Finalisations et Commission vendeur de la fiche tranche.
+ * `onPlancherEnregistre` : le plancher couvert de la fiche (Σ des surfaces) a changé.
+ */
+export function useOngletsTranche(trancheId: string, onPlancherEnregistre: () => void): OngletFiche[] {
   const terrains = useChoix(() => getChoixOngletTranche('terrains-disponibles'));
   const niveaux = useChoix(() => getReferentielPatrimoine('niveaux-terrain'));
   const categories = useChoix(categoriesBatiment);
@@ -83,47 +79,51 @@ export default function OngletsTranche({ trancheId, onPlancherEnregistre }: Read
     { nom: 'statutFinalisation2Id', libelle: 'Statut de finalisation 2', type: 'choix', choix: finalisation.statuts, facultatif: true },
   ];
 
-  return (
-    <Card padded={false}>
-      <Tabs value={onglet} onValueChange={(v) => setOnglet(String(v))} className="gap-0">
-        <TabsList className="px-4.5">
-          <TabsTrigger value="terrains">Terrains</TabsTrigger>
-          <TabsTrigger value="etages">Étages</TabsTrigger>
-          <TabsTrigger value="plancher">Plancher couvert</TabsTrigger>
-          <TabsTrigger value="frais">Frais de vente</TabsTrigger>
-          <TabsTrigger value="finalisations">Finalisations</TabsTrigger>
-          <TabsTrigger value="commissions">Commission vendeur</TabsTrigger>
-        </TabsList>
-        <div className="p-4.5">
-          <TabsContent value="terrains">
-            <GrilleOnglet<LigneTerrainDto> source={sourceOngletTranche(trancheId, 'terrains')} colonnes={colonnesTerrains} nouvelle={{ ratio: 1 }} />
-          </TabsContent>
-          <TabsContent value="etages">
-            <GrilleOnglet<LigneEtageDto> source={sourceOngletTranche(trancheId, 'etages')} colonnes={colonnesEtages} nouvelle={{}} />
-          </TabsContent>
-          <TabsContent value="plancher">
-            <GrilleOnglet<LignePlancherDto> source={sourceOngletTranche(trancheId, 'plancher-couvert')} colonnes={colonnesPlancher} nouvelle={{ surface: 0 }}
-              onEnregistre={onPlancherEnregistre}
-              pied={(lignes) => (
-                <p className="text-label text-muted-foreground">
-                  Plancher couvert : <span className="font-medium text-foreground">{formatSurface(somme(lignes, (l) => l.surface))}</span>
-                </p>
-              )} />
-          </TabsContent>
-          <TabsContent value="frais">
-            <GrilleOnglet<LigneFraisDto> source={sourceOngletTranche(trancheId, 'frais')} colonnes={colonnesFrais} normaliser={montantsFrais}
-              nouvelle={{ saisiEnTTC: false, montantHT: 0, tauxTva: 0, montantTTC: 0 }} />
-          </TabsContent>
-          <TabsContent value="finalisations">
-            <GrilleOnglet<LigneFinalisationDto> source={sourceOngletTranche(trancheId, 'finalisations')} colonnes={colonnesFinalisations} nouvelle={{}}
-              normaliser={finalisation.normaliser}
-              pied={() => <p className="text-label text-muted-foreground">{AIDE_FINALISATIONS}</p>} />
-          </TabsContent>
-          <TabsContent value="commissions">
-            <GrilleOnglet<LigneCommissionDto> source={sourceOngletTranche(trancheId, 'commissions')} colonnes={commissions} nouvelle={{}} />
-          </TabsContent>
-        </div>
-      </Tabs>
-    </Card>
-  );
+  return [
+    {
+      id: 'terrains',
+      libelle: 'Terrains',
+      contenu: <GrilleOnglet<LigneTerrainDto> source={sourceOngletTranche(trancheId, 'terrains')} colonnes={colonnesTerrains} nouvelle={{ ratio: 1 }} />,
+    },
+    {
+      id: 'etages',
+      libelle: 'Étages',
+      contenu: <GrilleOnglet<LigneEtageDto> source={sourceOngletTranche(trancheId, 'etages')} colonnes={colonnesEtages} nouvelle={{}} />,
+    },
+    {
+      id: 'plancher',
+      libelle: 'Plancher couvert',
+      contenu: (
+        <GrilleOnglet<LignePlancherDto> source={sourceOngletTranche(trancheId, 'plancher-couvert')} colonnes={colonnesPlancher} nouvelle={{ surface: 0 }}
+          onEnregistre={onPlancherEnregistre}
+          pied={(lignes) => (
+            <p className="text-label text-muted-foreground">
+              Plancher couvert : <span className="font-medium text-foreground">{formatSurface(somme(lignes, (l) => l.surface))}</span>
+            </p>
+          )} />
+      ),
+    },
+    {
+      id: 'frais',
+      libelle: 'Frais de vente',
+      contenu: (
+        <GrilleOnglet<LigneFraisDto> source={sourceOngletTranche(trancheId, 'frais')} colonnes={colonnesFrais} normaliser={montantsFrais}
+          nouvelle={{ saisiEnTTC: false, montantHT: 0, tauxTva: 0, montantTTC: 0 }} />
+      ),
+    },
+    {
+      id: 'finalisations',
+      libelle: 'Finalisations',
+      contenu: (
+        <GrilleOnglet<LigneFinalisationDto> source={sourceOngletTranche(trancheId, 'finalisations')} colonnes={colonnesFinalisations} nouvelle={{}}
+          normaliser={finalisation.normaliser}
+          pied={() => <p className="text-label text-muted-foreground">{AIDE_FINALISATIONS}</p>} />
+      ),
+    },
+    {
+      id: 'commissions',
+      libelle: 'Commission vendeur',
+      contenu: <GrilleOnglet<LigneCommissionDto> source={sourceOngletTranche(trancheId, 'commissions')} colonnes={commissions} nouvelle={{}} />,
+    },
+  ];
 }

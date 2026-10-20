@@ -1,5 +1,5 @@
 import { Suspense, lazy, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { ChevronDown, ChevronRight, Contact, Plus, UserCheck } from 'lucide-react';
 import CadreFiche, { EnteteFiche, type VarianteFiche } from '../../components/CadreFiche';
 import { LigneActivite, OngletsLigne } from '../../components/FicheShell';
@@ -26,9 +26,10 @@ import {
   updateProspect,
 } from '../../lib/api';
 import { useApi } from '../../lib/useApi';
-import { usePreview } from '../../lib/previewContext';
+import { usePreview, type FicheCible } from '../../lib/previewContext';
 import { useToast } from '../../lib/toastContext';
-import { routeFicheProspection } from '../../lib/parcours';
+import { CODE_PRE_PROSPECTION } from '../../lib/parcours';
+import LienFiche from '../../components/LienFiche';
 import { personDisplayName, etapeBadgeTone, prospectionDisplayName } from '../../lib/domain';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
 import { formatCurrency, formatDate, formatFourchetteMontant, formatFourchetteSurface, formatPercent, formatPercentValue, formatTelephone } from '../../lib/format';
@@ -63,7 +64,6 @@ export function FicheProspect({
     () => (isClientContext ? getClient(id) : getProspect(id)),
     [id, isClientContext],
   );
-  const navigate = useNavigate();
   const [tab, setTab] = useState<ProspectTab>('general');
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<ModifierProspectRequest | null>(null);
@@ -83,7 +83,7 @@ export function FicheProspect({
   const [expandedDossierId, setExpandedDossierId] = useState<string | null>(null);
   const [nouvelleProspection, setNouvelleProspection] = useState(false);
   const showToast = useToast();
-  const { ouvrirFicheProspection } = usePreview();
+  const { ouvrirFicheProspection, ouvrirFicheDossier } = usePreview();
 
   function prospectionCreee(p: ProspectionDetailDto) {
     setNouvelleProspection(false);
@@ -428,7 +428,7 @@ export function FicheProspect({
                   </TableHeader>
                   <TableBody>
                     {reglements.data.content.map((r) => (
-                      <TableRow key={r.id} className={r.dossierId ? 'cursor-pointer' : ''} onClick={() => r.dossierId && navigate(`/dossiers/${r.dossierId}`)}>
+                      <TableRow key={r.id} className={r.dossierId ? 'cursor-pointer' : ''} onClick={() => r.dossierId && ouvrirFicheDossier(r.dossierId)}>
                         <TableCell className="font-medium text-foreground">{r.code}</TableCell>
                         <TableCell className="text-muted-foreground">{r.type}</TableCell>
                         <TableCell className="text-muted-foreground">{r.dossierCode || '—'}</TableCell>
@@ -497,7 +497,10 @@ function ProspectionRow({
         <TableCell className="text-right tabular-nums">{p.prix ? formatCurrency(p.prix) : '—'}</TableCell>
         <TableCell className="text-muted-foreground">{formatDate(p.dateDocument)}</TableCell>
         <TableCell className="text-right">
-          <LienOuvrir vers={routeFicheProspection(p.id, p.typeProspectionCode)} cible={`la prospection ${p.code || ''}`} />
+          <LienOuvrir
+            fiche={{ type: 'prospection', id: p.id, pre: p.typeProspectionCode === CODE_PRE_PROSPECTION }}
+            cible={`la prospection ${p.code || ''}`}
+          />
         </TableCell>
       </TableRow>
       {expanded && (
@@ -567,7 +570,7 @@ function DossierRow({
         <TableCell className="text-right tabular-nums">{formatCurrency(d.totalAPayer)}</TableCell>
         <TableCell className="text-muted-foreground">{formatDate(d.dateDocument)}</TableCell>
         <TableCell className="text-right">
-          <LienOuvrir vers={`/dossiers/${d.id}`} cible={`le dossier ${d.code || ''}`} />
+          <LienOuvrir fiche={{ type: 'dossier', id: d.id }} cible={`le dossier ${d.code || ''}`} />
         </TableCell>
       </TableRow>
       {expanded && (
@@ -610,16 +613,15 @@ function DossierRow({
 }
 
 // Dans une ligne dépliable : ne doit pas déclencher le dépliage (clic ni Entrée/Espace).
-function LienOuvrir({ vers, cible }: Readonly<{ vers: string; cible: string }>) {
+function LienOuvrir({ fiche, cible }: Readonly<{ fiche: FicheCible; cible: string }>) {
   return (
-    <Link
-      to={vers}
+    <LienFiche
+      cible={fiche}
       aria-label={`Ouvrir ${cible.trim()}`}
       className="rounded font-medium whitespace-nowrap text-(--brand) underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring/50"
-      onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
       Ouvrir →
-    </Link>
+    </LienFiche>
   );
 }

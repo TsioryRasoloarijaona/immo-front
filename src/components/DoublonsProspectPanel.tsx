@@ -1,6 +1,6 @@
 import { AlertTriangle, ArrowUpRight, UserPlus } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { Badge } from './ui';
+import LienFiche from './LienFiche';
 import { Button } from './ui/button';
 import { formatDate } from '../lib/format';
 import type { CritereDoublon, ProspectDoublonDto } from '../types';
@@ -55,16 +55,14 @@ export default function DoublonsProspectPanel({
           >
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <Link
-                  to={`/prospects/${d.id}`}
-                  target="_blank"
-                  rel="noreferrer"
+                <LienFiche
+                  cible={{ type: 'prospect', id: d.id }}
                   className="inline-flex items-center gap-1 text-body font-semibold text-foreground underline-offset-2 hover:underline"
-                  title="Ouvrir la fiche dans un nouvel onglet"
+                  title="Ouvrir la fiche par-dessus la saisie"
                 >
                   {d.nom || [d.prenom, d.nomFamille].filter(Boolean).join(' ') || d.raisonSociale || 'Sans nom'}
                   <ArrowUpRight aria-hidden className="size-2.5 text-muted-foreground" />
-                </Link>
+                </LienFiche>
                 {d.code && <span className="text-micro text-muted-foreground">{d.code}</span>}
                 {d.type && (
                   <span className="text-micro text-muted-foreground">· {TYPE_LIBELLE[d.type] ?? d.type}</span>

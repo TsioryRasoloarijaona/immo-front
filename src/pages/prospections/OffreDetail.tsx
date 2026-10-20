@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import LienFiche from '../../components/LienFiche';
 import { FileText, Pencil, Trash2 } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import CadreFiche, { EnteteFiche } from '../../components/CadreFiche';
@@ -148,9 +149,9 @@ function BarreOffre({ fiche, erreur }: Readonly<{ fiche: FicheDevisDto; erreur: 
       {dossier && (
         <>
           {dossier.id ? (
-            <Link to={`/dossiers/${dossier.id}`} className="text-label font-medium text-(--info) hover:underline">
+            <LienFiche cible={{ type: 'dossier', id: dossier.id }} className="text-label font-medium text-(--info) hover:underline">
               Dossier {dossier.code}
-            </Link>
+            </LienFiche>
           ) : (
             <span className="text-label font-medium text-foreground">Dossier de location {dossier.code}</span>
           )}
@@ -178,7 +179,7 @@ function EnteteOffre({ fiche }: Readonly<{ fiche: FicheDevisDto }>) {
           <ChampLecture label="Superficie" valeur={o.articleSuperficie == null ? undefined : formatSurface(o.articleSuperficie)} />
           <ChampLecture
             label="Prospection"
-            valeur={o.prospectionId ? <Link to={`/prospections/${o.prospectionId}`} className="text-(--info) hover:underline">{o.prospectionCode}</Link> : o.prospectionCode}
+            valeur={o.prospectionId ? <LienFiche cible={{ type: 'prospection', id: o.prospectionId, pre: false }} className="text-(--info) hover:underline">{o.prospectionCode}</LienFiche> : o.prospectionCode}
           />
           <ChampLecture label="Prospect" valeur={o.prospect} />
           <ChampLecture label="Commercial" valeur={o.commercial} />
