@@ -1,3 +1,4 @@
+import type { MontantsNatureDossier } from './types/dossierListe';
 
 // eslint-disable-next-line sonarjs/redundant-type-aliases -- nomme le format du fil (OpenAPI `format: uuid`)
 export type UUID = string;
@@ -3830,8 +3831,12 @@ export interface EvenementNotificationDto {
 
 // ---------------------------------------------------------------- État des ventes
 
-/** Un article racine en vente ; seules les colonnes demandées par `colonnes` sont présentes. */
-export interface LigneEtatVentesDto {
+/**
+ * Un article racine en vente ; seules les colonnes demandées par `colonnes` sont présentes. Montants du dossier
+ * (`avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) : mêmes noms et même calcul que `GET /api/dossiers`, null
+ * sur une ligne libre ; `montantRegle` / `resteARegler` y sont `prixRegle` / `prixReste`.
+ */
+export interface LigneEtatVentesDto extends Omit<MontantsNatureDossier, 'prixRegle' | 'prixReste'> {
   articleId: UUID;
   articleCode?: string | null;
   articleLibelle?: string | null;
@@ -3857,6 +3862,17 @@ export interface LigneEtatVentesDto {
   montantRegle?: number | null;
   /** null si libre. */
   resteARegler?: number | null;
+  /** Prix du dossier ; ligne libre : formule du catalogue `StkItem`. Sommables en SQL. */
+  prixArticleHt?: number | null;
+  prixArticleTtc?: number | null;
+  prixSousArticlesHt?: number | null;
+  prixSousArticlesTtc?: number | null;
+  prixHt?: number | null;
+  /** 0 sur une ligne libre. */
+  remiseMontant?: number | null;
+  /** Prix au m² (comme la liste des dossiers) : jamais sommés. */
+  prixVenteM2Ttc?: number | null;
+  prixVenteM2Ht?: number | null;
 }
 
 export interface StatutSynthese {
@@ -3902,51 +3918,6 @@ export interface SyntheseEtatVentesDto {
   statuts: StatutSynthese[];
   lignes: LigneSynthese[];
   totaux: TotauxSynthese;
-}
-
-/** Famille d'article : APP → APPARTEMENT, PAR → PARKING, COM → MAGASIN, tout autre code → AUTRE. */
-export type FamilleArticle = 'APPARTEMENT' | 'PARKING' | 'MAGASIN' | 'AUTRE';
-
-/** LIBRE (aucun dossier actif), RESERVE (RESERVATION ou sans statut), VENDU (tout autre statut hors sortie). */
-export type EtatVente = 'LIBRE' | 'RESERVE' | 'VENDU';
-
-export interface FamilleVendusLibres {
-  code: FamilleArticle;
-  libelle: string;
-  /** Rang croissant : Appartements, Parkings, Magasins, Autres. */
-  ordre: number;
-}
-
-/** Comptes d'articles racines ; `libres + reserves + vendus = total`. % à 1 décimale, 0 si total nul. */
-export interface CompteVendusLibres {
-  /** null dans `totauxFamille` et `general`. */
-  trancheId: UUID | null;
-  trancheCode: string | null;
-  trancheLibelle: string | null;
-  /** null dans `totalTranche` et `general`. */
-  familleCode: FamilleArticle | null;
-  libres: number;
-  /** Inclut les dossiers sans statut. */
-  reserves: number;
-  vendus: number;
-  /** Déjà compté dans `reserves` (infobulle). */
-  sansStatut: number;
-  total: number;
-  pctLibres: number;
-  pctReserves: number;
-  pctVendus: number;
-}
-
-export interface SyntheseVendusLibresDto {
-  /** Familles du filtre, ordre fixe. */
-  familles: FamilleVendusLibres[];
-  /** Tranche × famille non vide, triées par code de tranche puis ordre de famille. */
-  lignes: CompteVendusLibres[];
-  /** Une par tranche, toutes familles. */
-  totalTranche: CompteVendusLibres[];
-  /** Une par famille non vide, toutes tranches. */
-  totauxFamille: CompteVendusLibres[];
-  general: CompteVendusLibres;
 }
 
 // ---------------------------------------------------------------- Suivi des commerciaux

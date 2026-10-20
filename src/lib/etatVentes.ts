@@ -1,20 +1,29 @@
-import type { FiltresEtatVentes, FiltresVendusLibres } from './api';
+import type { FiltresEtatVentes } from './api';
 import { canonicalStatusLabel, toneForStatus } from './dossierStatus';
 import type {
   BadgeTone,
-  ColonneDto,
   ComptesParStatut,
-  CompteVendusLibres,
-  EtatVente,
-  FamilleArticle,
   LigneSynthese,
   StatutSynthese,
   SyntheseEtatVentesDto,
-  SyntheseVendusLibresDto,
 } from '../types';
 
 export type NatureEtatVentes = NonNullable<FiltresEtatVentes['nature']>;
 export type ChampDateEtatVentes = NonNullable<FiltresEtatVentes['champDate']>;
+
+export const ONGLETS_ETAT_VENTES = [
+  { id: 'synthese', libelle: 'Synthèse par statut' },
+  { id: 'liste', libelle: 'Liste des articles' },
+] as const;
+
+export type OngletEtatVentes = (typeof ONGLETS_ETAT_VENTES)[number]['id'];
+
+export const VIDE_ETAT_VENTES = 'Aucun article pour ces filtres';
+
+/** Valeur inconnue ou absente de `?onglet=` : la synthèse. */
+export function ongletEtatVentes(valeur: string | null): OngletEtatVentes {
+  return valeur === 'liste' ? 'liste' : 'synthese';
+}
 
 /** État des filtres de la liste ; `search` est débouncé par la page avant l'appel. */
 export type FiltresListeEtatVentes = {
@@ -23,8 +32,6 @@ export type FiltresListeEtatVentes = {
   categorieId: string[];
   statut: string[];
   typeId: string[];
-  famille: FamilleArticle[];
-  etat: EtatVente[];
   nature: NatureEtatVentes;
   search: string;
   champDate: ChampDateEtatVentes;
@@ -38,8 +45,6 @@ export const FILTRES_ETAT_VENTES_DEFAUT: FiltresListeEtatVentes = {
   categorieId: [],
   statut: [],
   typeId: [],
-  famille: [],
-  etat: [],
   nature: 'TOUS',
   search: '',
   champDate: 'RESERVATION',
@@ -72,8 +77,6 @@ export function paramsEtatVentes(f: FiltresListeEtatVentes): FiltresEtatVentes {
     categorieId: liste(f.categorieId),
     statut: liste(f.statut),
     typeId: liste(f.typeId),
-    famille: f.famille.length > 0 ? f.famille : undefined,
-    etat: f.etat.length > 0 ? f.etat : undefined,
     nature: f.nature === 'TOUS' ? undefined : f.nature,
     search: f.search.trim() || undefined,
     champDate: periode ? f.champDate : undefined,
@@ -101,8 +104,6 @@ export type ChoixSynthese = {
   trancheId?: string;
   categorieId?: string;
   statut?: string;
-  famille?: FamilleArticle;
-  etat?: EtatVente;
 };
 
 export type LigneSyntheseAffichee = {
@@ -150,8 +151,7 @@ export function lignesSynthese(s: SyntheseEtatVentesDto): LigneSyntheseAffichee[
   return sortie;
 }
 
-export type FiltresSyntheseEtatVentes = Pick<FiltresListeEtatVentes, 'trancheId' | 'projetId' | 'categorieId'> &
-  Partial<Pick<FiltresListeEtatVentes, 'famille'>>;
+export type FiltresSyntheseEtatVentes = Pick<FiltresListeEtatVentes, 'trancheId' | 'projetId' | 'categorieId'>;
 
 /** Les autres filtres de la liste sont remis à zéro : la liste compte alors exactement la cellule cliquée (R5). */
 export function filtresDepuisChoix(choix: ChoixSynthese, base: FiltresSyntheseEtatVentes): FiltresListeEtatVentes {
@@ -161,57 +161,7 @@ export function filtresDepuisChoix(choix: ChoixSynthese, base: FiltresSyntheseEt
     trancheId: choix.trancheId ? [choix.trancheId] : base.trancheId,
     categorieId: choix.categorieId ? [choix.categorieId] : base.categorieId,
     statut: choix.statut ? [choix.statut] : [],
-    famille: choix.famille ? [choix.famille] : (base.famille ?? []),
-    etat: choix.etat ? [choix.etat] : [],
   };
-}
-
-/** Paramètres du tableau Libres / Réservés / Vendus et de son export (sans catégorie : la famille la remplace). */
-export function paramsVendusLibres(f: FiltresSyntheseEtatVentes, famille: FamilleArticle[]): FiltresVendusLibres {
-  const { trancheId, projetId, famille: fam } = paramsEtatVentes({ ...FILTRES_ETAT_VENTES_DEFAUT, ...f, categorieId: [], famille });
-  return { trancheId, projetId, famille: fam };
-}
-
-export const FAMILLE_ITEMS: { label: string; value: FamilleArticle }[] = [
-  { label: 'Appartements', value: 'APPARTEMENT' },
-  { label: 'Parkings', value: 'PARKING' },
-  { label: 'Magasins', value: 'MAGASIN' },
-  { label: 'Autres', value: 'AUTRE' },
-];
-
-export type LigneVendusLibres = {
-  cle: string;
-  tranche: string;
-  famille: string;
-  niveau: LigneSyntheseAffichee['niveau'];
-  compte: CompteVendusLibres;
-  choix: ChoixSynthese;
-};
-
-/** Lignes tranche × famille, « Total tranche » après chaque tranche, puis « Total général ». */
-export function lignesVendusLibres(s: SyntheseVendusLibresDto): LigneVendusLibres[] {
-  const libelleFamille = new Map(s.familles.map((f) => [f.code, f.libelle]));
-  const parTranche = new Map<string, CompteVendusLibres[]>();
-  for (const l of s.lignes) parTranche.set(l.trancheId ?? '', [...(parTranche.get(l.trancheId ?? '') ?? []), l]);
-  const sortie: LigneVendusLibres[] = [];
-  for (const [trancheId, lignes] of parTranche) {
-    const tranche = lignes[0].trancheLibelle || lignes[0].trancheCode || '';
-    for (const l of lignes) {
-      const code = l.familleCode ?? undefined;
-      sortie.push({
-        cle: `${trancheId}|${code}`,
-        tranche,
-        famille: (code && libelleFamille.get(code)) || '',
-        niveau: 'ligne',
-        compte: l,
-        choix: { trancheId, famille: code },
-      });
-    }
-    const total = s.totalTranche.find((t) => t.trancheId === trancheId);
-    if (total) sortie.push({ cle: trancheId, tranche, famille: 'Total tranche', niveau: 'sous-total', compte: total, choix: { trancheId } });
-  }
-  sortie.push({ cle: 'total', tranche: 'Total général', famille: '', niveau: 'total', compte: s.general, choix: {} });
-  return sortie;
 }
 
 export function toneStatutVente(code: string | undefined, libelle: string | null | undefined): BadgeTone {
@@ -222,11 +172,4 @@ export function toneStatutVente(code: string | undefined, libelle: string | null
 
 export function libelleStatutVente(statuts: StatutSynthese[], code: string): string {
   return canonicalStatusLabel(statuts.find((s) => s.code === code)?.libelle ?? code);
-}
-
-/** Réglé et reste sont calculés hors SQL : le catalogue ne leur donne aucune fonction, le serveur accepte leur somme. */
-const SOMMES_HORS_CHEMIN = new Set(['montantRegle', 'resteARegler']);
-
-export function catalogueTotaux(colonnes: ColonneDto[]): ColonneDto[] {
-  return colonnes.map((c) => (SOMMES_HORS_CHEMIN.has(c.nom) ? { ...c, fonctions: ['SUM'] } : c));
 }
