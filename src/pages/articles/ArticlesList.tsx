@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, RotateCcw, Search } from 'lucide-react';
+import { Home, Paperclip, RotateCcw, Search } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import BarreFiltresArticles from '../../components/patrimoine/BarreFiltresArticles';
@@ -60,7 +60,12 @@ export default function ArticlesList() {
       icon={<Home />}
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
-      actions={<ActionAdmin to="/articles/nouveau" libelle="Nouvel article" />}
+      actions={
+        <div className="flex gap-2">
+          <ActionAdmin to="/articles/attachement-masse" libelle="Attacher des fichiers" variant="outline" icone={<Paperclip data-icon="inline-start" />} />
+          <ActionAdmin to="/articles/nouveau" libelle="Nouvel article" />
+        </div>
+      }
     >
       <div className="flex h-full min-h-0 flex-col gap-3">
         <BarreFiltresArticles

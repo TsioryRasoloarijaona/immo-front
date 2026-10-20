@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowUpRight, Eye, FileText, Folder, Home, Pencil, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Folder, Home, Pencil, Trash2 } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import FicheSections from '../../components/patrimoine/FicheSections';
 import GrilleOnglet from '../../components/patrimoine/GrilleOnglet';
 import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
+import PiecesJointesBloc from '../../components/patrimoine/PiecesJointesBloc';
 import SousArticlesArticle from '../../components/patrimoine/SousArticlesArticle';
 import PrixArticleFiche from '../../components/patrimoine/PrixArticleFiche';
-import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
+import { Badge, Card, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table';
-import { getArticle, getDossier, listArticlePiecesJointes, openArticlePieceJointeFichier } from '../../lib/api';
+import { getArticle, getDossier } from '../../lib/api';
 import { deleteArticle } from '../../lib/apiPatrimoine';
 import { useConfirm } from '../../lib/confirmContext';
 import { grilleContenances, sourceContenances } from '../../lib/ongletsArticle';
@@ -20,49 +20,6 @@ import { sectionsArticle, useListesFicheArticle } from '../../lib/saisieArticle'
 import { useApi } from '../../lib/useApi';
 import { formatCurrency, formatDate, formatPercent, formatSurface, libellePrix } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-import { pieceJointeTypeTone } from '../../lib/domain';
-import type { PieceJointeDto } from '../../types';
-
-// Lecture seule : aucun endpoint d'envoi ni de suppression pour les pièces d'un article.
-function ArticlePieceJointeRow({ articleId, piece }: Readonly<{ articleId: string; piece: PieceJointeDto }>) {
-  const [error, setError] = useState<string | null>(null);
-  const ext = piece.extension?.replace(/^\./, '') || '';
-  const filename = `${piece.description || 'document'}${ext ? '.' + ext : ''}`;
-
-  // URL présignée servie en `inline` : une seule action « Ouvrir », cf. PieceJointeRow (DossierDetail).
-  function handle() {
-    setError(null);
-    try {
-      openArticlePieceJointeFichier(articleId, piece.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de l'opération.");
-    }
-  }
-
-  return (
-    <TableRow className="hover:bg-muted/40">
-      <TableCell>
-        <span className="flex min-w-0 items-center gap-2">
-          <FileText className="size-4 shrink-0 text-muted-foreground" />
-          <span className="truncate font-medium text-foreground">{filename}</span>
-        </span>
-      </TableCell>
-      <TableCell className="text-muted-foreground">{piece.creePar || '—'}</TableCell>
-      <TableCell>
-        {piece.type ? <Badge tone={pieceJointeTypeTone(piece.type)}>{piece.type}</Badge> : <span className="text-muted-foreground">—</span>}
-      </TableCell>
-      <TableCell className="text-right text-muted-foreground">{formatDate(piece.dateCreation)}</TableCell>
-      <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-1">
-          {error && <span className="text-micro text-destructive">{error}</span>}
-          <Button type="button" variant="ghost" size="sm" onClick={handle}>
-            <Eye data-icon="inline-start" /> Ouvrir <ArrowUpRight data-icon="inline-end" />
-          </Button>
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-}
 
 export default function ArticleDetail() {
   const { id = '' } = useParams();
@@ -96,8 +53,6 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
     () => (a?.dossierId ? getDossier(a.dossierId) : Promise.resolve(null)),
     [a?.dossierId],
   );
-
-  const pieces = useApi(() => listArticlePiecesJointes(id), [id]);
 
   if (loading) return <PageShell title="Article"><LoadingState /></PageShell>;
   if (error) return <PageShell title="Article"><ErrorState message={error} /></PageShell>;
@@ -218,33 +173,7 @@ function FicheArticle({ id }: Readonly<{ id: string }>) {
             {...grilleContenances(contenances.data)} />
         </Card>
 
-        <Card title={`Pièces jointes (${pieces.data?.length ?? 0})`}>
-          {pieces.loading && <LoadingState />}
-          {pieces.error && <ErrorState message={pieces.error} />}
-          {pieces.data && pieces.data.length === 0 && (
-            <EmptyState title="Aucune pièce jointe" message="Aucun plan n'a été attaché à cet article." />
-          )}
-          {pieces.data && pieces.data.length > 0 && (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Fichier</TableHead>
-                    <TableHead>Déposé par</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pieces.data.map((p) => (
-                    <ArticlePieceJointeRow key={p.id} articleId={a.id} piece={p} />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </Card>
+        <PiecesJointesBloc porteur="articles" id={a.id} />
         <OngletsTransverses porteur="article" id={a.id} />
       </div>
     </PageShell>

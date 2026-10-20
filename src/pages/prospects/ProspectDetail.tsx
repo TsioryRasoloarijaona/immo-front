@@ -5,7 +5,7 @@ import CadreFiche, { EnteteFiche, type VarianteFiche } from '../../components/Ca
 import { LigneActivite, OngletsLigne } from '../../components/FicheShell';
 import { Badge, Card, EmptyState, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import Pagination from '../../components/Pagination';
-import HistoriqueTiersTable from '../../components/HistoriqueTiersTable';
+import HistoriqueStatuts from '../../components/HistoriqueStatuts';
 import { Button } from '../../components/ui/button';
 import { Field as FormField, FieldLabel } from '../../components/ui/field';
 import { Input } from '../../components/ui/input';
@@ -452,7 +452,7 @@ export function FicheProspect({
             {historique.error && <ErrorState message={historique.error} />}
             {historique.data && historique.data.content.length === 0 && <EmptyState title="Aucun historique" />}
             {historique.data && historique.data.content.length > 0 && (
-              <HistoriqueTiersTable lignes={historique.data.content} />
+              <HistoriqueStatuts lignes={historique.data.content} />
             )}
             {historique.data && (
               <Pagination page={historique.data.page} totalPages={historique.data.totalPages} totalElements={historique.data.totalElements} onPageChange={setHistoriquePage} />

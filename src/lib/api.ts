@@ -1071,15 +1071,6 @@ export async function fetchByteEndpointBlob(url: string, mime: string, init?: Re
   return blob;
 }
 
-export function listArticlePiecesJointes(articleId: UUID): Promise<PieceJointeDto[]> {
-  return request('GET', `/api/articles/${articleId}/pieces-jointes`);
-}
-
-/** Redirection 302 vers le stockage : voir {@link openStoredFileInTab}. */
-export function openArticlePieceJointeFichier(articleId: UUID, pieceId: UUID): void {
-  openStoredFileInTab(`${API_BASE_URL}/api/articles/${articleId}/pieces-jointes/${pieceId}/fichier`);
-}
-
 function fetchDossierDocumentBlob(dossierId: UUID, docKind: 'fiche-reservation' | 'acte-reservation', format: 'pdf' | 'docx'): Promise<Blob> {
   const url = `${API_BASE_URL}/api/dossiers/${dossierId}/documents/${docKind}?format=${format}`;
   return fetchByteEndpointBlob(url, mimeForExtension(format));

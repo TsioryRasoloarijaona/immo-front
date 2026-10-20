@@ -9,6 +9,7 @@ import DialoguePrevisionsBase from '../../components/patrimoine/DialoguePrevisio
 import FicheSections from '../../components/patrimoine/FicheSections';
 import OngletsTranche from '../../components/patrimoine/OngletsTranche';
 import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
+import PiecesJointesBloc from '../../components/patrimoine/PiecesJointesBloc';
 import { Badge, Card, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { getTranche } from '../../lib/api';
 import { deleteTranche } from '../../lib/apiPatrimoine';
@@ -96,6 +97,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
 
         <OngletsTranche trancheId={id} onPlancherEnregistre={() => void refetch()} />
         <ArticlesTranche trancheId={id} />
+        <PiecesJointesBloc porteur="tranches" id={id} />
         <OngletsTransverses porteur="tranche" id={id} />
       </div>
       {dialogue === 'previsions' && <DialoguePrevisionsBase trancheId={id} onClose={() => setDialogue(null)} />}
