@@ -7,6 +7,7 @@ import ArticlesTranche from '../../components/patrimoine/ArticlesTranche';
 import DialogueMiseAJourSchemas from '../../components/patrimoine/DialogueMiseAJourSchemas';
 import DialoguePrevisionsBase from '../../components/patrimoine/DialoguePrevisionsBase';
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
+import PiecesJointesBloc from '../../components/patrimoine/PiecesJointesBloc';
 import FicheShell from '../../components/FicheShell';
 import { Badge, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
 import { getTranche } from '../../lib/api';
@@ -111,9 +112,11 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
           },
           { id: 'articles', libelle: 'Articles', contenu: <ArticlesTranche trancheId={id} /> },
           ...ongletsTranche,
+          { id: 'pieces', libelle: 'Pièces jointes', contenu: <PiecesJointesBloc porteur="tranches" id={id} /> },
           ...ongletsTransverses('tranche', id),
         ]}
       />
+
       {dialogue === 'previsions' && <DialoguePrevisionsBase trancheId={id} onClose={() => setDialogue(null)} />}
       {dialogue === 'schemas' && <DialogueMiseAJourSchemas trancheId={id} onClose={() => setDialogue(null)} />}
     </PageShell>
