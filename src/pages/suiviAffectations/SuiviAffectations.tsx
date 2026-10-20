@@ -47,10 +47,14 @@ export default function SuiviAffectations() {
   const { ouvrirFicheDossier } = usePreview();
   const projetsAutorises = user?.perimetreRestreint ? (user.projetsAutorises ?? []) : [];
 
+  const [filtres, setFiltres] = useState<FiltresListeAffectations>(filtresAffectationsDefaut);
+  const toutesTranches = useTranchesFiltre().data;
+  const tranchesDuProjet = (projetId: string | null) => toutesTranches.filter((t) => !projetId || t.projetId === projetId);
+
   const choix = {
     entites: referentielItems(useEntitesReferentiel().data),
     projets: referentielItems(useProjetsReferentiel().data),
-    tranches: useTranchesFiltre().data.map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
+    tranches: tranchesDuProjet(filtres.projetId).map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
     categories: [...referentielItems(useCategoriesEcheance().data), SANS_CATEGORIE],
     types: useTypesReglement().data.map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
     statuts: [
@@ -59,7 +63,6 @@ export default function SuiviAffectations() {
     ],
   };
 
-  const [filtres, setFiltres] = useState<FiltresListeAffectations>(filtresAffectationsDefaut);
   const [page, setPage] = useState(0);
   const search = useDebouncedValue(filtres.search);
   const params = paramsAffectations({ ...filtres, search });
@@ -67,7 +70,13 @@ export default function SuiviAffectations() {
 
   function changer<K extends keyof FiltresListeAffectations>(c: K, valeur: FiltresListeAffectations[K]) {
     setPage(0);
-    setFiltres((f) => ({ ...f, [c]: valeur }));
+    setFiltres((f) => {
+      const suivant = { ...f, [c]: valeur };
+      if (c !== 'projetId') return suivant;
+      // Un autre projet : les tranches cochées qui n'en font pas partie sortiraient le résultat à vide.
+      const permises = new Set(tranchesDuProjet(suivant.projetId).map((t) => t.id));
+      return { ...suivant, trancheId: f.trancheId.filter((id) => permises.has(id)) };
+    });
   }
 
   function reinitialiser() {

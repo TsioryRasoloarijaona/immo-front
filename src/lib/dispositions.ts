@@ -623,7 +623,7 @@ export const DISPOSITION_ETAT_VENTES: DispositionColonnes = {
   toujoursDemandees: ['statutCode'],
 };
 
-/** Ordre du catalogue serveur. Le clic sur une ligne ouvre le dossier ; le lien de la pièce lit `sens` et `pieceId`. */
+/** Ordre du catalogue serveur. Le clic sur une ligne ouvre le dossier ; le lien de la pièce lit `pieceOuvrable` et `pieceId`. */
 export const DISPOSITION_SUIVI_AFFECTATIONS: DispositionColonnes = {
   ordre: [],
   poids: {
@@ -651,10 +651,11 @@ export const DISPOSITION_SUIVI_AFFECTATIONS: DispositionColonnes = {
     'tiersId',
     'dossierId',
     'pieceId',
+    'pieceOuvrable',
     'typePieceId',
     'statutDossierCode',
   ]),
-  toujoursDemandees: ['dossierId', 'pieceId', 'sens', 'statutDossierCode'],
+  toujoursDemandees: ['dossierId', 'pieceId', 'pieceOuvrable', 'sens', 'statutDossierCode'],
 };
 
 export const DISPOSITION_SUIVI_COMMERCIAUX:DispositionColonnes = {

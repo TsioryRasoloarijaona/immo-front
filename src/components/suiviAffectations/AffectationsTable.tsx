@@ -15,9 +15,9 @@ export type LigneAffectation = LigneSuiviAffectationsDto;
 
 const libelleEtat = (r: LigneAffectation) => LIBELLES_ETAT_PIECE[r.etatPiece ?? ''] ?? '—';
 
-/** La fiche encaissement renvoie 404 pour un débit : le lien n'existe que pour un crédit. */
+/** La fiche encaissement renvoie 404 sauf pour `IsCredit = 1` : le serveur le dit dans `pieceOuvrable`. */
 function lienPiece(r: LigneAffectation, texte: string | null | undefined): ReactNode {
-  if (r.sens !== 'CREDIT' || !r.pieceId || !texte) return <>{texte}</>;
+  if (!r.pieceOuvrable || !r.pieceId || !texte) return <>{texte}</>;
   return (
     <Link
       to={`/encaissements/${r.pieceId}`}
