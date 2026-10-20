@@ -56,6 +56,9 @@ const PlansTranche = lazy(() => import('./pages/tranches/PlansTranche'));
 const ArticlesList = lazy(() => import('./pages/articles/ArticlesList'));
 const ArticleDetail = lazy(() => import('./pages/articles/ArticleDetail'));
 const SousArticlesList = lazy(() => import('./pages/sous-articles/SousArticlesList'));
+const TerrainsList = lazy(() => import('./pages/terrains/TerrainsList'));
+const TerrainDetail = lazy(() => import('./pages/terrains/TerrainDetail'));
+const TerrainForm = lazy(() => import('./pages/terrains/TerrainForm'));
 const AttachementMasse = lazy(() => import('./pages/articles/AttachementMasse'));
 const ProjetForm = lazy(() => import('./pages/projets/ProjetForm'));
 const TrancheForm = lazy(() => import('./pages/tranches/TrancheForm'));
@@ -167,6 +170,12 @@ function AuthenticatedApp() {
                   <Route path="/articles/:id/sous-articles/nouveau" element={<ArticleForm sousArticle />} />
                   <Route path="/sous-articles" element={<SousArticlesList />} />
                   <Route path="/sous-articles/:id" element={<ArticleDetail ecranSousArticles />} />
+                  <Route path="/terrains" element={<TerrainsList />} />
+                  <Route path="/terrains/nouveau" element={<TerrainForm />} />
+                  <Route path="/terrains/:id" element={<TerrainDetail />} />
+                  <Route path="/terrains/:id/modifier" element={<TerrainForm />} />
+                  <Route path="/terrains/:id/sous-terrains/nouveau" element={<TerrainForm sousTerrain />} />
+                  <Route path="/lotissements" element={<TerrainsList liste="lotissements" />} />
                   <Route path="/entites-juridiques" element={<EntitesJuridiquesList />} />
                   <Route path="/entites-juridiques/nouveau" element={<EntiteJuridiqueDetail />} />
                   <Route path="/entites-juridiques/:id" element={<EntiteJuridiqueDetail />} />

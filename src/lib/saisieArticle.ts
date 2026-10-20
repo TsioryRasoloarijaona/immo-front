@@ -157,18 +157,22 @@ export function brouillonArticle(sousArticle: boolean, article?: Partial<Article
     estTitre: !sousArticle, ...article,
     surfaceDefinitive: article?.area, tauxTva: article?.tauxTVA, presentationId: article?.presentationTypeId,
   };
+  return { ...brouillonDepuis(champsArticle(sousArticle), source), ...brouillonPrixM2(article) };
+}
+
+/** Prix au m² de la carte « Surfaces et prix » (article, terrain) : saisis en HT au départ. */
+export function brouillonPrixM2(source?: { prixM2ProvisoireHT?: number | null; prixM2DefinitifHT?: number | null }): Brouillon {
+  const texte = (n?: number | null) => (n == null ? '' : String(n));
   return {
-    ...brouillonDepuis(champsArticle(sousArticle), source),
     modeProvisoire: 'HT',
-    prixM2Provisoire: article?.prixM2ProvisoireHT == null ? '' : String(article.prixM2ProvisoireHT),
+    prixM2Provisoire: texte(source?.prixM2ProvisoireHT),
     modeDefinitif: 'HT',
-    prixM2Definitif: article?.prixM2DefinitifHT == null ? '' : String(article.prixM2DefinitifHT),
+    prixM2Definitif: texte(source?.prixM2DefinitifHT),
   };
 }
 
-/** Corps d'écriture : chaque prix au m² part sous son sens de saisie (`prixM2DefinitifHT` ou `…TTC`), jamais les deux. */
-export function corpsArticle(sousArticle: boolean, brouillon: Brouillon, initial?: Brouillon): Record<string, unknown> {
-  const corps = corpsDepuis(champsArticle(sousArticle), brouillon, initial);
+/** Chaque prix au m² part sous son sens de saisie (`prixM2DefinitifHT` ou `…TTC`), jamais les deux. */
+export function ajouterPrixM2(corps: Record<string, unknown>, brouillon: Brouillon, initial?: Brouillon): Record<string, unknown> {
   for (const surface of ['Provisoire', 'Definitif'] as const) {
     const prix = String(brouillon[`prixM2${surface}`]);
     const mode = String(brouillon[`mode${surface}`]);
@@ -176,6 +180,10 @@ export function corpsArticle(sousArticle: boolean, brouillon: Brouillon, initial
     if (change && prix.trim() !== '') corps[`prixM2${surface}${mode}`] = Number(prix);
   }
   return corps;
+}
+
+export function corpsArticle(sousArticle: boolean, brouillon: Brouillon, initial?: Brouillon): Record<string, unknown> {
+  return ajouterPrixM2(corpsDepuis(champsArticle(sousArticle), brouillon, initial), brouillon, initial);
 }
 
 export interface ApercuPrix {
