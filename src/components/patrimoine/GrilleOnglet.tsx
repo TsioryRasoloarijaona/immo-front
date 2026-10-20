@@ -13,7 +13,7 @@ import { useApi } from '../../lib/useApi';
  * Grille d'un onglet de fiche (tranche, contenances d'article) : lignes ajoutées / modifiées / retirées en place,
  * envoyées d'un bloc par « Enregistrer » (PUT liste complète). Lecture seule hors Administrateur.
  */
-export default function GrilleOnglet<L extends { id?: string }>({ source, colonnes, nouvelle, normaliser, pied, onEnregistre }: Readonly<{
+export default function GrilleOnglet<L extends { id?: string | null }>({ source, colonnes, nouvelle, normaliser, pied, onEnregistre }: Readonly<{
   source: SourceLignes<L>;
   colonnes: ColonneOnglet<L>[];
   nouvelle: L;
