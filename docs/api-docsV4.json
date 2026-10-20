@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:8080",
+      "url": "http://localhost",
       "description": "Generated server url"
     }
   ],
@@ -21043,7 +21043,7 @@
           "État des ventes"
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
-        "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : `prixVenteTTC` = prix catalogue (`ComSalePrice`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; `statutLibelle`, `clientNom`, `commercial`, `dossierId`, `montantRegle` et `resteARegler` ne sont pas triables (400). `montantRegle` = prix de vente réglé du dossier, même calcul que la liste des dossiers ; demandé, il coûte deux requêtes par page.",
+        "description": "Filtres partagés avec la synthèse, plus `statut`, `famille`, `etat`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : `prixVenteTTC` = prix catalogue (`ComSalePrice`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; `statutLibelle`, `clientNom`, `commercial`, `dossierId`, `montantRegle` et `resteARegler` ne sont pas triables (400). `montantRegle` = prix de vente réglé du dossier, même calcul que la liste des dossiers ; demandé, il coûte deux requêtes par page.",
         "operationId": "lister_16",
         "parameters": [
           {
@@ -21211,6 +21211,43 @@
               "format": "date"
             },
             "example": "2025-03-31"
+          },
+          {
+            "name": "famille",
+            "in": "query",
+            "description": "Famille(s) d'article, répétable ; inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "APPARTEMENT",
+                  "PARKING",
+                  "MAGASIN",
+                  "AUTRE"
+                ]
+              }
+            },
+            "example": "APPARTEMENT"
+          },
+          {
+            "name": "etat",
+            "in": "query",
+            "description": "État(s) LIBRE, RESERVE (sans statut compris) ou VENDU, répétable ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "LIBRE",
+                  "RESERVE",
+                  "VENDU"
+                ]
+              }
+            },
+            "example": "VENDU"
           },
           {
             "name": "colonnes",
@@ -21468,6 +21505,43 @@
               "format": "date"
             },
             "example": "2025-03-31"
+          },
+          {
+            "name": "famille",
+            "in": "query",
+            "description": "Famille(s) d'article, répétable ; inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "APPARTEMENT",
+                  "PARKING",
+                  "MAGASIN",
+                  "AUTRE"
+                ]
+              }
+            },
+            "example": "APPARTEMENT"
+          },
+          {
+            "name": "etat",
+            "in": "query",
+            "description": "État(s) LIBRE, RESERVE (sans statut compris) ou VENDU, répétable ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "LIBRE",
+                  "RESERVE",
+                  "VENDU"
+                ]
+              }
+            },
+            "example": "VENDU"
           }
         ],
         "responses": {
@@ -21546,6 +21620,155 @@
           },
           "400": {
             "description": "Id mal formé."
+          }
+        }
+      }
+    },
+    "/api/etat-des-ventes/synthese-vendus-libres": {
+      "get": {
+        "tags": [
+          "État des ventes"
+        ],
+        "summary": "Tableau tranche × famille en Libres / Réservés / Vendus, avec totaux et pourcentages",
+        "description": "Compte les articles racines par tranche × famille en trois états, calculés une fois dans la base de l'état des ventes : `LIBRE` (aucun dossier actif ; un dossier annulé ou désisté libère le lot), `RESERVE` (dossier en `RESERVATION` ou sans statut ; `sansStatut` les isole, déjà comptés dans `reserves`), `VENDU` (tout autre statut hors sortie). Famille par code de catégorie : `APP` → `APPARTEMENT`, `PAR` → `PARKING`, `COM` → `MAGASIN`, tout autre code → `AUTRE`. Les sous-articles rattachés (parking d'un appartement) ne sont comptés nulle part. Une ligne par tranche × famille non vide ; pourcentages arrondis à une décimale, base = total de la ligne, 0 si total nul. Chaque cellule égale le `totalElements` de `GET /api/etat-des-ventes?trancheId=&famille=&etat=`. Même visibilité que la liste : une tranche hors périmètre demandée explicitement ne rend aucune ligne (pas de 403).",
+        "operationId": "syntheseVendusLibres",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "famille",
+            "in": "query",
+            "description": "Famille(s), répétable ; absent = les quatre ; inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "APPARTEMENT",
+                  "PARKING",
+                  "MAGASIN",
+                  "AUTRE"
+                ]
+              }
+            },
+            "example": "APPARTEMENT"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comptes du filtre, dans le périmètre de l'utilisateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyntheseVendusLibresDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Id mal formé ou famille inconnue."
+          }
+        }
+      }
+    },
+    "/api/etat-des-ventes/synthese-vendus-libres/export": {
+      "get": {
+        "tags": [
+          "État des ventes"
+        ],
+        "summary": "Export Excel du tableau Libres / Réservés / Vendus, mêmes filtres et mêmes lignes",
+        "description": "Mêmes filtres et mêmes lignes que `GET /api/etat-des-ventes/synthese-vendus-libres`. Colonnes : Tranche (code), Famille (libellé), Libres, Réservés, Vendus, Total, % Libres, % Réservés, % Vendus (valeurs du JSON, ex. 33.3). Après les familles de chaque tranche, une ligne « Total tranche » ; en fin, « Total général ».",
+        "operationId": "exporterVendusLibres",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "famille",
+            "in": "query",
+            "description": "Famille(s), répétable ; absent = les quatre ; inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "APPARTEMENT",
+                  "PARKING",
+                  "MAGASIN",
+                  "AUTRE"
+                ]
+              }
+            },
+            "example": "APPARTEMENT"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx, feuille « Libres Réservés Vendus ».",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Format autre que xlsx, id mal formé ou famille inconnue."
           }
         }
       }
@@ -21785,6 +22008,43 @@
             "example": "2025-03-31"
           },
           {
+            "name": "famille",
+            "in": "query",
+            "description": "Famille(s) d'article, répétable ; inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "APPARTEMENT",
+                  "PARKING",
+                  "MAGASIN",
+                  "AUTRE"
+                ]
+              }
+            },
+            "example": "APPARTEMENT"
+          },
+          {
+            "name": "etat",
+            "in": "query",
+            "description": "État(s) LIBRE, RESERVE (sans statut compris) ou VENDU, répétable ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "LIBRE",
+                  "RESERVE",
+                  "VENDU"
+                ]
+              }
+            },
+            "example": "VENDU"
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -21993,6 +22253,43 @@
               "format": "date"
             },
             "example": "2025-03-31"
+          },
+          {
+            "name": "famille",
+            "in": "query",
+            "description": "Famille(s) d'article, répétable ; inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "APPARTEMENT",
+                  "PARKING",
+                  "MAGASIN",
+                  "AUTRE"
+                ]
+              }
+            },
+            "example": "APPARTEMENT"
+          },
+          {
+            "name": "etat",
+            "in": "query",
+            "description": "État(s) LIBRE, RESERVE (sans statut compris) ou VENDU, répétable ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "LIBRE",
+                  "RESERVE",
+                  "VENDU"
+                ]
+              }
+            },
+            "example": "VENDU"
           },
           {
             "name": "colonnes",
@@ -42912,6 +43209,138 @@
           },
           "totaux": {
             "$ref": "#/components/schemas/TotauxSynthese"
+          }
+        }
+      },
+      "CompteVendusLibres": {
+        "type": "object",
+        "description": "Comptes d'articles racines ; libres + reserves + vendus = total.",
+        "properties": {
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de tranche (CfgTranche.id) ; null dans totauxFamille et general."
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Code de tranche ; null dans totauxFamille et general."
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Libellé de tranche ; null dans totauxFamille et general."
+          },
+          "familleCode": {
+            "type": "string",
+            "description": "Famille ; null dans totalTranche et general.",
+            "enum": [
+              "APPARTEMENT",
+              "PARKING",
+              "MAGASIN",
+              "AUTRE"
+            ],
+            "example": "APPARTEMENT"
+          },
+          "libres": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Sans dossier actif (dossier annulé ou désisté compris)."
+          },
+          "reserves": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Dossier en RESERVATION ou sans statut."
+          },
+          "vendus": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Dossier à tout autre statut hors sortie."
+          },
+          "sansStatut": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Dossiers sans statut, déjà comptés dans reserves."
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pctLibres": {
+            "type": "number",
+            "format": "double",
+            "description": "Part des libres dans total, en %, 1 décimale ; 0 si total nul.",
+            "example": 33.3
+          },
+          "pctReserves": {
+            "type": "number",
+            "format": "double",
+            "description": "Part des réservés dans total, en %, 1 décimale ; 0 si total nul."
+          },
+          "pctVendus": {
+            "type": "number",
+            "format": "double",
+            "description": "Part des vendus dans total, en %, 1 décimale ; 0 si total nul."
+          }
+        }
+      },
+      "FamilleVendusLibres": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "APPARTEMENT",
+              "PARKING",
+              "MAGASIN",
+              "AUTRE"
+            ],
+            "example": "APPARTEMENT"
+          },
+          "libelle": {
+            "type": "string",
+            "example": "Appartements"
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang de la famille, croissant."
+          }
+        }
+      },
+      "SyntheseVendusLibresDto": {
+        "type": "object",
+        "description": "Tableau tranche × famille en Libres / Réservés / Vendus, totaux et pourcentages calculés au serveur.",
+        "properties": {
+          "familles": {
+            "type": "array",
+            "description": "Familles du filtre, ordre fixe : Appartements, Parkings, Magasins, Autres.",
+            "items": {
+              "$ref": "#/components/schemas/FamilleVendusLibres"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Une ligne par tranche × famille non vide, triées par code de tranche puis ordre de famille.",
+            "items": {
+              "$ref": "#/components/schemas/CompteVendusLibres"
+            }
+          },
+          "totalTranche": {
+            "type": "array",
+            "description": "Toutes familles d'une tranche, même ordre que les lignes ; familleCode null.",
+            "items": {
+              "$ref": "#/components/schemas/CompteVendusLibres"
+            }
+          },
+          "totauxFamille": {
+            "type": "array",
+            "description": "Toutes tranches d'une famille, familles à total nul omises ; champs de tranche null.",
+            "items": {
+              "$ref": "#/components/schemas/CompteVendusLibres"
+            }
+          },
+          "general": {
+            "$ref": "#/components/schemas/CompteVendusLibres",
+            "description": "Total général du filtre ; champs de tranche et de famille null."
           }
         }
       },

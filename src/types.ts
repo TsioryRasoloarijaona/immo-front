@@ -3799,6 +3799,51 @@ export interface SyntheseEtatVentesDto {
   totaux: TotauxSynthese;
 }
 
+/** Famille d'article : APP → APPARTEMENT, PAR → PARKING, COM → MAGASIN, tout autre code → AUTRE. */
+export type FamilleArticle = 'APPARTEMENT' | 'PARKING' | 'MAGASIN' | 'AUTRE';
+
+/** LIBRE (aucun dossier actif), RESERVE (RESERVATION ou sans statut), VENDU (tout autre statut hors sortie). */
+export type EtatVente = 'LIBRE' | 'RESERVE' | 'VENDU';
+
+export interface FamilleVendusLibres {
+  code: FamilleArticle;
+  libelle: string;
+  /** Rang croissant : Appartements, Parkings, Magasins, Autres. */
+  ordre: number;
+}
+
+/** Comptes d'articles racines ; `libres + reserves + vendus = total`. % à 1 décimale, 0 si total nul. */
+export interface CompteVendusLibres {
+  /** null dans `totauxFamille` et `general`. */
+  trancheId: UUID | null;
+  trancheCode: string | null;
+  trancheLibelle: string | null;
+  /** null dans `totalTranche` et `general`. */
+  familleCode: FamilleArticle | null;
+  libres: number;
+  /** Inclut les dossiers sans statut. */
+  reserves: number;
+  vendus: number;
+  /** Déjà compté dans `reserves` (infobulle). */
+  sansStatut: number;
+  total: number;
+  pctLibres: number;
+  pctReserves: number;
+  pctVendus: number;
+}
+
+export interface SyntheseVendusLibresDto {
+  /** Familles du filtre, ordre fixe. */
+  familles: FamilleVendusLibres[];
+  /** Tranche × famille non vide, triées par code de tranche puis ordre de famille. */
+  lignes: CompteVendusLibres[];
+  /** Une par tranche, toutes familles. */
+  totalTranche: CompteVendusLibres[];
+  /** Une par famille non vide, toutes tranches. */
+  totauxFamille: CompteVendusLibres[];
+  general: CompteVendusLibres;
+}
+
 // ---------------------------------------------------------------- Suivi des commerciaux
 
 /** Une interaction attribuée à son auteur ; seules les colonnes demandées par `?colonnes=` sont présentes. */

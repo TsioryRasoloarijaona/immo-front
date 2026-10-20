@@ -42,6 +42,9 @@ import type {
   TotauxListeDto,
   LigneEtatVentesDto,
   SyntheseEtatVentesDto,
+  SyntheseVendusLibresDto,
+  FamilleArticle,
+  EtatVente,
   LigneSuiviCommerciauxDto,
   SyntheseSuiviCommerciauxDto,
   MensuelSuiviCommerciauxDto,
@@ -1487,12 +1490,24 @@ export type FiltresEtatVentes = {
   /** `aaaa-mm-jj`, bornes incluses. */
   du?: string;
   au?: string;
+  /** Inconnue → 400. */
+  famille?: FamilleArticle[];
+  /** Inconnu → 400. */
+  etat?: EtatVente[];
 };
 
 export function getSyntheseEtatVentes(
   params: Pick<FiltresEtatVentes, 'trancheId' | 'projetId' | 'categorieId'>,
 ): Promise<SyntheseEtatVentesDto> {
   return request('GET', '/api/etat-des-ventes/synthese', { query: { ...params } });
+}
+
+/** Mêmes paramètres pour l'export `/api/etat-des-ventes/synthese-vendus-libres/export` (`BoutonExporter`). */
+export type FiltresVendusLibres = Pick<FiltresEtatVentes, 'trancheId' | 'projetId' | 'famille'>;
+
+/** Chaque cellule = `totalElements` de `listEtatVentes({ trancheId, famille, etat })`. */
+export function getSyntheseVendusLibres(params: FiltresVendusLibres): Promise<SyntheseVendusLibresDto> {
+  return request('GET', '/api/etat-des-ventes/synthese-vendus-libres', { query: { ...params } });
 }
 
 /** Tri sur un nom du catalogue ayant un chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId`,

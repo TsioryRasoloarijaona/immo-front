@@ -11,6 +11,7 @@ import BandeGroupement from '../../components/BandeGroupement';
 import BoutonExporter from '../../components/BoutonExporter';
 import EtatColonnes from '../../components/EtatColonnes';
 import SyntheseEtatVentes from '../../components/etatVentes/SyntheseEtatVentes';
+import SectionVendusLibres from '../../components/etatVentes/SectionVendusLibres';
 import FiltresEtatVentesPanneau from '../../components/etatVentes/FiltresEtatVentesPanneau';
 import EtatVentesTable, { type LigneEtatVentes } from '../../components/etatVentes/EtatVentesTable';
 import {
@@ -23,8 +24,10 @@ import {
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { DISPOSITION_ETAT_VENTES } from '../../lib/dispositions';
 import {
+  FAMILLE_ITEMS,
   FILTRES_ETAT_VENTES_DEFAUT,
   catalogueTotaux,
+  paramsVendusLibres,
   filtresDepuisChoix,
   filtresEtatVentesActifs,
   libelleStatutVente,
@@ -47,7 +50,7 @@ import {
   useTranchesFiltre,
   useTypesBienReferentiel,
 } from '../../lib/referentiels';
-import type { LigneEtatVentesDto, PageDto } from '../../types';
+import type { FamilleArticle, LigneEtatVentesDto, PageDto } from '../../types';
 
 const SYNTHESE_DEFAUT: FiltresSyntheseEtatVentes = { trancheId: [], projetId: null, categorieId: [] };
 const VIDE = 'Aucun article pour ces filtres';
@@ -73,6 +76,8 @@ export default function EtatDesVentes() {
     'etat-des-ventes-synthese',
   );
   const statuts = synthese.data?.statuts ?? [];
+  const [famille, setFamille] = useState<FamilleArticle[]>([]);
+  const paramsVL = paramsVendusLibres(filtresSynthese, famille);
 
   const [filtres, setFiltres] = useState<FiltresListeEtatVentes>(FILTRES_ETAT_VENTES_DEFAUT);
   const [page, setPage] = useState(0);
@@ -93,6 +98,12 @@ export default function EtatDesVentes() {
   function choisir(choix: ChoixSynthese) {
     setPage(0);
     setFiltres(filtresDepuisChoix(choix, filtresSynthese));
+    listeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function choisirVL(choix: ChoixSynthese) {
+    setPage(0);
+    setFiltres(filtresDepuisChoix(choix, { ...filtresSynthese, categorieId: [], famille }));
     listeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -152,19 +163,24 @@ export default function EtatDesVentes() {
       <div className="flex flex-col gap-4">
         <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
 
-        <section aria-label="Synthèse" className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <ChoixUnique
-              items={projetItems}
-              tous="Tous les projets"
-              value={filtresSynthese.projetId}
-              placeholder="Projet…"
-              largeur="w-44"
-              onChange={(v) => setFiltresSynthese((f) => ({ ...f, projetId: v }))}
-            />
-            <MultiSelectDropdown label="Tranche" placeholder="Toutes" value={filtresSynthese.trancheId} onChange={(v) => setFiltresSynthese((f) => ({ ...f, trancheId: v }))} items={trancheItems} />
-            <MultiSelectDropdown label="Catégorie" placeholder="Toutes" value={filtresSynthese.categorieId} onChange={(v) => setFiltresSynthese((f) => ({ ...f, categorieId: v }))} items={categorieItems} />
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ChoixUnique
+            items={projetItems}
+            tous="Tous les projets"
+            value={filtresSynthese.projetId}
+            placeholder="Projet…"
+            largeur="w-44"
+            onChange={(v) => setFiltresSynthese((f) => ({ ...f, projetId: v }))}
+          />
+          <MultiSelectDropdown label="Tranche" placeholder="Toutes" value={filtresSynthese.trancheId} onChange={(v) => setFiltresSynthese((f) => ({ ...f, trancheId: v }))} items={trancheItems} />
+          <MultiSelectDropdown label="Famille" placeholder="Toutes" value={famille} onChange={(v) => setFamille(v as FamilleArticle[])} items={FAMILLE_ITEMS} />
+          <MultiSelectDropdown label="Catégorie" placeholder="Toutes" value={filtresSynthese.categorieId} onChange={(v) => setFiltresSynthese((f) => ({ ...f, categorieId: v }))} items={categorieItems} />
+        </div>
+
+        <SectionVendusLibres params={paramsVL} onChoisir={choisirVL} />
+
+        <section aria-label="Détail par statut" className="flex flex-col gap-2">
+          <h2 className="text-label font-semibold">Détail par statut</h2>
           {synthese.loading && !synthese.data && <LoadingState />}
           {synthese.error && <ErrorState message={synthese.error} />}
           {!synthese.error && synthese.data && (
