@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import * as api from './api';
 import { getReferentielContenances, getReferentielPatrimoine } from './apiPatrimoine';
+import { getColonnesArticles } from './apiSousArticles';
 import { onCacheClear } from './apiCache';
 import { errorMessage } from './useApi';
 import type { ReferentielItemDto } from '../types';
@@ -149,6 +150,7 @@ export const useColonnesSuiviActions = makeCachedListHook(api.getColonnesSuiviAc
 export const useColonnesImpayes = makeCachedListHook(api.getColonnesImpayes);
 
 export const useColonnesTranches = makeCachedListHook(api.getColonnesTranches);
+export const useColonnesArticles = makeCachedListHook(getColonnesArticles);
 
 export const useColonnesEtatVentes = makeCachedListHook(api.getColonnesEtatVentes);
 

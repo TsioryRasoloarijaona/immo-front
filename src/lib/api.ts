@@ -1668,14 +1668,6 @@ export type ArticleListFilters = {
   surfaceA?: number;
 };
 
-/** `statut` absent : DISPONIBLE **et** OCCUPE, contrairement à `listTrancheArticles`. */
-export function listArticles(
-  params?: { search?: string; trancheId?: UUID[]; statut?: ArticleStatut; categorieId?: UUID[]; typeId?: UUID[] } & ArticleListFilters,
-  pageable?: Pageable,
-): Promise<PageDto<ArticleListItemDto>> {
-  return request('GET', '/api/articles', { query: withPageable(params, pageable) });
-}
-
 export function listTrancheArticles(
   trancheId: UUID,
   params?: { statut?: ArticleStatut; categorieId?: UUID[]; typeId?: UUID[] } & ArticleListFilters,

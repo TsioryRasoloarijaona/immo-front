@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, CircleHelp, FileCode2, FilePlus2, History, Home, KeyRound, Landmark, LayoutGrid, LogOut, Settings2, UserRound, Users, UsersRound } from 'lucide-react';
+import { BookUser, Bot, Building2, CircleHelp, FileCode2, FilePlus2, History, Home, KeyRound, Landmark, Layers, LayoutGrid, LogOut, Settings2, UserRound, Users, UsersRound } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -93,6 +93,12 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                   <SidebarMenuButton render={<NavLink to="/articles" />} isActive={location.pathname.startsWith('/articles')} tooltip="Articles">
                     <Home style={{ color: 'var(--sec-tranche)' }} />
                     Articles
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton render={<NavLink to="/sous-articles" />} isActive={location.pathname.startsWith('/sous-articles')} tooltip="Sous-articles">
+                    <Layers style={{ color: 'var(--sec-tranche)' }} />
+                    Sous-articles
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 {isAdmin && ENTREES_ENTITES.map(({ to, libelle, Icone }) => (

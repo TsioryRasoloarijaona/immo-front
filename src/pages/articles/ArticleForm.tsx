@@ -6,20 +6,9 @@ import PiedSaisie from '../../components/patrimoine/PiedSaisie';
 import PrixArticleSaisie from '../../components/patrimoine/PrixArticleSaisie';
 import { ErrorState, LoadingState } from '../../components/ui';
 import { getArticle } from '../../lib/api';
-import { createArticle, createSousArticle, getPresentationsTranche, updateArticle } from '../../lib/apiPatrimoine';
+import { createArticle, createSousArticle, updateArticle } from '../../lib/apiPatrimoine';
 import {
-  referentielItems,
-  useCategoriesArticle,
-  useCategoriesSousArticle,
-  useEtages,
-  useImmeubles,
-  useTranchesFiltre,
-  useTypesArticle,
-  useTypesSousArticle,
-  useVocationsArticle,
-} from '../../lib/referentiels';
-import {
-  brouillonArticle, champsArticle, CHAMPS_PROTEGES, corpsArticle, sectionsArticle, useListesFicheArticle,
+  brouillonArticle, champsArticle, CHAMPS_PROTEGES, corpsArticle, sectionsArticle, useListesArticle, useListesFicheArticle,
 } from '../../lib/saisieArticle';
 import { useSaisie, type Brouillon } from '../../lib/saisiePatrimoine';
 import { useApi } from '../../lib/useApi';
@@ -127,25 +116,4 @@ function SaisieArticle({ sousArticle, article, parent, depart }: Readonly<{
         libelle={article ? 'Enregistrer' : 'Créer'} />
     </div>
   );
-}
-
-function useListesArticle(sousArticle: boolean, trancheId: string) {
-  const presentations = useApi(() => (trancheId ? getPresentationsTranche(trancheId) : Promise.resolve([])), [trancheId]);
-  const tranches = useTranchesFiltre();
-  const vocations = useVocationsArticle();
-  const categoriesArticle = useCategoriesArticle();
-  const categoriesSous = useCategoriesSousArticle();
-  const typesArticle = useTypesArticle();
-  const typesSous = useTypesSousArticle();
-  const immeubles = useImmeubles();
-  const etages = useEtages();
-  return {
-    tranches: tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
-    vocations: referentielItems(vocations.data),
-    categories: referentielItems(sousArticle ? categoriesSous.data : categoriesArticle.data),
-    types: referentielItems(sousArticle ? typesSous.data : typesArticle.data),
-    immeubles: referentielItems(immeubles.data),
-    etages: referentielItems(etages.data),
-    presentations: referentielItems(presentations.data ?? []),
-  };
 }

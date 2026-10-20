@@ -5,7 +5,9 @@ import type { ArticleListFilters } from './api';
 import { useDebouncedValue } from './useApi';
 import { formatPercent, formatSurface, libellePrix } from './format';
 import { canonicalStatusLabel, toneForStatus } from './dossierStatus';
-import type { ArticleListItemDto, ArticleStatut } from '../types';
+import { grilleDepuisCatalogue, type DispositionColonnes } from './colonnes';
+import type { ArticleListItemDto, ArticleStatut, ColonneDto } from '../types';
+import type { EtatArticle, FiltresListeArticles, LigneArticleDto } from '../types/sousArticles';
 
 // Filtres et colonnes partagés par `/articles` et l'onglet Articles de la tranche (mêmes libellés).
 
@@ -15,6 +17,15 @@ export const STATUT_ITEMS: { label: string; value: StatutFilter }[] = [
   { label: 'Tous les statuts', value: 'all' },
   { label: 'Disponible', value: 'DISPONIBLE' },
   { label: 'Occupé', value: 'OCCUPE' },
+];
+
+export type EtatFilter = EtatArticle | 'all';
+
+export const ETAT_ITEMS: { label: string; value: EtatFilter }[] = [
+  { label: 'Tous les états', value: 'all' },
+  { label: 'Libre', value: 'LIBRE' },
+  { label: 'Vendu', value: 'VENDU' },
+  { label: 'Loué', value: 'LOUE' },
 ];
 
 /** Filtres communs (sans recherche ni tranche) : état saisi, paramètres serveur différés, clé de dépendance. */
@@ -30,6 +41,9 @@ export function useFiltresArticles(onChange: () => void) {
   const [prixA, setPrixA] = useState('');
   const [surfaceDe, setSurfaceDe] = useState('');
   const [surfaceA, setSurfaceA] = useState('');
+  const [etat, setEtat] = useState<EtatFilter>('all');
+  const [codeParent, setCodeParent] = useState('');
+  const debouncedCodeParent = useDebouncedValue(codeParent);
   const debouncedPrixDe = useDebouncedValue(prixDe);
   const debouncedPrixA = useDebouncedValue(prixA);
   const debouncedSurfaceDe = useDebouncedValue(surfaceDe);
@@ -54,10 +68,15 @@ export function useFiltresArticles(onChange: () => void) {
     setPrixA('');
     setSurfaceDe('');
     setSurfaceA('');
+    setEtat('all');
+    setCodeParent('');
   }
 
   const nombre = (v: string) => (v ? Number(v) : undefined);
-  const params: { statut?: ArticleStatut; categorieId?: string[]; typeId?: string[] } & ArticleListFilters = {
+  const params: { statut?: ArticleStatut; categorieId?: string[]; typeId?: string[] } & ArticleListFilters &
+    Pick<FiltresListeArticles, 'codeParent' | 'etat'> = {
+    etat: etat === 'all' ? undefined : etat,
+    codeParent: debouncedCodeParent.trim() || undefined,
     statut: statut === 'all' ? undefined : statut,
     categorieId: categorieId.length > 0 ? categorieId : undefined,
     typeId: typeId.length > 0 ? typeId : undefined,
@@ -73,8 +92,10 @@ export function useFiltresArticles(onChange: () => void) {
 
   const cle = JSON.stringify(params);
   return {
-    valeurs: { statut, categorieId, typeId, entiteId, natureId, vocationId, etageId, prixDe, prixA, surfaceDe, surfaceA },
+    valeurs: { statut, categorieId, typeId, entiteId, natureId, vocationId, etageId, prixDe, prixA, surfaceDe, surfaceA, etat, codeParent },
     modifier: {
+      etat: avec(setEtat),
+      codeParent: avec(setCodeParent),
       statut: avec(setStatut),
       categorieId: avec(setCategorieId),
       typeId: avec(setTypeId),
@@ -209,4 +230,61 @@ export function colonnesArticles(ouvrirDossier: (id: string) => void): ColonneGr
       ),
     },
   ];
+}
+
+const DEFAUTS_ARTICLES = ['description', 'clientNom', 'etat', 'comSalePrice', 'tauxTVA', 'dossierCode', 'categorieLibelle',
+  'typeLibelle', 'presentationTypeCode', 'natureCode', 'etageCode', 'area', 'superficieSousArticles', 'code'];
+const DEFAUTS_SOUS_ARTICLES = ['description', 'clientNom', 'etat', 'parentCode', 'parentOccupe', 'comSalePrice', 'tauxTVA',
+  'dossierCode', 'categorieLibelle', 'typeLibelle', 'natureCode', 'etageCode', 'area', 'code'];
+
+/** Colonnes dont le rendu lit une colonne voisine : `?colonnes=` est une liste close, elles se demandent ensemble. */
+const DEPENDANCES: Record<string, string[]> = {
+  comSalePrice: ['comSalePriceFloor'],
+  dossierCode: ['dossierId'],
+  presentationTypeCode: ['presentationTypeLibelle'],
+  natureCode: ['natureLibelle'],
+  etageCode: ['etageLibelle'],
+  code: ['sousArticle'],
+};
+
+/** Clés de jointure du catalogue : demandées par le serveur, jamais proposées dans le sélecteur. */
+const COLONNES_TECHNIQUES = new Set(['id', 'lotParentId', 'immeubleId', 'etageId', 'natureId', 'categorieId', 'typeId',
+  'presentationTypeId', 'dossierId', 'clientId', 'dossierStatut', 'prixSuggereEstPlancher']);
+
+/** Disposition de `/articles` et `/sous-articles` ; le `parDefaut` du serveur est celui de l'ancienne liste fixe. */
+export function dispositionLignesArticles(sousArticles: boolean): DispositionColonnes {
+  return {
+    ordre: sousArticles ? DEFAUTS_SOUS_ARTICLES : DEFAUTS_ARTICLES,
+    poids: {},
+    masquees: COLONNES_TECHNIQUES,
+    dependances: DEPENDANCES,
+  };
+}
+
+export function catalogueLignesArticles(catalogue: ColonneDto[], sousArticles: boolean): ColonneDto[] {
+  const defauts = sousArticles ? DEFAUTS_SOUS_ARTICLES : DEFAUTS_ARTICLES;
+  return catalogue.map((c) => ({ ...c, parDefaut: defauts.includes(c.nom) }));
+}
+
+const etatLigneBadge = (a: LigneArticleDto) => {
+  if (!a.etat) return tiret;
+  const label = canonicalStatusLabel(a.etat);
+  return <Badge tone={a.etat === 'Libre' ? 'success' : toneForStatus(label)}>{label}</Badge>;
+};
+
+/** Grille du catalogue : libellés et types du serveur, rendus de `colonnesArticles` pour les colonnes qu'il connaît. */
+export function grilleLignesArticles(colonnes: ColonneDto[], ouvrirDossier: (id: string) => void): ColonneGrille<LigneArticleDto>[] {
+  const rendus = new Map<string, ColonneGrille<unknown>>(colonnesArticles(ouvrirDossier).map((c) => [c.nom, c as ColonneGrille<unknown>]));
+  rendus.set('etat', { nom: 'etat', libelle: 'État', valeur: (a) => (a as LigneArticleDto).etat, rendu: (a) => etatLigneBadge(a as LigneArticleDto) });
+  rendus.set('parentOccupe', {
+    nom: 'parentOccupe',
+    libelle: 'Parent occupé',
+    rendu: (a) => ((a as LigneArticleDto).parentOccupe ? <Badge tone="warning">Parent occupé</Badge> : tiret),
+  });
+  return grilleDepuisCatalogue<LigneArticleDto>(colonnes, {}, 'code').map((c) => ({
+    ...c,
+    ...(rendus.get(c.nom) as ColonneGrille<LigneArticleDto> | undefined),
+    libelle: c.libelle,
+    type: c.type,
+  }));
 }

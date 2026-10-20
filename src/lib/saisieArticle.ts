@@ -1,6 +1,33 @@
-import { referentielItems, useCategoriesCharge, useEntitesReferentiel, useFacades, useOrientations, useVues } from './referentiels';
+import { getPresentationsTranche } from './apiPatrimoine';
+import {
+  referentielItems, useCategoriesArticle, useCategoriesCharge, useCategoriesSousArticle, useEntitesReferentiel, useEtages,
+  useFacades, useImmeubles, useOrientations, useTranchesFiltre, useTypesArticle, useTypesSousArticle, useVocationsArticle, useVues,
+} from './referentiels';
 import { brouillonDepuis, champsDe, corpsDepuis, type Brouillon, type ChampDef, type Choix, type SectionSaisie } from './saisiePatrimoine';
+import { useApi } from './useApi';
 import type { ArticleDetailDto } from '../types';
+
+/** Choix des formulaires article et sous-article ; les présentations sont celles de la tranche. */
+export function useListesArticle(sousArticle: boolean, trancheId: string) {
+  const presentations = useApi(() => (trancheId ? getPresentationsTranche(trancheId) : Promise.resolve([])), [trancheId]);
+  const tranches = useTranchesFiltre();
+  const vocations = useVocationsArticle();
+  const categoriesArticle = useCategoriesArticle();
+  const categoriesSous = useCategoriesSousArticle();
+  const typesArticle = useTypesArticle();
+  const typesSous = useTypesSousArticle();
+  const immeubles = useImmeubles();
+  const etages = useEtages();
+  return {
+    tranches: tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id })),
+    vocations: referentielItems(vocations.data),
+    categories: referentielItems(sousArticle ? categoriesSous.data : categoriesArticle.data),
+    types: referentielItems(sousArticle ? typesSous.data : typesArticle.data),
+    immeubles: referentielItems(immeubles.data),
+    etages: referentielItems(etages.data),
+    presentations: referentielItems(presentations.data ?? []),
+  };
+}
 
 /** Choix des champs de la fiche (section Autres) : le détail n'en porte que les ids. */
 export function useListesFicheArticle(): Record<string, Choix> {
