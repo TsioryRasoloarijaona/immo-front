@@ -132,6 +132,10 @@
       "description": "Bouton « Réinitialiser » de la fiche dossier : « Le système recharge les données de l'article et des sous articles à partir du module stock » (aide OMRAN). Pour l'article : superficie, taux de TVA et prix du m² HT ; pour chaque sous-article : superficie, TVA, prix avant remise HT et descriptifs (code, description, adresse, contenance, catégorie, type, étage, bâtiment…). Comme `Sale.cs:Reinitialise`, les sous-articles du stock (`StkItem.ParentId` = article) absents du dossier sont d'abord ajoutés (ligne `ComFolderItem`, sous-article affecté au dossier) et listés dans `sousArticlesAjoutes` ; un sous-article déjà affecté à un autre dossier n'est pas pris. Puis la remise est recalculée comme `Sale.cs:RecalcDiscount` : le montant de remise HT est conservé, le taux change (« Montant remise / Total HT »), et les prix après remise suivent. Le schéma de financement n'est pas modifié ; une valeur absente du stock laisse celle du dossier. Réservé au rôle Administrateur."
     },
     {
+      "name": "Suivi des affectations",
+      "description": "Suivi des affectations (écran OMRAN « Suivi des affectations ») : une ligne par affectation d'une pièce de règlement (`StlSettlement`) à une échéance de vente (`ComDocument`), c'est-à-dire une `StlSettlementLine` dont `ComDocumentId` est renseigné ; une pièce à plusieurs lignes donne plusieurs lignes. Les lignes d'une tranche `IsForSale = 0` sont exclues ; une échéance sans catégorie, un dossier sans statut ou un dossier sans article restent listés. Liste, groupes, totaux et export partagent exactement les mêmes filtres et la même visibilité : entités actives (même pour l'Administrateur) et périmètre commercial, jugés ligne par ligne sur le projet de la tranche de l'article du dossier (ligne sans tranche résolue : visible). Une tranche hors périmètre donne une liste vide, pas un 403."
+    },
+    {
       "name": "Dossiers — fiche",
       "description": "Fiche complète d'un dossier de vente en consultation, organisée par onglet de l'écran OMRAN (en-tête, statut, autres montants, dates, dates autres, annulation, autres). Lecture seule : la modification des champs est un autre lot. Même périmètre que `GET /api/dossiers/{id}` : un dossier hors périmètre ou rattaché à une entité inactive renvoie 404."
     },
@@ -13210,6 +13214,840 @@
         }
       }
     },
+    "/api/suivi-affectations": {
+      "get": {
+        "tags": [
+          "Suivi des affectations"
+        ],
+        "summary": "Liste paginée des affectations de règlements aux échéances de vente",
+        "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
+        "operationId": "lister_12",
+        "parameters": [
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id(s) d'entité (société du projet, CfgCompany.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de catégorie d'échéance (ComSettlementCategory.id) ou SANS_CATEGORIE.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "SANS_CATEGORIE"
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de type de pièce (StlSettlementType.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Code(s) de statut du dossier (StrStatus.Code) ou SANS_STATUT ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "RESERVATION"
+          },
+          {
+            "name": "etatPiece",
+            "in": "query",
+            "description": "État(s) de pièce : IN_WORK, POINTED, CANCELED ou SANS_ETAT ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "IN_WORK"
+          },
+          {
+            "name": "sens",
+            "in": "query",
+            "description": "TOUS (défaut), CREDIT (IsCredit ≠ 0, NULL compris) ou DEBIT (IsCredit = 0).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TOUS",
+                "CREDIT",
+                "DEBIT"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche multi-champs, espaces ignorés, insensible à la casse.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Borne basse incluse de dateMouvement, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Borne haute incluse de dateMouvement, ISO ; du > au = 400.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-12-31"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "categorieLibelle,trancheCode,articleCode,montantAffecte,dateMouvement,dossierCode"
+          },
+          {
+            "name": "groupeColonne",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "categorieLibelle"
+          },
+          {
+            "name": "groupeValeur",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "AVANCE"
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "MOIS"
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lignes, colonnes demandées seules.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoLigneSuiviAffectationsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Colonne, tri, statut, état, sens ou période invalide."
+          }
+        }
+      }
+    },
+    "/api/suivi-affectations/totaux-colonnes": {
+      "get": {
+        "tags": [
+          "Suivi des affectations"
+        ],
+        "summary": "Résumés (Σ) par colonne sur toutes les lignes du filtre, pas sur une page",
+        "description": "Effectif du filtre (pièces annulées comprises, comme `totalElements`) et un résumé par jeton d'`agregats` (`montantAffecte`, `colonne:FONCTION`). Les sommes de `montantAffecte` excluent les lignes des pièces `CANCELED` ; `montantPiece` et `montantEcheance` ne sont pas sommables, 400 (une pièce ou une échéance à plusieurs lignes compterait plusieurs fois).",
+        "operationId": "totauxColonnes_1",
+        "parameters": [
+          {
+            "name": "agregats",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "montantAffecte"
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id(s) d'entité (société du projet, CfgCompany.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de catégorie d'échéance (ComSettlementCategory.id) ou SANS_CATEGORIE.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "SANS_CATEGORIE"
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de type de pièce (StlSettlementType.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Code(s) de statut du dossier (StrStatus.Code) ou SANS_STATUT ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "RESERVATION"
+          },
+          {
+            "name": "etatPiece",
+            "in": "query",
+            "description": "État(s) de pièce : IN_WORK, POINTED, CANCELED ou SANS_ETAT ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "IN_WORK"
+          },
+          {
+            "name": "sens",
+            "in": "query",
+            "description": "TOUS (défaut), CREDIT (IsCredit ≠ 0, NULL compris) ou DEBIT (IsCredit = 0).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TOUS",
+                "CREDIT",
+                "DEBIT"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche multi-champs, espaces ignorés, insensible à la casse.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Borne basse incluse de dateMouvement, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Borne haute incluse de dateMouvement, ISO ; du > au = 400.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-12-31"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Effectif du filtre et un résumé par jeton demandé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotauxListeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Jeton d'agregats inconnu, fonction refusée ou filtre invalide."
+          }
+        }
+      }
+    },
+    "/api/suivi-affectations/statuts": {
+      "get": {
+        "tags": [
+          "Suivi des affectations"
+        ],
+        "summary": "Statuts de dossier de vente du filtre, tous, dans l'ordre du workflow",
+        "operationId": "statuts",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StatutSuiviAffectationsDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/suivi-affectations/groupes": {
+      "get": {
+        "tags": [
+          "Suivi des affectations"
+        ],
+        "summary": "Liste du suivi des affectations repliée en groupes, avec effectifs et agrégats",
+        "description": "Mêmes filtres que la liste. L'effectif d'un groupe compte les pièces annulées, sa somme de `montantAffecte` les exclut (somme d'un groupe sans ligne comptée : 0).",
+        "operationId": "grouper_1",
+        "parameters": [
+          {
+            "name": "groupBy",
+            "in": "query",
+            "description": "Colonne de groupement (catalogue, groupable = true).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "categorieLibelle"
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id(s) d'entité (société du projet, CfgCompany.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de catégorie d'échéance (ComSettlementCategory.id) ou SANS_CATEGORIE.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "SANS_CATEGORIE"
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de type de pièce (StlSettlementType.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Code(s) de statut du dossier (StrStatus.Code) ou SANS_STATUT ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "RESERVATION"
+          },
+          {
+            "name": "etatPiece",
+            "in": "query",
+            "description": "État(s) de pièce : IN_WORK, POINTED, CANCELED ou SANS_ETAT ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "IN_WORK"
+          },
+          {
+            "name": "sens",
+            "in": "query",
+            "description": "TOUS (défaut), CREDIT (IsCredit ≠ 0, NULL compris) ou DEBIT (IsCredit = 0).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TOUS",
+                "CREDIT",
+                "DEBIT"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche multi-champs, espaces ignorés, insensible à la casse.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Borne basse incluse de dateMouvement, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Borne haute incluse de dateMouvement, ISO ; du > au = 400.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-12-31"
+          },
+          {
+            "name": "inclureSansValeur",
+            "in": "query",
+            "description": "Vrai : groupe des lignes sans valeur inclus.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": true
+          },
+          {
+            "name": "granularite",
+            "in": "query",
+            "description": "Pas d'une colonne date.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "JOUR",
+                "MOIS",
+                "ANNEE"
+              ]
+            },
+            "example": "MOIS"
+          },
+          {
+            "name": "tri",
+            "in": "query",
+            "description": "LIBELLE (défaut) ou NOMBRE (effectif décroissant).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LIBELLE",
+                "NOMBRE"
+              ]
+            },
+            "example": "NOMBRE"
+          },
+          {
+            "name": "agregats",
+            "in": "query",
+            "description": "Jetons d'agrégat par groupe.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "montantAffecte"
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Groupes, paginés comme une liste.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageGroupesDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Colonne non groupable, agrégat ou filtre invalide."
+          }
+        }
+      }
+    },
+    "/api/suivi-affectations/export": {
+      "get": {
+        "tags": [
+          "Suivi des affectations"
+        ],
+        "summary": "Export Excel du suivi des affectations, filtres et colonnes appliqués",
+        "operationId": "exporter_1",
+        "parameters": [
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id(s) d'entité (société du projet, CfgCompany.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de catégorie d'échéance (ComSettlementCategory.id) ou SANS_CATEGORIE.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "SANS_CATEGORIE"
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de type de pièce (StlSettlementType.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Code(s) de statut du dossier (StrStatus.Code) ou SANS_STATUT ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "RESERVATION"
+          },
+          {
+            "name": "etatPiece",
+            "in": "query",
+            "description": "État(s) de pièce : IN_WORK, POINTED, CANCELED ou SANS_ETAT ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "IN_WORK"
+          },
+          {
+            "name": "sens",
+            "in": "query",
+            "description": "TOUS (défaut), CREDIT (IsCredit ≠ 0, NULL compris) ou DEBIT (IsCredit = 0).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "TOUS",
+                "CREDIT",
+                "DEBIT"
+              ]
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche multi-champs, espaces ignorés, insensible à la casse.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Borne basse incluse de dateMouvement, ISO.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Borne haute incluse de dateMouvement, ISO ; du > au = 400.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2025-12-31"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "categorieLibelle,trancheCode,articleCode,montantAffecte,dateMouvement"
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Seul xlsx est accepté.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "description": "Tri `colonne,asc|desc`, répétable, comme la liste. Défaut : dateMouvement,desc.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "dateMouvement,desc"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur Excel, une feuille DONNEES.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Format autre que xlsx, colonne, tri ou filtre invalide."
+          }
+        }
+      }
+    },
     "/api/suivi-actions": {
       "get": {
         "tags": [
@@ -13382,7 +14220,7 @@
         ],
         "summary": "Actions repliées en groupes, avec effectifs — les comptes par jour, par utilisateur…",
         "description": "La bande de groupement de la grille OMRAN, calculée côté serveur : **un groupe par valeur** de\n`groupBy`, avec son effectif = **le nombre d'actions**. Les effectifs portent sur tout le périmètre\nfiltré, pas sur une page.\n\n**Mêmes filtres que la liste**, mêmes noms, même périmètre : la somme des effectifs égale le\n`totalElements` de `GET /api/suivi-actions` aux mêmes filtres (avec `inclureSansValeur=true`).\n\nRecettes :\n- **appels passés par jour** d'un commercial : `utilisateur=<nom>&typeId=<Téléphone\n  Sortant>&groupBy=dateAction&granularite=JOUR` ;\n- **activité par utilisateur** sur une période : `groupBy=utilisateur` ;\n- **par type d'action** : `groupBy=typeAction` ;\n- **par tranche** : `groupBy=trancheCode`.\n\nPour ouvrir un groupe : `GET /api/suivi-actions?groupeColonne=<groupBy>&groupeValeur=<cle>` (+ la\nmême `granularite`).\n\n**Aucune colonne n'est agrégeable** : la mesure est l'effectif. `agregats` rend donc 400. Colonnes\ngroupables : le catalogue (`groupable = true`).",
-        "operationId": "grouper_1",
+        "operationId": "grouper_2",
         "parameters": [
           {
             "name": "groupBy",
@@ -13551,7 +14389,7 @@
         ],
         "summary": "Export Excel du suivi des actions, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/suivi-actions`, sans pagination, même portée (un non-administrateur n'exporte que ses actions) et même périmètre commercial. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Suivi des actions », fichier `suivi-actions_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille ne sont pas transmis.",
-        "operationId": "exporter_1",
+        "operationId": "exporter_2",
         "parameters": [
           {
             "name": "format",
@@ -14776,6 +15614,30 @@
         }
       }
     },
+    "/api/referentiels/colonnes/suivi-affectations": {
+      "get": {
+        "tags": [
+          "Suivi des affectations"
+        ],
+        "summary": "Catalogue des colonnes du suivi des affectations",
+        "operationId": "colonnes_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ColonneDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/referentiels/colonnes/suivi-actions": {
       "get": {
         "tags": [
@@ -14881,7 +15743,7 @@
           "État des ventes"
         ],
         "summary": "Catalogue des colonnes de l'état des ventes",
-        "operationId": "colonnes_1",
+        "operationId": "colonnes_2",
         "responses": {
           "200": {
             "description": "OK",
@@ -15719,7 +16581,7 @@
         ],
         "summary": "Export Excel de la liste des prospects, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/prospects` (`search`, `type`), sans pagination. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Prospects », fichier `prospects_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_2",
+        "operationId": "exporter_3",
         "parameters": [
           {
             "name": "format",
@@ -16138,7 +17000,7 @@
         ],
         "summary": "Résumés (Σ) de la liste des prospections sur tout le filtre, pas sur une page",
         "description": "Les résumés Σ de la liste plate (bande « Totaux sur N ligne(s) filtrée(s) »), calculés sur **toutes**\nles prospections du filtre et non sur la page affichée. Pas de pagination, pas de tri, pas de groupe :\nen mode groupé, les `totaux` de `/groupes` servent.\n\n**Mêmes lignes que la liste** : mêmes filtres (filtres avancés compris), même sens, même périmètre\ncommercial que `GET /api/prospections`. `nombreTotal` égale donc le `totalElements` de la liste\nappelée avec les mêmes filtres.",
-        "operationId": "totauxColonnes_1",
+        "operationId": "totauxColonnes_2",
         "parameters": [
           {
             "name": "agregats",
@@ -16268,7 +17130,7 @@
         ],
         "summary": "Liste des prospections repliée en groupes, avec effectifs et totaux",
         "description": "Reproduit la bande de groupement du logiciel de bureau : un groupe par valeur distincte de\n`groupBy`, portant son effectif et les sommes demandées.\n\n**Les effectifs portent sur tout le périmètre filtré, pas sur une page** — c'est la raison d'être de\ncet endpoint : la liste étant paginée, grouper côté front ne grouperait qu'une page et fausserait\ntous les totaux.\n\n**Filtres identiques à `GET /api/prospections`**, filtres avancés et périmètre commercial compris.\nPour ouvrir un groupe : `GET /api/prospections?groupeColonne=<groupBy>&groupeValeur=<cle>`.\n\n**Seules les colonnes servies par l'entité sont groupables.** Les colonnes du groupe `ACTIVITE`\n(`joursInactivite`, `nbInteractions`…) et de `CONVERSION` viennent de la vue légataire\n`ComSaleProspectionView`, chargée par une requête distincte : elles n'existent pas dans le graphe\nd'entités et ne peuvent donc pas servir de clé de groupement. `GET\n/api/referentiels/colonnes/prospections` donne la liste exacte via le booléen `groupable`.",
-        "operationId": "grouper_2",
+        "operationId": "grouper_3",
         "parameters": [
           {
             "name": "groupBy",
@@ -16832,7 +17694,7 @@
         ],
         "summary": "Liste des pré-prospections repliée en groupes, avec effectifs et totaux",
         "description": "Même mécanique que `GET /api/prospections/groupes`, appliquée au périmètre des pré-prospections\n(type légataire `ComPreProspection`).\n\n**Les effectifs portent sur tout le périmètre filtré, pas sur une page.** Pour ouvrir un groupe :\n`GET /api/pre-prospections?groupeColonne=<groupBy>&groupeValeur=<cle>`.\n\n`prospectNom` et `commercialNom` sont nuls sur la plupart des lignes (leads non encore qualifiés) :\ngrouper dessus donne surtout le groupe sans valeur.",
-        "operationId": "grouper_3",
+        "operationId": "grouper_4",
         "parameters": [
           {
             "name": "groupBy",
@@ -17238,7 +18100,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_12",
+        "operationId": "lister_13",
         "parameters": [
           {
             "name": "page",
@@ -18051,7 +18913,7 @@
         ],
         "summary": "Export Excel de la liste des impayés, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres et même tri que `GET /api/impayes`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Fichier `impayes_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_3",
+        "operationId": "exporter_4",
         "parameters": [
           {
             "name": "format",
@@ -18279,7 +19141,7 @@
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
         "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : `prixVenteTTC` = prix catalogue (`ComSalePrice`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; `statutLibelle`, `clientNom`, `commercial`, `dossierId`, `montantRegle` et `resteARegler` ne sont pas triables (400). `montantRegle` = prix de vente réglé du dossier, même calcul que la liste des dossiers ; demandé, il coûte deux requêtes par page.",
-        "operationId": "lister_13",
+        "operationId": "lister_14",
         "parameters": [
           {
             "name": "trancheId",
@@ -18524,7 +19386,7 @@
         ],
         "summary": "Résumés (Σ) par colonne sur tous les articles du filtre, pas sur une page",
         "description": "Effectif du filtre et un résumé par jeton d'`agregats` (`surface`, `prixVenteTTC`, `colonne:FONCTION`). `montantRegle` et `resteARegler` (nom nu) sont aussi acceptés : sommes, sur tous les dossiers du filtre, du calcul de la liste des dossiers.",
-        "operationId": "totauxColonnes_2",
+        "operationId": "totauxColonnes_3",
         "parameters": [
           {
             "name": "agregats",
@@ -18791,7 +19653,7 @@
           "État des ventes"
         ],
         "summary": "Liste de l'état des ventes repliée en groupes, avec effectifs et agrégats",
-        "operationId": "grouper_4",
+        "operationId": "grouper_5",
         "parameters": [
           {
             "name": "groupBy",
@@ -19051,7 +19913,7 @@
           "État des ventes"
         ],
         "summary": "Export Excel de l'état des ventes, filtres et colonnes appliqués",
-        "operationId": "exporter_4",
+        "operationId": "exporter_5",
         "parameters": [
           {
             "name": "format",
@@ -20186,7 +21048,7 @@
         ],
         "summary": "Résumés (Σ) par colonne sur tous les encaissements du filtre, pas sur une page",
         "description": "Les résumés Σ choisis par l'utilisateur en tête de colonne (bande « Totaux sur N ligne(s)\nfiltrée(s) »), calculés sur **tous** les encaissements du filtre et non sur la page affichée. Pas de\npagination, pas de tri, pas de groupe : en mode groupé, les `totaux` de `/groupes` servent. Distinct\nde `GET /api/encaissements/totaux` (bande fixe « Total : »), qui ne change pas.\n\n**Mêmes lignes que la liste** : mêmes filtres, même sens, périmètre commercial compris.\n`nombreTotal` égale le `totalElements` de `GET /api/encaissements` avec les mêmes filtres, règlements\n`CANCELED` compris ; les sommes et moyennes de montants les excluent, comme `/groupes` et `/totaux`.",
-        "operationId": "totauxColonnes_3",
+        "operationId": "totauxColonnes_4",
         "parameters": [
           {
             "name": "agregats",
@@ -20400,7 +21262,7 @@
         ],
         "summary": "Liste des encaissements repliée en groupes, avec effectifs et totaux",
         "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par\nvaleur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Pourquoi cet endpoint plutôt qu'un groupement côté front** : la liste est paginée. Grouper une\npage ne donnerait que des groupes tronqués et des totaux faux. Les effectifs et totaux ci-dessous\nportent sur **tout le périmètre filtré**, pas sur une page.\n\n**Les filtres sont exactement ceux de `GET /api/encaissements`** — mêmes noms, même sémantique,\nrestriction `IsCredit = 1` et périmètre commercial compris. Un même jeu de filtres des deux côtés\ngarantit que la somme des effectifs des groupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET\n/api/encaissements` avec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/encaissements` (booléens\n`groupable` / `agregeable`). **`dossierId` et `dossierCode` n'en sont pas**, et ce n'est pas un\noubli : un règlement n'a pas de dossier, il a des lignes rattachées à des échéances. Mesuré sur les\ndonnées réelles — 643 règlements, 654 couples (règlement, dossier), 8 règlements portant sur\nplusieurs dossiers — grouper par ce chemin compterait ces 8 plusieurs fois et la somme des effectifs\nne retomberait plus sur le total de la liste. Même chose pour `montantBrutRestant` et `montantNet`,\ncalculés en Java et absents de la base.",
-        "operationId": "grouper_5",
+        "operationId": "grouper_6",
         "parameters": [
           {
             "name": "groupBy",
@@ -20672,7 +21534,7 @@
         ],
         "summary": "Export Excel de la liste des encaissements, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/encaissements`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Encaissements », fichier `encaissements_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_5",
+        "operationId": "exporter_6",
         "parameters": [
           {
             "name": "format",
@@ -22152,7 +23014,7 @@
         ],
         "summary": "Résumés (Σ) par colonne sur tous les dossiers du filtre, pas sur une page",
         "description": "Les résumés Σ de la liste plate (bande « Totaux sur N ligne(s) filtrée(s) »), calculés sur **tous** les dossiers du filtre et non sur la page affichée. Pas de pagination, pas de tri, pas de groupe : en mode groupé, les `totaux` de `/groupes` servent. Distinct de `GET /api/dossiers/totaux` (bande fixe des montants par nature), qui ne change pas.\n\n**Mêmes dossiers que la liste** : mêmes filtres, même sens, sortis exclus par défaut, mêmes statuts visibles et même périmètre commercial que `GET /api/dossiers`.\n\n**Lots libres exclus** : ils ne sont pas des dossiers. Avec `lignes=DOSSIERS` (défaut), `nombreTotal` égale le `totalElements` de la liste ; avec `DOSSIERS_ET_LIBRES`, il compte les seuls dossiers (la liste ajoute les lots libres) ; avec `LIBRES`, il vaut 0 (pas de 400).",
-        "operationId": "totauxColonnes_4",
+        "operationId": "totauxColonnes_5",
         "parameters": [
           {
             "name": "agregats",
@@ -22356,7 +23218,7 @@
         ],
         "summary": "Statuts de dossier proposés au filtre de la liste",
         "description": "Statuts des dossiers de vente (`StrStatus` du workflow des dossiers) que l'appelant peut voir, triés comme dans OMRAN. `sortie = true` pour les annulations et résiliations, exclues de la liste sans `inclureSortis`. L'option « Libre » du filtre n'est pas un statut : elle se traduit par `lignes`.",
-        "operationId": "statuts",
+        "operationId": "statuts_1",
         "responses": {
           "200": {
             "description": "OK",
@@ -22381,7 +23243,7 @@
         ],
         "summary": "Liste des dossiers repliée en groupes, avec effectifs et totaux",
         "description": "Reproduit la bande de groupement du logiciel de bureau : au lieu des lignes, renvoie **un groupe par valeur distincte** de la colonne `groupBy`, chacun portant son effectif et les sommes demandées.\n\n**Totaux de la liste (Σ en tête)** : le champ `totaux` de la réponse porte les agrégats demandés sur **toutes** les lignes filtrées. Avec `inclureSansValeur=true`, il couvre exactement la population de `GET /api/dossiers` (hors lots libres, qui n'ont pas de prix de vente).\n\n**Les filtres sont exactement ceux de `GET /api/dossiers`** — mêmes noms, même sémantique, sortis exclus par défaut, périmètre commercial compris. Un même jeu de filtres des deux côtés garantit que la somme des effectifs des groupes est égale au `totalElements` de la liste.\n\n**Les groupes sont repliés** : pour obtenir les lignes de l'un d'eux, rappeler `GET /api/dossiers` avec `?groupeColonne=<groupBy>&groupeValeur=<la cle du groupe>`.\n\nColonnes groupables et agrégeables : `GET /api/referentiels/colonnes/dossiers` (booléens `groupable` / `agregeable`). Une colonne calculée par page (dernière communication, alerte, sous-articles…) n'est ni l'un ni l'autre.",
-        "operationId": "grouper_6",
+        "operationId": "grouper_7",
         "parameters": [
           {
             "name": "groupBy",
@@ -22629,7 +23491,7 @@
         ],
         "summary": "Export Excel de la liste des dossiers, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/dossiers`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Auteur du classeur = utilisateur connecté, titre « Dossiers de vente », fichier `dossiers_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_6",
+        "operationId": "exporter_7",
         "parameters": [
           {
             "name": "format",
@@ -23567,7 +24429,7 @@
           "Audit"
         ],
         "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
-        "operationId": "lister_14",
+        "operationId": "lister_15",
         "parameters": [
           {
             "name": "objetId",
@@ -23733,7 +24595,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_15",
+        "operationId": "lister_16",
         "parameters": [
           {
             "name": "portee",
@@ -34651,6 +35513,227 @@
             "format": "int64",
             "description": "Nombre total de lignes agrégées — l'effectif dont `totaux` est tiré. Avec `inclureSansValeur=true`,\négale le `totalElements` de la liste non groupée.",
             "example": 643
+          }
+        }
+      },
+      "LigneSuiviAffectationsDto": {
+        "type": "object",
+        "description": "Une affectation de règlement à une échéance de vente (StlSettlementLine) ; seules les colonnes demandées par ?colonnes= sont présentes.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StlSettlementLine.PKey."
+          },
+          "dateMouvement": {
+            "type": "string",
+            "format": "date",
+            "description": "Date d'opération de la pièce, sinon sa date d'échéance ; null si aucune des deux.",
+            "example": "2025-03-31"
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de l'échéance (ComSettlementCategory) ; null si l'échéance n'en a pas."
+          },
+          "categorieCode": {
+            "type": "string"
+          },
+          "categorieLibelle": {
+            "type": "string"
+          },
+          "entiteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société du projet de la tranche de l'article du dossier (pas la société de la pièce)."
+          },
+          "entiteCode": {
+            "type": "string"
+          },
+          "entiteLibelle": {
+            "type": "string"
+          },
+          "projetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "projetLibelle": {
+            "type": "string"
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche de l'article du dossier ; null si le dossier n'a pas d'article."
+          },
+          "trancheCode": {
+            "type": "string"
+          },
+          "trancheLibelle": {
+            "type": "string"
+          },
+          "articleCode": {
+            "type": "string",
+            "description": "StkItem.Code de l'article du dossier."
+          },
+          "tiersId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers de la pièce (StlSettlement.TierId)."
+          },
+          "tiersNom": {
+            "type": "string",
+            "description": "Nom affiché du tiers de la pièce."
+          },
+          "montantAffecte": {
+            "type": "number",
+            "description": "StlSettlementLine.Amount, de signe opposé si la pièce est un débit (IsCredit = 0).",
+            "example": -300
+          },
+          "sens": {
+            "type": "string",
+            "description": "DEBIT si StlSettlement.IsCredit = 0, CREDIT sinon (NULL compris).",
+            "example": "CREDIT"
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dossierCode": {
+            "type": "string"
+          },
+          "statutDossierCode": {
+            "type": "string",
+            "description": "StrStatus.Code du dossier, SANS_STATUT s'il n'en a pas.",
+            "example": "RESERVATION"
+          },
+          "statutDossierLibelle": {
+            "type": "string",
+            "description": "Libellé du statut du dossier, « Sans statut » s'il n'en a pas."
+          },
+          "pieceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StlSettlement.PKey de la pièce de règlement."
+          },
+          "pieceOuvrable": {
+            "type": "boolean",
+            "description": "Vrai si la fiche /encaissements/{pieceId} s'ouvre (IsCredit = 1) ; faux pour un débit ou un IsCredit vide."
+          },
+          "pieceLibelle": {
+            "type": "string",
+            "description": "StlSettlement.Description."
+          },
+          "pieceReference": {
+            "type": "string",
+            "description": "StlSettlement.Code (n° de chèque, de virement…)."
+          },
+          "recuReference": {
+            "type": "string",
+            "description": "StlSettlement.ReceiptCode."
+          },
+          "datePiece": {
+            "type": "string",
+            "format": "date",
+            "description": "StlSettlement.DocDate."
+          },
+          "dateEcheancePiece": {
+            "type": "string",
+            "format": "date",
+            "description": "StlSettlement.EcheanceDate."
+          },
+          "dateOperationPiece": {
+            "type": "string",
+            "format": "date",
+            "description": "StlSettlement.SettlementDate."
+          },
+          "etatPiece": {
+            "type": "string",
+            "description": "IN_WORK, POINTED, CANCELED, ou SANS_ETAT si StlSettlement.Status est vide.",
+            "example": "IN_WORK"
+          },
+          "montantPiece": {
+            "type": "number",
+            "description": "StlSettlement.Amount, brut et non signé ; répété sur chaque ligne de la pièce."
+          },
+          "typePieceId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typePieceCode": {
+            "type": "string"
+          },
+          "typePieceLibelle": {
+            "type": "string"
+          },
+          "banqueNom": {
+            "type": "string",
+            "description": "Nom affiché de la banque de la pièce (StlSettlement.CfgBankId)."
+          },
+          "compteCode": {
+            "type": "string"
+          },
+          "compteLibelle": {
+            "type": "string"
+          },
+          "notesPiece": {
+            "type": "string",
+            "description": "StlSettlement.Notes."
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date",
+            "description": "ComDocument.DocDate de l'échéance."
+          },
+          "montantEcheance": {
+            "type": "number",
+            "description": "ComDocument.Amount de l'échéance."
+          },
+          "notesEcheance": {
+            "type": "string",
+            "description": "ComDocument.Notes de l'échéance."
+          }
+        }
+      },
+      "PageDtoLigneSuiviAffectationsDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneSuiviAffectationsDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "StatutSuiviAffectationsDto": {
+        "type": "object",
+        "description": "Statut de dossier de vente proposé au filtre `statut` du suivi des affectations.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "StrStatus.Code, à passer dans `?statut=`.",
+            "example": "RESERVATION"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "StrStatus.Description.",
+            "example": "Réservation"
           }
         }
       },

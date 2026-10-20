@@ -1,5 +1,5 @@
-import { Link } from 'react-router-dom';
 import { Badge } from './ui';
+import LienFiche from './LienFiche';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { canonicalStatusLabel, toneForStatus } from '../lib/dossierStatus';
 import { formatDateTime } from '../lib/format';
@@ -29,9 +29,9 @@ export default function HistoriqueTiersTable({ lignes }: Readonly<{ lignes: read
                 <TableCell>{etat ? <Badge tone={toneForStatus(etat)}>{etat}</Badge> : '—'}</TableCell>
                 <TableCell className="whitespace-nowrap">
                   {h.dossierId ? (
-                    <Link to={`/dossiers/${h.dossierId}`} className="font-medium text-(--brand) hover:underline">
+                    <LienFiche cible={{ type: 'dossier', id: h.dossierId }} className="font-medium text-(--brand) hover:underline">
                       {h.dossierCode || 'Voir le dossier'}
-                    </Link>
+                    </LienFiche>
                   ) : (
                     h.dossierCode || '—'
                   )}

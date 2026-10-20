@@ -3,15 +3,7 @@ import { Lock } from 'lucide-react';
 import RefSelect from './RefSelect';
 import { Textarea } from './ui/textarea';
 import { cn } from '../lib/utils';
-
-// Classes littérales, indexées par le nombre de cellules posées avant : Tailwind ne voit pas les classes calculées.
-const RESTE_BASE = ['col-span-2', 'col-span-1'];
-const RESTE_LG = ['lg:col-span-4', 'lg:col-span-3', 'lg:col-span-2', 'lg:col-span-1'];
-function classeReste(apres: number | undefined) {
-  return apres === undefined ? undefined : cn(RESTE_BASE[apres % 2], RESTE_LG[apres % 4]);
-}
-
-const ETIQUETTE ='mb-0.5 flex items-center gap-1 text-micro font-medium text-muted-foreground';
+import { ETIQUETTE_CHAMP, GRILLE_CHAMPS, LIGNE_CHAMP, TEXTE_ETIQUETTE, VALEUR_CHAMP } from '../lib/ficheChamp';
 
 function Enveloppe({
   label,
@@ -33,13 +25,14 @@ function Enveloppe({
   return (
     <div
       className={cn(
-        'min-w-0 border-l-2 pl-2 transition-colors',
+        LIGNE_CHAMP,
+        'border-l-2 pl-1.5 transition-colors',
         modifie ? 'border-l-(--warning)' : 'border-l-transparent',
         className,
       )}
     >
-      <label className={ETIQUETTE} htmlFor={htmlFor} title={aide}>
-        {label}
+      <label className={cn(ETIQUETTE_CHAMP, 'flex items-center gap-1')} htmlFor={htmlFor} title={aide ?? label}>
+        <span className={TEXTE_ETIQUETTE}>{label}</span>
         {verrouille && <Lock aria-hidden className="size-2.5 shrink-0 opacity-60" />}
         {modifie && <span className="text-(--warning)">•</span>}
       </label>
@@ -53,25 +46,24 @@ export function ChampLecture({
   valeur,
   aide,
   className,
-  apres,
   multiligne,
 }: Readonly<{
   label: string;
   valeur: ReactNode;
   aide?: string;
   className?: string;
-  /** Nombre de cellules posées avant celle-ci : elle prend alors le reste de la ligne. */
-  apres?: number;
+  /** Texte long : la cellule prend toute la largeur de la grille. */
   multiligne?: boolean;
 }>) {
   const vide = valeur === null || valeur === undefined || valeur === '' || valeur === '—';
   return (
-    <Enveloppe label={label} verrouille aide={aide} className={cn(classeReste(apres), className)}>
+    <Enveloppe label={label} verrouille aide={aide} className={cn(multiligne && 'col-span-full items-start', className)}>
       <div
         className={cn(
-          'min-h-7 py-1 text-label',
+          VALEUR_CHAMP,
+          'py-0.5',
           multiligne ? 'max-h-24 overflow-y-auto whitespace-pre-wrap' : 'truncate',
-          vide ? 'font-normal text-muted-foreground' : 'font-medium text-foreground',
+          vide && 'font-normal text-muted-foreground',
         )}
         title={typeof valeur === 'string' && !multiligne ? valeur : undefined}
       >
@@ -115,7 +107,6 @@ export function ChampNotes({
   modifie,
   lignes = 1,
   className,
-  apres,
 }: Readonly<{
   id: string;
   label: string;
@@ -124,32 +115,22 @@ export function ChampNotes({
   modifie?: boolean;
   lignes?: number;
   className?: string;
-  apres?: number;
 }>) {
   return (
-    <Enveloppe label={label} htmlFor={id} modifie={modifie} className={cn(classeReste(apres), className)}>
+    <Enveloppe label={label} htmlFor={id} modifie={modifie} className={cn('col-span-full items-start', className)}>
       <Textarea
         id={id}
         value={valeur}
         onChange={(e) => onChange(e.target.value)}
         rows={lignes}
-        className="max-h-24 min-h-7 resize-none overflow-y-auto py-1 text-label md:text-label"
+        className="max-h-24 min-h-7 resize-none overflow-y-auto py-1 text-body md:text-body"
       />
     </Enveloppe>
   );
 }
 
 export function GrilleFiche({ children, className }: Readonly<{ children: ReactNode; className?: string }>) {
-  return (
-    <div
-      className={cn(
-        'grid grid-cols-2 gap-x-4 gap-y-2 lg:grid-cols-4',
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
+  return <div className={cn(GRILLE_CHAMPS, className)}>{children}</div>;
 }
 
 export function PiedFiche({ children }: Readonly<{ children: ReactNode }>) {

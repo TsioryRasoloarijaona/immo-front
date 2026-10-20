@@ -17,6 +17,7 @@ import { useAuth } from '../lib/auth';
 import { prospectionDisplayName } from '../lib/domain';
 import { estTransformable, routeFicheProspection, texteProspectionTransformee, toastProspectLie } from '../lib/parcours';
 import { useToast } from '../lib/toastContext';
+import { usePreview } from '../lib/previewContext';
 import type { ProspectionListItemDto } from '../types';
 
 // Archivée se lit sur `fermee`, jamais sur `dateFermeture` : cette date survit au désarchivage.
@@ -41,6 +42,7 @@ export function useActionsLigneProspection({
 
   const [boite, setBoite] = useState<Boite | null>(null);
   const showToast = useToast();
+  const { ouvrirFicheProspect } = usePreview();
 
   const nomEntite = entite === 'pré-prospection' ? 'Pré-prospection' : 'Prospection';
   const ouvrirFiche = (p: ProspectionListItemDto) => ({
@@ -123,7 +125,7 @@ export function useActionsLigneProspection({
           onSubmit={(maj, mode) => {
             onMutation();
             const nom = prospectionDisplayName(boite.ligne);
-            toastProspectLie(nom, maj, mode)
+            toastProspectLie(nom, maj, mode, ouvrirFicheProspect)
               .then(showToast)
               .catch(() => showToast(mode === 'cree' ? `${nom} est maintenant un prospect.` : `${nom} est rattaché au prospect existant.`));
           }}

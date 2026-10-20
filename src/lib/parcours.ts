@@ -145,12 +145,23 @@ export async function toastProspectLie(
   nom: string,
   maj: ProspectionDetailDto,
   mode: 'cree' | 'rattache',
+  ouvrirProspect: (id: string) => void,
 ): Promise<ToastOptions> {
   const prospectId = maj.prospectId ?? (await getProspection(maj.id)).prospectId;
   return {
     texte: mode === 'cree' ? `${nom} est maintenant un prospect.` : `${nom} est rattaché au prospect existant.`,
-    action: prospectId ? { libelle: 'Ouvrir le prospect →', vers: `/prospects/${prospectId}` } : undefined,
+    action: prospectId ? { libelle: 'Ouvrir le prospect →', surClic: () => ouvrirProspect(prospectId) } : undefined,
   };
+}
+
+/** Pré-prospection ou prospection à l'écran : en dialogue, pas de route à corriger, l'habillage suit la donnée
+ * dès qu'elle est lue (un appelant sans le type passe `pre: false`). */
+export function habillagePre(
+  enDialogue: boolean,
+  p: { typeProspectionCode?: string | null } | null | undefined,
+  pre: boolean,
+): boolean {
+  return enDialogue && p ? p.typeProspectionCode === CODE_PRE_PROSPECTION : pre;
 }
 
 export function texteProspectionTransformee(nom: string, maj: Pick<ProspectionDetailDto, 'code'>): string {
