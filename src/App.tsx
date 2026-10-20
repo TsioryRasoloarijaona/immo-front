@@ -63,6 +63,7 @@ const ActionnairesList = lazy(() => import('./pages/entites/ActionnairesList'));
 const ActionnaireDetail = lazy(() => import('./pages/entites/ActionnaireDetail'));
 const GroupesActionnairesList = lazy(() => import('./pages/entites/GroupesActionnairesList'));
 const GroupeActionnairesDetail = lazy(() => import('./pages/entites/GroupeActionnairesDetail'));
+const ReferentielPage = lazy(() => import('./pages/configuration/ReferentielPage'));
 const NouvelOrdre = lazy(() => import('./pages/outils/virements/NouvelOrdre'));
 const HistoriqueVirements = lazy(() => import('./pages/outils/virements/HistoriqueVirements'));
 const BeneficiairesVirement = lazy(() => import('./pages/outils/virements/Beneficiaires'));
@@ -168,6 +169,8 @@ function AuthenticatedApp() {
                   <Route path="/groupes-actionnaires" element={<GroupesActionnairesList />} />
                   <Route path="/groupes-actionnaires/nouveau" element={<GroupeActionnairesDetail />} />
                   <Route path="/groupes-actionnaires/:id" element={<GroupeActionnairesDetail />} />
+                  <Route path="/configuration/referentiels" element={<ReferentielPage />} />
+                  <Route path="/configuration/referentiels/:slug" element={<ReferentielPage />} />
                   <Route path="/outils" element={<Navigate to="/outils/virements/nouveau" replace />} />
                   <Route path="/outils/virements" element={<Navigate to="/outils/virements/nouveau" replace />} />
                   <Route path="/outils/virements/nouveau" element={<NouvelOrdre />} />

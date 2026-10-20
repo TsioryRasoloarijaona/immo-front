@@ -180,6 +180,10 @@
       "description": "Écran « Mon équipe » du chef commercial. Réservé aux rôles `Commercial Chef`, `Administrateur` et `Direction Générale`.\n\nL'équipe d'un chef = les comptes actifs « Commercial » ou « Commercial Aide » affectés à au moins un de ses projets (`AdmUserHabilitation`). Administrateur et Direction Générale voient tous les commerciaux actifs et tous les projets. Toutes les routes passent par ce même calcul ; un compte désactivé n'est jamais membre.\n\nLes écritures (distribuer, réaffecter, affectations) vont directement dans les tables d'OMRAN, sans validation : un lot est contrôlé en entier avant la première écriture et un lot partiellement invalide n'écrit rien."
     },
     {
+      "name": "Référentiels (administration)",
+      "description": "Écran Configuration : les référentiels OMRAN (Articles, Prospections de terrains, Autres) en lecture pour tout compte\nconnecté et en écriture pour l'Administrateur. Une seule implémentation pilotée par le descripteur de chaque\nréférentiel (`GET /api/referentiels-admin`) : une ligne lue ou écrite est un objet JSON dont les clés sont les `nom`\ndes champs, plus `id`. Hors portée des clés d'API (403). Voir `FEATURE-patrimoine-referentiels.md`."
+    },
+    {
       "name": "Dossiers — règlements",
       "description": "Règlements d'un dossier de vente répartis sur plusieurs échéances, comme OMRAN : un règlement (`StlSettlement`) porte une ligne (`StlSettlementLine`) par échéance cochée, et n'appartient au dossier que par ces lignes. Le « reste à affecter » vaut montant − somme des lignes ; il est calculé, jamais stocké (aide OMRAN, page RÈGLEMENTS : « Reste à affecter : Montant base - Montant affecté »). L'ancien `POST .../echeancier/{echeanceId}/reglements` reste disponible : c'est la même écriture avec une seule affectation."
     },
@@ -2896,6 +2900,173 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/SynchronisationResultatDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-admin/{table}": {
+      "get": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Lignes d'un référentiel",
+        "description": "Lignes complètes, triées par ordre (`sorting`) puis code quand la table en a. Un référentiel par tranche (types de\nprésentation, quotes-parts exonérées, seuils de versement) ne liste jamais une ligne d'une tranche dont l'entité\njuridique est inactive ; un seuil sans tranche est global. Les seuils de versement ne listent que ceux des dossiers\nde vente (`ComFolder`) : les lignes des autres entités de workflow restent intactes et invisibles. `trancheId` et\n`global` sont ignorés par un référentiel sans tranche.",
+        "operationId": "lignes",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "description": "Slug du référentiel (voir GET /api/referentiels-admin).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "orientations"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Texte cherché dans les valeurs textuelles (casse ignorée).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Référentiel par tranche : lignes de cette tranche seulement.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "global",
+            "in": "query",
+            "description": "Référentiel par tranche : vrai = lignes sans tranche seulement.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes visibles, clés = noms des champs du descripteur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Slug inconnu, ou tranche filtrée inconnue ou non visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Crée une ligne",
+        "description": "Tous les champs obligatoires du descripteur sont requis ; une clé hors descripteur → 400. Texte : au plus\n`longueurMax` caractères, les obligatoires sont rognés ; `REFERENCE` : PKey d'une ligne de la liste de choix (sinon\n400 nommant le champ), une tranche inconnue ou d'une entité inactive → 404 ; `FRACTION` entre 0 et 1 ; `OPERATEUR`\n0 (sans contrôle), 1 (`>=`) ou 2 (`>`). Unicité : une autre ligne de même clé (code ; nature + code pour catégories et\ntypes ; tranche + code pour les présentations ; tranche + année pour les quotes-parts ; tranche + statut pour les\nseuils, une tranche absente comptant comme une valeur) → 409. Un seuil est toujours écrit pour les dossiers de vente\net son statut doit être un statut de dossier de vente (sinon 400).",
+        "operationId": "creerLigne",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "description": "Slug du référentiel (voir GET /api/referentiels-admin).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Ligne créée, relue (avec son id).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ inconnu, obligatoire manquant, valeur ou référence invalide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Slug inconnu, ou tranche inconnue ou non visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Doublon de la clé d'unicité, ou code d'une ligne protégée modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
                 }
               }
             }
@@ -9943,6 +10114,201 @@
         }
       }
     },
+    "/api/referentiels-admin/{table}/{id}": {
+      "get": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Une ligne d'un référentiel",
+        "description": "Même ligne que dans la liste. Les types de présentation portent `contenances`, la liste de leurs lignes de contenance.",
+        "operationId": "ligne",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "description": "Slug du référentiel (voir GET /api/referentiels-admin).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey de la ligne.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La ligne.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Slug inconnu, ligne inconnue, hors écran ou d'une tranche non visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Supprime une ligne",
+        "description": "Refusée (409) pour une ligne protégée, pour une ligne encore citée par une autre table (le `detail` nomme la\ncontrainte), et quand la base effacerait en cascade des données d'article : tracés de plan d'un étage, vues ou\ncontenances d'article, catégories et types d'une nature (le `detail` nomme la table enfant et le nombre de lignes).\nSeule exception : les contenances d'un type de présentation partent avec lui.",
+        "operationId": "supprimerLigne",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "description": "Slug du référentiel (voir GET /api/referentiels-admin).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey de la ligne.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Ligne supprimée (et ses lignes enfants propres)."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Slug inconnu, ligne inconnue, hors écran ou d'une tranche non visible."
+          },
+          "409": {
+            "description": "Ligne protégée, référencée ailleurs, ou porteuse de lignes en cascade."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Modifie une ligne (champ absent = inchangé)",
+        "description": "Seuls les champs présents changent ; `null` vide un champ facultatif et un obligatoire refuse d'être vidé (400). Mêmes\ncontrôles qu'à la création, sur la ligne résultante. Le code d'une ligne protégée (vocations `VENTE`, `PROJET` ; natures\n`BAT`, `TER`, `PROS TER`, `LOT DE TERRAIN`, reconnues par PKey comme par code) ne change pas → 409 ; sa description\nreste modifiable. `contenances` présent remplace toutes les lignes de contenance de la présentation.",
+        "operationId": "modifierLigne",
+        "parameters": [
+          {
+            "name": "table",
+            "in": "path",
+            "description": "Slug du référentiel (voir GET /api/referentiels-admin).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "PKey de la ligne.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Ligne modifiée, relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ inconnu, obligatoire manquant, valeur ou référence invalide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Slug inconnu, ligne inconnue, hors écran ou d'une tranche non visible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Doublon de la clé d'unicité, ou code d'une ligne protégée modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/prospects/{id}": {
       "get": {
         "tags": [
@@ -16315,6 +16681,80 @@
         "responses": {
           "200": {
             "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-admin": {
+      "get": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Descripteurs des référentiels administrables (champs, types, choix)",
+        "description": "Les 19 référentiels, dans l'ordre des menus OMRAN. Pour chacun : ses champs (type, obligatoire, appartenance à la clé\nd'unicité, longueur maximale), la route de la liste de choix de chaque référence, les valeurs d'un opérateur, les\nchamps des lignes enfants (`LIGNES`), et les codes protégés.",
+        "operationId": "descripteurs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DescripteurReferentielDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels-admin/choix/{liste}": {
+      "get": {
+        "tags": [
+          "Référentiels (administration)"
+        ],
+        "summary": "Liste de choix sans route existante (catégories comptables, types de marché, statuts, règlements)",
+        "operationId": "choix",
+        "parameters": [
+          {
+            "name": "liste",
+            "in": "path",
+            "description": "Slug de la liste, tel que donné par ChampReferentielDto.choix.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "statuts-vente"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes triées par ordre puis code.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Liste inconnue.",
             "content": {
               "*/*": {
                 "schema": {
@@ -36374,6 +36814,134 @@
           },
           "option3AvecQuantite": {
             "type": "boolean"
+          }
+        }
+      },
+      "ChampReferentielDto": {
+        "type": "object",
+        "description": "Champ d'un référentiel administrable ; son nom est la clé du corps JSON et de la ligne lue.",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "description": "Clé JSON du champ.",
+            "example": "code"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé à afficher.",
+            "example": "Code"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type de saisie.",
+            "enum": [
+              "TEXTE",
+              "ENTIER",
+              "DECIMAL",
+              "FRACTION",
+              "BOOLEEN",
+              "COULEUR",
+              "REFERENCE",
+              "OPERATEUR",
+              "LIGNES"
+            ]
+          },
+          "obligatoire": {
+            "type": "boolean",
+            "description": "Vrai si le champ est requis à la création et ne peut pas être vidé."
+          },
+          "unique": {
+            "type": "boolean",
+            "description": "Vrai si le champ entre dans la clé d'unicité de la table (seul ou avec d'autres)."
+          },
+          "longueurMax": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Longueur maximale d'un texte, null sinon.",
+            "example": 255
+          },
+          "choix": {
+            "type": "string",
+            "description": "REFERENCE : route GET de la liste de choix (ReferentielItemDto[]), null sinon.",
+            "example": "/api/referentiels/natures"
+          },
+          "options": {
+            "type": "array",
+            "description": "OPERATEUR : valeurs permises, null sinon.",
+            "items": {
+              "$ref": "#/components/schemas/OptionDto"
+            }
+          },
+          "champs": {
+            "type": "array",
+            "description": "LIGNES : champs de chaque ligne enfant, null sinon.",
+            "items": {
+              "$ref": "#/components/schemas/ChampReferentielDto"
+            }
+          }
+        }
+      },
+      "DescripteurReferentielDto": {
+        "type": "object",
+        "description": "Référentiel administrable : de quoi générer sa grille et son dialogue de saisie.",
+        "properties": {
+          "slug": {
+            "type": "string",
+            "description": "Clé de l'URL /api/referentiels-admin/{slug}.",
+            "example": "orientations"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé OMRAN du référentiel.",
+            "example": "Orientations"
+          },
+          "famille": {
+            "type": "string",
+            "description": "Menu OMRAN où il se range.",
+            "enum": [
+              "ARTICLES",
+              "PROSPECTIONS_TERRAINS",
+              "AUTRES"
+            ]
+          },
+          "parTranche": {
+            "type": "boolean",
+            "description": "Vrai si chaque ligne porte une tranche : la liste accepte trancheId (et global)."
+          },
+          "codesProteges": {
+            "type": "array",
+            "description": "Codes protégés (ni supprimés ni recodés), vide si aucun.",
+            "example": [
+              "VENTE",
+              "PROJET"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "champs": {
+            "type": "array",
+            "description": "Champs, dans l'ordre d'affichage.",
+            "items": {
+              "$ref": "#/components/schemas/ChampReferentielDto"
+            }
+          }
+        }
+      },
+      "OptionDto": {
+        "type": "object",
+        "description": "Valeur permise d'un champ OPERATEUR.",
+        "properties": {
+          "valeur": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Valeur envoyée et lue.",
+            "example": 1
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé à afficher.",
+            "example": ">="
           }
         }
       },
