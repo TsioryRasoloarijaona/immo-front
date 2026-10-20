@@ -3,7 +3,7 @@ import { Landmark, ScrollText } from 'lucide-react';
 import { SidebarMenuButton, SidebarMenuItem } from '../../../components/ui/sidebar';
 import { useContexteVirement } from './contexte';
 
-/** Réservé aux administrateurs du service (`moi.admin`), pas aux rôles CRM. `Layout` ne le rend que dans le
+/** Réservé aux administrateurs du service (`moi.admin`), pas aux rôles CRM. `MenuOutils` ne le rend que dans le
  * module Outils, pour que `/moi` ne soit chargé que là. */
 export default function EntreesAdminVirements({ pathname }: Readonly<{ pathname: string }>) {
   const { moi } = useContexteVirement();

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, CircleHelp, FileCode2, FilePlus2, Grid2x2, History, Home, KeyRound, Landmark, Layers, LayoutGrid, LogOut, Ruler, Settings2, Trees, UserRound, Users, UsersRound } from 'lucide-react';
+import { CircleHelp, LogOut } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -18,32 +18,37 @@ import {
 import { Button } from './ui/button';
 import SyncButton from './SyncButton';
 import ActionsRecentes from './ActionsRecentes';
-import EntreesAdminVirements from '../pages/outils/virements/EntreesAdminVirements';
-import EntreesSyndic from '../pages/outils/syndic/EntreesSyndic';
 import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
-import { estAdministrateur, estExempte } from '../lib/roles';
-import NavVente from './NavVente';
+import { estAdministrateur } from '../lib/roles';
+import GroupeMenu from '../modules/GroupeMenu';
+import { MODULES_DECLARES } from '../modules/registre';
+import type { ModuleApp } from '../modules/types';
 
-const ENTREES_TERRAINS = [
-  { to: '/terrains', libelle: 'Terrains', Icone: Trees },
-  { to: '/lotissements', libelle: 'Lotissements', Icone: Grid2x2 },
-];
+function MessageModule({ titre, children }: Readonly<{ titre: string; children: ReactNode }>) {
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>{titre}</SidebarGroupLabel>
+      <p className="px-2 text-xs leading-relaxed text-muted-foreground group-data-[collapsible=icon]:hidden">{children}</p>
+    </SidebarGroup>
+  );
+}
 
-const ENTREES_ENTITES = [
-  { to: '/entites-juridiques', libelle: 'Entités juridiques', Icone: Landmark },
-  { to: '/actionnaires', libelle: 'Actionnaires', Icone: UserRound },
-  { to: '/groupes-actionnaires', libelle: "Groupes d'actionnaires", Icone: UsersRound },
-];
+function MenuDuModule({ module, isAdmin, pathname }: Readonly<{ module: ModuleApp; isAdmin: boolean; pathname: string }>) {
+  if (module.reserveAdmin && !isAdmin) {
+    return <MessageModule titre={module.label}>Ce module est réservé aux comptes ayant le rôle Administrateur.</MessageModule>;
+  }
+  if (module.Menu) return <module.Menu pathname={pathname} />;
+  return module.menu ? <GroupeMenu titre={module.menu.titre} entrees={module.menu.entrees} pathname={pathname} /> : null;
+}
 
 export default function Layout({ children }: Readonly<{ children: ReactNode }>) {
   const location = useLocation();
   const activeModule = moduleForPath(location.pathname);
   const { user, logout } = useAuth();
   const isAdmin = estAdministrateur(user);
-  const activeSoonModule = activeModule && activeModule !== 'vente' && activeModule !== 'patrimoine' && activeModule !== 'administration' && activeModule !== 'outils'
-    ? APP_MODULES.find((m) => m.slug === activeModule)
-    : undefined;
+  const moduleDeclare = MODULES_DECLARES.find((m) => m.slug === activeModule);
+  const activeSoonModule = activeModule && !moduleDeclare ? APP_MODULES.find((m) => m.slug === activeModule) : undefined;
 
   return (
     <SidebarProvider>
@@ -76,187 +81,13 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
         </SidebarHeader>
 
         <SidebarContent>
-          {activeModule === 'vente' && <NavVente pathname={location.pathname} />}
-
-          {activeModule === 'patrimoine' && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Patrimoine</SidebarGroupLabel>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/projets" />} isActive={location.pathname.startsWith('/projets')} tooltip="Projets">
-                    <LayoutGrid style={{ color: 'var(--sec-projet)' }} />
-                    Projets
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/tranches" />} isActive={location.pathname.startsWith('/tranches')} tooltip="Tranches">
-                    <Building2 style={{ color: 'var(--sec-tranche)' }} />
-                    Tranches
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/articles" />} isActive={location.pathname.startsWith('/articles')} tooltip="Articles">
-                    <Home style={{ color: 'var(--sec-tranche)' }} />
-                    Articles
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/sous-articles" />} isActive={location.pathname.startsWith('/sous-articles')} tooltip="Sous-articles">
-                    <Layers style={{ color: 'var(--sec-tranche)' }} />
-                    Sous-articles
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                {ENTREES_TERRAINS.map(({ to, libelle, Icone }) => (
-                  <SidebarMenuItem key={to}>
-                    <SidebarMenuButton render={<NavLink to={to} />} isActive={location.pathname.startsWith(to)} tooltip={libelle}>
-                      <Icone style={{ color: 'var(--sec-tranche)' }} />
-                      {libelle}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-                {isAdmin && ENTREES_ENTITES.map(({ to, libelle, Icone }) => (
-                  <SidebarMenuItem key={to}>
-                    <SidebarMenuButton render={<NavLink to={to} />} isActive={location.pathname.startsWith(to)} tooltip={libelle}>
-                      <Icone style={{ color: 'var(--sec-projet)' }} />
-                      {libelle}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-                {estExempte(user) && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton render={<NavLink to="/etudes-faisabilite" />} isActive={location.pathname.startsWith('/etudes-faisabilite')} tooltip="Études de faisabilité">
-                      <Ruler style={{ color: 'var(--sec-projet)' }} />
-                      Études de faisabilité
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                <SidebarMenuItem>
-                  <SidebarMenuButton render={<NavLink to="/configuration/referentiels" />} isActive={location.pathname.startsWith('/configuration')} tooltip="Configuration">
-                    <Settings2 style={{ color: 'var(--sec-projet)' }} />
-                    Configuration
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroup>
-          )}
+          {moduleDeclare && <MenuDuModule module={moduleDeclare} isAdmin={isAdmin} pathname={location.pathname} />}
 
           {activeSoonModule && (
-            <SidebarGroup>
-              <SidebarGroupLabel>{activeSoonModule.label}</SidebarGroupLabel>
-              <p className="px-2 text-xs leading-relaxed text-muted-foreground group-data-[collapsible=icon]:hidden">
-                Ce module n'a pas encore de sous-menu — il sera disponible dans une prochaine phase.
-              </p>
-            </SidebarGroup>
+            <MessageModule titre={activeSoonModule.label}>
+              Ce module n'a pas encore de sous-menu — il sera disponible dans une prochaine phase.
+            </MessageModule>
           )}
-
-          {activeModule === 'administration' && !isAdmin && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Administration</SidebarGroupLabel>
-              <p className="px-2 text-xs leading-relaxed text-muted-foreground group-data-[collapsible=icon]:hidden">
-                Ce module est réservé aux comptes ayant le rôle Administrateur.
-              </p>
-            </SidebarGroup>
-          )}
-
-          {activeModule === 'administration' && isAdmin && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Administration</SidebarGroupLabel>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<NavLink to="/utilisateurs" />}
-                    isActive={location.pathname === '/utilisateurs'}
-                    tooltip="Comptes utilisateurs"
-                  >
-                    <Users />
-                    Comptes utilisateurs
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<NavLink to="/utilisateurs/reinitialiser-mot-de-passe" />}
-                    isActive={location.pathname.startsWith('/utilisateurs/reinitialiser-mot-de-passe')}
-                    tooltip="Réinitialiser un mot de passe"
-                  >
-                    <KeyRound />
-                    Réinitialiser un mot de passe
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<NavLink to="/cles-api" />}
-                    isActive={location.pathname.startsWith('/cles-api')}
-                    tooltip="Clés d'API — clients machine (n8n, agents)"
-                  >
-                    <Bot />
-                    Clés d'API
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<NavLink to="/modeles-documents" />}
-                    isActive={location.pathname.startsWith('/modeles-documents')}
-                    tooltip="Modèles de documents — actes, lettres, fiches"
-                  >
-                    <FileCode2 />
-                    Modèles de documents
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroup>
-          )}
-
-          {activeModule === 'outils' && !isAdmin && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Outils</SidebarGroupLabel>
-              <p className="px-2 text-xs leading-relaxed text-muted-foreground group-data-[collapsible=icon]:hidden">
-                Ce module est réservé aux comptes ayant le rôle Administrateur.
-              </p>
-            </SidebarGroup>
-          )}
-
-          {activeModule === 'outils' && isAdmin && (
-            <SidebarGroup>
-              <SidebarGroupLabel>Ordres de virement</SidebarGroupLabel>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<NavLink to="/outils/virements/nouveau" />}
-                    isActive={location.pathname.startsWith('/outils/virements/nouveau')}
-                    tooltip="Nouvel ordre"
-                  >
-                    <FilePlus2 />
-                    Nouvel ordre
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<NavLink to="/outils/virements/historique" />}
-                    isActive={location.pathname.startsWith('/outils/virements/historique')}
-                    tooltip="Historique"
-                  >
-                    <History />
-                    Historique
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    render={<NavLink to="/outils/virements/beneficiaires" />}
-                    isActive={location.pathname.startsWith('/outils/virements/beneficiaires')}
-                    tooltip="Bénéficiaires"
-                  >
-                    <BookUser />
-                    Bénéficiaires
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                {/* Sociétés et Journal : selon `admin` de `GET /moi` du service,
-                    pas selon les rôles CRM. */}
-                <EntreesAdminVirements pathname={location.pathname} />
-              </SidebarMenu>
-            </SidebarGroup>
-          )}
-
-          {activeModule === 'outils' && isAdmin && <EntreesSyndic pathname={location.pathname} />}
         </SidebarContent>
 
         <SidebarFooter>

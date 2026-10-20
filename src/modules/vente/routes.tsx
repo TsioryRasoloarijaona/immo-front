@@ -1,0 +1,99 @@
+import { lazy } from 'react';
+import { Folder } from 'lucide-react';
+import NavVente from '../../components/NavVente';
+import type { ModuleApp } from '../types';
+import Accueil from './Accueil';
+
+const Dashboard = lazy(() => import('../../pages/Dashboard'));
+const MaJournee = lazy(() => import('../../pages/parcours/MaJournee'));
+const BoiteDeTri = lazy(() => import('../../pages/parcours/BoiteDeTri'));
+const Profil = lazy(() => import('../../pages/profil/Profil'));
+const PerformancesCommerciaux = lazy(() => import('../../pages/kpi/PerformancesCommerciaux'));
+const MesPerformances = lazy(() => import('../../pages/kpi/MesPerformances'));
+const MonEquipe = lazy(() => import('../../pages/equipe/MonEquipe'));
+const Calendrier = lazy(() => import('../../pages/calendrier/Calendrier'));
+const Hotline = lazy(() => import('../../pages/hotline/Hotline'));
+const SuiviActionsList = lazy(() => import('../../pages/actions/SuiviActionsList'));
+const EtatDesVentes = lazy(() => import('../../pages/etatVentes/EtatDesVentes'));
+const SuiviAffectations = lazy(() => import('../../pages/suiviAffectations/SuiviAffectations'));
+const SuiviCommerciaux = lazy(() => import('../../pages/suiviCommerciaux/SuiviCommerciaux'));
+const ProspectionsList = lazy(() => import('../../pages/prospections/ProspectionsList'));
+const PreProspectionsList = lazy(() => import('../../pages/prospections/PreProspectionsList'));
+const ImportPreProspections = lazy(() => import('../../pages/prospections/ImportPreProspections'));
+const ProspectionDetail = lazy(() => import('../../pages/prospections/ProspectionDetail'));
+const OffresList = lazy(() => import('../../pages/prospections/OffresList'));
+const OffreDetail = lazy(() => import('../../pages/prospections/OffreDetail'));
+const EncaissementsList = lazy(() => import('../../pages/encaissements/EncaissementsList'));
+const EncaissementDetail = lazy(() => import('../../pages/encaissements/EncaissementDetail'));
+const ImpayesList = lazy(() => import('../../pages/impayes/ImpayesList'));
+const DesistementsList = lazy(() => import('../../pages/desistements/DesistementsList'));
+const DesistementFiche = lazy(() => import('../../pages/desistements/DesistementFiche'));
+const ProspectsList = lazy(() => import('../../pages/prospects/ProspectsList'));
+const NewProspect = lazy(() => import('../../pages/prospects/NewProspect'));
+const ProspectDetail = lazy(() => import('../../pages/prospects/ProspectDetail'));
+const ClientsList = lazy(() => import('../../pages/clients/ClientsList'));
+const NewDossier = lazy(() => import('../../pages/dossiers/NewDossier'));
+const DossiersList = lazy(() => import('../../pages/dossiers/DossiersList'));
+const DossierDetail = lazy(() => import('../../pages/dossiers/DossierDetail'));
+const PlansAccueil = lazy(() => import('../../pages/tranches/PlansAccueil'));
+const Aide = lazy(() => import('../../pages/aide/Aide'));
+
+const vente: ModuleApp = {
+  slug: 'vente',
+  label: 'Vente',
+  icon: Folder,
+  ordre: 1,
+  path: '/prospections',
+  // Le tableau de bord n'existe que pour la vente ; profil et performances suivent le menu Vente.
+  prefixes: [
+    '/', '/tableau-de-bord', '/profil', '/mes-performances', '/hotline', '/calendrier', '/suivi-actions',
+    '/etat-des-ventes', '/suivi-commerciaux', '/suivi-affectations', '/performances', '/equipe', '/journee', '/tri',
+    '/prospections', '/pre-prospections', '/prospects', '/clients', '/dossiers', '/offres', '/encaissements',
+    '/impayes', '/desistements', '/aide',
+  ],
+  Menu: NavVente,
+  routes: [
+    { path: '/', element: <Accueil /> },
+    { path: '/tableau-de-bord', element: <Dashboard /> },
+    { path: '/journee', element: <MaJournee /> },
+    { path: '/tri', element: <BoiteDeTri /> },
+    { path: '/profil', element: <Profil /> },
+    { path: '/performances', element: <PerformancesCommerciaux /> },
+    { path: '/mes-performances', element: <MesPerformances /> },
+    { path: '/equipe', element: <MonEquipe /> },
+    { path: '/hotline', element: <Hotline /> },
+    { path: '/calendrier', element: <Calendrier /> },
+    { path: '/suivi-actions', element: <SuiviActionsList /> },
+    { path: '/etat-des-ventes', element: <EtatDesVentes /> },
+    { path: '/suivi-commerciaux', element: <SuiviCommerciaux /> },
+    { path: '/suivi-affectations', element: <SuiviAffectations /> },
+    { path: '/prospections', element: <ProspectionsList /> },
+    // La saisie est une boîte, pas une page : la route rend la liste avec la boîte ouverte.
+    { path: '/prospections/nouveau', element: <ProspectionsList nouveau /> },
+    { path: '/pre-prospections', element: <PreProspectionsList /> },
+    { path: '/pre-prospections/nouveau', element: <PreProspectionsList nouveau /> },
+    { path: '/pre-prospections/import', element: <ImportPreProspections /> },
+    { path: '/pre-prospections/:id', element: <ProspectionDetail /> },
+    { path: '/prospections/:id', element: <ProspectionDetail /> },
+    { path: '/prospections/:id/nouveau-dossier', element: <NewDossier /> },
+    { path: '/offres', element: <OffresList /> },
+    { path: '/offres/:id', element: <OffreDetail /> },
+    { path: '/encaissements', element: <EncaissementsList /> },
+    { path: '/encaissements/:id', element: <EncaissementDetail /> },
+    { path: '/impayes', element: <ImpayesList /> },
+    { path: '/desistements', element: <DesistementsList /> },
+    { path: '/desistements/:id', element: <DesistementFiche /> },
+    { path: '/prospects', element: <ProspectsList /> },
+    { path: '/prospects/nouveau', element: <NewProspect /> },
+    { path: '/prospects/:id', element: <ProspectDetail /> },
+    { path: '/clients', element: <ClientsList /> },
+    { path: '/clients/:id', element: <ProspectDetail /> },
+    { path: '/dossiers', element: <DossiersList /> },
+    { path: '/dossiers/:id', element: <DossierDetail /> },
+    { path: '/plans', element: <PlansAccueil /> },
+    { path: '/aide', element: <Aide /> },
+    { path: '/aide/:slug', element: <Aide /> },
+  ],
+};
+
+export default vente;
