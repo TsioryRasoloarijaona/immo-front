@@ -12,7 +12,7 @@ const ENTREES: { chemin: string; libelle: string; icone: LucideIcon }[] = [
 ];
 const REGLAGES = { chemin: '/outils/syndic/reglages', libelle: 'Réglages', icone: Settings };
 
-/** À côté de « Ordres de virement », pour les mêmes rôles : `Layout` ne le rend que là où il rend les virements.
+/** À côté de « Ordres de virement », pour les mêmes rôles : `MenuOutils` ne le rend que là où il rend les virements.
  * « Réglages » : administrateurs du service seulement (`/moi`). */
 export default function EntreesSyndic({ pathname }: Readonly<{ pathname: string }>) {
   const { moi } = useContexteVirement();

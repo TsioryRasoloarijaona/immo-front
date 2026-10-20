@@ -1,16 +1,6 @@
 import type { ComponentType, SVGProps } from 'react';
-import {
-  Building2,
-  Calculator,
-  Folder,
-  Hammer,
-  Key,
-  Landmark,
-  Settings,
-  ShoppingCart,
-  Users,
-  Wrench,
-} from 'lucide-react';
+import { Calculator, Key, Landmark, ShoppingCart, Users, Wrench } from 'lucide-react';
+import { MODULES_DECLARES } from '../modules/registre';
 
 export interface AppModule {
   slug: string;
@@ -22,43 +12,9 @@ export interface AppModule {
 }
 
 export function moduleForPath(pathname: string): string | null {
-  // Le tableau de bord n'existe que pour la vente ; profil et performances suivent le menu Vente.
-  if (
-    pathname === '/' ||
-    pathname.startsWith('/tableau-de-bord') ||
-    pathname.startsWith('/profil') ||
-    pathname.startsWith('/mes-performances') ||
-    pathname.startsWith('/hotline') ||
-    pathname.startsWith('/calendrier') ||
-    pathname.startsWith('/suivi-actions') ||
-    pathname.startsWith('/etat-des-ventes') ||
-    pathname.startsWith('/suivi-commerciaux') ||
-    pathname.startsWith('/suivi-affectations') ||
-    pathname.startsWith('/performances') ||
-    pathname.startsWith('/equipe') ||
-    pathname.startsWith('/journee') ||
-    pathname.startsWith('/tri') ||
-    pathname.startsWith('/prospections') ||
-    pathname.startsWith('/pre-prospections') ||
-    pathname.startsWith('/prospects') ||
-    pathname.startsWith('/clients') ||
-    pathname.startsWith('/dossiers') ||
-    pathname.startsWith('/offres') ||
-    pathname.startsWith('/encaissements') ||
-    pathname.startsWith('/impayes') ||
-    pathname.startsWith('/desistements') ||
-    pathname.startsWith('/aide')
-  ) {
-    return 'vente';
-  }
-  if (['/tranches', '/articles', '/sous-articles', '/terrains', '/lotissements', '/projets', '/entites-juridiques', '/actionnaires', '/groupes-actionnaires', '/etudes-faisabilite', '/configuration'].some((p) => pathname.startsWith(p))) {
-    return 'patrimoine';
-  }
-  if (pathname.startsWith('/utilisateurs') || pathname.startsWith('/cles-api') || pathname.startsWith('/modeles-documents')) {
-    return 'administration';
-  }
-  if (pathname.startsWith('/outils')) {
-    return 'outils';
+  const declare = MODULES_DECLARES.find((m) => m.prefixes.some((p) => (p === '/' ? pathname === '/' : pathname.startsWith(p))));
+  if (declare) {
+    return declare.slug;
   }
   if (pathname.startsWith('/bientot/')) {
     return pathname.split('/')[2] ?? null;
@@ -66,15 +22,17 @@ export function moduleForPath(pathname: string): string | null {
   return null;
 }
 
-export const APP_MODULES: AppModule[] = [
-  { slug: 'vente', label: 'Vente', icon: Folder, active: true, path: '/prospections' },
-  { slug: 'patrimoine', label: 'Patrimoine', icon: Building2, active: true, path: '/tranches' },
-  { slug: 'achat', label: 'Achat', icon: ShoppingCart, active: false },
-  { slug: 'location', label: 'Location', icon: Key, active: false },
-  { slug: 'sav', label: 'Service Après Vente', icon: Wrench, active: false },
-  { slug: 'rh', label: 'Ressources Humaines', icon: Users, active: false },
-  { slug: 'tresorerie', label: 'Trésorerie', icon: Landmark, active: false },
-  { slug: 'comptabilite', label: 'Comptabilité', icon: Calculator, active: false },
-  { slug: 'administration', label: 'Administration', icon: Settings, active: true, path: '/utilisateurs' },
-  { slug: 'outils', label: 'Outils', icon: Hammer, active: true, path: '/outils/virements/nouveau', adminOnly: true },
+/** Modules sans écran (« Bientôt ») ; les autres se déclarent dans `src/modules/<module>/routes.tsx`. */
+const MODULES_A_VENIR: (AppModule & { ordre: number })[] = [
+  { slug: 'achat', label: 'Achat', icon: ShoppingCart, active: false, ordre: 3 },
+  { slug: 'location', label: 'Location', icon: Key, active: false, ordre: 4 },
+  { slug: 'sav', label: 'Service Après Vente', icon: Wrench, active: false, ordre: 5 },
+  { slug: 'rh', label: 'Ressources Humaines', icon: Users, active: false, ordre: 6 },
+  { slug: 'tresorerie', label: 'Trésorerie', icon: Landmark, active: false, ordre: 7 },
+  { slug: 'comptabilite', label: 'Comptabilité', icon: Calculator, active: false, ordre: 8 },
 ];
+
+export const APP_MODULES: AppModule[] = [
+  ...MODULES_DECLARES.map(({ slug, label, icon, path, adminOnly, ordre }) => ({ slug, label, icon, active: true, path, adminOnly, ordre })),
+  ...MODULES_A_VENIR,
+].sort((a, b) => a.ordre - b.ordre);

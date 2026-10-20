@@ -60,6 +60,11 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // Déclarations de module : pages `lazy` + un objet exporté, jamais rechargées à chaud.
+    files: ['src/modules/*/routes.tsx'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
   // Dette (lot D, découpage des gros écrans) : seuil = complexité mesurée, pour qu'elle ne puisse que baisser.
   ...Object.entries({
     'src/pages/prospections/ProspectionDetail.tsx': 62,
