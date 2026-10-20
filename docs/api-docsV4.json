@@ -80,6 +80,10 @@
       "description": "Indicateurs de performance des commerciaux sur une période — activité réalisée (appels, visites, interactions), portefeuille confié (prospections, réactivité) et résultat (dossiers, montants, taux de transformation).\n\nDeux attributions cohabitent et il faut le savoir pour lire les chiffres : l'**activité** est comptée pour celui qui l'a saisie, le **portefeuille** pour le commercial assigné. Un chef qui appelle sur la prospection d'un commercial voit l'appel chez lui, pas chez l'autre.\n\nTous les compteurs respectent la visibilité par entité juridique et le périmètre commercial de l'appelant. Un commercial restreint verra donc des chiffres inférieurs à son activité réelle — c'est volontaire."
     },
     {
+      "name": "Frais de terrain",
+      "description": "Onglet « Coûts » de la fiche terrain : frais `StkExpense`. Le coût total du terrain en est la somme, calculée à la\nlecture de la fiche. « Valider pour règlement » crée la facture fournisseur du frais (module Achat d'OMRAN) ; son\npaiement reste hors du CRM."
+    },
+    {
       "name": "Dossiers — sous-articles",
       "description": "Onglet « Sous articles » de la fiche dossier. Aide OMRAN : « Lorsqu'on ajoute ou on supprime un sous article, le système ne modifie pas le montant remise, mais il modifie le taux de remise. » Le taux devient montant de remise HT / prix HT avant remise (article + sous-articles), et s'applique au prix stocké de l'article et à chaque sous-article (`Sale.cs:RecalcDiscount`) ; le prix de vente HT et TTC suivent. Le schéma de financement n'est pas modifié : son écart se lit sur `GET /api/dossiers/{id}/echeancier/schema`. Chaque ajout ou retrait écrit une ligne d'historique « AFFECTATION » ou « ANNULATION AFFECTATION » et signe le dossier. Écritures réservées au rôle Administrateur (elles changent le prix)."
     },
@@ -180,6 +184,10 @@
       "description": "Rendez-vous et visites planifiés lors des interactions de prospection, exposés pour affichage dans un calendrier côté front.\n\n**Entités juridiques en exploitation.** Seuls les événements rattachés — par leur prospection ou par leur dossier — à une entité juridique active (`CfgCompany.IsActive`) sont renvoyés : aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un événement qu'aucune prospection ni aucun dossier ne rattache à une entité reste affiché."
     },
     {
+      "name": "Lotissements",
+      "description": "Écran OMRAN « LOTISSEMENTS » en lecture : lots de terrain, c'est-à-dire terrains rattachés à une tranche et de\nvocation autre que PROJET. La fiche d'un lot est celle du terrain (`/api/terrains/{id}`)."
+    },
+    {
       "name": "Mon équipe",
       "description": "Écran « Mon équipe » du chef commercial. Réservé aux rôles `Commercial Chef`, `Administrateur` et `Direction Générale`.\n\nL'équipe d'un chef = les comptes actifs « Commercial » ou « Commercial Aide » affectés à au moins un de ses projets (`AdmUserHabilitation`). Administrateur et Direction Générale voient tous les commerciaux actifs et tous les projets. Toutes les routes passent par ce même calcul ; un compte désactivé n'est jamais membre.\n\nLes écritures (distribuer, réaffecter, affectations) vont directement dans les tables d'OMRAN, sans validation : un lot est contrôlé en entier avant la première écriture et un lot partiellement invalide n'écrit rien."
     },
@@ -230,6 +238,10 @@
     {
       "name": "Impayés",
       "description": "Liste des échéances impayées des dossiers de vente — l'écran « Impayés » du module Vente d'OMRAN Estate (« liste des documents impayés des dossiers de vente »). Une ligne est une échéance (`ComDocument`) : catégorie d'encaissement (`IsCredit = 1`), dossier à un statut de vente effective (`StrStatus.BoolField001 = 1` : la réservation, l'annulation et le désistement en sont exclus), échue, et dont le reste à payer est strictement positif. Voir `instructions/FEATURE-impayes.md`."
+    },
+    {
+      "name": "Terrains",
+      "description": "Écran OMRAN « TERRAINS » : `StkItem` de nature Terrain (`TER`), entité de statut `LandProject`. Écriture réservée à\nl'Administrateur ; c'est le seul chemin d'écriture d'un terrain (`PATCH /api/articles/{id}` répond 400). Visibilité :\nsociété directe (`CfgCompanyId`) active, comme le reste du Patrimoine ; un terrain d'une société inactive répond 404 en\nlecture comme en écriture. Audit, notes, actions et pièces jointes passent par les routes de l'article (porteur\n`article`, même `StkItem`), contenances par `GET/PUT /api/articles/{id}/contenances`."
     },
     {
       "name": "Dossiers — réajustement des superficies",
@@ -1197,6 +1209,125 @@
         }
       }
     },
+    "/api/terrains/{id}/frais": {
+      "get": {
+        "tags": [
+          "Frais de terrain"
+        ],
+        "summary": "Frais du terrain, avec la facture des frais validés",
+        "description": "Lignes du terrain, par date ; `factureId` / `factureCode` renseignés pour un frais facturé.",
+        "operationId": "lire",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du terrain (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Frais du terrain, par date.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisTerrainDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Terrain inconnu, d'une autre nature, ou d'une société inactive."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Frais de terrain"
+        ],
+        "summary": "Remplace la liste des frais du terrain",
+        "description": "Liste complète : `id` connu = mise à jour, absent = création, ligne absente du corps = suppression. Obligatoires\n(400) : `date`, `montant` > 0, `typeFraisId` ; `notes` 1000 caractères au plus. `fournisseurId` absent = propriétaire\ndu terrain ; absent des deux → 400 « Renseignez le fournisseur du frais ou du terrain ». Un frais validé renvoyé\ninchangé est laissé tel quel ; modifié ou retiré de la liste → 409, rien n'est écrit.",
+        "operationId": "enregistrer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du terrain (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisTerrainDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Liste enregistrée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisTerrainDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date, montant > 0 ou type absent, référence inconnue, fournisseur absent du frais et du terrain.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisTerrainDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisTerrainDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Terrain inconnu, d'une autre nature, ou d'une société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisTerrainDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Frais validé modifié ou retiré de la liste.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LignesTrancheDtoLigneFraisTerrainDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/suivi-commerciaux/objectif": {
       "get": {
         "tags": [
@@ -1878,7 +2009,7 @@
         ],
         "summary": "Enregistre la répartition des acquéreurs (remplace les co-acquéreurs)",
         "description": "Remplace la liste des co-acquéreurs : ajout, modification de part, retrait. Les tiers ajoutés passent client via la synchronisation prospect → client du dossier (mention dans l'historique). Réponse : la répartition à jour et, comme l'aide OMRAN (« le système vérifie si l'acquéreur d'article a d'autres prospections non archivées »), les prospections ouvertes des acquéreurs ajoutés, hors celle du dossier, à proposer à l'archivage.",
-        "operationId": "enregistrer",
+        "operationId": "enregistrer_1",
         "parameters": [
           {
             "name": "id",
@@ -2986,6 +3117,326 @@
         }
       }
     },
+    "/api/terrains": {
+      "get": {
+        "tags": [
+          "Terrains"
+        ],
+        "summary": "Liste des terrains (nature TER), lotissements compris",
+        "description": "Tous les terrains de nature TER des sociétés actives, lotissements compris. `entiteId` filtre la société du terrain,\n`statutId` son statut, `vocationId` sa vocation ; `search` cherche sans casse ni espaces dans le code, la description,\nle titre foncier, l'adresse, les notes et les libellés des références.",
+        "operationId": "lister_2",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sans casse ni espaces : code, description, titre foncier, adresse, notes…",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TER-01"
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Société (CfgCompanyId).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statut (StrStatus).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vocationId",
+            "in": "query",
+            "description": "Vocation (StkVocation).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de terrains des sociétés actives.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoTerrainListeDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Terrains"
+        ],
+        "summary": "Crée un terrain au premier statut de l'entité LandProject",
+        "description": "Obligatoires (400) : `code`, `description`, `entiteId`, `paysId`, `villeId`, `vocationId`, `categorieId`, `typeId`,\n`surfaceProvisoire` ; société, pays, ville ou référence inconnus → 400, catégorie ou type d'une autre nature que\nTerrain → 400, `natureId` autre que Terrain → 400. `code` unique dans la société (409). Statut = premier statut\n(`Sorting`) de l'entité `LandProject` lu en base ; aucun → 500 sans écriture. Prix : HT ou TTC au m² par surface,\nl'autre et les totaux recalculés comme pour un article ; `prixAchatM2` et `prixAchat` se déduisent l'un de l'autre par\nla surface définitive. `estTermine` vaut vrai par défaut.",
+        "operationId": "creer_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerrainEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Terrain créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent, référence inconnue ou d'une autre nature.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris dans la société.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Aucun statut pour l'entité LandProject : rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/terrains/{id}/sous-terrains": {
+      "post": {
+        "tags": [
+          "Terrains"
+        ],
+        "summary": "Crée un sous-terrain si le statut du parent l'autorise",
+        "description": "Autorisé si le statut du parent a la case « Créer un sous-terrain » (`BoolField001`), sinon 409. Corps : `code`,\n`description`, surfaces et prix ; société, statut, vocation, catégorie, nature, pays, ville, niveau, orientation,\ntype, vocation foncière, catégorie de charge, adresse et lien Google sont copiés du parent, `estTermine` vrai.",
+        "operationId": "creerSousTerrain",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du terrain (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerrainEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Sous-terrain créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent, référence inconnue ou d'une autre nature.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Terrain inconnu, d'une autre nature, ou d'une société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Statut du parent sans « sous-terrain », ou code déjà pris.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/terrains/{id}/frais/{fraisId}/valider": {
+      "post": {
+        "tags": [
+          "Frais de terrain"
+        ],
+        "summary": "Valide un frais pour règlement : crée sa facture fournisseur",
+        "description": "Une seule transaction : facture `BuyDocument` (`INVOICE`, `LAND_EXPENSE`) avec une ligne, une ventilation à 100 % sur\nla catégorie comptable du type de frais et un historique de statut, code tiré de la séquence « Facture fournisseur »,\nfrais marqué validé. Montant HT = TTC = à payer = montant du frais, sans arrondi ni TVA ; date du jour, échéance =\ndate du jour + délai de paiement du fournisseur ; devise par défaut (`AdmParamsGuid DefaultCurrency`), statut de\ndépart du workflow de l'entité « Facture frais sur terrain ». Refus avant toute écriture : 404 (terrain masqué, frais\nd'un autre terrain), 409 « Vous ne pouvez pas ajouter une facture pour un frais qui est déjà validé ! » (déjà validé\nou déjà facturé), 400 (fournisseur, type de frais sans catégorie comptable ou type de marché), 500 (module STL,\nentité, devise, workflow ou séquence absents).",
+        "operationId": "valider_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du terrain (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "fraisId",
+            "in": "path",
+            "description": "Id du frais (StkExpense.Pkey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Facture créée, frais validé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactureFraisTerrainDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fournisseur absent du frais et du terrain, ou type de frais sans catégorie comptable ou type de marché.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactureFraisTerrainDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactureFraisTerrainDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Terrain introuvable, ou frais d'un autre terrain.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactureFraisTerrainDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Frais déjà validé ou déjà facturé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactureFraisTerrainDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Configuration absente : rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactureFraisTerrainDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/synchronisation": {
       "post": {
         "tags": [
@@ -3243,7 +3694,7 @@
         ],
         "summary": "Crée un sous-article libre, ou rattaché à un article de la même tranche",
         "description": "Création **libre** : `trancheId`, `code` (unique dans la tranche, articles compris → 409), `description`,\n`categorieId` et `typeId` paramétrés « pour les sous-articles », `immeubleId`, `etageId` obligatoires (400).\nDéfauts : vocation VENTE (PROJET refusée), nature Bâtiment, `estTitre` faux, surfaces et prix comme `POST\n/api/articles`. `parentId` facultatif : article principal de la **même tranche** et de la **même vocation** (400),\nnon occupé (409) ; son prix de vente est recalculé. `toujoursAffecte` vrai sans `parentId` → 400 « Vous ne pouvez\npas toujours affecter un sous article sans article parent ».",
-        "operationId": "creer_1",
+        "operationId": "creer_2",
         "requestBody": {
           "content": {
             "application/json": {
@@ -4975,7 +5426,7 @@
         ],
         "summary": "Crée un programme",
         "description": "Crée un programme (`CfgProject`). Obligatoires : `entiteId` (entité active), `code`, `description`. Le code est\ncomparé après `trim`, sans casse, à tous les programmes (409 avec le code et le nom du programme existant). Les\ntextes non saisis sont écrits `\"\"` (OMRAN ne supporte pas NULL). Fin ≥ début pour les travaux et la\ncommercialisation (400). Le créateur reçoit l'habilitation OMRAN sur le programme (`AdmUserHabilitation`), sans\nquoi le programme serait invisible dans OMRAN. Trace : `creePar`/`modifiePar` = l'utilisateur connecté.",
-        "operationId": "creer_2",
+        "operationId": "creer_3",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5333,7 +5784,7 @@
         ],
         "summary": "Crée une pré-prospection (lead brut)",
         "description": "Équivalent de l'écran « Pré-prospection » d'OMRAN, dont la trace d'audit fixe la séquence : code\ntiré du compteur `AdmSequence` « Prospection » (format `AA/NNNNN`, **le même compteur que les\nprospections**), type de document `ComPreProspection`, contact saisi en champs libres\n(`TempDescription`, `TempTel`, `TempEMail`) — **aucune fiche prospect n'est créée**.\n\nSeul `nom` est obligatoire. Posés par le serveur : code, date du document (maintenant), `IsClosed =\nfalse`, auteur (utilisateur connecté), vocation `VENTE` si aucune n'est fournie. Jamais de prospect\nni de commercial : c'est l'objet de `POST /api/pre-prospections/{id}/creer-prospect` puis `POST\n/api/prospections/{id}/transformer`.\n\n**Doublons signalés, jamais refusés.** La réponse liste les prospections existantes au même contact\n(même nom, même téléphone sur ses 9 derniers chiffres, même email — un champ absent des deux côtés\ncompte comme égal). OMRAN enregistre lui aussi une ligne par soumission ; à l'écran d'avertir. Seuls\nles doublons **visibles de l'appelant** (périmètre commercial) sont listés : un contact hors\npérimètre n'est jamais révélé.\n\nLa ligne créée apparaît aussitôt dans `GET /api/pre-prospections` et dans le logiciel de bureau.",
-        "operationId": "creer_3",
+        "operationId": "creer_4",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5773,7 +6224,7 @@
           "Notes"
         ],
         "summary": "Notes d'un programme, d'une tranche ou d'un article, plus récentes d'abord",
-        "operationId": "lister_2",
+        "operationId": "lister_3",
         "parameters": [
           {
             "name": "porteur",
@@ -5843,7 +6294,7 @@
           "Notes"
         ],
         "summary": "Ajoute une note en texte simple (échappée en HTML pour OMRAN)",
-        "operationId": "creer_4",
+        "operationId": "creer_5",
         "requestBody": {
           "content": {
             "application/json": {
@@ -5993,7 +6444,7 @@
           "Modèles de documents"
         ],
         "summary": "Crée un modèle et sa version 1",
-        "operationId": "creer_5",
+        "operationId": "creer_6",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6616,7 +7067,7 @@
           "Entités juridiques"
         ],
         "summary": "Liste des entités, actives ou non (colonnes de la liste OMRAN)",
-        "operationId": "lister_3",
+        "operationId": "lister_4",
         "parameters": [
           {
             "name": "actif",
@@ -6658,7 +7109,7 @@
           "Entités juridiques"
         ],
         "summary": "Crée une entité (habilitation du créateur et 4 compteurs AdmSequence dans la même transaction)",
-        "operationId": "creer_6",
+        "operationId": "creer_7",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7286,7 +7737,7 @@
           "Dossiers — sous-articles"
         ],
         "summary": "Sous-articles du dossier et prix qui en dépendent",
-        "operationId": "lister_4",
+        "operationId": "lister_5",
         "parameters": [
           {
             "name": "id",
@@ -7475,7 +7926,7 @@
         ],
         "summary": "Règlements du dossier avec leur part affectée et leur reste à affecter",
         "description": "Règlements ayant au moins une ligne sur une échéance de ce dossier, saisie la plus récente d'abord (`DocDate` puis `UserCreateDateTime` décroissants). `montantAffecte` et `resteAAffecter` portent sur toutes les lignes du règlement, `affectations` sur celles de ce dossier seulement.",
-        "operationId": "lister_5",
+        "operationId": "lister_6",
         "parameters": [
           {
             "name": "id",
@@ -7523,7 +7974,7 @@
         ],
         "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
         "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
-        "operationId": "creer_7",
+        "operationId": "creer_8",
         "parameters": [
           {
             "name": "id",
@@ -7985,7 +8436,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Demandes de modification du dossier et montants qui en découlent",
-        "operationId": "lister_6",
+        "operationId": "lister_7",
         "parameters": [
           {
             "name": "id",
@@ -8079,7 +8530,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Modalité de paiement : schéma de financement figé à la vente",
-        "operationId": "lister_7",
+        "operationId": "lister_8",
         "parameters": [
           {
             "name": "id",
@@ -8656,7 +9107,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Cadeaux du dossier",
-        "operationId": "lister_8",
+        "operationId": "lister_9",
         "parameters": [
           {
             "name": "id",
@@ -8788,7 +9239,7 @@
           "Dossiers — actions"
         ],
         "summary": "Actions du dossier et leur nombre par type",
-        "operationId": "lister_9",
+        "operationId": "lister_10",
         "parameters": [
           {
             "name": "id",
@@ -8829,7 +9280,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_8",
+        "operationId": "creer_9",
         "parameters": [
           {
             "name": "id",
@@ -9318,7 +9769,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_10",
+        "operationId": "lister_11",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -9354,7 +9805,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_9",
+        "operationId": "creer_10",
         "requestBody": {
           "content": {
             "application/json": {
@@ -9809,7 +10260,7 @@
         ],
         "summary": "Crée un article principal (prix calculés comme OMRAN)",
         "description": "Crée un article principal (`IsUnderItem = 0`). Obligatoires : `trancheId`, `code` (unique dans la tranche, sans\ncasse), `description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « pour les sous-articles »),\n`immeubleId`, `etageId`. Défauts : vocation VENTE (PROJET refusée), surface provisoire 1, surface définitive =\nprovisoire, prix 0, TVA 0, `estTitre` vrai. Pour chaque surface, le prix au m² se saisit **soit** HT **soit** TTC\n(les deux → 400) ; le serveur calcule l'autre et les prix de l'article comme OMRAN (intermédiaires non arrondis,\néchelle 6 HALF_UP au stockage). `prixVente*` = article + sous-articles rattachés.",
-        "operationId": "creer_10",
+        "operationId": "creer_11",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10199,7 +10650,7 @@
           "Actions d'article"
         ],
         "summary": "Actions portant sur l'article (dossiers compris), plus récentes d'abord",
-        "operationId": "lister_11",
+        "operationId": "lister_12",
         "parameters": [
           {
             "name": "id",
@@ -10246,7 +10697,7 @@
           "Actions d'article"
         ],
         "summary": "Ajoute une action ou une alerte (date d'alerte) sur l'article",
-        "operationId": "creer_11",
+        "operationId": "creer_12",
         "parameters": [
           {
             "name": "id",
@@ -10545,6 +10996,159 @@
         }
       }
     },
+    "/api/terrains/{id}": {
+      "get": {
+        "tags": [
+          "Terrains"
+        ],
+        "summary": "Fiche terrain, coût total et coût unitaire final calculés à la lecture",
+        "description": "`coutTotal` = Σ des montants de ses frais (validés ou non) et `coutUnitaireFinal` = `coutTotal` / surface définitive\n(0 si la surface est nulle) sont calculés à chaque lecture, jamais stockés. `sousTerrainsAutorises` reflète le statut\ndu terrain (case OMRAN « Créer un sous-terrain ») : aucun statut de production ne l'a aujourd'hui.",
+        "operationId": "lire_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du terrain (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche du terrain.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Terrain inconnu, d'une autre nature, ou d'une société inactive."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Terrains"
+        ],
+        "summary": "Supprime un terrain et ses frais non validés",
+        "description": "Refus 409 : un frais validé (« Frais <type> du <date> (<montant>) validé ») ou porté par une facture, un terrain\noccupé, un sous-terrain, ou encore référencé (prospection, dossier, offre… ; une autre clé étrangère → 409 nommant la\ncontrainte). Sinon le terrain part avec ses frais non validés, contenances, pièces jointes et notes.",
+        "operationId": "supprimer_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du terrain (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Terrain supprimé avec ses frais non validés."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Terrain inconnu, d'une autre nature, ou d'une société inactive."
+          },
+          "409": {
+            "description": "Frais validé ou facturé, terrain occupé ou encore référencé."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Terrains"
+        ],
+        "summary": "Modifie un terrain (champ absent ou null = inchangé)",
+        "description": "Mêmes contrôles qu'à la création. Terrain occupé (dossier de vente ou de location) : surfaces, prix au m² HT/TTC,\nTVA et titre foncier → 409, ligne inchangée. `estTermine` ne se modifie pas sur un sous-terrain ou un terrain issu\nd'une prospection foncière (400). `champsAVider` : `niveauId`, `vocationTerrainId`, `orientationId`,\n`categorieChargeId`, `fournisseurId`, les dates et les textes facultatifs.",
+        "operationId": "modifier_4",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du terrain (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerrainEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Terrain modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent, référence inconnue ou d'une autre nature.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Terrain inconnu, d'une autre nature, ou d'une société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris, ou champ protégé d'un terrain occupé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sous-articles/{id}": {
       "delete": {
         "tags": [
@@ -10552,7 +11156,7 @@
         ],
         "summary": "Supprime un sous-article ; le prix de son article parent est recalculé",
         "description": "Refus 409 : sous-article affecté par défaut à son article (« Vous ne pouvez pas supprimer un sous article affecté\npar défaut à l'article en cours ! » — le désaffecter d'abord), dossier de vente, de location ou de syndic, ou encore\nréférencé (prospection, dossier, offre, historique… ; une autre clé étrangère → 409 nommant la contrainte). Sinon\nsuppression avec vues, contenances, tracés, pièces jointes et notes, audit `Deleted`, prix du parent recalculé.",
-        "operationId": "supprimer_3",
+        "operationId": "supprimer_4",
         "parameters": [
           {
             "name": "id",
@@ -10586,7 +11190,7 @@
         ],
         "summary": "Modifie un sous-article libre (champ absent ou null = inchangé), ou le rattache",
         "description": "Sous-article **libre** seulement : un rattaché → 409 (lecture seule, voir l'en-tête) ; un article principal → 404.\nMêmes champs que `PATCH /api/articles/{id}`, `vocationId` compris. `parentId` rattache le sous-article (mêmes règles\nqu'à la création, prix du parent recalculé) ; `toujoursAffecte` vrai exige `parentId` (400) ; `parentId` dans\n`champsAVider` → 400 (désaffecter par la route de la fiche parent).",
-        "operationId": "modifier_4",
+        "operationId": "modifier_5",
         "parameters": [
           {
             "name": "id",
@@ -11314,7 +11918,7 @@
         ],
         "summary": "Supprime un programme sans tranche ni article",
         "description": "Supprime le programme et, dans la même transaction, ses habilitations, ses zones, ses pièces jointes et ses\nnotes (`AdmAttachedFile` / `AdmMessage` dont `CategoryId` = id), comme OMRAN. 409 si une tranche ou un article\nle référence (le message les compte), ou si une autre table le référence encore (clé étrangère nommée).",
-        "operationId": "supprimer_4",
+        "operationId": "supprimer_5",
         "parameters": [
           {
             "name": "id",
@@ -11348,7 +11952,7 @@
         ],
         "summary": "Modifie un programme (champ absent ou null = inchangé)",
         "description": "Modifie un programme. Champ absent ou `null` = inchangé, `\"\"` = vidé (sauf code et description, obligatoires).\nPour vider une date, le pays, le signataire ou un responsable : `champsAVider: [\"dateDebutTravaux\", \"paysId\"]`\n(NULL en base ; un texte listé est écrit `\"\"`). Nom inconnu, champ obligatoire, ou champ à la fois listé et\nrenseigné → 400 dont le `detail` nomme `champsAVider`. Signataire et responsables : un tiers inconnu → 400 nommant\nle champ. La règle fin ≥ début porte sur la valeur résultante (corps, sinon base). Programme d'une entité inactive\n→ 404, comme toutes les routes `/api/projets/{id}…`.",
-        "operationId": "modifier_5",
+        "operationId": "modifier_6",
         "parameters": [
           {
             "name": "id",
@@ -11777,7 +12381,7 @@
           "Entités juridiques"
         ],
         "summary": "Supprime une entité sans programme ni autre référence",
-        "operationId": "supprimer_5",
+        "operationId": "supprimer_6",
         "parameters": [
           {
             "name": "id",
@@ -11810,7 +12414,7 @@
           "Entités juridiques"
         ],
         "summary": "Modifie une entité, Active comprise (effet immédiat sur la visibilité dans tout le CRM)",
-        "operationId": "modifier_6",
+        "operationId": "modifier_7",
         "parameters": [
           {
             "name": "id",
@@ -11936,7 +12540,7 @@
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
         "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
-        "operationId": "modifier_7",
+        "operationId": "modifier_8",
         "parameters": [
           {
             "name": "id",
@@ -12251,7 +12855,7 @@
         ],
         "summary": "Supprime une ligne d'échéancier (droit OMRAN ComFolderDeleteLine)",
         "description": "Refusée (409) si l'échéance a une ligne de règlement (même annulée), une ligne d'autorisation de versement, une ligne de facture, ou si elle est versée dans un dossier de recouvrement (`ComDocument.cs:VerifyLinksForDeletion`). Sinon ses actions et alertes sont supprimées, les lignes qui la désignaient comme pénalité sont détachées, puis l'écart est reporté si sa catégorie « met à jour le schéma ». Réservée, comme le droit OMRAN `ComFolderDeleteLine`, aux rôles Administrateur, Commercial Chef, Direction Générale et Responsable marketing et communication (403 sinon) ; la réponse est l'état du schéma après suppression.",
-        "operationId": "supprimer_6",
+        "operationId": "supprimer_7",
         "parameters": [
           {
             "name": "id",
@@ -12404,7 +13008,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Compteurs de l'article principal du dossier",
-        "operationId": "lire",
+        "operationId": "lire_2",
         "parameters": [
           {
             "name": "id",
@@ -12455,7 +13059,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier_8",
+        "operationId": "modifier_9",
         "parameters": [
           {
             "name": "id",
@@ -12564,7 +13168,7 @@
         ],
         "summary": "Supprime une offre, ses sous-articles et son schéma de financement",
         "description": "Supprime l'offre avec ses sous-articles (`StlQuoteItem`) et son schéma (`StlQuoteDocument`), comme\nla cascade de la base. Le numéro d'offre (`AdmSequence`) n'est pas rendu. Même périmètre que la liste.",
-        "operationId": "supprimer_7",
+        "operationId": "supprimer_8",
         "parameters": [
           {
             "name": "id",
@@ -12595,7 +13199,7 @@
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
         "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
-        "operationId": "modifier_9",
+        "operationId": "modifier_10",
         "parameters": [
           {
             "name": "id",
@@ -12679,7 +13283,7 @@
         ],
         "summary": "Supprime un article, ses sous-articles rattachés et leurs lignes",
         "description": "409 si l'article ou l'un de ses sous-articles rattachés est affecté à un dossier (vente, location, syndic), ou\nencore cité par une prospection, un dossier, une offre, un historique de statut ou un terrain de tranche (le\ndétail les compte) ; une autre clé étrangère de la base → 409 nommant la contrainte. Sinon, dans une transaction :\nles sous-articles rattachés, les vues, contenances, tracés de plan, pièces jointes et notes de chacun, puis\nl'article ; une ligne d'audit `Deleted` par objet. Un sous-article supprimé seul fait recalculer le prix de vente\nde son article ; s'il lui est affecté par défaut → 409 « Vous ne pouvez pas supprimer un sous article affecté par\ndéfaut à l'article en cours ! ».",
-        "operationId": "supprimer_8",
+        "operationId": "supprimer_9",
         "parameters": [
           {
             "name": "id",
@@ -12713,7 +13317,7 @@
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` dans le corps → 400 ; `vocationId` → 400 pour un sous-article\nrattaché (celle de son article), permis pour un libre. `toujoursAffecte` : vrai sans article parent → 400. Route de\nla fiche parent pour modifier un sous-article rattaché (`PATCH /api/sous-articles/{id}` le refuse). Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
-        "operationId": "modifier_10",
+        "operationId": "modifier_11",
         "parameters": [
           {
             "name": "id",
@@ -13570,7 +14174,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_12",
+        "operationId": "lister_13",
         "parameters": [
           {
             "name": "du",
@@ -14254,7 +14858,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_13",
+        "operationId": "lister_14",
         "parameters": [
           {
             "name": "entiteId",
@@ -19289,7 +19893,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_14",
+        "operationId": "lister_15",
         "parameters": [
           {
             "name": "page",
@@ -19743,6 +20347,78 @@
                   "items": {
                     "$ref": "#/components/schemas/ModeleDocumentAdminDto"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/lotissements": {
+      "get": {
+        "tags": [
+          "Lotissements"
+        ],
+        "summary": "Lots de terrain : terrains d'une tranche, vocation autre que PROJET",
+        "description": "Lots des tranches visibles (société du programme active). Mêmes filtres que `GET /api/terrains`.",
+        "operationId": "lister_16",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sans casse ni espaces : code, description, titre foncier, adresse, notes…",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TER-01"
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Société (CfgCompanyId).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statut (StrStatus).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vocationId",
+            "in": "query",
+            "description": "Vocation (StkVocation).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de lots de terrain des tranches visibles.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoTerrainListeDto"
                 }
               }
             }
@@ -20330,7 +21006,7 @@
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
         "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : `prixVenteTTC` = prix catalogue (`ComSalePrice`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; `statutLibelle`, `clientNom`, `commercial`, `dossierId`, `montantRegle` et `resteARegler` ne sont pas triables (400). `montantRegle` = prix de vente réglé du dossier, même calcul que la liste des dossiers ; demandé, il coûte deux requêtes par page.",
-        "operationId": "lister_15",
+        "operationId": "lister_17",
         "parameters": [
           {
             "name": "trancheId",
@@ -25618,7 +26294,7 @@
           "Audit"
         ],
         "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
-        "operationId": "lister_16",
+        "operationId": "lister_18",
         "parameters": [
           {
             "name": "objetId",
@@ -25932,7 +26608,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_17",
+        "operationId": "lister_19",
         "parameters": [
           {
             "name": "portee",
@@ -26034,7 +26710,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_9",
+        "operationId": "supprimer_10",
         "parameters": [
           {
             "name": "porteur",
@@ -26283,7 +26959,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_10",
+        "operationId": "supprimer_11",
         "parameters": [
           {
             "name": "id",
@@ -26482,7 +27158,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_11",
+        "operationId": "supprimer_12",
         "parameters": [
           {
             "name": "id",
@@ -27056,6 +27732,84 @@
             "description": "Lignes de l'onglet ; au PUT, une ligne absente est supprimée.",
             "items": {
               "$ref": "#/components/schemas/LigneCommissionDto"
+            }
+          }
+        }
+      },
+      "LigneFraisTerrainDto": {
+        "type": "object",
+        "description": "Frais d'un terrain (StkExpense). Une ligne validée est intouchable : renvoyée telle quelle au PUT.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pkey de la ligne ; absent au PUT = nouvelle ligne."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du frais. Obligatoire."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Amount, > 0. Obligatoire."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1000 caractères au plus), \"\" si absentes."
+          },
+          "typeFraisId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de frais (StkExpenseType), choix : /api/referentiels-admin/types-frais. Obligatoire."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Fournisseur (CfgTier) ; absent = propriétaire du terrain, absent des deux → 400."
+          },
+          "typeFraisCode": {
+            "type": "string",
+            "description": "Code du type de frais.",
+            "readOnly": true
+          },
+          "typeFraisDescription": {
+            "type": "string",
+            "description": "Description du type de frais.",
+            "readOnly": true
+          },
+          "fournisseurDescription": {
+            "type": "string",
+            "description": "Description du fournisseur.",
+            "readOnly": true
+          },
+          "valide": {
+            "type": "boolean",
+            "description": "IsValidated : validé pour règlement.",
+            "readOnly": true
+          },
+          "factureId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Facture (BuyDocument) née de la validation, sinon null.",
+            "readOnly": true
+          },
+          "factureCode": {
+            "type": "string",
+            "description": "Code de cette facture.",
+            "readOnly": true
+          }
+        }
+      },
+      "LignesTrancheDtoLigneFraisTerrainDto": {
+        "type": "object",
+        "description": "Liste complète d'un onglet de fiche (tranche, contenances de l'article) : corps du PUT et réponse du GET / PUT.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de l'onglet ; au PUT, une ligne absente est supprimée.",
+            "items": {
+              "$ref": "#/components/schemas/LigneFraisTerrainDto"
             }
           }
         }
@@ -28817,6 +29571,465 @@
             "type": "integer",
             "format": "int32",
             "description": "Dossiers distincts de ces échéances."
+          }
+        }
+      },
+      "TerrainEcritureDto": {
+        "type": "object",
+        "description": "Création, modification (PATCH : absent ou null = inchangé) ou sous-terrain (code, description, surfaces et prix seuls, le reste copié du parent). Taux en fraction (0,2 = 20 %).",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code, unique dans la société (409). Obligatoire."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé. Obligatoire."
+          },
+          "entiteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société (CfgCompanyId), active. Obligatoire."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Pays (AdmCountry). Obligatoire."
+          },
+          "villeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Ville (AdmCity). Obligatoire."
+          },
+          "natureId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Nature (StkKind) : Terrain implicite, une autre nature → 400."
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Vocation (StkVocation). Obligatoire."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de nature Terrain. Obligatoire."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de nature Terrain. Obligatoire."
+          },
+          "niveauId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Niveau (LndLevel)."
+          },
+          "vocationTerrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Vocation foncière (LndVocation)."
+          },
+          "orientationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Orientation (StkOrientation)."
+          },
+          "categorieChargeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de charge (StkCostCategory)."
+          },
+          "estTermine": {
+            "type": "boolean",
+            "description": "IsFinished ; vrai à la création par défaut, verrouillé pour un sous-terrain (400)."
+          },
+          "surfaceProvisoire": {
+            "type": "number",
+            "description": "AreaFloor, > 0. Obligatoire."
+          },
+          "surfaceDefinitive": {
+            "type": "number",
+            "description": "Area, > 0, défaut = surface provisoire."
+          },
+          "prixM2ProvisoireHT": {
+            "type": "number",
+            "description": "ComSaleUnitCostFloorHT ; exclusif avec prixM2ProvisoireTTC."
+          },
+          "prixM2ProvisoireTTC": {
+            "type": "number",
+            "description": "ComSaleUnitCostFloor ; exclusif avec prixM2ProvisoireHT."
+          },
+          "prixM2DefinitifHT": {
+            "type": "number",
+            "description": "ComSaleUnitCostHT ; exclusif avec prixM2DefinitifTTC."
+          },
+          "prixM2DefinitifTTC": {
+            "type": "number",
+            "description": "ComSaleUnitCost ; exclusif avec prixM2DefinitifHT."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "Vat, fraction entre 0 et 1, défaut 0."
+          },
+          "prixAchatM2": {
+            "type": "number",
+            "description": "PurchaseUnitCost ; donne prixAchat = prixAchatM2 × surface définitive."
+          },
+          "prixAchat": {
+            "type": "number",
+            "description": "PurchaseCost ; donne prixAchatM2 = prixAchat / surface définitive (surface ≠ 0)."
+          },
+          "fournisseurId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Propriétaire du terrain (CfgSupplierId) : fournisseur par défaut de ses frais."
+          },
+          "dateAchat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "PurchaseDate : date d'achat."
+          },
+          "datePermisConstruire": {
+            "type": "string",
+            "format": "date-time",
+            "description": "BuildingPermissionDate : date du permis de construire."
+          },
+          "titreFoncier": {
+            "type": "string",
+            "description": "TitleNumber : n° du titre foncier."
+          },
+          "intituleTitreFoncier": {
+            "type": "string",
+            "description": "TitleName : intitulé du titre foncier."
+          },
+          "dateTitreFoncier": {
+            "type": "string",
+            "format": "date-time",
+            "description": "TitleDate : date du titre foncier."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Address (500 caractères au plus)."
+          },
+          "lienGoogle": {
+            "type": "string",
+            "description": "GmapLink : lien Google Maps (1000 caractères au plus)."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes (1000 caractères au plus)."
+          },
+          "anomalies": {
+            "type": "string",
+            "description": "Anomalies (1000 caractères au plus)."
+          },
+          "champsAVider": {
+            "type": "array",
+            "description": "PATCH : champs facultatifs à vider (référence ou date → NULL, texte → \"\").",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ReferentielItemDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "sorting": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TerrainDetailDto": {
+        "type": "object",
+        "description": "Fiche terrain (StkItem de nature Terrain). Références : {id, code, description}, null si absentes.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StkItem.PKey."
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "entite": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Société (CfgCompanyId)."
+          },
+          "pays": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Pays (AdmCountryId)."
+          },
+          "ville": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Ville (AdmCityId)."
+          },
+          "nature": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Nature (Terrain)."
+          },
+          "vocation": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Vocation (StkVocation)."
+          },
+          "categorie": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Catégorie (StkItemCategory)."
+          },
+          "type": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Type (StkItemType)."
+          },
+          "statut": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Statut (StrStatus de l'entité LandProject), en lecture seule."
+          },
+          "niveau": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Niveau (LndLevel)."
+          },
+          "vocationTerrain": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Vocation foncière (LndVocation)."
+          },
+          "orientation": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Orientation (StkOrientation)."
+          },
+          "categorieCharge": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Catégorie de charge (StkCostCategory)."
+          },
+          "fournisseur": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Propriétaire (CfgSupplierId), fournisseur par défaut des frais."
+          },
+          "parent": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Terrain parent (ParentId) d'un sous-terrain, sinon null."
+          },
+          "estTermine": {
+            "type": "boolean",
+            "description": "IsFinished."
+          },
+          "sousTerrainsAutorises": {
+            "type": "boolean",
+            "description": "Vrai si le statut autorise les sous-terrains (StrStatus.BoolField001)."
+          },
+          "occupe": {
+            "type": "boolean",
+            "description": "Affecté à un dossier de vente ou de location : surfaces, prix et titre protégés."
+          },
+          "prospectionFonciereId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "LndLandId : prospection foncière d'origine (lecture seule)."
+          },
+          "surfaceProvisoire": {
+            "type": "number",
+            "description": "AreaFloor."
+          },
+          "prixM2ProvisoireHT": {
+            "type": "number",
+            "description": "ComSaleUnitCostFloorHT."
+          },
+          "prixM2ProvisoireTTC": {
+            "type": "number",
+            "description": "ComSaleUnitCostFloor."
+          },
+          "prixProvisoireHT": {
+            "type": "number",
+            "description": "SalePriceFloorHT."
+          },
+          "prixProvisoireTTC": {
+            "type": "number",
+            "description": "SalePriceFloor."
+          },
+          "surfaceDefinitive": {
+            "type": "number",
+            "description": "Area."
+          },
+          "prixM2DefinitifHT": {
+            "type": "number",
+            "description": "ComSaleUnitCostHT."
+          },
+          "prixM2DefinitifTTC": {
+            "type": "number",
+            "description": "ComSaleUnitCost."
+          },
+          "prixDefinitifHT": {
+            "type": "number",
+            "description": "SalePriceHT."
+          },
+          "prixDefinitifTTC": {
+            "type": "number",
+            "description": "SalePrice."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "Vat, fraction."
+          },
+          "prixAchatM2": {
+            "type": "number",
+            "description": "PurchaseUnitCost."
+          },
+          "prixAchat": {
+            "type": "number",
+            "description": "PurchaseCost."
+          },
+          "dateAchat": {
+            "type": "string",
+            "format": "date-time",
+            "description": "PurchaseDate."
+          },
+          "datePermisConstruire": {
+            "type": "string",
+            "format": "date-time",
+            "description": "BuildingPermissionDate."
+          },
+          "coutTotal": {
+            "type": "number",
+            "description": "Σ des montants des frais du terrain, calculé à la lecture (jamais stocké)."
+          },
+          "coutUnitaireFinal": {
+            "type": "number",
+            "description": "coutTotal / surface définitive, 0 si la surface est nulle ; calculé à la lecture."
+          },
+          "titreFoncier": {
+            "type": "string",
+            "description": "TitleNumber."
+          },
+          "intituleTitreFoncier": {
+            "type": "string",
+            "description": "TitleName."
+          },
+          "dateTitreFoncier": {
+            "type": "string",
+            "format": "date-time",
+            "description": "TitleDate."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Address."
+          },
+          "lienGoogle": {
+            "type": "string",
+            "description": "GmapLink."
+          },
+          "notes": {
+            "type": "string"
+          },
+          "anomalies": {
+            "type": "string"
+          },
+          "sousTerrains": {
+            "type": "array",
+            "description": "Sous-terrains (ParentId = ce terrain).",
+            "items": {
+              "$ref": "#/components/schemas/TerrainListeDto"
+            }
+          },
+          "userCreate": {
+            "type": "string"
+          },
+          "userCreateDateTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "userUpdate": {
+            "type": "string"
+          },
+          "userUpdateDateTime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TerrainListeDto": {
+        "type": "object",
+        "description": "Ligne des listes Terrains et Lotissements. Références : {id, code, description}, null si absentes.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StkItem.PKey."
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "entite": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Société (CfgCompanyId)."
+          },
+          "ville": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Ville (AdmCityId)."
+          },
+          "statut": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Statut (StrStatus)."
+          },
+          "vocation": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Vocation (StkVocation)."
+          },
+          "tranche": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Tranche (StkHierarchyId) : renseignée pour un lot de terrain, sinon null."
+          },
+          "surfaceDefinitive": {
+            "type": "number",
+            "description": "Area."
+          },
+          "prixDefinitifTTC": {
+            "type": "number",
+            "description": "SalePrice."
+          },
+          "titreFoncier": {
+            "type": "string",
+            "description": "TitleNumber."
+          },
+          "occupe": {
+            "type": "boolean",
+            "description": "Affecté à un dossier de vente ou de location."
+          }
+        }
+      },
+      "FactureFraisTerrainDto": {
+        "type": "object",
+        "description": "Facture fournisseur (BuyDocument LAND_EXPENSE) créée par « Valider pour règlement ».",
+        "properties": {
+          "factureId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "BuyDocument.PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la séquence « Facture fournisseur », ex. 27/03014."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant TTC = montant du frais, sans arrondi."
           }
         }
       },
@@ -36537,25 +37750,6 @@
           }
         }
       },
-      "ReferentielItemDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "code": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "sorting": {
-            "type": "integer",
-            "format": "int32"
-          }
-        }
-      },
       "PlanDto": {
         "type": "object",
         "description": "Plan d'étage d'une tranche (StkHierarchyPlan), sans l'image : elle se lit par /api/plans/{planId}/image.",
@@ -36666,6 +37860,33 @@
             "items": {
               "$ref": "#/components/schemas/ReferentielItemDto"
             }
+          }
+        }
+      },
+      "PageDtoTerrainListeDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerrainListeDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
