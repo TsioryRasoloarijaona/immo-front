@@ -13,10 +13,14 @@ import { useApi } from '../../lib/useApi';
  * Grille d'un onglet de fiche (tranche, contenances d'article) : lignes ajoutées / modifiées / retirées en place,
  * envoyées d'un bloc par « Enregistrer » (PUT liste complète). Lecture seule hors Administrateur.
  */
-export default function GrilleOnglet<L extends { id?: string | null }>({ source, colonnes, nouvelle, normaliser, pied, onEnregistre, verrou }: Readonly<{
+export default function GrilleOnglet<L extends { id?: string | null }>({ source, colonnes, nouvelle, normaliser, pied, onEnregistre, figee, action, verrou }: Readonly<{
   source: SourceLignes<L>;
   colonnes: ColonneOnglet<L>[];
   nouvelle: L;
+  /** Ligne en lecture seule, non retirable. */
+  figee?: (ligne: L) => boolean;
+  /** Action propre à une ligne ; `modifie` : des changements ne sont pas encore enregistrés. */
+  action?: (ligne: L, modifie: boolean) => ReactNode;
   /** Recalcul d'une ligne après chaque saisie (frais : HT ↔ TTC). */
   normaliser?: (ligne: L) => L;
   pied?: (lignes: L[]) => ReactNode;
@@ -63,7 +67,8 @@ export default function GrilleOnglet<L extends { id?: string | null }>({ source,
   return (
     <div className="flex flex-col gap-3">
       {verrou && <p className="text-micro text-muted-foreground">{verrou}</p>}
-      <TableLignes colonnes={colonnes} rangees={rangees} editable={admin} version={version}
+      <TableLignes colonnes={colonnes} rangees={rangees} editable={admin} version={version} figee={figee}
+        action={action && ((ligne) => action(ligne, brouillon !== null))}
         onChange={(cle, nom, valeur) => setBrouillon(changerRangee(rangees, cle, nom, valeur, normaliser))}
         onRetirer={(cle) => setBrouillon(rangees.filter((x) => x.cle !== cle))} />
       {pied?.(rangees.map((r) => r.ligne))}

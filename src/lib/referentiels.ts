@@ -124,6 +124,8 @@ export const useCategoriesArticle = makeCachedListHook(() => api.getCategoriesBi
 export const useCategoriesSousArticle = makeCachedListHook(() => api.getCategoriesBien(true));
 export const useTypesArticle = makeCachedListHook(() => api.getTypesBienReferentiel(false));
 export const useTypesSousArticle = makeCachedListHook(() => api.getTypesBienReferentiel(true));
+export const useCategoriesTerrain = makeCachedListHook(() => api.getCategoriesBien(undefined, 'TER'));
+export const useTypesTerrain = makeCachedListHook(() => api.getTypesBienReferentiel(undefined, 'TER'));
 export const useComptesReferentiel = makeCachedListHook(() => api.getComptesReferentiel());
 export const useDepotsReferentiel = makeCachedListHook(api.getDepotsReferentiel);
 export const useResultatsInteraction = makeCachedListHook(api.getResultatsInteraction);

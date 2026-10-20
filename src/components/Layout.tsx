@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, CircleHelp, FileCode2, FilePlus2, History, Home, KeyRound, Landmark, Layers, LayoutGrid, LogOut, Ruler, Settings2, UserRound, Users, UsersRound } from 'lucide-react';
+import { BookUser, Bot, Building2, CircleHelp, FileCode2, FilePlus2, Grid2x2, History, Home, KeyRound, Landmark, Layers, LayoutGrid, LogOut, Ruler, Settings2, Trees, UserRound, Users, UsersRound } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +24,11 @@ import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
 import { estAdministrateur, estExempte } from '../lib/roles';
 import NavVente from './NavVente';
+
+const ENTREES_TERRAINS = [
+  { to: '/terrains', libelle: 'Terrains', Icone: Trees },
+  { to: '/lotissements', libelle: 'Lotissements', Icone: Grid2x2 },
+];
 
 const ENTREES_ENTITES = [
   { to: '/entites-juridiques', libelle: 'Entités juridiques', Icone: Landmark },
@@ -101,6 +106,14 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                     Sous-articles
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+                {ENTREES_TERRAINS.map(({ to, libelle, Icone }) => (
+                  <SidebarMenuItem key={to}>
+                    <SidebarMenuButton render={<NavLink to={to} />} isActive={location.pathname.startsWith(to)} tooltip={libelle}>
+                      <Icone style={{ color: 'var(--sec-tranche)' }} />
+                      {libelle}
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
                 {isAdmin && ENTREES_ENTITES.map(({ to, libelle, Icone }) => (
                   <SidebarMenuItem key={to}>
                     <SidebarMenuButton render={<NavLink to={to} />} isActive={location.pathname.startsWith(to)} tooltip={libelle}>
