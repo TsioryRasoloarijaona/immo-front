@@ -4,7 +4,7 @@ import { ChartNoAxesColumn } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import { PerimetreBanner } from '../../components/ui';
 import { OngletsLigne } from '../../components/FicheShell';
-import { Tabs } from '../../components/ui/tabs';
+import { Tabs, TabsContent } from '../../components/ui/tabs';
 import PanneauListeEtatVentes from '../../components/etatVentes/PanneauListeEtatVentes';
 import PanneauSyntheseEtatVentes from '../../components/etatVentes/PanneauSyntheseEtatVentes';
 import { getSyntheseEtatVentes } from '../../lib/api';
@@ -61,7 +61,7 @@ export default function EtatDesVentes() {
         <PerimetreBanner projets={projetsAutorises.map((p) => ({ code: p.code ?? '' }))} />
         <Tabs value={onglet} onValueChange={(v: string) => choisirOnglet(v)} className="gap-3">
           <OngletsLigne onglets={[...ONGLETS_ETAT_VENTES]} />
-          <div role="tabpanel" aria-label={ONGLETS_ETAT_VENTES.find((o) => o.id === onglet)?.libelle}>
+          <TabsContent value={onglet}>
             {onglet === 'synthese' ? (
               <PanneauSyntheseEtatVentes
                 filtres={filtresSynthese}
@@ -77,7 +77,7 @@ export default function EtatDesVentes() {
                 onOuvrir={ouvrirFicheArticle}
               />
             )}
-          </div>
+          </TabsContent>
         </Tabs>
       </div>
     </PageShell>

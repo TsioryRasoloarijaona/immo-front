@@ -126,25 +126,30 @@ export default function PanneauListeEtatVentes({
       />
       {chargement && !pageAffichee && <LoadingState />}
       {erreur && <ErrorState message={erreur} />}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <span className="text-body text-muted-foreground">
+          {!erreur && pageAffichee && pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : 'article')}
+        </span>
+        <div className="flex items-center gap-2">
+          {colonnes.catalogueServi.length > 0 && (
+            <ColumnSelector
+              catalogue={colonnes.catalogueServi}
+              visibles={colonnes.visibles}
+              onBasculer={colonnes.basculer}
+              onReinitialiser={colonnes.reinitialiser}
+              estDefaut={colonnes.estDefaut}
+            />
+          )}
+          <BoutonExporter
+            chemin="/api/etat-des-ventes/export"
+            params={{ ...params, colonnes: colonnes.visibles }}
+            nomListe="etat-des-ventes"
+            disabled={chargement || !!erreur || vide}
+          />
+        </div>
+      </div>
       {!erreur && pageAffichee && (
         <ResultsRegion loading={chargement}>
-          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-            <span className="text-body text-muted-foreground">
-              {pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : 'article')}
-            </span>
-            <div className="flex items-center gap-2">
-              {colonnes.catalogueServi.length > 0 && (
-                <ColumnSelector
-                  catalogue={colonnes.catalogueServi}
-                  visibles={colonnes.visibles}
-                  onBasculer={colonnes.basculer}
-                  onReinitialiser={colonnes.reinitialiser}
-                  estDefaut={colonnes.estDefaut}
-                />
-              )}
-              <BoutonExporter chemin="/api/etat-des-ventes/export" params={{ ...params, colonnes: colonnes.visibles }} nomListe="etat-des-ventes" />
-            </div>
-          </div>
           <div className="flex h-[70vh] min-w-0 flex-col overflow-auto rounded-xl border border-border bg-card">
             <BandeGroupement etat={groupement} />
             {vide ? (
