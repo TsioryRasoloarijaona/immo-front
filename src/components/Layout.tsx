@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, CircleHelp, FileCode2, FilePlus2, History, Home, KeyRound, Landmark, LayoutGrid, LogOut, UserRound, Users, UsersRound } from 'lucide-react';
+import { BookUser, Bot, Building2, CircleHelp, FileCode2, FilePlus2, History, Home, KeyRound, Landmark, LayoutGrid, LogOut, Settings2, UserRound, Users, UsersRound } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -103,6 +103,12 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
+                <SidebarMenuItem>
+                  <SidebarMenuButton render={<NavLink to="/configuration/referentiels" />} isActive={location.pathname.startsWith('/configuration')} tooltip="Configuration">
+                    <Settings2 style={{ color: 'var(--sec-projet)' }} />
+                    Configuration
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroup>
           )}
