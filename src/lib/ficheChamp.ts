@@ -6,8 +6,8 @@ export const LIGNE_CHAMP =
 
 export const ETIQUETTE_CHAMP = 'min-w-0 text-micro leading-[1.15] font-medium text-muted-foreground';
 
-/** Un libellé trop long passe sur deux lignes puis se coupe (le texte complet est en infobulle). */
-export const TEXTE_ETIQUETTE = 'line-clamp-2 break-words';
+/** Un libellé trop long passe à la ligne, sans coupure ; la valeur reste alignée au centre de la ligne. */
+export const TEXTE_ETIQUETTE = 'break-words';
 
 export const VALEUR_CHAMP = 'min-w-0 break-words text-body font-medium text-foreground';
 

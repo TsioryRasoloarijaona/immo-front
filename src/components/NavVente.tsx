@@ -8,6 +8,7 @@ import {
   Contact,
   FileText,
   Folder,
+  FolderX,
   Gauge,
   Inbox,
   LayoutDashboard,
@@ -119,6 +120,7 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
         { to: '/dossiers', libelle: 'Dossiers de vente', icone: <Folder style={{ color: 'var(--sec-dossier)' }} /> },
         { to: '/encaissements', libelle: 'Encaissements', icone: <Wallet style={{ color: 'var(--sec-dossier)' }} /> },
         { to: '/impayes', libelle: 'Impayés', icone: <CircleAlert style={{ color: 'var(--sec-dossier)' }} /> },
+        { to: '/desistements', libelle: 'Désistements', icone: <FolderX style={{ color: 'var(--sec-dossier)' }} /> },
       ],
     },
   ];
