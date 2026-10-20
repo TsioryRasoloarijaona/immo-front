@@ -9180,7 +9180,7 @@
         ],
         "summary": "Crée un désistement (brouillon) sur le dossier",
         "description": "Statut du dossier sans « Peut effectuer un désistement » (`StrStatus.BoolField010`) : 409. Un seul désistement non légalisé par dossier : 409. Les montants sont calculés comme la simulation et enregistrés ; le N° de demande vient de la séquence « Désistement ».",
-        "operationId": "creer_8",
+        "operationId": "creer_9",
         "parameters": [
           {
             "name": "id",
@@ -9408,7 +9408,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_9",
+        "operationId": "creer_10",
         "parameters": [
           {
             "name": "id",
@@ -10045,7 +10045,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_10",
+        "operationId": "creer_11",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10500,7 +10500,7 @@
         ],
         "summary": "Crée un article principal (prix calculés comme OMRAN)",
         "description": "Crée un article principal (`IsUnderItem = 0`). Obligatoires : `trancheId`, `code` (unique dans la tranche, sans\ncasse), `description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « pour les sous-articles »),\n`immeubleId`, `etageId`. Défauts : vocation VENTE (PROJET refusée), surface provisoire 1, surface définitive =\nprovisoire, prix 0, TVA 0, `estTitre` vrai. Pour chaque surface, le prix au m² se saisit **soit** HT **soit** TTC\n(les deux → 400) ; le serveur calcule l'autre et les prix de l'article comme OMRAN (intermédiaires non arrondis,\néchelle 6 HALF_UP au stockage). `prixVente*` = article + sous-articles rattachés.",
-        "operationId": "creer_11",
+        "operationId": "creer_12",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10937,7 +10937,7 @@
           "Actions d'article"
         ],
         "summary": "Ajoute une action ou une alerte (date d'alerte) sur l'article",
-        "operationId": "creer_12",
+        "operationId": "creer_13",
         "parameters": [
           {
             "name": "id",
@@ -13542,7 +13542,7 @@
           "Désistements"
         ],
         "summary": "Supprime un désistement non validé",
-        "operationId": "supprimer_8",
+        "operationId": "supprimer_9",
         "parameters": [
           {
             "name": "id",
@@ -13576,7 +13576,7 @@
         ],
         "summary": "Modifie un désistement (brouillon : tout ; validé : paiement, dates, motif, observations)",
         "description": "Brouillon : tous les champs. Saisir `penaliteApresRemise` (≥ 0) la conserve au centime et recalcule la remise (1 − pénalité / (taux × base)) ; saisir `remise` (fraction entre 0 et 1) recalcule la pénalité ; les montants du dossier sont relus, et une pénalité saisie est gardée tant que la base (prix, réglé, taux) ne change pas. Validé non légalisé : seuls observations, motif, dates, type de pièce, référence, banque et contact changent — `remise` ou `penaliteApresRemise` donnent 409, les pièces étant déjà générées. Légalisé : 409.",
-        "operationId": "modifier_10",
+        "operationId": "modifier_11",
         "parameters": [
           {
             "name": "id",
@@ -13663,7 +13663,7 @@
         ],
         "summary": "Supprime un article, ses sous-articles rattachés et leurs lignes",
         "description": "409 si l'article ou l'un de ses sous-articles rattachés est affecté à un dossier (vente, location, syndic), ou\nencore cité par une prospection, un dossier, une offre, un historique de statut ou un terrain de tranche (le\ndétail les compte) ; une autre clé étrangère de la base → 409 nommant la contrainte. Sinon, dans une transaction :\nles sous-articles rattachés, les vues, contenances, tracés de plan, pièces jointes et notes de chacun, puis\nl'article ; une ligne d'audit `Deleted` par objet. Un sous-article supprimé seul fait recalculer le prix de vente\nde son article ; s'il lui est affecté par défaut → 409 « Vous ne pouvez pas supprimer un sous article affecté par\ndéfaut à l'article en cours ! ».",
-        "operationId": "supprimer_9",
+        "operationId": "supprimer_10",
         "parameters": [
           {
             "name": "id",
@@ -13697,7 +13697,7 @@
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` dans le corps → 400 ; `vocationId` → 400 pour un sous-article\nrattaché (celle de son article), permis pour un libre. `toujoursAffecte` : vrai sans article parent → 400. Route de\nla fiche parent pour modifier un sous-article rattaché (`PATCH /api/sous-articles/{id}` le refuse). Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
-        "operationId": "modifier_11",
+        "operationId": "modifier_12",
         "parameters": [
           {
             "name": "id",
@@ -26456,7 +26456,7 @@
         ],
         "summary": "Liste paginée des désistements, au périmètre, avec les totaux du filtre",
         "description": "Mêmes règles de visibilité que `GET /api/dossiers` : un désistement n'est listé que si son dossier est visible pour l'appelant (projets affectés, entité juridique active). Montants : ceux enregistrés sur le désistement (recalculés à chaque modification du brouillon, figés à la validation). Tri fixe : date de demande décroissante ; seuls `page` et `size` de la pagination sont lus. `totaux` porte sur tout le filtre.",
-        "operationId": "lister_16",
+        "operationId": "lister_17",
         "parameters": [
           {
             "name": "q",
@@ -27137,7 +27137,7 @@
           "Audit"
         ],
         "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
-        "operationId": "lister_17",
+        "operationId": "lister_18",
         "parameters": [
           {
             "name": "objetId",
@@ -27451,7 +27451,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_18",
+        "operationId": "lister_19",
         "parameters": [
           {
             "name": "portee",
@@ -27553,7 +27553,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_10",
+        "operationId": "supprimer_11",
         "parameters": [
           {
             "name": "porteur",
@@ -27802,7 +27802,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_11",
+        "operationId": "supprimer_12",
         "parameters": [
           {
             "name": "id",
@@ -28001,7 +28001,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_12",
+        "operationId": "supprimer_13",
         "parameters": [
           {
             "name": "id",
