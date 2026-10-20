@@ -13,7 +13,7 @@ import { useApi } from '../../lib/useApi';
  * Grille d'un onglet de fiche (tranche, contenances d'article) : lignes ajoutées / modifiées / retirées en place,
  * envoyées d'un bloc par « Enregistrer » (PUT liste complète). Lecture seule hors Administrateur.
  */
-export default function GrilleOnglet<L extends { id?: string }>({ source, colonnes, nouvelle, normaliser, pied, onEnregistre, figee, action }: Readonly<{
+export default function GrilleOnglet<L extends { id?: string | null }>({ source, colonnes, nouvelle, normaliser, pied, onEnregistre, figee, action, verrou }: Readonly<{
   source: SourceLignes<L>;
   colonnes: ColonneOnglet<L>[];
   nouvelle: L;
@@ -25,9 +25,11 @@ export default function GrilleOnglet<L extends { id?: string }>({ source, colonn
   normaliser?: (ligne: L) => L;
   pied?: (lignes: L[]) => ReactNode;
   onEnregistre?: () => void;
+  /** Lecture seule pour tous, Administrateur compris (étude bloquée) ; le message s'affiche au-dessus de la grille. */
+  verrou?: string;
 }>) {
   const { user } = useAuth();
-  const admin = estAdministrateur(user);
+  const admin = estAdministrateur(user) && !verrou;
   const showToast = useToast();
   const [version, setVersion] = useState(0);
   const { data, loading, error } = useApi(source.charger, [source.cle, version]);
@@ -64,6 +66,7 @@ export default function GrilleOnglet<L extends { id?: string }>({ source, colonn
 
   return (
     <div className="flex flex-col gap-3">
+      {verrou && <p className="text-micro text-muted-foreground">{verrou}</p>}
       <TableLignes colonnes={colonnes} rangees={rangees} editable={admin} version={version} figee={figee}
         action={action && ((ligne) => action(ligne, brouillon !== null))}
         onChange={(cle, nom, valeur) => setBrouillon(changerRangee(rangees, cle, nom, valeur, normaliser))}

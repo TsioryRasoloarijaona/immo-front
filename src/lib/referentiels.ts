@@ -113,6 +113,7 @@ export const useActionsCommerciales = makeCachedListHook(api.getActionsCommercia
 export const useModesPaiement = makeCachedListHook(api.getModesPaiement);
 export const useTypesReglement = makeCachedListHook(api.getTypesReglement);
 export const useBanques = makeCachedListHook(api.getBanques);
+export const useMotifsDesistement = makeCachedListHook(api.getMotifsDesistement);
 export const useEntitesReferentiel = makeCachedListHook(api.getEntitesReferentiel);
 export const useNatures = makeCachedListHook(api.getNatures);
 export const useEtages = makeCachedListHook(api.getEtages);

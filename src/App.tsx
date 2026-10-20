@@ -40,6 +40,8 @@ const OffreDetail = lazy(() => import('./pages/prospections/OffreDetail'));
 const EncaissementsList = lazy(() => import('./pages/encaissements/EncaissementsList'));
 const EncaissementDetail = lazy(() => import('./pages/encaissements/EncaissementDetail'));
 const ImpayesList = lazy(() => import('./pages/impayes/ImpayesList'));
+const DesistementsList = lazy(() => import('./pages/desistements/DesistementsList'));
+const DesistementFiche = lazy(() => import('./pages/desistements/DesistementFiche'));
 const ProspectsList = lazy(() => import('./pages/prospects/ProspectsList'));
 const NewProspect = lazy(() => import('./pages/prospects/NewProspect'));
 const ProspectDetail = lazy(() => import('./pages/prospects/ProspectDetail'));
@@ -69,6 +71,8 @@ const ActionnairesList = lazy(() => import('./pages/entites/ActionnairesList'));
 const ActionnaireDetail = lazy(() => import('./pages/entites/ActionnaireDetail'));
 const GroupesActionnairesList = lazy(() => import('./pages/entites/GroupesActionnairesList'));
 const GroupeActionnairesDetail = lazy(() => import('./pages/entites/GroupeActionnairesDetail'));
+const EtudesFaisabiliteList = lazy(() => import('./pages/faisabilite/EtudesFaisabiliteList'));
+const EtudeFaisabiliteDetail = lazy(() => import('./pages/faisabilite/EtudeFaisabiliteDetail'));
 const ReferentielPage = lazy(() => import('./pages/configuration/ReferentielPage'));
 const NouvelOrdre = lazy(() => import('./pages/outils/virements/NouvelOrdre'));
 const HistoriqueVirements = lazy(() => import('./pages/outils/virements/HistoriqueVirements'));
@@ -145,6 +149,8 @@ function AuthenticatedApp() {
                   <Route path="/encaissements" element={<EncaissementsList />} />
                   <Route path="/encaissements/:id" element={<EncaissementDetail />} />
                   <Route path="/impayes" element={<ImpayesList />} />
+                  <Route path="/desistements" element={<DesistementsList />} />
+                  <Route path="/desistements/:id" element={<DesistementFiche />} />
                   <Route path="/prospects" element={<ProspectsList />} />
                   <Route path="/prospects/nouveau" element={<NewProspect />} />
                   <Route path="/prospects/:id" element={<ProspectDetail />} />
@@ -185,6 +191,9 @@ function AuthenticatedApp() {
                   <Route path="/groupes-actionnaires" element={<GroupesActionnairesList />} />
                   <Route path="/groupes-actionnaires/nouveau" element={<GroupeActionnairesDetail />} />
                   <Route path="/groupes-actionnaires/:id" element={<GroupeActionnairesDetail />} />
+                  <Route path="/etudes-faisabilite" element={<EtudesFaisabiliteList />} />
+                  <Route path="/etudes-faisabilite/nouveau" element={<EtudeFaisabiliteDetail />} />
+                  <Route path="/etudes-faisabilite/:id" element={<EtudeFaisabiliteDetail />} />
                   <Route path="/configuration/referentiels" element={<ReferentielPage />} />
                   <Route path="/configuration/referentiels/:slug" element={<ReferentielPage />} />
                   <Route path="/outils" element={<Navigate to="/outils/virements/nouveau" replace />} />

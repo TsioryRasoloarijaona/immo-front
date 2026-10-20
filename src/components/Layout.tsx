@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
-import { BookUser, Bot, Building2, CircleHelp, FileCode2, FilePlus2, Grid2x2, History, Home, KeyRound, Landmark, Layers, LayoutGrid, LogOut, Settings2, Trees, UserRound, Users, UsersRound } from 'lucide-react';
+import { BookUser, Bot, Building2, CircleHelp, FileCode2, FilePlus2, Grid2x2, History, Home, KeyRound, Landmark, Layers, LayoutGrid, LogOut, Ruler, Settings2, Trees, UserRound, Users, UsersRound } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -22,7 +22,7 @@ import EntreesAdminVirements from '../pages/outils/virements/EntreesAdminViremen
 import EntreesSyndic from '../pages/outils/syndic/EntreesSyndic';
 import { APP_MODULES, moduleForPath } from '../lib/modules';
 import { useAuth } from '../lib/auth';
-import { estAdministrateur } from '../lib/roles';
+import { estAdministrateur, estExempte } from '../lib/roles';
 import NavVente from './NavVente';
 
 const ENTREES_TERRAINS = [
@@ -122,6 +122,14 @@ export default function Layout({ children }: Readonly<{ children: ReactNode }>) 
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
+                {estExempte(user) && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton render={<NavLink to="/etudes-faisabilite" />} isActive={location.pathname.startsWith('/etudes-faisabilite')} tooltip="Études de faisabilité">
+                      <Ruler style={{ color: 'var(--sec-projet)' }} />
+                      Études de faisabilité
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 <SidebarMenuItem>
                   <SidebarMenuButton render={<NavLink to="/configuration/referentiels" />} isActive={location.pathname.startsWith('/configuration')} tooltip="Configuration">
                     <Settings2 style={{ color: 'var(--sec-projet)' }} />

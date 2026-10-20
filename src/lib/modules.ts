@@ -46,11 +46,12 @@ export function moduleForPath(pathname: string): string | null {
     pathname.startsWith('/offres') ||
     pathname.startsWith('/encaissements') ||
     pathname.startsWith('/impayes') ||
+    pathname.startsWith('/desistements') ||
     pathname.startsWith('/aide')
   ) {
     return 'vente';
   }
-  if (['/tranches', '/articles', '/sous-articles', '/terrains', '/lotissements', '/projets', '/entites-juridiques', '/actionnaires', '/groupes-actionnaires', '/configuration'].some((p) => pathname.startsWith(p))) {
+  if (['/tranches', '/articles', '/sous-articles', '/terrains', '/lotissements', '/projets', '/entites-juridiques', '/actionnaires', '/groupes-actionnaires', '/etudes-faisabilite', '/configuration'].some((p) => pathname.startsWith(p))) {
     return 'patrimoine';
   }
   if (pathname.startsWith('/utilisateurs') || pathname.startsWith('/cles-api') || pathname.startsWith('/modeles-documents')) {

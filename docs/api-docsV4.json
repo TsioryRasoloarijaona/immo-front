@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:8080",
+      "url": "http://localhost",
       "description": "Generated server url"
     }
   ],
@@ -66,6 +66,10 @@
     {
       "name": "Audit",
       "description": "Journal d'audit OMRAN (AdmWebHistorics) des programmes, tranches, articles et entités juridiques."
+    },
+    {
+      "name": "Études de faisabilité",
+      "description": "Écran OMRAN « ETUDES DE FAISABILITE » (`StkFeasibilityStudy`), lot P8a : fiche, bloc A (surfaces, coûts du terrain et de\nconstruction), phases, unités de base, tranches, Bloquer / Débloquer. **Lecture réservée à Administrateur et Direction\nGénérale** (coûts, marges, prix d'achat), écriture à l'Administrateur ; aucune clé d'API n'y a accès (403 `HORS_PORTEE`).\nUne étude d'une société inactive est introuvable (404). Les valeurs calculées viennent toutes du serveur (`POST /calcul`\npour l'aperçu) : le front ne réimplémente aucune formule. Le bilan (chiffre d'affaires, coûts globaux, marges) est en\nlecture seule, tel que stocké par OMRAN."
     },
     {
       "name": "Référentiels du patrimoine",
@@ -258,6 +262,10 @@
     {
       "name": "Plans des tranches",
       "description": "Plans d'étage interactifs : méta, image, tracés colorés par statut, import SVG et purge (Administrateur)."
+    },
+    {
+      "name": "Désistements",
+      "description": "Désistements des dossiers de vente — l'écran « Désistements » d'OMRAN Estate (`ComSaleWithdrawalCancellation`). Un désistement est un **brouillon** tant que sa date de validation est vide, **validé** ensuite, **légalisé** quand sa date de légalisation est posée ; il n'a pas de colonne statut. Le lien au dossier est `ComSaleId`. Voir `instructions/FEATURE-desistements.md`.\n\n**Calcul (R3-R5)** : `penaliteApresRemise` = taux × base × (1 − remise), au centime ; taux = `CfgTranche.CancellationPenalityPercent` ; base = prix de vente (`ComFolder.Price`) si la tranche a `CancellationPenalityBasedOnItemPrice`, sinon le total réglé ; remise = `CancellationPenalityPercentDiscount` de la tranche pour un ancien client, sinon 0. Total réglé = réglé signé (décaissements déduits, règlements annulés exclus) des échéances d'avance, de crédit et d'autofinancement. Reste frais à régler = Σ reste dû des échéances dont la catégorie est « toujours payée », au crédit et de frais, pénalité ou modification. À rembourser = max(0, total réglé − pénalité après remise − reste frais à régler).\n\n**Droits** : toutes les écritures sont réservées à Administrateur, Direction Générale et Commercial Chef ; la lecture suit le périmètre commercial de `GET /api/dossiers` (un désistement est visible si son dossier l'est)."
     }
   ],
   "paths": {
@@ -1502,6 +1510,204 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/unites": {
+      "put": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Remplace les unités de base de l'étude ; une unité retirée perd ses ventilations",
+        "description": "Liste complète : `id` connu = mise à jour, sans `id` = création, absente = suppression (avec ses ventilations) ; `id`\nd'une autre étude ou `uniteBaseId` inconnu → 400. Verif ensuite : sommes des surfaces par fonction spécifique, puis, si\nl'étude a des tranches, ventilation de chaque unité (une unité ajoutée non ventilée est refusée).",
+        "operationId": "remplacerUnites",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrilleEtudeDtoLigneUniteEtudeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Unités enregistrées, par ordre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneUniteEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ invalide, référence inconnue ou message Verif OMRAN (detail).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneUniteEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneUniteEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneUniteEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Étude bloquée (« Étude bloquée »).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneUniteEtudeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/tranches": {
+      "put": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Remplace les tranches de l'étude et leurs ventilations",
+        "description": "Liste complète comme les unités. `code` et `sorting` obligatoires, `code` unique dans la liste (409) ; `trancheId` :\ntranche visible de la société de l'étude (400). `unites` de chaque tranche : ventilations recréées, `uniteEtudeId` = ligne\nd'unité de cette étude (400). Verif : somme des poids exactement 1, puis quantité ventilée de chaque unité (arrondi à 2\ndécimales). Retirer une tranche qui porte des lignes de prévision → 409.",
+        "operationId": "remplacerTranches",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrilleEtudeDtoLigneTrancheEtudeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Tranches enregistrées, par ordre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ invalide, référence inconnue ou message Verif OMRAN (detail).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code en double, tranche retirée avec prévisions, ou Étude bloquée (« Étude bloquée »).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+                  }
                 }
               }
             }
@@ -6784,6 +6990,289 @@
         }
       }
     },
+    "/api/etudes-faisabilite": {
+      "get": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Liste des études des sociétés actives, par code",
+        "operationId": "lister_4",
+        "parameters": [
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statut (StkFeasibilityStudyStatus.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Sous-chaîne du code ou du libellé, casse ignorée.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EtudeFaisabiliteListeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Crée une étude au statut « En étude »",
+        "description": "`code` (unique → 409), `description`, `dateDocument`, `societeId` (société active, sinon 400) obligatoires ;\n`terrainId` : article de nature TER (sinon 400). Statut initial « En étude », une ligne d'historique au nom de\nl'appelant ; `tauxTvaDefaut` 0,20 et `tauxTvaInterets` 0,10 si absents. Bloc A et phases calculés et stockés ;\n`unites` / `tranches` du corps sont ignorés (grilles par les PUT).",
+        "operationId": "creer_7",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisieEtudeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Étude créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ invalide, référence inconnue ou message Verif OMRAN (detail).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris par une autre étude.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/debloquer": {
+      "post": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Débloque l'étude",
+        "operationId": "debloquer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Étude enregistrée, fiche à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/bloquer": {
+      "post": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Bloque l'étude après Verif (Bloquer = enregistrer)",
+        "operationId": "bloquer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Étude enregistrée, fiche à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Message Verif OMRAN (detail) : l'étude reste débloquée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Étude déjà bloquée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/calcul": {
+      "post": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Aperçu du calcul (bloc A, phases, Verif) sans rien écrire",
+        "description": "Même corps que la création, sans contrôle de champ obligatoire et sans écriture. `unites` et `tranches` facultatifs : Verif\nne contrôle que les grilles reçues ; une ventilation désigne sa ligne d'unité par `uniteEtudeId` = `id` de la ligne (PKey\nou identifiant provisoire choisi par le front). Les messages Verif sont renvoyés dans `erreurs`, dans l'ordre OMRAN.\n`CountryFormule` (`AdmParamsString`, `MA` par défaut) choisit les formules marocaines de l'emprise et du plancher couvert.",
+        "operationId": "calculer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisieEtudeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Valeurs calculées et messages Verif.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValeursFaisabilite"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValeursFaisabilite"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/equipe/repartir": {
       "post": {
         "tags": [
@@ -7067,7 +7556,7 @@
           "Entités juridiques"
         ],
         "summary": "Liste des entités, actives ou non (colonnes de la liste OMRAN)",
-        "operationId": "lister_4",
+        "operationId": "lister_5",
         "parameters": [
           {
             "name": "actif",
@@ -7109,7 +7598,7 @@
           "Entités juridiques"
         ],
         "summary": "Crée une entité (habilitation du créateur et 4 compteurs AdmSequence dans la même transaction)",
-        "operationId": "creer_7",
+        "operationId": "creer_8",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7737,7 +8226,7 @@
           "Dossiers — sous-articles"
         ],
         "summary": "Sous-articles du dossier et prix qui en dépendent",
-        "operationId": "lister_5",
+        "operationId": "lister_6",
         "parameters": [
           {
             "name": "id",
@@ -7926,7 +8415,7 @@
         ],
         "summary": "Règlements du dossier avec leur part affectée et leur reste à affecter",
         "description": "Règlements ayant au moins une ligne sur une échéance de ce dossier, saisie la plus récente d'abord (`DocDate` puis `UserCreateDateTime` décroissants). `montantAffecte` et `resteAAffecter` portent sur toutes les lignes du règlement, `affectations` sur celles de ce dossier seulement.",
-        "operationId": "lister_6",
+        "operationId": "lister_7",
         "parameters": [
           {
             "name": "id",
@@ -7974,7 +8463,7 @@
         ],
         "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
         "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
-        "operationId": "creer_8",
+        "operationId": "creer_9",
         "parameters": [
           {
             "name": "id",
@@ -8436,7 +8925,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Demandes de modification du dossier et montants qui en découlent",
-        "operationId": "lister_7",
+        "operationId": "lister_8",
         "parameters": [
           {
             "name": "id",
@@ -8530,7 +9019,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Modalité de paiement : schéma de financement figé à la vente",
-        "operationId": "lister_8",
+        "operationId": "lister_9",
         "parameters": [
           {
             "name": "id",
@@ -9101,13 +9590,103 @@
         }
       }
     },
+    "/api/dossiers/{id}/desistement": {
+      "get": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Dernier désistement du dossier",
+        "operationId": "duDossier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le désistement le plus récent du dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable, hors périmètre, ou sans désistement."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Crée un désistement (brouillon) sur le dossier",
+        "description": "Statut du dossier sans « Peut effectuer un désistement » (`StrStatus.BoolField010`) : 409. Un seul désistement non légalisé par dossier : 409. Les montants sont calculés comme la simulation et enregistrés ; le N° de demande vient de la séquence « Désistement ».",
+        "operationId": "creer_10",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerDesistementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Le désistement créé, montants calculés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date de demande absente, ou motif inconnu."
+          },
+          "403": {
+            "description": "Réservé à Administrateur, Direction Générale, Commercial Chef."
+          },
+          "404": {
+            "description": "Dossier introuvable ou hors périmètre."
+          },
+          "409": {
+            "description": "Statut non éligible, ou désistement non légalisé existant."
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/cadeaux": {
       "get": {
         "tags": [
           "Dossiers — cadeaux"
         ],
         "summary": "Cadeaux du dossier",
-        "operationId": "lister_9",
+        "operationId": "lister_10",
         "parameters": [
           {
             "name": "id",
@@ -9239,7 +9818,7 @@
           "Dossiers — actions"
         ],
         "summary": "Actions du dossier et leur nombre par type",
-        "operationId": "lister_10",
+        "operationId": "lister_11",
         "parameters": [
           {
             "name": "id",
@@ -9280,7 +9859,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_9",
+        "operationId": "creer_11",
         "parameters": [
           {
             "name": "id",
@@ -9762,6 +10341,118 @@
         }
       }
     },
+    "/api/desistements/{id}/validation": {
+      "post": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Valide un désistement : dossier en DESISTEMENT, pièces de frais et de remboursement",
+        "description": "Dans une transaction : contrôle des dates (400), recalcul des montants, puis passage du dossier en DESISTEMENT par le même chemin que `PATCH /api/dossiers/{id}/statut` (date d'annulation = jour, cause = « motif : observations », lot libéré, client repassé prospect s'il n'a plus de dossier actif ; sans motif ni observations, la cause est « Désistement N° »), puis génération de la pièce « Frais de désistement » (catégorie du paramètre `DefaultCancellationDocumentType`) = pénalité si non nulle (quittance = N° du désistement), et de la pièce « REMBOURSEMENT POUR DÉSISTEMENT » = à rembourser si positif, toutes deux rattachées au désistement. Une date de légalisation fournie rend le désistement légalisé.",
+        "operationId": "valider_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du désistement (ComSaleWithdrawalCancellation.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValiderDesistementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Le désistement validé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date de validation absente, ou date de légalisation absente avec une pénalité non nulle."
+          },
+          "403": {
+            "description": "Réservé à Administrateur, Direction Générale, Commercial Chef."
+          },
+          "404": {
+            "description": "Désistement introuvable, ou dossier hors périmètre."
+          },
+          "409": {
+            "description": "Déjà validé ; statut du dossier sans « Peut effectuer un désistement » ; transition vers DESISTEMENT non paramétrée ; dossier de syndic en cours ou facture sans avoir ; catégorie de frais ou de remboursement introuvable. Rien n'est écrit."
+          }
+        }
+      }
+    },
+    "/api/desistements/{id}/remboursement": {
+      "post": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Enregistre un remboursement (décaissement) sur la pièce de résiliation du désistement",
+        "description": "Décaissement (`StlSettlement.IsCredit = 0`, statut `IN_WORK`) écrit par le même chemin qu'un règlement de dossier, affecté en entier à la pièce de remboursement du désistement. Plafond : le reste à rembourser de cette pièce, cumul des décaissements précédents compris.",
+        "operationId": "rembourser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du désistement (ComSaleWithdrawalCancellation.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RembourserDesistementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Décaissement enregistré ; le désistement à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Montant, date ou type absent ou invalide."
+          },
+          "403": {
+            "description": "Réservé à Administrateur, Direction Générale, Commercial Chef."
+          },
+          "404": {
+            "description": "Désistement introuvable, ou dossier hors périmètre."
+          },
+          "409": {
+            "description": "Désistement non validé, rien à rembourser, ou montant au-delà du reste à rembourser."
+          }
+        }
+      }
+    },
     "/api/cles-api": {
       "get": {
         "tags": [
@@ -9769,7 +10460,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_11",
+        "operationId": "lister_12",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -9805,7 +10496,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_10",
+        "operationId": "creer_12",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10260,7 +10951,7 @@
         ],
         "summary": "Crée un article principal (prix calculés comme OMRAN)",
         "description": "Crée un article principal (`IsUnderItem = 0`). Obligatoires : `trancheId`, `code` (unique dans la tranche, sans\ncasse), `description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « pour les sous-articles »),\n`immeubleId`, `etageId`. Défauts : vocation VENTE (PROJET refusée), surface provisoire 1, surface définitive =\nprovisoire, prix 0, TVA 0, `estTitre` vrai. Pour chaque surface, le prix au m² se saisit **soit** HT **soit** TTC\n(les deux → 400) ; le serveur calcule l'autre et les prix de l'article comme OMRAN (intermédiaires non arrondis,\néchelle 6 HALF_UP au stockage). `prixVente*` = article + sous-articles rattachés.",
-        "operationId": "creer_11",
+        "operationId": "creer_13",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10650,7 +11341,7 @@
           "Actions d'article"
         ],
         "summary": "Actions portant sur l'article (dossiers compris), plus récentes d'abord",
-        "operationId": "lister_12",
+        "operationId": "lister_13",
         "parameters": [
           {
             "name": "id",
@@ -10697,7 +11388,7 @@
           "Actions d'article"
         ],
         "summary": "Ajoute une action ou une alerte (date d'alerte) sur l'article",
-        "operationId": "creer_12",
+        "operationId": "creer_14",
         "parameters": [
           {
             "name": "id",
@@ -12344,6 +13035,175 @@
         }
       }
     },
+    "/api/etudes-faisabilite/{id}": {
+      "get": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Fiche d'une étude avec ses grilles",
+        "operationId": "fiche",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Supprime une étude sans prévision ni financement, avec ses grilles et son historique",
+        "description": "409 si l'étude est bloquée, ou porte des prévisions (`FSPrevision`) ou des financements (`FSFunding`). Sinon ventilations,\ntranches, unités et historique sont supprimés avec elle, dans la transaction.",
+        "operationId": "supprimer_6",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Étude supprimée."
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée."
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive."
+          },
+          "409": {
+            "description": "Prévisions ou financements présents, ou Étude bloquée (« Étude bloquée »)."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Modifie une étude ; bloc A et phases recalculés, Verif sur les grilles enregistrées",
+        "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel. `previsionsARecalculer` est vrai si l'étude a des prévisions.",
+        "operationId": "modifier_7",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisieEtudeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Étude enregistrée, fiche à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ invalide, référence inconnue ou message Verif OMRAN (detail).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris, ou Étude bloquée (« Étude bloquée »).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/entites-juridiques/{id}": {
       "get": {
         "tags": [
@@ -12381,7 +13241,7 @@
           "Entités juridiques"
         ],
         "summary": "Supprime une entité sans programme ni autre référence",
-        "operationId": "supprimer_6",
+        "operationId": "supprimer_7",
         "parameters": [
           {
             "name": "id",
@@ -12414,7 +13274,7 @@
           "Entités juridiques"
         ],
         "summary": "Modifie une entité, Active comprise (effet immédiat sur la visibilité dans tout le CRM)",
-        "operationId": "modifier_7",
+        "operationId": "modifier_8",
         "parameters": [
           {
             "name": "id",
@@ -12540,7 +13400,7 @@
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
         "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
-        "operationId": "modifier_8",
+        "operationId": "modifier_9",
         "parameters": [
           {
             "name": "id",
@@ -12855,7 +13715,7 @@
         ],
         "summary": "Supprime une ligne d'échéancier (droit OMRAN ComFolderDeleteLine)",
         "description": "Refusée (409) si l'échéance a une ligne de règlement (même annulée), une ligne d'autorisation de versement, une ligne de facture, ou si elle est versée dans un dossier de recouvrement (`ComDocument.cs:VerifyLinksForDeletion`). Sinon ses actions et alertes sont supprimées, les lignes qui la désignaient comme pénalité sont détachées, puis l'écart est reporté si sa catégorie « met à jour le schéma ». Réservée, comme le droit OMRAN `ComFolderDeleteLine`, aux rôles Administrateur, Commercial Chef, Direction Générale et Responsable marketing et communication (403 sinon) ; la réponse est l'état du schéma après suppression.",
-        "operationId": "supprimer_7",
+        "operationId": "supprimer_8",
         "parameters": [
           {
             "name": "id",
@@ -13059,7 +13919,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier_9",
+        "operationId": "modifier_10",
         "parameters": [
           {
             "name": "id",
@@ -13168,7 +14028,7 @@
         ],
         "summary": "Supprime une offre, ses sous-articles et son schéma de financement",
         "description": "Supprime l'offre avec ses sous-articles (`StlQuoteItem`) et son schéma (`StlQuoteDocument`), comme\nla cascade de la base. Le numéro d'offre (`AdmSequence`) n'est pas rendu. Même périmètre que la liste.",
-        "operationId": "supprimer_8",
+        "operationId": "supprimer_9",
         "parameters": [
           {
             "name": "id",
@@ -13199,7 +14059,7 @@
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
         "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
-        "operationId": "modifier_10",
+        "operationId": "modifier_11",
         "parameters": [
           {
             "name": "id",
@@ -13245,6 +14105,130 @@
         }
       }
     },
+    "/api/desistements/{id}": {
+      "get": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Fiche d'un désistement",
+        "description": "Mêmes montants que la liste, plus `resteARembourser` = reste dû de la pièce de remboursement générée à la validation (à rembourser − décaissements enregistrés), 0 avant validation.",
+        "operationId": "detail_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du désistement (ComSaleWithdrawalCancellation.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le désistement.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Désistement introuvable, ou dossier hors périmètre."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Supprime un désistement non validé",
+        "operationId": "supprimer_10",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du désistement (ComSaleWithdrawalCancellation.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Supprimé."
+          },
+          "403": {
+            "description": "Réservé à Administrateur, Direction Générale, Commercial Chef."
+          },
+          "404": {
+            "description": "Désistement introuvable, ou dossier hors périmètre."
+          },
+          "409": {
+            "description": "Désistement déjà validé."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Modifie un désistement (brouillon : tout ; validé : paiement, dates, motif, observations)",
+        "description": "Brouillon : tous les champs. Saisir `penaliteApresRemise` (≥ 0) la conserve au centime et recalcule la remise (1 − pénalité / (taux × base)) ; saisir `remise` (fraction entre 0 et 1) recalcule la pénalité ; les montants du dossier sont relus, et une pénalité saisie est gardée tant que la base (prix, réglé, taux) ne change pas. Validé non légalisé : seuls observations, motif, dates, type de pièce, référence, banque et contact changent — `remise` ou `penaliteApresRemise` donnent 409, les pièces étant déjà générées. Légalisé : 409.",
+        "operationId": "modifier_12",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du désistement (ComSaleWithdrawalCancellation.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierDesistementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Le désistement modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Motif, type, banque ou contact inconnu ; remise hors [0, 1] ; pénalité négative."
+          },
+          "403": {
+            "description": "Réservé à Administrateur, Direction Générale, Commercial Chef."
+          },
+          "404": {
+            "description": "Désistement introuvable, ou dossier hors périmètre."
+          },
+          "409": {
+            "description": "Désistement légalisé, ou remise/pénalité après validation."
+          }
+        }
+      }
+    },
     "/api/articles/{id}": {
       "get": {
         "tags": [
@@ -13283,7 +14267,7 @@
         ],
         "summary": "Supprime un article, ses sous-articles rattachés et leurs lignes",
         "description": "409 si l'article ou l'un de ses sous-articles rattachés est affecté à un dossier (vente, location, syndic), ou\nencore cité par une prospection, un dossier, une offre, un historique de statut ou un terrain de tranche (le\ndétail les compte) ; une autre clé étrangère de la base → 409 nommant la contrainte. Sinon, dans une transaction :\nles sous-articles rattachés, les vues, contenances, tracés de plan, pièces jointes et notes de chacun, puis\nl'article ; une ligne d'audit `Deleted` par objet. Un sous-article supprimé seul fait recalculer le prix de vente\nde son article ; s'il lui est affecté par défaut → 409 « Vous ne pouvez pas supprimer un sous article affecté par\ndéfaut à l'article en cours ! ».",
-        "operationId": "supprimer_9",
+        "operationId": "supprimer_11",
         "parameters": [
           {
             "name": "id",
@@ -13317,7 +14301,7 @@
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` dans le corps → 400 ; `vocationId` → 400 pour un sous-article\nrattaché (celle de son article), permis pour un libre. `toujoursAffecte` : vrai sans article parent → 400. Route de\nla fiche parent pour modifier un sous-article rattaché (`PATCH /api/sous-articles/{id}` le refuse). Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
-        "operationId": "modifier_11",
+        "operationId": "modifier_13",
         "parameters": [
           {
             "name": "id",
@@ -14174,7 +15158,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_13",
+        "operationId": "lister_14",
         "parameters": [
           {
             "name": "du",
@@ -14858,7 +15842,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_14",
+        "operationId": "lister_15",
         "parameters": [
           {
             "name": "entiteId",
@@ -17017,6 +18001,30 @@
         "responses": {
           "200": {
             "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels/motifs-desistement": {
+      "get": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Motifs de désistement (ComSaleWithdrawalReason), par ordre d'affichage",
+        "operationId": "motifs",
+        "responses": {
+          "200": {
+            "description": "Liste, vide si aucun motif.",
             "content": {
               "*/*": {
                 "schema": {
@@ -19913,7 +20921,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_15",
+        "operationId": "lister_16",
         "parameters": [
           {
             "name": "page",
@@ -20381,7 +21389,7 @@
         ],
         "summary": "Lots de terrain : terrains d'une tranche, vocation autre que PROJET",
         "description": "Lots des tranches visibles (société du programme active). Mêmes filtres que `GET /api/terrains`.",
-        "operationId": "lister_16",
+        "operationId": "lister_17",
         "parameters": [
           {
             "name": "search",
@@ -21019,14 +22027,74 @@
         }
       }
     },
+    "/api/etudes-faisabilite/choix/tranches": {
+      "get": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Tranches du patrimoine d'une société active, par code",
+        "operationId": "tranches",
+        "parameters": [
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société de l'étude (CfgCompany.PKey) ; inactive ou absente = liste vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/choix/terrains": {
+      "get": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Terrains choisissables : articles de nature TER visibles, par code",
+        "operationId": "terrains_1",
+        "responses": {
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/etat-des-ventes": {
       "get": {
         "tags": [
           "État des ventes"
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
-        "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : `prixVenteTTC` = prix catalogue (`ComSalePrice`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; `statutLibelle`, `clientNom`, `commercial`, `dossierId`, `montantRegle` et `resteARegler` ne sont pas triables (400). `montantRegle` = prix de vente réglé du dossier, même calcul que la liste des dossiers ; demandé, il coûte deux requêtes par page.",
-        "operationId": "lister_17",
+        "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : prix du catalogue `StkItem` (formules de la branche libre de la vue OMRAN `ComSaleMonitoringView`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; les colonnes sans chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId` et les montants du dossier : `montantRegle`, `avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) ne sont ni triables ni groupables (400).\n\nMontants du dossier : même calcul que `GET /api/dossiers` (une seule formule) ; null sur une ligne libre. En demander un coûte deux requêtes par page, un prix au m² une de plus ; aucune si aucun n'est demandé. Un dossier qui retient deux articles racines apparaît sur deux lignes avec les mêmes montants, comme OMRAN.",
+        "operationId": "lister_18",
         "parameters": [
           {
             "name": "trancheId",
@@ -21270,7 +22338,7 @@
           "État des ventes"
         ],
         "summary": "Résumés (Σ) par colonne sur tous les articles du filtre, pas sur une page",
-        "description": "Effectif du filtre et un résumé par jeton d'`agregats` (`surface`, `prixVenteTTC`, `colonne:FONCTION`). `montantRegle` et `resteARegler` (nom nu) sont aussi acceptés : sommes, sur tous les dossiers du filtre, du calcul de la liste des dossiers.",
+        "description": "Effectif du filtre et un résumé par jeton d'`agregats` (`surface`, `prixVenteTTC`, `prixHt`, `colonne:FONCTION`). Les montants du dossier sommables (`montantRegle`, `resteARegler`, `avance`, `netAPayer`, `tropPercu`… : `fonctions = [\"SUM\"]` au catalogue) sont acceptés en nom nu : somme des lignes de la liste filtrée, donc un dossier à deux articles racines compte deux fois. Taux et prix au m² : 400.",
         "operationId": "totauxColonnes_3",
         "parameters": [
           {
@@ -24191,7 +25259,7 @@
         ],
         "summary": "Fiche complète du dossier en consultation, par onglet OMRAN",
         "description": "Chaque onglet de l'écran OMRAN est un objet de la réponse. Une date absente vaut `null` (jalon non atteint) ;\nle front l'affiche « — ». Le « Prix contractuel » est `ComFolder.AgreementPrice` (« Σ des montants des lignes\nde schéma de financement qui ne sont pas paramétrées \"Exclure ce montant du prix contractuel\" », aide OMRAN),\net non le total à payer.\n\n`aDesImpayes` alimente le bandeau « Ce dossier possède des pièces de règlement impayées » : vrai dès que le\ndossier a une ligne de l'écran Impayés (`GET /api/impayes`), même règle : catégorie d'encaissement\n(`IsCredit`), statut du dossier « vente effective » (ni réservation, ni annulation, ni désistement), échéance\nau plus tard aujourd'hui et reste dû positif, les règlements annulés ne comptant pas. `instructionNonLue` est vrai seulement pour le commercial destinataire d'une instruction\nqu'il n'a pas encore lue (voir `PATCH /api/dossiers/{id}/instructions/{instructionId}/lue`).",
-        "operationId": "fiche",
+        "operationId": "fiche_1",
         "parameters": [
           {
             "name": "id",
@@ -24600,6 +25668,46 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/dossiers/{id}/desistement/simulation": {
+      "get": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Simule les montants d'un désistement du dossier, sans rien écrire",
+        "description": "Montants calculés à l'instant depuis le dossier, avec la remise par défaut (ancien client), sans rien écrire : sert à préremplir la création.",
+        "operationId": "simuler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pénalité, reste frais, à rembourser.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationDesistementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable ou hors périmètre."
+          },
+          "409": {
+            "description": "Statut du dossier sans « Peut effectuer un désistement »."
           }
         }
       }
@@ -25740,6 +26848,120 @@
         }
       }
     },
+    "/api/desistements": {
+      "get": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Liste paginée des désistements, au périmètre, avec les totaux du filtre",
+        "description": "Mêmes règles de visibilité que `GET /api/dossiers` : un désistement n'est listé que si son dossier est visible pour l'appelant (projets affectés, entité juridique active). Montants : ceux enregistrés sur le désistement (recalculés à chaque modification du brouillon, figés à la validation). Tri fixe : date de demande décroissante ; seuls `page` et `size` de la pagination sont lus. `totaux` porte sur tout le filtre.",
+        "operationId": "lister_19",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Code du désistement, code du dossier ou nom du client, insensible à la casse.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche de l'article (CfgTranche).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "demandeDu",
+            "in": "query",
+            "description": "Date de demande, borne inférieure (aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "demandeAu",
+            "in": "query",
+            "description": "Date de demande, borne supérieure (aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "validationDu",
+            "in": "query",
+            "description": "Date de validation, borne inférieure (aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "validationAu",
+            "in": "query",
+            "description": "Date de validation, borne supérieure (aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "legalisationDu",
+            "in": "query",
+            "description": "Date de légalisation, borne inférieure (aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "legalisationAu",
+            "in": "query",
+            "description": "Date de légalisation, borne supérieure (aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de désistements et totaux.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementsPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre invalide."
+          }
+        }
+      }
+    },
     "/api/dashboard": {
       "get": {
         "tags": [
@@ -26314,7 +27536,7 @@
           "Audit"
         ],
         "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
-        "operationId": "lister_18",
+        "operationId": "lister_20",
         "parameters": [
           {
             "name": "objetId",
@@ -26628,7 +27850,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_19",
+        "operationId": "lister_21",
         "parameters": [
           {
             "name": "portee",
@@ -26730,7 +27952,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_10",
+        "operationId": "supprimer_12",
         "parameters": [
           {
             "name": "porteur",
@@ -26979,7 +28201,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_11",
+        "operationId": "supprimer_13",
         "parameters": [
           {
             "name": "id",
@@ -27178,7 +28400,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_12",
+        "operationId": "supprimer_14",
         "parameters": [
           {
             "name": "id",
@@ -27978,6 +29200,170 @@
           "modifiePar": {
             "type": "string",
             "description": "Auteur de la dernière modification."
+          }
+        }
+      },
+      "GrilleEtudeDtoLigneUniteEtudeDto": {
+        "type": "object",
+        "description": "Liste complète des lignes : id connu = mise à jour, sans id = création, absente = suppression.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la grille ; [] vide la grille.",
+            "items": {
+              "$ref": "#/components/schemas/LigneUniteEtudeDto"
+            }
+          }
+        }
+      },
+      "LigneUniteEtudeDto": {
+        "type": "object",
+        "description": "Unité de base d'une étude (StkFSBaseUnitStkFeasibilityStudy). En écriture : id connu = mise à jour, sans id = création ; uniteCode et uniteLibelle sont ignorés.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne ; dans /calcul, identifiant provisoire libre pour relier les ventilations."
+          },
+          "sorting": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre d'affichage."
+          },
+          "uniteBaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unité de base (référentiel unites-de-base), obligatoire."
+          },
+          "uniteCode": {
+            "type": "string",
+            "description": "Lecture : code de l'unité de base."
+          },
+          "uniteLibelle": {
+            "type": "string",
+            "description": "Lecture : libellé de l'unité de base."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité (m² pour une unité de surface)."
+          }
+        }
+      },
+      "GrilleEtudeDtoLigneTrancheEtudeDto": {
+        "type": "object",
+        "description": "Liste complète des lignes : id connu = mise à jour, sans id = création, absente = suppression.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la grille ; [] vide la grille.",
+            "items": {
+              "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+            }
+          }
+        }
+      },
+      "LigneTrancheEtudeDto": {
+        "type": "object",
+        "description": "Tranche d'une étude (StkFeasibilityStudyCfgTranche) et ses unités ventilées. Le serveur stocke les dates reçues ; le front préremplit celles d'une tranche neuve depuis les phases de l'étude.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne ; absent = création."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, unique dans l'étude, obligatoire.",
+            "example": "Tranche 1"
+          },
+          "sorting": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre, obligatoire."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche du patrimoine (CfgTranche) de la société de l'étude (liste /choix/tranches)."
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Lecture : libellé de la tranche du patrimoine."
+          },
+          "poids": {
+            "type": "number",
+            "description": "Poids de la tranche (fraction) ; la somme des poids doit valoir 1."
+          },
+          "debutTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "WorkStartDate : début des travaux."
+          },
+          "finTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "WorkEndDate : fin des travaux."
+          },
+          "debutCommercialisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "MarketingStartDate : début de commercialisation."
+          },
+          "finCommercialisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "MarketingEndDate : fin de commercialisation."
+          },
+          "finConcretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "EndDateConcretisation : fin de concrétisation."
+          },
+          "debutFinalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "StartDateFinalisation : début de finalisation."
+          },
+          "dateLivraison": {
+            "type": "string",
+            "format": "date-time",
+            "description": "DeliveryDate : livraison."
+          },
+          "datePermisHabiter": {
+            "type": "string",
+            "format": "date-time",
+            "description": "OccupancyPermitsDate : permis d'habiter."
+          },
+          "unites": {
+            "type": "array",
+            "description": "Unités de l'étude ventilées sur cette tranche ; absente = aucune.",
+            "items": {
+              "$ref": "#/components/schemas/VentilationEtudeDto"
+            }
+          }
+        }
+      },
+      "VentilationEtudeDto": {
+        "type": "object",
+        "description": "Quantité d'une unité de l'étude ventilée sur une tranche (StkFeasibilityStudyCfgTrancheStkBaseUnit).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne (lecture ; ignoré en écriture, les ventilations sont recréées)."
+          },
+          "uniteEtudeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Ligne d'unité de CETTE étude (LigneUniteEtudeDto.id), obligatoire."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité ventilée ; par unité, la somme sur les tranches doit égaler sa quantité."
+          },
+          "poids": {
+            "type": "number",
+            "description": "Poids (fraction), stocké tel quel."
           }
         }
       },
@@ -33637,6 +35023,773 @@
           }
         }
       },
+      "SaisieEtudeDto": {
+        "type": "object",
+        "description": "Création, modification ou aperçu de calcul d'une étude. En PATCH, absent ou null = inchangé. Paires coefficient ↔ montant : l'un ou l'autre ; si les deux, le coefficient gagne.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code unique (obligatoire à la création).",
+            "example": "ETUDE-01"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé (obligatoire à la création)."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du document (obligatoire à la création)."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société (CfgCompany) active, obligatoire à la création."
+          },
+          "terrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Terrain : article de nature TER (liste /choix/terrains)."
+          },
+          "descriptionTerrain": {
+            "type": "string",
+            "description": "Description du terrain (texte libre, 255 caractères)."
+          },
+          "nombreArticlesAVendre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'articles à vendre."
+          },
+          "proportionTerrainPourTva": {
+            "type": "boolean",
+            "description": "Utiliser la quote-part du terrain pour le calcul de la TVA."
+          },
+          "tauxTvaDefaut": {
+            "type": "number",
+            "description": "TVA par défaut (fraction ; 0,20 à la création si absente)."
+          },
+          "tauxTvaInterets": {
+            "type": "number",
+            "description": "TVA sur intérêts (fraction ; 0,10 à la création si absente)."
+          },
+          "superficie": {
+            "type": "number",
+            "description": "Superficie du terrain (m²)."
+          },
+          "coefEquipements": {
+            "type": "number",
+            "description": "Coef équipements (paire avec superficieEquipements)."
+          },
+          "superficieEquipements": {
+            "type": "number",
+            "description": "Superficie équipements (m², paire avec coefEquipements)."
+          },
+          "coefEmprise": {
+            "type": "number",
+            "description": "COS (paire avec empriseAuSol)."
+          },
+          "empriseAuSol": {
+            "type": "number",
+            "description": "Emprise au sol (m², paire avec coefEmprise)."
+          },
+          "cuf": {
+            "type": "number",
+            "description": "CUF (paire avec plancherCouvert)."
+          },
+          "plancherCouvert": {
+            "type": "number",
+            "description": "Plancher couvert (m², paire avec cuf)."
+          },
+          "coefVendable": {
+            "type": "number",
+            "description": "Coef vendable (paire avec plancherVendable)."
+          },
+          "plancherVendable": {
+            "type": "number",
+            "description": "Plancher vendable (m², paire avec coefVendable)."
+          },
+          "prixAchatM2": {
+            "type": "number",
+            "description": "Prix d'achat du m² TTC (paire avec prixTerrain)."
+          },
+          "prixTerrain": {
+            "type": "number",
+            "description": "Prix du terrain TTC (paire avec prixAchatM2)."
+          },
+          "tauxTvaTerrain": {
+            "type": "number",
+            "description": "TVA du terrain (fraction)."
+          },
+          "tauxFraisEnregistrement": {
+            "type": "number",
+            "description": "Coef des frais d'enregistrement."
+          },
+          "tauxAutresFraisTerrain": {
+            "type": "number",
+            "description": "Coef des autres frais de terrain."
+          },
+          "coutConstructionM2Bati": {
+            "type": "number",
+            "description": "Coût de construction du m² bâti."
+          },
+          "coutConstructionM2NonBati": {
+            "type": "number",
+            "description": "Coût de construction du m² non bâti."
+          },
+          "tauxAutresFraisExecution": {
+            "type": "number",
+            "description": "Coef des autres frais d'exécution."
+          },
+          "debutAchatTerrain": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Début de l'achat du terrain ; les autres dates de phase sont calculées."
+          },
+          "dureeAchatTerrain": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de l'achat du terrain (mois)."
+          },
+          "dureePeriodeValidation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la période de validation (mois)."
+          },
+          "dureePermisBatir": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée du permis de bâtir (mois)."
+          },
+          "dureeEtudes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée des études (mois)."
+          },
+          "dureeTravaux": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée des travaux (mois)."
+          },
+          "dureeConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la concrétisation (mois)."
+          },
+          "dureeFinalisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la finalisation (mois)."
+          },
+          "delaiAchatTerrainPeriodeValidation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin d'achat → début de validation (mois)."
+          },
+          "delaiPeriodeValidationPermisBatir": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin de validation → début du permis (mois)."
+          },
+          "delaiPermisBatirEtudes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai début du permis → début des études (mois)."
+          },
+          "delaiPermisBatirTravaux": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin du permis → début des travaux (mois)."
+          },
+          "delaiTravauxConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai début des travaux → début de la concrétisation (mois)."
+          },
+          "delaiTravauxFinalisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin des travaux → début de la finalisation (mois)."
+          },
+          "ecartTypeTravaux": {
+            "type": "number",
+            "description": "Écart-type des travaux."
+          },
+          "ecartTypeConcretisation": {
+            "type": "number",
+            "description": "Écart-type de la concrétisation."
+          },
+          "ecartTypeFinalisation": {
+            "type": "number",
+            "description": "Écart-type de la finalisation."
+          },
+          "delaiRetourJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de retour de la retenue de garantie (jours)."
+          },
+          "tauxRetenueGarantie": {
+            "type": "number",
+            "description": "Taux de retenue de garantie (fraction)."
+          },
+          "tauxApplicationRetenueGarantie": {
+            "type": "number",
+            "description": "Taux d'application de la retenue de garantie (fraction)."
+          },
+          "champsAVider": {
+            "type": "array",
+            "description": "PATCH : champs à vider (terrainId, debutAchatTerrain → NULL ; nombre → 0 ; texte → \"\").",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unites": {
+            "type": "array",
+            "description": "POST /calcul seulement (ignoré ailleurs) : unités de base à contrôler par Verif.",
+            "items": {
+              "$ref": "#/components/schemas/LigneUniteEtudeDto"
+            }
+          },
+          "tranches": {
+            "type": "array",
+            "description": "POST /calcul seulement (ignoré ailleurs) : tranches et ventilations à contrôler par Verif.",
+            "items": {
+              "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+            }
+          }
+        }
+      },
+      "BilanEtudeDto": {
+        "type": "object",
+        "description": "Bilan de l'étude en lecture seule : agrégats des prévisions tels que stockés (rendus vivants en P8b).",
+        "properties": {
+          "chiffreAffaires": {
+            "type": "number",
+            "description": "Turnover : chiffre d'affaires TTC."
+          },
+          "coutExecution": {
+            "type": "number",
+            "description": "TotalCostExecution : coût d'exécution TTC."
+          },
+          "coutExecutionHt": {
+            "type": "number",
+            "description": "TotalCostExecutionHT : coût d'exécution HT."
+          },
+          "coutTotal": {
+            "type": "number",
+            "description": "TotalCost : coût global TTC."
+          },
+          "coutTotalHt": {
+            "type": "number",
+            "description": "TotalCostHT : coût global HT."
+          },
+          "coutRevientM2": {
+            "type": "number",
+            "description": "UnitBackCost : coût de revient du m²."
+          },
+          "prixVenteM2": {
+            "type": "number",
+            "description": "UnitSalePrice : prix de vente du m²."
+          },
+          "pourcentageConcretisation": {
+            "type": "number",
+            "description": "percentageConcretisation : part de la concrétisation (fraction)."
+          },
+          "montantConcretisation": {
+            "type": "number",
+            "description": "ConretisationAmount : montant de la concrétisation."
+          },
+          "montantFinalisation": {
+            "type": "number",
+            "description": "FinalizationAmount : montant de la finalisation."
+          },
+          "coutFinancement": {
+            "type": "number",
+            "description": "TotalCostFunding : coût du financement."
+          },
+          "tauxAutofinancement": {
+            "type": "number",
+            "description": "AutofinancementRate : part des fonds propres (fraction)."
+          },
+          "montantAutofinancement": {
+            "type": "number",
+            "description": "AutofinancementAmount : fonds propres."
+          },
+          "tauxFinancementClient": {
+            "type": "number",
+            "description": "ClientfinancementRate : part du financement client (fraction)."
+          },
+          "tauxFinancementCredit": {
+            "type": "number",
+            "description": "CreditfinancementRate : part du crédit (fraction)."
+          },
+          "margeBrute": {
+            "type": "number",
+            "description": "GrossProfitMargin : marge brute."
+          },
+          "tauxIs": {
+            "type": "number",
+            "description": "ISRatio : taux de l'impôt sur les sociétés (fraction)."
+          },
+          "montantIs": {
+            "type": "number",
+            "description": "ISAmount : impôt sur les sociétés."
+          },
+          "margeNette": {
+            "type": "number",
+            "description": "NetProfitMargin : marge nette."
+          },
+          "rentabiliteCoutProjet": {
+            "type": "number",
+            "description": "ProfitRatioByProjectCost : marge / coût du projet."
+          },
+          "rentabiliteChiffreAffaires": {
+            "type": "number",
+            "description": "ProfitRatioByTurnover : marge / chiffre d'affaires."
+          },
+          "rentabiliteFondsPropres": {
+            "type": "number",
+            "description": "ProfitRatioByAutofinancementAmount : marge / fonds propres."
+          }
+        }
+      },
+      "EtudeFaisabiliteDto": {
+        "type": "object",
+        "description": "Fiche d'une étude de faisabilité (StkFeasibilityStudy) : identité, bloc A et phases calculés, grilles, bilan en lecture seule.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de l'étude."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code unique."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du document."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société (CfgCompany)."
+          },
+          "societeLibelle": {
+            "type": "string",
+            "description": "Libellé de la société."
+          },
+          "terrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Terrain (article TER), null si aucun."
+          },
+          "terrainLibelle": {
+            "type": "string",
+            "description": "Libellé du terrain."
+          },
+          "terrainFoncierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "LndLandId : terrain foncier, lecture seule (écrit par le lot Terrains)."
+          },
+          "descriptionTerrain": {
+            "type": "string",
+            "description": "Description du terrain."
+          },
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut, lecture seule (« En étude » à la création)."
+          },
+          "statutLibelle": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (nom .NET), null si aucune."
+          },
+          "bloquee": {
+            "type": "boolean",
+            "description": "Étude bloquée : toute écriture répond 409 avant Débloquer."
+          },
+          "nombreArticlesAVendre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'articles à vendre."
+          },
+          "proportionTerrainPourTva": {
+            "type": "boolean",
+            "description": "Quote-part du terrain utilisée pour la TVA."
+          },
+          "tauxTvaDefaut": {
+            "type": "number",
+            "description": "TVA par défaut (fraction)."
+          },
+          "tauxTvaInterets": {
+            "type": "number",
+            "description": "TVA sur intérêts (fraction)."
+          },
+          "ecartTypeTravaux": {
+            "type": "number",
+            "description": "Écart-type des travaux."
+          },
+          "ecartTypeConcretisation": {
+            "type": "number",
+            "description": "Écart-type de la concrétisation."
+          },
+          "ecartTypeFinalisation": {
+            "type": "number",
+            "description": "Écart-type de la finalisation."
+          },
+          "delaiRetourJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de retour de la retenue de garantie (jours)."
+          },
+          "tauxRetenueGarantie": {
+            "type": "number",
+            "description": "Taux de retenue de garantie (fraction)."
+          },
+          "tauxApplicationRetenueGarantie": {
+            "type": "number",
+            "description": "Taux d'application de la retenue de garantie (fraction)."
+          },
+          "valeurs": {
+            "$ref": "#/components/schemas/ValeursFaisabilite",
+            "description": "Bloc A et phases tels que stockés (recalculés à chaque écriture)."
+          },
+          "bilan": {
+            "$ref": "#/components/schemas/BilanEtudeDto",
+            "description": "Bilan stocké, lecture seule."
+          },
+          "unites": {
+            "type": "array",
+            "description": "Unités de base de l'étude, par ordre.",
+            "items": {
+              "$ref": "#/components/schemas/LigneUniteEtudeDto"
+            }
+          },
+          "tranches": {
+            "type": "array",
+            "description": "Tranches de l'étude et leurs ventilations, par ordre.",
+            "items": {
+              "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+            }
+          },
+          "previsionsARecalculer": {
+            "type": "boolean",
+            "description": "Vrai si l'étude a des prévisions (FSPrevision) : à recalculer en P8b après une modification."
+          },
+          "userCreate": {
+            "type": "string",
+            "description": "Créateur (UserCreate)."
+          },
+          "userCreateDateTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création."
+          },
+          "userUpdate": {
+            "type": "string",
+            "description": "Dernier auteur (UserUpdate)."
+          },
+          "userUpdateDateTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de dernière modification."
+          }
+        }
+      },
+      "ValeursFaisabilite": {
+        "type": "object",
+        "description": "Surfaces, coûts et phases d'une étude, recalculés par le serveur (calcul partagé).",
+        "properties": {
+          "superficie": {
+            "type": "number",
+            "description": "Superficie du terrain (m², Area)."
+          },
+          "coefEquipements": {
+            "type": "number",
+            "description": "Coef équipements et voies d'aménagement = superficie équipements / superficie."
+          },
+          "superficieEquipements": {
+            "type": "number",
+            "description": "Superficie équipements et voies d'aménagement (m²)."
+          },
+          "superficieNette": {
+            "type": "number",
+            "description": "Calculé : superficie − superficie équipements (AreaNet)."
+          },
+          "coefEmprise": {
+            "type": "number",
+            "description": "Coef d'emprise au sol des bâtiments (COS)."
+          },
+          "empriseAuSol": {
+            "type": "number",
+            "description": "Emprise au sol des bâtiments (m²) = COS × superficie nette (Maroc) ou × superficie."
+          },
+          "cuf": {
+            "type": "number",
+            "description": "Coef de plancher couvert (CUF)."
+          },
+          "plancherCouvert": {
+            "type": "number",
+            "description": "Plancher couvert (m²) = superficie nette × CUF (Maroc), sinon superficie × COS × CUF."
+          },
+          "coefVendable": {
+            "type": "number",
+            "description": "Coef de superficie vendable."
+          },
+          "plancherVendable": {
+            "type": "number",
+            "description": "Plancher vendable (m²) = coef vendable × plancher couvert."
+          },
+          "surfaceNonBatie": {
+            "type": "number",
+            "description": "Calculé : superficie − emprise au sol (NoBuiltArea)."
+          },
+          "tauxTvaTerrain": {
+            "type": "number",
+            "description": "Taux de TVA du terrain (fraction, 0,2 = 20 %)."
+          },
+          "prixAchatM2": {
+            "type": "number",
+            "description": "Prix d'achat du m² TTC."
+          },
+          "prixAchatM2Ht": {
+            "type": "number",
+            "description": "Calculé : prix d'achat du m² / (1 + TVA terrain)."
+          },
+          "prixAchatM2Tva": {
+            "type": "number",
+            "description": "Calculé : TVA du prix d'achat du m²."
+          },
+          "prixTerrain": {
+            "type": "number",
+            "description": "Prix du terrain TTC = prix du m² × superficie."
+          },
+          "prixTerrainHt": {
+            "type": "number",
+            "description": "Calculé : prix du m² HT × superficie."
+          },
+          "prixTerrainTva": {
+            "type": "number",
+            "description": "Calculé : prix du terrain − prix HT."
+          },
+          "tauxFraisEnregistrement": {
+            "type": "number",
+            "description": "Coef des frais d'enregistrement (fraction du prix du terrain)."
+          },
+          "fraisEnregistrement": {
+            "type": "number",
+            "description": "Calculé : coef × prix du terrain."
+          },
+          "fraisEnregistrementHt": {
+            "type": "number",
+            "description": "Calculé : coef × prix du terrain HT."
+          },
+          "fraisEnregistrementTva": {
+            "type": "number",
+            "description": "Calculé : frais d'enregistrement − HT."
+          },
+          "tauxAutresFraisTerrain": {
+            "type": "number",
+            "description": "Coef des autres frais de terrain (fraction du prix du terrain)."
+          },
+          "autresFraisTerrain": {
+            "type": "number",
+            "description": "Calculé : coef × prix du terrain (OtherCostsLand)."
+          },
+          "autresFraisTerrainHt": {
+            "type": "number",
+            "description": "Calculé : coef × prix HT (colonne OMRAN OtherCostsExecutionHT)."
+          },
+          "autresFraisTerrainTva": {
+            "type": "number",
+            "description": "Calculé : autres frais − HT (colonne OMRAN OtherCostsExecutionVatAmount)."
+          },
+          "coutTotalTerrain": {
+            "type": "number",
+            "description": "Calculé : autres frais + prix du terrain + frais d'enregistrement (TTC)."
+          },
+          "coutTotalTerrainHt": {
+            "type": "number",
+            "description": "Calculé : mêmes termes en HT (non stocké)."
+          },
+          "coutConstructionM2Bati": {
+            "type": "number",
+            "description": "Coût de construction du m² bâti."
+          },
+          "coutBati": {
+            "type": "number",
+            "description": "Calculé : coût du m² bâti × plancher couvert."
+          },
+          "coutConstructionM2NonBati": {
+            "type": "number",
+            "description": "Coût de construction du m² non bâti."
+          },
+          "coutNonBati": {
+            "type": "number",
+            "description": "Calculé : coût du m² non bâti × surface non bâtie."
+          },
+          "tauxAutresFraisExecution": {
+            "type": "number",
+            "description": "Coef des autres frais d'exécution."
+          },
+          "autresFraisExecution": {
+            "type": "number",
+            "description": "Calculé : coef × (coût bâti + coût non bâti)."
+          },
+          "debutAchatTerrain": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Début de l'achat du terrain : départ de toutes les phases."
+          },
+          "dureeAchatTerrain": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de l'achat du terrain (mois)."
+          },
+          "finAchatTerrain": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiAchatTerrainPeriodeValidation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin d'achat → début de la période de validation (mois)."
+          },
+          "debutPeriodeValidation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : fin d'achat + délai."
+          },
+          "dureePeriodeValidation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la période de validation (mois)."
+          },
+          "finPeriodeValidation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiPeriodeValidationPermisBatir": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin de validation → début du permis de bâtir (mois)."
+          },
+          "debutPermisBatir": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : fin de validation + délai."
+          },
+          "dureePermisBatir": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée du permis de bâtir (mois)."
+          },
+          "finPermisBatir": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiPermisBatirEtudes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai début du permis → début des études (mois)."
+          },
+          "debutEtudes": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début du permis + délai."
+          },
+          "dureeEtudes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée des études (mois)."
+          },
+          "finEtudes": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiPermisBatirTravaux": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin du permis → début des travaux (mois)."
+          },
+          "debutTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : fin du permis + délai."
+          },
+          "dureeTravaux": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée des travaux (mois)."
+          },
+          "finTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiTravauxConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai début des travaux → début de la concrétisation (mois)."
+          },
+          "debutConcretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début des travaux + délai."
+          },
+          "dureeConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la concrétisation (mois)."
+          },
+          "finConcretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiTravauxFinalisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin des travaux → début de la finalisation (mois)."
+          },
+          "debutFinalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : fin des travaux + délai."
+          },
+          "dureeFinalisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la finalisation (mois)."
+          },
+          "finFinalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "erreurs": {
+            "type": "array",
+            "description": "Messages Verif OMRAN, dans l'ordre ; vide dans la fiche (Verif passe à chaque écriture).",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "FiltreADistribuer": {
         "type": "object",
         "description": "Filtre de la carte « À distribuer » : mêmes sens que `GET /api/equipe/a-distribuer/lignes`.",
@@ -35550,6 +37703,190 @@
           "premiereDate"
         ]
       },
+      "CreerDesistementRequest": {
+        "type": "object",
+        "description": "Demande de désistement d'un dossier de vente (brouillon, non validé).",
+        "properties": {
+          "dateDemande": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la demande du client (`ClaimDate`)."
+          },
+          "observations": {
+            "type": "string",
+            "description": "Observations (`Notes`) ; après « motif : », elles deviennent la cause d'annulation du dossier."
+          },
+          "motifId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Motif (`ComSaleWithdrawalReason.PKey`), voir `GET /api/referentiels/motifs-desistement`."
+          }
+        },
+        "required": [
+          "dateDemande"
+        ]
+      },
+      "DesistementDto": {
+        "type": "object",
+        "description": "Désistement d'un dossier de vente (`ComSaleWithdrawalCancellation`), ligne de liste et fiche.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant (`PKey`)."
+          },
+          "code": {
+            "type": "string",
+            "description": "N° de demande (`Code`, séquence « Désistement »).",
+            "example": "26/00001"
+          },
+          "etat": {
+            "type": "string",
+            "description": "État : BROUILLON (non validé), VALIDE (date de validation posée), LEGALISE (date de légalisation posée).",
+            "enum": [
+              "BROUILLON",
+              "VALIDE",
+              "LEGALISE"
+            ]
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Dossier de vente (`ComSaleId`)."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code du dossier."
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client du dossier au moment de la demande (`CfgOldCustomerId`)."
+          },
+          "clientNom": {
+            "type": "string",
+            "description": "Nom du client."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche de l'article."
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Libellé de la tranche."
+          },
+          "articleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Article du dossier (`StkItemId`)."
+          },
+          "articleCode": {
+            "type": "string",
+            "description": "Code de l'article."
+          },
+          "dateDemande": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la demande (`ClaimDate`)."
+          },
+          "dateDecision": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de décision (`DecisionDate`), null si non saisie."
+          },
+          "dateValidation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de validation (`ValidityDate`), null tant que non validé."
+          },
+          "dateLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de légalisation (`LegalizationDate`), null tant que non légalisé."
+          },
+          "motifId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Motif (`ComSaleWithdrawalReasonId`)."
+          },
+          "motifLibelle": {
+            "type": "string",
+            "description": "Libellé du motif."
+          },
+          "observations": {
+            "type": "string",
+            "description": "Observations (`Notes`)."
+          },
+          "prixVente": {
+            "type": "number",
+            "description": "Prix de vente (`TotalToPay`)."
+          },
+          "totalRegle": {
+            "type": "number",
+            "description": "Total réglé (`TotalSettled`) : avance, crédit, autofinancement."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Reste du prix (`TotalRest`) = prix − total réglé."
+          },
+          "taux": {
+            "type": "number",
+            "description": "Taux de pénalité en fraction (`TransfertExpenseAmount`, un taux malgré son nom)."
+          },
+          "remise": {
+            "type": "number",
+            "description": "Remise sur la pénalité en fraction (`Discount`)."
+          },
+          "penaliteApresRemise": {
+            "type": "number",
+            "description": "Pénalité après remise (`TransfertExpenseAmountAfterDiscount`)."
+          },
+          "resteFraisARegler": {
+            "type": "number",
+            "description": "Reste frais à régler (`NewStkItemTotalToPay`)."
+          },
+          "aRembourser": {
+            "type": "number",
+            "description": "À rembourser (`ReimburseAmount`), figé à la validation."
+          },
+          "resteARembourser": {
+            "type": "number",
+            "description": "Reste à rembourser : à rembourser − décaissements déjà enregistrés (0 avant validation)."
+          },
+          "typeReglementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de pièce du remboursement (`StlSettlementTypeId`)."
+          },
+          "typeReglementLibelle": {
+            "type": "string",
+            "description": "Libellé du type de pièce."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence du paiement (`Reference`)."
+          },
+          "banqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Banque (`CfgBankId`)."
+          },
+          "banqueNom": {
+            "type": "string",
+            "description": "Nom de la banque."
+          },
+          "contactId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Contact à rembourser (`CfgContactId`)."
+          },
+          "contactNom": {
+            "type": "string",
+            "description": "Nom du contact."
+          }
+        }
+      },
       "CreerActionDossierRequest": {
         "type": "object",
         "description": "Création d'une action sur un dossier ; la catégorie est déduite du statut, jamais fournie.",
@@ -35690,6 +38027,64 @@
             }
           }
         }
+      },
+      "ValiderDesistementRequest": {
+        "type": "object",
+        "description": "Validation d'un désistement : passe le dossier en DESISTEMENT et génère ses pièces.",
+        "properties": {
+          "dateValidation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de validation (`ValidityDate`)."
+          },
+          "dateLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de légalisation (`LegalizationDate`), obligatoire si la pénalité après remise n'est pas nulle."
+          }
+        },
+        "required": [
+          "dateValidation"
+        ]
+      },
+      "RembourserDesistementRequest": {
+        "type": "object",
+        "description": "Remboursement effectif (décaissement) d'un désistement validé.",
+        "properties": {
+          "montant": {
+            "type": "number",
+            "description": "Montant remboursé, au plus le reste à rembourser.",
+            "example": 100000
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'échéance du décaissement (`StlSettlement.EcheanceDate`)."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de règlement (`StlSettlementType.PKey`), voir `GET /api/referentiels/types-reglement`."
+          },
+          "banqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Banque (`CfgTier.PKey`), requise si le type a `banqueObligatoire = true`."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence (`StlSettlement.Code`), requise si le type a `referenceObligatoire = true`."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Commentaire libre. Facultatif."
+          }
+        },
+        "required": [
+          "dateEcheance",
+          "montant",
+          "typeId"
+        ]
       },
       "CreerCleApiRequest": {
         "type": "object",
@@ -37281,6 +39676,66 @@
           "prixApresRemiseTTC": {
             "type": "number",
             "description": "Prix TTC après remise."
+          }
+        }
+      },
+      "ModifierDesistementRequest": {
+        "type": "object",
+        "description": "Modification d'un désistement ; un champ absent reste inchangé.",
+        "properties": {
+          "observations": {
+            "type": "string",
+            "description": "Observations (`Notes`)."
+          },
+          "motifId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Motif (`ComSaleWithdrawalReason.PKey`)."
+          },
+          "dateDemande": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la demande (`ClaimDate`)."
+          },
+          "dateDecision": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de décision (`DecisionDate`)."
+          },
+          "dateLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de légalisation : la poser rend le désistement légalisé, plus rien n'est modifiable ensuite."
+          },
+          "remise": {
+            "type": "number",
+            "description": "Remise sur la pénalité, en fraction (0,5 = 50 %). Brouillon seulement.",
+            "example": 0.5
+          },
+          "penaliteApresRemise": {
+            "type": "number",
+            "description": "Pénalité après remise saisie : la remise est recalculée. Brouillon seulement.",
+            "example": 50000
+          },
+          "typeReglementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de pièce du remboursement (`StlSettlementType.PKey`)."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence du paiement (`Reference`).",
+            "example": "VIR-2026-001"
+          },
+          "banqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Banque (`CfgTier.PKey`)."
+          },
+          "contactId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Contact à rembourser (`CfgTier.PKey`) ; par défaut le client du dossier."
           }
         }
       },
@@ -40774,6 +43229,10 @@
             "type": "number",
             "description": "« Prix de vente reste » : prix de vente (`ComFolder.Price`) − `prixRegle`."
           },
+          "netAPayer": {
+            "type": "number",
+            "description": "« Net à payer » (`Total` de la vue) : prix + modifications + frais au crédit + pénalités ; sur un dossier\nannulé ou résilié, réglé hors annulation − montant de la résiliation. Calculé, ce n'est pas `totalAPayer`\n(colonne stockée `ComFolder.TotalToPay`, qui peut différer)."
+          },
           "netAPayerRegle": {
             "type": "number",
             "description": "« Net à payer réglé » (`TotalSettled` de la vue) : réglé de l'avance, du crédit, de l'autofinancement, des\nfrais, des modifications et des pénalités, moins le réglé des résiliations."
@@ -40837,6 +43296,30 @@
           "fraisReste": {
             "type": "number",
             "description": "`frais − fraisRegles`."
+          },
+          "modifications": {
+            "type": "number",
+            "description": "« Modifications » : `ComFolder.ModificationsAmount`, 0 si absent."
+          },
+          "modificationsReglees": {
+            "type": "number",
+            "description": "Réglé des échéances de modification (`IsSaleModification`), au crédit ou non."
+          },
+          "modificationsReste": {
+            "type": "number",
+            "description": "`modifications − modificationsReglees`."
+          },
+          "penalites": {
+            "type": "number",
+            "description": "« Pénalités » : Σ des échéances de pénalité (`IsSalePenality`), signées par la catégorie (au crédit +,\nsinon −), comme la vue `ComSaleFolderView`."
+          },
+          "penalitesRegles": {
+            "type": "number",
+            "description": "Réglé des échéances de pénalité."
+          },
+          "penalitesReste": {
+            "type": "number",
+            "description": "`penalites − penalitesRegles`."
           },
           "tropPercu": {
             "type": "number",
@@ -42259,6 +44742,68 @@
           }
         }
       },
+      "EtudeFaisabiliteListeDto": {
+        "type": "object",
+        "description": "Ligne de la liste des études de faisabilité.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de l'étude."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du document."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société (CfgCompany)."
+          },
+          "societeLibelle": {
+            "type": "string",
+            "description": "Libellé de la société."
+          },
+          "terrainLibelle": {
+            "type": "string",
+            "description": "Libellé du terrain (article TER), null si aucun."
+          },
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut (StkFeasibilityStudyStatus)."
+          },
+          "statutLibelle": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (nom .NET, ex. Green), null si aucune."
+          },
+          "bloquee": {
+            "type": "boolean",
+            "description": "Étude bloquée (IsLocked) : aucune écriture avant Débloquer."
+          },
+          "superficie": {
+            "type": "number",
+            "description": "Superficie du terrain (m²)."
+          },
+          "coutTotalTerrain": {
+            "type": "number",
+            "description": "Coût total du terrain TTC."
+          }
+        }
+      },
       "LigneEtatVentesDto": {
         "type": "object",
         "description": "Un article racine en vente et son statut ; seules les colonnes demandées par ?colonnes= sont présentes.",
@@ -42336,11 +44881,159 @@
           },
           "montantRegle": {
             "type": "number",
-            "description": "Prix de vente réglé du dossier, calcul de la liste des dossiers ; null si libre."
+            "description": "Prix de vente réglé du dossier (prixRegle de la liste des dossiers) ; null si libre."
           },
           "resteARegler": {
             "type": "number",
-            "description": "Prix de vente − réglé ; null si libre."
+            "description": "Prix de vente − réglé (prixReste de la liste des dossiers) ; null si libre."
+          },
+          "prixArticleHt": {
+            "type": "number",
+            "description": "HT après remise : ComFolder.ItemPriceAfterHT ; libre : SalePrice / (1 + Vat)."
+          },
+          "prixArticleTtc": {
+            "type": "number",
+            "description": "ComFolder.ItemPriceAfter ; libre : SalePrice."
+          },
+          "prixSousArticlesHt": {
+            "type": "number",
+            "description": "HT après remise : ComFolder.UnderItemsPriceAfterHT ; libre : (ComSalePrice − SalePrice) / (1 + Vat)."
+          },
+          "prixSousArticlesTtc": {
+            "type": "number",
+            "description": "ComFolder.UnderItemsPriceAfter ; libre : ComSalePrice − SalePrice."
+          },
+          "prixHt": {
+            "type": "number",
+            "description": "ComFolder.PriceHT ; libre : StkItem.ComSalePriceHT."
+          },
+          "remiseMontant": {
+            "type": "number",
+            "description": "ComFolder.DiscountAmount ; libre : 0."
+          },
+          "prixContractuel": {
+            "type": "number",
+            "description": "ComFolder.AgreementPrice ; libre : ComSalePrice."
+          },
+          "prixVenteM2Ttc": {
+            "type": "number",
+            "description": "Prix de vente au m² TTC du dossier, annexes comprises : même valeur que `prixVenteM2Ttc` de `GET /api/dossiers`. Null sur une ligne libre. Rapport : jamais sommé."
+          },
+          "prixVenteM2Ht": {
+            "type": "number",
+            "description": "Prix de vente au m² HT du dossier, annexes comprises, comme `prixVenteM2Ht` de `GET /api/dossiers`. Null sur une ligne libre. Jamais sommé."
+          },
+          "netAPayer": {
+            "type": "number",
+            "description": "« Net à payer » du dossier : prix + modifications + frais au crédit + pénalités (sur un dossier annulé ou résilié : réglé hors annulation − résiliation). Même calcul que `netAPayer` de `GET /api/dossiers`, pas la colonne stockée `TotalToPay`. Null sur une ligne libre."
+          },
+          "netAPayerRegle": {
+            "type": "number",
+            "description": "Comme `netAPayerRegle` de `GET /api/dossiers`. Null sur une ligne libre."
+          },
+          "netAPayerReste": {
+            "type": "number",
+            "description": "`netAPayer − netAPayerRegle`. Null sur une ligne libre."
+          },
+          "avance": {
+            "type": "number",
+            "description": "Σ des échéances d'avance (`IsSaleAdvance`) au crédit, comme `avance` de `GET /api/dossiers`. Null sur une ligne libre."
+          },
+          "avanceReglee": {
+            "type": "number",
+            "description": "Réglé des échéances d'avance, au crédit ou non. Null sur une ligne libre."
+          },
+          "avanceReste": {
+            "type": "number",
+            "description": "`avance − avanceReglee`. Null sur une ligne libre."
+          },
+          "autofinancement": {
+            "type": "number",
+            "description": "Σ des échéances d'autofinancement au crédit, comme la liste des dossiers. Null sur une ligne libre."
+          },
+          "autofinancementRegle": {
+            "type": "number",
+            "description": "Réglé des échéances d'autofinancement. Null sur une ligne libre."
+          },
+          "autofinancementReste": {
+            "type": "number",
+            "description": "`autofinancement − autofinancementRegle`. Null sur une ligne libre."
+          },
+          "credit": {
+            "type": "number",
+            "description": "Σ des échéances de crédit bancaire au crédit, comme la liste des dossiers. Null sur une ligne libre."
+          },
+          "creditRegle": {
+            "type": "number",
+            "description": "Réglé des échéances de crédit bancaire (décaissements en négatif). Null sur une ligne libre."
+          },
+          "creditReste": {
+            "type": "number",
+            "description": "`credit − creditRegle`. Null sur une ligne libre."
+          },
+          "frais": {
+            "type": "number",
+            "description": "Σ des échéances de frais au crédit (hors prix de vente), comme la liste des dossiers. Null sur une ligne libre."
+          },
+          "fraisRegles": {
+            "type": "number",
+            "description": "Réglé des échéances de frais. Null sur une ligne libre."
+          },
+          "fraisReste": {
+            "type": "number",
+            "description": "`frais − fraisRegles`. Null sur une ligne libre."
+          },
+          "modifications": {
+            "type": "number",
+            "description": "`ComFolder.ModificationsAmount` (0 si absent). Null sur une ligne libre."
+          },
+          "modificationsReglees": {
+            "type": "number",
+            "description": "Réglé des échéances de modification (`IsSaleModification`). Null sur une ligne libre."
+          },
+          "modificationsReste": {
+            "type": "number",
+            "description": "`modifications − modificationsReglees`. Null sur une ligne libre."
+          },
+          "tropPercu": {
+            "type": "number",
+            "description": "Ce que le client a payé en plus du net à payer, en positif ; 0 pour un dossier débiteur. Null sur une ligne libre."
+          },
+          "tropPercuRegle": {
+            "type": "number",
+            "description": "Part du trop-perçu déjà remboursée. Null sur une ligne libre."
+          },
+          "tropPercuReste": {
+            "type": "number",
+            "description": "Trop-perçu restant à rembourser. Null sur une ligne libre."
+          },
+          "penalites": {
+            "type": "number",
+            "description": "Σ des échéances de pénalité (`IsSalePenality`), signées par la catégorie (au crédit +, sinon −). Null sur une ligne libre."
+          },
+          "penalitesRegles": {
+            "type": "number",
+            "description": "Réglé des échéances de pénalité. Null sur une ligne libre."
+          },
+          "penalitesReste": {
+            "type": "number",
+            "description": "`penalites − penalitesRegles`. Null sur une ligne libre."
+          },
+          "prixContractuelRegle": {
+            "type": "number",
+            "description": "Réglé des échéances comprises dans le prix (`ExcludeFromPrice = 0`), comme la liste des dossiers. Null sur une ligne libre."
+          },
+          "prixContractuelReste": {
+            "type": "number",
+            "description": "`ComFolder.AgreementPrice − prixContractuelRegle`. Null sur une ligne libre."
+          },
+          "tauxAvance": {
+            "type": "number",
+            "description": "Avance en % du prix après remise (40 = 40 %), 0 si ce prix est nul. Null sur une ligne libre. Jamais sommé."
+          },
+          "tauxAvanceReel": {
+            "type": "number",
+            "description": "Avance réglée en % de l'avance, 0 sans avance. Null sur une ligne libre. Jamais sommé."
           }
         }
       },
@@ -43483,6 +46176,44 @@
           }
         }
       },
+      "SimulationDesistementDto": {
+        "type": "object",
+        "description": "Montants d'un désistement calculés à l'instant, sans rien écrire (FEATURE-desistements.md R3-R5).",
+        "properties": {
+          "prixVente": {
+            "type": "number",
+            "description": "Prix de vente du dossier (`ComFolder.Price`)."
+          },
+          "totalRegle": {
+            "type": "number",
+            "description": "Total réglé sur l'avance, le crédit et l'autofinancement (décaissements déduits)."
+          },
+          "taux": {
+            "type": "number",
+            "description": "Taux de pénalité de la tranche, en fraction (0,10 = 10 %)."
+          },
+          "basePrix": {
+            "type": "boolean",
+            "description": "Vrai : pénalité calculée sur le prix de vente ; faux : sur le total réglé."
+          },
+          "remise": {
+            "type": "number",
+            "description": "Remise sur la pénalité en fraction : celle de la tranche pour un ancien client, sinon 0."
+          },
+          "penaliteApresRemise": {
+            "type": "number",
+            "description": "Pénalité après remise = taux × base × (1 − remise), au centime."
+          },
+          "resteFraisARegler": {
+            "type": "number",
+            "description": "Reste dû des frais « toujours payés » (frais, pénalités, modifications au crédit)."
+          },
+          "aRembourser": {
+            "type": "number",
+            "description": "À rembourser = max(0, total réglé − pénalité après remise − reste frais à régler)."
+          }
+        }
+      },
       "CadeauCatalogueDto": {
         "type": "object",
         "description": "Cadeau du catalogue (`ComGift`) ou raison (`ComGiftReason`, sans prix ni stock).",
@@ -43640,6 +46371,65 @@
           "sommePrixVenteTTCPage": {
             "type": "number",
             "description": "Somme des prixVenteTTC des offres de la page courante uniquement (pas un total plein-filtre sur\nl'ensemble des résultats) — offres sans montant renseigné exclues de la somme."
+          }
+        }
+      },
+      "DesistementsPageDto": {
+        "type": "object",
+        "description": "Page de désistements et totaux du filtre complet.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la page demandée.",
+            "items": {
+              "$ref": "#/components/schemas/DesistementDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro de la page (à partir de 0)."
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Taille de page demandée."
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre total de lignes du filtre."
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre total de pages."
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxDesistementsDto",
+            "description": "Totaux sur toutes les lignes du filtre."
+          }
+        }
+      },
+      "TotauxDesistementsDto": {
+        "type": "object",
+        "description": "Totaux d'une liste de désistements.",
+        "properties": {
+          "totalRegle": {
+            "type": "number",
+            "description": "Σ total réglé."
+          },
+          "penaliteApresRemise": {
+            "type": "number",
+            "description": "Σ pénalité après remise."
+          },
+          "resteFraisARegler": {
+            "type": "number",
+            "description": "Σ reste frais à régler."
+          },
+          "aRembourser": {
+            "type": "number",
+            "description": "Σ à rembourser."
           }
         }
       },

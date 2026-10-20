@@ -2,7 +2,6 @@ import type { FiltresEtatVentes } from './api';
 import { canonicalStatusLabel, toneForStatus } from './dossierStatus';
 import type {
   BadgeTone,
-  ColonneDto,
   ComptesParStatut,
   LigneSynthese,
   StatutSynthese,
@@ -11,6 +10,20 @@ import type {
 
 export type NatureEtatVentes = NonNullable<FiltresEtatVentes['nature']>;
 export type ChampDateEtatVentes = NonNullable<FiltresEtatVentes['champDate']>;
+
+export const ONGLETS_ETAT_VENTES = [
+  { id: 'synthese', libelle: 'Synthèse par statut' },
+  { id: 'liste', libelle: 'Liste des articles' },
+] as const;
+
+export type OngletEtatVentes = (typeof ONGLETS_ETAT_VENTES)[number]['id'];
+
+export const VIDE_ETAT_VENTES = 'Aucun article pour ces filtres';
+
+/** Valeur inconnue ou absente de `?onglet=` : la synthèse. */
+export function ongletEtatVentes(valeur: string | null): OngletEtatVentes {
+  return valeur === 'liste' ? 'liste' : 'synthese';
+}
 
 /** État des filtres de la liste ; `search` est débouncé par la page avant l'appel. */
 export type FiltresListeEtatVentes = {
@@ -87,7 +100,11 @@ function additionner(lignes: LigneSynthese[]): { total: number; parStatut: Compt
 }
 
 /** Ce qu'un clic sur une cellule de la synthèse applique à la liste ; un champ absent = pas de restriction. */
-export type ChoixSynthese = { trancheId?: string; categorieId?: string; statut?: string };
+export type ChoixSynthese = {
+  trancheId?: string;
+  categorieId?: string;
+  statut?: string;
+};
 
 export type LigneSyntheseAffichee = {
   cle: string;
@@ -155,11 +172,4 @@ export function toneStatutVente(code: string | undefined, libelle: string | null
 
 export function libelleStatutVente(statuts: StatutSynthese[], code: string): string {
   return canonicalStatusLabel(statuts.find((s) => s.code === code)?.libelle ?? code);
-}
-
-/** Réglé et reste sont calculés hors SQL : le catalogue ne leur donne aucune fonction, le serveur accepte leur somme. */
-const SOMMES_HORS_CHEMIN = new Set(['montantRegle', 'resteARegler']);
-
-export function catalogueTotaux(colonnes: ColonneDto[]): ColonneDto[] {
-  return colonnes.map((c) => (SOMMES_HORS_CHEMIN.has(c.nom) ? { ...c, fonctions: ['SUM'] } : c));
 }
