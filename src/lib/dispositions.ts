@@ -623,7 +623,42 @@ export const DISPOSITION_ETAT_VENTES: DispositionColonnes = {
   toujoursDemandees: ['statutCode'],
 };
 
-export const DISPOSITION_SUIVI_COMMERCIAUX: DispositionColonnes = {
+/** Ordre du catalogue serveur. Le clic sur une ligne ouvre le dossier ; le lien de la pièce lit `pieceOuvrable` et `pieceId`. */
+export const DISPOSITION_SUIVI_AFFECTATIONS: DispositionColonnes = {
+  ordre: [],
+  poids: {
+    categorieLibelle: 12,
+    entiteLibelle: 12,
+    projetLibelle: 13,
+    trancheLibelle: 13,
+    articleCode: 9,
+    montantAffecte: 11,
+    dateMouvement: 9,
+    dossierCode: 10,
+    statutDossierLibelle: 12,
+    tiersNom: 16,
+    pieceLibelle: 16,
+    banqueNom: 13,
+    notesPiece: 18,
+    notesEcheance: 18,
+  },
+  masquees: new Set([
+    'id',
+    'categorieId',
+    'entiteId',
+    'projetId',
+    'trancheId',
+    'tiersId',
+    'dossierId',
+    'pieceId',
+    'pieceOuvrable',
+    'typePieceId',
+    'statutDossierCode',
+  ]),
+  toujoursDemandees: ['dossierId', 'pieceId', 'pieceOuvrable', 'sens', 'statutDossierCode'],
+};
+
+export const DISPOSITION_SUIVI_COMMERCIAUX:DispositionColonnes = {
   ordre: [],
   poids: { jour: 7, dateSaisie: 9, commercialNom: 13, type: 11, resultat: 18, joint: 7, personneNom: 16, projet: 10 },
   masquees: new Set(['id', 'prospectionId']),

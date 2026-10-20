@@ -33,6 +33,7 @@ export function moduleForPath(pathname: string): string | null {
     pathname.startsWith('/suivi-actions') ||
     pathname.startsWith('/etat-des-ventes') ||
     pathname.startsWith('/suivi-commerciaux') ||
+    pathname.startsWith('/suivi-affectations') ||
     pathname.startsWith('/performances') ||
     pathname.startsWith('/equipe') ||
     pathname.startsWith('/journee') ||

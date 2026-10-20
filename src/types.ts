@@ -3879,3 +3879,68 @@ export interface MensuelSuiviCommerciauxDto {
 export interface ObjectifCommercialDto {
   objectifPersonnesJointesJour: number;
 }
+
+// ---------------------------------------------------------------- Suivi des affectations
+
+/** Une affectation de règlement à une échéance de vente ; seules les colonnes demandées par `?colonnes=` sont
+ * présentes (sans elles : celles du catalogue à `parDefaut`). */
+export interface LigneSuiviAffectationsDto {
+  id: UUID;
+  /** `aaaa-mm-jj` : date d'opération de la pièce, sinon son échéance ; null si aucune. */
+  dateMouvement?: string | null;
+  /** null : échéance sans catégorie. */
+  categorieId?: UUID | null;
+  categorieCode?: string | null;
+  categorieLibelle?: string | null;
+  /** Société du projet de la tranche (pas celle de la pièce). */
+  entiteId?: UUID | null;
+  entiteCode?: string | null;
+  entiteLibelle?: string | null;
+  projetId?: UUID | null;
+  projetLibelle?: string | null;
+  /** null : dossier sans article. */
+  trancheId?: UUID | null;
+  trancheCode?: string | null;
+  trancheLibelle?: string | null;
+  articleCode?: string | null;
+  tiersId?: UUID | null;
+  tiersNom?: string | null;
+  /** Négatif pour un débit (`sens` = DEBIT). */
+  montantAffecte?: number;
+  sens?: 'CREDIT' | 'DEBIT';
+  dossierId?: UUID | null;
+  dossierCode?: string | null;
+  /** `StrStatus.Code` ou `SANS_STATUT`. */
+  statutDossierCode?: string;
+  /** « Sans statut » si le dossier n'en a pas. */
+  statutDossierLibelle?: string | null;
+  pieceId?: UUID;
+  /** Vrai si `/encaissements/:pieceId` s'ouvre (`IsCredit = 1`) ; faux pour un débit ou un `IsCredit` vide.
+   * Hors défaut : à demander dans `colonnes`. */
+  pieceOuvrable?: boolean;
+  pieceLibelle?: string | null;
+  pieceReference?: string | null;
+  recuReference?: string | null;
+  datePiece?: string | null;
+  dateEcheancePiece?: string | null;
+  dateOperationPiece?: string | null;
+  /** `IN_WORK`, `POINTED`, `CANCELED` ou `SANS_ETAT`. */
+  etatPiece?: string;
+  /** Brut, non signé, répété sur chaque ligne de la pièce : non sommable. */
+  montantPiece?: number | null;
+  typePieceId?: UUID | null;
+  typePieceCode?: string | null;
+  typePieceLibelle?: string | null;
+  banqueNom?: string | null;
+  compteCode?: string | null;
+  compteLibelle?: string | null;
+  notesPiece?: string | null;
+  dateEcheance?: string | null;
+  montantEcheance?: number | null;
+  notesEcheance?: string | null;
+}
+
+export interface StatutSuiviAffectationsDto {
+  code: string;
+  libelle: string | null;
+}

@@ -11,6 +11,7 @@ import {
   Gauge,
   Inbox,
   LayoutDashboard,
+  Link2,
   ListChecks,
   Phone,
   Sun,
@@ -127,6 +128,7 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
     { to: '/etat-des-ventes', libelle: 'État des ventes', icone: <ChartNoAxesColumn /> },
     // Le serveur restreint aux commerciaux de la portée de chacun.
     { to: '/suivi-commerciaux', libelle: 'Suivi des commerciaux', icone: <Target /> },
+    { to: '/suivi-affectations', libelle: 'Suivi des affectations', icone: <Link2 /> },
   ];
   if (terrain) {
     groupes.push({
