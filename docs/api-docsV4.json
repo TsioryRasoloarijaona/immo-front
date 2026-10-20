@@ -226,6 +226,10 @@
     {
       "name": "Dossiers — compteurs",
       "description": "Compteurs eau, électricité et gaz de l'article du dossier (bouton « Compteurs »)."
+    },
+    {
+      "name": "Plans des tranches",
+      "description": "Plans d'étage interactifs : méta, image, tracés colorés par statut, import SVG et purge (Administrateur)."
     }
   ],
   "paths": {
@@ -2463,6 +2467,119 @@
         }
       }
     },
+    "/api/tranches/{id}/plans/import": {
+      "post": {
+        "tags": [
+          "Plans des tranches"
+        ],
+        "summary": "Importe le SVG d'un étage : plan de l'étage et tracés des articles",
+        "description": "Règles de l'import OMRAN. Le fichier doit contenir un `<image width height x y xlink:href>` (ou `href` SVG 2) et au\nmoins un `<path id d>`. Refus 400, rien n'est écrit, messages exacts : « Votre fichier ne contient aucune segmentation\n! », « Votre fichier ne contient pas une image de plan ! », « La valeur de la largeur et/ou de la hauteur incorrecte !\n», « Il existe dans ce fichier une affectation d'un segment à plusieur articles ! » (même `id` deux fois). Sécurité :\nDOCTYPE, entités et XInclude refusés (400) ; image acceptée seulement en `data:image/png;base64,` ou\n`data:image/jpeg;base64,` dont les octets sont bien un PNG ou un JPEG (400 sinon) ; `d` limité aux commandes de tracé,\nnombres, virgules et espaces (400 sinon) ; plus de 50 Mo → 413.\n\nPlan : un par (tranche, étage) ; créé avec Code = Description = code de l'étage, ou mis à jour (image, largeur,\nhauteur, x, y ; Code et Description gardés). Tracés : `id` = code d'article de la tranche (sous-articles compris),\ncherché en majuscules puis avec `_` → espace ; introuvable → ligne INTROUVABLE « Le code article saisi est introuvable\ndans notre référenciel », les autres tracés sont importés. Tracé de l'article sur cet étage absent → AJOUTE, identique\n→ INCHANGE (« n'a pas été modifié »), différent → MODIFIE. `apercu=true` rend le même bilan sans rien écrire. Une\nseule transaction.",
+        "operationId": "importer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "etageId",
+            "in": "query",
+            "description": "Étage importé (StkFloor.PKey), obligatoire.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "apercu",
+            "in": "query",
+            "description": "Vrai = bilan sans rien écrire (« Vérifier » d'OMRAN).",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Fichier SVG de l'étage (50 Mo au plus)."
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bilan, une ligne par tracé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanImportPlanDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fichier refusé (voir la description) ; rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanImportPlanDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanImportPlanDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche inconnue, d'une entité inactive ou hors du périmètre. Ou étage inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanImportPlanDto"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Fichier de plus de 50 Mo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanImportPlanDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tranches/{id}/mettre-a-jour-schemas": {
       "post": {
         "tags": [
@@ -4623,7 +4740,7 @@
         ],
         "summary": "Import CSV de leads — étape 2 : création des statuts choisis, sur une seule tranche",
         "description": "Crée une pré-prospection par ligne `NOUVELLE` ou `DOUBLON` du fichier — **seulement les statuts\nchoisis dans `statuts`** (défaut : les deux) —, **toutes rattachées à `trancheId`** — la tranche choisie par l'utilisateur après l'aperçu (`POST\n/api/pre-prospections/import/apercu`). **Une seule tranche par fichier** : un fichier qui en mêle\nplusieurs doit être découpé avant l'import.\n\nChaque ligne créée est une pré-prospection complète, exactement comme `POST /api/pre-prospections` :\ncode `AA/NNNNN` du compteur « Prospection », type `ComPreProspection`, `IsClosed = false`, auteur =\nutilisateur connecté, vocation `VENTE`. Référentiels posés par défaut — le motif des leads déjà\ninjectés depuis ces formulaires — chacun remplaçable par son paramètre : Nature `1 A TRAITER`\n(`etapeId`), source `FACEBOOK` (`origineId`), type `WEB` (`typeContactId`). Un défaut absent du\nréférentiel est laissé vide.\n\n**Tout ou rien** pour les erreurs de requête (tranche inconnue ou hors périmètre : aucune ligne\nécrite). Les lignes en `ERREUR` n'empêchent pas les autres. Le rapport renvoyé a la forme de\nl'aperçu, avec `importe = true` et l'identifiant et le code de chaque pré-prospection créée.\n\n**Format attendu** — l'export CSV des leads (Meta / Leads Center), en-tête : `Créé, Nom, Adresse\ne-mail, Source, Formulaire, Canal, Étape, Propriétaire, Étiquettes, Téléphone, Numéro de téléphone\nsecondaire, Numéro WhatsApp`.\n- Colonnes reconnues **par leur nom** (casse et accents ignorés), dans n'importe quel ordre ; les\ncolonnes inconnues sont ignorées. Seule `Nom` est indispensable (400 sinon).\n- Séparateur `,` ou `;` (un fichier réenregistré par Excel en français), déduit de l'en-tête.\nEncodage UTF-8 (avec ou sans BOM), à défaut Windows-1252.\n- 5 000 lignes au plus (400 au-delà) ; lignes vides ignorées.\n\n**Ce que devient chaque colonne**\n| Colonne | Pré-prospection |\n|---|---|\n| Créé (`09/23/2026 1:45am`, mois en premier) | date du document `DocDate` — la date de soumission\ndu lead |\n| Nom | `TempDescription` |\n| Adresse e-mail | `TempEMail` |\n| Téléphone (à défaut WhatsApp, à défaut secondaire) | `TempTel`, tel qu'écrit |\n| Formulaire, Source, Canal, Étape, Étiquettes, Propriétaire (sauf « Unassigned »), autres numéros |\nrecopiés dans `Notes` |\n\n**Sort de chaque ligne** (`statut`) :\n- `NOUVELLE` — créée si sélectionnée.\n- `DOUBLON` — même contact (nom, téléphone sur ses 9 derniers chiffres, email ; casse ignorée)\nqu'une prospection existante ou qu'une ligne plus haut, mais **autre date** : c'est une nouvelle\nsoumission, **créée si sélectionnée** et signalée.\n- `DEJA_IMPORTEE` — même contact **et même date** (à la minute) : le même lead réimporté,\n**ignoré**. Réimporter un fichier, ou un export qui chevauche le précédent, ne crée donc rien deux\nfois.\n\n**Périmètre commercial** : seuls les doublons visibles de l'appelant sont nommés (`doublonIds`,\ncodes dans `message`). Un lead déjà importé sur un projet hors périmètre est bien ignoré, avec le\nmessage « Lead déjà importé » et rien d'autre ; un simple homonyme hors périmètre ne fait pas un\n`DOUBLON`.\n- `ERREUR` — nom vide, date vide ou illisible, champ trop long : **ignorée**, les autres lignes\npassent.\n\n**Sélection par statut** (`statuts`) : elle ne décide que de ce qui est écrit, **jamais du statut**.\nChaque ligne garde, dans le rapport d'import, le statut que lui donnait l'aperçu du même fichier —\nles lignes non sélectionnées comptent toujours pour détecter les doublons internes au fichier (une\n`DOUBLON` « même contact que la ligne 3 du fichier » reste `DOUBLON` même si la ligne 3 n'est pas\nimportée). Une ligne non sélectionnée a `preProspectionId` et `code` null, et son `message` le dit\n(« Non importée (statut non sélectionné) », ou le message du doublon suivi de « — non importée\n(statut non sélectionné) »). Le rapport donne `statutsImportes` et `creees` (lignes réellement\nécrites) ; `nouvelles` et `doublons` restent des compteurs de classification.\n\nLa classification est relative à l'état de la base : importer d'abord les `DOUBLON` seuls, puis\nréimporter le fichier avec `NOUVELLE`, fait d'une `NOUVELLE` dont le contact vient d'être créé une\n`DOUBLON` — filtrée si l'on ne choisit que `NOUVELLE`. L'aperçu le montre avant chaque import.",
-        "operationId": "importer",
+        "operationId": "importer_1",
         "parameters": [
           {
             "name": "trancheId",
@@ -11861,6 +11978,87 @@
         }
       }
     },
+    "/api/tranches/{id}/plans": {
+      "get": {
+        "tags": [
+          "Plans des tranches"
+        ],
+        "summary": "Plans d'étage de la tranche, sans l'image",
+        "description": "Métadonnées seulement : l'image (jusqu'à 3,4 Mo) ne se lit que par `/api/plans/{planId}/image`. `nombreTraces` compte\nles tracés de l'étage du plan **portés par des articles de la tranche** (un étage est partagé entre tranches). Toutes\nles routes de plans répondent 404 quand la tranche est inconnue, d'une entité inactive (Administrateur compris) ou hors\ndu périmètre commercial de l'appelant. Hors portée des clés d'API (403).",
+        "operationId": "plansDeLaTranche",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plans triés par étage ; liste vide si aucun.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlanDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche inconnue, d'une entité inactive ou hors du périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlanDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Plans des tranches"
+        ],
+        "summary": "Purge les plans de la tranche (« Puger les plans »)",
+        "description": "Supprime les tracés des articles de la tranche (tous étages), puis ses plans ; une ligne d'audit `Deleted` par plan.\nUne tranche sans plan répond aussi 204. Les plans et tracés des autres tranches du même étage sont gardés.",
+        "operationId": "purger",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Tracés puis plans de la tranche supprimés."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Tranche inconnue, d'une entité inactive ou hors du périmètre."
+          }
+        }
+      }
+    },
     "/api/tranches/{id}/mettre-a-jour-schemas/apercu": {
       "get": {
         "tags": [
@@ -17611,6 +17809,138 @@
           },
           "400": {
             "description": "`format` autre que `xlsx`, ou colonne inconnue."
+          }
+        }
+      }
+    },
+    "/api/plans/{planId}/traces": {
+      "get": {
+        "tags": [
+          "Plans des tranches"
+        ],
+        "summary": "Tracés du plan avec le statut, la couleur et le dossier occupant de chaque article",
+        "description": "Tracés de l'étage du plan dont l'article est **de la tranche du plan** (`StkHierarchyPath.StkFloorId` = étage du plan\net `StkItem.StkHierarchyId` = tranche du plan). Occupant = le dossier de vente de l'article dont le statut est actif\n(ni annulation ni résiliation) ; `StkItem.ComFolderId` n'est pas lu. Sans occupant : `libre` vrai, statut, couleur,\ndossier et client nuls. `couleur` = `StrStatus.ColorName` brut (nom de couleur CSS : Magenta, Gold…), nul s'il n'est\npas renseigné : le front applique alors sa couleur neutre. `estSousArticle` vrai : le front refuse la prospection\n(« Vous ne pouvez pas ajouter une prospection pour un sous article »).",
+        "operationId": "traces",
+        "parameters": [
+          {
+            "name": "planId",
+            "in": "path",
+            "description": "Id du plan (StkHierarchyPlan.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tracés triés par code d'article.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TraceDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan inconnu, ou sa tranche d'une entité inactive ou hors du périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TraceDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/plans/{planId}/image": {
+      "get": {
+        "tags": [
+          "Plans des tranches"
+        ],
+        "summary": "Image du plan (PNG ou JPEG), avec ETag",
+        "description": "Binaire décodé de la data-URI enregistrée (`image/png` ou `image/jpeg`). L'`ETag` est calculé sans lire l'image (PKey,\ntaille de l'image, dates de création et de mise à jour) : il change à chaque réimport. Le front charge l'image par\n`fetch` (`credentials: 'include'`) puis `URL.createObjectURL` ; le cache HTTP renvoie `If-None-Match` et reçoit 304.",
+        "operationId": "image",
+        "parameters": [
+          {
+            "name": "planId",
+            "in": "path",
+            "description": "Id du plan (StkHierarchyPlan.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Octets de l'image ; `ETag` et cache privé à revalider.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "`If-None-Match` égal à l'ETag courant : image inchangée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Plan inconnu, ou sa tranche d'une entité inactive ou hors du périmètre. Ou plan sans image lisible.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/plans/tranches": {
+      "get": {
+        "tags": [
+          "Plans des tranches"
+        ],
+        "summary": "Tranches visibles ayant au moins un plan (sélecteur de la page Plans)",
+        "description": "Tranches ayant au moins un plan (`StkHierarchyPlan`), restreintes comme toutes les routes de plans : entité juridique\nactive et projet dans le périmètre commercial de l'appelant (rôles exemptés : tout). Triées par code. Route hors portée\ndes clés d'API.",
+        "operationId": "tranchesAvecPlans",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TrancheAvecPlansDto"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -24058,6 +24388,56 @@
         }
       }
     },
+    "/api/articles/{id}/plans": {
+      "get": {
+        "tags": [
+          "Plans des tranches"
+        ],
+        "summary": "Plans sur lesquels l'article est tracé (onglet Plan de la fiche article)",
+        "description": "Plans de la tranche de l'article dont l'étage porte un tracé de cet article. L'étage du tracé fait foi : il peut\ndifférer de l'étage de la fiche article (`StkItem.StkFloorId`).",
+        "operationId": "plansDeLArticle",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plans de l'article ; vide s'il n'est tracé nulle part.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlanArticleDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Article inconnu, d'une entité inactive ou hors du périmètre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PlanArticleDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/articles/{id}/pieces-jointes": {
       "get": {
         "tags": [
@@ -26848,6 +27228,61 @@
           "motifExclusion": {
             "type": "string",
             "description": "Raison pour laquelle le dossier ne peut pas être réajusté (POST = 409) ; null sinon."
+          }
+        }
+      },
+      "BilanImportPlanDto": {
+        "type": "object",
+        "description": "Bilan d'un import SVG d'étage (ou de son aperçu).",
+        "properties": {
+          "apercu": {
+            "type": "boolean",
+            "description": "Vrai si c'est un aperçu : rien n'a été écrit."
+          },
+          "planId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du plan créé ou mis à jour ; null pour l'aperçu d'un plan à créer."
+          },
+          "planCree": {
+            "type": "boolean",
+            "description": "Vrai si le plan de l'étage n'existait pas (création), faux s'il est mis à jour."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Une ligne par `<path>` du fichier, dans l'ordre du fichier.",
+            "items": {
+              "$ref": "#/components/schemas/LigneBilanTraceDto"
+            }
+          }
+        }
+      },
+      "LigneBilanTraceDto": {
+        "type": "object",
+        "description": "Résultat de l'import d'un `<path>` (un tracé d'article).",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Attribut `id` du `<path>` tel que lu dans le fichier."
+          },
+          "articleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Article retrouvé dans la tranche ; null si introuvable."
+          },
+          "resultat": {
+            "type": "string",
+            "description": "AJOUTE, MODIFIE, INCHANGE ou INTROUVABLE (ce dernier n'empêche pas les autres tracés).",
+            "enum": [
+              "AJOUTE",
+              "MODIFIE",
+              "INCHANGE",
+              "INTROUVABLE"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Message OMRAN de la ligne (« l'article : X est ajouté », « … n'a pas été modifié »…)."
           }
         }
       },
@@ -34634,6 +35069,51 @@
           }
         }
       },
+      "PlanDto": {
+        "type": "object",
+        "description": "Plan d'étage d'une tranche (StkHierarchyPlan), sans l'image : elle se lit par /api/plans/{planId}/image.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du plan."
+          },
+          "etageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Étage du plan (StkFloor.PKey)."
+          },
+          "etageCode": {
+            "type": "string",
+            "description": "Code de l'étage (« RDC », « Etage 1 »)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du plan (posé à l'import = code de l'étage, gardé ensuite)."
+          },
+          "largeur": {
+            "type": "number",
+            "description": "Largeur de l'image, repère des tracés (viewBox)."
+          },
+          "hauteur": {
+            "type": "number",
+            "description": "Hauteur de l'image, repère des tracés (viewBox)."
+          },
+          "x": {
+            "type": "number",
+            "description": "Abscisse de l'image dans le SVG d'origine (0 le plus souvent)."
+          },
+          "y": {
+            "type": "number",
+            "description": "Ordonnée de l'image dans le SVG d'origine (0 le plus souvent)."
+          },
+          "nombreTraces": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de tracés d'articles de la tranche sur cet étage."
+          }
+        }
+      },
       "EcheanceSchemaDto": {
         "type": "object",
         "description": "Échéance que « Mettre à jour les schémas de financement » déplace au début des finalisations.",
@@ -37415,6 +37895,82 @@
           "modifieLe": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "TraceDto": {
+        "type": "object",
+        "description": "Tracé d'un article sur un plan, avec l'état de l'article.",
+        "properties": {
+          "articleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Article tracé (StkItem.PKey)."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de l'article."
+          },
+          "d": {
+            "type": "string",
+            "description": "Attribut `d` du tracé SVG, dans le repère largeur × hauteur du plan."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut du dossier occupant (StrStatus.Code) ; null si libre."
+          },
+          "statutLibelle": {
+            "type": "string",
+            "description": "Libellé du statut du dossier occupant ; null si libre."
+          },
+          "couleur": {
+            "type": "string",
+            "description": "Couleur du statut (StrStatus.ColorName, nom de couleur CSS) ; null si libre ou non renseignée."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Dossier occupant : dossier de l'article dont le statut est actif ; null si libre."
+          },
+          "client": {
+            "type": "string",
+            "description": "Nom du client du dossier occupant ; null si libre."
+          },
+          "estSousArticle": {
+            "type": "boolean",
+            "description": "Vrai si l'article est un sous-article (StkItem.IsUnderItem) : pas de prospection."
+          },
+          "libre": {
+            "type": "boolean",
+            "description": "Vrai si aucun dossier actif n'occupe l'article."
+          }
+        }
+      },
+      "TrancheAvecPlansDto": {
+        "type": "object",
+        "description": "Tranche ayant au moins un plan (sélecteur de la page Plans).",
+        "properties": {
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la tranche."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la tranche."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé de la tranche."
+          },
+          "projetCode": {
+            "type": "string",
+            "description": "Code du programme de la tranche ; null si sans programme."
+          },
+          "nombrePlans": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre de plans de la tranche."
           }
         }
       },
@@ -40473,6 +41029,47 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "PlanArticleDto": {
+        "type": "object",
+        "description": "Plan sur lequel un article est tracé (onglet Plan de la fiche article).",
+        "properties": {
+          "planId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey du plan ; image et tracés par /api/plans/{planId}/image et /traces."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche du plan (celle de l'article)."
+          },
+          "etageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Étage du tracé (StkFloor.PKey), qui peut différer de l'étage de l'article."
+          },
+          "etageCode": {
+            "type": "string",
+            "description": "Code de l'étage du tracé."
+          },
+          "largeur": {
+            "type": "number",
+            "description": "Largeur de l'image, repère des tracés (viewBox)."
+          },
+          "hauteur": {
+            "type": "number",
+            "description": "Hauteur de l'image, repère des tracés (viewBox)."
+          },
+          "x": {
+            "type": "number",
+            "description": "Abscisse de l'image dans le SVG d'origine."
+          },
+          "y": {
+            "type": "number",
+            "description": "Ordonnée de l'image dans le SVG d'origine."
           }
         }
       },
