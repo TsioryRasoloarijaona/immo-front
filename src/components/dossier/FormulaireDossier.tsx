@@ -25,7 +25,7 @@ function EditionEnTete({ dossier: d, enTete: e }: Readonly<{ dossier: DossierDet
   const prix = edition.peut('PRIX');
   if (!e || !(prix || edition.peut('DATES'))) return null;
   return (
-    <div className="mb-2 flex flex-col items-end gap-1">
+    <div className="mb-1.5 flex flex-col items-end gap-1">
       <div className="flex flex-wrap justify-end gap-2">
         {edition.peut('DATES') && (
           <Button type="button" size="sm" variant="outline" onClick={() => setOuvert('date')}>
@@ -72,7 +72,7 @@ export default function FormulaireDossier({
   const tranche = d.trancheLibelle || d.trancheCode;
   return (
     <Card padded={false} className="h-full">
-      <div className="p-3">
+      <div className="p-2.5">
         <EditionEnTete dossier={d} enTete={e} />
         <GrilleFiche>
           <ChampLecture
@@ -117,7 +117,7 @@ export default function FormulaireDossier({
           />
           <ChampLecture label="Mode de paiement" valeur={d.modePaie} />
 
-          {d.notes && <ChampLecture label="Notes" valeur={d.notes} multiligne apres={16} />}
+          {d.notes && <ChampLecture label="Notes" valeur={d.notes} multiligne />}
           <PiedFiche>
             <span>Réservé le {formatDate(d.dateDocument)}</span>
             <span aria-hidden>·</span>

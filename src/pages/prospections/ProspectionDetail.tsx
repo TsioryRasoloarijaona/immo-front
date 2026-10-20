@@ -942,7 +942,7 @@ export function FicheProspection({
         }
         formulaire={
           <Card padded={false}>
-            <div className="p-3">
+            <div className="p-2.5">
               <GrilleFiche>
                 {cellules}
                 <ChampNotes
@@ -951,7 +951,6 @@ export function FicheProspection({
                   valeur={form.valeurs.notes}
                   onChange={(v) => form.set('notes', v)}
                   modifie={form.aChange('notes')}
-                  apres={cellules.length}
                 />
                 <PiedFiche>
                   <span title="Date de création, non modifiable.">Créée le {formatDate(p.dateDocument)}</span>

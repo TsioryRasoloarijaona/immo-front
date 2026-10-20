@@ -389,6 +389,13 @@ table {
   --gutter-check: 22px;
 }
 
+/* Champs de fiche « libellé à gauche » (planning/DENSITE-ARPENT-vs-OMRAN.md) : ligne, libellé, colonne minimale. */
+@theme {
+  --fiche-row-h: 26px;
+  --fiche-label-w: 6.5rem;
+  --fiche-col-min: 15rem;
+}
+
 /* Sinon `h-5` fait grandir la ligne de grille. `:has(> [data-badge-dot])` plutôt que `data-slot` : ne dépend que
    du markup d'ui.tsx, pas d'une convention Base UI. Hors `@layer` exprès, pour battre la cva. */
 [data-slot='table-cell'] *:has(> [data-badge-dot]) {

@@ -142,7 +142,7 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
            statut s'écrit, par la barre d'action. */
         formulaire={
           <Card padded={false} className="h-full">
-            <div className="p-3">
+            <div className="p-2.5">
               <GrilleFiche>
                 <ChampLecture label="Entité" valeur={e.entiteLibelle} />
                 <ChampLecture label="Date pièce" valeur={formatDate(e.dateDocument)} />
@@ -158,7 +158,7 @@ function FicheEncaissement({ id }: Readonly<{ id: string }>) {
                 <ChampLecture label="Versement effectué par" valeur={e.tierPayeurNom} />
                 <ChampLecture label="N° de reçu" valeur={e.recuCode} />
                 <ChampLecture label="Libellé" valeur={e.description} multiligne />
-                {e.notes && <ChampLecture label="Notes" valeur={e.notes} multiligne apres={8} />}
+                {e.notes && <ChampLecture label="Notes" valeur={e.notes} multiligne />}
               </GrilleFiche>
             </div>
           </Card>

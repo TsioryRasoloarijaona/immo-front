@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link2, Plus, Unlink } from 'lucide-react';
 import AffecterSousArticleDialog from './AffecterSousArticleDialog';
-import { Card } from '../ui';
 import { Button } from '../ui/button';
 import { desaffecterSousArticle } from '../../lib/apiPatrimoine';
 import { useAuth } from '../../lib/auth';
@@ -37,23 +36,19 @@ export default function SousArticlesArticle({
     }
   }
 
-  if (!actions && sousLots.length === 0) return null;
-
   return (
-    <Card
-      title={`Sous-articles (${sousLots.length})`}
-      action={actions && (
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => setAffectation(true)}>
-            <Link2 data-icon="inline-start" /> Affecter un sous-article libre
-          </Button>
-          <Button type="button" size="sm" onClick={() => void navigate(`/articles/${article.id}/sous-articles/nouveau`)}>
-            <Plus data-icon="inline-start" /> Ajouter un sous-article
-          </Button>
-        </div>
-      )}
-    >
+    <>
       <div className="flex flex-col gap-2">
+        {actions && (
+          <div className="flex gap-2 self-end">
+            <Button type="button" variant="outline" size="sm" onClick={() => setAffectation(true)}>
+              <Link2 data-icon="inline-start" /> Affecter un sous-article libre
+            </Button>
+            <Button type="button" size="sm" onClick={() => void navigate(`/articles/${article.id}/sous-articles/nouveau`)}>
+              <Plus data-icon="inline-start" /> Ajouter un sous-article
+            </Button>
+          </div>
+        )}
         {sousLots.length === 0 && <p className="text-label text-muted-foreground">Aucun sous-article rattaché.</p>}
         {sousLots.map((s) => (
           <div key={s.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg bg-muted/30 px-3 py-2 text-label">
@@ -75,6 +70,6 @@ export default function SousArticlesArticle({
         <AffecterSousArticleDialog articleId={article.id} trancheId={article.trancheId}
           onClose={() => setAffectation(false)} onSaved={onModifie} />
       )}
-    </Card>
+    </>
   );
 }

@@ -6,6 +6,7 @@ import { Card as ShadcnCard, CardAction, CardContent, CardHeader, CardTitle } fr
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from './ui/empty';
 import { Avatar as ShadcnAvatar, AvatarFallback } from './ui/avatar';
 import { cn } from '../lib/utils';
+import { ETIQUETTE_CHAMP, GRILLE_CHAMPS, LIGNE_CHAMP, TEXTE_ETIQUETTE, VALEUR_CHAMP } from '../lib/ficheChamp';
 
 /** Ne pas retirer : le glyphe rend le statut lisible sans la couleur
  * (accessibilité daltoniens, WCAG). `neutral` n'en a pas, volontairement :
@@ -94,22 +95,17 @@ export function Field({
 }>) {
   const isEmpty = value === null || value === undefined || value === '' || value === '—';
   return (
-    <div className="min-w-0">
-      <div className="mb-0 text-micro font-medium text-muted-foreground">{label}</div>
-      <div
-        className={cn(
-          'break-words text-label font-medium text-foreground',
-          (muted || isEmpty) && 'font-normal text-muted-foreground'
-        )}
-      >
+    <div className={LIGNE_CHAMP}>
+      <dt className={cn(ETIQUETTE_CHAMP, TEXTE_ETIQUETTE)} title={label}>{label}</dt>
+      <dd className={cn(VALEUR_CHAMP, (muted || isEmpty) && 'font-normal text-muted-foreground')}>
         {isEmpty ? '—' : value}
-      </div>
+      </dd>
     </div>
   );
 }
 
 export function FieldGrid({ children }: Readonly<{ children: ReactNode }>) {
-  return <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-x-4 gap-y-2.5">{children}</div>;
+  return <dl className={GRILLE_CHAMPS}>{children}</dl>;
 }
 
 export function Card({
