@@ -12,6 +12,8 @@ export function IdentiteArticle({ article: a }: Readonly<{ article: ArticleDetai
       <Field label="Description" value={a.description} />
       <Field label="Adresse" value={a.adresse} />
       <Field label="Tranche" value={a.trancheDescription || a.trancheCode} />
+      {a.estSousArticle && <Field label="Article parent" value={a.lotParentCode || a.lotParentDescription} />}
+      {a.estSousArticle && <Field label="Toujours affecté" value={a.toujoursAffecte ? 'Oui' : 'Non'} />}
       <Field label="Type" value={a.typeLibelle} />
       <Field label="Catégorie" value={a.categorieLibelle} />
       <Field label="Type présentation" value={a.presentationTypeLibelle || a.presentationTypeCode} />

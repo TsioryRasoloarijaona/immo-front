@@ -55,6 +55,7 @@ const PlansAccueil = lazy(() => import('./pages/tranches/PlansAccueil'));
 const PlansTranche = lazy(() => import('./pages/tranches/PlansTranche'));
 const ArticlesList = lazy(() => import('./pages/articles/ArticlesList'));
 const ArticleDetail = lazy(() => import('./pages/articles/ArticleDetail'));
+const SousArticlesList = lazy(() => import('./pages/sous-articles/SousArticlesList'));
 const AttachementMasse = lazy(() => import('./pages/articles/AttachementMasse'));
 const ProjetForm = lazy(() => import('./pages/projets/ProjetForm'));
 const TrancheForm = lazy(() => import('./pages/tranches/TrancheForm'));
@@ -164,6 +165,8 @@ function AuthenticatedApp() {
                   <Route path="/articles/:id" element={<ArticleDetail />} />
                   <Route path="/articles/:id/modifier" element={<ArticleForm />} />
                   <Route path="/articles/:id/sous-articles/nouveau" element={<ArticleForm sousArticle />} />
+                  <Route path="/sous-articles" element={<SousArticlesList />} />
+                  <Route path="/sous-articles/:id" element={<ArticleDetail ecranSousArticles />} />
                   <Route path="/entites-juridiques" element={<EntitesJuridiquesList />} />
                   <Route path="/entites-juridiques/nouveau" element={<EntiteJuridiqueDetail />} />
                   <Route path="/entites-juridiques/:id" element={<EntiteJuridiqueDetail />} />

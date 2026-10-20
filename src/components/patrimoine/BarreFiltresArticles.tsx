@@ -13,7 +13,7 @@ import {
   useTypesBienReferentiel,
   useVocations,
 } from '../../lib/referentiels';
-import { STATUT_ITEMS, type FiltresArticles, type StatutFilter } from '../../lib/articlesListe';
+import { ETAT_ITEMS, STATUT_ITEMS, type EtatFilter, type FiltresArticles, type StatutFilter } from '../../lib/articlesListe';
 
 function ChoixUnique({ items, valeur, onChange, placeholder, largeur }: Readonly<{
   items: { label: string; value: string }[];
@@ -38,11 +38,12 @@ function ChoixUnique({ items, valeur, onChange, placeholder, largeur }: Readonly
   );
 }
 
-/** Barre de filtres des articles ; `avant` : champs propres à l'écran (recherche, tranche). */
-export default function BarreFiltresArticles({ filtres, avant, onReinitialiser }: Readonly<{
+/** Barre de filtres des articles ; `avant` : champs propres à l'écran (recherche, tranche) ; `sousArticles` : état et code parent. */
+export default function BarreFiltresArticles({ filtres, avant, onReinitialiser, sousArticles = false }: Readonly<{
   filtres: FiltresArticles;
   avant?: ReactNode;
   onReinitialiser: () => void;
+  sousArticles?: boolean;
 }>) {
   const categories = useCategoriesBien();
   const types = useTypesBienReferentiel();
@@ -55,8 +56,17 @@ export default function BarreFiltresArticles({ filtres, avant, onReinitialiser }
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-2">
       {avant}
-      <ChoixUnique items={STATUT_ITEMS} valeur={v.statut} onChange={(s) => m.statut((s ?? 'all') as StatutFilter)}
-        placeholder="Statut" largeur="w-40" />
+      {sousArticles ? (
+        <>
+          <ChoixUnique items={ETAT_ITEMS} valeur={v.etat} onChange={(s) => m.etat((s ?? 'all') as EtatFilter)}
+            placeholder="État" largeur="w-36" />
+          <Input placeholder="Code parent" aria-label="Code parent" className="w-32" value={v.codeParent}
+            onChange={(e) => m.codeParent(e.target.value)} />
+        </>
+      ) : (
+        <ChoixUnique items={STATUT_ITEMS} valeur={v.statut} onChange={(s) => m.statut((s ?? 'all') as StatutFilter)}
+          placeholder="Statut" largeur="w-40" />
+      )}
       <MultiSelectDropdown label="Catégorie" placeholder="Toutes" value={v.categorieId} onChange={m.categorieId}
         items={referentielItems(categories.data)} />
       <MultiSelectDropdown label="Type" placeholder="Tous" value={v.typeId} onChange={m.typeId}

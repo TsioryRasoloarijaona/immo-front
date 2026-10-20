@@ -167,7 +167,7 @@ export const DEFAULT_PAGE_SIZE = 20;
 
 type ParamsRequete = Record<string, string | number | boolean | string[] | undefined | null>;
 
-function withPageable(params: ParamsRequete | undefined, pageable?: Pageable): ParamsRequete {
+export function withPageable(params: ParamsRequete | undefined, pageable?: Pageable): ParamsRequete {
   return {
     ...params,
     page: pageable?.page ?? 0,
@@ -1667,14 +1667,6 @@ export type ArticleListFilters = {
   surfaceDe?: number;
   surfaceA?: number;
 };
-
-/** `statut` absent : DISPONIBLE **et** OCCUPE, contrairement à `listTrancheArticles`. */
-export function listArticles(
-  params?: { search?: string; trancheId?: UUID[]; statut?: ArticleStatut; categorieId?: UUID[]; typeId?: UUID[] } & ArticleListFilters,
-  pageable?: Pageable,
-): Promise<PageDto<ArticleListItemDto>> {
-  return request('GET', '/api/articles', { query: withPageable(params, pageable) });
-}
 
 export function listTrancheArticles(
   trancheId: UUID,

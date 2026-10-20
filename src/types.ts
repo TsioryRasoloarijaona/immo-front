@@ -2559,8 +2559,10 @@ export interface ArticleEcritureDto extends FicheArticleChamps {
   surfaceInterieure?: number;
   surfaceMurs?: number;
   surfacePartiesCommunes?: number;
-  /** Création d'un sous-article seulement. */
+  /** Vrai sans article parent → 400. */
   toujoursAffecte?: boolean;
+  /** `/api/sous-articles` seulement : rattache le sous-article libre à cet article (même tranche, même vocation). */
+  parentId?: UUID;
   /** Type de présentation de la tranche ; un changement remplace les contenances. Lu en `presentationTypeId`. */
   presentationId?: UUID | null;
   /** Ensemble des vues : remplace l'existant ; `[]` retire tout, absent = inchangé. */
