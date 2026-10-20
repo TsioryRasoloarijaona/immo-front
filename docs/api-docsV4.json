@@ -246,6 +246,10 @@
     {
       "name": "Plans des tranches",
       "description": "Plans d'étage interactifs : méta, image, tracés colorés par statut, import SVG et purge (Administrateur)."
+    },
+    {
+      "name": "Désistements",
+      "description": "Désistements des dossiers de vente — l'écran « Désistements » d'OMRAN Estate (`ComSaleWithdrawalCancellation`). Un désistement est un **brouillon** tant que sa date de validation est vide, **validé** ensuite, **légalisé** quand sa date de légalisation est posée ; il n'a pas de colonne statut. Le lien au dossier est `ComSaleId`. Voir `instructions/FEATURE-desistements.md`.\n\n**Calcul (R3-R5)** : `penaliteApresRemise` = taux × base × (1 − remise), au centime ; taux = `CfgTranche.CancellationPenalityPercent` ; base = prix de vente (`ComFolder.Price`) si la tranche a `CancellationPenalityBasedOnItemPrice`, sinon le total réglé ; remise = `CancellationPenalityPercentDiscount` de la tranche pour un ancien client, sinon 0. Total réglé = réglé signé (décaissements déduits, règlements annulés exclus) des échéances d'avance, de crédit et d'autofinancement. Reste frais à régler = Σ reste dû des échéances dont la catégorie est « toujours payée », au crédit et de frais, pénalité ou modification. À rembourser = max(0, total réglé − pénalité après remise − reste frais à régler).\n\n**Droits** : toutes les écritures sont réservées à Administrateur, Direction Générale et Commercial Chef ; la lecture suit le périmètre commercial de `GET /api/dossiers` (un désistement est visible si son dossier l'est)."
     }
   ],
   "paths": {
@@ -8650,6 +8654,96 @@
         }
       }
     },
+    "/api/dossiers/{id}/desistement": {
+      "get": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Dernier désistement du dossier",
+        "operationId": "duDossier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le désistement le plus récent du dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable, hors périmètre, ou sans désistement."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Crée un désistement (brouillon) sur le dossier",
+        "description": "Statut du dossier sans « Peut effectuer un désistement » (`StrStatus.BoolField010`) : 409. Un seul désistement non légalisé par dossier : 409. Les montants sont calculés comme la simulation et enregistrés ; le N° de demande vient de la séquence « Désistement ».",
+        "operationId": "creer_8",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreerDesistementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Le désistement créé, montants calculés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date de demande absente, ou motif inconnu."
+          },
+          "403": {
+            "description": "Réservé à Administrateur, Direction Générale, Commercial Chef."
+          },
+          "404": {
+            "description": "Dossier introuvable ou hors périmètre."
+          },
+          "409": {
+            "description": "Statut non éligible, ou désistement non légalisé existant."
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/cadeaux": {
       "get": {
         "tags": [
@@ -8829,7 +8923,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_8",
+        "operationId": "creer_9",
         "parameters": [
           {
             "name": "id",
@@ -9311,6 +9405,118 @@
         }
       }
     },
+    "/api/desistements/{id}/validation": {
+      "post": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Valide un désistement : dossier en DESISTEMENT, pièces de frais et de remboursement",
+        "description": "Dans une transaction : contrôle des dates (400), recalcul des montants, puis passage du dossier en DESISTEMENT par le même chemin que `PATCH /api/dossiers/{id}/statut` (date d'annulation = jour, cause = « motif : observations », lot libéré, client repassé prospect s'il n'a plus de dossier actif), puis génération de la pièce « Frais de désistement » (catégorie du paramètre `DefaultCancellationDocumentType`) = pénalité si non nulle, et de la pièce « REMBOURSEMENT POUR DÉSISTEMENT » = à rembourser si positif, toutes deux rattachées au désistement. Une date de légalisation fournie rend le désistement légalisé.",
+        "operationId": "valider_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du désistement (ComSaleWithdrawalCancellation.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValiderDesistementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Le désistement validé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Date de validation absente, ou date de légalisation absente avec une pénalité non nulle."
+          },
+          "403": {
+            "description": "Réservé à Administrateur, Direction Générale, Commercial Chef."
+          },
+          "404": {
+            "description": "Désistement introuvable, ou dossier hors périmètre."
+          },
+          "409": {
+            "description": "Déjà validé ; statut du dossier sans « Peut effectuer un désistement » ; transition vers DESISTEMENT non paramétrée ; dossier de syndic en cours ou facture sans avoir ; catégorie de frais ou de remboursement introuvable. Rien n'est écrit."
+          }
+        }
+      }
+    },
+    "/api/desistements/{id}/remboursement": {
+      "post": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Enregistre un remboursement (décaissement) sur la pièce de résiliation du désistement",
+        "description": "Décaissement (`StlSettlement.IsCredit = 0`, statut `IN_WORK`) écrit par le même chemin qu'un règlement de dossier, affecté en entier à la pièce de remboursement du désistement. Plafond : le reste à rembourser de cette pièce, cumul des décaissements précédents compris.",
+        "operationId": "rembourser",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du désistement (ComSaleWithdrawalCancellation.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RembourserDesistementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Décaissement enregistré ; le désistement à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Montant, date ou type absent ou invalide."
+          },
+          "403": {
+            "description": "Réservé à Administrateur, Direction Générale, Commercial Chef."
+          },
+          "404": {
+            "description": "Désistement introuvable, ou dossier hors périmètre."
+          },
+          "409": {
+            "description": "Désistement non validé, rien à rembourser, ou montant au-delà du reste à rembourser."
+          }
+        }
+      }
+    },
     "/api/cles-api": {
       "get": {
         "tags": [
@@ -9354,7 +9560,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_9",
+        "operationId": "creer_10",
         "requestBody": {
           "content": {
             "application/json": {
@@ -9809,7 +10015,7 @@
         ],
         "summary": "Crée un article principal (prix calculés comme OMRAN)",
         "description": "Crée un article principal (`IsUnderItem = 0`). Obligatoires : `trancheId`, `code` (unique dans la tranche, sans\ncasse), `description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « pour les sous-articles »),\n`immeubleId`, `etageId`. Défauts : vocation VENTE (PROJET refusée), surface provisoire 1, surface définitive =\nprovisoire, prix 0, TVA 0, `estTitre` vrai. Pour chaque surface, le prix au m² se saisit **soit** HT **soit** TTC\n(les deux → 400) ; le serveur calcule l'autre et les prix de l'article comme OMRAN (intermédiaires non arrondis,\néchelle 6 HALF_UP au stockage). `prixVente*` = article + sous-articles rattachés.",
-        "operationId": "creer_10",
+        "operationId": "creer_11",
         "requestBody": {
           "content": {
             "application/json": {
@@ -10246,7 +10452,7 @@
           "Actions d'article"
         ],
         "summary": "Ajoute une action ou une alerte (date d'alerte) sur l'article",
-        "operationId": "creer_11",
+        "operationId": "creer_12",
         "parameters": [
           {
             "name": "id",
@@ -12641,6 +12847,130 @@
         }
       }
     },
+    "/api/desistements/{id}": {
+      "get": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Fiche d'un désistement",
+        "description": "Mêmes montants que la liste, plus `resteARembourser` = reste dû de la pièce de remboursement générée à la validation (à rembourser − décaissements enregistrés), 0 avant validation.",
+        "operationId": "detail_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du désistement (ComSaleWithdrawalCancellation.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le désistement.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Désistement introuvable, ou dossier hors périmètre."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Supprime un désistement non validé",
+        "operationId": "supprimer_8",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du désistement (ComSaleWithdrawalCancellation.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Supprimé."
+          },
+          "403": {
+            "description": "Réservé à Administrateur, Direction Générale, Commercial Chef."
+          },
+          "404": {
+            "description": "Désistement introuvable, ou dossier hors périmètre."
+          },
+          "409": {
+            "description": "Désistement déjà validé."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Modifie un désistement (brouillon : tout ; validé : paiement, dates, motif, observations)",
+        "description": "Brouillon : tous les champs. Saisir `penaliteApresRemise` recalcule la remise (1 − pénalité / (taux × base)) ; saisir `remise` recalcule la pénalité ; les montants du dossier sont relus. Validé non légalisé : seuls observations, motif, dates, type de pièce, référence, banque et contact changent — `remise` ou `penaliteApresRemise` donnent 409, les pièces étant déjà générées. Légalisé : 409.",
+        "operationId": "modifier_10",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du désistement (ComSaleWithdrawalCancellation.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierDesistementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Le désistement modifié.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Motif, type, banque ou contact inconnu."
+          },
+          "403": {
+            "description": "Réservé à Administrateur, Direction Générale, Commercial Chef."
+          },
+          "404": {
+            "description": "Désistement introuvable, ou dossier hors périmètre."
+          },
+          "409": {
+            "description": "Désistement légalisé, ou remise/pénalité après validation."
+          }
+        }
+      }
+    },
     "/api/articles/{id}": {
       "get": {
         "tags": [
@@ -12679,7 +13009,7 @@
         ],
         "summary": "Supprime un article, ses sous-articles rattachés et leurs lignes",
         "description": "409 si l'article ou l'un de ses sous-articles rattachés est affecté à un dossier (vente, location, syndic), ou\nencore cité par une prospection, un dossier, une offre, un historique de statut ou un terrain de tranche (le\ndétail les compte) ; une autre clé étrangère de la base → 409 nommant la contrainte. Sinon, dans une transaction :\nles sous-articles rattachés, les vues, contenances, tracés de plan, pièces jointes et notes de chacun, puis\nl'article ; une ligne d'audit `Deleted` par objet. Un sous-article supprimé seul fait recalculer le prix de vente\nde son article ; s'il lui est affecté par défaut → 409 « Vous ne pouvez pas supprimer un sous article affecté par\ndéfaut à l'article en cours ! ».",
-        "operationId": "supprimer_8",
+        "operationId": "supprimer_9",
         "parameters": [
           {
             "name": "id",
@@ -12713,7 +13043,7 @@
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` dans le corps → 400 ; `vocationId` → 400 pour un sous-article\nrattaché (celle de son article), permis pour un libre. `toujoursAffecte` : vrai sans article parent → 400. Route de\nla fiche parent pour modifier un sous-article rattaché (`PATCH /api/sous-articles/{id}` le refuse). Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
-        "operationId": "modifier_10",
+        "operationId": "modifier_11",
         "parameters": [
           {
             "name": "id",
@@ -16403,6 +16733,30 @@
         "responses": {
           "200": {
             "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/referentiels/motifs-desistement": {
+      "get": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Motifs de désistement (ComSaleWithdrawalReason), par ordre d'affichage",
+        "operationId": "motifs",
+        "responses": {
+          "200": {
+            "description": "Liste, vide si aucun motif.",
             "content": {
               "*/*": {
                 "schema": {
@@ -23908,6 +24262,46 @@
         }
       }
     },
+    "/api/dossiers/{id}/desistement/simulation": {
+      "get": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Simule les montants d'un désistement du dossier, sans rien écrire",
+        "description": "Montants calculés à l'instant depuis le dossier, avec la remise par défaut (ancien client), sans rien écrire : sert à préremplir la création.",
+        "operationId": "simuler",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Identifiant du dossier (ComFolder.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pénalité, reste frais, à rembourser.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulationDesistementDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Dossier introuvable ou hors périmètre."
+          },
+          "409": {
+            "description": "Statut du dossier sans « Peut effectuer un désistement »."
+          }
+        }
+      }
+    },
     "/api/dossiers/{id}/cadeaux/raisons": {
       "get": {
         "tags": [
@@ -25044,6 +25438,120 @@
         }
       }
     },
+    "/api/desistements": {
+      "get": {
+        "tags": [
+          "Désistements"
+        ],
+        "summary": "Liste paginée des désistements, au périmètre, avec les totaux du filtre",
+        "description": "Mêmes règles de visibilité que `GET /api/dossiers` : un désistement n'est listé que si son dossier est visible pour l'appelant (projets affectés, entité juridique active). Montants : ceux enregistrés sur le désistement (recalculés à chaque modification du brouillon, figés à la validation). Tri fixe : date de demande décroissante ; seuls `page` et `size` de la pagination sont lus. `totaux` porte sur tout le filtre.",
+        "operationId": "lister_16",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Code du désistement, code du dossier ou nom du client, insensible à la casse.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche de l'article (CfgTranche).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "demandeDu",
+            "in": "query",
+            "description": "Date de demande, borne inférieure (aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "demandeAu",
+            "in": "query",
+            "description": "Date de demande, borne supérieure (aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "validationDu",
+            "in": "query",
+            "description": "Date de validation, borne inférieure (aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "validationAu",
+            "in": "query",
+            "description": "Date de validation, borne supérieure (aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "legalisationDu",
+            "in": "query",
+            "description": "Date de légalisation, borne inférieure (aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "legalisationAu",
+            "in": "query",
+            "description": "Date de légalisation, borne supérieure (aaaa-mm-jj).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de désistements et totaux.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DesistementsPageDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre invalide."
+          }
+        }
+      }
+    },
     "/api/dashboard": {
       "get": {
         "tags": [
@@ -25618,7 +26126,7 @@
           "Audit"
         ],
         "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
-        "operationId": "lister_16",
+        "operationId": "lister_17",
         "parameters": [
           {
             "name": "objetId",
@@ -25932,7 +26440,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_17",
+        "operationId": "lister_18",
         "parameters": [
           {
             "name": "portee",
@@ -26034,7 +26542,7 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_9",
+        "operationId": "supprimer_10",
         "parameters": [
           {
             "name": "porteur",
@@ -26283,7 +26791,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_10",
+        "operationId": "supprimer_11",
         "parameters": [
           {
             "name": "id",
@@ -26482,7 +26990,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_11",
+        "operationId": "supprimer_12",
         "parameters": [
           {
             "name": "id",
@@ -34317,6 +34825,190 @@
           "premiereDate"
         ]
       },
+      "CreerDesistementRequest": {
+        "type": "object",
+        "description": "Demande de désistement d'un dossier de vente (brouillon, non validé).",
+        "properties": {
+          "dateDemande": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la demande du client (`ClaimDate`)."
+          },
+          "observations": {
+            "type": "string",
+            "description": "Observations (`Notes`) ; après « motif : », elles deviennent la cause d'annulation du dossier."
+          },
+          "motifId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Motif (`ComSaleWithdrawalReason.PKey`), voir `GET /api/referentiels/motifs-desistement`."
+          }
+        },
+        "required": [
+          "dateDemande"
+        ]
+      },
+      "DesistementDto": {
+        "type": "object",
+        "description": "Désistement d'un dossier de vente (`ComSaleWithdrawalCancellation`), ligne de liste et fiche.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Identifiant (`PKey`)."
+          },
+          "code": {
+            "type": "string",
+            "description": "N° de demande (`Code`, séquence « Désistement »).",
+            "example": "26/00001"
+          },
+          "etat": {
+            "type": "string",
+            "description": "État : BROUILLON (non validé), VALIDE (date de validation posée), LEGALISE (date de légalisation posée).",
+            "enum": [
+              "BROUILLON",
+              "VALIDE",
+              "LEGALISE"
+            ]
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Dossier de vente (`ComSaleId`)."
+          },
+          "dossierCode": {
+            "type": "string",
+            "description": "Code du dossier."
+          },
+          "clientId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client du dossier au moment de la demande (`CfgOldCustomerId`)."
+          },
+          "clientNom": {
+            "type": "string",
+            "description": "Nom du client."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche de l'article."
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Libellé de la tranche."
+          },
+          "articleId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Article du dossier (`StkItemId`)."
+          },
+          "articleCode": {
+            "type": "string",
+            "description": "Code de l'article."
+          },
+          "dateDemande": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la demande (`ClaimDate`)."
+          },
+          "dateDecision": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de décision (`DecisionDate`), null si non saisie."
+          },
+          "dateValidation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de validation (`ValidityDate`), null tant que non validé."
+          },
+          "dateLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de légalisation (`LegalizationDate`), null tant que non légalisé."
+          },
+          "motifId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Motif (`ComSaleWithdrawalReasonId`)."
+          },
+          "motifLibelle": {
+            "type": "string",
+            "description": "Libellé du motif."
+          },
+          "observations": {
+            "type": "string",
+            "description": "Observations (`Notes`)."
+          },
+          "prixVente": {
+            "type": "number",
+            "description": "Prix de vente (`TotalToPay`)."
+          },
+          "totalRegle": {
+            "type": "number",
+            "description": "Total réglé (`TotalSettled`) : avance, crédit, autofinancement."
+          },
+          "resteARegler": {
+            "type": "number",
+            "description": "Reste du prix (`TotalRest`) = prix − total réglé."
+          },
+          "taux": {
+            "type": "number",
+            "description": "Taux de pénalité en fraction (`TransfertExpenseAmount`, un taux malgré son nom)."
+          },
+          "remise": {
+            "type": "number",
+            "description": "Remise sur la pénalité en fraction (`Discount`)."
+          },
+          "penaliteApresRemise": {
+            "type": "number",
+            "description": "Pénalité après remise (`TransfertExpenseAmountAfterDiscount`)."
+          },
+          "resteFraisARegler": {
+            "type": "number",
+            "description": "Reste frais à régler (`NewStkItemTotalToPay`)."
+          },
+          "aRembourser": {
+            "type": "number",
+            "description": "À rembourser (`ReimburseAmount`), figé à la validation."
+          },
+          "resteARembourser": {
+            "type": "number",
+            "description": "Reste à rembourser : à rembourser − décaissements déjà enregistrés (0 avant validation)."
+          },
+          "typeReglementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de pièce du remboursement (`StlSettlementTypeId`)."
+          },
+          "typeReglementLibelle": {
+            "type": "string",
+            "description": "Libellé du type de pièce."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence du paiement (`Reference`)."
+          },
+          "banqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Banque (`CfgBankId`)."
+          },
+          "banqueNom": {
+            "type": "string",
+            "description": "Nom de la banque."
+          },
+          "contactId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Contact à rembourser (`CfgContactId`)."
+          },
+          "contactNom": {
+            "type": "string",
+            "description": "Nom du contact."
+          }
+        }
+      },
       "CreerActionDossierRequest": {
         "type": "object",
         "description": "Création d'une action sur un dossier ; la catégorie est déduite du statut, jamais fournie.",
@@ -34457,6 +35149,64 @@
             }
           }
         }
+      },
+      "ValiderDesistementRequest": {
+        "type": "object",
+        "description": "Validation d'un désistement : passe le dossier en DESISTEMENT et génère ses pièces.",
+        "properties": {
+          "dateValidation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de validation (`ValidityDate`)."
+          },
+          "dateLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de légalisation (`LegalizationDate`), obligatoire si la pénalité après remise n'est pas nulle."
+          }
+        },
+        "required": [
+          "dateValidation"
+        ]
+      },
+      "RembourserDesistementRequest": {
+        "type": "object",
+        "description": "Remboursement effectif (décaissement) d'un désistement validé.",
+        "properties": {
+          "montant": {
+            "type": "number",
+            "description": "Montant remboursé, au plus le reste à rembourser.",
+            "example": 100000
+          },
+          "dateEcheance": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date d'échéance du décaissement (`StlSettlement.EcheanceDate`)."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de règlement (`StlSettlementType.PKey`), voir `GET /api/referentiels/types-reglement`."
+          },
+          "banqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Banque (`CfgTier.PKey`), requise si le type a `banqueObligatoire = true`."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence (`StlSettlement.Code`), requise si le type a `referenceObligatoire = true`."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Commentaire libre. Facultatif."
+          }
+        },
+        "required": [
+          "dateEcheance",
+          "montant",
+          "typeId"
+        ]
       },
       "CreerCleApiRequest": {
         "type": "object",
@@ -36048,6 +36798,66 @@
           "prixApresRemiseTTC": {
             "type": "number",
             "description": "Prix TTC après remise."
+          }
+        }
+      },
+      "ModifierDesistementRequest": {
+        "type": "object",
+        "description": "Modification d'un désistement ; un champ absent reste inchangé.",
+        "properties": {
+          "observations": {
+            "type": "string",
+            "description": "Observations (`Notes`)."
+          },
+          "motifId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Motif (`ComSaleWithdrawalReason.PKey`)."
+          },
+          "dateDemande": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la demande (`ClaimDate`)."
+          },
+          "dateDecision": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de décision (`DecisionDate`)."
+          },
+          "dateLegalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de légalisation : la poser rend le désistement légalisé, plus rien n'est modifiable ensuite."
+          },
+          "remise": {
+            "type": "number",
+            "description": "Remise sur la pénalité, en fraction (0,5 = 50 %). Brouillon seulement.",
+            "example": 0.5
+          },
+          "penaliteApresRemise": {
+            "type": "number",
+            "description": "Pénalité après remise saisie : la remise est recalculée. Brouillon seulement.",
+            "example": 50000
+          },
+          "typeReglementId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de pièce du remboursement (`StlSettlementType.PKey`)."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référence du paiement (`Reference`).",
+            "example": "VIR-2026-001"
+          },
+          "banqueId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Banque (`CfgTier.PKey`)."
+          },
+          "contactId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Contact à rembourser (`CfgTier.PKey`) ; par défaut le client du dossier."
           }
         }
       },
@@ -42242,6 +43052,44 @@
           }
         }
       },
+      "SimulationDesistementDto": {
+        "type": "object",
+        "description": "Montants d'un désistement calculés à l'instant, sans rien écrire (FEATURE-desistements.md R3-R5).",
+        "properties": {
+          "prixVente": {
+            "type": "number",
+            "description": "Prix de vente du dossier (`ComFolder.Price`)."
+          },
+          "totalRegle": {
+            "type": "number",
+            "description": "Total réglé sur l'avance, le crédit et l'autofinancement (décaissements déduits)."
+          },
+          "taux": {
+            "type": "number",
+            "description": "Taux de pénalité de la tranche, en fraction (0,10 = 10 %)."
+          },
+          "basePrix": {
+            "type": "boolean",
+            "description": "Vrai : pénalité calculée sur le prix de vente ; faux : sur le total réglé."
+          },
+          "remise": {
+            "type": "number",
+            "description": "Remise sur la pénalité en fraction : celle de la tranche pour un ancien client, sinon 0."
+          },
+          "penaliteApresRemise": {
+            "type": "number",
+            "description": "Pénalité après remise = taux × base × (1 − remise), au centime."
+          },
+          "resteFraisARegler": {
+            "type": "number",
+            "description": "Reste dû des frais « toujours payés » (frais, pénalités, modifications au crédit)."
+          },
+          "aRembourser": {
+            "type": "number",
+            "description": "À rembourser = max(0, total réglé − pénalité après remise − reste frais à régler)."
+          }
+        }
+      },
       "CadeauCatalogueDto": {
         "type": "object",
         "description": "Cadeau du catalogue (`ComGift`) ou raison (`ComGiftReason`, sans prix ni stock).",
@@ -42399,6 +43247,65 @@
           "sommePrixVenteTTCPage": {
             "type": "number",
             "description": "Somme des prixVenteTTC des offres de la page courante uniquement (pas un total plein-filtre sur\nl'ensemble des résultats) — offres sans montant renseigné exclues de la somme."
+          }
+        }
+      },
+      "DesistementsPageDto": {
+        "type": "object",
+        "description": "Page de désistements et totaux du filtre complet.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la page demandée.",
+            "items": {
+              "$ref": "#/components/schemas/DesistementDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Numéro de la page (à partir de 0)."
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Taille de page demandée."
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre total de lignes du filtre."
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre total de pages."
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxDesistementsDto",
+            "description": "Totaux sur toutes les lignes du filtre."
+          }
+        }
+      },
+      "TotauxDesistementsDto": {
+        "type": "object",
+        "description": "Totaux d'une liste de désistements.",
+        "properties": {
+          "totalRegle": {
+            "type": "number",
+            "description": "Σ total réglé."
+          },
+          "penaliteApresRemise": {
+            "type": "number",
+            "description": "Σ pénalité après remise."
+          },
+          "resteFraisARegler": {
+            "type": "number",
+            "description": "Σ reste frais à régler."
+          },
+          "aRembourser": {
+            "type": "number",
+            "description": "Σ à rembourser."
           }
         }
       },
