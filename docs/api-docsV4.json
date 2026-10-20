@@ -11037,7 +11037,7 @@
           "Terrains"
         ],
         "summary": "Supprime un terrain et ses frais non validés",
-        "description": "Refus 409 : un frais validé (« Frais <type> du <date> (<montant>) validé ») ou porté par une facture, un terrain\noccupé, un sous-terrain, ou encore référencé (prospection, dossier, offre… ; une autre clé étrangère → 409 nommant la\ncontrainte). Sinon le terrain part avec ses frais non validés, contenances, pièces jointes et notes.",
+        "description": "Refus 409 : un frais validé (« Suppression impossible : frais <type> du <date> (<montant>) validé. ») ou porté par\nune facture, un terrain occupé, ou encore référencé (prospection, dossier, offre… ; une autre clé étrangère → 409\nnommant la contrainte) ; un sous-terrain ne se supprime que si le statut de son parent autorise les sous-terrains.\nSinon le terrain part avec ses sous-terrains, ses frais non validés, contenances, pièces jointes et notes.",
         "operationId": "supprimer_3",
         "parameters": [
           {
