@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Building2, CalendarClock, Pencil, Trash2, TrendingUp } from 'lucide-react';
+import { Building2, CalendarClock, Map, Pencil, Trash2, TrendingUp } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import ArticlesTranche from '../../components/patrimoine/ArticlesTranche';
@@ -9,6 +9,7 @@ import DialoguePrevisionsBase from '../../components/patrimoine/DialoguePrevisio
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
 import FicheShell from '../../components/FicheShell';
 import { Badge, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
+import { Button } from '../../components/ui/button';
 import { getTranche } from '../../lib/api';
 import { deleteTranche } from '../../lib/apiPatrimoine';
 import { useConfirm } from '../../lib/confirmContext';
@@ -68,6 +69,9 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
       accentBg="var(--sec-tranche-bg)"
       actions={
         <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={() => void navigate(`/tranches/${id}/plans`)}>
+            <Map data-icon="inline-start" /> Plans
+          </Button>
           <ActionAdmin onClick={() => setDialogue('previsions')} libelle="Prévisions de base" variant="outline"
             icone={<TrendingUp data-icon="inline-start" />} />
           <ActionAdmin onClick={() => setDialogue('schemas')} libelle="Mettre à jour les schémas de financement" variant="outline"

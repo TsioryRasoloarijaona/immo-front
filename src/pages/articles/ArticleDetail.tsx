@@ -7,6 +7,7 @@ import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import FicheShell from '../../components/FicheShell';
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
 import GrilleOnglet from '../../components/patrimoine/GrilleOnglet';
+import OngletPlanArticle from '../../components/patrimoine/OngletPlanArticle';
 import { DossierVenteArticle, IdentiteArticle, PiecesArticle } from '../../components/patrimoine/OngletsArticle';
 import SousArticlesArticle from '../../components/patrimoine/SousArticlesArticle';
 import PrixArticleFiche from '../../components/patrimoine/PrixArticleFiche';
@@ -168,6 +169,7 @@ export function FicheArticle({
             compteur: pieces.data?.length ?? 0,
             contenu: <PiecesArticle articleId={a.id} pieces={pieces} />,
           },
+          { id: 'plan', libelle: 'Plan', contenu: <OngletPlanArticle articleId={a.id} /> },
           ...ongletsTransverses('article', a.id),
         ]}
       />

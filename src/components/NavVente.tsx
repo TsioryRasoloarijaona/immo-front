@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   Link2,
   ListChecks,
+  Map,
   Phone,
   Sun,
   Target,
@@ -129,6 +130,7 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
     // Le serveur restreint aux commerciaux de la portée de chacun.
     { to: '/suivi-commerciaux', libelle: 'Suivi des commerciaux', icone: <Target /> },
     { to: '/suivi-affectations', libelle: 'Suivi des affectations', icone: <Link2 /> },
+    { to: '/plans', libelle: 'Plans', icone: <Map /> },
   ];
   if (terrain) {
     groupes.push({
