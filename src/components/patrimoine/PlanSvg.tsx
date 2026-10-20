@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
 import { Button } from '../ui/button';
-import { couleurTrace, libelleTrace } from '../../lib/plans';
+import { libelleTrace, statutDeTrace } from '../../lib/plans';
 import type { PlanDto, TraceDto } from '../../types/plans';
 
 type Geometrie = Pick<PlanDto, 'largeur' | 'hauteur' | 'x' | 'y'>;
@@ -48,9 +48,9 @@ export default function PlanSvg({ image, plan, traces, estGrise, onChoisir }: Re
             <path
               key={t.articleId}
               d={t.d ?? undefined}
-              fill={couleurTrace(t)}
+              fill={statutDeTrace(t).couleur}
               fillOpacity={estGrise(t) ? 0.08 : 0.55}
-              stroke={couleurTrace(t)}
+              stroke={statutDeTrace(t).couleur}
               strokeWidth={2}
               vectorEffect="non-scaling-stroke"
               className="cursor-pointer outline-none hover:[fill-opacity:0.85] focus-visible:stroke-foreground"

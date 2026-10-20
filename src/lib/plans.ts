@@ -12,7 +12,7 @@ export interface StatutPlan {
 }
 
 /** Nom de couleur CSS du statut (`ColorName`), sinon gris ; toute valeur qui n'est pas un simple nom est écartée. */
-export function couleurTrace(t: Pick<TraceDto, 'couleur'>): string {
+function couleurTrace(t: Pick<TraceDto, 'couleur'>): string {
   return t.couleur && /^[A-Za-z]{3,30}$/.test(t.couleur) ? t.couleur : COULEUR_NEUTRE;
 }
 
