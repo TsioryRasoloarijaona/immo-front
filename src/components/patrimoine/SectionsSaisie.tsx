@@ -23,6 +23,7 @@ const TYPE_INPUT: Partial<Record<ChampDef['type'], string>> = {
   montant: 'number',
   entier: 'number',
   pourcent: 'number',
+  ratio: 'number',
   surface: 'number',
 };
 

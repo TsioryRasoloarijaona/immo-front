@@ -6,7 +6,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:8080",
+      "url": "http://localhost",
       "description": "Generated server url"
     }
   ],
@@ -66,6 +66,10 @@
     {
       "name": "Audit",
       "description": "Journal d'audit OMRAN (AdmWebHistorics) des programmes, tranches, articles et entités juridiques."
+    },
+    {
+      "name": "Études de faisabilité",
+      "description": "Écran OMRAN « ETUDES DE FAISABILITE » (`StkFeasibilityStudy`), lot P8a : fiche, bloc A (surfaces, coûts du terrain et de\nconstruction), phases, unités de base, tranches, Bloquer / Débloquer. **Lecture réservée à Administrateur et Direction\nGénérale** (coûts, marges, prix d'achat), écriture à l'Administrateur ; aucune clé d'API n'y a accès (403 `HORS_PORTEE`).\nUne étude d'une société inactive est introuvable (404). Les valeurs calculées viennent toutes du serveur (`POST /calcul`\npour l'aperçu) : le front ne réimplémente aucune formule. Le bilan (chiffre d'affaires, coûts globaux, marges) est en\nlecture seule, tel que stocké par OMRAN."
     },
     {
       "name": "Référentiels du patrimoine",
@@ -1375,6 +1379,204 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/ModeleDocumentDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/unites": {
+      "put": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Remplace les unités de base de l'étude ; une unité retirée perd ses ventilations",
+        "description": "Liste complète : `id` connu = mise à jour, sans `id` = création, absente = suppression (avec ses ventilations) ; `id`\nd'une autre étude ou `uniteBaseId` inconnu → 400. Verif ensuite : sommes des surfaces par fonction spécifique, puis, si\nl'étude a des tranches, ventilation de chaque unité (une unité ajoutée non ventilée est refusée).",
+        "operationId": "remplacerUnites",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrilleEtudeDtoLigneUniteEtudeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Unités enregistrées, par ordre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneUniteEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ invalide, référence inconnue ou message Verif OMRAN (detail).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneUniteEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneUniteEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneUniteEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Étude bloquée (« Étude bloquée »).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneUniteEtudeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/tranches": {
+      "put": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Remplace les tranches de l'étude et leurs ventilations",
+        "description": "Liste complète comme les unités. `code` et `sorting` obligatoires, `code` unique dans la liste (409) ; `trancheId` :\ntranche visible de la société de l'étude (400). `unites` de chaque tranche : ventilations recréées, `uniteEtudeId` = ligne\nd'unité de cette étude (400). Verif : somme des poids exactement 1, puis quantité ventilée de chaque unité (arrondi à 2\ndécimales). Retirer une tranche qui porte des lignes de prévision → 409.",
+        "operationId": "remplacerTranches",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrilleEtudeDtoLigneTrancheEtudeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Tranches enregistrées, par ordre.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ invalide, référence inconnue ou message Verif OMRAN (detail).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code en double, tranche retirée avec prévisions, ou Étude bloquée (« Étude bloquée »).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+                  }
                 }
               }
             }
@@ -6337,6 +6539,289 @@
         }
       }
     },
+    "/api/etudes-faisabilite": {
+      "get": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Liste des études des sociétés actives, par code",
+        "operationId": "lister_3",
+        "parameters": [
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statut (StkFeasibilityStudyStatus.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Sous-chaîne du code ou du libellé, casse ignorée.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EtudeFaisabiliteListeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Crée une étude au statut « En étude »",
+        "description": "`code` (unique → 409), `description`, `dateDocument`, `societeId` (société active, sinon 400) obligatoires ;\n`terrainId` : article de nature TER (sinon 400). Statut initial « En étude », une ligne d'historique au nom de\nl'appelant ; `tauxTvaDefaut` 0,20 et `tauxTvaInterets` 0,10 si absents. Bloc A et phases calculés et stockés ;\n`unites` / `tranches` du corps sont ignorés (grilles par les PUT).",
+        "operationId": "creer_6",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisieEtudeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Étude créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ invalide, référence inconnue ou message Verif OMRAN (detail).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris par une autre étude.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/debloquer": {
+      "post": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Débloque l'étude",
+        "operationId": "debloquer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Étude enregistrée, fiche à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/bloquer": {
+      "post": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Bloque l'étude après Verif (Bloquer = enregistrer)",
+        "operationId": "bloquer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Étude enregistrée, fiche à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Message Verif OMRAN (detail) : l'étude reste débloquée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Étude déjà bloquée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/calcul": {
+      "post": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Aperçu du calcul (bloc A, phases, Verif) sans rien écrire",
+        "description": "Même corps que la création, sans contrôle de champ obligatoire et sans écriture. `unites` et `tranches` facultatifs : Verif\nne contrôle que les grilles reçues ; une ventilation désigne sa ligne d'unité par `uniteEtudeId` = `id` de la ligne (PKey\nou identifiant provisoire choisi par le front). Les messages Verif sont renvoyés dans `erreurs`, dans l'ordre OMRAN.\n`CountryFormule` (`AdmParamsString`, `MA` par défaut) choisit les formules marocaines de l'emprise et du plancher couvert.",
+        "operationId": "calculer",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisieEtudeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Valeurs calculées et messages Verif.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValeursFaisabilite"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValeursFaisabilite"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/equipe/repartir": {
       "post": {
         "tags": [
@@ -6620,7 +7105,7 @@
           "Entités juridiques"
         ],
         "summary": "Liste des entités, actives ou non (colonnes de la liste OMRAN)",
-        "operationId": "lister_3",
+        "operationId": "lister_4",
         "parameters": [
           {
             "name": "actif",
@@ -6662,7 +7147,7 @@
           "Entités juridiques"
         ],
         "summary": "Crée une entité (habilitation du créateur et 4 compteurs AdmSequence dans la même transaction)",
-        "operationId": "creer_6",
+        "operationId": "creer_7",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7290,7 +7775,7 @@
           "Dossiers — sous-articles"
         ],
         "summary": "Sous-articles du dossier et prix qui en dépendent",
-        "operationId": "lister_4",
+        "operationId": "lister_5",
         "parameters": [
           {
             "name": "id",
@@ -7479,7 +7964,7 @@
         ],
         "summary": "Règlements du dossier avec leur part affectée et leur reste à affecter",
         "description": "Règlements ayant au moins une ligne sur une échéance de ce dossier, saisie la plus récente d'abord (`DocDate` puis `UserCreateDateTime` décroissants). `montantAffecte` et `resteAAffecter` portent sur toutes les lignes du règlement, `affectations` sur celles de ce dossier seulement.",
-        "operationId": "lister_5",
+        "operationId": "lister_6",
         "parameters": [
           {
             "name": "id",
@@ -7527,7 +8012,7 @@
         ],
         "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
         "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
-        "operationId": "creer_7",
+        "operationId": "creer_8",
         "parameters": [
           {
             "name": "id",
@@ -7989,7 +8474,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Demandes de modification du dossier et montants qui en découlent",
-        "operationId": "lister_6",
+        "operationId": "lister_7",
         "parameters": [
           {
             "name": "id",
@@ -8083,7 +8568,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Modalité de paiement : schéma de financement figé à la vente",
-        "operationId": "lister_7",
+        "operationId": "lister_8",
         "parameters": [
           {
             "name": "id",
@@ -8750,7 +9235,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Cadeaux du dossier",
-        "operationId": "lister_8",
+        "operationId": "lister_9",
         "parameters": [
           {
             "name": "id",
@@ -8882,7 +9367,7 @@
           "Dossiers — actions"
         ],
         "summary": "Actions du dossier et leur nombre par type",
-        "operationId": "lister_9",
+        "operationId": "lister_10",
         "parameters": [
           {
             "name": "id",
@@ -9524,7 +10009,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_10",
+        "operationId": "lister_11",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -10405,7 +10890,7 @@
           "Actions d'article"
         ],
         "summary": "Actions portant sur l'article (dossiers compris), plus récentes d'abord",
-        "operationId": "lister_11",
+        "operationId": "lister_12",
         "parameters": [
           {
             "name": "id",
@@ -11946,6 +12431,175 @@
         }
       }
     },
+    "/api/etudes-faisabilite/{id}": {
+      "get": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Fiche d'une étude avec ses grilles",
+        "operationId": "fiche",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Supprime une étude sans prévision ni financement, avec ses grilles et son historique",
+        "description": "409 si l'étude est bloquée, ou porte des prévisions (`FSPrevision`) ou des financements (`FSFunding`). Sinon ventilations,\ntranches, unités et historique sont supprimés avec elle, dans la transaction.",
+        "operationId": "supprimer_5",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Étude supprimée."
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée."
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive."
+          },
+          "409": {
+            "description": "Prévisions ou financements présents, ou Étude bloquée (« Étude bloquée »)."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Modifie une étude ; bloc A et phases recalculés, Verif sur les grilles enregistrées",
+        "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel. `previsionsARecalculer` est vrai si l'étude a des prévisions.",
+        "operationId": "modifier_6",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaisieEtudeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Étude enregistrée, fiche à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ invalide, référence inconnue ou message Verif OMRAN (detail).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris, ou Étude bloquée (« Étude bloquée »).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/entites-juridiques/{id}": {
       "get": {
         "tags": [
@@ -11983,7 +12637,7 @@
           "Entités juridiques"
         ],
         "summary": "Supprime une entité sans programme ni autre référence",
-        "operationId": "supprimer_5",
+        "operationId": "supprimer_6",
         "parameters": [
           {
             "name": "id",
@@ -12016,7 +12670,7 @@
           "Entités juridiques"
         ],
         "summary": "Modifie une entité, Active comprise (effet immédiat sur la visibilité dans tout le CRM)",
-        "operationId": "modifier_6",
+        "operationId": "modifier_7",
         "parameters": [
           {
             "name": "id",
@@ -12142,7 +12796,7 @@
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
         "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
-        "operationId": "modifier_7",
+        "operationId": "modifier_8",
         "parameters": [
           {
             "name": "id",
@@ -12457,7 +13111,7 @@
         ],
         "summary": "Supprime une ligne d'échéancier (droit OMRAN ComFolderDeleteLine)",
         "description": "Refusée (409) si l'échéance a une ligne de règlement (même annulée), une ligne d'autorisation de versement, une ligne de facture, ou si elle est versée dans un dossier de recouvrement (`ComDocument.cs:VerifyLinksForDeletion`). Sinon ses actions et alertes sont supprimées, les lignes qui la désignaient comme pénalité sont détachées, puis l'écart est reporté si sa catégorie « met à jour le schéma ». Réservée, comme le droit OMRAN `ComFolderDeleteLine`, aux rôles Administrateur, Commercial Chef, Direction Générale et Responsable marketing et communication (403 sinon) ; la réponse est l'état du schéma après suppression.",
-        "operationId": "supprimer_6",
+        "operationId": "supprimer_7",
         "parameters": [
           {
             "name": "id",
@@ -12661,7 +13315,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier_8",
+        "operationId": "modifier_9",
         "parameters": [
           {
             "name": "id",
@@ -12770,7 +13424,7 @@
         ],
         "summary": "Supprime une offre, ses sous-articles et son schéma de financement",
         "description": "Supprime l'offre avec ses sous-articles (`StlQuoteItem`) et son schéma (`StlQuoteDocument`), comme\nla cascade de la base. Le numéro d'offre (`AdmSequence`) n'est pas rendu. Même périmètre que la liste.",
-        "operationId": "supprimer_7",
+        "operationId": "supprimer_8",
         "parameters": [
           {
             "name": "id",
@@ -12801,7 +13455,7 @@
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
         "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
-        "operationId": "modifier_9",
+        "operationId": "modifier_10",
         "parameters": [
           {
             "name": "id",
@@ -13900,7 +14554,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_12",
+        "operationId": "lister_13",
         "parameters": [
           {
             "name": "du",
@@ -14584,7 +15238,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_13",
+        "operationId": "lister_14",
         "parameters": [
           {
             "name": "entiteId",
@@ -19643,7 +20297,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_14",
+        "operationId": "lister_15",
         "parameters": [
           {
             "name": "page",
@@ -20677,14 +21331,74 @@
         }
       }
     },
+    "/api/etudes-faisabilite/choix/tranches": {
+      "get": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Tranches du patrimoine d'une société active, par code",
+        "operationId": "tranches",
+        "parameters": [
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société de l'étude (CfgCompany.PKey) ; inactive ou absente = liste vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/choix/terrains": {
+      "get": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Terrains choisissables : articles de nature TER visibles, par code",
+        "operationId": "terrains_1",
+        "responses": {
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/etat-des-ventes": {
       "get": {
         "tags": [
           "État des ventes"
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
-        "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : `prixVenteTTC` = prix catalogue (`ComSalePrice`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; `statutLibelle`, `clientNom`, `commercial`, `dossierId`, `montantRegle` et `resteARegler` ne sont pas triables (400). `montantRegle` = prix de vente réglé du dossier, même calcul que la liste des dossiers ; demandé, il coûte deux requêtes par page.",
-        "operationId": "lister_15",
+        "description": "Filtres partagés avec la synthèse, plus `statut`, `famille`, `etat`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : `prixVenteTTC` = prix catalogue (`ComSalePrice`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; `statutLibelle`, `clientNom`, `commercial`, `dossierId`, `montantRegle` et `resteARegler` ne sont pas triables (400). `montantRegle` = prix de vente réglé du dossier, même calcul que la liste des dossiers ; demandé, il coûte deux requêtes par page.",
+        "operationId": "lister_16",
         "parameters": [
           {
             "name": "trancheId",
@@ -20851,6 +21565,43 @@
               "format": "date"
             },
             "example": "2025-03-31"
+          },
+          {
+            "name": "famille",
+            "in": "query",
+            "description": "Famille(s) d'article, répétable ; inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "APPARTEMENT",
+                  "PARKING",
+                  "MAGASIN",
+                  "AUTRE"
+                ]
+              }
+            },
+            "example": "APPARTEMENT"
+          },
+          {
+            "name": "etat",
+            "in": "query",
+            "description": "État(s) LIBRE, RESERVE (sans statut compris) ou VENDU, répétable ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "LIBRE",
+                  "RESERVE",
+                  "VENDU"
+                ]
+              }
+            },
+            "example": "VENDU"
           },
           {
             "name": "colonnes",
@@ -21108,6 +21859,43 @@
               "format": "date"
             },
             "example": "2025-03-31"
+          },
+          {
+            "name": "famille",
+            "in": "query",
+            "description": "Famille(s) d'article, répétable ; inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "APPARTEMENT",
+                  "PARKING",
+                  "MAGASIN",
+                  "AUTRE"
+                ]
+              }
+            },
+            "example": "APPARTEMENT"
+          },
+          {
+            "name": "etat",
+            "in": "query",
+            "description": "État(s) LIBRE, RESERVE (sans statut compris) ou VENDU, répétable ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "LIBRE",
+                  "RESERVE",
+                  "VENDU"
+                ]
+              }
+            },
+            "example": "VENDU"
           }
         ],
         "responses": {
@@ -21186,6 +21974,155 @@
           },
           "400": {
             "description": "Id mal formé."
+          }
+        }
+      }
+    },
+    "/api/etat-des-ventes/synthese-vendus-libres": {
+      "get": {
+        "tags": [
+          "État des ventes"
+        ],
+        "summary": "Tableau tranche × famille en Libres / Réservés / Vendus, avec totaux et pourcentages",
+        "description": "Compte les articles racines par tranche × famille en trois états, calculés une fois dans la base de l'état des ventes : `LIBRE` (aucun dossier actif ; un dossier annulé ou désisté libère le lot), `RESERVE` (dossier en `RESERVATION` ou sans statut ; `sansStatut` les isole, déjà comptés dans `reserves`), `VENDU` (tout autre statut hors sortie). Famille par code de catégorie : `APP` → `APPARTEMENT`, `PAR` → `PARKING`, `COM` → `MAGASIN`, tout autre code → `AUTRE`. Les sous-articles rattachés (parking d'un appartement) ne sont comptés nulle part. Une ligne par tranche × famille non vide ; pourcentages arrondis à une décimale, base = total de la ligne, 0 si total nul. Chaque cellule égale le `totalElements` de `GET /api/etat-des-ventes?trancheId=&famille=&etat=`. Même visibilité que la liste : une tranche hors périmètre demandée explicitement ne rend aucune ligne (pas de 403).",
+        "operationId": "syntheseVendusLibres",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "famille",
+            "in": "query",
+            "description": "Famille(s), répétable ; absent = les quatre ; inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "APPARTEMENT",
+                  "PARKING",
+                  "MAGASIN",
+                  "AUTRE"
+                ]
+              }
+            },
+            "example": "APPARTEMENT"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comptes du filtre, dans le périmètre de l'utilisateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyntheseVendusLibresDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Id mal formé ou famille inconnue."
+          }
+        }
+      }
+    },
+    "/api/etat-des-ventes/synthese-vendus-libres/export": {
+      "get": {
+        "tags": [
+          "État des ventes"
+        ],
+        "summary": "Export Excel du tableau Libres / Réservés / Vendus, mêmes filtres et mêmes lignes",
+        "description": "Mêmes filtres et mêmes lignes que `GET /api/etat-des-ventes/synthese-vendus-libres`. Colonnes : Tranche (code), Famille (libellé), Libres, Réservés, Vendus, Total, % Libres, % Réservés, % Vendus (valeurs du JSON, ex. 33.3). Après les familles de chaque tranche, une ligne « Total tranche » ; en fin, « Total général ».",
+        "operationId": "exporterVendusLibres",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de tranche (CfgTranche.id), répétable.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (CfgProject.id) de la tranche.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "famille",
+            "in": "query",
+            "description": "Famille(s), répétable ; absent = les quatre ; inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "APPARTEMENT",
+                  "PARKING",
+                  "MAGASIN",
+                  "AUTRE"
+                ]
+              }
+            },
+            "example": "APPARTEMENT"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx, feuille « Libres Réservés Vendus ».",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Format autre que xlsx, id mal formé ou famille inconnue."
           }
         }
       }
@@ -21425,6 +22362,43 @@
             "example": "2025-03-31"
           },
           {
+            "name": "famille",
+            "in": "query",
+            "description": "Famille(s) d'article, répétable ; inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "APPARTEMENT",
+                  "PARKING",
+                  "MAGASIN",
+                  "AUTRE"
+                ]
+              }
+            },
+            "example": "APPARTEMENT"
+          },
+          {
+            "name": "etat",
+            "in": "query",
+            "description": "État(s) LIBRE, RESERVE (sans statut compris) ou VENDU, répétable ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "LIBRE",
+                  "RESERVE",
+                  "VENDU"
+                ]
+              }
+            },
+            "example": "VENDU"
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -21633,6 +22607,43 @@
               "format": "date"
             },
             "example": "2025-03-31"
+          },
+          {
+            "name": "famille",
+            "in": "query",
+            "description": "Famille(s) d'article, répétable ; inconnue = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "APPARTEMENT",
+                  "PARKING",
+                  "MAGASIN",
+                  "AUTRE"
+                ]
+              }
+            },
+            "example": "APPARTEMENT"
+          },
+          {
+            "name": "etat",
+            "in": "query",
+            "description": "État(s) LIBRE, RESERVE (sans statut compris) ou VENDU, répétable ; inconnu = 400.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "LIBRE",
+                  "RESERVE",
+                  "VENDU"
+                ]
+              }
+            },
+            "example": "VENDU"
           },
           {
             "name": "colonnes",
@@ -23849,7 +24860,7 @@
         ],
         "summary": "Fiche complète du dossier en consultation, par onglet OMRAN",
         "description": "Chaque onglet de l'écran OMRAN est un objet de la réponse. Une date absente vaut `null` (jalon non atteint) ;\nle front l'affiche « — ». Le « Prix contractuel » est `ComFolder.AgreementPrice` (« Σ des montants des lignes\nde schéma de financement qui ne sont pas paramétrées \"Exclure ce montant du prix contractuel\" », aide OMRAN),\net non le total à payer.\n\n`aDesImpayes` alimente le bandeau « Ce dossier possède des pièces de règlement impayées » : vrai dès que le\ndossier a une ligne de l'écran Impayés (`GET /api/impayes`), même règle : catégorie d'encaissement\n(`IsCredit`), statut du dossier « vente effective » (ni réservation, ni annulation, ni désistement), échéance\nau plus tard aujourd'hui et reste dû positif, les règlements annulés ne comptant pas. `instructionNonLue` est vrai seulement pour le commercial destinataire d'une instruction\nqu'il n'a pas encore lue (voir `PATCH /api/dossiers/{id}/instructions/{instructionId}/lue`).",
-        "operationId": "fiche",
+        "operationId": "fiche_1",
         "parameters": [
           {
             "name": "id",
@@ -27712,6 +28723,170 @@
           "modifiePar": {
             "type": "string",
             "description": "Auteur de la dernière modification."
+          }
+        }
+      },
+      "GrilleEtudeDtoLigneUniteEtudeDto": {
+        "type": "object",
+        "description": "Liste complète des lignes : id connu = mise à jour, sans id = création, absente = suppression.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la grille ; [] vide la grille.",
+            "items": {
+              "$ref": "#/components/schemas/LigneUniteEtudeDto"
+            }
+          }
+        }
+      },
+      "LigneUniteEtudeDto": {
+        "type": "object",
+        "description": "Unité de base d'une étude (StkFSBaseUnitStkFeasibilityStudy). En écriture : id connu = mise à jour, sans id = création ; uniteCode et uniteLibelle sont ignorés.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne ; dans /calcul, identifiant provisoire libre pour relier les ventilations."
+          },
+          "sorting": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre d'affichage."
+          },
+          "uniteBaseId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Unité de base (référentiel unites-de-base), obligatoire."
+          },
+          "uniteCode": {
+            "type": "string",
+            "description": "Lecture : code de l'unité de base."
+          },
+          "uniteLibelle": {
+            "type": "string",
+            "description": "Lecture : libellé de l'unité de base."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité (m² pour une unité de surface)."
+          }
+        }
+      },
+      "GrilleEtudeDtoLigneTrancheEtudeDto": {
+        "type": "object",
+        "description": "Liste complète des lignes : id connu = mise à jour, sans id = création, absente = suppression.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la grille ; [] vide la grille.",
+            "items": {
+              "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+            }
+          }
+        }
+      },
+      "LigneTrancheEtudeDto": {
+        "type": "object",
+        "description": "Tranche d'une étude (StkFeasibilityStudyCfgTranche) et ses unités ventilées. Le serveur stocke les dates reçues ; le front préremplit celles d'une tranche neuve depuis les phases de l'étude.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne ; absent = création."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, unique dans l'étude, obligatoire.",
+            "example": "Tranche 1"
+          },
+          "sorting": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre, obligatoire."
+          },
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tranche du patrimoine (CfgTranche) de la société de l'étude (liste /choix/tranches)."
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Lecture : libellé de la tranche du patrimoine."
+          },
+          "poids": {
+            "type": "number",
+            "description": "Poids de la tranche (fraction) ; la somme des poids doit valoir 1."
+          },
+          "debutTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "WorkStartDate : début des travaux."
+          },
+          "finTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "WorkEndDate : fin des travaux."
+          },
+          "debutCommercialisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "MarketingStartDate : début de commercialisation."
+          },
+          "finCommercialisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "MarketingEndDate : fin de commercialisation."
+          },
+          "finConcretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "EndDateConcretisation : fin de concrétisation."
+          },
+          "debutFinalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "StartDateFinalisation : début de finalisation."
+          },
+          "dateLivraison": {
+            "type": "string",
+            "format": "date-time",
+            "description": "DeliveryDate : livraison."
+          },
+          "datePermisHabiter": {
+            "type": "string",
+            "format": "date-time",
+            "description": "OccupancyPermitsDate : permis d'habiter."
+          },
+          "unites": {
+            "type": "array",
+            "description": "Unités de l'étude ventilées sur cette tranche ; absente = aucune.",
+            "items": {
+              "$ref": "#/components/schemas/VentilationEtudeDto"
+            }
+          }
+        }
+      },
+      "VentilationEtudeDto": {
+        "type": "object",
+        "description": "Quantité d'une unité de l'étude ventilée sur une tranche (StkFeasibilityStudyCfgTrancheStkBaseUnit).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne (lecture ; ignoré en écriture, les ventilations sont recréées)."
+          },
+          "uniteEtudeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Ligne d'unité de CETTE étude (LigneUniteEtudeDto.id), obligatoire."
+          },
+          "quantite": {
+            "type": "number",
+            "description": "Quantité ventilée ; par unité, la somme sur les tranches doit égaler sa quantité."
+          },
+          "poids": {
+            "type": "number",
+            "description": "Poids (fraction), stocké tel quel."
           }
         }
       },
@@ -32909,6 +34084,773 @@
           "modifieLe": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "SaisieEtudeDto": {
+        "type": "object",
+        "description": "Création, modification ou aperçu de calcul d'une étude. En PATCH, absent ou null = inchangé. Paires coefficient ↔ montant : l'un ou l'autre ; si les deux, le coefficient gagne.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code unique (obligatoire à la création).",
+            "example": "ETUDE-01"
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé (obligatoire à la création)."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du document (obligatoire à la création)."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société (CfgCompany) active, obligatoire à la création."
+          },
+          "terrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Terrain : article de nature TER (liste /choix/terrains)."
+          },
+          "descriptionTerrain": {
+            "type": "string",
+            "description": "Description du terrain (texte libre, 255 caractères)."
+          },
+          "nombreArticlesAVendre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'articles à vendre."
+          },
+          "proportionTerrainPourTva": {
+            "type": "boolean",
+            "description": "Utiliser la quote-part du terrain pour le calcul de la TVA."
+          },
+          "tauxTvaDefaut": {
+            "type": "number",
+            "description": "TVA par défaut (fraction ; 0,20 à la création si absente)."
+          },
+          "tauxTvaInterets": {
+            "type": "number",
+            "description": "TVA sur intérêts (fraction ; 0,10 à la création si absente)."
+          },
+          "superficie": {
+            "type": "number",
+            "description": "Superficie du terrain (m²)."
+          },
+          "coefEquipements": {
+            "type": "number",
+            "description": "Coef équipements (paire avec superficieEquipements)."
+          },
+          "superficieEquipements": {
+            "type": "number",
+            "description": "Superficie équipements (m², paire avec coefEquipements)."
+          },
+          "coefEmprise": {
+            "type": "number",
+            "description": "COS (paire avec empriseAuSol)."
+          },
+          "empriseAuSol": {
+            "type": "number",
+            "description": "Emprise au sol (m², paire avec coefEmprise)."
+          },
+          "cuf": {
+            "type": "number",
+            "description": "CUF (paire avec plancherCouvert)."
+          },
+          "plancherCouvert": {
+            "type": "number",
+            "description": "Plancher couvert (m², paire avec cuf)."
+          },
+          "coefVendable": {
+            "type": "number",
+            "description": "Coef vendable (paire avec plancherVendable)."
+          },
+          "plancherVendable": {
+            "type": "number",
+            "description": "Plancher vendable (m², paire avec coefVendable)."
+          },
+          "prixAchatM2": {
+            "type": "number",
+            "description": "Prix d'achat du m² TTC (paire avec prixTerrain)."
+          },
+          "prixTerrain": {
+            "type": "number",
+            "description": "Prix du terrain TTC (paire avec prixAchatM2)."
+          },
+          "tauxTvaTerrain": {
+            "type": "number",
+            "description": "TVA du terrain (fraction)."
+          },
+          "tauxFraisEnregistrement": {
+            "type": "number",
+            "description": "Coef des frais d'enregistrement."
+          },
+          "tauxAutresFraisTerrain": {
+            "type": "number",
+            "description": "Coef des autres frais de terrain."
+          },
+          "coutConstructionM2Bati": {
+            "type": "number",
+            "description": "Coût de construction du m² bâti."
+          },
+          "coutConstructionM2NonBati": {
+            "type": "number",
+            "description": "Coût de construction du m² non bâti."
+          },
+          "tauxAutresFraisExecution": {
+            "type": "number",
+            "description": "Coef des autres frais d'exécution."
+          },
+          "debutAchatTerrain": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Début de l'achat du terrain ; les autres dates de phase sont calculées."
+          },
+          "dureeAchatTerrain": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de l'achat du terrain (mois)."
+          },
+          "dureePeriodeValidation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la période de validation (mois)."
+          },
+          "dureePermisBatir": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée du permis de bâtir (mois)."
+          },
+          "dureeEtudes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée des études (mois)."
+          },
+          "dureeTravaux": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée des travaux (mois)."
+          },
+          "dureeConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la concrétisation (mois)."
+          },
+          "dureeFinalisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la finalisation (mois)."
+          },
+          "delaiAchatTerrainPeriodeValidation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin d'achat → début de validation (mois)."
+          },
+          "delaiPeriodeValidationPermisBatir": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin de validation → début du permis (mois)."
+          },
+          "delaiPermisBatirEtudes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai début du permis → début des études (mois)."
+          },
+          "delaiPermisBatirTravaux": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin du permis → début des travaux (mois)."
+          },
+          "delaiTravauxConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai début des travaux → début de la concrétisation (mois)."
+          },
+          "delaiTravauxFinalisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin des travaux → début de la finalisation (mois)."
+          },
+          "ecartTypeTravaux": {
+            "type": "number",
+            "description": "Écart-type des travaux."
+          },
+          "ecartTypeConcretisation": {
+            "type": "number",
+            "description": "Écart-type de la concrétisation."
+          },
+          "ecartTypeFinalisation": {
+            "type": "number",
+            "description": "Écart-type de la finalisation."
+          },
+          "delaiRetourJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de retour de la retenue de garantie (jours)."
+          },
+          "tauxRetenueGarantie": {
+            "type": "number",
+            "description": "Taux de retenue de garantie (fraction)."
+          },
+          "tauxApplicationRetenueGarantie": {
+            "type": "number",
+            "description": "Taux d'application de la retenue de garantie (fraction)."
+          },
+          "champsAVider": {
+            "type": "array",
+            "description": "PATCH : champs à vider (terrainId, debutAchatTerrain → NULL ; nombre → 0 ; texte → \"\").",
+            "items": {
+              "type": "string"
+            }
+          },
+          "unites": {
+            "type": "array",
+            "description": "POST /calcul seulement (ignoré ailleurs) : unités de base à contrôler par Verif.",
+            "items": {
+              "$ref": "#/components/schemas/LigneUniteEtudeDto"
+            }
+          },
+          "tranches": {
+            "type": "array",
+            "description": "POST /calcul seulement (ignoré ailleurs) : tranches et ventilations à contrôler par Verif.",
+            "items": {
+              "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+            }
+          }
+        }
+      },
+      "BilanEtudeDto": {
+        "type": "object",
+        "description": "Bilan de l'étude en lecture seule : agrégats des prévisions tels que stockés (rendus vivants en P8b).",
+        "properties": {
+          "chiffreAffaires": {
+            "type": "number",
+            "description": "Turnover : chiffre d'affaires TTC."
+          },
+          "coutExecution": {
+            "type": "number",
+            "description": "TotalCostExecution : coût d'exécution TTC."
+          },
+          "coutExecutionHt": {
+            "type": "number",
+            "description": "TotalCostExecutionHT : coût d'exécution HT."
+          },
+          "coutTotal": {
+            "type": "number",
+            "description": "TotalCost : coût global TTC."
+          },
+          "coutTotalHt": {
+            "type": "number",
+            "description": "TotalCostHT : coût global HT."
+          },
+          "coutRevientM2": {
+            "type": "number",
+            "description": "UnitBackCost : coût de revient du m²."
+          },
+          "prixVenteM2": {
+            "type": "number",
+            "description": "UnitSalePrice : prix de vente du m²."
+          },
+          "pourcentageConcretisation": {
+            "type": "number",
+            "description": "percentageConcretisation : part de la concrétisation (fraction)."
+          },
+          "montantConcretisation": {
+            "type": "number",
+            "description": "ConretisationAmount : montant de la concrétisation."
+          },
+          "montantFinalisation": {
+            "type": "number",
+            "description": "FinalizationAmount : montant de la finalisation."
+          },
+          "coutFinancement": {
+            "type": "number",
+            "description": "TotalCostFunding : coût du financement."
+          },
+          "tauxAutofinancement": {
+            "type": "number",
+            "description": "AutofinancementRate : part des fonds propres (fraction)."
+          },
+          "montantAutofinancement": {
+            "type": "number",
+            "description": "AutofinancementAmount : fonds propres."
+          },
+          "tauxFinancementClient": {
+            "type": "number",
+            "description": "ClientfinancementRate : part du financement client (fraction)."
+          },
+          "tauxFinancementCredit": {
+            "type": "number",
+            "description": "CreditfinancementRate : part du crédit (fraction)."
+          },
+          "margeBrute": {
+            "type": "number",
+            "description": "GrossProfitMargin : marge brute."
+          },
+          "tauxIs": {
+            "type": "number",
+            "description": "ISRatio : taux de l'impôt sur les sociétés (fraction)."
+          },
+          "montantIs": {
+            "type": "number",
+            "description": "ISAmount : impôt sur les sociétés."
+          },
+          "margeNette": {
+            "type": "number",
+            "description": "NetProfitMargin : marge nette."
+          },
+          "rentabiliteCoutProjet": {
+            "type": "number",
+            "description": "ProfitRatioByProjectCost : marge / coût du projet."
+          },
+          "rentabiliteChiffreAffaires": {
+            "type": "number",
+            "description": "ProfitRatioByTurnover : marge / chiffre d'affaires."
+          },
+          "rentabiliteFondsPropres": {
+            "type": "number",
+            "description": "ProfitRatioByAutofinancementAmount : marge / fonds propres."
+          }
+        }
+      },
+      "EtudeFaisabiliteDto": {
+        "type": "object",
+        "description": "Fiche d'une étude de faisabilité (StkFeasibilityStudy) : identité, bloc A et phases calculés, grilles, bilan en lecture seule.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de l'étude."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code unique."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du document."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société (CfgCompany)."
+          },
+          "societeLibelle": {
+            "type": "string",
+            "description": "Libellé de la société."
+          },
+          "terrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Terrain (article TER), null si aucun."
+          },
+          "terrainLibelle": {
+            "type": "string",
+            "description": "Libellé du terrain."
+          },
+          "terrainFoncierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "LndLandId : terrain foncier, lecture seule (écrit par le lot Terrains)."
+          },
+          "descriptionTerrain": {
+            "type": "string",
+            "description": "Description du terrain."
+          },
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut, lecture seule (« En étude » à la création)."
+          },
+          "statutLibelle": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (nom .NET), null si aucune."
+          },
+          "bloquee": {
+            "type": "boolean",
+            "description": "Étude bloquée : toute écriture répond 409 avant Débloquer."
+          },
+          "nombreArticlesAVendre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre d'articles à vendre."
+          },
+          "proportionTerrainPourTva": {
+            "type": "boolean",
+            "description": "Quote-part du terrain utilisée pour la TVA."
+          },
+          "tauxTvaDefaut": {
+            "type": "number",
+            "description": "TVA par défaut (fraction)."
+          },
+          "tauxTvaInterets": {
+            "type": "number",
+            "description": "TVA sur intérêts (fraction)."
+          },
+          "ecartTypeTravaux": {
+            "type": "number",
+            "description": "Écart-type des travaux."
+          },
+          "ecartTypeConcretisation": {
+            "type": "number",
+            "description": "Écart-type de la concrétisation."
+          },
+          "ecartTypeFinalisation": {
+            "type": "number",
+            "description": "Écart-type de la finalisation."
+          },
+          "delaiRetourJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de retour de la retenue de garantie (jours)."
+          },
+          "tauxRetenueGarantie": {
+            "type": "number",
+            "description": "Taux de retenue de garantie (fraction)."
+          },
+          "tauxApplicationRetenueGarantie": {
+            "type": "number",
+            "description": "Taux d'application de la retenue de garantie (fraction)."
+          },
+          "valeurs": {
+            "$ref": "#/components/schemas/ValeursFaisabilite",
+            "description": "Bloc A et phases tels que stockés (recalculés à chaque écriture)."
+          },
+          "bilan": {
+            "$ref": "#/components/schemas/BilanEtudeDto",
+            "description": "Bilan stocké, lecture seule."
+          },
+          "unites": {
+            "type": "array",
+            "description": "Unités de base de l'étude, par ordre.",
+            "items": {
+              "$ref": "#/components/schemas/LigneUniteEtudeDto"
+            }
+          },
+          "tranches": {
+            "type": "array",
+            "description": "Tranches de l'étude et leurs ventilations, par ordre.",
+            "items": {
+              "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+            }
+          },
+          "previsionsARecalculer": {
+            "type": "boolean",
+            "description": "Vrai si l'étude a des prévisions (FSPrevision) : à recalculer en P8b après une modification."
+          },
+          "userCreate": {
+            "type": "string",
+            "description": "Créateur (UserCreate)."
+          },
+          "userCreateDateTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création."
+          },
+          "userUpdate": {
+            "type": "string",
+            "description": "Dernier auteur (UserUpdate)."
+          },
+          "userUpdateDateTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de dernière modification."
+          }
+        }
+      },
+      "ValeursFaisabilite": {
+        "type": "object",
+        "description": "Surfaces, coûts et phases d'une étude, recalculés par le serveur (calcul partagé).",
+        "properties": {
+          "superficie": {
+            "type": "number",
+            "description": "Superficie du terrain (m², Area)."
+          },
+          "coefEquipements": {
+            "type": "number",
+            "description": "Coef équipements et voies d'aménagement = superficie équipements / superficie."
+          },
+          "superficieEquipements": {
+            "type": "number",
+            "description": "Superficie équipements et voies d'aménagement (m²)."
+          },
+          "superficieNette": {
+            "type": "number",
+            "description": "Calculé : superficie − superficie équipements (AreaNet)."
+          },
+          "coefEmprise": {
+            "type": "number",
+            "description": "Coef d'emprise au sol des bâtiments (COS)."
+          },
+          "empriseAuSol": {
+            "type": "number",
+            "description": "Emprise au sol des bâtiments (m²) = COS × superficie nette (Maroc) ou × superficie."
+          },
+          "cuf": {
+            "type": "number",
+            "description": "Coef de plancher couvert (CUF)."
+          },
+          "plancherCouvert": {
+            "type": "number",
+            "description": "Plancher couvert (m²) = superficie nette × CUF (Maroc), sinon superficie × COS × CUF."
+          },
+          "coefVendable": {
+            "type": "number",
+            "description": "Coef de superficie vendable."
+          },
+          "plancherVendable": {
+            "type": "number",
+            "description": "Plancher vendable (m²) = coef vendable × plancher couvert."
+          },
+          "surfaceNonBatie": {
+            "type": "number",
+            "description": "Calculé : superficie − emprise au sol (NoBuiltArea)."
+          },
+          "tauxTvaTerrain": {
+            "type": "number",
+            "description": "Taux de TVA du terrain (fraction, 0,2 = 20 %)."
+          },
+          "prixAchatM2": {
+            "type": "number",
+            "description": "Prix d'achat du m² TTC."
+          },
+          "prixAchatM2Ht": {
+            "type": "number",
+            "description": "Calculé : prix d'achat du m² / (1 + TVA terrain)."
+          },
+          "prixAchatM2Tva": {
+            "type": "number",
+            "description": "Calculé : TVA du prix d'achat du m²."
+          },
+          "prixTerrain": {
+            "type": "number",
+            "description": "Prix du terrain TTC = prix du m² × superficie."
+          },
+          "prixTerrainHt": {
+            "type": "number",
+            "description": "Calculé : prix du m² HT × superficie."
+          },
+          "prixTerrainTva": {
+            "type": "number",
+            "description": "Calculé : prix du terrain − prix HT."
+          },
+          "tauxFraisEnregistrement": {
+            "type": "number",
+            "description": "Coef des frais d'enregistrement (fraction du prix du terrain)."
+          },
+          "fraisEnregistrement": {
+            "type": "number",
+            "description": "Calculé : coef × prix du terrain."
+          },
+          "fraisEnregistrementHt": {
+            "type": "number",
+            "description": "Calculé : coef × prix du terrain HT."
+          },
+          "fraisEnregistrementTva": {
+            "type": "number",
+            "description": "Calculé : frais d'enregistrement − HT."
+          },
+          "tauxAutresFraisTerrain": {
+            "type": "number",
+            "description": "Coef des autres frais de terrain (fraction du prix du terrain)."
+          },
+          "autresFraisTerrain": {
+            "type": "number",
+            "description": "Calculé : coef × prix du terrain (OtherCostsLand)."
+          },
+          "autresFraisTerrainHt": {
+            "type": "number",
+            "description": "Calculé : coef × prix HT (colonne OMRAN OtherCostsExecutionHT)."
+          },
+          "autresFraisTerrainTva": {
+            "type": "number",
+            "description": "Calculé : autres frais − HT (colonne OMRAN OtherCostsExecutionVatAmount)."
+          },
+          "coutTotalTerrain": {
+            "type": "number",
+            "description": "Calculé : autres frais + prix du terrain + frais d'enregistrement (TTC)."
+          },
+          "coutTotalTerrainHt": {
+            "type": "number",
+            "description": "Calculé : mêmes termes en HT (non stocké)."
+          },
+          "coutConstructionM2Bati": {
+            "type": "number",
+            "description": "Coût de construction du m² bâti."
+          },
+          "coutBati": {
+            "type": "number",
+            "description": "Calculé : coût du m² bâti × plancher couvert."
+          },
+          "coutConstructionM2NonBati": {
+            "type": "number",
+            "description": "Coût de construction du m² non bâti."
+          },
+          "coutNonBati": {
+            "type": "number",
+            "description": "Calculé : coût du m² non bâti × surface non bâtie."
+          },
+          "tauxAutresFraisExecution": {
+            "type": "number",
+            "description": "Coef des autres frais d'exécution."
+          },
+          "autresFraisExecution": {
+            "type": "number",
+            "description": "Calculé : coef × (coût bâti + coût non bâti)."
+          },
+          "debutAchatTerrain": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Début de l'achat du terrain : départ de toutes les phases."
+          },
+          "dureeAchatTerrain": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de l'achat du terrain (mois)."
+          },
+          "finAchatTerrain": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiAchatTerrainPeriodeValidation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin d'achat → début de la période de validation (mois)."
+          },
+          "debutPeriodeValidation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : fin d'achat + délai."
+          },
+          "dureePeriodeValidation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la période de validation (mois)."
+          },
+          "finPeriodeValidation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiPeriodeValidationPermisBatir": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin de validation → début du permis de bâtir (mois)."
+          },
+          "debutPermisBatir": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : fin de validation + délai."
+          },
+          "dureePermisBatir": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée du permis de bâtir (mois)."
+          },
+          "finPermisBatir": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiPermisBatirEtudes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai début du permis → début des études (mois)."
+          },
+          "debutEtudes": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début du permis + délai."
+          },
+          "dureeEtudes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée des études (mois)."
+          },
+          "finEtudes": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiPermisBatirTravaux": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin du permis → début des travaux (mois)."
+          },
+          "debutTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : fin du permis + délai."
+          },
+          "dureeTravaux": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée des travaux (mois)."
+          },
+          "finTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiTravauxConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai début des travaux → début de la concrétisation (mois)."
+          },
+          "debutConcretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début des travaux + délai."
+          },
+          "dureeConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la concrétisation (mois)."
+          },
+          "finConcretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiTravauxFinalisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin des travaux → début de la finalisation (mois)."
+          },
+          "debutFinalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : fin des travaux + délai."
+          },
+          "dureeFinalisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la finalisation (mois)."
+          },
+          "finFinalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "erreurs": {
+            "type": "array",
+            "description": "Messages Verif OMRAN, dans l'ordre ; vide dans la fiche (Verif passe à chaque écriture).",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -41828,6 +43770,68 @@
           }
         }
       },
+      "EtudeFaisabiliteListeDto": {
+        "type": "object",
+        "description": "Ligne de la liste des études de faisabilité.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de l'étude."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du document."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société (CfgCompany)."
+          },
+          "societeLibelle": {
+            "type": "string",
+            "description": "Libellé de la société."
+          },
+          "terrainLibelle": {
+            "type": "string",
+            "description": "Libellé du terrain (article TER), null si aucun."
+          },
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut (StkFeasibilityStudyStatus)."
+          },
+          "statutLibelle": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (nom .NET, ex. Green), null si aucune."
+          },
+          "bloquee": {
+            "type": "boolean",
+            "description": "Étude bloquée (IsLocked) : aucune écriture avant Débloquer."
+          },
+          "superficie": {
+            "type": "number",
+            "description": "Superficie du terrain (m²)."
+          },
+          "coutTotalTerrain": {
+            "type": "number",
+            "description": "Coût total du terrain TTC."
+          }
+        }
+      },
       "LigneEtatVentesDto": {
         "type": "object",
         "description": "Un article racine en vente et son statut ; seules les colonnes demandées par ?colonnes= sont présentes.",
@@ -42015,6 +44019,138 @@
           },
           "totaux": {
             "$ref": "#/components/schemas/TotauxSynthese"
+          }
+        }
+      },
+      "CompteVendusLibres": {
+        "type": "object",
+        "description": "Comptes d'articles racines ; libres + reserves + vendus = total.",
+        "properties": {
+          "trancheId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de tranche (CfgTranche.id) ; null dans totauxFamille et general."
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Code de tranche ; null dans totauxFamille et general."
+          },
+          "trancheLibelle": {
+            "type": "string",
+            "description": "Libellé de tranche ; null dans totauxFamille et general."
+          },
+          "familleCode": {
+            "type": "string",
+            "description": "Famille ; null dans totalTranche et general.",
+            "enum": [
+              "APPARTEMENT",
+              "PARKING",
+              "MAGASIN",
+              "AUTRE"
+            ],
+            "example": "APPARTEMENT"
+          },
+          "libres": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Sans dossier actif (dossier annulé ou désisté compris)."
+          },
+          "reserves": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Dossier en RESERVATION ou sans statut."
+          },
+          "vendus": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Dossier à tout autre statut hors sortie."
+          },
+          "sansStatut": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Dossiers sans statut, déjà comptés dans reserves."
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pctLibres": {
+            "type": "number",
+            "format": "double",
+            "description": "Part des libres dans total, en %, 1 décimale ; 0 si total nul.",
+            "example": 33.3
+          },
+          "pctReserves": {
+            "type": "number",
+            "format": "double",
+            "description": "Part des réservés dans total, en %, 1 décimale ; 0 si total nul."
+          },
+          "pctVendus": {
+            "type": "number",
+            "format": "double",
+            "description": "Part des vendus dans total, en %, 1 décimale ; 0 si total nul."
+          }
+        }
+      },
+      "FamilleVendusLibres": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "APPARTEMENT",
+              "PARKING",
+              "MAGASIN",
+              "AUTRE"
+            ],
+            "example": "APPARTEMENT"
+          },
+          "libelle": {
+            "type": "string",
+            "example": "Appartements"
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang de la famille, croissant."
+          }
+        }
+      },
+      "SyntheseVendusLibresDto": {
+        "type": "object",
+        "description": "Tableau tranche × famille en Libres / Réservés / Vendus, totaux et pourcentages calculés au serveur.",
+        "properties": {
+          "familles": {
+            "type": "array",
+            "description": "Familles du filtre, ordre fixe : Appartements, Parkings, Magasins, Autres.",
+            "items": {
+              "$ref": "#/components/schemas/FamilleVendusLibres"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Une ligne par tranche × famille non vide, triées par code de tranche puis ordre de famille.",
+            "items": {
+              "$ref": "#/components/schemas/CompteVendusLibres"
+            }
+          },
+          "totalTranche": {
+            "type": "array",
+            "description": "Toutes familles d'une tranche, même ordre que les lignes ; familleCode null.",
+            "items": {
+              "$ref": "#/components/schemas/CompteVendusLibres"
+            }
+          },
+          "totauxFamille": {
+            "type": "array",
+            "description": "Toutes tranches d'une famille, familles à total nul omises ; champs de tranche null.",
+            "items": {
+              "$ref": "#/components/schemas/CompteVendusLibres"
+            }
+          },
+          "general": {
+            "$ref": "#/components/schemas/CompteVendusLibres",
+            "description": "Total général du filtre ; champs de tranche et de famille null."
           }
         }
       },

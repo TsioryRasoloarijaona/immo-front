@@ -46,6 +46,11 @@ export function formatNumber(value: number | null | undefined, decimals = 0): st
   return decimal === undefined ? `${sign}${grouped}` : `${sign}${grouped},${decimal}`;
 }
 
+/** Coefficient (COS, CUF…) : entier sans décimales (« 3 »), sinon deux décimales (« 0,30 »). */
+export function formatRatio(value: number): string {
+  return formatNumber(value, Number.isInteger(value) ? 0 : 2);
+}
+
 function sansZerosFinaux(texte: string): string {
   if (!texte.includes(',')) return texte;
   // eslint-disable-next-line sonarjs/super-linear-regex -- appliquée à un nombre déjà formaté, quelques caractères
