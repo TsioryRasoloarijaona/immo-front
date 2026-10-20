@@ -17,6 +17,7 @@ import {
   createProspection,
   doublonsDepuisErreur,
   getSupportsForOrigine,
+  getTranche,
   listProjetTranches,
   listProjets,
   listProspects,
@@ -211,7 +212,12 @@ export default function NouvelleProspectionDialog({
   onClose,
   prospectInitial,
   onCree,
+  trancheInitiale,
+  articleInitial,
 }: Readonly<{
+  /** Tranche et article pré-remplis (clic sur un tracé libre d'un plan) ; le projet se déduit de la tranche. */
+  trancheInitiale?: string;
+  articleInitial?: string;
   onClose: () => void;
   /** Prospect pré-sélectionné et verrouillé (mode « existant » forcé). */
   prospectInitial?: ProspectListItemDto;
@@ -227,9 +233,11 @@ export default function NouvelleProspectionDialog({
   const { commerciaux } = useAppData();
   const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
 
-  const [projetId, setProjetId] = useState<string | null>(null);
-  const [trancheId, setTrancheId] = useState<string | null>(null);
-  const [articleId, setArticleId] = useState<string | null>(null);
+  const trancheDeDepart = useApi(() => (trancheInitiale ? getTranche(trancheInitiale) : Promise.resolve(null)), [trancheInitiale]);
+  const [projetChoisi, setProjetChoisi] = useState<string | null>(null);
+  const projetId = projetChoisi ?? trancheDeDepart.data?.projetId ?? null;
+  const [trancheId, setTrancheId] = useState<string | null>(trancheInitiale ?? null);
+  const [articleId, setArticleId] = useState<string | null>(articleInitial ?? null);
   const projets = useApi(() => listProjets({ page: 0, size: 200 }), []);
   const tranches = useApi(
     () => (projetId ? listProjetTranches(projetId, { page: 0, size: 200 }) : Promise.resolve(null)),
@@ -386,7 +394,7 @@ export default function NouvelleProspectionDialog({
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             <FormField>
               <FieldLabel htmlFor="pr-projet">Projet</FieldLabel>
-              <Select items={projetItems} value={projetId} onValueChange={(v) => { setProjetId((v) || null); setTrancheId(null); setArticleId(null); }}>
+              <Select items={projetItems} value={projetId} onValueChange={(v) => { setProjetChoisi((v) || null); setTrancheId(null); setArticleId(null); }}>
                 <SelectTrigger id="pr-projet" className="w-full"><SelectValue placeholder="Choisir…" /></SelectTrigger>
                 <SelectContent><SelectGroup>{projetItems.map((i) => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectGroup></SelectContent>
               </Select>
