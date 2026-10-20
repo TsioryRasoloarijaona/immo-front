@@ -46,7 +46,9 @@ export default function OngletsEtude({ fiche, entete, recharger, onEnregistre }:
   const corpsApercu = sansSuiveurs(corpsDepuis(CHAMPS_ETUDE, saisie.brouillon), montantsPilotes);
   const calcul = useCalculEtude({ ...corpsApercu, unites: fiche?.unites, tranches: fiche?.tranches }, !lecture);
 
-  const valeurs = calcul.valeurs ?? fiche?.valeurs;
+  // Brouillon intact : valeurs stockées par OMRAN (coefficient et montant peuvent y diverger), aperçu dès la première saisie.
+  const intact = JSON.stringify(saisie.brouillon) === JSON.stringify(initial);
+  const valeurs = fiche && intact ? fiche.valeurs : (calcul.valeurs ?? fiche?.valeurs);
   const calcules = nomsCalcules(montantsPilotes);
   const brouillon = valeurs
     ? { ...saisie.brouillon, ...brouillonDepuis(CHAMPS_ETUDE.filter((c) => calcules.has(c.nom)), valeurs) }
