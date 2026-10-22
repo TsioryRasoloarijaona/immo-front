@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { Building2, Grid2x2, Home, Landmark, Layers, LayoutGrid, Ruler, Settings2, Trees, UserRound, UsersRound } from 'lucide-react';
+import { Building2, Grid2x2, Home, Landmark, Layers, LayoutGrid, MapPinned, Ruler, Settings2, Trees, UserRound, UsersRound } from 'lucide-react';
 import { estAdministrateur, estExempte } from '../../lib/roles';
 import type { ModuleApp } from '../types';
 
@@ -18,6 +18,9 @@ const SousArticlesList = lazy(() => import('../../pages/sous-articles/SousArticl
 const TerrainsList = lazy(() => import('../../pages/terrains/TerrainsList'));
 const TerrainDetail = lazy(() => import('../../pages/terrains/TerrainDetail'));
 const TerrainForm = lazy(() => import('../../pages/terrains/TerrainForm'));
+const ProspectionsTerrainList = lazy(() => import('../../pages/prospections-terrain/ProspectionsTerrainList'));
+const ProspectionTerrainDetail = lazy(() => import('../../pages/prospections-terrain/ProspectionTerrainDetail'));
+const ProspectionTerrainForm = lazy(() => import('../../pages/prospections-terrain/ProspectionTerrainForm'));
 const EntitesJuridiquesList = lazy(() => import('../../pages/entites/EntitesJuridiquesList'));
 const EntiteJuridiqueDetail = lazy(() => import('../../pages/entites/EntiteJuridiqueDetail'));
 const ActionnairesList = lazy(() => import('../../pages/entites/ActionnairesList'));
@@ -38,7 +41,7 @@ const patrimoine: ModuleApp = {
   ordre: 2,
   path: '/tranches',
   prefixes: [
-    '/tranches', '/articles', '/sous-articles', '/terrains', '/lotissements', '/projets', '/entites-juridiques',
+    '/tranches', '/articles', '/sous-articles', '/terrains', '/terrains-prospection', '/lotissements', '/projets', '/entites-juridiques',
     '/actionnaires', '/groupes-actionnaires', '/etudes-faisabilite', '/configuration',
   ],
   menu: {
@@ -49,6 +52,7 @@ const patrimoine: ModuleApp = {
       { to: '/articles', libelle: 'Articles', Icone: Home, couleur: TRANCHE },
       { to: '/sous-articles', libelle: 'Sous-articles', Icone: Layers, couleur: TRANCHE },
       { to: '/terrains', libelle: 'Terrains', Icone: Trees, couleur: TRANCHE },
+      { to: '/terrains-prospection', libelle: 'Prospections terrain', Icone: MapPinned, couleur: TRANCHE },
       { to: '/lotissements', libelle: 'Lotissements', Icone: Grid2x2, couleur: TRANCHE },
       { to: '/entites-juridiques', libelle: 'Entités juridiques', Icone: Landmark, couleur: PROJET, visible: estAdministrateur },
       { to: '/actionnaires', libelle: 'Actionnaires', Icone: UserRound, couleur: PROJET, visible: estAdministrateur },
@@ -80,6 +84,10 @@ const patrimoine: ModuleApp = {
     { path: '/terrains/:id', element: <TerrainDetail /> },
     { path: '/terrains/:id/modifier', element: <TerrainForm /> },
     { path: '/terrains/:id/sous-terrains/nouveau', element: <TerrainForm sousTerrain /> },
+    { path: '/terrains-prospection', element: <ProspectionsTerrainList /> },
+    { path: '/terrains-prospection/nouveau', element: <ProspectionTerrainForm /> },
+    { path: '/terrains-prospection/:id', element: <ProspectionTerrainDetail /> },
+    { path: '/terrains-prospection/:id/modifier', element: <ProspectionTerrainForm /> },
     { path: '/lotissements', element: <TerrainsList liste="lotissements" /> },
     { path: '/entites-juridiques', element: <EntitesJuridiquesList /> },
     { path: '/entites-juridiques/nouveau', element: <EntiteJuridiqueDetail /> },
