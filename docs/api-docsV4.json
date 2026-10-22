@@ -24,10 +24,6 @@
       "description": "Onglet Contenances de l'article et types de présentation de sa tranche."
     },
     {
-      "name": "Notes",
-      "description": "Notes (AdmMessage) des programmes, tranches et articles ; écriture Administrateur."
-    },
-    {
       "name": "Dossiers — actions",
       "description": "Onglet « Actions » du dossier de vente (règle GEN0005 d'OMRAN) et instructions adressées au commercial du dossier. Les actions sont des `ComActionMessage` rattachées au dossier par `ComFolderId` ; leur catégorie est déduite du statut du dossier (Réservation → « Dossier de vente (Réservation) », Annulation ou Désistement → « Désistement et annulation », tout autre statut → « Dossier de vente (Livraison) »), comme `Sale.cs:AttachNotes`. Toute écriture signe le dossier (`UserUpdate`, `UserUpdateDateTime`)."
     },
@@ -42,6 +38,10 @@
     {
       "name": "Programmes",
       "description": "Programmes immobiliers (CfgProject), en lecture et en écriture (Administrateur)."
+    },
+    {
+      "name": "Prospections terrain",
+      "description": "Écran OMRAN « PROSPECTIONS TERRAIN » : `LndLand`, terrain repéré avant achat, workflow `Str*` de l'entité `LndLand`.\nLecture pour tout compte connecté, écriture réservée à l'Administrateur ; aucune visibilité par société (la table n'en a\npas) ; aucune portée de clé d'API. Notes et audit : porteur `prospection-terrain` (`/api/notes`, `/api/audit?objetId=`) ;\npièces jointes : `/api/prospections-terrain/{id}/pieces-jointes`. Surfaces et prix calculés par le serveur seul\n(`SurfacesTerrain`, variante marocaine si `AdmParamsString.CountryFormule` vaut `MA` ou est absent)."
     },
     {
       "name": "Dossiers — visites techniques",
@@ -170,6 +170,10 @@
     {
       "name": "Prospections — export",
       "description": "Exports Excel des listes de prospections et de pré-prospections. Chaque export relit la liste avec ses propres filtres et le périmètre commercial de l'appelant : il ne rend jamais une ligne que la liste ne montrerait pas."
+    },
+    {
+      "name": "Notes",
+      "description": "Notes (AdmMessage) du patrimoine et des prospections terrain ; écriture Administrateur."
     },
     {
       "name": "Pré-prospections",
@@ -1400,6 +1404,105 @@
           },
           "403": {
             "description": "Appelant non Administrateur."
+          }
+        }
+      }
+    },
+    "/api/prospections-terrain/{id}/zones": {
+      "put": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Remplace la grille des zones d'un terrain brut",
+        "description": "Grille complète : `id` connu = mise à jour, sans `id` = création, absente = suppression, `id` d'une autre prospection →\n400 ; `identification` obligatoire. Calcul de zone sans voies : emprise = COS × superficie, plancher couvert =\nsuperficie × CUF ; plancher donné seul → CUF = plancher / (superficie × COS), comme OMRAN (aller-retour non idempotent si\nCOS ≠ 1). Total des superficies > superficie nette → 400.",
+        "operationId": "modifierZones",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la prospection terrain (LndLand.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ZonesTerrainEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Zones enregistrées, recalculées.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ZoneTerrainDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Saisie refusée : detail nomme le champ (voir la description).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ZoneTerrainDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ZoneTerrainDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prospection terrain inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ZoneTerrainDto"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Statut courant en lecture seule.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ZoneTerrainDto"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -2706,7 +2809,7 @@
           {
             "name": "porteur",
             "in": "path",
-            "description": "Genre du porteur : articles, tranches ou projets.",
+            "description": "Genre du porteur : articles, tranches, projets ou prospections-terrain.",
             "required": true,
             "schema": {
               "type": "string"
@@ -2715,7 +2818,7 @@
           {
             "name": "id",
             "in": "path",
-            "description": "PKey du porteur (StkItem, CfgTranche ou CfgProject).",
+            "description": "PKey du porteur (StkItem, CfgTranche, CfgProject ou LndLand).",
             "required": true,
             "schema": {
               "type": "string",
@@ -2763,7 +2866,7 @@
           {
             "name": "porteur",
             "in": "path",
-            "description": "Genre du porteur : articles, tranches ou projets.",
+            "description": "Genre du porteur : articles, tranches, projets ou prospections-terrain.",
             "required": true,
             "schema": {
               "type": "string"
@@ -2772,7 +2875,7 @@
           {
             "name": "id",
             "in": "path",
-            "description": "PKey du porteur (StkItem, CfgTranche ou CfgProject).",
+            "description": "PKey du porteur (StkItem, CfgTranche, CfgProject ou LndLand).",
             "required": true,
             "schema": {
               "type": "string",
@@ -5895,6 +5998,405 @@
         }
       }
     },
+    "/api/prospections-terrain": {
+      "get": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Liste des prospections terrain, par code croissant par défaut",
+        "description": "`search` cherche (sans casse) dans le code, la description, la ville, la catégorie, le type, la vocation et le niveau ;\n`archivee`, `transformee`, `amenage` sont tri-états (absent = tous). `nbEtudesFaisabilite` compte les études de\nfaisabilité qui citent la prospection.",
+        "operationId": "lister_4",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Contient (sans casse) : code, description, ville, catégorie, type, vocation, niveau.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TERRAIN"
+          },
+          {
+            "name": "archivee",
+            "in": "query",
+            "description": "Archivées (true), non archivées (false), toutes si absent.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "transformee",
+            "in": "query",
+            "description": "Transformées en terrain (true) ou non (false).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statut (StrStatus).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vocationId",
+            "in": "query",
+            "description": "Vocation foncière (LndVocation).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "niveauId",
+            "in": "query",
+            "description": "Niveau (LndLevel).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Catégorie (StkItemCategory).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "villeId",
+            "in": "query",
+            "description": "Ville (AdmCity).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "amenage",
+            "in": "query",
+            "description": "Aménagé (true) ou Brut (false).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "pageable",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Pageable"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Page de prospections terrain.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDtoProspectionTerrainListeDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Crée une prospection terrain au premier statut « Nouveau » de l'entité LndLand",
+        "description": "Défauts OMRAN : date du jour, superficie 1, Aménagé, pays `AdmParamsGuid.DefaultCountry`, textes `\"\"`, nombres 0,\nbooléens faux ; statut = premier statut de type « Nouveau » de l'entité `LndLand`, validité = date + durée du statut si\nelle est positive ; une ligne d'historique « Création ». Obligatoires (400) : `code`, `description`, `villeId`,\n`categorieId` (nature PROS TER), `typeId` (nature TER), pays (corps ou défaut). 400 aussi : superficie ≤ 0 (« La valeur\nde la supérficie doit être strictement supérieure à 0 ! »), ville d'un autre pays, référence inconnue (le message nomme\nle champ), lien Google ne commençant pas par `https://www.google`, texte trop long, nombre négatif ou hors bornes.",
+        "operationId": "creer_3",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProspectionTerrainEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Prospection créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Saisie refusée : detail nomme le champ (voir la description).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris par une prospection terrain.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Entité LndLand ou statut « Nouveau » absent : rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections-terrain/{id}/transition": {
+      "post": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Exécute une transition : statut, historique, archivage, validité",
+        "description": "Transition qui n'est pas une sortie du statut courant → 409 avec `transitionsAutorisees` (codes des statuts d'arrivée\npermis). Transition à second utilisateur → 409 ; transition liée à des rôles (intervenants) → 403 hors de ces rôles,\nl'Administrateur passe ; commentaire exigé et vide → 400 « Veuillez saisir un commentaire obligatoirement ! ». Écrit le\nstatut, une ligne d'historique (date utilisateur = `dateUtilisateur` si la transition l'accepte, sinon maintenant),\narchive vers un statut d'échec ou d'annulation (jamais désarchivée automatiquement) et pose la validité = date + durée si\nla durée du statut d'arrivée est positive.",
+        "operationId": "executerTransition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la prospection terrain (LndLand.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecutionTransitionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Fiche au nouveau statut.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Commentaire obligatoire absent.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prospection terrain inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Transition non permise (transitionsAutorisees) ou second utilisateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections-terrain/{id}/transformer-en-terrain": {
+      "post": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Crée le terrain de la prospection, puis l'archive et la marque transformée",
+        "description": "Crée le terrain comme la fiche Terrain (`POST /api/terrains`, mêmes contrôles : société active, code unique dans la\nsociété, catégorie de nature Terrain, type de la prospection de nature TER, statut initial `LandProject`), puis copie les\ndonnées foncières de la prospection ; prix au m² = prix proposé / superficie, prix d'achat = prix proposé. La\nprospection est archivée et marquée transformée, dans la même transaction. 409 : déjà transformée (`terrainId` dans le\nProblemDetail), statut sans la case « Transformer en terrain ».",
+        "operationId": "transformerEnTerrain",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la prospection terrain (LndLand.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransformationTerrainDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Terrain créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainCreeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Saisie refusée : detail nomme le champ (voir la description).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainCreeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainCreeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prospection terrain inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainCreeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Déjà transformée (terrainId), statut non transformable, code pris.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainCreeDto"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Configuration LandProject absente : rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerrainCreeDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prospections-terrain/apercu-calcul": {
+      "post": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Recalcule les surfaces et le prix sans rien écrire",
+        "description": "Recalcule toutes les grandeurs de `SurfacesTerrain` depuis la saisie, sans accès base hormis `CountryFormule`.\n`champModifie` désigne le champ qui vient de changer : ce côté de sa paire gagne ; sans lui, un montant envoyé sans son\ncoefficient en dérive le coefficient, sinon le coefficient gagne. Division par zéro → 0.",
+        "operationId": "apercu",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApercuCalculDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Toutes les grandeurs recalculées.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurfacesTerrain"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projets": {
       "get": {
         "tags": [
@@ -5940,7 +6442,7 @@
         ],
         "summary": "Crée un programme",
         "description": "Crée un programme (`CfgProject`). Obligatoires : `entiteId` (entité active), `code`, `description`. Le code est\ncomparé après `trim`, sans casse, à tous les programmes (409 avec le code et le nom du programme existant). Les\ntextes non saisis sont écrits `\"\"` (OMRAN ne supporte pas NULL). Fin ≥ début pour les travaux et la\ncommercialisation (400). Le créateur reçoit l'habilitation OMRAN sur le programme (`AdmUserHabilitation`), sans\nquoi le programme serait invisible dans OMRAN. Trace : `creePar`/`modifiePar` = l'utilisateur connecté.",
-        "operationId": "creer_3",
+        "operationId": "creer_4",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6298,7 +6800,7 @@
         ],
         "summary": "Crée une pré-prospection (lead brut)",
         "description": "Équivalent de l'écran « Pré-prospection » d'OMRAN, dont la trace d'audit fixe la séquence : code\ntiré du compteur `AdmSequence` « Prospection » (format `AA/NNNNN`, **le même compteur que les\nprospections**), type de document `ComPreProspection`, contact saisi en champs libres\n(`TempDescription`, `TempTel`, `TempEMail`) — **aucune fiche prospect n'est créée**.\n\nSeul `nom` est obligatoire. Posés par le serveur : code, date du document (maintenant), `IsClosed =\nfalse`, auteur (utilisateur connecté), vocation `VENTE` si aucune n'est fournie. Jamais de prospect\nni de commercial : c'est l'objet de `POST /api/pre-prospections/{id}/creer-prospect` puis `POST\n/api/prospections/{id}/transformer`.\n\n**Doublons signalés, jamais refusés.** La réponse liste les prospections existantes au même contact\n(même nom, même téléphone sur ses 9 derniers chiffres, même email — un champ absent des deux côtés\ncompte comme égal). OMRAN enregistre lui aussi une ligne par soumission ; à l'écran d'avertir. Seuls\nles doublons **visibles de l'appelant** (périmètre commercial) sont listés : un contact hors\npérimètre n'est jamais révélé.\n\nLa ligne créée apparaît aussitôt dans `GET /api/pre-prospections` et dans le logiciel de bureau.",
-        "operationId": "creer_4",
+        "operationId": "creer_5",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6738,12 +7240,12 @@
           "Notes"
         ],
         "summary": "Notes d'un programme, d'une tranche ou d'un article, plus récentes d'abord",
-        "operationId": "lister_4",
+        "operationId": "lister_5",
         "parameters": [
           {
             "name": "porteur",
             "in": "query",
-            "description": "projet, tranche ou article.",
+            "description": "projet, tranche, article ou prospection-terrain.",
             "required": true,
             "schema": {
               "type": "string"
@@ -6776,7 +7278,7 @@
             }
           },
           "400": {
-            "description": "`porteur` absent ou différent de projet, tranche, article.",
+            "description": "`porteur` absent ou hors projet, tranche, article, prospection-terrain.",
             "content": {
               "*/*": {
                 "schema": {
@@ -6808,7 +7310,7 @@
           "Notes"
         ],
         "summary": "Ajoute une note en texte simple (échappée en HTML pour OMRAN)",
-        "operationId": "creer_5",
+        "operationId": "creer_6",
         "requestBody": {
           "content": {
             "application/json": {
@@ -6958,7 +7460,7 @@
           "Modèles de documents"
         ],
         "summary": "Crée un modèle et sa version 1",
-        "operationId": "creer_6",
+        "operationId": "creer_7",
         "requestBody": {
           "content": {
             "application/json": {
@@ -7083,7 +7585,7 @@
           "Modèles de documents"
         ],
         "summary": "Aperçu PDF d'un contenu non enregistré, rempli avec une fiche",
-        "operationId": "apercu",
+        "operationId": "apercu_1",
         "parameters": [
           {
             "name": "id",
@@ -7304,7 +7806,7 @@
           "Études de faisabilité"
         ],
         "summary": "Liste des études des sociétés actives, par code",
-        "operationId": "lister_5",
+        "operationId": "lister_6",
         "parameters": [
           {
             "name": "societeId",
@@ -7358,7 +7860,7 @@
         ],
         "summary": "Crée une étude au statut « En étude »",
         "description": "`code` (unique → 409), `description`, `dateDocument`, `societeId` (société active, sinon 400) obligatoires ;\n`terrainId` : article de nature TER (sinon 400). Statut initial « En étude », une ligne d'historique au nom de\nl'appelant ; `tauxTvaDefaut` 0,20 et `tauxTvaInterets` 0,10 si absents. Bloc A et phases calculés et stockés ;\n`unites` / `tranches` du corps sont ignorés (grilles par les PUT).",
-        "operationId": "creer_7",
+        "operationId": "creer_8",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8098,7 +8600,7 @@
           "Entités juridiques"
         ],
         "summary": "Liste des entités, actives ou non (colonnes de la liste OMRAN)",
-        "operationId": "lister_6",
+        "operationId": "lister_7",
         "parameters": [
           {
             "name": "actif",
@@ -8140,7 +8642,7 @@
           "Entités juridiques"
         ],
         "summary": "Crée une entité (habilitation du créateur et 4 compteurs AdmSequence dans la même transaction)",
-        "operationId": "creer_8",
+        "operationId": "creer_9",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8768,7 +9270,7 @@
           "Dossiers — sous-articles"
         ],
         "summary": "Sous-articles du dossier et prix qui en dépendent",
-        "operationId": "lister_7",
+        "operationId": "lister_8",
         "parameters": [
           {
             "name": "id",
@@ -8957,7 +9459,7 @@
         ],
         "summary": "Règlements du dossier avec leur part affectée et leur reste à affecter",
         "description": "Règlements ayant au moins une ligne sur une échéance de ce dossier, saisie la plus récente d'abord (`DocDate` puis `UserCreateDateTime` décroissants). `montantAffecte` et `resteAAffecter` portent sur toutes les lignes du règlement, `affectations` sur celles de ce dossier seulement.",
-        "operationId": "lister_8",
+        "operationId": "lister_9",
         "parameters": [
           {
             "name": "id",
@@ -9005,7 +9507,7 @@
         ],
         "summary": "Enregistre un règlement réparti sur une ou plusieurs échéances du dossier",
         "description": "Mêmes règles d'en-tête que `POST .../echeancier/{echeanceId}/reglements` (montant > 0, `dateEcheance` et `typeId` requis, banque et référence selon le type, `IN_WORK` seulement, `dateReglement` refusée). Puis, chacune en 400 : au moins une affectation ; chaque échéance du dossier, une seule fois, avec un montant > 0 au plus égal à son reste dû ; somme des lignes ≤ `montant` (« Le reste à affecter doit être >= 0 »). Égalité et infériorité sont permises : la différence reste à affecter. La pénalité de retard de chaque échéance affectée est générée avant l'enregistrement, sur le reste d'avant ce règlement. Tout est contrôlé avant la première écriture : une règle violée n'écrit rien.",
-        "operationId": "creer_9",
+        "operationId": "creer_10",
         "parameters": [
           {
             "name": "id",
@@ -9467,7 +9969,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Demandes de modification du dossier et montants qui en découlent",
-        "operationId": "lister_9",
+        "operationId": "lister_10",
         "parameters": [
           {
             "name": "id",
@@ -9561,7 +10063,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Modalité de paiement : schéma de financement figé à la vente",
-        "operationId": "lister_10",
+        "operationId": "lister_11",
         "parameters": [
           {
             "name": "id",
@@ -10173,7 +10675,7 @@
         ],
         "summary": "Crée un désistement (brouillon) sur le dossier",
         "description": "Statut du dossier sans « Peut effectuer un désistement » (`StrStatus.BoolField010`) : 409. Un seul désistement non légalisé par dossier : 409. Les montants sont calculés comme la simulation et enregistrés ; le N° de demande vient de la séquence « Désistement ».",
-        "operationId": "creer_10",
+        "operationId": "creer_11",
         "parameters": [
           {
             "name": "id",
@@ -10228,7 +10730,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Cadeaux du dossier",
-        "operationId": "lister_11",
+        "operationId": "lister_12",
         "parameters": [
           {
             "name": "id",
@@ -10360,7 +10862,7 @@
           "Dossiers — actions"
         ],
         "summary": "Actions du dossier et leur nombre par type",
-        "operationId": "lister_12",
+        "operationId": "lister_13",
         "parameters": [
           {
             "name": "id",
@@ -10401,7 +10903,7 @@
           "Dossiers — actions"
         ],
         "summary": "Ajoute une action au dossier (GEN0005)",
-        "operationId": "creer_11",
+        "operationId": "creer_12",
         "parameters": [
           {
             "name": "id",
@@ -11002,7 +11504,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_13",
+        "operationId": "lister_14",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -11038,7 +11540,7 @@
         ],
         "summary": "Crée une clé d'API et son compte de service",
         "description": "Génère un secret aléatoire (`ak_` + 43 caractères), n'en stocke que le hash SHA-256, et le renvoie\n**une seule fois** dans `cle`. Sauf `compteCode`, un compte `AdmUser` est créé au nom de la clé,\nsans employé ni rôle : c'est lui qui apparaît en auteur (`UserCreate`) de tout ce que la clé écrit.\nUn tel compte n'a **aucune restriction de périmètre** (règle existante : pas d'habilitation = tout\nvoir) — la portée est sa seule limite, d'où l'exigence d'au moins une portée.\n\n**Pour n8n** : `{\"nom\":\"n8n\",\"portees\":[\"PRE_PROSPECTIONS_ECRIRE\",\"REFERENTIELS_LIRE\"]}`, puis\ncredential Header Auth `X-Api-Key` dans n8n.",
-        "operationId": "creer_12",
+        "operationId": "creer_13",
         "requestBody": {
           "content": {
             "application/json": {
@@ -11493,7 +11995,7 @@
         ],
         "summary": "Crée un article principal (prix calculés comme OMRAN)",
         "description": "Crée un article principal (`IsUnderItem = 0`). Obligatoires : `trancheId`, `code` (unique dans la tranche, sans\ncasse), `description`, `categorieId` et `typeId` (nature Bâtiment, non paramétrés « pour les sous-articles »),\n`immeubleId`, `etageId`. Défauts : vocation VENTE (PROJET refusée), surface provisoire 1, surface définitive =\nprovisoire, prix 0, TVA 0, `estTitre` vrai. Pour chaque surface, le prix au m² se saisit **soit** HT **soit** TTC\n(les deux → 400) ; le serveur calcule l'autre et les prix de l'article comme OMRAN (intermédiaires non arrondis,\néchelle 6 HALF_UP au stockage). `prixVente*` = article + sous-articles rattachés.",
-        "operationId": "creer_13",
+        "operationId": "creer_14",
         "requestBody": {
           "content": {
             "application/json": {
@@ -11883,7 +12385,7 @@
           "Actions d'article"
         ],
         "summary": "Actions portant sur l'article (dossiers compris), plus récentes d'abord",
-        "operationId": "lister_14",
+        "operationId": "lister_15",
         "parameters": [
           {
             "name": "id",
@@ -11930,7 +12432,7 @@
           "Actions d'article"
         ],
         "summary": "Ajoute une action ou une alerte (date d'alerte) sur l'article",
-        "operationId": "creer_14",
+        "operationId": "creer_15",
         "parameters": [
           {
             "name": "id",
@@ -13113,6 +13615,159 @@
         }
       }
     },
+    "/api/prospections-terrain/{id}": {
+      "get": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Fiche d'une prospection terrain, zones et terrain issu compris",
+        "description": "`peutTransformer` = Administrateur, aucun terrain issu, statut courant avec la case « Transformer en terrain »\n(`BoolField001`) et superficie > 0 ; sinon `motifNonTransformable` donne le refus. `terrainId` / `terrainCode` : terrain\n(`StkItem.LndLandId`) créé depuis la prospection.",
+        "operationId": "lire_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la prospection terrain (LndLand.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche de la prospection.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prospection terrain inconnue."
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Supprime une prospection terrain avec ses zones, son historique, ses pièces jointes et notes",
+        "description": "409 : statut sans suppression (« Vous ne pouvez pas supprimer cette entité dans le statut : [X] ! »), terrain issu de la\nprospection (nommé), études de faisabilité liées (nombre), autre clé étrangère (nommée). Sinon part avec ses zones, son\nhistorique de statuts, ses pièces jointes et ses notes.",
+        "operationId": "supprimer_5",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la prospection terrain (LndLand.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Prospection supprimée."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Prospection terrain inconnue."
+          },
+          "409": {
+            "description": "Statut sans suppression, terrain ou étude liés, autre référence."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Modifie une prospection terrain (champ absent ou null = inchangé)",
+        "description": "Mêmes contrôles sur la valeur résultante (corps sinon base), dont le total des zones ≤ superficie nette (« la\nsuperficies des zones ne doit pas dépasser la superficie nette du terrain ! »). Paire coefficient / montant : un montant\nenvoyé sans son coefficient en dérive le coefficient, sinon le montant suit le coefficient ; `coefEquipements`,\n`superficieNette`, `superficieHabitat` sont ignorés. Statut d'échec ou d'annulation : la prospection est réarchivée, sauf\n`estArchivee` explicite dans le corps. `champsAVider` : références facultatives, dates, textes facultatifs. 409 si le\nstatut courant est en lecture seule (« Cette prospection est en lecture seule dans le statut [X]. »).",
+        "operationId": "modifier_6",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la prospection terrain (LndLand.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProspectionTerrainEcritureDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Prospection modifiée, surfaces recalculées.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Saisie refusée : detail nomme le champ (voir la description).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prospection terrain inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris, ou statut courant en lecture seule.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProspectionTerrainDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/projets/{id}": {
       "get": {
         "tags": [
@@ -13151,7 +13806,7 @@
         ],
         "summary": "Supprime un programme sans tranche ni article",
         "description": "Supprime le programme et, dans la même transaction, ses habilitations, ses zones, ses pièces jointes et ses\nnotes (`AdmAttachedFile` / `AdmMessage` dont `CategoryId` = id), comme OMRAN. 409 si une tranche ou un article\nle référence (le message les compte), ou si une autre table le référence encore (clé étrangère nommée).",
-        "operationId": "supprimer_5",
+        "operationId": "supprimer_6",
         "parameters": [
           {
             "name": "id",
@@ -13185,7 +13840,7 @@
         ],
         "summary": "Modifie un programme (champ absent ou null = inchangé)",
         "description": "Modifie un programme. Champ absent ou `null` = inchangé, `\"\"` = vidé (sauf code et description, obligatoires).\nPour vider une date, le pays, le signataire ou un responsable : `champsAVider: [\"dateDebutTravaux\", \"paysId\"]`\n(NULL en base ; un texte listé est écrit `\"\"`). Nom inconnu, champ obligatoire, ou champ à la fois listé et\nrenseigné → 400 dont le `detail` nomme `champsAVider`. Signataire et responsables : un tiers inconnu → 400 nommant\nle champ. La règle fin ≥ début porte sur la valeur résultante (corps, sinon base). Programme d'une entité inactive\n→ 404, comme toutes les routes `/api/projets/{id}…`.",
-        "operationId": "modifier_6",
+        "operationId": "modifier_7",
         "parameters": [
           {
             "name": "id",
@@ -13635,7 +14290,7 @@
         ],
         "summary": "Supprime une étude sans prévision ni financement, avec ses grilles et son historique",
         "description": "409 si l'étude est bloquée, ou porte des prévisions (`FSPrevision`) ou des financements (`FSFunding`). Sinon ventilations,\ntranches, unités et historique sont supprimés avec elle, dans la transaction.",
-        "operationId": "supprimer_6",
+        "operationId": "supprimer_7",
         "parameters": [
           {
             "name": "id",
@@ -13669,7 +14324,7 @@
         ],
         "summary": "Modifie une étude ; bloc A et phases recalculés, Verif sur les grilles enregistrées",
         "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel.\n`pourcentageConcretisation` et `tauxIs` : fractions entre 0 et 1 (400) ; écarts-types ≥ 0,5 (400, message OMRAN « la\nvaleur de l'écart type doit être supérieur ou égal à 0.5 ») ; `nombreArticlesAVendre` reçu est ignoré.",
-        "operationId": "modifier_7",
+        "operationId": "modifier_8",
         "parameters": [
           {
             "name": "id",
@@ -13783,7 +14438,7 @@
           "Entités juridiques"
         ],
         "summary": "Supprime une entité sans programme ni autre référence",
-        "operationId": "supprimer_7",
+        "operationId": "supprimer_8",
         "parameters": [
           {
             "name": "id",
@@ -13816,7 +14471,7 @@
           "Entités juridiques"
         ],
         "summary": "Modifie une entité, Active comprise (effet immédiat sur la visibilité dans tout le CRM)",
-        "operationId": "modifier_8",
+        "operationId": "modifier_9",
         "parameters": [
           {
             "name": "id",
@@ -13942,7 +14597,7 @@
         ],
         "summary": "Modifie la fiche du dossier (corps partiel) et renvoie la fiche relue",
         "description": "Corps partiel : seuls les champs présents et non nuls changent ; pour remettre un champ à vide, mettre son nom dans `champsAVider` (le client ne peut pas être vidé). Un texte vide vaut absent.\n\nGroupes et rôles : DATES et ANNULATION (Commercial Chef, Direction Générale, Administrateur) ; CLIENT, COMMERCIAL, PENALITES et PRIX — remise, TVA, « modifications intégrées au prix » (Administrateur) ; GESTIONNAIRES, NOTAIRE, CREDIT et OPTIONS (Commercial Chef, Administrateur) ; NOTE (tout utilisateur qui voit le dossier). Un seul champ d'un groupe interdit suffit pour un 403, rien n'est écrit.\n\nChamps verrouillés (403, rien n'est écrit ; la liste de l'appelant est `champsVerrouilles` de `GET /{id}/edition`) :\n- `concretisation` déjà renseignée : la modifier ou la vider est réservé au groupe PRIX (Administrateur) ; le premier renseignement reste ouvert au groupe DATES.\n- `impressionContrat` : groupe PRIX seulement.\n- `remise` : article sans premier plafond (`StkItem.DiscountMax` nul ou 0) et appelant sous le deuxième niveau de remise : toute nouvelle remise non nulle est refusée, avec le message d'OMRAN « Vous ne pouvez pas appliquer une remise pour cet article (x %) ! ».\n\nRègles d'OMRAN appliquées :\n- **Date du dossier** (`dateDossier`, groupe DATES) : ne se vide pas ; entre dans l'ordre des dates ci-dessous.\n- **Prix de vente** (`prixVenteHT` / `prixVenteTTC`) : autre saisie de la remise, exclusive des trois autres. HT : montant de remise = total HT avant remise − saisie ; TTC : taux = 1 − saisie / total TTC avant remise. Saisie au-dessus du prix avant remise ⇒ 400.\n- **Commercial** : `commercialId` doit être un tiers de `GET /api/commerciaux` (genre COM, AGC, ATC, ACC ou RC), sinon 400.\n- **Dossier sorti** : vider `annulationDate` ou `annulationCauses` ⇒ 400 avec le message d'OMRAN (`Sale.cs:BeforeUpdate`).\n- **Remise** (`Sale.cs:RecalcDiscount`) : montant HT ou pourcentage du total HT ; le montant est conservé et le taux recalculé, les prix de l'article et des sous-articles suivent en partant du prix article HT stocké (pas de superficie × prix du m²), comme pour un changement de TVA ou de « modifications intégrées au prix ». Plafonds de l'article (`VerifDiscount`) : au-delà de `StkItem.DiscountMax2` (deuxième niveau), 400 avec le message d'OMRAN, sauf `forcerRemise = true`. `DiscountChangeDate` = maintenant à chaque changement de montant. Le schéma de financement n'est pas rééquilibré : `ecartSchema` donne l'écart à corriger dans l'échéancier.\n- **Ordre des dates** (`VerifDates`) : prospection ≤ dossier ≤ concrétisation ≤ envoi notaire prévisionnel ≤ envoi notaire ≤ minute ≤ remise des clés effective ; contrôlé quand l'un de ces jalons change, 400 avec le message d'OMRAN.\n- **Client** : le nouveau tiers devient l'acquéreur principal (refusé s'il est déjà co-acquéreur) ; ligne d'historique de statut, puis bascule client / prospect du nouveau et de l'ancien client.\n- **Note** (`MigrateNotes`) : une note non vide et changée est aussi enregistrée en action système « Note ».\n- **Délai et crédit maximaux** (`Sale.cs:VerifThreshold`, à chaque enregistrement d'un dossier non sorti, et à la création) : option « délai max d'échéance » de la tranche — dernière échéance après la remise des clés prévue (article, sinon début de finalisation de la tranche ; à défaut la remise effective) + `MaxEcheanceDelai` jours ⇒ 409 « Vous avez dépassé le délai max de paiement ! » ; option « vérification du crédit » — crédit du schéma au-dessus de prix × pourcentage ⇒ 409 « Vous avez dépassez le montant max du crédit ! ». Pas de contrôle pour un utilisateur sans le droit OMRAN `toolVerifyThreshold` quand ce droit est paramétré.\n- Dossier signé (`UserUpdate*`) et ligne d'historique « Modification : <champs> » dès qu'un champ change.",
-        "operationId": "modifier_9",
+        "operationId": "modifier_10",
         "parameters": [
           {
             "name": "id",
@@ -14257,7 +14912,7 @@
         ],
         "summary": "Supprime une ligne d'échéancier (droit OMRAN ComFolderDeleteLine)",
         "description": "Refusée (409) si l'échéance a une ligne de règlement (même annulée), une ligne d'autorisation de versement, une ligne de facture, ou si elle est versée dans un dossier de recouvrement (`ComDocument.cs:VerifyLinksForDeletion`). Sinon ses actions et alertes sont supprimées, les lignes qui la désignaient comme pénalité sont détachées, puis l'écart est reporté si sa catégorie « met à jour le schéma ». Réservée, comme le droit OMRAN `ComFolderDeleteLine`, aux rôles Administrateur, Commercial Chef, Direction Générale et Responsable marketing et communication (403 sinon) ; la réponse est l'état du schéma après suppression.",
-        "operationId": "supprimer_8",
+        "operationId": "supprimer_9",
         "parameters": [
           {
             "name": "id",
@@ -14410,7 +15065,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Compteurs de l'article principal du dossier",
-        "operationId": "lire_3",
+        "operationId": "lire_4",
         "parameters": [
           {
             "name": "id",
@@ -14461,7 +15116,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Modifie les compteurs : champ null = inchangé, chaîne vide = effacé",
-        "operationId": "modifier_10",
+        "operationId": "modifier_11",
         "parameters": [
           {
             "name": "id",
@@ -14570,7 +15225,7 @@
         ],
         "summary": "Supprime une offre, ses sous-articles et son schéma de financement",
         "description": "Supprime l'offre avec ses sous-articles (`StlQuoteItem`) et son schéma (`StlQuoteDocument`), comme\nla cascade de la base. Le numéro d'offre (`AdmSequence`) n'est pas rendu. Même périmètre que la liste.",
-        "operationId": "supprimer_9",
+        "operationId": "supprimer_10",
         "parameters": [
           {
             "name": "id",
@@ -14601,7 +15256,7 @@
         ],
         "summary": "Modifie une offre (champs fournis seulement) et renvoie la fiche à jour",
         "description": "Mêmes champs que la création, tous optionnels : seul ce qui est fourni change (null = inchangé).\nMêmes contrôles qu'à la création (article de la tranche et non vendu, sous-articles enfants de\nl'article, prix requis sans article) ; l'article déjà porté par l'offre n'est pas recontrôlé comme\nvendu. Les montants sont recalculés par le calcul de la création quand l'article, les sous-articles,\nle prix ou la remise sont fournis. Si l'article et les sous-articles ne changent pas, la base est\ncelle figée dans l'offre (prix catalogue ignorés) et seule la remise des sous-articles est réappliquée ;\nsinon les sous-articles sont réécrits aux prix du catalogue, comme à la création. `UserUpdate` /\n`UserUpdateDateTime` = l'utilisateur courant. Une offre qui a donné un dossier reste modifiable,\ncomme dans OMRAN, mais ne peut plus changer d'article.\n\nMême périmètre que la liste : quiconque voit l'offre peut la modifier.",
-        "operationId": "modifier_11",
+        "operationId": "modifier_12",
         "parameters": [
           {
             "name": "id",
@@ -14688,7 +15343,7 @@
           "Désistements"
         ],
         "summary": "Supprime un désistement non validé",
-        "operationId": "supprimer_10",
+        "operationId": "supprimer_11",
         "parameters": [
           {
             "name": "id",
@@ -14722,7 +15377,7 @@
         ],
         "summary": "Modifie un désistement (brouillon : tout ; validé : paiement, dates, motif, observations)",
         "description": "Brouillon : tous les champs. Saisir `penaliteApresRemise` (≥ 0) la conserve au centime et recalcule la remise (1 − pénalité / (taux × base)) ; saisir `remise` (fraction entre 0 et 1) recalcule la pénalité ; les montants du dossier sont relus, et une pénalité saisie est gardée tant que la base (prix, réglé, taux) ne change pas. Validé non légalisé : seuls observations, motif, dates, type de pièce, référence, banque et contact changent — `remise` ou `penaliteApresRemise` donnent 409, les pièces étant déjà générées. Légalisé : 409.",
-        "operationId": "modifier_12",
+        "operationId": "modifier_13",
         "parameters": [
           {
             "name": "id",
@@ -14809,7 +15464,7 @@
         ],
         "summary": "Supprime un article, ses sous-articles rattachés et leurs lignes",
         "description": "409 si l'article ou l'un de ses sous-articles rattachés est affecté à un dossier (vente, location, syndic), ou\nencore cité par une prospection, un dossier, une offre, un historique de statut ou un terrain de tranche (le\ndétail les compte) ; une autre clé étrangère de la base → 409 nommant la contrainte. Sinon, dans une transaction :\nles sous-articles rattachés, les vues, contenances, tracés de plan, pièces jointes et notes de chacun, puis\nl'article ; une ligne d'audit `Deleted` par objet. Un sous-article supprimé seul fait recalculer le prix de vente\nde son article ; s'il lui est affecté par défaut → 409 « Vous ne pouvez pas supprimer un sous article affecté par\ndéfaut à l'article en cours ! ».",
-        "operationId": "supprimer_11",
+        "operationId": "supprimer_12",
         "parameters": [
           {
             "name": "id",
@@ -14843,7 +15498,7 @@
         ],
         "summary": "Modifie un article ou un sous-article (champ absent ou null = inchangé)",
         "description": "Champ absent ou `null` = inchangé ; `champsAVider` vide un champ de la fiche (dates, références, nombres, cases,\ntextes). La tranche ne se modifie pas (400) ; un terrain (nature TER) non plus : 400 « Les terrains se modifient\ndepuis la fiche terrain ». Sous-article : `trancheId` dans le corps → 400 ; `vocationId` → 400 pour un sous-article\nrattaché (celle de son article), permis pour un libre. `toujoursAffecte` : vrai sans article parent → 400. Route de\nla fiche parent pour modifier un sous-article rattaché (`PATCH /api/sous-articles/{id}` le refuse). Si l'article est\n**occupé** (dossier de vente ou de location, le sien ou celui de son article) : code, classification, prix,\nsurfaces, TVA, remises et titre foncier (`titreFoncier`) ne se modifient plus → 409 nommant le dossier ; le reste\nde la fiche reste modifiable. Un changement de prix, de surface ou de TVA recalcule l'article et, pour un\nsous-article rattaché, le prix de vente de son article. Un changement de `presentationId` remplace les contenances\nde l'article par celles du type ; `vueIds` remplace l'ensemble des vues.",
-        "operationId": "modifier_13",
+        "operationId": "modifier_14",
         "parameters": [
           {
             "name": "id",
@@ -15079,7 +15734,7 @@
           {
             "name": "porteur",
             "in": "path",
-            "description": "Genre du porteur : articles, tranches ou projets.",
+            "description": "Genre du porteur : articles, tranches, projets ou prospections-terrain.",
             "required": true,
             "schema": {
               "type": "string"
@@ -15088,7 +15743,7 @@
           {
             "name": "id",
             "in": "path",
-            "description": "PKey du porteur (StkItem, CfgTranche ou CfgProject).",
+            "description": "PKey du porteur (StkItem, CfgTranche, CfgProject ou LndLand).",
             "required": true,
             "schema": {
               "type": "string",
@@ -15700,7 +16355,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_15",
+        "operationId": "lister_16",
         "parameters": [
           {
             "name": "du",
@@ -16384,7 +17039,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_16",
+        "operationId": "lister_17",
         "parameters": [
           {
             "name": "entiteId",
@@ -19603,7 +20258,7 @@
           "Rapports"
         ],
         "summary": "Rapports du module visibles par l'appelant, groupés",
-        "operationId": "lister_17",
+        "operationId": "lister_18",
         "parameters": [
           {
             "name": "module",
@@ -20901,6 +21556,86 @@
         }
       }
     },
+    "/api/prospections-terrain/{id}/transitions": {
+      "get": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Transitions sortantes du statut courant",
+        "description": "Toutes les transitions sortantes du statut courant (`StrWorkFlow.StatusFromId`), sans filtre de rôle.",
+        "operationId": "transitions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la prospection terrain (LndLand.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transitions, par ordre (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionProspectionTerrainDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prospection terrain inconnue."
+          }
+        }
+      }
+    },
+    "/api/prospections-terrain/{id}/historique": {
+      "get": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Historique des statuts (StrHistory)",
+        "description": "Lignes `StrHistory` de la prospection : « Création » puis une ligne par transition.",
+        "operationId": "historique_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la prospection terrain (LndLand.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes, la plus ancienne d'abord.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoriqueStatutProspectionDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prospection terrain inconnue."
+          }
+        }
+      }
+    },
     "/api/projets/{id}/tranches": {
       "get": {
         "tags": [
@@ -21670,7 +22405,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_18",
+        "operationId": "lister_19",
         "parameters": [
           {
             "name": "page",
@@ -22138,7 +22873,7 @@
         ],
         "summary": "Lots de terrain : terrains d'une tranche, vocation autre que PROJET",
         "description": "Lots des tranches visibles (société du programme active). Mêmes filtres que `GET /api/terrains`.",
-        "operationId": "lister_19",
+        "operationId": "lister_20",
         "parameters": [
           {
             "name": "search",
@@ -22931,7 +23666,7 @@
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
         "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : prix du catalogue `StkItem` (formules de la branche libre de la vue OMRAN `ComSaleMonitoringView`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; les colonnes sans chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId` et les montants du dossier : `montantRegle`, `avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) ne sont ni triables ni groupables (400).\n\nMontants du dossier : même calcul que `GET /api/dossiers` (une seule formule) ; null sur une ligne libre. En demander un coûte deux requêtes par page, un prix au m² une de plus ; aucune si aucun n'est demandé. Un dossier qui retient deux articles racines apparaît sur deux lignes avec les mêmes montants, comme OMRAN.",
-        "operationId": "lister_20",
+        "operationId": "lister_21",
         "parameters": [
           {
             "name": "trancheId",
@@ -25704,7 +26439,7 @@
           "Dossiers — réinitialisation"
         ],
         "summary": "Aperçu de la réinitialisation depuis le stock (avant / après), sans rien écrire",
-        "operationId": "apercu_1",
+        "operationId": "apercu_2",
         "parameters": [
           {
             "name": "id",
@@ -27692,7 +28427,7 @@
         ],
         "summary": "Liste paginée des désistements, au périmètre, avec les totaux du filtre",
         "description": "Mêmes règles de visibilité que `GET /api/dossiers` : un désistement n'est listé que si son dossier est visible pour l'appelant (projets affectés, entité juridique active). Montants : ceux enregistrés sur le désistement (recalculés à chaque modification du brouillon, figés à la validation). Tri fixe : date de demande décroissante ; seuls `page` et `size` de la pagination sont lus. `totaux` porte sur tout le filtre.",
-        "operationId": "lister_21",
+        "operationId": "lister_22",
         "parameters": [
           {
             "name": "q",
@@ -28373,7 +29108,7 @@
           "Audit"
         ],
         "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
-        "operationId": "lister_22",
+        "operationId": "lister_23",
         "parameters": [
           {
             "name": "objetId",
@@ -28430,7 +29165,7 @@
             }
           },
           "404": {
-            "description": "Ni entité juridique, ni programme, tranche ou article visible.",
+            "description": "Ni entité juridique, ni programme, tranche, article visible, ni prospection terrain.",
             "content": {
               "*/*": {
                 "schema": {
@@ -28549,7 +29284,7 @@
         ],
         "summary": "Historique des statuts des dossiers de l'article",
         "description": "Lignes `StrFolderStatusHistory` dont `StkItemId` est l'article, plus celles d'un **transfert produit légalisé**\n(`ComSaleWithdrawalProduct.IsLegalized = 1`) dont l'article est l'ancien ou le nouveau. Tri par date décroissante (OMRAN\ntrie par date croissante ; le CRM garde l'ordre de l'historique du tiers). Une ligne d'un dossier de vente hors\npérimètre commercial est masquée ; une ligne sans dossier de vente (location, syndic) l'est si l'article est hors\npérimètre, comme dans l'onglet Dossiers. Origine : `ComFolderId` → VENTE, sinon `RntFolderId` → LOCATION, sinon `SynFolderId` →\nSYNDIC. Auteur : le compte de la ligne, sinon la ligne `StrHistory` jumelle du dossier de vente, sinon « Système ».",
-        "operationId": "historique_1",
+        "operationId": "historique_2",
         "parameters": [
           {
             "name": "id",
@@ -28687,7 +29422,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_23",
+        "operationId": "lister_24",
         "parameters": [
           {
             "name": "portee",
@@ -28789,12 +29524,12 @@
         ],
         "summary": "Supprime (logiquement) une pièce jointe d'un article, d'une tranche ou d'un programme",
         "description": "Suppression **logique** (`AppFileObject.DeletedAt`), sans restauration ; la ligne `AdmAttachedFile` reste (date et\nauteur de modification posés) et une ligne d'audit `Deleted` est écrite. Pièce d'un autre porteur → 404.",
-        "operationId": "supprimer_12",
+        "operationId": "supprimer_13",
         "parameters": [
           {
             "name": "porteur",
             "in": "path",
-            "description": "Genre du porteur : articles, tranches ou projets.",
+            "description": "Genre du porteur : articles, tranches, projets ou prospections-terrain.",
             "required": true,
             "schema": {
               "type": "string"
@@ -28803,7 +29538,7 @@
           {
             "name": "id",
             "in": "path",
-            "description": "PKey du porteur (StkItem, CfgTranche ou CfgProject).",
+            "description": "PKey du porteur (StkItem, CfgTranche, CfgProject ou LndLand).",
             "required": true,
             "schema": {
               "type": "string",
@@ -29038,7 +29773,7 @@
           "Notes"
         ],
         "summary": "Supprime une note d'un objet du patrimoine",
-        "operationId": "supprimer_13",
+        "operationId": "supprimer_14",
         "parameters": [
           {
             "name": "id",
@@ -29237,7 +29972,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Supprime une ligne de modalité de paiement",
-        "operationId": "supprimer_14",
+        "operationId": "supprimer_15",
         "parameters": [
           {
             "name": "id",
@@ -29908,6 +30643,164 @@
         "required": [
           "objectifPersonnesJointesJour"
         ]
+      },
+      "ZoneTerrainEcritureDto": {
+        "type": "object",
+        "description": "Ligne de zone d'un terrain brut (LndLandZone) ; surfaces : mêmes noms que SurfacesTerrain, sans voies.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "LndLandZone.PKey ; absent = nouvelle zone, id d'une autre prospection → 400."
+          },
+          "identification": {
+            "type": "string",
+            "description": "Obligatoire (Identification)."
+          },
+          "superficie": {
+            "type": "number",
+            "description": "Area (m²)."
+          },
+          "cos": {
+            "type": "number"
+          },
+          "superficieCos": {
+            "type": "number",
+            "description": "Emprise = COS × superficie."
+          },
+          "cuf": {
+            "type": "number"
+          },
+          "superficieCuf": {
+            "type": "number",
+            "description": "Plancher couvert = superficie × CUF ; donné seul → CUF = plancher / (superficie × COS)."
+          },
+          "coefVendable": {
+            "type": "number"
+          },
+          "superficieVendable": {
+            "type": "number"
+          },
+          "coefCommerce": {
+            "type": "number"
+          },
+          "superficieCommerce": {
+            "type": "number"
+          },
+          "coefBureau": {
+            "type": "number"
+          },
+          "superficieBureau": {
+            "type": "number"
+          },
+          "coefParking": {
+            "type": "number"
+          },
+          "superficieParking": {
+            "type": "number"
+          },
+          "arreteAlignement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "AlinmentStop."
+          },
+          "hauteurMax": {
+            "type": "integer",
+            "format": "int32",
+            "description": "MaxHeight."
+          },
+          "notes": {
+            "type": "string",
+            "description": "1000 caractères au plus."
+          }
+        }
+      },
+      "ZonesTerrainEcritureDto": {
+        "type": "object",
+        "description": "Grille complète des zones : id connu = mise à jour, sans id = création, absente = suppression.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ZoneTerrainEcritureDto"
+            }
+          }
+        }
+      },
+      "ZoneTerrainDto": {
+        "type": "object",
+        "description": "Zone enregistrée, valeurs recalculées par le serveur.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "LndLandZone.PKey ; absent = nouvelle zone, id d'une autre prospection → 400."
+          },
+          "identification": {
+            "type": "string",
+            "description": "Obligatoire (Identification)."
+          },
+          "superficie": {
+            "type": "number",
+            "description": "Area (m²)."
+          },
+          "cos": {
+            "type": "number"
+          },
+          "superficieCos": {
+            "type": "number",
+            "description": "Emprise = COS × superficie."
+          },
+          "cuf": {
+            "type": "number"
+          },
+          "superficieCuf": {
+            "type": "number",
+            "description": "Plancher couvert = superficie × CUF ; donné seul → CUF = plancher / (superficie × COS)."
+          },
+          "coefVendable": {
+            "type": "number"
+          },
+          "superficieVendable": {
+            "type": "number"
+          },
+          "coefCommerce": {
+            "type": "number"
+          },
+          "superficieCommerce": {
+            "type": "number"
+          },
+          "coefBureau": {
+            "type": "number"
+          },
+          "superficieBureau": {
+            "type": "number"
+          },
+          "coefParking": {
+            "type": "number"
+          },
+          "superficieParking": {
+            "type": "number"
+          },
+          "arreteAlignement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "AlinmentStop."
+          },
+          "hauteurMax": {
+            "type": "integer",
+            "format": "int32",
+            "description": "MaxHeight."
+          },
+          "notes": {
+            "type": "string",
+            "description": "1000 caractères au plus."
+          },
+          "superficieHabitat": {
+            "type": "number",
+            "description": "Lecture seule : vendable − bureau − commerce (HabitatArea)."
+          }
+        }
       },
       "MiseEnPageDto": {
         "type": "object",
@@ -32303,6 +33196,100 @@
           }
         }
       },
+      "SurfacesTerrain": {
+        "type": "object",
+        "description": "Surfaces et prix d'une prospection terrain, recalculés par le serveur (CalculSurfacesTerrain).",
+        "properties": {
+          "superficie": {
+            "type": "number",
+            "description": "Superficie (Area, m²), > 0."
+          },
+          "superficieEquipements": {
+            "type": "number",
+            "description": "Voies d'aménagement (EquipementsArea, m²)."
+          },
+          "superficieEquipementACeder": {
+            "type": "number",
+            "description": "Superficie équipement à céder (AreaEquipmentTransferred)."
+          },
+          "superficieARegler": {
+            "type": "number",
+            "description": "Superficie à régulariser (AreaRegularized)."
+          },
+          "superficieACeder": {
+            "type": "number",
+            "description": "Superficie cédée (AreaCeded)."
+          },
+          "coefEquipements": {
+            "type": "number",
+            "description": "Lecture seule : voies / superficie nette (EquipementsCoef)."
+          },
+          "superficieNette": {
+            "type": "number",
+            "description": "Lecture seule : superficie − les quatre surfaces ci-dessus (AreaNet)."
+          },
+          "cos": {
+            "type": "number",
+            "description": "COS (Cos)."
+          },
+          "superficieCos": {
+            "type": "number",
+            "description": "Emprise (AreaCos) : COS × nette (MA) ou × superficie."
+          },
+          "cuf": {
+            "type": "number",
+            "description": "CUF (Cuf)."
+          },
+          "superficieCuf": {
+            "type": "number",
+            "description": "Plancher couvert (AreaCuf) : nette × CUF (MA) ou superficie × COS × CUF."
+          },
+          "coefVendable": {
+            "type": "number",
+            "description": "Coefficient vendable (CoefSaleableArea)."
+          },
+          "superficieVendable": {
+            "type": "number",
+            "description": "Plancher vendable (SalableArea) = coefVendable × plancher couvert."
+          },
+          "coefCommerce": {
+            "type": "number",
+            "description": "Coefficient commerce (CommerceCoef)."
+          },
+          "superficieCommerce": {
+            "type": "number",
+            "description": "Surface commerce (CommerceArea) = coef × superficie."
+          },
+          "coefBureau": {
+            "type": "number",
+            "description": "Coefficient bureau (OfficeCoef)."
+          },
+          "superficieBureau": {
+            "type": "number",
+            "description": "Surface bureau (OfficeArea) = coef × superficie."
+          },
+          "superficieHabitat": {
+            "type": "number",
+            "description": "Lecture seule : vendable − bureau − commerce (HabitatArea)."
+          },
+          "coefParking": {
+            "type": "number",
+            "description": "Coefficient parking sous-sol (UndergroundParkingCoef)."
+          },
+          "superficieParking": {
+            "type": "number",
+            "description": "Parking sous-sol (UndergroundParkingArea) = coef × superficie."
+          },
+          "prixM2": {
+            "type": "number",
+            "description": "Prix du m² du propriétaire (ProspectionUnitCost)."
+          },
+          "prix": {
+            "type": "number",
+            "description": "Prix total du propriétaire (ProspectionPrice) = prix du m² × superficie."
+          }
+        }
+      },
       "TerrainDetailDto": {
         "type": "object",
         "description": "Fiche terrain (StkItem de nature Terrain). Références : {id, code, description}, null si absentes.",
@@ -32508,6 +33495,14 @@
           "userUpdateDateTime": {
             "type": "string",
             "format": "date-time"
+          },
+          "superficiesFoncieres": {
+            "$ref": "#/components/schemas/SurfacesTerrain",
+            "description": "Onglet Superficies, lecture seule : données foncières copiées de la prospection d'origine."
+          },
+          "prixPropose": {
+            "type": "number",
+            "description": "ProspectionPriceProposed : prix proposé de la prospection d'origine."
           }
         }
       },
@@ -35239,6 +36234,908 @@
           }
         }
       },
+      "ProspectionTerrainEcritureDto": {
+        "type": "object",
+        "description": "Création ou modification d'une prospection terrain (PATCH : absent ou null = inchangé). Surfaces et prix : mêmes noms et sens que SurfacesTerrain. Le statut ne se saisit jamais (transitions).",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Unique parmi les prospections terrain (409). Obligatoire."
+          },
+          "description": {
+            "type": "string",
+            "description": "Obligatoire."
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "DocDate, défaut aujourd'hui."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de nature PROS TER. Obligatoire."
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de nature TER. Obligatoire."
+          },
+          "niveauId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "LndLevel."
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "LndVocation."
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Défaut AdmParamsGuid.DefaultCountry."
+          },
+          "villeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Ville du pays choisi. Obligatoire."
+          },
+          "courtierId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers courtier (CfgMiddlemanId)."
+          },
+          "notaireId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers notaire (CfgLawyerId)."
+          },
+          "orientationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StkOrientation."
+          },
+          "lienGoogle": {
+            "type": "string",
+            "description": "Vide, ou commence par https://www.google."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "255 caractères au plus."
+          },
+          "proprietaires": {
+            "type": "string",
+            "description": "Propriétaires, 255 caractères au plus."
+          },
+          "notes": {
+            "type": "string",
+            "description": "1000 caractères au plus."
+          },
+          "anomalies": {
+            "type": "string",
+            "description": "1000 caractères au plus."
+          },
+          "estAmenage": {
+            "type": "boolean",
+            "description": "Aménagé (vrai, défaut) ou Brut (faux)."
+          },
+          "estArchivee": {
+            "type": "boolean",
+            "description": "Archivée ; explicite, l'emporte sur l'archivage automatique."
+          },
+          "dateValiditeStatut": {
+            "type": "string",
+            "format": "date",
+            "description": "Date validité de statut, libre."
+          },
+          "superficie": {
+            "type": "number",
+            "description": "> 0, défaut 1."
+          },
+          "superficieEquipements": {
+            "type": "number"
+          },
+          "superficieEquipementACeder": {
+            "type": "number"
+          },
+          "superficieARegler": {
+            "type": "number"
+          },
+          "superficieACeder": {
+            "type": "number"
+          },
+          "cos": {
+            "type": "number"
+          },
+          "superficieCos": {
+            "type": "number"
+          },
+          "cuf": {
+            "type": "number"
+          },
+          "superficieCuf": {
+            "type": "number"
+          },
+          "coefVendable": {
+            "type": "number"
+          },
+          "superficieVendable": {
+            "type": "number"
+          },
+          "coefCommerce": {
+            "type": "number"
+          },
+          "superficieCommerce": {
+            "type": "number"
+          },
+          "coefBureau": {
+            "type": "number"
+          },
+          "superficieBureau": {
+            "type": "number"
+          },
+          "coefParking": {
+            "type": "number"
+          },
+          "superficieParking": {
+            "type": "number"
+          },
+          "arreteAlignement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Arrêté d'alignement (AlinmentStop)."
+          },
+          "hauteurMax": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Hauteur maximale (MaxHeight)."
+          },
+          "prixM2": {
+            "type": "number"
+          },
+          "prix": {
+            "type": "number"
+          },
+          "prixPropose": {
+            "type": "number",
+            "description": "Prix proposé (ProspectionPriceProposed), saisie libre."
+          },
+          "dateEnregistrement": {
+            "type": "string",
+            "format": "date"
+          },
+          "numeroEnregistrement": {
+            "type": "string",
+            "description": "255 caractères au plus."
+          },
+          "lieuEnregistrement": {
+            "type": "string",
+            "description": "255 caractères au plus."
+          },
+          "cpfImmatriculation": {
+            "type": "string",
+            "description": "255 caractères au plus."
+          },
+          "dateImmatriculation": {
+            "type": "string",
+            "format": "date"
+          },
+          "identificationZone": {
+            "type": "string",
+            "description": "Identification de la zone (brut), 1000 caractères au plus."
+          },
+          "conditionsRaccordement": {
+            "type": "string",
+            "description": "Conditions de raccordement (brut), 1000 caractères au plus."
+          },
+          "assietteFonciere": {
+            "type": "string",
+            "description": "Assiette foncière (brut), 1000 caractères au plus."
+          },
+          "leveeTopographique": {
+            "type": "boolean",
+            "description": "Levée topographique (brut)."
+          },
+          "champsAVider": {
+            "type": "array",
+            "description": "PATCH : champs facultatifs à vider (référence ou date → NULL, texte → \"\").",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ProspectionTerrainDetailDto": {
+        "type": "object",
+        "description": "Fiche d'une prospection terrain : les champs de la liste, plus les ids saisissables et les zones.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "LndLand.PKey."
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "DocDate."
+          },
+          "categorie": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Catégorie (nature PROS TER)."
+          },
+          "type": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Type (nature TER)."
+          },
+          "niveau": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Niveau (LndLevel)."
+          },
+          "vocation": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Vocation foncière (LndVocation)."
+          },
+          "pays": {
+            "$ref": "#/components/schemas/ReferentielItemDto"
+          },
+          "ville": {
+            "$ref": "#/components/schemas/ReferentielItemDto"
+          },
+          "statut": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Statut (StrStatus de l'entité LndLand), changé par les transitions seules."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "StrStatus.ColorName, ARGB hexadécimal (ex. ffff8000)."
+          },
+          "statutType": {
+            "type": "string",
+            "description": "Code du type de statut (StrStatusType : Nouveau, Annulation…)."
+          },
+          "dateValiditeStatut": {
+            "type": "string",
+            "format": "date",
+            "description": "StatusValidityDate."
+          },
+          "courtier": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Courtier (CfgMiddlemanId)."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Adress."
+          },
+          "proprietaires": {
+            "type": "string",
+            "description": "Owner : propriétaires (texte)."
+          },
+          "notes": {
+            "type": "string"
+          },
+          "anomalies": {
+            "type": "string"
+          },
+          "estArchivee": {
+            "type": "boolean",
+            "description": "IsInArchive."
+          },
+          "estTransformee": {
+            "type": "boolean",
+            "description": "IsTransformedToLand."
+          },
+          "estAmenage": {
+            "type": "boolean",
+            "description": "IsFinished : vrai = Aménagé, faux = Brut (zones)."
+          },
+          "superficie": {
+            "type": "number",
+            "description": "Superficie (Area, m²), > 0."
+          },
+          "superficieEquipements": {
+            "type": "number",
+            "description": "Voies d'aménagement (EquipementsArea, m²)."
+          },
+          "superficieEquipementACeder": {
+            "type": "number",
+            "description": "Superficie équipement à céder (AreaEquipmentTransferred)."
+          },
+          "superficieARegler": {
+            "type": "number",
+            "description": "Superficie à régulariser (AreaRegularized)."
+          },
+          "superficieACeder": {
+            "type": "number",
+            "description": "Superficie cédée (AreaCeded)."
+          },
+          "coefEquipements": {
+            "type": "number",
+            "description": "Lecture seule : voies / superficie nette (EquipementsCoef)."
+          },
+          "superficieNette": {
+            "type": "number",
+            "description": "Lecture seule : superficie − les quatre surfaces ci-dessus (AreaNet)."
+          },
+          "cos": {
+            "type": "number",
+            "description": "COS (Cos)."
+          },
+          "superficieCos": {
+            "type": "number",
+            "description": "Emprise (AreaCos) : COS × nette (MA) ou × superficie."
+          },
+          "cuf": {
+            "type": "number",
+            "description": "CUF (Cuf)."
+          },
+          "superficieCuf": {
+            "type": "number",
+            "description": "Plancher couvert (AreaCuf) : nette × CUF (MA) ou superficie × COS × CUF."
+          },
+          "coefVendable": {
+            "type": "number",
+            "description": "Coefficient vendable (CoefSaleableArea)."
+          },
+          "superficieVendable": {
+            "type": "number",
+            "description": "Plancher vendable (SalableArea) = coefVendable × plancher couvert."
+          },
+          "coefCommerce": {
+            "type": "number",
+            "description": "Coefficient commerce (CommerceCoef)."
+          },
+          "superficieCommerce": {
+            "type": "number",
+            "description": "Surface commerce (CommerceArea) = coef × superficie."
+          },
+          "coefBureau": {
+            "type": "number",
+            "description": "Coefficient bureau (OfficeCoef)."
+          },
+          "superficieBureau": {
+            "type": "number",
+            "description": "Surface bureau (OfficeArea) = coef × superficie."
+          },
+          "superficieHabitat": {
+            "type": "number",
+            "description": "Lecture seule : vendable − bureau − commerce (HabitatArea)."
+          },
+          "coefParking": {
+            "type": "number",
+            "description": "Coefficient parking sous-sol (UndergroundParkingCoef)."
+          },
+          "superficieParking": {
+            "type": "number",
+            "description": "Parking sous-sol (UndergroundParkingArea) = coef × superficie."
+          },
+          "prixM2": {
+            "type": "number",
+            "description": "Prix du m² du propriétaire (ProspectionUnitCost)."
+          },
+          "prix": {
+            "type": "number",
+            "description": "Prix total du propriétaire (ProspectionPrice) = prix du m² × superficie."
+          },
+          "arreteAlignement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "AlinmentStop : arrêté d'alignement."
+          },
+          "hauteurMax": {
+            "type": "integer",
+            "format": "int32",
+            "description": "MaxHeight."
+          },
+          "prixPropose": {
+            "type": "number",
+            "description": "ProspectionPriceProposed : prix proposé."
+          },
+          "dateEnregistrement": {
+            "type": "string",
+            "format": "date",
+            "description": "RegistryDate."
+          },
+          "numeroEnregistrement": {
+            "type": "string",
+            "description": "RegistryNumber."
+          },
+          "lieuEnregistrement": {
+            "type": "string",
+            "description": "RegistryPlace."
+          },
+          "cpfImmatriculation": {
+            "type": "string",
+            "description": "ImmatriculationCPF."
+          },
+          "dateImmatriculation": {
+            "type": "string",
+            "format": "date",
+            "description": "ImmatriculationDate."
+          },
+          "nbEtudesFaisabilite": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre d'études de faisabilité liées (StkFeasibilityStudy.LndLandId)."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "UserCreate."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UserCreateDateTime."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "UserUpdate."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UserUpdateDateTime."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "typeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "niveauId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "paysId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "villeId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "courtierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notaireId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notaire": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Notaire (CfgLawyerId)."
+          },
+          "orientationId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "orientation": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Orientation (StkOrientation)."
+          },
+          "lienGoogle": {
+            "type": "string",
+            "description": "GmapLink ; commence par https://www.google s'il est saisi."
+          },
+          "identificationZone": {
+            "type": "string",
+            "description": "ZoneIdentification (terrain brut)."
+          },
+          "conditionsRaccordement": {
+            "type": "string",
+            "description": "DealerConnectionConditions (terrain brut)."
+          },
+          "assietteFonciere": {
+            "type": "string",
+            "description": "LandBase (terrain brut)."
+          },
+          "leveeTopographique": {
+            "type": "boolean",
+            "description": "IsTopographicSurvey (terrain brut)."
+          },
+          "zones": {
+            "type": "array",
+            "description": "Zones du terrain brut (LndLandZone).",
+            "items": {
+              "$ref": "#/components/schemas/ZoneTerrainDto"
+            }
+          },
+          "terrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Terrain (StkItem) issu de cette prospection, sinon null."
+          },
+          "terrainCode": {
+            "type": "string",
+            "description": "Code de ce terrain, sinon null."
+          },
+          "peutTransformer": {
+            "type": "boolean",
+            "description": "Vrai si « Transformer en terrain » est possible pour l'appelant."
+          },
+          "motifNonTransformable": {
+            "type": "string",
+            "description": "Motif du refus quand peutTransformer est faux, sinon null."
+          }
+        }
+      },
+      "ProspectionTerrainListeDto": {
+        "type": "object",
+        "description": "Ligne de la liste des prospections terrain (LndLand). Références : {id, code, description}, null si absentes.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "LndLand.PKey."
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "DocDate."
+          },
+          "categorie": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Catégorie (nature PROS TER)."
+          },
+          "type": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Type (nature TER)."
+          },
+          "niveau": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Niveau (LndLevel)."
+          },
+          "vocation": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Vocation foncière (LndVocation)."
+          },
+          "pays": {
+            "$ref": "#/components/schemas/ReferentielItemDto"
+          },
+          "ville": {
+            "$ref": "#/components/schemas/ReferentielItemDto"
+          },
+          "statut": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Statut (StrStatus de l'entité LndLand), changé par les transitions seules."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "StrStatus.ColorName, ARGB hexadécimal (ex. ffff8000)."
+          },
+          "statutType": {
+            "type": "string",
+            "description": "Code du type de statut (StrStatusType : Nouveau, Annulation…)."
+          },
+          "dateValiditeStatut": {
+            "type": "string",
+            "format": "date",
+            "description": "StatusValidityDate."
+          },
+          "courtier": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Courtier (CfgMiddlemanId)."
+          },
+          "adresse": {
+            "type": "string",
+            "description": "Adress."
+          },
+          "proprietaires": {
+            "type": "string",
+            "description": "Owner : propriétaires (texte)."
+          },
+          "notes": {
+            "type": "string"
+          },
+          "anomalies": {
+            "type": "string"
+          },
+          "estArchivee": {
+            "type": "boolean",
+            "description": "IsInArchive."
+          },
+          "estTransformee": {
+            "type": "boolean",
+            "description": "IsTransformedToLand."
+          },
+          "estAmenage": {
+            "type": "boolean",
+            "description": "IsFinished : vrai = Aménagé, faux = Brut (zones)."
+          },
+          "superficie": {
+            "type": "number",
+            "description": "Superficie (Area, m²), > 0."
+          },
+          "superficieEquipements": {
+            "type": "number",
+            "description": "Voies d'aménagement (EquipementsArea, m²)."
+          },
+          "superficieEquipementACeder": {
+            "type": "number",
+            "description": "Superficie équipement à céder (AreaEquipmentTransferred)."
+          },
+          "superficieARegler": {
+            "type": "number",
+            "description": "Superficie à régulariser (AreaRegularized)."
+          },
+          "superficieACeder": {
+            "type": "number",
+            "description": "Superficie cédée (AreaCeded)."
+          },
+          "coefEquipements": {
+            "type": "number",
+            "description": "Lecture seule : voies / superficie nette (EquipementsCoef)."
+          },
+          "superficieNette": {
+            "type": "number",
+            "description": "Lecture seule : superficie − les quatre surfaces ci-dessus (AreaNet)."
+          },
+          "cos": {
+            "type": "number",
+            "description": "COS (Cos)."
+          },
+          "superficieCos": {
+            "type": "number",
+            "description": "Emprise (AreaCos) : COS × nette (MA) ou × superficie."
+          },
+          "cuf": {
+            "type": "number",
+            "description": "CUF (Cuf)."
+          },
+          "superficieCuf": {
+            "type": "number",
+            "description": "Plancher couvert (AreaCuf) : nette × CUF (MA) ou superficie × COS × CUF."
+          },
+          "coefVendable": {
+            "type": "number",
+            "description": "Coefficient vendable (CoefSaleableArea)."
+          },
+          "superficieVendable": {
+            "type": "number",
+            "description": "Plancher vendable (SalableArea) = coefVendable × plancher couvert."
+          },
+          "coefCommerce": {
+            "type": "number",
+            "description": "Coefficient commerce (CommerceCoef)."
+          },
+          "superficieCommerce": {
+            "type": "number",
+            "description": "Surface commerce (CommerceArea) = coef × superficie."
+          },
+          "coefBureau": {
+            "type": "number",
+            "description": "Coefficient bureau (OfficeCoef)."
+          },
+          "superficieBureau": {
+            "type": "number",
+            "description": "Surface bureau (OfficeArea) = coef × superficie."
+          },
+          "superficieHabitat": {
+            "type": "number",
+            "description": "Lecture seule : vendable − bureau − commerce (HabitatArea)."
+          },
+          "coefParking": {
+            "type": "number",
+            "description": "Coefficient parking sous-sol (UndergroundParkingCoef)."
+          },
+          "superficieParking": {
+            "type": "number",
+            "description": "Parking sous-sol (UndergroundParkingArea) = coef × superficie."
+          },
+          "prixM2": {
+            "type": "number",
+            "description": "Prix du m² du propriétaire (ProspectionUnitCost)."
+          },
+          "prix": {
+            "type": "number",
+            "description": "Prix total du propriétaire (ProspectionPrice) = prix du m² × superficie."
+          },
+          "arreteAlignement": {
+            "type": "integer",
+            "format": "int32",
+            "description": "AlinmentStop : arrêté d'alignement."
+          },
+          "hauteurMax": {
+            "type": "integer",
+            "format": "int32",
+            "description": "MaxHeight."
+          },
+          "prixPropose": {
+            "type": "number",
+            "description": "ProspectionPriceProposed : prix proposé."
+          },
+          "dateEnregistrement": {
+            "type": "string",
+            "format": "date",
+            "description": "RegistryDate."
+          },
+          "numeroEnregistrement": {
+            "type": "string",
+            "description": "RegistryNumber."
+          },
+          "lieuEnregistrement": {
+            "type": "string",
+            "description": "RegistryPlace."
+          },
+          "cpfImmatriculation": {
+            "type": "string",
+            "description": "ImmatriculationCPF."
+          },
+          "dateImmatriculation": {
+            "type": "string",
+            "format": "date",
+            "description": "ImmatriculationDate."
+          },
+          "nbEtudesFaisabilite": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Nombre d'études de faisabilité liées (StkFeasibilityStudy.LndLandId)."
+          },
+          "creePar": {
+            "type": "string",
+            "description": "UserCreate."
+          },
+          "creeLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UserCreateDateTime."
+          },
+          "modifiePar": {
+            "type": "string",
+            "description": "UserUpdate."
+          },
+          "modifieLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UserUpdateDateTime."
+          }
+        }
+      },
+      "ExecutionTransitionDto": {
+        "type": "object",
+        "description": "Exécution d'une transition de prospection terrain.",
+        "properties": {
+          "transitionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Transition (id d'une TransitionProspectionTerrainDto). Obligatoire."
+          },
+          "commentaire": {
+            "type": "string",
+            "description": "Commentaire (StrHistory.Notes), obligatoire si la transition l'exige."
+          },
+          "dateUtilisateur": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date utilisateur (ISO), lue si la transition l'accepte ; défaut maintenant."
+          }
+        }
+      },
+      "TransformationTerrainDto": {
+        "type": "object",
+        "description": "Champs du terrain que la prospection ne porte pas (dialogue « Transformer en terrain »).",
+        "properties": {
+          "entiteId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société du terrain (CfgCompany active). Obligatoire."
+          },
+          "vocationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Vocation du terrain (StkVocation). Obligatoire."
+          },
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de nature Terrain. Obligatoire."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du terrain, défaut = code de la prospection ; unique dans la société (409)."
+          }
+        }
+      },
+      "TerrainCreeDto": {
+        "type": "object",
+        "description": "Terrain créé par la transformation (fiche : GET /api/terrains/{terrainId}).",
+        "properties": {
+          "terrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StkItem.PKey."
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "ApercuCalculDto": {
+        "type": "object",
+        "description": "Saisie du bloc surfaces à recalculer sans écrire ; mêmes noms et sens que SurfacesTerrain.",
+        "properties": {
+          "champModifie": {
+            "type": "string",
+            "description": "Nom du champ qui vient de changer : ce côté de sa paire gagne (ex. superficieCos)."
+          },
+          "superficie": {
+            "type": "number"
+          },
+          "superficieEquipements": {
+            "type": "number"
+          },
+          "superficieEquipementACeder": {
+            "type": "number"
+          },
+          "superficieARegler": {
+            "type": "number"
+          },
+          "superficieACeder": {
+            "type": "number"
+          },
+          "cos": {
+            "type": "number"
+          },
+          "superficieCos": {
+            "type": "number"
+          },
+          "cuf": {
+            "type": "number"
+          },
+          "superficieCuf": {
+            "type": "number"
+          },
+          "coefVendable": {
+            "type": "number"
+          },
+          "superficieVendable": {
+            "type": "number"
+          },
+          "coefCommerce": {
+            "type": "number"
+          },
+          "superficieCommerce": {
+            "type": "number"
+          },
+          "coefBureau": {
+            "type": "number"
+          },
+          "superficieBureau": {
+            "type": "number"
+          },
+          "coefParking": {
+            "type": "number"
+          },
+          "superficieParking": {
+            "type": "number"
+          },
+          "prixM2": {
+            "type": "number"
+          },
+          "prix": {
+            "type": "number"
+          }
+        }
+      },
       "ProjetEcritureDto": {
         "type": "object",
         "description": "Création ou modification d'un programme (CfgProject). En PATCH, champ absent ou null = inchangé, \"\" = vidé.",
@@ -35882,13 +37779,14 @@
             "enum": [
               "projet",
               "tranche",
-              "article"
+              "article",
+              "prospection-terrain"
             ]
           },
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "PKey du programme, de la tranche ou de l'article."
+            "description": "PKey du programme, de la tranche, de l'article ou de la prospection terrain."
           },
           "texte": {
             "type": "string",
@@ -35908,7 +37806,7 @@
       },
       "NoteDto": {
         "type": "object",
-        "description": "Note d'un programme, d'une tranche ou d'un article (AdmMessage).",
+        "description": "Note d'un programme, d'une tranche, d'un article ou d'une prospection terrain (AdmMessage).",
         "properties": {
           "id": {
             "type": "string",
@@ -45220,6 +47118,111 @@
           "totalPages": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "PageDtoProspectionTerrainListeDto": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProspectionTerrainListeDto"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "totalElements": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "totalPages": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TransitionProspectionTerrainDto": {
+        "type": "object",
+        "description": "Transition sortante du statut courant (StrWorkFlow de l'entité LndLand).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "StrWorkFlow.PKey, à renvoyer dans POST …/transition."
+          },
+          "code": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "statutCible": {
+            "$ref": "#/components/schemas/ReferentielItemDto",
+            "description": "Statut d'arrivée."
+          },
+          "commentaireObligatoire": {
+            "type": "boolean",
+            "description": "WithComment : commentaire obligatoire (400 sinon)."
+          },
+          "avecDateUtilisateur": {
+            "type": "boolean",
+            "description": "WithUserDate : dateUtilisateur saisie devient la date de l'historique."
+          },
+          "secondUtilisateur": {
+            "type": "boolean",
+            "description": "WithPassword : second utilisateur exigé, non pris en charge (409)."
+          }
+        }
+      },
+      "HistoriqueStatutProspectionDto": {
+        "type": "object",
+        "description": "Ligne d'historique de statut (StrHistory de la prospection), la plus ancienne d'abord.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "DocDate : moment de l'écriture."
+          },
+          "description": {
+            "type": "string",
+            "description": "« Création », ou « {transition}: {code}({login} & ) »."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "AdmUserDescription : nom affiché de l'auteur."
+          },
+          "transition": {
+            "type": "string",
+            "description": "StrWorkflowDescription, null pour la création."
+          },
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut d'arrivée (StrStatusId)."
+          },
+          "statut": {
+            "type": "string",
+            "description": "StrStatusDescription."
+          },
+          "commentaire": {
+            "type": "string",
+            "description": "Notes : commentaire de la transition."
+          },
+          "dateUtilisateur": {
+            "type": "string",
+            "format": "date-time",
+            "description": "UserDate."
           }
         }
       },
