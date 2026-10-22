@@ -13,9 +13,9 @@ export function graduations(maximum: number, nombre = 4): { plafond: number; val
   if (maximum <= 0) return { plafond: 1, valeurs: [0, 1] };
   const brut = maximum / nombre;
   const puissance = 10 ** Math.floor(Math.log10(brut));
-  const pas = ([1, 2, 2.5, 5, 10].find((m) => m * puissance >= brut) ?? 10) * puissance;
-  const valeurs: number[] = [];
-  for (let v = 0; v <= maximum + pas / 2; v += pas) valeurs.push(v);
+  const pas = ([1, 2, 5, 10].find((m) => m * puissance >= brut) ?? 10) * puissance;
+  const valeurs = [0];
+  while ((valeurs.at(-1) ?? 0) < maximum) valeurs.push((valeurs.at(-1) ?? 0) + pas);
   return { plafond: valeurs.at(-1) ?? pas, valeurs };
 }
 

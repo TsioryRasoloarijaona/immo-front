@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import BoutonExporter from '../BoutonExporter';
 import PageShell from '../PageShell';
-import { ResultsRegion, EmptyState, ErrorState } from '../ui';
+import { ResultsRegion, EmptyState } from '../ui';
+import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { oublierLecturesRecentes } from '../../lib/api';
 import { cheminExportRapport, getResultatRapport } from '../../lib/apiRapports';
@@ -69,7 +70,17 @@ export default function VisionneuseRapport({ descripteur }: Readonly<{ descripte
           erreur={refus?.message ?? null}
         />
         {loading && !data && <Skeleton className="h-48 w-full" />}
-        {error && <ErrorState message={error} />}
+        {error && (
+          <EmptyState
+            title="Impossible de charger le rapport"
+            message={error}
+            action={
+              <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
+                Réessayer
+              </Button>
+            }
+          />
+        )}
         {!error && issue && (
           <ResultsRegion loading={loading} className="gap-4">
             {issue.avertissements.map((a) => (

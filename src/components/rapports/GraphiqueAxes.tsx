@@ -56,7 +56,7 @@ export default function GraphiqueAxes({ section, graphique }: Readonly<{ section
     .filter((c): c is ColonneRapportDto => c !== undefined);
   const colonneCat = section.colonnes.find((c) => c.nom === graphique.colonneCategorie);
   const categories = section.lignes.map((l) => (colonneCat ? formatCellule(colonneCat, l[colonneCat.nom]) : ''));
-  const valeurs = series.map((s) => section.lignes.map((l) => versNombre(l[s.nom]) ?? 0));
+  const valeurs = series.map((s) => section.lignes.map((l) => Math.max(versNombre(l[s.nom]) ?? 0, 0)));
   const { plafond, valeurs: ticks } = graduations(Math.max(0, ...valeurs.flat()));
   const incline = categories.length > 6;
   const bas = incline ? BAS_LONG : BAS_COURT;
