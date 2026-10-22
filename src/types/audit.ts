@@ -2,7 +2,7 @@
 import type { UUID } from '../types';
 
 /** Objet du patrimoine porteur d'audit, de notes et (article seul) d'actions. */
-export type Porteur = 'projet' | 'tranche' | 'article';
+export type Porteur = 'projet' | 'tranche' | 'article' | 'prospection-terrain';
 
 /** Action brute d'`AdmWebHistorics`, traduite à l'écran. */
 export type ActionAudit = 'Added' | 'Modified' | 'Deleted';

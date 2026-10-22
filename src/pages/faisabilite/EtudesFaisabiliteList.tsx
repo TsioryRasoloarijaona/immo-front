@@ -28,6 +28,16 @@ const COLONNES: ColonneGrille<EtudeFaisabiliteListeDto>[] = [
   { nom: 'bloquee', libelle: 'Bloquée', type: 'BOOLEEN', largeur: 9 },
   { nom: 'superficie', libelle: 'Superficie', type: 'NOMBRE', largeur: 13, rendu: (r) => formatSurface(r.superficie), formatValeur: (v) => formatSurface(Number(v)) },
   { nom: 'coutTotalTerrain', libelle: 'Coût total du terrain', type: 'MONTANT', largeur: 18 },
+  { nom: 'coutTotal', libelle: 'Charge TTC', type: 'MONTANT', largeur: 16 },
+  { nom: 'chiffreAffaires', libelle: "Chiffre d'affaires TTC", type: 'MONTANT', largeur: 18 },
+  { nom: 'montantAutofinancement', libelle: 'Fonds propres TTC', type: 'MONTANT', largeur: 16 },
+  { nom: 'margeNette', libelle: 'Marge bénéficiaire nette', type: 'MONTANT', largeur: 18 },
+  { nom: 'montantConcretisation', libelle: 'Montant concrétisation TTC', type: 'MONTANT', largeur: 20 },
+  { nom: 'montantFinalisation', libelle: 'Montant finalisation TTC', type: 'MONTANT', largeur: 20 },
+  { nom: 'pourcentageConcretisation', libelle: 'Taux de concrétisation', type: 'POURCENTAGE', largeur: 16 },
+  { nom: 'rentabiliteCoutProjet', libelle: 'Retour sur coût projet', type: 'POURCENTAGE', largeur: 16 },
+  { nom: 'rentabiliteChiffreAffaires', libelle: "Retour sur chiffre d'affaires", type: 'POURCENTAGE', largeur: 18 },
+  { nom: 'rentabiliteFondsPropres', libelle: 'Retour sur fonds propres', type: 'POURCENTAGE', largeur: 18 },
 ];
 
 function Contenu() {

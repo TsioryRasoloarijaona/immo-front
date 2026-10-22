@@ -37,6 +37,8 @@ const DossiersList = lazy(() => import('../../pages/dossiers/DossiersList'));
 const DossierDetail = lazy(() => import('../../pages/dossiers/DossierDetail'));
 const PlansAccueil = lazy(() => import('../../pages/tranches/PlansAccueil'));
 const Aide = lazy(() => import('../../pages/aide/Aide'));
+const ListeRapports = lazy(() => import('../../pages/rapports/ListeRapports'));
+const Rapport = lazy(() => import('../../pages/rapports/Rapport'));
 
 const vente: ModuleApp = {
   slug: 'vente',
@@ -49,7 +51,7 @@ const vente: ModuleApp = {
     '/', '/tableau-de-bord', '/profil', '/mes-performances', '/hotline', '/calendrier', '/suivi-actions',
     '/etat-des-ventes', '/suivi-commerciaux', '/suivi-affectations', '/performances', '/equipe', '/journee', '/tri',
     '/prospections', '/pre-prospections', '/prospects', '/clients', '/dossiers', '/offres', '/encaissements',
-    '/impayes', '/desistements', '/aide',
+    '/impayes', '/desistements', '/aide', '/rapports',
   ],
   Menu: NavVente,
   routes: [
@@ -90,6 +92,8 @@ const vente: ModuleApp = {
     { path: '/clients/:id', element: <ProspectDetail /> },
     { path: '/dossiers', element: <DossiersList /> },
     { path: '/dossiers/:id', element: <DossierDetail /> },
+    { path: '/rapports', element: <ListeRapports module="vente" /> },
+    { path: '/rapports/:code', element: <Rapport module="vente" /> },
     { path: '/plans', element: <PlansAccueil /> },
     { path: '/aide', element: <Aide /> },
     { path: '/aide/:slug', element: <Aide /> },

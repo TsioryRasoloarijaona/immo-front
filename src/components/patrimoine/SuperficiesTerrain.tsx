@@ -1,10 +1,33 @@
-import { Field, FieldGrid } from '../ui';
+import { Link } from 'react-router-dom';
+import { Card, Field, FieldGrid } from '../ui';
+import { SectionFiche } from './FicheSections';
+import { SECTION_PRIX, SECTION_SUPERFICIES } from '../../lib/saisieProspectionTerrain';
 import { Button } from '../ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
 import { formatCurrency, formatPercent, formatSurface, libelleTrace } from '../../lib/format';
 import type { TerrainDetailDto } from '../../types/terrains';
 
 const paire = (ht?: number | null, ttc?: number | null) => `${formatCurrency(ht)} / ${formatCurrency(ttc)}`;
+
+const CHAMPS_FONCIERS = [...SECTION_SUPERFICIES.champs.filter((c) => c.nom !== 'arreteAlignement' && c.nom !== 'hauteurMax'), ...SECTION_PRIX.champs];
+const SECTION_FONCIERE = { titre: 'Données foncières de la prospection', champs: CHAMPS_FONCIERS };
+
+/** Lecture seule : données copiées de la prospection d'origine, masquées sans prospection ou sans valeur. */
+function SurfacesFoncieres({ terrain: t }: Readonly<{ terrain: TerrainDetailDto }>) {
+  const source = { ...t.superficiesFoncieres, prixPropose: t.prixPropose };
+  const rempli = Object.values(source).some((v) => v !== null && v !== undefined);
+  if (!t.prospectionFonciereId || !rempli) return null;
+  return (
+    <Card title={SECTION_FONCIERE.titre}>
+      <div className="flex flex-col gap-3">
+        <SectionFiche section={SECTION_FONCIERE} source={source} />
+        <Link to={`/terrains-prospection/${t.prospectionFonciereId}`} className="text-body text-primary hover:underline">
+          Voir la prospection d’origine
+        </Link>
+      </div>
+    </Card>
+  );
+}
 
 /** Onglet Superficies (Lotissements si le terrain n'est pas terminé) : surfaces, valorisations et sous-terrains. */
 export default function SuperficiesTerrain({ terrain: t, onOuvrir }: Readonly<{ terrain: TerrainDetailDto; onOuvrir: (id: string) => void }>) {
@@ -23,6 +46,7 @@ export default function SuperficiesTerrain({ terrain: t, onOuvrir }: Readonly<{ 
         <Field label="Créé par" value={libelleTrace(t.userCreate, t.userCreateDateTime)} />
         <Field label="Modifié par" value={libelleTrace(t.userUpdate, t.userUpdateDateTime)} />
       </FieldGrid>
+      <SurfacesFoncieres terrain={t} />
       {sousTerrains.length > 0 && (
         <Table>
           <TableHeader>
