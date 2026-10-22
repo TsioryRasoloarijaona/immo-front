@@ -1,5 +1,6 @@
 // Miroir des DTO de FEATURE-patrimoine-terrains.md (terrains, frais, facture de frais, lotissements).
 import type { ReferentielItemDto, UUID } from '../types';
+import type { SurfacesTerrain } from './prospectionsTerrain';
 
 /** Filtres de `GET /api/terrains` et `GET /api/lotissements` ; absent = pas de filtre. */
 export type FiltresTerrains = {
@@ -29,6 +30,10 @@ export interface TerrainListeDto {
 
 /** Fiche terrain ; `coutTotal` / `coutUnitaireFinal` calculés à la lecture. Taux en fraction. */
 export interface TerrainDetailDto {
+  /** Lecture seule : données foncières copiées de la prospection d'origine. */
+  superficiesFoncieres?: SurfacesTerrain | null;
+  /** Lecture seule : prix proposé de la prospection d'origine. */
+  prixPropose?: number | null;
   id: UUID;
   code?: string | null;
   description?: string | null;
