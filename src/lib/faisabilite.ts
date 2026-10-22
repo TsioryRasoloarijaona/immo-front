@@ -35,10 +35,17 @@ export const SECTIONS_IDENTITE: SectionSaisie[] = [{
     saisie('societeId', 'Société', 'liste', { obligatoire: true, liste: 'societes' }),
     saisie('terrainId', 'Terrain', 'liste', { liste: 'terrains' }),
     saisie('descriptionTerrain', 'Description du terrain', 'texte'),
-    saisie('nombreArticlesAVendre', "Nombre d'articles à vendre", 'entier'),
+    calcule('nombreArticlesAVendre', "Nombre d'articles à vendre", 'entier'),
     saisie('proportionTerrainPourTva', 'Proportion du terrain pour le calcul de la TVA', 'booleen'),
     saisie('tauxTvaDefaut', 'TVA par défaut', 'pourcent'),
     saisie('tauxTvaInterets', 'TVA sur les intérêts', 'pourcent'),
+  ],
+}, {
+  titre: 'Entrées du bilan',
+  champs: [
+    saisie('pourcentageConcretisation', 'Pourcentage de concrétisation', 'pourcent'),
+    saisie('tauxIs', "Taux d'impôt sur les sociétés", 'pourcent'),
+    saisie('prixVenteM2', 'Prix de vente au m²', 'montant'),
   ],
 }];
 
@@ -119,9 +126,9 @@ export const SECTIONS_PHASES: SectionSaisie[] = [
   {
     titre: 'Écarts-types et garanties',
     champs: [
-      saisie('ecartTypeTravaux', 'Écart-type des travaux', 'entier'),
-      saisie('ecartTypeConcretisation', 'Écart-type de la concrétisation', 'entier'),
-      saisie('ecartTypeFinalisation', 'Écart-type de la finalisation', 'entier'),
+      saisie('ecartTypeTravaux', 'Écart-type des travaux (≥ 0,5)', 'ratio'),
+      saisie('ecartTypeConcretisation', 'Écart-type de la concrétisation (≥ 0,5)', 'ratio'),
+      saisie('ecartTypeFinalisation', 'Écart-type de la finalisation (≥ 0,5)', 'ratio'),
       saisie('delaiRetourJours', 'Délai de retour (jours)', 'entier'),
       saisie('tauxRetenueGarantie', 'Taux de retenue de garantie', 'pourcent'),
       saisie('tauxApplicationRetenueGarantie', "Taux d'application de la retenue de garantie", 'pourcent'),

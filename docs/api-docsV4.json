@@ -48,6 +48,10 @@
       "description": "Calendrier des visites techniques (bouton à gauche du champ « Visite technique / réception » de la fiche OMRAN). Une visite est un `AdmEvent` rattaché au dossier (`ComFolderId`) et à la tranche de son article (`CfgTrancheId`) ; les créneaux et le quota sont comptés par tranche."
     },
     {
+      "name": "Études de faisabilité — bilan et trésorerie",
+      "description": "Onglets « Bilan », « Analyse » et « Données » d'une étude. Le bilan est l'arbre des catégories de trésorerie\n(`StlCategory`) que l'utilisateur renseigne (`FSPrevision`) ; ses totaux donnent le coût global, le chiffre d'affaires,\nles marges et les retours de l'étude. Lecture et aperçus Administrateur + Direction Générale, écriture Administrateur ;\naucune clé d'API (403). Étude inconnue ou de société inactive → 404."
+    },
+    {
       "name": "Articles",
       "description": "Articles et sous-articles (StkItem) — lots vendables d'une tranche, avec leur disponibilité et leurs éventuels sous-lots (cave/parking annexés)."
     },
@@ -66,10 +70,6 @@
     {
       "name": "Audit",
       "description": "Journal d'audit OMRAN (AdmWebHistorics) des programmes, tranches, articles et entités juridiques."
-    },
-    {
-      "name": "Études de faisabilité",
-      "description": "Écran OMRAN « ETUDES DE FAISABILITE » (`StkFeasibilityStudy`), lot P8a : fiche, bloc A (surfaces, coûts du terrain et de\nconstruction), phases, unités de base, tranches, Bloquer / Débloquer. **Lecture réservée à Administrateur et Direction\nGénérale** (coûts, marges, prix d'achat), écriture à l'Administrateur ; aucune clé d'API n'y a accès (403 `HORS_PORTEE`).\nUne étude d'une société inactive est introuvable (404). Les valeurs calculées viennent toutes du serveur (`POST /calcul`\npour l'aperçu) : le front ne réimplémente aucune formule. Le bilan (chiffre d'affaires, coûts globaux, marges) est en\nlecture seule, tel que stocké par OMRAN."
     },
     {
       "name": "Référentiels du patrimoine",
@@ -146,6 +146,10 @@
     {
       "name": "Mon compte",
       "description": "Profil de l'utilisateur authentifié et changement volontaire de son mot de passe. Aucun portail de première connexion : mustChangePassword/profileCompleted ne bloquent plus aucune route."
+    },
+    {
+      "name": "Études de faisabilité — financement",
+      "description": "Onglet « Financement » d'une étude (OMRAN « Déblocage de crédit » `FSFunding`, « Remboursement de crédit »\n`FSReimbursement`). Lecture Administrateur + Direction Générale, écriture et génération Administrateur ; aucune clé\nd'API (403 `HORS_PORTEE`). Étude inconnue ou de société inactive → 404 ; étude bloquée → 409 sur le PUT."
     },
     {
       "name": "Dossiers — réinitialisation",
@@ -274,6 +278,10 @@
     {
       "name": "Désistements",
       "description": "Désistements des dossiers de vente — l'écran « Désistements » d'OMRAN Estate (`ComSaleWithdrawalCancellation`). Un désistement est un **brouillon** tant que sa date de validation est vide, **validé** ensuite, **légalisé** quand sa date de légalisation est posée ; il n'a pas de colonne statut. Le lien au dossier est `ComSaleId`. Voir `instructions/FEATURE-desistements.md`.\n\n**Calcul (R3-R5)** : `penaliteApresRemise` = taux × base × (1 − remise), au centime ; taux = `CfgTranche.CancellationPenalityPercent` ; base = prix de vente (`ComFolder.Price`) si la tranche a `CancellationPenalityBasedOnItemPrice`, sinon le total réglé ; remise = `CancellationPenalityPercentDiscount` de la tranche pour un ancien client, sinon 0. Total réglé = réglé signé (décaissements déduits, règlements annulés exclus) des échéances d'avance, de crédit et d'autofinancement. Reste frais à régler = Σ reste dû des échéances dont la catégorie est « toujours payée », au crédit et de frais, pénalité ou modification. À rembourser = max(0, total réglé − pénalité après remise − reste frais à régler).\n\n**Droits** : toutes les écritures sont réservées à Administrateur, Direction Générale et Commercial Chef ; la lecture suit le périmètre commercial de `GET /api/dossiers` (un désistement est visible si son dossier l'est)."
+    },
+    {
+      "name": "Études de faisabilité",
+      "description": "Écran OMRAN « ETUDES DE FAISABILITE » (`StkFeasibilityStudy`), lot P8a : fiche, bloc A (surfaces, coûts du terrain et de\nconstruction), phases, unités de base, tranches, Bloquer / Débloquer. **Lecture réservée à Administrateur et Direction\nGénérale** (coûts, marges, prix d'achat), écriture à l'Administrateur ; aucune clé d'API n'y a accès (403 `HORS_PORTEE`).\nUne étude d'une société inactive est introuvable (404). Les valeurs calculées viennent toutes du serveur (`POST /calcul`\npour l'aperçu) : le front ne réimplémente aucune formule. Le bilan (chiffre d'affaires, coûts globaux, marges) est en\nlecture seule : toute écriture de l'étude (création, PATCH, unités, tranches, Bloquer, financement, prévisions) le\nrecalcule dans la même transaction depuis les prévisions et le financement (P8b-1). Une étude sans aucune ligne de\nprévision garde les colonnes de bilan stockées. `nombreArticlesAVendre` est calculé (Σ quantités des unités portant une\ncatégorie d'article hors sous-article, non surface)."
     }
   ],
   "paths": {
@@ -1630,7 +1638,7 @@
           "Études de faisabilité"
         ],
         "summary": "Remplace les unités de base de l'étude ; une unité retirée perd ses ventilations",
-        "description": "Liste complète : `id` connu = mise à jour, sans `id` = création, absente = suppression (avec ses ventilations) ; `id`\nd'une autre étude ou `uniteBaseId` inconnu → 400. Verif ensuite : sommes des surfaces par fonction spécifique, puis, si\nl'étude a des tranches, ventilation de chaque unité (une unité ajoutée non ventilée est refusée).",
+        "description": "Liste complète : `id` connu = mise à jour, sans `id` = création, absente = suppression (avec ses ventilations) ; `id`\nd'une autre étude ou `uniteBaseId` inconnu → 400. Verif ensuite : sommes des surfaces par fonction spécifique, puis, si\nl'étude a des tranches, ventilation de chaque unité (une unité ajoutée non ventilée est refusée). Retirer une ligne\nd'unité utilisée par une prévision → 409 « Vous ne pouvez pas supprimer cette ligne! ».",
         "operationId": "remplacerUnites",
         "parameters": [
           {
@@ -1708,7 +1716,7 @@
             }
           },
           "409": {
-            "description": "Étude bloquée (« Étude bloquée »).",
+            "description": "Unité retirée utilisée par une prévision, ou Étude bloquée (« Étude bloquée »).",
             "content": {
               "*/*": {
                 "schema": {
@@ -1729,7 +1737,7 @@
           "Études de faisabilité"
         ],
         "summary": "Remplace les tranches de l'étude et leurs ventilations",
-        "description": "Liste complète comme les unités. `code` et `sorting` obligatoires, `code` unique dans la liste (409) ; `trancheId` :\ntranche visible de la société de l'étude (400). `unites` de chaque tranche : ventilations recréées, `uniteEtudeId` = ligne\nd'unité de cette étude (400). Verif : somme des poids exactement 1, puis quantité ventilée de chaque unité (arrondi à 2\ndécimales). Retirer une tranche qui porte des lignes de prévision → 409.",
+        "description": "Liste complète comme les unités. `code` et `sorting` obligatoires, `code` unique dans la liste (409) ; `trancheId` :\ntranche visible de la société de l'étude (400). `unites` de chaque tranche : ventilations recréées, `uniteEtudeId` = ligne\nd'unité de cette étude (400). Verif : somme des poids exactement 1, puis quantité ventilée de chaque unité (arrondi à 2\ndécimales). Retirer une tranche est permis : les lignes de prévision par tranche sont reconstruites par le recalcul.",
         "operationId": "remplacerTranches",
         "parameters": [
           {
@@ -1807,13 +1815,309 @@
             }
           },
           "409": {
-            "description": "Code en double, tranche retirée avec prévisions, ou Étude bloquée (« Étude bloquée »).",
+            "description": "Code en double, ou Étude bloquée (« Étude bloquée »).",
             "content": {
               "*/*": {
                 "schema": {
                   "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/previsions": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — bilan et trésorerie"
+        ],
+        "summary": "Arbre du bilan de l'étude, totaux des racines et bilan",
+        "description": "`lignes` : l'arbre à plat, parent avant enfants, frères par `Sorting` puis libellé. Montant d'une ligne par unité =\nquantité de la ligne d'unité × ratio ; en pourcentage = total HT (enfants compris) de la catégorie de référence × ratio ;\nTTC = HT × (1 + TVA), sauf quote-part du terrain (case de l'étude, unité surface à catégorie d'article) : HT + (HT −\ncoût du terrain / plancher vendable × quantité) × TVA. Total d'un nœud = propre + enfants ; `poids` = total TTC / total\nTTC de sa racine. Lignes liées aux relations « prix du terrain », « frais d'enregistrement », « autres frais » et\n« intérêts du crédit » (si une catégorie y est configurée) : ajoutées par le serveur, montant imposé, `verrouillee`.\n`totaux.terrainNonInclus` vrai quand la relation « prix du terrain » n'a pas de catégorie (cas de la production).",
+        "operationId": "lire_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Arbre, totaux et bilan calculés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Études de faisabilité — bilan et trésorerie"
+        ],
+        "summary": "Remplace les lignes du bilan ; bilan, ventilation et trésorerie recalculés",
+        "description": "Liste complète des lignes saisies, clé = `categorieId` : absente = supprimée ; le serveur ajoute les ancêtres jusqu'aux\nracines et les lignes de relation ; une catégorie cochée sans montant est gardée (montant 0). Une catégorie « sans\nprévision » ne peut être choisie que si l'étude la porte déjà (ligne saisie dans OMRAN). Priorité ratio > montantHt > montant, les autres recalculés. 400 : catégorie absente,\ninconnue ou « sans prévision » ; unité d'une autre étude ; unité et référence à la fois ; TVA hors [0;1] ; ratio ou\nmontant négatif ; ligne verrouillée saisie ; « Vous ne pouvez pas selectionnez une catégorie non définie dans le bilan! » ;\n« Vous ne pouvez pas selectionnez cette catégorie possédant une relation hiérarchique avec la catégorie courante! » ;\n« Vous ne pouvez pas selectionnez cette catégorie car elle crée une boucle infini! » ; écart-type > 1 pour une\nrépartition sur 3 ou 4 mois (message OMRAN). Tout est contrôlé avant d'écrire. Le recalcul réécrit les lignes par\ntranche, les lignes de trésorerie et les colonnes du bilan de l'étude ; réponse = `lire`.",
+        "operationId": "remplacer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrilleEtudeDtoSaisiePrevisionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Arbre, totaux et bilan calculés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ligne refusée : champ invalide, catégorie, unité ou référence interdite (detail).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Étude bloquée (« Étude bloquée »).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/financements": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — financement"
+        ],
+        "summary": "Crédits de l'étude et leurs remboursements, par date",
+        "description": "Crédits par date de déblocage, remboursements par date. `montantARegler` = Σ à régler des remboursements,\n`totalInterets` = Σ intérêts, `ecartBase` = Σ bases − montant débloqué (OMRAN n'impose pas l'égalité : information\nà afficher, jamais un refus).",
+        "operationId": "lister",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Crédits, montants calculés compris.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FinancementFaisabiliteDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FinancementFaisabiliteDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FinancementFaisabiliteDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Études de faisabilité — financement"
+        ],
+        "summary": "Remplace les crédits et leurs remboursements ; bilan et trésorerie recalculés",
+        "description": "Liste complète (patron des grilles) : `id` connu = mise à jour, sans `id` = création, absent = suppression ; même règle\npour les `remboursements` de chaque crédit. Texte absent → \"\", nombres absents → 0, `periodiciteMois` < 1 → 1.\nRemboursement : `montantARegler` = base + intérêts, intérêts = base × taux ; si le corps porte taux et intérêts, le\ntaux gagne ; intérêts seuls → taux recalculé (base ≠ 0). 400 (detail = champ) : montant, nombre, taux, base ou intérêts\nnégatif, date absente. Le bilan (crédit, taux de financement, fonds propres, coût du financement) et les lignes de\ntrésorerie (`Funding`, `Refunding`) sont recalculés dans la même transaction.",
+        "operationId": "remplacer_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrilleEtudeDtoFinancementFaisabiliteDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Crédits relus après recalcul.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FinancementFaisabiliteDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ invalide (detail nomme le champ) : négatif, date absente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FinancementFaisabiliteDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FinancementFaisabiliteDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FinancementFaisabiliteDto"
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Étude bloquée (« Étude bloquée »).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/FinancementFaisabiliteDto"
                   }
                 }
               }
@@ -2280,7 +2584,7 @@
           "Dossiers — acquéreurs"
         ],
         "summary": "Client principal et co-acquéreurs, avec leur répartition",
-        "operationId": "lister",
+        "operationId": "lister_1",
         "parameters": [
           {
             "name": "id",
@@ -2500,7 +2804,7 @@
         ],
         "summary": "Liste les pièces jointes d'un article, d'une tranche ou d'un programme",
         "description": "Pièces jointes rattachées au porteur (`AdmAttachedFile.CategoryId` = PKey de l'article, de la tranche ou du programme),\nsans filtre sur le type ni sur `Category`, la plus récente d'abord. Les lignes « cochées mais jamais déposées » et les\npièces supprimées logiquement sont exclues. Porteur d'une entité juridique inactive → 404, comme sa fiche.",
-        "operationId": "lister_1",
+        "operationId": "lister_2",
         "parameters": [
           {
             "name": "porteur",
@@ -3437,7 +3741,7 @@
         ],
         "summary": "Liste des terrains (nature TER), lotissements compris",
         "description": "Tous les terrains de nature TER des sociétés actives, lotissements compris. `entiteId` filtre la société du terrain,\n`statutId` son statut, `vocationId` sa vocation ; `search` cherche sans casse ni espaces dans le code, la description,\nle titre foncier, l'adresse, les notes et les libellés des références.",
-        "operationId": "lister_2",
+        "operationId": "lister_3",
         "parameters": [
           {
             "name": "search",
@@ -5701,7 +6005,7 @@
         ],
         "summary": "Liste des prospections terrain, par code croissant par défaut",
         "description": "`search` cherche (sans casse) dans le code, la description, la ville, la catégorie, le type, la vocation et le niveau ;\n`archivee`, `transformee`, `amenage` sont tri-états (absent = tous). `nbEtudesFaisabilite` compte les études de\nfaisabilité qui citent la prospection.",
-        "operationId": "lister_3",
+        "operationId": "lister_4",
         "parameters": [
           {
             "name": "search",
@@ -6936,7 +7240,7 @@
           "Notes"
         ],
         "summary": "Notes d'un programme, d'une tranche ou d'un article, plus récentes d'abord",
-        "operationId": "lister_4",
+        "operationId": "lister_5",
         "parameters": [
           {
             "name": "porteur",
@@ -7502,7 +7806,7 @@
           "Études de faisabilité"
         ],
         "summary": "Liste des études des sociétés actives, par code",
-        "operationId": "lister_5",
+        "operationId": "lister_6",
         "parameters": [
           {
             "name": "societeId",
@@ -7604,6 +7908,240 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/tresorerie/calcul": {
+      "post": {
+        "tags": [
+          "Études de faisabilité — bilan et trésorerie"
+        ],
+        "summary": "Aperçu de la trésorerie avec d'autres écarts-types, sans rien écrire",
+        "description": "Recalcule les lignes avec les écarts-types envoyés (absent = celui de l'étude), sans rien écrire. 400 : écart-type\n< 0,5, ou > 1 pour une fenêtre de 3 ou 4 mois.",
+        "operationId": "calculerTresorerie",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApercuTresorerieDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Série mensuelle et lignes recalculées.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TresorerieFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Écart-type < 0,5, ou > 1 pour 3 ou 4 mois (message OMRAN).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TresorerieFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TresorerieFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TresorerieFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/previsions/calcul": {
+      "post": {
+        "tags": [
+          "Études de faisabilité — bilan et trésorerie"
+        ],
+        "summary": "Aperçu du bilan pour des lignes saisies, sans rien écrire",
+        "description": "Même corps et mêmes contrôles que le PUT, rien n'est écrit : arbre, totaux et bilan de l'aperçu.",
+        "operationId": "calculer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrilleEtudeDtoSaisiePrevisionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Arbre, totaux et bilan calculés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Ligne refusée : champ invalide, catégorie, unité ou référence interdite (detail).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/financements/echeancier": {
+      "post": {
+        "tags": [
+          "Études de faisabilité — financement"
+        ],
+        "summary": "Génère l'échéancier d'un crédit sans rien écrire (bouton « Générer »)",
+        "description": "Bouton « Générer » : n'écrit rien. Première échéance = date de déblocage + période de grâce (mois) ; échéance *i* =\npremière + (i − 1) × périodicité mois, jour borné au dernier jour du mois ; base = montant / nombre ; taux = taux de\ncharge ; intérêts = base × taux (taux appliqué à chaque échéance, pas annuel). 400 : nombre ≤ 0, montant ou taux négatif,\ndate absente.",
+        "operationId": "echeancier",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EcheancierDemandeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Remboursements proposés, sans id.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RemboursementFaisabiliteDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Nombre de remboursements ≤ 0, montant ou taux négatif, date absente.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RemboursementFaisabiliteDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RemboursementFaisabiliteDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RemboursementFaisabiliteDto"
+                  }
                 }
               }
             }
@@ -7744,7 +8282,7 @@
         ],
         "summary": "Aperçu du calcul (bloc A, phases, Verif) sans rien écrire",
         "description": "Même corps que la création, sans contrôle de champ obligatoire et sans écriture. `unites` et `tranches` facultatifs : Verif\nne contrôle que les grilles reçues ; une ventilation désigne sa ligne d'unité par `uniteEtudeId` = `id` de la ligne (PKey\nou identifiant provisoire choisi par le front). Les messages Verif sont renvoyés dans `erreurs`, dans l'ordre OMRAN.\n`CountryFormule` (`AdmParamsString`, `MA` par défaut) choisit les formules marocaines de l'emprise et du plancher couvert.",
-        "operationId": "calculer",
+        "operationId": "calculer_1",
         "requestBody": {
           "content": {
             "application/json": {
@@ -8062,7 +8600,7 @@
           "Entités juridiques"
         ],
         "summary": "Liste des entités, actives ou non (colonnes de la liste OMRAN)",
-        "operationId": "lister_6",
+        "operationId": "lister_7",
         "parameters": [
           {
             "name": "actif",
@@ -8732,7 +9270,7 @@
           "Dossiers — sous-articles"
         ],
         "summary": "Sous-articles du dossier et prix qui en dépendent",
-        "operationId": "lister_7",
+        "operationId": "lister_8",
         "parameters": [
           {
             "name": "id",
@@ -8921,7 +9459,7 @@
         ],
         "summary": "Règlements du dossier avec leur part affectée et leur reste à affecter",
         "description": "Règlements ayant au moins une ligne sur une échéance de ce dossier, saisie la plus récente d'abord (`DocDate` puis `UserCreateDateTime` décroissants). `montantAffecte` et `resteAAffecter` portent sur toutes les lignes du règlement, `affectations` sur celles de ce dossier seulement.",
-        "operationId": "lister_8",
+        "operationId": "lister_9",
         "parameters": [
           {
             "name": "id",
@@ -9431,7 +9969,7 @@
           "Dossiers — modifications"
         ],
         "summary": "Demandes de modification du dossier et montants qui en découlent",
-        "operationId": "lister_9",
+        "operationId": "lister_10",
         "parameters": [
           {
             "name": "id",
@@ -9525,7 +10063,7 @@
           "Dossiers — modalité de paiement"
         ],
         "summary": "Modalité de paiement : schéma de financement figé à la vente",
-        "operationId": "lister_10",
+        "operationId": "lister_11",
         "parameters": [
           {
             "name": "id",
@@ -10192,7 +10730,7 @@
           "Dossiers — cadeaux"
         ],
         "summary": "Cadeaux du dossier",
-        "operationId": "lister_11",
+        "operationId": "lister_12",
         "parameters": [
           {
             "name": "id",
@@ -10324,7 +10862,7 @@
           "Dossiers — actions"
         ],
         "summary": "Actions du dossier et leur nombre par type",
-        "operationId": "lister_12",
+        "operationId": "lister_13",
         "parameters": [
           {
             "name": "id",
@@ -10966,7 +11504,7 @@
         ],
         "summary": "Liste les clés d'API",
         "description": "Toutes les clés, actives et révoquées, les plus récentes d'abord. Le secret n'est **jamais** renvoyé\n: `clePrefixe` (`ak_` + 8 caractères) suffit à reconnaître la clé configurée côté client.\n`dernierUsage` est tracé à la minute près.",
-        "operationId": "lister_13",
+        "operationId": "lister_14",
         "responses": {
           "200": {
             "description": "Liste, éventuellement vide.",
@@ -11847,7 +12385,7 @@
           "Actions d'article"
         ],
         "summary": "Actions portant sur l'article (dossiers compris), plus récentes d'abord",
-        "operationId": "lister_14",
+        "operationId": "lister_15",
         "parameters": [
           {
             "name": "id",
@@ -12200,7 +12738,7 @@
         ],
         "summary": "Fiche terrain, coût total et coût unitaire final calculés à la lecture",
         "description": "`coutTotal` = Σ des montants de ses frais (validés ou non) et `coutUnitaireFinal` = `coutTotal` / surface définitive\n(0 si la surface est nulle) sont calculés à chaque lecture, jamais stockés. `sousTerrainsAutorises` reflète le statut\ndu terrain (case OMRAN « Créer un sous-terrain ») : aucun statut de production ne l'a aujourd'hui.",
-        "operationId": "lire_1",
+        "operationId": "lire_2",
         "parameters": [
           {
             "name": "id",
@@ -13084,7 +13622,7 @@
         ],
         "summary": "Fiche d'une prospection terrain, zones et terrain issu compris",
         "description": "`peutTransformer` = Administrateur, aucun terrain issu, statut courant avec la case « Transformer en terrain »\n(`BoolField001`) et superficie > 0 ; sinon `motifNonTransformable` donne le refus. `terrainId` / `terrainCode` : terrain\n(`StkItem.LndLandId`) créé depuis la prospection.",
-        "operationId": "lire_2",
+        "operationId": "lire_3",
         "parameters": [
           {
             "name": "id",
@@ -13785,7 +14323,7 @@
           "Études de faisabilité"
         ],
         "summary": "Modifie une étude ; bloc A et phases recalculés, Verif sur les grilles enregistrées",
-        "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel. `previsionsARecalculer` est vrai si l'étude a des prévisions.",
+        "description": "Absent ou null = inchangé ; `champsAVider` vide `terrainId`, `debutAchatTerrain`, un nombre (→ 0) ou un texte (→ \"\").\nPour chaque paire coefficient ↔ montant, le montant envoyé seul recalcule le coefficient ; sans l'un ni l'autre, le\ncoefficient stocké est repris (changer la superficie recalcule donc les montants). Verif s'exécute sur les grilles\nenregistrées (400 avec le message OMRAN, rien n'est écrit). Changer `societeId` alors que des tranches de l'étude sont\nliées au patrimoine → 400. Un montant stocké cohérent avec son coefficient (à 1e-6 près) est conservé tel quel.\n`pourcentageConcretisation` et `tauxIs` : fractions entre 0 et 1 (400) ; écarts-types ≥ 0,5 (400, message OMRAN « la\nvaleur de l'écart type doit être supérieur ou égal à 0.5 ») ; `nombreArticlesAVendre` reçu est ignoré.",
         "operationId": "modifier_8",
         "parameters": [
           {
@@ -14527,7 +15065,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Compteurs de l'article principal du dossier",
-        "operationId": "lire_3",
+        "operationId": "lire_4",
         "parameters": [
           {
             "name": "id",
@@ -15817,7 +16355,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Liste paginée des interactions des commerciaux visibles",
-        "operationId": "lister_15",
+        "operationId": "lister_16",
         "parameters": [
           {
             "name": "du",
@@ -16501,7 +17039,7 @@
         ],
         "summary": "Liste paginée des affectations de règlements aux échéances de vente",
         "description": "`montantAffecte` = montant de la ligne, de signe opposé quand la pièce est un débit (`IsCredit = 0`), tel quel sinon (`IsCredit` NULL compris) : même règle de signe que le réglé des dossiers. `dateMouvement` = date d'opération de la pièce (`SettlementDate`), sinon sa date d'échéance ; `du` / `au` portent sur elle, jours entiers inclus, et une ligne sans date est exclue dès qu'une borne est donnée. `search` cherche, espaces ôtés des deux côtés et sans tenir compte de la casse, dans l'entité, le projet, la tranche, l'article, le tiers, la catégorie, le dossier et son statut, le libellé, la référence, le reçu, l'état et le type de la pièce, la banque, le compte et les notes. Tri par défaut `dateMouvement` décroissant (lignes sans date en dernier), départagé par `id` ; tri sur les noms du catalogue `GET /api/referentiels/colonnes/suivi-affectations` dont la colonne a un chemin, plus `id` (sinon 400). Colonnes servies sans `?colonnes=` : celles du catalogue à `parDefaut = true`.",
-        "operationId": "lister_16",
+        "operationId": "lister_17",
         "parameters": [
           {
             "name": "entiteId",
@@ -19720,7 +20258,7 @@
           "Rapports"
         ],
         "summary": "Rapports du module visibles par l'appelant, groupés",
-        "operationId": "lister_17",
+        "operationId": "lister_18",
         "parameters": [
           {
             "name": "module",
@@ -21867,7 +22405,7 @@
           "Notifications"
         ],
         "summary": "Notifications du compte appelant, plus récentes d'abord, et nombre de non lues",
-        "operationId": "lister_18",
+        "operationId": "lister_19",
         "parameters": [
           {
             "name": "page",
@@ -22335,7 +22873,7 @@
         ],
         "summary": "Lots de terrain : terrains d'une tranche, vocation autre que PROJET",
         "description": "Lots des tranches visibles (société du programme active). Mêmes filtres que `GET /api/terrains`.",
-        "operationId": "lister_19",
+        "operationId": "lister_20",
         "parameters": [
           {
             "name": "search",
@@ -22973,6 +23511,70 @@
         }
       }
     },
+    "/api/etudes-faisabilite/{id}/tresorerie": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — bilan et trésorerie"
+        ],
+        "summary": "Courbe mensuelle et lignes de trésorerie enregistrées de l'étude",
+        "description": "Lignes de trésorerie enregistrées par le dernier recalcul (montants > 0) : concrétisation et finalisation (crédit,\nréparties par une loi normale sur leurs fenêtres en nombre d'articles), dépense d'exécution hors indivis et retenue de\ngarantie (débit), dépenses indivises à leur date, déblocages (crédit) et remboursements (débit). `mois` : chaque mois\ndu premier au dernier, `solde` = cumul des crédits − débits. Sans financement : déblocages et remboursements exclus.",
+        "operationId": "tresorerie",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "avecFinancement",
+            "in": "query",
+            "description": "Inclure crédits et remboursements.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Série mensuelle et lignes.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TresorerieFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TresorerieFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TresorerieFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/etudes-faisabilite/choix/tranches": {
       "get": {
         "tags": [
@@ -23033,6 +23635,30 @@
         }
       }
     },
+    "/api/etudes-faisabilite/choix/categories-bilan": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — bilan et trésorerie"
+        ],
+        "summary": "Catégories de trésorerie sélectionnables dans le bilan, par ordre",
+        "operationId": "categories_1",
+        "responses": {
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CategorieBilanDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/etat-des-ventes": {
       "get": {
         "tags": [
@@ -23040,7 +23666,7 @@
         ],
         "summary": "Liste paginée des articles racines en vente et de leur statut",
         "description": "Filtres partagés avec la synthèse, plus `statut`, `typeId`, `nature`, `search` et la période `champDate` + `du` / `au` (jours inclus, sur une date du dossier : un article libre n'en a aucune). Article libre : prix du catalogue `StkItem` (formules de la branche libre de la vue OMRAN `ComSaleMonitoringView`), aucune donnée de dossier (même un dossier annulé). Tri sur les noms du catalogue `GET /api/referentiels/colonnes/etat-des-ventes` ; les colonnes sans chemin (`statutLibelle`, `clientNom`, `commercial`, `dossierId` et les montants du dossier : `montantRegle`, `avance`, `netAPayer`, `tropPercu`, taux, prix au m²…) ne sont ni triables ni groupables (400).\n\nMontants du dossier : même calcul que `GET /api/dossiers` (une seule formule) ; null sur une ligne libre. En demander un coûte deux requêtes par page, un prix au m² une de plus ; aucune si aucun n'est demandé. Un dossier qui retient deux articles racines apparaît sur deux lignes avec les mêmes montants, comme OMRAN.",
-        "operationId": "lister_20",
+        "operationId": "lister_21",
         "parameters": [
           {
             "name": "trancheId",
@@ -27801,7 +28427,7 @@
         ],
         "summary": "Liste paginée des désistements, au périmètre, avec les totaux du filtre",
         "description": "Mêmes règles de visibilité que `GET /api/dossiers` : un désistement n'est listé que si son dossier est visible pour l'appelant (projets affectés, entité juridique active). Montants : ceux enregistrés sur le désistement (recalculés à chaque modification du brouillon, figés à la validation). Tri fixe : date de demande décroissante ; seuls `page` et `size` de la pagination sont lus. `totaux` porte sur tout le filtre.",
-        "operationId": "lister_21",
+        "operationId": "lister_22",
         "parameters": [
           {
             "name": "q",
@@ -28482,7 +29108,7 @@
           "Audit"
         ],
         "summary": "Journal d'un objet du patrimoine et de ses lignes enfants, plus récent d'abord",
-        "operationId": "lister_22",
+        "operationId": "lister_23",
         "parameters": [
           {
             "name": "objetId",
@@ -28796,7 +29422,7 @@
         ],
         "summary": "Dernières actions de l'utilisateur ou de son équipe, de la plus récente à la plus ancienne",
         "description": "Union de trois sources, triée par `date` décroissante puis tronquée à `limite` :\n\n- l'historique des prospections (`StrHistory` sans `StrConfigEntityId`) : création, prospect créé ou\n  rattaché, transformation, changement d'étape, archivage, désarchivage ;\n- l'historique des statuts de dossier (`type = DOSSIER_STATUT`) ;\n- les interactions et notes (`ComActionMessage`, `type = INTERACTION`).\n\n**Portée.** `MOI` : seulement les lignes dont l'auteur est l'appelant — une ligne sans auteur n'y\nfigure jamais ; un compte sans `AdmUser` reçoit une liste vide. `EQUIPE` : toutes les lignes des\nprojets du périmètre commercial de l'appelant. Les deux portées appliquent **le même périmètre que\nles listes** (exempté ou sans affectation : aucun filtre ; fiche sans projet : visible) : une\naction sur un projet retiré du périmètre disparaît aussi de `MOI`.\n\nUne ligne d'historique dont la fiche a été supprimée est ignorée, ainsi qu'une interaction\nrattachée à aucune fiche.\n\n**Ordre** : `date` décroissante, puis `id` décroissant comparé **en texte majuscule** (pas l'ordre\nbinaire d'un `uniqueidentifier`).\n\n**« Voir plus ».** Rappeler avec `avant` = `date` **et** `avantId` = `id` de la dernière action\nreçue : la suite repart exactement après elle, sans doublon ni trou, même quand plusieurs actions\npartagent la même date.",
-        "operationId": "lister_23",
+        "operationId": "lister_24",
         "parameters": [
           {
             "name": "portee",
@@ -30468,6 +31094,313 @@
           "poids": {
             "type": "number",
             "description": "Poids (fraction), stocké tel quel."
+          }
+        }
+      },
+      "GrilleEtudeDtoSaisiePrevisionDto": {
+        "type": "object",
+        "description": "Liste complète des lignes : id connu = mise à jour, sans id = création, absente = suppression.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la grille ; [] vide la grille.",
+            "items": {
+              "$ref": "#/components/schemas/SaisiePrevisionDto"
+            }
+          }
+        }
+      },
+      "SaisiePrevisionDto": {
+        "type": "object",
+        "description": "Ligne de prévision saisie (FSPrevision), clé = catégorie. Priorité ratio > montantHt > montant.",
+        "properties": {
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de trésorerie (StlCategory), obligatoire, hors « sans prévision »."
+          },
+          "uniteEtudeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Mode par unité : ligne d'unité de l'étude ; base = sa quantité."
+          },
+          "categorieReferenceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Mode pourcentage : catégorie de l'arbre ; base = son total HT, enfants compris."
+          },
+          "ratio": {
+            "type": "number",
+            "description": "Prix unitaire (unité) ou fraction (pourcentage), ≥ 0."
+          },
+          "montantHt": {
+            "type": "number",
+            "description": "Montant HT propre (≥ 0) ; recalcule le ratio si ratio absent."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant TTC propre (≥ 0) ; utilisé si ratio et montantHt absents."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "TVA (fraction 0-1) ; absente = TVA par défaut de l'étude."
+          },
+          "estPourProjet": {
+            "type": "boolean",
+            "description": "Visible dans le module Projet (vrai si absent)."
+          },
+          "dateApplication": {
+            "type": "string",
+            "format": "date-time",
+            "description": "« Traiter au début du projet » : la dépense est datée ce jour-là (indivise)."
+          }
+        }
+      },
+      "BilanEtudeDto": {
+        "type": "object",
+        "description": "Bilan de l'étude en lecture seule : agrégats des prévisions tels que stockés (rendus vivants en P8b).",
+        "properties": {
+          "chiffreAffaires": {
+            "type": "number",
+            "description": "Turnover : chiffre d'affaires TTC."
+          },
+          "coutExecution": {
+            "type": "number",
+            "description": "TotalCostExecution : coût d'exécution TTC."
+          },
+          "coutExecutionHt": {
+            "type": "number",
+            "description": "TotalCostExecutionHT : coût d'exécution HT."
+          },
+          "coutTotal": {
+            "type": "number",
+            "description": "TotalCost : coût global TTC."
+          },
+          "coutTotalHt": {
+            "type": "number",
+            "description": "TotalCostHT : coût global HT."
+          },
+          "coutRevientM2": {
+            "type": "number",
+            "description": "UnitBackCost : coût de revient du m²."
+          },
+          "prixVenteM2": {
+            "type": "number",
+            "description": "UnitSalePrice : prix de vente du m²."
+          },
+          "pourcentageConcretisation": {
+            "type": "number",
+            "description": "percentageConcretisation : part de la concrétisation (fraction)."
+          },
+          "montantConcretisation": {
+            "type": "number",
+            "description": "ConretisationAmount : montant de la concrétisation."
+          },
+          "montantFinalisation": {
+            "type": "number",
+            "description": "FinalizationAmount : montant de la finalisation."
+          },
+          "coutFinancement": {
+            "type": "number",
+            "description": "TotalCostFunding : coût du financement."
+          },
+          "tauxAutofinancement": {
+            "type": "number",
+            "description": "AutofinancementRate : part des fonds propres (fraction)."
+          },
+          "montantAutofinancement": {
+            "type": "number",
+            "description": "AutofinancementAmount : fonds propres."
+          },
+          "tauxFinancementClient": {
+            "type": "number",
+            "description": "ClientfinancementRate : part du financement client (fraction)."
+          },
+          "tauxFinancementCredit": {
+            "type": "number",
+            "description": "CreditfinancementRate : part du crédit (fraction)."
+          },
+          "margeBrute": {
+            "type": "number",
+            "description": "GrossProfitMargin : marge brute."
+          },
+          "tauxIs": {
+            "type": "number",
+            "description": "ISRatio : taux de l'impôt sur les sociétés (fraction)."
+          },
+          "montantIs": {
+            "type": "number",
+            "description": "ISAmount : impôt sur les sociétés."
+          },
+          "margeNette": {
+            "type": "number",
+            "description": "NetProfitMargin : marge nette."
+          },
+          "rentabiliteCoutProjet": {
+            "type": "number",
+            "description": "ProfitRatioByProjectCost : marge / coût du projet."
+          },
+          "rentabiliteChiffreAffaires": {
+            "type": "number",
+            "description": "ProfitRatioByTurnover : marge / chiffre d'affaires."
+          },
+          "rentabiliteFondsPropres": {
+            "type": "number",
+            "description": "ProfitRatioByAutofinancementAmount : marge / fonds propres."
+          }
+        }
+      },
+      "BilanFaisabilitePrevisionsDto": {
+        "type": "object",
+        "description": "Onglet Bilan : arbre des prévisions, totaux des racines et bilan de l'étude.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Nœuds de l'arbre à plat.",
+            "items": {
+              "$ref": "#/components/schemas/LignePrevisionDto"
+            }
+          },
+          "totaux": {
+            "$ref": "#/components/schemas/TotauxPrevisionsDto",
+            "description": "Totaux des deux racines."
+          },
+          "bilan": {
+            "$ref": "#/components/schemas/BilanEtudeDto",
+            "description": "Bilan de l'étude (mêmes noms que la fiche)."
+          }
+        }
+      },
+      "TotauxPrevisionsDto": {
+        "type": "object",
+        "description": "Totaux des racines « Dépense » et « Recette » du bilan.",
+        "properties": {
+          "depenseHt": {
+            "type": "number",
+            "description": "Total HT de la racine Dépense (coût global HT)."
+          },
+          "depense": {
+            "type": "number",
+            "description": "Total TTC de la racine Dépense (coût global TTC)."
+          },
+          "recetteHt": {
+            "type": "number",
+            "description": "Total HT de la racine Recette (chiffre d'affaires HT)."
+          },
+          "recette": {
+            "type": "number",
+            "description": "Total TTC de la racine Recette (chiffre d'affaires TTC)."
+          },
+          "terrainNonInclus": {
+            "type": "boolean",
+            "description": "Vrai si la relation « prix du terrain » n'a pas de catégorie : terrain non inclus au coût."
+          }
+        }
+      },
+      "FinancementFaisabiliteDto": {
+        "type": "object",
+        "description": "Crédit d'une étude (FSFunding, « Déblocage de crédit ») et ses remboursements.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey ; absent = création."
+          },
+          "description": {
+            "type": "string",
+            "description": "Description (\"\" si absente)."
+          },
+          "dateDeblocage": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du déblocage (obligatoire)."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant débloqué (≥ 0)."
+          },
+          "nombreRemboursements": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de remboursements (≥ 0)."
+          },
+          "periodiciteMois": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Périodicité en mois ; toute valeur < 1 devient 1."
+          },
+          "periodeGraceMois": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Période de grâce en mois (0 si absente)."
+          },
+          "tauxCharge": {
+            "type": "number",
+            "description": "Taux de charge (fraction ≥ 0), taux d'intérêt de chaque échéance générée."
+          },
+          "montantARegler": {
+            "type": "number",
+            "description": "Calculé : Σ montantARegler des remboursements."
+          },
+          "totalInterets": {
+            "type": "number",
+            "description": "Calculé : Σ intérêts des remboursements."
+          },
+          "ecartBase": {
+            "type": "number",
+            "description": "Calculé : Σ bases − montant débloqué (information, non bloquant)."
+          },
+          "remboursements": {
+            "type": "array",
+            "description": "Remboursements, par date ; liste complète en écriture.",
+            "items": {
+              "$ref": "#/components/schemas/RemboursementFaisabiliteDto"
+            }
+          }
+        }
+      },
+      "GrilleEtudeDtoFinancementFaisabiliteDto": {
+        "type": "object",
+        "description": "Liste complète des lignes : id connu = mise à jour, sans id = création, absente = suppression.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la grille ; [] vide la grille.",
+            "items": {
+              "$ref": "#/components/schemas/FinancementFaisabiliteDto"
+            }
+          }
+        }
+      },
+      "RemboursementFaisabiliteDto": {
+        "type": "object",
+        "description": "Remboursement d'un crédit (FSReimbursement). Si taux et intérêts sont envoyés, le taux gagne ; montantARegler n'est jamais saisi.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey ; absent = création."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du remboursement (obligatoire)."
+          },
+          "montantBase": {
+            "type": "number",
+            "description": "Montant de base (≥ 0)."
+          },
+          "tauxInteret": {
+            "type": "number",
+            "description": "Taux d'intérêt de l'échéance (fraction ≥ 0), appliqué à la base."
+          },
+          "montantInterets": {
+            "type": "number",
+            "description": "Intérêts = base × taux ; saisis seuls, ils recalculent le taux."
+          },
+          "montantARegler": {
+            "type": "number",
+            "description": "Calculé : base + intérêts (ignoré en écriture)."
           }
         }
       },
@@ -37164,11 +38097,6 @@
             "type": "string",
             "description": "Description du terrain (texte libre, 255 caractères)."
           },
-          "nombreArticlesAVendre": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Nombre d'articles à vendre."
-          },
           "proportionTerrainPourTva": {
             "type": "boolean",
             "description": "Utiliser la quote-part du terrain pour le calcul de la TVA."
@@ -37344,6 +38272,18 @@
             "type": "number",
             "description": "Taux d'application de la retenue de garantie (fraction)."
           },
+          "pourcentageConcretisation": {
+            "type": "number",
+            "description": "Part de la concrétisation (fraction 0-1, 0 à la création)."
+          },
+          "tauxIs": {
+            "type": "number",
+            "description": "Taux de l'IS (fraction 0-1, 0 à la création)."
+          },
+          "prixVenteM2": {
+            "type": "number",
+            "description": "Prix de vente du m² (UnitSalePrice, 0 à la création)."
+          },
           "champsAVider": {
             "type": "array",
             "description": "PATCH : champs à vider (terrainId, debutAchatTerrain → NULL ; nombre → 0 ; texte → \"\").",
@@ -37364,100 +38304,6 @@
             "items": {
               "$ref": "#/components/schemas/LigneTrancheEtudeDto"
             }
-          }
-        }
-      },
-      "BilanEtudeDto": {
-        "type": "object",
-        "description": "Bilan de l'étude en lecture seule : agrégats des prévisions tels que stockés (rendus vivants en P8b).",
-        "properties": {
-          "chiffreAffaires": {
-            "type": "number",
-            "description": "Turnover : chiffre d'affaires TTC."
-          },
-          "coutExecution": {
-            "type": "number",
-            "description": "TotalCostExecution : coût d'exécution TTC."
-          },
-          "coutExecutionHt": {
-            "type": "number",
-            "description": "TotalCostExecutionHT : coût d'exécution HT."
-          },
-          "coutTotal": {
-            "type": "number",
-            "description": "TotalCost : coût global TTC."
-          },
-          "coutTotalHt": {
-            "type": "number",
-            "description": "TotalCostHT : coût global HT."
-          },
-          "coutRevientM2": {
-            "type": "number",
-            "description": "UnitBackCost : coût de revient du m²."
-          },
-          "prixVenteM2": {
-            "type": "number",
-            "description": "UnitSalePrice : prix de vente du m²."
-          },
-          "pourcentageConcretisation": {
-            "type": "number",
-            "description": "percentageConcretisation : part de la concrétisation (fraction)."
-          },
-          "montantConcretisation": {
-            "type": "number",
-            "description": "ConretisationAmount : montant de la concrétisation."
-          },
-          "montantFinalisation": {
-            "type": "number",
-            "description": "FinalizationAmount : montant de la finalisation."
-          },
-          "coutFinancement": {
-            "type": "number",
-            "description": "TotalCostFunding : coût du financement."
-          },
-          "tauxAutofinancement": {
-            "type": "number",
-            "description": "AutofinancementRate : part des fonds propres (fraction)."
-          },
-          "montantAutofinancement": {
-            "type": "number",
-            "description": "AutofinancementAmount : fonds propres."
-          },
-          "tauxFinancementClient": {
-            "type": "number",
-            "description": "ClientfinancementRate : part du financement client (fraction)."
-          },
-          "tauxFinancementCredit": {
-            "type": "number",
-            "description": "CreditfinancementRate : part du crédit (fraction)."
-          },
-          "margeBrute": {
-            "type": "number",
-            "description": "GrossProfitMargin : marge brute."
-          },
-          "tauxIs": {
-            "type": "number",
-            "description": "ISRatio : taux de l'impôt sur les sociétés (fraction)."
-          },
-          "montantIs": {
-            "type": "number",
-            "description": "ISAmount : impôt sur les sociétés."
-          },
-          "margeNette": {
-            "type": "number",
-            "description": "NetProfitMargin : marge nette."
-          },
-          "rentabiliteCoutProjet": {
-            "type": "number",
-            "description": "ProfitRatioByProjectCost : marge / coût du projet."
-          },
-          "rentabiliteChiffreAffaires": {
-            "type": "number",
-            "description": "ProfitRatioByTurnover : marge / chiffre d'affaires."
-          },
-          "rentabiliteFondsPropres": {
-            "type": "number",
-            "description": "ProfitRatioByAutofinancementAmount : marge / fonds propres."
           }
         }
       },
@@ -37530,7 +38376,7 @@
           "nombreArticlesAVendre": {
             "type": "integer",
             "format": "int32",
-            "description": "Nombre d'articles à vendre."
+            "description": "Calculé : Σ quantités des unités à catégorie d'article (hors sous-article), non surface."
           },
           "proportionTerrainPourTva": {
             "type": "boolean",
@@ -37569,13 +38415,25 @@
             "type": "number",
             "description": "Taux d'application de la retenue de garantie (fraction)."
           },
+          "pourcentageConcretisation": {
+            "type": "number",
+            "description": "Part de la concrétisation dans le chiffre d'affaires (fraction)."
+          },
+          "tauxIs": {
+            "type": "number",
+            "description": "Taux de l'impôt sur les sociétés (fraction)."
+          },
+          "prixVenteM2": {
+            "type": "number",
+            "description": "Prix de vente du m² (UnitSalePrice)."
+          },
           "valeurs": {
             "$ref": "#/components/schemas/ValeursFaisabilite",
             "description": "Bloc A et phases tels que stockés (recalculés à chaque écriture)."
           },
           "bilan": {
             "$ref": "#/components/schemas/BilanEtudeDto",
-            "description": "Bilan stocké, lecture seule."
+            "description": "Bilan recalculé à chaque écriture depuis les prévisions et le financement."
           },
           "unites": {
             "type": "array",
@@ -37590,10 +38448,6 @@
             "items": {
               "$ref": "#/components/schemas/LigneTrancheEtudeDto"
             }
-          },
-          "previsionsARecalculer": {
-            "type": "boolean",
-            "description": "Vrai si l'étude a des prévisions (FSPrevision) : à recalculer en P8b après une modification."
           },
           "userCreate": {
             "type": "string",
@@ -37896,6 +38750,181 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "ApercuTresorerieDto": {
+        "type": "object",
+        "description": "Aperçu de la trésorerie : écarts-types de remplacement (≥ 0,5) ; absent = valeur de l'étude.",
+        "properties": {
+          "ecartTypeTravaux": {
+            "type": "number",
+            "description": "Écart-type des travaux."
+          },
+          "ecartTypeConcretisation": {
+            "type": "number",
+            "description": "Écart-type de la concrétisation."
+          },
+          "ecartTypeFinalisation": {
+            "type": "number",
+            "description": "Écart-type de la finalisation."
+          },
+          "avecFinancement": {
+            "type": "boolean",
+            "description": "Inclure crédits et remboursements (vrai si absent)."
+          }
+        }
+      },
+      "LigneTresorerieDto": {
+        "type": "object",
+        "description": "Ligne de trésorerie (StkFSPrevisionLine) : un débit ou un crédit daté.",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de la ligne."
+          },
+          "type": {
+            "type": "string",
+            "description": "PrevisionType : Concretisation, Finalization, Expense, ExpenseBackGuarantee, Funding, Refunding, ProjectExpense."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé français du type."
+          },
+          "debit": {
+            "type": "number",
+            "description": "Montant au débit (0 pour un crédit)."
+          },
+          "credit": {
+            "type": "number",
+            "description": "Montant au crédit (0 pour un débit)."
+          },
+          "trancheCode": {
+            "type": "string",
+            "description": "Code de la tranche de l'étude, null sans tranche."
+          }
+        }
+      },
+      "MoisTresorerieDto": {
+        "type": "object",
+        "description": "Mois de la courbe de trésorerie : montants du mois par type et solde cumulé.",
+        "properties": {
+          "mois": {
+            "type": "string",
+            "format": "date",
+            "description": "Premier jour du mois."
+          },
+          "concretisation": {
+            "type": "number",
+            "description": "Concrétisation (crédit)."
+          },
+          "finalisation": {
+            "type": "number",
+            "description": "Finalisation (crédit)."
+          },
+          "depense": {
+            "type": "number",
+            "description": "Dépense d'exécution (débit)."
+          },
+          "garantie": {
+            "type": "number",
+            "description": "Retenue de garantie (débit)."
+          },
+          "financement": {
+            "type": "number",
+            "description": "Déblocages de crédit (crédit) ; 0 sans financement."
+          },
+          "remboursement": {
+            "type": "number",
+            "description": "Remboursements (débit) ; 0 sans financement."
+          },
+          "depenseProjet": {
+            "type": "number",
+            "description": "Dépenses indivises datées (débit)."
+          },
+          "solde": {
+            "type": "number",
+            "description": "Solde cumulé : Σ crédits − Σ débits jusqu'à ce mois inclus."
+          },
+          "tranches": {
+            "type": "array",
+            "description": "Crédits et débits du mois par tranche de l'étude (vide sans tranche).",
+            "items": {
+              "$ref": "#/components/schemas/MontantTrancheDto"
+            }
+          }
+        }
+      },
+      "MontantTrancheDto": {
+        "type": "object",
+        "description": "Crédits et débits d'un mois sur une tranche de l'étude.",
+        "properties": {
+          "trancheCode": {
+            "type": "string",
+            "description": "Code de la tranche de l'étude."
+          },
+          "credit": {
+            "type": "number",
+            "description": "Total des crédits du mois."
+          },
+          "debit": {
+            "type": "number",
+            "description": "Total des débits du mois."
+          }
+        }
+      },
+      "TresorerieFaisabiliteDto": {
+        "type": "object",
+        "description": "Onglets Analyse et Données : série mensuelle et lignes de trésorerie de l'étude.",
+        "properties": {
+          "mois": {
+            "type": "array",
+            "description": "Un point par mois, du premier au dernier mois portant une ligne.",
+            "items": {
+              "$ref": "#/components/schemas/MoisTresorerieDto"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Onglet « Données » : lignes par date.",
+            "items": {
+              "$ref": "#/components/schemas/LigneTresorerieDto"
+            }
+          }
+        }
+      },
+      "EcheancierDemandeDto": {
+        "type": "object",
+        "description": "Paramètres du bouton « Générer » de l'échéancier d'un crédit (rien n'est écrit).",
+        "properties": {
+          "dateDeblocage": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du déblocage (obligatoire)."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant débloqué (≥ 0)."
+          },
+          "nombreRemboursements": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de remboursements (> 0)."
+          },
+          "periodiciteMois": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Périodicité en mois ; < 1 devient 1."
+          },
+          "periodeGraceMois": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Période de grâce en mois (0 si absente)."
+          },
+          "tauxCharge": {
+            "type": "number",
+            "description": "Taux de charge de chaque échéance (fraction ≥ 0)."
           }
         }
       },
@@ -47374,6 +48403,79 @@
           "coutTotalTerrain": {
             "type": "number",
             "description": "Coût total du terrain TTC."
+          },
+          "coutTotal": {
+            "type": "number",
+            "description": "Charge TTC (TotalCost)."
+          },
+          "chiffreAffaires": {
+            "type": "number",
+            "description": "Chiffre d'affaires TTC (Turnover)."
+          },
+          "montantAutofinancement": {
+            "type": "number",
+            "description": "Fonds propres TTC (AutofinancementAmount)."
+          },
+          "margeNette": {
+            "type": "number",
+            "description": "Marge bénéficiaire nette."
+          },
+          "montantConcretisation": {
+            "type": "number",
+            "description": "Montant de la concrétisation TTC."
+          },
+          "montantFinalisation": {
+            "type": "number",
+            "description": "Montant de la finalisation TTC."
+          },
+          "pourcentageConcretisation": {
+            "type": "number",
+            "description": "Taux de concrétisation (fraction)."
+          },
+          "rentabiliteCoutProjet": {
+            "type": "number",
+            "description": "Retour sur coût projet ; null si coût HT nul."
+          },
+          "rentabiliteChiffreAffaires": {
+            "type": "number",
+            "description": "Retour sur le C.A. ; null si C.A. HT nul."
+          },
+          "rentabiliteFondsPropres": {
+            "type": "number",
+            "description": "Retour sur fonds propres ; null si fonds propres HT nuls."
+          }
+        }
+      },
+      "CategorieBilanDto": {
+        "type": "object",
+        "description": "Catégorie de trésorerie sélectionnable dans le bilan (StlCategory hors « sans prévision »).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé."
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie parente ; null pour une racine."
+          },
+          "estRecette": {
+            "type": "boolean",
+            "description": "Côté recette (IsCredit)."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre d'affichage (Sorting)."
           }
         }
       },
