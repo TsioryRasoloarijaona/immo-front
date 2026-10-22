@@ -20,12 +20,12 @@ export const SECTIONS_CREDIT: SectionSaisie[] = [{
 
 /**
  * Saisie à deux sens du serveur : un seul des deux (taux ou intérêts) doit partir, sinon le taux gagne.
- * Modifier la base ou le taux laisse le serveur recalculer les intérêts.
+ * Modifier le taux (ou la base d'une ligne qui a un taux) laisse le serveur recalculer les intérêts.
  */
 export function remboursementApres(ligne: RemboursementFaisabiliteDto, nom: keyof RemboursementFaisabiliteDto): RemboursementFaisabiliteDto {
   if (nom === 'montantInterets') return { ...ligne, tauxInteret: null };
-  if (nom === 'tauxInteret' || nom === 'montantBase') return { ...ligne, montantInterets: null };
-  return ligne;
+  const recalculInterets = nom === 'tauxInteret' || (nom === 'montantBase' && ligne.tauxInteret !== null && ligne.tauxInteret !== undefined);
+  return recalculInterets ? { ...ligne, montantInterets: null } : ligne;
 }
 
 /** Saisies reconstruites d'une lecture : les ancêtres purs et les lignes imposées sont rajoutés par le serveur. */

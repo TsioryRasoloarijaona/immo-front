@@ -70,6 +70,7 @@ export default function DialogueLignePrevision({ etudeId, fiche, libelle, saisie
   onClose: () => void;
 }>) {
   const [mode, setMode] = useState<Mode>(modeDe(saisie));
+  const [ratioInitial, setRatioInitial] = useState(saisie.ratio ?? null);
   const [uniteId, setUniteId] = useState(saisie.uniteEtudeId ?? '');
   const [referenceId, setReferenceId] = useState(saisie.categorieReferenceId ?? '');
   const [tva, setTva] = useState(texteNombre(echelle(saisie.tauxTva, 100)));
@@ -88,7 +89,7 @@ export default function DialogueLignePrevision({ etudeId, fiche, libelle, saisie
       categorieId: saisie.categorieId,
       uniteEtudeId: mode === 'unite' && uniteId ? uniteId : null,
       categorieReferenceId: mode === 'reference' && referenceId ? referenceId : null,
-      ratio: saisie.ratio,
+      ratio: ratioInitial,
       tauxTva: tva === '' ? null : Number(tva) / 100,
       estPourProjet: pourProjet,
       dateApplication: date ? toApiDateTime(date) ?? null : null,
@@ -121,14 +122,14 @@ export default function DialogueLignePrevision({ etudeId, fiche, libelle, saisie
   return (
     <Modal title={`Ligne de prévision — ${libelle}`} onClose={onClose} width={640}>
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-        <ChoixListe libelle="Base de calcul" items={MODES} valeur={mode} onChange={(v) => { setMode(v as Mode); setSaisi(null); }} />
+        <ChoixListe libelle="Base de calcul" items={MODES} valeur={mode} onChange={(v) => { setMode(v as Mode); setSaisi(null); setRatioInitial(null); }} />
         {mode === 'unite' && <ChoixListe libelle="Unité de l'étude" items={unites} valeur={uniteId} onChange={setUniteId} />}
         {mode === 'reference' && <ChoixListe libelle="Ligne de référence" items={refs} valeur={referenceId} onChange={setReferenceId} />}
         <ChampNombre id="lp-ratio" libelle={enPourcent ? 'Ratio (%)' : 'Prix unitaire'} desactive={mode === 'aucun'}
           valeur={valeur('ratio', apercu?.ratio)} onChange={(texte) => setSaisi({ cle: 'ratio', texte })} />
-        <ChampNombre id="lp-ht" libelle="Montant HT" valeur={valeur('montantHt', apercu?.montantHtPropre)}
+        <ChampNombre id="lp-ht" libelle="Montant HT" desactive={mode === 'aucun'} valeur={valeur('montantHt', apercu?.montantHtPropre)}
           onChange={(texte) => setSaisi({ cle: 'montantHt', texte })} />
-        <ChampNombre id="lp-ttc" libelle="Montant TTC" valeur={valeur('montant', apercu?.montantPropre)}
+        <ChampNombre id="lp-ttc" libelle="Montant TTC" desactive={mode === 'aucun'} valeur={valeur('montant', apercu?.montantPropre)}
           onChange={(texte) => setSaisi({ cle: 'montant', texte })} />
         <ChampNombre id="lp-tva" libelle="TVA (%, vide = TVA par défaut)" valeur={tva} onChange={setTva} />
         <Field>
@@ -142,7 +143,7 @@ export default function DialogueLignePrevision({ etudeId, fiche, libelle, saisie
       {erreur && <p role="alert" className="mt-3 text-body text-destructive">{erreur}</p>}
       <DialogFooter className="mt-4">
         <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>
-        <Button type="button" disabled={erreur !== null} onClick={() => onValider(construire())}>Appliquer</Button>
+        <Button type="button" disabled={erreur !== null || (mode === 'unite' && !uniteId) || (mode === 'reference' && !referenceId)} onClick={() => onValider(construire())}>Appliquer</Button>
       </DialogFooter>
     </Modal>
   );

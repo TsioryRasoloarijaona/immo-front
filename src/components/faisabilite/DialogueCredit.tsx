@@ -6,6 +6,7 @@ import TableLignes from '../patrimoine/TableLignes';
 import { Button } from '../ui/button';
 import { DialogFooter } from '../ui/dialog';
 import { genererEcheancier } from '../../lib/apiFaisabilite';
+import { todayISO } from '../../lib/format';
 import { remboursementApres, SECTIONS_CREDIT } from '../../lib/financeFaisabilite';
 import { changerRangee, type ColonneOnglet, type Rangee } from '../../lib/ongletsTranche';
 import { brouillonDepuis, champsDe, corpsDepuis, useSaisie } from '../../lib/saisiePatrimoine';
@@ -43,7 +44,7 @@ export default function DialogueCredit({ etudeId, credit, lecture, onValider, on
   onValider: (credit: FinancementFaisabiliteDto) => Promise<void>;
   onClose: () => void;
 }>) {
-  const saisie = useSaisie(CHAMPS, brouillonDepuis(CHAMPS, credit ?? { periodiciteMois: 1 }));
+  const saisie = useSaisie(CHAMPS, brouillonDepuis(CHAMPS, credit ?? { periodiciteMois: 1, dateDeblocage: todayISO() }));
   const [rangees, setRangees] = useState<Rangee<RemboursementFaisabiliteDto>[]>(
     () => (credit?.remboursements ?? []).map((ligne, i) => ({ cle: ligne.id ?? `l${i}`, ligne })),
   );

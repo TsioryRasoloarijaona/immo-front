@@ -186,7 +186,8 @@ export default function ArbreBilan({ fiche, onEnregistre }: Readonly<{ fiche: Et
             <TableBody>
               {lignesVisibles(lignes, repliees, principales).map((l) => (
                 <LigneArbre key={l.categorieId} l={l} aEnfants={parents.has(l.categorieId)} replie={repliees.has(l.categorieId)}
-                  modifiable={modifiable} retirable={saisies.some((s) => s.categorieId === l.categorieId)}
+                  modifiable={modifiable && (!parents.has(l.categorieId) || saisies.some((s) => s.categorieId === l.categorieId))}
+                  retirable={saisies.some((s) => s.categorieId === l.categorieId)}
                   onBasculer={() => basculer(l.categorieId)} onEditer={() => setEdition(l.categorieId)}
                   onRetirer={() => void appliquer(saisies.filter((s) => s.categorieId !== l.categorieId))} />
               ))}
