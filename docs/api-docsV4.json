@@ -24,10 +24,6 @@
       "description": "Onglet Contenances de l'article et types de présentation de sa tranche."
     },
     {
-      "name": "Notes",
-      "description": "Notes (AdmMessage) des programmes, tranches et articles ; écriture Administrateur."
-    },
-    {
       "name": "Dossiers — actions",
       "description": "Onglet « Actions » du dossier de vente (règle GEN0005 d'OMRAN) et instructions adressées au commercial du dossier. Les actions sont des `ComActionMessage` rattachées au dossier par `ComFolderId` ; leur catégorie est déduite du statut du dossier (Réservation → « Dossier de vente (Réservation) », Annulation ou Désistement → « Désistement et annulation », tout autre statut → « Dossier de vente (Livraison) »), comme `Sale.cs:AttachNotes`. Toute écriture signe le dossier (`UserUpdate`, `UserUpdateDateTime`)."
     },
@@ -170,6 +166,10 @@
     {
       "name": "Prospections — export",
       "description": "Exports Excel des listes de prospections et de pré-prospections. Chaque export relit la liste avec ses propres filtres et le périmètre commercial de l'appelant : il ne rend jamais une ligne que la liste ne montrerait pas."
+    },
+    {
+      "name": "Notes",
+      "description": "Notes (AdmMessage) du patrimoine et des prospections terrain ; écriture Administrateur."
     },
     {
       "name": "Pré-prospections",
@@ -6937,7 +6937,7 @@
           {
             "name": "porteur",
             "in": "query",
-            "description": "projet, tranche ou article.",
+            "description": "projet, tranche, article ou prospection-terrain.",
             "required": true,
             "schema": {
               "type": "string"
@@ -6970,7 +6970,7 @@
             }
           },
           "400": {
-            "description": "`porteur` absent ou différent de projet, tranche, article.",
+            "description": "`porteur` absent ou hors projet, tranche, article, prospection-terrain.",
             "content": {
               "*/*": {
                 "schema": {
@@ -28328,7 +28328,7 @@
             }
           },
           "404": {
-            "description": "Ni entité juridique, ni programme, tranche ou article visible.",
+            "description": "Ni entité juridique, ni programme, tranche, article visible, ni prospection terrain.",
             "content": {
               "*/*": {
                 "schema": {
@@ -36635,13 +36635,14 @@
             "enum": [
               "projet",
               "tranche",
-              "article"
+              "article",
+              "prospection-terrain"
             ]
           },
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "PKey du programme, de la tranche ou de l'article."
+            "description": "PKey du programme, de la tranche, de l'article ou de la prospection terrain."
           },
           "texte": {
             "type": "string",
@@ -36661,7 +36662,7 @@
       },
       "NoteDto": {
         "type": "object",
-        "description": "Note d'un programme, d'une tranche ou d'un article (AdmMessage).",
+        "description": "Note d'un programme, d'une tranche, d'un article ou d'une prospection terrain (AdmMessage).",
         "properties": {
           "id": {
             "type": "string",
