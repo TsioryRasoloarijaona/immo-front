@@ -2,7 +2,7 @@
 import type { UUID } from '../types';
 
 /** Segment d'URL d'un porteur de pièces jointes du patrimoine. */
-export type PorteurPieces = 'articles' | 'tranches' | 'projets';
+export type PorteurPieces = 'articles' | 'tranches' | 'projets' | 'prospections-terrain';
 
 export type OrigineDossier = 'VENTE' | 'LOCATION' | 'SYNDIC';
 
