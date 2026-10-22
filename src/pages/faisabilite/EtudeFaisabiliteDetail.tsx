@@ -62,7 +62,6 @@ function EtudeExistante({ id }: Readonly<{ id: string }>) {
         <>
           {fiche.statutLibelle && <Badge tone={toneStatut(fiche.statutCouleur)}>{fiche.statutLibelle}</Badge>}
           {fiche.bloquee && <Badge tone="neutral">Bloquée</Badge>}
-          {fiche.previsionsARecalculer && <Badge tone="warning">Prévisions à recalculer (P8b)</Badge>}
           <ActionAdmin variant="outline" onClick={() => void bascule()} libelle={fiche.bloquee ? 'Débloquer' : 'Bloquer'}
             icone={fiche.bloquee ? <LockOpen data-icon="inline-start" /> : <Lock data-icon="inline-start" />} />
           <ActionAdmin variant="outline" onClick={() => void supprimer()} libelle="Supprimer" icone={<Trash2 data-icon="inline-start" />} />

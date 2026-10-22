@@ -1,6 +1,14 @@
 import { request } from './api';
 import type { ReferentielItemDto, UUID } from '../types';
 import type {
+  ApercuTresorerieDto,
+  BilanFaisabilitePrevisionsDto,
+  CategorieBilanDto,
+  EcheancierDemandeDto,
+  FinancementFaisabiliteDto,
+  RemboursementFaisabiliteDto,
+  SaisiePrevisionDto,
+  TresorerieFaisabiliteDto,
   EtudeFaisabiliteDto,
   EtudeFaisabiliteListeDto,
   FiltresEtudes,
@@ -70,4 +78,48 @@ export function bloquerEtude(id: UUID): Promise<EtudeFaisabiliteDto> {
 
 export function debloquerEtude(id: UUID): Promise<EtudeFaisabiliteDto> {
   return request('POST', `${RACINE}/${id}/debloquer`);
+}
+
+// ------------------------------------------------------------------ P8b-1 (FEATURE-patrimoine-faisabilite-workflow.md §1-2)
+
+export function listFinancementsEtude(id: UUID): Promise<FinancementFaisabiliteDto[]> {
+  return request('GET', `${RACINE}/${id}/financements`);
+}
+
+/** Liste complète, remboursements imbriqués ; 400 négatif / date absente ; 409 bloquée. */
+export function remplacerFinancementsEtude(id: UUID, lignes: FinancementFaisabiliteDto[]): Promise<FinancementFaisabiliteDto[]> {
+  return request('PUT', `${RACINE}/${id}/financements`, { body: { lignes } });
+}
+
+/** Bouton « Générer » (Administrateur) : n'écrit rien. */
+export function genererEcheancier(id: UUID, body: EcheancierDemandeDto): Promise<RemboursementFaisabiliteDto[]> {
+  return request('POST', `${RACINE}/${id}/financements/echeancier`, { body, lecture: true });
+}
+
+export function getPrevisionsEtude(id: UUID): Promise<BilanFaisabilitePrevisionsDto> {
+  return request('GET', `${RACINE}/${id}/previsions`);
+}
+
+/** Liste complète des lignes saisies ; 400 avec message OMRAN ; 409 bloquée. */
+export function remplacerPrevisionsEtude(id: UUID, lignes: SaisiePrevisionDto[]): Promise<BilanFaisabilitePrevisionsDto> {
+  return request('PUT', `${RACINE}/${id}/previsions`, { body: { lignes } });
+}
+
+/** Aperçu sans écriture. */
+export function calculerPrevisionsEtude(id: UUID, lignes: SaisiePrevisionDto[]): Promise<BilanFaisabilitePrevisionsDto> {
+  return request('POST', `${RACINE}/${id}/previsions/calcul`, { body: { lignes }, lecture: true });
+}
+
+/** Catégories sélectionnables (hors « sans prévision »). */
+export function listCategoriesBilan(): Promise<CategorieBilanDto[]> {
+  return request('GET', `${RACINE}/choix/categories-bilan`);
+}
+
+export function getTresorerieEtude(id: UUID, avecFinancement = true): Promise<TresorerieFaisabiliteDto> {
+  return request('GET', `${RACINE}/${id}/tresorerie`, { query: { avecFinancement } });
+}
+
+/** Aperçu avec d'autres écarts-types ; 400 écart-type hors bornes. */
+export function calculerTresorerieEtude(id: UUID, body: ApercuTresorerieDto): Promise<TresorerieFaisabiliteDto> {
+  return request('POST', `${RACINE}/${id}/tresorerie/calcul`, { body, lecture: true });
 }

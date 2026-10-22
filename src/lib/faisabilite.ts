@@ -35,7 +35,7 @@ export const SECTIONS_IDENTITE: SectionSaisie[] = [{
     saisie('societeId', 'Société', 'liste', { obligatoire: true, liste: 'societes' }),
     saisie('terrainId', 'Terrain', 'liste', { liste: 'terrains' }),
     saisie('descriptionTerrain', 'Description du terrain', 'texte'),
-    saisie('nombreArticlesAVendre', "Nombre d'articles à vendre", 'entier'),
+    calcule('nombreArticlesAVendre', "Nombre d'articles à vendre", 'entier'),
     saisie('proportionTerrainPourTva', 'Proportion du terrain pour le calcul de la TVA', 'booleen'),
     saisie('tauxTvaDefaut', 'TVA par défaut', 'pourcent'),
     saisie('tauxTvaInterets', 'TVA sur les intérêts', 'pourcent'),
