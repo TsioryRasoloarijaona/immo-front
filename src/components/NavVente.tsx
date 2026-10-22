@@ -6,6 +6,7 @@ import {
   ChevronDown,
   CircleAlert,
   Contact,
+  FileBarChart,
   FileText,
   Folder,
   FolderX,
@@ -132,6 +133,8 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
     // Le serveur restreint aux commerciaux de la portée de chacun.
     { to: '/suivi-commerciaux', libelle: 'Suivi des commerciaux', icone: <Target /> },
     { to: '/suivi-affectations', libelle: 'Suivi des affectations', icone: <Link2 /> },
+    // Le serveur filtre la liste selon les droits de chacun ; la page vide l'explique.
+    { to: '/rapports', libelle: 'Rapports', icone: <FileBarChart /> },
     { to: '/plans', libelle: 'Plans', icone: <Map /> },
   ];
   if (terrain) {
