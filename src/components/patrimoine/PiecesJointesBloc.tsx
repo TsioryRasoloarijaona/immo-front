@@ -24,6 +24,8 @@ function FormulaireDepot({ porteur, id, onFini }: Readonly<{ porteur: PorteurPie
   const [saisie, setSaisie] = useState<SaisiePieceJointe>({});
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  // Le type d'une pièce d'étude est ce qui satisfait un document exigé par une transition.
+  const typeRequis = porteur === 'etudes-faisabilite';
 
   async function envoyer() {
     if (!fichier) return;
@@ -46,8 +48,8 @@ function FormulaireDepot({ porteur, id, onFini }: Readonly<{ porteur: PorteurPie
           <span className="truncate">{fichier ? fichier.name : 'Choisir un fichier…'}</span>
           <input type="file" className="hidden" onChange={(e) => setFichier(e.target.files?.[0] ?? null)} />
         </label>
-        <SaisiePieceChamps valeur={saisie} onChange={setSaisie} />
-        <Button type="button" size="sm" disabled={envoi || !fichier} onClick={() => void envoyer()}>
+        <SaisiePieceChamps valeur={saisie} onChange={setSaisie} typeObligatoire={typeRequis} />
+        <Button type="button" size="sm" disabled={envoi || !fichier || (typeRequis && !saisie.typeId)} onClick={() => void envoyer()}>
           {envoi ? 'Envoi…' : 'Envoyer'}
         </Button>
         <Button type="button" size="sm" variant="ghost" disabled={envoi} onClick={() => onFini(false)}>Annuler</Button>
@@ -58,7 +60,12 @@ function FormulaireDepot({ porteur, id, onFini }: Readonly<{ porteur: PorteurPie
 }
 
 /** Pièces jointes d'un article, d'une tranche ou d'un programme ; dépôt et suppression : Administrateur. */
-export default function PiecesJointesBloc({ porteur, id }: Readonly<{ porteur: PorteurPieces; id: string }>) {
+export default function PiecesJointesBloc({ porteur, id, lecture = false }: Readonly<{
+  porteur: PorteurPieces;
+  id: string;
+  /** Dépôt et suppression masqués (étude bloquée). */
+  lecture?: boolean;
+}>) {
   const pieces = useApi(() => listPiecesPatrimoine(porteur, id), [porteur, id]);
   const confirm = useConfirm();
   const [depotOuvert, setDepotOuvert] = useState(false);
@@ -102,7 +109,7 @@ export default function PiecesJointesBloc({ porteur, id }: Readonly<{ porteur: P
           <Button type="button" variant="ghost" size="sm" onClick={() => ouvrirPiecePatrimoine(porteur, id, p.id)}>
             <Eye data-icon="inline-start" /> Ouvrir
           </Button>
-          <ActionAdmin onClick={() => void supprimer(p)} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
+          {!lecture && <ActionAdmin onClick={() => void supprimer(p)} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />}
         </div>
       ),
     },
@@ -111,7 +118,7 @@ export default function PiecesJointesBloc({ porteur, id }: Readonly<{ porteur: P
   return (
     <Card
       title={`Pièces jointes (${pieces.data?.length ?? 0})`}
-      action={!depotOuvert && <ActionAdmin onClick={() => setDepotOuvert(true)} libelle="Ajouter une pièce jointe" variant="outline" />}
+      action={!depotOuvert && !lecture && <ActionAdmin onClick={() => setDepotOuvert(true)} libelle="Ajouter une pièce jointe" variant="outline" />}
     >
       {depotOuvert && (
         <FormulaireDepot
