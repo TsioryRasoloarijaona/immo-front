@@ -116,6 +116,10 @@
       "description": "Offres de prix (\"devis\") faites aux prospects — vue globale tous prospections confondues. Voir aussi POST/GET /api/prospections/{id}/devis pour la vue nestée sur une seule prospection.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les devis dont la tranche relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un devis sans tranche reste visible."
     },
     {
+      "name": "Import du patrimoine",
+      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a). Chaque ligne\npasse par le service de l'écran (mêmes règles, même audit) ; Administrateur seul."
+    },
+    {
       "name": "Référentiels",
       "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. Sans filtre `categorieId`, les **annexes** (`IsUnderItem` — parkings, terrasses, jardins, mêmes racines sans parent) sont écartées, comme dans l'écran Articles du logiciel de bureau ; cocher explicitement leur catégorie les fait réapparaître. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
     },
@@ -7713,6 +7717,103 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/import-patrimoine/{type}": {
+      "post": {
+        "tags": [
+          "Import du patrimoine"
+        ],
+        "summary": "Importe un classeur .xlsx (simulation par défaut), tout ou rien",
+        "description": "Ligne 1 = en-têtes, puis une ligne de données par objet ; le **pivot** (code dans la tranche) choisit création ou mise à\njour. Colonne absente ou cellule vide = champ intact (l'import ne vide jamais un champ). Nombres en cellule numérique ou\nen texte (`1 234,56`, `1234.56`) ; dates en cellule date ou `jj/mm/aaaa` ; cases `Oui/Non`, `Vrai/Faux`, `1/0`, `X`.\nTVA supérieure à 1 lue en pourcentage (÷ 100, avertissement). Référentiels : Immeuble, Étage, Catégorie, Catégorie de\ncharge, Tranche, Nature par code **ou** libellé (casse ignorée) ; Vocation, Type, Type présentation, Orientation, Entité\nde gestion du syndic par code seul. En-tête inconnu = avertissement « colonne ignorée ».\n\nUne seule transaction : la moindre ligne en ERREUR, ou `simulation=true`, annule tout (`ecrit=false`, aucune trace\nd'audit). Les messages d'erreur métier sont ceux des écrans (`POST/PATCH /api/articles`, `/api/sous-articles`).\n\nRefus du fichier entier (400) : `trancheId` absent (« Vous devez sélectionner une Tranche ! »), format `.xls` (« enregistrez\nle fichier au format .xlsx »), contenu non ZIP, archive corrompue ou piégée (bombe, entrée géante, DTD), plus de 1 000\nlignes de données, aucune feuille, feuille demandée absente, aucune donnée, en-tête en double.",
+        "operationId": "importer_2",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "description": "Type importé.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "articles",
+                "sous-articles"
+              ]
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche visée (CfgTranche.PKey), obligatoire pour articles et sous-articles.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "simulation",
+            "in": "query",
+            "description": "Vrai (défaut) = « Vérifier les données » : même exécution, puis tout est annulé.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "feuille",
+            "in": "query",
+            "description": "Nom de la feuille à lire ; absent = la première.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Classeur .xlsx (10 Mo, 1 000 lignes de données au plus)."
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bilan ; ecrit = vrai seulement sans erreur hors simulation.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanImportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fichier refusé en entier (voir la description) ; rien n'est lu."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Type inconnu, ou tranche inconnue ou d'une entité inactive."
+          },
+          "413": {
+            "description": "Fichier de plus de 10 Mo."
           }
         }
       }
@@ -23123,6 +23224,63 @@
         }
       }
     },
+    "/api/import-patrimoine/{type}/modele": {
+      "get": {
+        "tags": [
+          "Import du patrimoine"
+        ],
+        "summary": "Classeur modèle pré-rempli avec les lignes de la tranche",
+        "description": "En-têtes OMRAN exacts (`ImportItems` / `ImportUnderItems`), une ligne par article (ou sous-article) existant de la\ntranche, puis une feuille d'aide par référentiel (Code, Libellé). Nom : `<code tranche>_STOCK_ARTICLES_<horodatage>.xlsx`\nou `…_STOCK_SOUS_ARTICLES_…`. Réimporter le modèle tel quel donne des lignes INCHANGEE.",
+        "operationId": "modele",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "description": "Type importé.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "articles",
+                "sous-articles"
+              ]
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche visée (CfgTranche.PKey), obligatoire pour articles et sous-articles.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx : feuille de données puis feuilles d'aide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "« Vous devez sélectionner une Tranche ! » (trancheId absent)."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Type inconnu, ou tranche inconnue ou d'une entité inactive."
+          }
+        }
+      }
+    },
     "/api/impayes": {
       "get": {
         "tags": [
@@ -37979,6 +38137,99 @@
             "format": "int64",
             "description": "Taille en octets (500 Ko au plus).",
             "example": 48213
+          }
+        }
+      },
+      "BilanImportDto": {
+        "type": "object",
+        "description": "Bilan d'un import de classeur, simulé ou réel : tout ou rien, une ligne par ligne de données.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Type importé (articles, sous-articles).",
+            "example": "articles"
+          },
+          "simulation": {
+            "type": "boolean",
+            "description": "Vrai si l'import était une simulation (« Vérifier les données »)."
+          },
+          "ecrit": {
+            "type": "boolean",
+            "description": "Vrai seulement si tout a été écrit : aucune erreur et pas de simulation."
+          },
+          "lignesLues": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de lignes de données lues."
+          },
+          "creations": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lignes en CREATION."
+          },
+          "misesAJour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lignes en MISE_A_JOUR."
+          },
+          "inchangees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lignes en INCHANGEE."
+          },
+          "erreurs": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lignes en ERREUR ou NON_VERIFIEE ; > 0 = rien n'est écrit."
+          },
+          "avertissements": {
+            "type": "array",
+            "description": "Colonnes ignorées, TVA saisie en pourcentage… : n'empêchent pas l'import.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Une entrée par ligne de données, dans l'ordre du fichier.",
+            "items": {
+              "$ref": "#/components/schemas/LigneBilanDto"
+            }
+          }
+        }
+      },
+      "LigneBilanDto": {
+        "type": "object",
+        "description": "Résultat d'une ligne de données du classeur importé.",
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "format": "int32",
+            "description": "N° de ligne Excel (1 = en-têtes, 2 = première donnée).",
+            "example": 2
+          },
+          "pivot": {
+            "type": "string",
+            "description": "Pivot lu (code de l'objet dans la tranche) ; null s'il manque."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code écrit (colonne Code, à défaut le pivot) ; null s'il manque."
+          },
+          "resultat": {
+            "type": "string",
+            "description": "Ce que la ligne a produit (ou produirait, en simulation).",
+            "enum": [
+              "CREATION",
+              "MISE_A_JOUR",
+              "INCHANGEE",
+              "ERREUR",
+              "NON_VERIFIEE"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Libellé OMRAN (« Création de l'article : X »…) suivi du détail des erreurs."
           }
         }
       },
