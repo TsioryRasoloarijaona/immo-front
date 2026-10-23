@@ -36,7 +36,7 @@ const SOMMES_NATURE: ReadonlySet<string> = new Set<keyof MontantsNatureDossier>(
   'prixContractuel', 'prixContractuelRegle', 'prixContractuelReste', 'prixRegle', 'prixReste',
   'netAPayerRegle', 'netAPayerReste', 'avance', 'avanceReglee', 'avanceReste', 'autofinancement',
   'autofinancementRegle', 'autofinancementReste', 'credit', 'creditRegle', 'creditReste', 'frais',
-  'fraisRegles', 'fraisReste', 'tropPercu', 'tropPercuRegle', 'tropPercuReste',
+  'fraisRegles', 'fraisReste', 'fraisSyndic', 'fraisSyndicRegles', 'fraisSyndicReste', 'tropPercu', 'tropPercuRegle', 'tropPercuReste',
 ]);
 
 export type TonSomme = 'regle' | 'reste' | 'neutre';
