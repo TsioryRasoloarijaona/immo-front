@@ -48224,6 +48224,22 @@
             "type": "string",
             "description": "Co-acquéreurs (ComFolderCustomer), libellés séparés par des virgules."
           },
+          "clientEmail": {
+            "type": "string",
+            "description": "E-mail du client principal (CfgTier.EMail)."
+          },
+          "clientAdresse": {
+            "type": "string",
+            "description": "Adresse du client principal : Address, puis Address2 et Address3 s'ils sont remplis, séparés par « , »."
+          },
+          "clientVille": {
+            "type": "string",
+            "description": "Ville du client principal : celle du référentiel (AdmCityId), sinon City."
+          },
+          "clientPays": {
+            "type": "string",
+            "description": "Pays du client principal (AdmCountry.Description)."
+          },
           "dateFicheBancaire": {
             "type": "string",
             "format": "date-time",
@@ -48508,6 +48524,18 @@
           "fraisReste": {
             "type": "number",
             "description": "`frais − fraisRegles`."
+          },
+          "fraisSyndic": {
+            "type": "number",
+            "description": "Σ au crédit des échéances de la catégorie `AdmParamsGuid.DefaultSyndicFeeDocumentType` (frais syndic), sous-ensemble\nde `frais` ; 0 si le paramètre n'est pas défini."
+          },
+          "fraisSyndicRegles": {
+            "type": "number",
+            "description": "Réglé signé des échéances de frais syndic, hors règlements annulés (`CANCELED`)."
+          },
+          "fraisSyndicReste": {
+            "type": "number",
+            "description": "`fraisSyndic − fraisSyndicRegles`."
           },
           "modifications": {
             "type": "number",
