@@ -2,13 +2,18 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FicheShell, { type OngletFiche } from '../FicheShell';
 import FicheSections from '../patrimoine/FicheSections';
+import PiecesJointesBloc from '../patrimoine/PiecesJointesBloc';
 import PiedSaisie from '../patrimoine/PiedSaisie';
 import SectionsSaisie from '../patrimoine/SectionsSaisie';
-import BilanEtude from './BilanEtude';
+import ArbreBilan from './ArbreBilan';
 import ChronologiePhases from './ChronologiePhases';
 import GrilleTranchesEtude from './GrilleTranchesEtude';
 import GrilleUnitesEtude from './GrilleUnitesEtude';
 import MessagesVerif from './MessagesVerif';
+import OngletAnalyse from './OngletAnalyse';
+import OngletDonnees from './OngletDonnees';
+import OngletFinancement from './OngletFinancement';
+import OngletHistorique from './OngletHistorique';
 import { createEtudeFaisabilite, listTerrainsEtude, updateEtudeFaisabilite } from '../../lib/apiFaisabilite';
 import { useAuth } from '../../lib/auth';
 import {
@@ -91,7 +96,12 @@ export default function OngletsEtude({ fiche, entete, recharger, onEnregistre }:
     ...(fiche ? [
       { id: 'unites', libelle: 'Unités de base', compteur: fiche.unites.length, contenu: <GrilleUnitesEtude fiche={fiche} onEnregistre={() => void recharger()} /> },
       { id: 'tranches', libelle: 'Tranches', compteur: fiche.tranches.length, contenu: <GrilleTranchesEtude fiche={fiche} onEnregistre={recharger} /> },
-      { id: 'bilan', libelle: 'Bilan', contenu: <BilanEtude fiche={fiche} /> },
+      { id: 'financement', libelle: 'Financement', contenu: <OngletFinancement fiche={fiche} onEnregistre={() => void recharger()} /> },
+      { id: 'bilan', libelle: 'Bilan', contenu: <ArbreBilan fiche={fiche} onEnregistre={() => void recharger()} /> },
+      { id: 'analyse', libelle: 'Analyse', contenu: <OngletAnalyse fiche={fiche} /> },
+      { id: 'donnees', libelle: 'Données', contenu: <OngletDonnees fiche={fiche} /> },
+      { id: 'historique', libelle: 'Historique', contenu: <OngletHistorique etudeId={fiche.id} version={fiche.statutId} /> },
+      { id: 'pieces', libelle: 'Pièces jointes', contenu: <PiecesJointesBloc porteur="etudes-faisabilite" id={fiche.id} lecture={fiche.bloquee} /> },
     ] : []),
   ];
 

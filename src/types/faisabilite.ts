@@ -149,6 +149,19 @@ export interface EtudeFaisabiliteListeDto {
   bloquee: boolean;
   superficie: number | null;
   coutTotalTerrain: number | null;
+  /** Charge TTC. */
+  coutTotal: number | null;
+  chiffreAffaires: number | null;
+  /** Fonds propres TTC. */
+  montantAutofinancement: number | null;
+  margeNette: number | null;
+  montantConcretisation: number | null;
+  montantFinalisation: number | null;
+  pourcentageConcretisation: number | null;
+  /** Retours : null si le dénominateur HT est nul. */
+  rentabiliteCoutProjet: number | null;
+  rentabiliteChiffreAffaires: number | null;
+  rentabiliteFondsPropres: number | null;
 }
 
 export interface EtudeFaisabiliteDto {
@@ -168,6 +181,7 @@ export interface EtudeFaisabiliteDto {
   statutCouleur: string | null;
   /** Bloquée : toute écriture répond 409 avant Débloquer. */
   bloquee: boolean;
+  /** Calculé par le serveur (unités à catégorie d'article, non surface), lecture seule. */
   nombreArticlesAVendre: number | null;
   proportionTerrainPourTva: boolean | null;
   tauxTvaDefaut: number | null;
@@ -178,12 +192,14 @@ export interface EtudeFaisabiliteDto {
   delaiRetourJours: number | null;
   tauxRetenueGarantie: number | null;
   tauxApplicationRetenueGarantie: number | null;
+  pourcentageConcretisation: number | null;
+  tauxIs: number | null;
+  prixVenteM2: number | null;
   valeurs: ValeursFaisabilite;
+  /** Recalculé par le serveur à chaque écriture de l'étude. */
   bilan: BilanEtudeDto;
   unites: LigneUniteEtudeDto[];
   tranches: LigneTrancheEtudeDto[];
-  /** L'étude a des prévisions : à recalculer (P8b) après une modification. */
-  previsionsARecalculer: boolean;
   userCreate: string | null;
   userCreateDateTime: string | null;
   userUpdate: string | null;
@@ -202,7 +218,6 @@ export interface SaisieEtudeDto {
   societeId?: UUID;
   terrainId?: UUID;
   descriptionTerrain?: string;
-  nombreArticlesAVendre?: number;
   proportionTerrainPourTva?: boolean;
   tauxTvaDefaut?: number;
   tauxTvaInterets?: number;
@@ -243,11 +258,266 @@ export interface SaisieEtudeDto {
   delaiRetourJours?: number;
   tauxRetenueGarantie?: number;
   tauxApplicationRetenueGarantie?: number;
+  /** Fraction 0-1 (400 sinon). */
+  pourcentageConcretisation?: number;
+  /** Fraction 0-1 (400 sinon). */
+  tauxIs?: number;
+  prixVenteM2?: number;
   /** PATCH : `terrainId`, `debutAchatTerrain` → NULL ; nombre → 0 ; texte → "". */
   champsAVider?: string[];
   /** `/calcul` seulement : grilles à contrôler par Verif. */
   unites?: LigneUniteEtudeDto[];
   tranches?: LigneTrancheEtudeDto[];
+}
+
+// ------------------------------------------------------------------ P8b-1 : financement (FEATURE-patrimoine-faisabilite-workflow.md §1)
+
+/** Remboursement ; si taux et intérêts sont envoyés, le taux gagne ; `montantARegler` jamais saisi. */
+export interface RemboursementFaisabiliteDto {
+  id?: UUID | null;
+  date: string | null;
+  montantBase: number | null;
+  tauxInteret?: number | null;
+  montantInterets?: number | null;
+  /** Calculé : base + intérêts. */
+  montantARegler?: number | null;
+}
+
+/** Crédit (« Déblocage de crédit ») ; `montantARegler`, `totalInterets`, `ecartBase` calculés (ignorés en écriture). */
+export interface FinancementFaisabiliteDto {
+  id?: UUID | null;
+  description: string | null;
+  dateDeblocage: string | null;
+  montant: number | null;
+  nombreRemboursements: number | null;
+  /** < 1 devient 1. */
+  periodiciteMois: number | null;
+  periodeGraceMois: number | null;
+  tauxCharge: number | null;
+  montantARegler?: number | null;
+  totalInterets?: number | null;
+  /** Σ bases − montant débloqué : information (orange), jamais un refus. */
+  ecartBase?: number | null;
+  remboursements: RemboursementFaisabiliteDto[];
+}
+
+/** Bouton « Générer » : rien n'est écrit. */
+export interface EcheancierDemandeDto {
+  dateDeblocage: string | null;
+  montant: number | null;
+  nombreRemboursements: number | null;
+  periodiciteMois: number | null;
+  periodeGraceMois: number | null;
+  tauxCharge: number | null;
+}
+
+// ------------------------------------------------------------------ P8b-1 : bilan (§2.1-2.3)
+
+/** Ligne saisie, clé = catégorie ; priorité ratio > montantHt > montant ; unité OU référence. */
+export interface SaisiePrevisionDto {
+  categorieId: UUID;
+  uniteEtudeId?: UUID | null;
+  categorieReferenceId?: UUID | null;
+  ratio?: number | null;
+  montantHt?: number | null;
+  montant?: number | null;
+  /** Absent = TVA par défaut de l'étude. */
+  tauxTva?: number | null;
+  estPourProjet?: boolean | null;
+  /** « Traiter au début du projet ». */
+  dateApplication?: string | null;
+}
+
+export interface VentilationPrevisionDto {
+  trancheEtudeId: UUID;
+  trancheCode: string | null;
+  montantHt: number | null;
+  montant: number | null;
+}
+
+/** Nœud de l'arbre à plat (parent avant enfants). */
+export interface LignePrevisionDto {
+  categorieId: UUID;
+  parentId: UUID | null;
+  code: string | null;
+  libelle: string | null;
+  estRecette: boolean;
+  profondeur: number;
+  uniteEtudeId: UUID | null;
+  uniteCode: string | null;
+  categorieReferenceId: UUID | null;
+  categorieReferenceLibelle: string | null;
+  ratio: number | null;
+  tauxTva: number | null;
+  montantHtPropre: number | null;
+  montantPropre: number | null;
+  /** Totaux du nœud, enfants compris. */
+  montantHt: number | null;
+  montant: number | null;
+  poids: number | null;
+  estPourProjet: boolean;
+  dateApplication: string | null;
+  indivise: boolean;
+  /** Montant imposé (terrain, frais, intérêts) : non modifiable. */
+  verrouillee: boolean;
+  ventilation: VentilationPrevisionDto[];
+}
+
+export interface TotauxPrevisionsDto {
+  depenseHt: number | null;
+  depense: number | null;
+  recetteHt: number | null;
+  recette: number | null;
+  /** Avertissement « terrain non inclus : relations de trésorerie non configurées ». */
+  terrainNonInclus: boolean;
+}
+
+export interface BilanFaisabilitePrevisionsDto {
+  lignes: LignePrevisionDto[];
+  totaux: TotauxPrevisionsDto;
+  bilan: BilanEtudeDto;
+}
+
+export interface CategorieBilanDto {
+  id: UUID;
+  code: string | null;
+  libelle: string | null;
+  parentId: UUID | null;
+  estRecette: boolean;
+  ordre: number | null;
+}
+
+// ------------------------------------------------------------------ P8b-1 : trésorerie (§2.5-2.6)
+
+export interface MontantTrancheDto {
+  trancheCode: string | null;
+  credit: number | null;
+  debit: number | null;
+}
+
+export interface MoisTresorerieDto {
+  /** `YYYY-MM-01`. */
+  mois: string;
+  concretisation: number | null;
+  finalisation: number | null;
+  depense: number | null;
+  garantie: number | null;
+  financement: number | null;
+  remboursement: number | null;
+  depenseProjet: number | null;
+  /** Cumul des crédits − débits. */
+  solde: number | null;
+  tranches: MontantTrancheDto[];
+}
+
+export interface LigneTresorerieDto {
+  date: string | null;
+  /** Concretisation, Finalization, Expense, ExpenseBackGuarantee, Funding, Refunding, ProjectExpense. */
+  type: string;
+  libelle: string | null;
+  debit: number | null;
+  credit: number | null;
+  trancheCode: string | null;
+}
+
+export interface TresorerieFaisabiliteDto {
+  mois: MoisTresorerieDto[];
+  lignes: LigneTresorerieDto[];
+}
+
+/** Écarts-types ≥ 0,5 ; absent = valeur de l'étude. */
+export interface ApercuTresorerieDto {
+  ecartTypeTravaux?: number | null;
+  ecartTypeConcretisation?: number | null;
+  ecartTypeFinalisation?: number | null;
+  avecFinancement?: boolean | null;
+}
+
+// ------------------------------------------------------------------ P8b-2 (FEATURE-patrimoine-faisabilite-workflow.md §4-7)
+
+/** Champ obligatoire d'une transition ; un nombre (même 0) est toujours renseigné. */
+export interface ChampTransitionDto {
+  champ: string;
+  libelle: string;
+  renseigne: boolean;
+}
+
+export interface DocumentTransitionDto {
+  typeId: UUID;
+  typeLibelle: string | null;
+  fourni: boolean;
+}
+
+/** Transition empruntable depuis le statut courant par un rôle de l'appelant. */
+export interface TransitionPossibleDto {
+  id: UUID;
+  description: string | null;
+  statutDepartId: UUID;
+  statutDepartLibelle: string | null;
+  statutArriveeId: UUID;
+  statutArriveeLibelle: string | null;
+  champsObligatoires: ChampTransitionDto[];
+  documentsRequis: DocumentTransitionDto[];
+  possible: boolean;
+}
+
+export interface DemandeTransitionEtudeDto {
+  transitionId: UUID;
+}
+
+export interface HistoriqueStatutEtudeDto {
+  id: UUID;
+  date: string | null;
+  statutCode: string | null;
+  statutLibelle: string | null;
+  ordre: number | null;
+  utilisateur: string | null;
+}
+
+/** Catalogue `/api/config-faisabilite/champs-obligatoires` : `nom` = nom OMRAN stocké. */
+export interface ChampObligatoire {
+  nom: string;
+  champ: string;
+  libelle: string;
+}
+
+export interface DocumentAJoindreDto {
+  typeDocumentId: UUID;
+  typeDocumentLibelle?: string | null;
+  estObligatoire?: boolean | null;
+  avecTitre?: boolean | null;
+}
+
+/** Statut d'étude ; en PATCH, absent = inchangé. */
+export interface StatutEtudeConfigDto {
+  id?: UUID | null;
+  sorting?: number | null;
+  code?: string | null;
+  description?: string | null;
+  typeEtatId?: UUID | null;
+  typeEtatLibelle?: string | null;
+  delai?: number | null;
+  couleur?: string | null;
+  notes?: string | null;
+  champsObligatoires?: string[] | null;
+  documents?: DocumentAJoindreDto[] | null;
+}
+
+/** Transition d'étude ; en PATCH, absent = inchangé, liste reçue = remplace. */
+export interface TransitionEtudeConfigDto {
+  id?: UUID | null;
+  sorting?: number | null;
+  description?: string | null;
+  statutDepartId?: UUID | null;
+  statutDepartLibelle?: string | null;
+  statutArriveeId?: UUID | null;
+  statutArriveeLibelle?: string | null;
+  champsObligatoires?: string[] | null;
+  noteObligatoire?: boolean | null;
+  avecNotification?: boolean | null;
+  envoyerEmail?: boolean | null;
+  roles?: UUID[] | null;
+  documents?: DocumentAJoindreDto[] | null;
 }
 
 /** Filtres de `GET /api/etudes-faisabilite` ; absent = pas de filtre. */

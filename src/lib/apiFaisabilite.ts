@@ -1,6 +1,21 @@
 import { request } from './api';
+import { exporterListe } from './export';
 import type { ReferentielItemDto, UUID } from '../types';
 import type {
+  ChampObligatoire,
+  DemandeTransitionEtudeDto,
+  HistoriqueStatutEtudeDto,
+  StatutEtudeConfigDto,
+  TransitionEtudeConfigDto,
+  TransitionPossibleDto,
+  ApercuTresorerieDto,
+  BilanFaisabilitePrevisionsDto,
+  CategorieBilanDto,
+  EcheancierDemandeDto,
+  FinancementFaisabiliteDto,
+  RemboursementFaisabiliteDto,
+  SaisiePrevisionDto,
+  TresorerieFaisabiliteDto,
   EtudeFaisabiliteDto,
   EtudeFaisabiliteListeDto,
   FiltresEtudes,
@@ -70,4 +85,118 @@ export function bloquerEtude(id: UUID): Promise<EtudeFaisabiliteDto> {
 
 export function debloquerEtude(id: UUID): Promise<EtudeFaisabiliteDto> {
   return request('POST', `${RACINE}/${id}/debloquer`);
+}
+
+// ------------------------------------------------------------------ P8b-1 (FEATURE-patrimoine-faisabilite-workflow.md §1-2)
+
+export function listFinancementsEtude(id: UUID): Promise<FinancementFaisabiliteDto[]> {
+  return request('GET', `${RACINE}/${id}/financements`);
+}
+
+/** Liste complète, remboursements imbriqués ; 400 négatif / date absente ; 409 bloquée. */
+export function remplacerFinancementsEtude(id: UUID, lignes: FinancementFaisabiliteDto[]): Promise<FinancementFaisabiliteDto[]> {
+  return request('PUT', `${RACINE}/${id}/financements`, { body: { lignes } });
+}
+
+/** Bouton « Générer » (Administrateur) : n'écrit rien. */
+export function genererEcheancier(id: UUID, body: EcheancierDemandeDto): Promise<RemboursementFaisabiliteDto[]> {
+  return request('POST', `${RACINE}/${id}/financements/echeancier`, { body, lecture: true });
+}
+
+export function getPrevisionsEtude(id: UUID): Promise<BilanFaisabilitePrevisionsDto> {
+  return request('GET', `${RACINE}/${id}/previsions`);
+}
+
+/** Liste complète des lignes saisies ; 400 avec message OMRAN ; 409 bloquée. */
+export function remplacerPrevisionsEtude(id: UUID, lignes: SaisiePrevisionDto[]): Promise<BilanFaisabilitePrevisionsDto> {
+  return request('PUT', `${RACINE}/${id}/previsions`, { body: { lignes } });
+}
+
+/** Aperçu sans écriture. */
+export function calculerPrevisionsEtude(id: UUID, lignes: SaisiePrevisionDto[]): Promise<BilanFaisabilitePrevisionsDto> {
+  return request('POST', `${RACINE}/${id}/previsions/calcul`, { body: { lignes }, lecture: true });
+}
+
+/** Catégories sélectionnables (hors « sans prévision »). */
+export function listCategoriesBilan(): Promise<CategorieBilanDto[]> {
+  return request('GET', `${RACINE}/choix/categories-bilan`);
+}
+
+export function getTresorerieEtude(id: UUID, avecFinancement = true): Promise<TresorerieFaisabiliteDto> {
+  return request('GET', `${RACINE}/${id}/tresorerie`, { query: { avecFinancement } });
+}
+
+/** Aperçu avec d'autres écarts-types ; 400 écart-type hors bornes. */
+export function calculerTresorerieEtude(id: UUID, body: ApercuTresorerieDto): Promise<TresorerieFaisabiliteDto> {
+  return request('POST', `${RACINE}/${id}/tresorerie/calcul`, { body, lecture: true });
+}
+
+// ------------------------------------------------------------------ P8b-2 (FEATURE-patrimoine-faisabilite-workflow.md §4-7)
+
+export function listTransitionsEtude(id: UUID): Promise<TransitionPossibleDto[]> {
+  return request('GET', `${RACINE}/${id}/transitions`);
+}
+
+/** 409 bloquée ou transition non permise (`problem.transitionsAutorisees`) ; 400 champs / documents / statut ; 404. */
+export function executerTransitionEtude(id: UUID, body: DemandeTransitionEtudeDto): Promise<EtudeFaisabiliteDto> {
+  return request('POST', `${RACINE}/${id}/transitions`, { body });
+}
+
+export function listHistoriqueEtude(id: UUID): Promise<HistoriqueStatutEtudeDto[]> {
+  return request('GET', `${RACINE}/${id}/historique`);
+}
+
+/** 11 feuilles, étude bloquée comprise. */
+export function exporterEtude(id: UUID, code: string): Promise<void> {
+  return exporterListe(`${RACINE}/${id}/export.xlsx`, {}, `etude-${code}`);
+}
+
+const CONFIG = '/api/config-faisabilite';
+
+export function listStatutsEtudeConfig(): Promise<StatutEtudeConfigDto[]> {
+  return request('GET', `${CONFIG}/statuts`);
+}
+
+/** 400 champ absent / inconnu ; 409 code pris. */
+export function creerStatutEtude(body: StatutEtudeConfigDto): Promise<StatutEtudeConfigDto> {
+  return request('POST', `${CONFIG}/statuts`, { body });
+}
+
+export function modifierStatutEtude(id: UUID, body: StatutEtudeConfigDto): Promise<StatutEtudeConfigDto> {
+  return request('PATCH', `${CONFIG}/statuts/${id}`, { body });
+}
+
+/** 409 si porté par une étude, une transition ou l'historique. */
+export function supprimerStatutEtude(id: UUID): Promise<void> {
+  return request('DELETE', `${CONFIG}/statuts/${id}`);
+}
+
+export function listTransitionsEtudeConfig(): Promise<TransitionEtudeConfigDto[]> {
+  return request('GET', `${CONFIG}/transitions`);
+}
+
+/** 400 « Le statut de départ et le statut d'arrivé doivent être différents! » ou référence inconnue ; 409 doublon. */
+export function creerTransitionEtude(body: TransitionEtudeConfigDto): Promise<TransitionEtudeConfigDto> {
+  return request('POST', `${CONFIG}/transitions`, { body });
+}
+
+export function modifierTransitionEtude(id: UUID, body: TransitionEtudeConfigDto): Promise<TransitionEtudeConfigDto> {
+  return request('PATCH', `${CONFIG}/transitions/${id}`, { body });
+}
+
+export function supprimerTransitionEtude(id: UUID): Promise<void> {
+  return request('DELETE', `${CONFIG}/transitions/${id}`);
+}
+
+export function listChampsObligatoiresEtude(): Promise<ChampObligatoire[]> {
+  return request('GET', `${CONFIG}/champs-obligatoires`);
+}
+
+export function listTypesEtatEtude(): Promise<ReferentielItemDto[]> {
+  return request('GET', `${CONFIG}/choix/types-etat`);
+}
+
+/** Rôles applicatifs (AdmRole) pouvant être liés à une transition. */
+export function listRolesEtude(): Promise<ReferentielItemDto[]> {
+  return request('GET', '/api/referentiels/roles');
 }

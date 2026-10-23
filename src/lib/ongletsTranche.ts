@@ -1,7 +1,7 @@
 import type { BlocCommissionDto, LigneFraisDto, LignesTrancheDto, ReferentielItemDto } from '../types';
 import { getOngletTranche, putOngletTranche, type OngletTranche } from './apiPatrimoine';
 import { libelleBloc } from './commissionsTranche';
-import { formatCurrency, formatDate, formatNumber, formatPercent, formatSurface } from './format';
+import { formatCurrency, formatDate, formatNumber, formatPercent, formatRatio, formatSurface } from './format';
 
 /** Lecture et écriture (liste complète) des lignes d'une grille ; `cle` change quand la source change. */
 export interface SourceLignes<L> {
@@ -23,7 +23,7 @@ export interface ColonneOnglet<L> {
   nom: keyof L & string;
   libelle: string;
   /** `bloc` : bloc de commission (montant ou % du prix de vente TTC). */
-  type: 'choix' | 'montant' | 'surface' | 'nombre' | 'entier' | 'pourcent' | 'case' | 'date' | 'texte' | 'bloc';
+  type: 'choix' | 'montant' | 'surface' | 'coefficient' | 'nombre' | 'entier' | 'pourcent' | 'case' | 'date' | 'texte' | 'bloc';
   /** `choix` : valeurs proposées (id → code — description), ou celles qui dépendent de la ligne. */
   choix?: ReferentielItemDto[] | ((ligne: L) => ReferentielItemDto[]);
   /** `choix` : « — » proposé (valeur nulle). */
@@ -49,6 +49,7 @@ export function choixDe<L>(colonne: ColonneOnglet<L>, ligne: L): ReferentielItem
 const FORMATS_NOMBRE: Partial<Record<ColonneOnglet<unknown>['type'], (n: number | null) => string>> = {
   montant: formatCurrency,
   surface: (n) => formatSurface(n),
+  coefficient: (n) => (n === null ? '—' : formatRatio(n)),
   pourcent: (n) => formatPercent(n, 2),
 };
 
