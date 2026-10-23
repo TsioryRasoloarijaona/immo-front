@@ -24,6 +24,8 @@ function FormulaireDepot({ porteur, id, onFini }: Readonly<{ porteur: PorteurPie
   const [saisie, setSaisie] = useState<SaisiePieceJointe>({});
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  // Le type d'une pièce d'étude est ce qui satisfait un document exigé par une transition.
+  const typeRequis = porteur === 'etudes-faisabilite';
 
   async function envoyer() {
     if (!fichier) return;
@@ -46,8 +48,8 @@ function FormulaireDepot({ porteur, id, onFini }: Readonly<{ porteur: PorteurPie
           <span className="truncate">{fichier ? fichier.name : 'Choisir un fichier…'}</span>
           <input type="file" className="hidden" onChange={(e) => setFichier(e.target.files?.[0] ?? null)} />
         </label>
-        <SaisiePieceChamps valeur={saisie} onChange={setSaisie} />
-        <Button type="button" size="sm" disabled={envoi || !fichier} onClick={() => void envoyer()}>
+        <SaisiePieceChamps valeur={saisie} onChange={setSaisie} typeObligatoire={typeRequis} />
+        <Button type="button" size="sm" disabled={envoi || !fichier || (typeRequis && !saisie.typeId)} onClick={() => void envoyer()}>
           {envoi ? 'Envoi…' : 'Envoyer'}
         </Button>
         <Button type="button" size="sm" variant="ghost" disabled={envoi} onClick={() => onFini(false)}>Annuler</Button>
