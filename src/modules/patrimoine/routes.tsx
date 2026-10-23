@@ -14,7 +14,8 @@ const ArticlesList = lazy(() => import('../../pages/articles/ArticlesList'));
 const ArticleDetail = lazy(() => import('../../pages/articles/ArticleDetail'));
 const ArticleForm = lazy(() => import('../../pages/articles/ArticleForm'));
 const AttachementMasse = lazy(() => import('../../pages/articles/AttachementMasse'));
-const SousArticlesList = lazy(() => import('../../pages/sous-articles/SousArticlesList'));
+const ImportPatrimoine = lazy(() => import('../../pages/import/ImportPatrimoine'));
+const SousArticlesList =lazy(() => import('../../pages/sous-articles/SousArticlesList'));
 const TerrainsList = lazy(() => import('../../pages/terrains/TerrainsList'));
 const TerrainDetail = lazy(() => import('../../pages/terrains/TerrainDetail'));
 const TerrainForm = lazy(() => import('../../pages/terrains/TerrainForm'));
@@ -74,6 +75,7 @@ const patrimoine: ModuleApp = {
     { path: '/articles', element: <ArticlesList /> },
     { path: '/articles/nouveau', element: <ArticleForm /> },
     { path: '/articles/attachement-masse', element: <AttachementMasse /> },
+    { path: '/articles/import', element: <ImportPatrimoine /> },
     { path: '/articles/:id', element: <ArticleDetail /> },
     { path: '/articles/:id/modifier', element: <ArticleForm /> },
     { path: '/articles/:id/sous-articles/nouveau', element: <ArticleForm sousArticle /> },
