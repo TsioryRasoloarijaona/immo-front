@@ -119,7 +119,7 @@ export default function ImportPatrimoine() {
     if (!trancheId) return;
     setErreur(null);
     try {
-      triggerBlobDownload(await telechargerModeleImport(type, trancheId), `modele_${type}.xlsx`);
+      triggerBlobDownload(await telechargerModeleImport(type, trancheId), `${tranches.data.find((t) => t.id === trancheId)?.code ?? 'tranche'}_STOCK_${type === 'articles' ? 'ARTICLES' : 'SOUS_ARTICLES'}.xlsx`);
     } catch (err) {
       setErreur(errorMessage(err));
     }

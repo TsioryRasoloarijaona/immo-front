@@ -15,7 +15,7 @@ const ArticleDetail = lazy(() => import('../../pages/articles/ArticleDetail'));
 const ArticleForm = lazy(() => import('../../pages/articles/ArticleForm'));
 const AttachementMasse = lazy(() => import('../../pages/articles/AttachementMasse'));
 const ImportPatrimoine = lazy(() => import('../../pages/import/ImportPatrimoine'));
-const SousArticlesList =lazy(() => import('../../pages/sous-articles/SousArticlesList'));
+const SousArticlesList = lazy(() => import('../../pages/sous-articles/SousArticlesList'));
 const TerrainsList = lazy(() => import('../../pages/terrains/TerrainsList'));
 const TerrainDetail = lazy(() => import('../../pages/terrains/TerrainDetail'));
 const TerrainForm = lazy(() => import('../../pages/terrains/TerrainForm'));
