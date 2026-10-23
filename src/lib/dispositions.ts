@@ -287,6 +287,16 @@ export const DISPOSITION_DOSSIERS: DispositionColonnes = {
   toujoursDemandees: ['libre', 'alerte', 'instructionNonLue', 'trancheCode'],
 };
 
+/** Historique des ventes : mêmes règles que la liste ; `ordre` est aussi la sélection par défaut (grille OMRAN). */
+export const DISPOSITION_HISTORIQUE_VENTES: DispositionColonnes = {
+  ...DISPOSITION_DOSSIERS,
+  ordre: [
+    'statut', 'code', 'trancheCode', 'projetCode', 'societeCode', 'articleCode', 'sousArticlesCodes', 'clientNom',
+    'commercialNom', 'dateDocument', 'dateConcretisation', 'dateMinute', 'dateLivraisonReelle', 'dateAnnulation',
+    'prix', 'totalAPayer', 'netAPayerRegle', 'netAPayerReste',
+  ],
+};
+
 const ORDRE_PROSPECTS = [
   'code',
   'prenom',

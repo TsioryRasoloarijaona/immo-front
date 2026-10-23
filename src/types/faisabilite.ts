@@ -433,6 +433,93 @@ export interface ApercuTresorerieDto {
   avecFinancement?: boolean | null;
 }
 
+// ------------------------------------------------------------------ P8b-2 (FEATURE-patrimoine-faisabilite-workflow.md §4-7)
+
+/** Champ obligatoire d'une transition ; un nombre (même 0) est toujours renseigné. */
+export interface ChampTransitionDto {
+  champ: string;
+  libelle: string;
+  renseigne: boolean;
+}
+
+export interface DocumentTransitionDto {
+  typeId: UUID;
+  typeLibelle: string | null;
+  fourni: boolean;
+}
+
+/** Transition empruntable depuis le statut courant par un rôle de l'appelant. */
+export interface TransitionPossibleDto {
+  id: UUID;
+  description: string | null;
+  statutDepartId: UUID;
+  statutDepartLibelle: string | null;
+  statutArriveeId: UUID;
+  statutArriveeLibelle: string | null;
+  champsObligatoires: ChampTransitionDto[];
+  documentsRequis: DocumentTransitionDto[];
+  possible: boolean;
+}
+
+export interface DemandeTransitionEtudeDto {
+  transitionId: UUID;
+}
+
+export interface HistoriqueStatutEtudeDto {
+  id: UUID;
+  date: string | null;
+  statutCode: string | null;
+  statutLibelle: string | null;
+  ordre: number | null;
+  utilisateur: string | null;
+}
+
+/** Catalogue `/api/config-faisabilite/champs-obligatoires` : `nom` = nom OMRAN stocké. */
+export interface ChampObligatoire {
+  nom: string;
+  champ: string;
+  libelle: string;
+}
+
+export interface DocumentAJoindreDto {
+  typeDocumentId: UUID;
+  typeDocumentLibelle?: string | null;
+  estObligatoire?: boolean | null;
+  avecTitre?: boolean | null;
+}
+
+/** Statut d'étude ; en PATCH, absent = inchangé. */
+export interface StatutEtudeConfigDto {
+  id?: UUID | null;
+  sorting?: number | null;
+  code?: string | null;
+  description?: string | null;
+  typeEtatId?: UUID | null;
+  typeEtatLibelle?: string | null;
+  delai?: number | null;
+  couleur?: string | null;
+  notes?: string | null;
+  champsObligatoires?: string[] | null;
+  documents?: DocumentAJoindreDto[] | null;
+}
+
+/** Transition d'étude ; en PATCH, absent = inchangé, liste reçue = remplace. */
+export interface TransitionEtudeConfigDto {
+  id?: UUID | null;
+  sorting?: number | null;
+  description?: string | null;
+  statutDepartId?: UUID | null;
+  statutDepartLibelle?: string | null;
+  statutArriveeId?: UUID | null;
+  statutArriveeLibelle?: string | null;
+  champsObligatoires?: string[] | null;
+  noteObligatoire?: boolean | null;
+  avecNotification?: boolean | null;
+  envoyerEmail?: boolean | null;
+  roles?: UUID[] | null;
+  documents?: DocumentAJoindreDto[] | null;
+}
+
 /** Filtres de `GET /api/etudes-faisabilite` ; absent = pas de filtre. */
 export interface FiltresEtudes {
   societeId?: UUID;

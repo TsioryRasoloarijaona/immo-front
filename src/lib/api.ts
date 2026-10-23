@@ -825,6 +825,13 @@ export type DossierFilterParams = {
   lignes?: LignesListeDossiers;
   /** Tri d'OMRAN : article, tranche, projet, entité ; remplace `sort`. */
   ordreOmran?: boolean;
+  /** Bornes incluses sur le total à payer (≥ 0) ; un dossier sans total est exclu. `totalMin > totalMax` → 400. */
+  totalMin?: number;
+  totalMax?: number;
+  /** Société (CfgCompany) du projet de l'article principal ; inconnue → liste vide. */
+  societeId?: UUID;
+  /** Ajoute les dossiers sans statut à `statut` ; seul, ne rend que ceux-là. */
+  sansStatut?: boolean;
 };
 
 export function listDossiers(
