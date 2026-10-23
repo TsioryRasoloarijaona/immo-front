@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Lock, LockOpen, Ruler, Trash2 } from 'lucide-react';
+import { Download, Lock, LockOpen, Ruler, Trash2 } from 'lucide-react';
+import ChangerStatutEtude from '../../components/faisabilite/ChangerStatutEtude';
 import GardeEtudes from '../../components/faisabilite/GardeEtudes';
 import OngletsEtude from '../../components/faisabilite/OngletsEtude';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import { Badge, ErrorState, LoadingState } from '../../components/ui';
 import AdminGuard from '../utilisateurs/AdminGuard';
-import { bloquerEtude, debloquerEtude, deleteEtudeFaisabilite, getEtudeFaisabilite } from '../../lib/apiFaisabilite';
+import { Button } from '../../components/ui/button';
+import { bloquerEtude, debloquerEtude, deleteEtudeFaisabilite, exporterEtude, getEtudeFaisabilite } from '../../lib/apiFaisabilite';
 import { useConfirm } from '../../lib/confirmContext';
 import { toneStatut } from '../../lib/faisabilite';
 import { useToast } from '../../lib/toastContext';
@@ -41,6 +43,15 @@ function EtudeExistante({ id }: Readonly<{ id: string }>) {
     }
   }
 
+  async function exporter(code: string) {
+    setErreurAction(null);
+    try {
+      await exporterEtude(id, code);
+    } catch (err) {
+      setErreurAction(errorMessage(err));
+    }
+  }
+
   if (error) return <PageShell title="Étude de faisabilité" crumbs={[{ label: 'Patrimoine' }, LISTE]}><ErrorState message={error} /></PageShell>;
   if (!fiche) return <PageShell title="Étude de faisabilité" crumbs={[{ label: 'Patrimoine' }, LISTE]}><LoadingState /></PageShell>;
 
@@ -62,6 +73,10 @@ function EtudeExistante({ id }: Readonly<{ id: string }>) {
         <>
           {fiche.statutLibelle && <Badge tone={toneStatut(fiche.statutCouleur)}>{fiche.statutLibelle}</Badge>}
           {fiche.bloquee && <Badge tone="neutral">Bloquée</Badge>}
+          <ChangerStatutEtude etudeId={id} bloquee={fiche.bloquee} onFait={() => void rafraichir()} />
+          <Button type="button" variant="outline" size="sm" onClick={() => void exporter(fiche.code)}>
+            <Download data-icon="inline-start" /> Exporter
+          </Button>
           <ActionAdmin variant="outline" onClick={() => void bascule()} libelle={fiche.bloquee ? 'Débloquer' : 'Bloquer'}
             icone={fiche.bloquee ? <LockOpen data-icon="inline-start" /> : <Lock data-icon="inline-start" />} />
           <ActionAdmin variant="outline" onClick={() => void supprimer()} libelle="Supprimer" icone={<Trash2 data-icon="inline-start" />} />
