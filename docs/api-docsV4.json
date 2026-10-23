@@ -8003,7 +8003,7 @@
           "Études de faisabilité — statuts, pièces jointes, export"
         ],
         "summary": "Transitions empruntables depuis le statut courant par un rôle de l'appelant",
-        "description": "Transitions dont le statut de départ est le statut courant et dont un rôle autorisé (`AdmRole.Code`) est un rôle du\njeton de l'appelant ; une transition sans rôle n'est proposée à personne. Pour chacune : champs obligatoires de la\ntransition (`renseigne` faux = texte vide ou date absente ; un nombre, même 0, est toujours renseigné, comme OMRAN) et\ndocuments exigés (`fourni` = une pièce jointe vivante de l'étude de ce type ; `IsMandatory` n'est pas lu : toute ligne\nest exigée). `possible` = étude non bloquée, champs renseignés, documents fournis.",
+        "description": "Transitions dont le statut de départ est le statut courant et dont un rôle autorisé (`AdmRole.Code`) est un rôle du\njeton de l'appelant, parmi les rôles lecteurs (Administrateur, Direction Générale : un autre rôle listé est sans\neffet) ; une transition sans rôle n'est proposée à personne. Pour chacune : champs obligatoires de la\ntransition (`renseigne` faux = texte vide ou date absente ; un nombre, même 0, est toujours renseigné, comme OMRAN) et\ndocuments exigés (`fourni` = une pièce jointe vivante de l'étude de ce type ; `IsMandatory` n'est pas lu : toute ligne\nest exigée). `possible` = étude non bloquée, champs renseignés, documents fournis.",
         "operationId": "transitions",
         "parameters": [
           {
@@ -8064,7 +8064,7 @@
           "Études de faisabilité — statuts, pièces jointes, export"
         ],
         "summary": "Exécute une transition : contrôles OMRAN, statut, historique, recalcul",
-        "description": "Contrôles dans l'ordre : étude bloquée → 409 « Étude bloquée » ; transition inconnue → 404 ; transition hors de celles\nde `GET …/transitions` (départ ≠ statut courant, aucun rôle commun) → 409 avec `transitionsAutorisees` (descriptions\ndes transitions permises) ; champs vides de la transition et documents manquants → 400, tous les messages ; champs\nobligatoires du nouveau statut vides → 400, rien n'est écrit. Sinon : statut écrit, ligne d'historique (date,\nstatut, utilisateur), recalcul complet de l'étude (bilan, trésorerie) dans la même transaction. La note obligatoire,\nla notification et l'e-mail de la transition sont stockés sans effet (comme OMRAN).",
+        "description": "Contrôles dans l'ordre : étude bloquée → 409 « Étude bloquée » ; transition inconnue → 404 ; transition hors de celles\nde `GET …/transitions` (départ ≠ statut courant, aucun rôle commun) → 409 avec `transitionsAutorisees` (descriptions\ndes transitions permises) ; champs vides de la transition et documents manquants → 400, tous les messages ; Verif de\nl'étude (surfaces des unités, poids et ventilation des tranches) → 400 ; champs\nobligatoires du nouveau statut vides → 400, rien n'est écrit. Sinon : statut écrit, ligne d'historique (date,\nstatut, utilisateur), recalcul complet de l'étude (bilan, trésorerie) dans la même transaction. La note obligatoire,\nla notification et l'e-mail de la transition sont stockés sans effet (comme OMRAN).",
         "operationId": "executerTransition_1",
         "parameters": [
           {
@@ -16059,7 +16059,7 @@
           "Études de faisabilité — configuration des statuts et transitions"
         ],
         "summary": "Modifie une transition d'étude ; champ absent = inchangé, liste reçue = remplace",
-        "description": "Un champ absent ou null reste inchangé ; `roles`, `documents` ou `champsObligatoires` reçus remplacent l'existant\n(rôles en double dédoublonnés). Une transition à 0 rôle est permise : personne ne peut alors l'emprunter.",
+        "description": "Un champ absent ou null reste inchangé ; `roles`, `documents` ou `champsObligatoires` reçus remplacent l'existant\n(rôles en double dédoublonnés). Une transition à 0 rôle est permise : personne ne peut alors l'emprunter. Seuls les\nrôles lecteurs de l'étude (Administrateur, Direction Générale) comptent : un autre rôle listé est stocké sans effet.",
         "operationId": "modifierTransition",
         "parameters": [
           {
