@@ -1,6 +1,13 @@
-import { request } from './api';
-import type { ReferentielItemDto, UUID } from '../types';
+import { API_BASE_URL, openStoredFileInTab, postMultipart, request } from './api';
+import { exporterListe } from './export';
+import type { PieceJointeDto, ReferentielItemDto, UUID } from '../types';
 import type {
+  ChampObligatoire,
+  DemandeTransitionEtudeDto,
+  HistoriqueStatutEtudeDto,
+  StatutEtudeConfigDto,
+  TransitionEtudeConfigDto,
+  TransitionPossibleDto,
   ApercuTresorerieDto,
   BilanFaisabilitePrevisionsDto,
   CategorieBilanDto,
@@ -122,4 +129,87 @@ export function getTresorerieEtude(id: UUID, avecFinancement = true): Promise<Tr
 /** Aperçu avec d'autres écarts-types ; 400 écart-type hors bornes. */
 export function calculerTresorerieEtude(id: UUID, body: ApercuTresorerieDto): Promise<TresorerieFaisabiliteDto> {
   return request('POST', `${RACINE}/${id}/tresorerie/calcul`, { body, lecture: true });
+}
+
+// ------------------------------------------------------------------ P8b-2 (FEATURE-patrimoine-faisabilite-workflow.md §4-7)
+
+export function listTransitionsEtude(id: UUID): Promise<TransitionPossibleDto[]> {
+  return request('GET', `${RACINE}/${id}/transitions`);
+}
+
+/** 409 bloquée ou transition non permise (`problem.transitionsAutorisees`) ; 400 champs / documents / statut ; 404. */
+export function executerTransitionEtude(id: UUID, body: DemandeTransitionEtudeDto): Promise<EtudeFaisabiliteDto> {
+  return request('POST', `${RACINE}/${id}/transitions`, { body });
+}
+
+export function listHistoriqueEtude(id: UUID): Promise<HistoriqueStatutEtudeDto[]> {
+  return request('GET', `${RACINE}/${id}/historique`);
+}
+
+export function listPiecesJointesEtude(id: UUID): Promise<PieceJointeDto[]> {
+  return request('GET', `${RACINE}/${id}/pieces-jointes`);
+}
+
+/** Administrateur ; 409 bloquée ; `typeId` = type de document exigé par une transition. */
+export function deposerPieceJointeEtude(id: UUID, file: File, typeId?: UUID, description?: string): Promise<PieceJointeDto> {
+  return postMultipart<PieceJointeDto>(`${RACINE}/${id}/pieces-jointes`, file, { description, typeId });
+}
+
+/** Administrateur ; 409 bloquée. */
+export function supprimerPieceJointeEtude(id: UUID, pieceId: UUID): Promise<void> {
+  return request('DELETE', `${RACINE}/${id}/pieces-jointes/${pieceId}`);
+}
+
+export function ouvrirPieceJointeEtude(id: UUID, pieceId: UUID): void {
+  openStoredFileInTab(`${API_BASE_URL}${RACINE}/${id}/pieces-jointes/${pieceId}/fichier`);
+}
+
+/** 11 feuilles, étude bloquée comprise. */
+export function exporterEtude(id: UUID, code: string): Promise<void> {
+  return exporterListe(`${RACINE}/${id}/export.xlsx`, {}, `etude-${code}`);
+}
+
+const CONFIG = '/api/config-faisabilite';
+
+export function listStatutsEtudeConfig(): Promise<StatutEtudeConfigDto[]> {
+  return request('GET', `${CONFIG}/statuts`);
+}
+
+/** 400 champ absent / inconnu ; 409 code pris. */
+export function creerStatutEtude(body: StatutEtudeConfigDto): Promise<StatutEtudeConfigDto> {
+  return request('POST', `${CONFIG}/statuts`, { body });
+}
+
+export function modifierStatutEtude(id: UUID, body: StatutEtudeConfigDto): Promise<StatutEtudeConfigDto> {
+  return request('PATCH', `${CONFIG}/statuts/${id}`, { body });
+}
+
+/** 409 si porté par une étude, une transition ou l'historique. */
+export function supprimerStatutEtude(id: UUID): Promise<void> {
+  return request('DELETE', `${CONFIG}/statuts/${id}`);
+}
+
+export function listTransitionsEtudeConfig(): Promise<TransitionEtudeConfigDto[]> {
+  return request('GET', `${CONFIG}/transitions`);
+}
+
+/** 400 « Le statut de départ et le statut d'arrivé doivent être différents! » ou référence inconnue ; 409 doublon. */
+export function creerTransitionEtude(body: TransitionEtudeConfigDto): Promise<TransitionEtudeConfigDto> {
+  return request('POST', `${CONFIG}/transitions`, { body });
+}
+
+export function modifierTransitionEtude(id: UUID, body: TransitionEtudeConfigDto): Promise<TransitionEtudeConfigDto> {
+  return request('PATCH', `${CONFIG}/transitions/${id}`, { body });
+}
+
+export function supprimerTransitionEtude(id: UUID): Promise<void> {
+  return request('DELETE', `${CONFIG}/transitions/${id}`);
+}
+
+export function listChampsObligatoiresEtude(): Promise<ChampObligatoire[]> {
+  return request('GET', `${CONFIG}/champs-obligatoires`);
+}
+
+export function listTypesEtatEtude(): Promise<ReferentielItemDto[]> {
+  return request('GET', `${CONFIG}/choix/types-etat`);
 }
