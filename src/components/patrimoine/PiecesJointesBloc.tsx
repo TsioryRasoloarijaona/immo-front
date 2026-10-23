@@ -58,7 +58,12 @@ function FormulaireDepot({ porteur, id, onFini }: Readonly<{ porteur: PorteurPie
 }
 
 /** Pièces jointes d'un article, d'une tranche ou d'un programme ; dépôt et suppression : Administrateur. */
-export default function PiecesJointesBloc({ porteur, id }: Readonly<{ porteur: PorteurPieces; id: string }>) {
+export default function PiecesJointesBloc({ porteur, id, lecture = false }: Readonly<{
+  porteur: PorteurPieces;
+  id: string;
+  /** Dépôt et suppression masqués (étude bloquée). */
+  lecture?: boolean;
+}>) {
   const pieces = useApi(() => listPiecesPatrimoine(porteur, id), [porteur, id]);
   const confirm = useConfirm();
   const [depotOuvert, setDepotOuvert] = useState(false);
@@ -102,7 +107,7 @@ export default function PiecesJointesBloc({ porteur, id }: Readonly<{ porteur: P
           <Button type="button" variant="ghost" size="sm" onClick={() => ouvrirPiecePatrimoine(porteur, id, p.id)}>
             <Eye data-icon="inline-start" /> Ouvrir
           </Button>
-          <ActionAdmin onClick={() => void supprimer(p)} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
+          {!lecture && <ActionAdmin onClick={() => void supprimer(p)} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />}
         </div>
       ),
     },
@@ -111,7 +116,7 @@ export default function PiecesJointesBloc({ porteur, id }: Readonly<{ porteur: P
   return (
     <Card
       title={`Pièces jointes (${pieces.data?.length ?? 0})`}
-      action={!depotOuvert && <ActionAdmin onClick={() => setDepotOuvert(true)} libelle="Ajouter une pièce jointe" variant="outline" />}
+      action={!depotOuvert && !lecture && <ActionAdmin onClick={() => setDepotOuvert(true)} libelle="Ajouter une pièce jointe" variant="outline" />}
     >
       {depotOuvert && (
         <FormulaireDepot

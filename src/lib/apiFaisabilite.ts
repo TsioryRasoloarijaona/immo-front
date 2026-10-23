@@ -1,6 +1,6 @@
-import { API_BASE_URL, openStoredFileInTab, postMultipart, request } from './api';
+import { request } from './api';
 import { exporterListe } from './export';
-import type { PieceJointeDto, ReferentielItemDto, UUID } from '../types';
+import type { ReferentielItemDto, UUID } from '../types';
 import type {
   ChampObligatoire,
   DemandeTransitionEtudeDto,
@@ -146,24 +146,6 @@ export function listHistoriqueEtude(id: UUID): Promise<HistoriqueStatutEtudeDto[
   return request('GET', `${RACINE}/${id}/historique`);
 }
 
-export function listPiecesJointesEtude(id: UUID): Promise<PieceJointeDto[]> {
-  return request('GET', `${RACINE}/${id}/pieces-jointes`);
-}
-
-/** Administrateur ; 409 bloquée ; `typeId` = type de document exigé par une transition. */
-export function deposerPieceJointeEtude(id: UUID, file: File, typeId?: UUID, description?: string): Promise<PieceJointeDto> {
-  return postMultipart<PieceJointeDto>(`${RACINE}/${id}/pieces-jointes`, file, { description, typeId });
-}
-
-/** Administrateur ; 409 bloquée. */
-export function supprimerPieceJointeEtude(id: UUID, pieceId: UUID): Promise<void> {
-  return request('DELETE', `${RACINE}/${id}/pieces-jointes/${pieceId}`);
-}
-
-export function ouvrirPieceJointeEtude(id: UUID, pieceId: UUID): void {
-  openStoredFileInTab(`${API_BASE_URL}${RACINE}/${id}/pieces-jointes/${pieceId}/fichier`);
-}
-
 /** 11 feuilles, étude bloquée comprise. */
 export function exporterEtude(id: UUID, code: string): Promise<void> {
   return exporterListe(`${RACINE}/${id}/export.xlsx`, {}, `etude-${code}`);
@@ -212,4 +194,9 @@ export function listChampsObligatoiresEtude(): Promise<ChampObligatoire[]> {
 
 export function listTypesEtatEtude(): Promise<ReferentielItemDto[]> {
   return request('GET', `${CONFIG}/choix/types-etat`);
+}
+
+/** Rôles applicatifs (AdmRole) pouvant être liés à une transition. */
+export function listRolesEtude(): Promise<ReferentielItemDto[]> {
+  return request('GET', '/api/referentiels/roles');
 }
