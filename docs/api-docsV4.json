@@ -8798,7 +8798,7 @@
           "Dossiers — liste"
         ],
         "summary": "Liste paginée des dossiers de vente",
-        "description": "Filtre optionnellement par statut (codes `StrStatus`, multi-sélection), commercial, projet, tranche(s), période sur une des 47 dates d'OMRAN (`GET /api/dossiers/champs-date`) et recherche libre.\n\n**Dossiers sortis exclus par défaut** : sans filtre `statut`, les dossiers dont le statut est une annulation ou une résiliation (`StrStatus.BoolField002` / `BoolField003`) n'apparaissent pas, comme dans OMRAN. `inclureSortis=true` les réintègre ; un `statut` explicite (par exemple `ANNULATION`) est toujours servi tel quel.\n\n**Lots libres** : `lignes=DOSSIERS_ET_LIBRES` ajoute, après les dossiers, une ligne par article racine sans dossier (`StkItem.ComFolderId` vide, hors annexes) ; `lignes=LIBRES` ne sert qu'eux. Sur ces lignes `libre = true` et `id` est l'id de l'article (à ouvrir sur la fiche article, pas sur la fiche dossier). Un article principal d'un dossier non sorti n'est jamais libre, même sans `StkItem.ComFolderId`. Le filtre commercial les écarte ; la période (`champDate`, `dateDebut`, `dateFin`, `dateVide`) ne les filtre pas, faute de date de dossier. La pagination court sur la concaténation dossiers puis lots libres.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seuls les dossiers et lots de ses projets affectés sont servis. Les dossiers dont le projet ne se résout pas restent visibles de tous.",
+        "description": "Filtre optionnellement par statut (codes `StrStatus`, multi-sélection, plus `sansStatut`), commercial, société, projet, tranche(s), période sur une des 47 dates d'OMRAN (`GET /api/dossiers/champs-date`), fourchette de total à payer (`totalMin` / `totalMax`) et recherche libre. Ces filtres sont les mêmes sur `/groupes`, `/totaux`, `/totaux-colonnes` et `/export`. Une borne de total exclut les lots libres (ils n'ont pas de total).\n\n**Dossiers sortis exclus par défaut** : sans filtre `statut`, les dossiers dont le statut est une annulation ou une résiliation (`StrStatus.BoolField002` / `BoolField003`) n'apparaissent pas, comme dans OMRAN. `inclureSortis=true` les réintègre ; un `statut` explicite (par exemple `ANNULATION`) est toujours servi tel quel.\n\n**Lots libres** : `lignes=DOSSIERS_ET_LIBRES` ajoute, après les dossiers, une ligne par article racine sans dossier (`StkItem.ComFolderId` vide, hors annexes) ; `lignes=LIBRES` ne sert qu'eux. Sur ces lignes `libre = true` et `id` est l'id de l'article (à ouvrir sur la fiche article, pas sur la fiche dossier). Un article principal d'un dossier non sorti n'est jamais libre, même sans `StkItem.ComFolderId`. Le filtre commercial les écarte ; la période (`champDate`, `dateDebut`, `dateFin`, `dateVide`) ne les filtre pas, faute de date de dossier. La pagination court sur la concaténation dossiers puis lots libres.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seuls les dossiers et lots de ses projets affectés sont servis. Les dossiers dont le projet ne se résout pas restent visibles de tous.",
         "operationId": "findAll_6",
         "parameters": [
           {
@@ -8973,6 +8973,47 @@
             "example": "DOSSIERS"
           },
           {
+            "name": "totalMin",
+            "in": "query",
+            "description": "Total à payer minimum (inclus, ≥ 0) ; un dossier sans total est alors exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100000
+          },
+          {
+            "name": "totalMax",
+            "in": "query",
+            "description": "Total à payer maximum (inclus, ≥ 0, ≥ totalMin) ; un dossier sans total est exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 2000000
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Id de la société (CfgCompany.id) du projet de l'article principal ; inconnue = vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sansStatut",
+            "in": "query",
+            "description": "Ajoute les dossiers sans statut au filtre statut ; seul, ne rend que ceux-là.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
             "name": "ordreOmran",
             "in": "query",
             "description": "Remplace le tri reçu par celui d'OMRAN : code de l'article principal, puis tranche, projet et entité. Faux par défaut : le `sort` reçu s'applique.",
@@ -9042,7 +9083,7 @@
         ],
         "responses": {
           "400": {
-            "description": "Colonne inconnue dans `colonnes`, valeur d'énumération invalide (`champDate`, `lignes`, `granularite`) ou `groupeColonne` non groupable."
+            "description": "Colonne inconnue dans `colonnes`, valeur d'énumération invalide (`champDate`, `lignes`, `granularite`), `groupeColonne` non groupable, `totalMin` / `totalMax` non numérique ou négatif, ou `totalMin > totalMax` (le détail nomme les deux champs)."
           }
         }
       },
@@ -27553,6 +27594,47 @@
                 "LIBRES"
               ]
             }
+          },
+          {
+            "name": "totalMin",
+            "in": "query",
+            "description": "Total à payer minimum (inclus, ≥ 0) ; un dossier sans total est alors exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100000
+          },
+          {
+            "name": "totalMax",
+            "in": "query",
+            "description": "Total à payer maximum (inclus, ≥ 0, ≥ totalMin) ; un dossier sans total est exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 2000000
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Id de la société (CfgCompany.id) du projet de l'article principal ; inconnue = vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sansStatut",
+            "in": "query",
+            "description": "Ajoute les dossiers sans statut au filtre statut ; seul, ne rend que ceux-là.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
           }
         ],
         "responses": {
@@ -27567,7 +27649,7 @@
             }
           },
           "400": {
-            "description": "Valeur d'énumération invalide (`champDate`, `lignes`)."
+            "description": "Valeur d'énumération invalide (`champDate`, `lignes`), ou fourchette `totalMin` / `totalMax` invalide (négative ou inversée)."
           }
         }
       }
@@ -27757,6 +27839,47 @@
                 "LIBRES"
               ]
             }
+          },
+          {
+            "name": "totalMin",
+            "in": "query",
+            "description": "Total à payer minimum (inclus, ≥ 0) ; un dossier sans total est alors exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100000
+          },
+          {
+            "name": "totalMax",
+            "in": "query",
+            "description": "Total à payer maximum (inclus, ≥ 0, ≥ totalMin) ; un dossier sans total est exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 2000000
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Id de la société (CfgCompany.id) du projet de l'article principal ; inconnue = vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sansStatut",
+            "in": "query",
+            "description": "Ajoute les dossiers sans statut au filtre statut ; seul, ne rend que ceux-là.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
           }
         ],
         "responses": {
@@ -28024,6 +28147,47 @@
             "example": false
           },
           {
+            "name": "totalMin",
+            "in": "query",
+            "description": "Total à payer minimum (inclus, ≥ 0) ; un dossier sans total est alors exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100000
+          },
+          {
+            "name": "totalMax",
+            "in": "query",
+            "description": "Total à payer maximum (inclus, ≥ 0, ≥ totalMin) ; un dossier sans total est exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 2000000
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Id de la société (CfgCompany.id) du projet de l'article principal ; inconnue = vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sansStatut",
+            "in": "query",
+            "description": "Ajoute les dossiers sans statut au filtre statut ; seul, ne rend que ceux-là.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -28233,6 +28397,47 @@
             }
           },
           {
+            "name": "totalMin",
+            "in": "query",
+            "description": "Total à payer minimum (inclus, ≥ 0) ; un dossier sans total est alors exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100000
+          },
+          {
+            "name": "totalMax",
+            "in": "query",
+            "description": "Total à payer maximum (inclus, ≥ 0, ≥ totalMin) ; un dossier sans total est exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 2000000
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Id de la société (CfgCompany.id) du projet de l'article principal ; inconnue = vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sansStatut",
+            "in": "query",
+            "description": "Ajoute les dossiers sans statut au filtre statut ; seul, ne rend que ceux-là.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
             "name": "ordreOmran",
             "in": "query",
             "required": false,
@@ -28280,7 +28485,7 @@
             }
           },
           "400": {
-            "description": "`format` autre que `xlsx`, ou colonne inconnue."
+            "description": "`format` autre que `xlsx`, colonne inconnue, ou fourchette `totalMin` / `totalMax` invalide."
           }
         }
       }

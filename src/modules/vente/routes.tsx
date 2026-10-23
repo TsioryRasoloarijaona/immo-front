@@ -16,6 +16,7 @@ const Hotline = lazy(() => import('../../pages/hotline/Hotline'));
 const SuiviActionsList = lazy(() => import('../../pages/actions/SuiviActionsList'));
 const EtatDesVentes = lazy(() => import('../../pages/etatVentes/EtatDesVentes'));
 const SuiviAffectations = lazy(() => import('../../pages/suiviAffectations/SuiviAffectations'));
+const HistoriqueVentes = lazy(() => import('../../pages/historiqueVentes/HistoriqueVentes'));
 const SuiviCommerciaux = lazy(() => import('../../pages/suiviCommerciaux/SuiviCommerciaux'));
 const ProspectionsList = lazy(() => import('../../pages/prospections/ProspectionsList'));
 const PreProspectionsList = lazy(() => import('../../pages/prospections/PreProspectionsList'));
@@ -51,7 +52,7 @@ const vente: ModuleApp = {
     '/', '/tableau-de-bord', '/profil', '/mes-performances', '/hotline', '/calendrier', '/suivi-actions',
     '/etat-des-ventes', '/suivi-commerciaux', '/suivi-affectations', '/performances', '/equipe', '/journee', '/tri',
     '/prospections', '/pre-prospections', '/prospects', '/clients', '/dossiers', '/offres', '/encaissements',
-    '/impayes', '/desistements', '/aide', '/rapports',
+    '/impayes', '/desistements', '/aide', '/rapports', '/historique-ventes',
   ],
   Menu: NavVente,
   routes: [
@@ -69,6 +70,7 @@ const vente: ModuleApp = {
     { path: '/etat-des-ventes', element: <EtatDesVentes /> },
     { path: '/suivi-commerciaux', element: <SuiviCommerciaux /> },
     { path: '/suivi-affectations', element: <SuiviAffectations /> },
+    { path: '/historique-ventes', element: <HistoriqueVentes /> },
     { path: '/prospections', element: <ProspectionsList /> },
     // La saisie est une boîte, pas une page : la route rend la liste avec la boîte ouverte.
     { path: '/prospections/nouveau', element: <ProspectionsList nouveau /> },

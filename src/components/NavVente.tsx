@@ -11,6 +11,7 @@ import {
   Folder,
   FolderX,
   Gauge,
+  History,
   Inbox,
   LayoutDashboard,
   Link2,
@@ -133,6 +134,7 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
     // Le serveur restreint aux commerciaux de la portée de chacun.
     { to: '/suivi-commerciaux', libelle: 'Suivi des commerciaux', icone: <Target /> },
     { to: '/suivi-affectations', libelle: 'Suivi des affectations', icone: <Link2 /> },
+    { to: '/historique-ventes', libelle: 'Historique des ventes', icone: <History /> },
     // Le serveur filtre la liste selon les droits de chacun ; la page vide l'explique.
     { to: '/rapports', libelle: 'Rapports', icone: <FileBarChart /> },
     { to: '/plans', libelle: 'Plans', icone: <Map /> },
