@@ -87,6 +87,28 @@ export function debloquerEtude(id: UUID): Promise<EtudeFaisabiliteDto> {
   return request('POST', `${RACINE}/${id}/debloquer`);
 }
 
+// ------------------------------------------------------------------ P8c (FEATURE-patrimoine-etude-prospection.md §3)
+
+/** Prospections terrain liables, archivées comprises. */
+export function listProspectionsEtude(): Promise<ReferentielItemDto[]> {
+  return request('GET', `${RACINE}/choix/prospections`);
+}
+
+/** Étude sans terrain : copie surfaces, coûts, code, libellé puis recalcul ; 404 prospection inconnue ; 409 code pris ou bloquée. */
+export function lierProspectionEtude(id: UUID, prospectionTerrainId: UUID): Promise<EtudeFaisabiliteDto> {
+  return request('PUT', `${RACINE}/${id}/prospection-terrain`, { body: { prospectionTerrainId } });
+}
+
+/** Recopie depuis la prospection liée et détache le terrain ; 409 « Aucune prospection liée », code pris ou bloquée. */
+export function recopierProspectionEtude(id: UUID): Promise<EtudeFaisabiliteDto> {
+  return request('POST', `${RACINE}/${id}/prospection-terrain/recopier`);
+}
+
+/** Retire le lien seul ; 200 même sans lien ; 409 bloquée. */
+export function delierProspectionEtude(id: UUID): Promise<EtudeFaisabiliteDto> {
+  return request('DELETE', `${RACINE}/${id}/prospection-terrain`);
+}
+
 // ------------------------------------------------------------------ P8b-1 (FEATURE-patrimoine-faisabilite-workflow.md §1-2)
 
 export function listFinancementsEtude(id: UUID): Promise<FinancementFaisabiliteDto[]> {

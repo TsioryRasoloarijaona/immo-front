@@ -142,6 +142,8 @@ export interface EtudeFaisabiliteListeDto {
   societeId: UUID | null;
   societeLibelle: string | null;
   terrainLibelle: string | null;
+  /** Libellé de la prospection terrain liée (LndLand.Description). */
+  prospectionTerrainDescription: string | null;
   statutId: UUID | null;
   statutLibelle: string | null;
   /** Nom de couleur .NET (ex. `Green`). */
@@ -173,8 +175,9 @@ export interface EtudeFaisabiliteDto {
   societeLibelle: string | null;
   terrainId: UUID | null;
   terrainLibelle: string | null;
-  /** LndLandId, lecture seule. */
-  terrainFoncierId: UUID | null;
+  /** Prospection terrain liée (LndLandId) ; se pose par PUT …/prospection-terrain. */
+  prospectionTerrainId: UUID | null;
+  prospectionTerrainDescription: string | null;
   descriptionTerrain: string | null;
   statutId: UUID | null;
   statutLibelle: string | null;
