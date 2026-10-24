@@ -82,12 +82,15 @@ function DialogueTransformation({ prospection: p, onClose }: Readonly<{ prospect
   );
 }
 
+const MOTIF_PAR_DEFAUT = 'Aucun statut ne permet la transformation : cochez la case dans la configuration des statuts de prospection terrain.';
+
 /** « Transformer en terrain » (Administrateur) : désactivé avec son motif en infobulle, confirmation, puis société, vocation et catégorie. */
 export default function TransformerEnTerrain({ prospection: p }: Readonly<{ prospection: ProspectionTerrainDetailDto }>) {
   const { user } = useAuth();
   const confirm = useConfirm();
   const [ouvert, setOuvert] = useState(false);
   if (!estAdministrateur(user)) return null;
+  const motif = p.peutTransformer ? undefined : (p.motifNonTransformable ?? MOTIF_PAR_DEFAUT);
 
   async function demander() {
     const oui = await confirm({
@@ -101,9 +104,10 @@ export default function TransformerEnTerrain({ prospection: p }: Readonly<{ pros
 
   return (
     <>
-      <span title={p.peutTransformer ? undefined : (p.motifNonTransformable ?? 'Transformation impossible.')}>
-        <Button type="button" size="sm" variant="outline" disabled={!p.peutTransformer} onClick={() => void demander()}>
+      <span title={motif} className="inline-flex">
+        <Button type="button" size="sm" variant="outline" disabled={!p.peutTransformer} className="disabled:pointer-events-none" onClick={() => void demander()}>
           <Trees data-icon="inline-start" /> Transformer en terrain
+          {motif && <span className="sr-only"> : {motif}</span>}
         </Button>
       </span>
       {ouvert && <DialogueTransformation prospection={p} onClose={() => setOuvert(false)} />}

@@ -74,6 +74,21 @@ export function valeursServeur(parametres: ParametreRapportDto[], valeurs: Valeu
   return envoi;
 }
 
+/** Premier paramètre obligatoire sans valeur à envoyer, ou undefined si le rapport peut être lancé. */
+export function parametreManquant(parametres: ParametreRapportDto[], envoi: ValeursRapport): ParametreRapportDto | undefined {
+  return parametres.find((p) => p.obligatoire && valeursDe(envoi, p.nom).length === 0);
+}
+
+/** Libellé OMRAN sans les astérisques de mise en forme (« **TITRE** », « TITRE * ») ; affichage seulement. */
+export function libelleRapport(libelle: string): string {
+  const decore = (c: string) => c === '*' || c.trim() === '';
+  let debut = 0;
+  let fin = libelle.length;
+  while (debut < fin && decore(libelle.charAt(debut))) debut++;
+  while (fin > debut && decore(libelle.charAt(fin - 1))) fin--;
+  return libelle.slice(debut, fin);
+}
+
 export function versNombre(v: ValeurRapport | undefined): number | null {
   if (v === null || v === undefined || typeof v === 'boolean') return null;
   const n = typeof v === 'number' ? v : Number(v);
