@@ -9,7 +9,7 @@ import { Skeleton } from '../ui/skeleton';
 import { oublierLecturesRecentes } from '../../lib/api';
 import { cheminExportRapport, getResultatRapport } from '../../lib/apiRapports';
 import { formatDateTime } from '../../lib/format';
-import { cheminRapports, enIssue, lireValeurs, valeursServeur, versRecherche } from '../../lib/rapports';
+import { cheminRapports, enIssue, libelleRapport, lireValeurs, parametreManquant, valeursServeur, versRecherche } from '../../lib/rapports';
 import { useApi } from '../../lib/useApi';
 import type { DescripteurRapportDto, ResultatRapportDto, SectionRapportDto } from '../../types/rapports';
 import AccesRapport from './AccesRapport';
@@ -43,7 +43,12 @@ export default function VisionneuseRapport({ descripteur }: Readonly<{ descripte
 
   const envoi = valeursServeur(parametres, appliquees);
   const cleEnvoi = JSON.stringify(envoi);
-  const { data, loading, error, refetch } = useApi(() => enIssue(getResultatRapport(module, code, envoi), [400, 403, 404]), [module, code, cleEnvoi]);
+  const manquant = parametreManquant(parametres, envoi);
+  const titre = libelleRapport(descripteur.libelle);
+  const { data, loading, error, refetch } = useApi(
+    () => (manquant ? Promise.resolve(null) : enIssue(getResultatRapport(module, code, envoi), [400, 403, 404])),
+    [module, code, cleEnvoi],
+  );
   const issue = data && 'donnees' in data ? data.donnees : null;
   const refus = data && 'statut' in data ? data : null;
 
@@ -53,11 +58,11 @@ export default function VisionneuseRapport({ descripteur }: Readonly<{ descripte
     if (cleEnvoi === JSON.stringify(valeursServeur(parametres, saisie))) void refetch();
   }
 
-  if (refus && refus.statut !== 400) return <AccesRapport module={module} statut={refus.statut} titre={descripteur.libelle} />;
+  if (refus && refus.statut !== 400) return <AccesRapport module={module} statut={refus.statut} titre={titre} />;
   return (
     <PageShell
-      title={descripteur.libelle}
-      crumbs={[{ label: 'Rapports', to: cheminRapports(module) }, { label: descripteur.libelle }]}
+      title={titre}
+      crumbs={[{ label: 'Rapports', to: cheminRapports(module) }, { label: titre }]}
       actions={<BoutonExporter chemin={cheminExportRapport(module, code)} params={envoi} nomListe={code} disabled={!issue} />}
     >
       <div className="flex flex-col gap-4">
@@ -69,7 +74,8 @@ export default function VisionneuseRapport({ descripteur }: Readonly<{ descripte
           enCours={loading}
           erreur={refus?.message ?? null}
         />
-        {loading && !data && <Skeleton className="h-48 w-full" />}
+        {manquant && <EmptyState title={`Choisissez ${manquant.libelle} pour afficher le rapport.`} />}
+        {!manquant && loading && !data && <Skeleton className="h-48 w-full" />}
         {error && (
           <EmptyState
             title="Impossible de charger le rapport"

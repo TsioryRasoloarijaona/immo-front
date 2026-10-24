@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Card, EmptyState } from '../../components/ui';
 import { listRapports } from '../../lib/apiRapports';
-import { cheminRapports } from '../../lib/rapports';
+import { cheminRapports, libelleRapport } from '../../lib/rapports';
 import { useApi } from '../../lib/useApi';
 import type { GroupeRapportsDto, ModuleRapport } from '../../types/rapports';
 
@@ -29,7 +29,7 @@ function GroupeReplie({ groupe, module, replie, onBasculer }: Readonly<{ groupe:
             <li key={r.code} className="border-b border-border/60 last:border-b-0">
               <Link to={`${cheminRapports(module)}/${encodeURIComponent(r.code)}`} className="flex items-center gap-2 px-4 py-2 text-body hover:bg-muted/40">
                 <FileBarChart aria-hidden className="size-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">{r.libelle}</span>
+                <span className="min-w-0 flex-1 truncate">{libelleRapport(r.libelle)}</span>
                 {r.avecParametres && <SlidersHorizontal aria-label="Avec filtres" className="size-3.5 shrink-0 text-muted-foreground" />}
               </Link>
             </li>
