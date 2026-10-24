@@ -48,6 +48,10 @@ export interface MontantsNatureDossier {
   frais?: number | null;
   fraisRegles?: number | null;
   fraisReste?: number | null;
+  /** Échéances de la catégorie `DefaultSyndicFeeDocumentType`, sous-ensemble de `frais`. */
+  fraisSyndic?: number | null;
+  fraisSyndicRegles?: number | null;
+  fraisSyndicReste?: number | null;
   /** `ComFolder.ModificationsAmount`. */
   modifications?: number | null;
   modificationsReglees?: number | null;

@@ -1,9 +1,13 @@
 import { useMemo, useState } from 'react';
-import { Ruler, Search } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Ruler, Search, Settings2 } from 'lucide-react';
 import type { ColonneGrille } from '../../components/DataGrid';
 import ListeAdmin from '../../components/entites/ListeAdmin';
+import ConfigWorkflowFaisabilite from '../../components/faisabilite/ConfigWorkflowFaisabilite';
 import GardeEtudes from '../../components/faisabilite/GardeEtudes';
+import PageShell from '../../components/PageShell';
 import { Badge } from '../../components/ui';
+import { buttonVariants } from '../../components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { listEtudesFaisabilite } from '../../lib/apiFaisabilite';
@@ -14,6 +18,7 @@ import { useApi, useDebouncedValue } from '../../lib/useApi';
 import type { EtudeFaisabiliteListeDto } from '../../types/faisabilite';
 
 const TOUS = 'tous';
+const LISTE = '/etudes-faisabilite';
 
 const COLONNES: ColonneGrille<EtudeFaisabiliteListeDto>[] = [
   { nom: 'code', libelle: 'Code', largeur: 14 },
@@ -71,6 +76,11 @@ function Contenu() {
       libelleNouveau="Nouvelle étude"
       etat={etat}
       colonnes={COLONNES}
+      outils={(
+        <Link to={`${LISTE}?vue=configuration`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+          <Settings2 data-icon="inline-start" /> Statuts et transitions
+        </Link>
+      )}
       filtre={recherche !== '' || societeId !== TOUS || statutId !== TOUS}
       filtres={
         <>
@@ -101,6 +111,17 @@ function Contenu() {
   );
 }
 
+function Configuration() {
+  return (
+    <PageShell title="Statuts et transitions des études" icon={<Ruler />} crumbs={[{ label: 'Patrimoine' }, { label: 'Études de faisabilité', to: LISTE }, { label: 'Statuts et transitions' }]}
+      actions={<Link to={LISTE} className={buttonVariants({ variant: 'outline', size: 'sm' })}>Retour aux études</Link>}>
+      <ConfigWorkflowFaisabilite />
+    </PageShell>
+  );
+}
+
+/** `?vue=configuration` : statuts et transitions (Administrateur en écriture, Direction Générale en lecture). */
 export default function EtudesFaisabiliteList() {
-  return <GardeEtudes><Contenu /></GardeEtudes>;
+  const [params] = useSearchParams();
+  return <GardeEtudes>{params.get('vue') === 'configuration' ? <Configuration /> : <Contenu />}</GardeEtudes>;
 }

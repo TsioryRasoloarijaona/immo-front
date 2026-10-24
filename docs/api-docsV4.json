@@ -84,6 +84,10 @@
       "description": "Indicateurs de performance des commerciaux sur une période — activité réalisée (appels, visites, interactions), portefeuille confié (prospections, réactivité) et résultat (dossiers, montants, taux de transformation).\n\nDeux attributions cohabitent et il faut le savoir pour lire les chiffres : l'**activité** est comptée pour celui qui l'a saisie, le **portefeuille** pour le commercial assigné. Un chef qui appelle sur la prospection d'un commercial voit l'appel chez lui, pas chez l'autre.\n\nTous les compteurs respectent la visibilité par entité juridique et le périmètre commercial de l'appelant. Un commercial restreint verra donc des chiffres inférieurs à son activité réelle — c'est volontaire."
     },
     {
+      "name": "Études de faisabilité — statuts, pièces jointes, export",
+      "description": "Statuts et transitions d'une étude (OMRAN `FeasibilityStudyWorkFlow`), historique, pièces jointes (porteur « etude »,\n`AdmAttachedFile.Category` = `Yes.Stk.StkFeasibilityStudy`) et export Excel. Lecture Administrateur + Direction\nGénérale ; dépôt et suppression de pièce Administrateur ; aucune clé d'API (403 `HORS_PORTEE`). Étude inconnue ou de\nsociété inactive → 404."
+    },
+    {
       "name": "Frais de terrain",
       "description": "Onglet « Coûts » de la fiche terrain : frais `StkExpense`. Le coût total du terrain en est la somme, calculée à la\nlecture de la fiche. « Valider pour règlement » crée la facture fournisseur du frais (module Achat d'OMRAN) ; son\npaiement reste hors du CRM."
     },
@@ -116,6 +120,10 @@
       "description": "Offres de prix (\"devis\") faites aux prospects — vue globale tous prospections confondues. Voir aussi POST/GET /api/prospections/{id}/devis pour la vue nestée sur une seule prospection.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les devis dont la tranche relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un devis sans tranche reste visible."
     },
     {
+      "name": "Import du patrimoine",
+      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a). Chaque ligne\npasse par le service de l'écran (mêmes règles, même audit) ; Administrateur seul."
+    },
+    {
       "name": "Référentiels",
       "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. Sans filtre `categorieId`, les **annexes** (`IsUnderItem` — parkings, terrasses, jardins, mêmes racines sans parent) sont écartées, comme dans l'écran Articles du logiciel de bureau ; cocher explicitement leur catégorie les fait réapparaître. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
     },
@@ -126,6 +134,10 @@
     {
       "name": "Synchronisation",
       "description": "Rapatriement, à la demande, de ce que le logiciel de bureau écrit sur la base de référence vers la copie de lecture du CRM. En temps normal un cycle automatique s'en charge toutes les deux minutes ; cet endpoint permet de le déclencher immédiatement. Ouvert à l'Administrateur et aux commerciaux (Commercial, Commercial Chef, Commercial Aide) — l'opération est idempotente, sans risque de doublon, et un seul cycle tourne à la fois."
+    },
+    {
+      "name": "Études de faisabilité — configuration des statuts et transitions",
+      "description": "Configuration des statuts (`StkFeasibilityStudyStatus`) et des transitions (`StkFeasibilityStudyWorkFlow`) des études de\nfaisabilité (aide OMRAN « STATUTS », « TRANSITIONS »). Lecture Administrateur + Direction Générale, écriture\nAdministrateur ; aucune clé d'API (403 `HORS_PORTEE`). Rôles : `GET /api/referentiels/roles` ; types de document :\n`GET /api/referentiels/types-piece-jointe`. Un changement de rôle ou de champ obligatoire change qui peut faire passer\nune étude d'un statut à l'autre."
     },
     {
       "name": "Sous-articles",
@@ -7717,6 +7729,103 @@
         }
       }
     },
+    "/api/import-patrimoine/{type}": {
+      "post": {
+        "tags": [
+          "Import du patrimoine"
+        ],
+        "summary": "Importe un classeur .xlsx (simulation par défaut), tout ou rien",
+        "description": "Ligne 1 = en-têtes, puis une ligne de données par objet ; le **pivot** (code dans la tranche) choisit création ou mise à\njour. Colonne absente ou cellule vide = champ intact (l'import ne vide jamais un champ). Nombres en cellule numérique ou\nen texte (`1 234,56`, `1234.56`) ; dates en cellule date ou `jj/mm/aaaa` ; cases `Oui/Non`, `Vrai/Faux`, `1/0`, `X`.\nTVA supérieure à 1 lue en pourcentage (÷ 100, avertissement). Référentiels : Immeuble, Étage, Catégorie, Catégorie de\ncharge, Tranche, Nature par code **ou** libellé (casse ignorée) ; Vocation, Type, Type présentation, Orientation, Entité\nde gestion du syndic par code seul. En-tête inconnu = avertissement « colonne ignorée ».\n\nUne seule transaction : la moindre ligne en ERREUR, ou `simulation=true`, annule tout (`ecrit=false`, aucune trace\nd'audit). Les messages d'erreur métier sont ceux des écrans (`POST/PATCH /api/articles`, `/api/sous-articles`).\n\nRefus du fichier entier (400) : `trancheId` absent (« Vous devez sélectionner une Tranche ! »), format `.xls` (« enregistrez\nle fichier au format .xlsx »), contenu non ZIP, archive corrompue ou piégée (bombe, entrée géante, DTD), plus de 1 000\nlignes de données, aucune feuille, feuille demandée absente, aucune donnée, en-tête en double.",
+        "operationId": "importer_2",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "description": "Type importé.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "articles",
+                "sous-articles"
+              ]
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche visée (CfgTranche.PKey), obligatoire pour articles et sous-articles.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "simulation",
+            "in": "query",
+            "description": "Vrai (défaut) = « Vérifier les données » : même exécution, puis tout est annulé.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "feuille",
+            "in": "query",
+            "description": "Nom de la feuille à lire ; absent = la première.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Classeur .xlsx (10 Mo, 1 000 lignes de données au plus)."
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bilan ; ecrit = vrai seulement sans erreur hors simulation.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/BilanImportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fichier refusé en entier (voir la description) ; rien n'est lu."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Type inconnu, ou tranche inconnue ou d'une entité inactive."
+          },
+          "413": {
+            "description": "Fichier de plus de 10 Mo."
+          }
+        }
+      }
+    },
     "/api/groupes-actionnaires": {
       "get": {
         "tags": [
@@ -7989,6 +8098,151 @@
         }
       }
     },
+    "/api/etudes-faisabilite/{id}/transitions": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — statuts, pièces jointes, export"
+        ],
+        "summary": "Transitions empruntables depuis le statut courant par un rôle de l'appelant",
+        "description": "Transitions dont le statut de départ est le statut courant et dont un rôle autorisé (`AdmRole.Code`) est un rôle du\njeton de l'appelant, parmi les rôles lecteurs (Administrateur, Direction Générale : un autre rôle listé est sans\neffet) ; une transition sans rôle n'est proposée à personne. Pour chacune : champs obligatoires de la\ntransition (`renseigne` faux = texte vide ou date absente ; un nombre, même 0, est toujours renseigné, comme OMRAN) et\ndocuments exigés (`fourni` = une pièce jointe vivante de l'étude de ce type ; `IsMandatory` n'est pas lu : toute ligne\nest exigée). `possible` = étude non bloquée, champs renseignés, documents fournis.",
+        "operationId": "transitions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transitions par ordre du statut d'arrivée (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionPossibleDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionPossibleDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionPossibleDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Études de faisabilité — statuts, pièces jointes, export"
+        ],
+        "summary": "Exécute une transition : contrôles OMRAN, statut, historique, recalcul",
+        "description": "Contrôles dans l'ordre : étude bloquée → 409 « Étude bloquée » ; transition inconnue → 404 ; transition hors de celles\nde `GET …/transitions` (départ ≠ statut courant, aucun rôle commun) → 409 avec `transitionsAutorisees` (descriptions\ndes transitions permises) ; champs vides de la transition et documents manquants → 400, tous les messages ; Verif de\nl'étude (surfaces des unités, poids et ventilation des tranches) → 400 ; champs\nobligatoires du nouveau statut vides → 400, rien n'est écrit. Sinon : statut écrit, ligne d'historique (date,\nstatut, utilisateur), recalcul complet de l'étude (bilan, trésorerie) dans la même transaction. La note obligatoire,\nla notification et l'e-mail de la transition sont stockés sans effet (comme OMRAN).",
+        "operationId": "executerTransition_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DemandeTransitionEtudeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Fiche au nouveau statut.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`detail` : « Transition : » puis une ligne « Le champ « X » est obligatoire » par champ vide de la transition, puis une\nligne « Le document de type : X est obligatoire » par document manquant ; ou « Statuts : » puis les champs vides du\nstatut d'arrivée ; ou `transitionId` absent.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue ou de société inactive, ou transition inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Étude bloquée, ou transition non permise à l'appelant depuis le statut courant (propriété `transitionsAutorisees`).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/etudes-faisabilite/{id}/previsions/calcul": {
       "post": {
         "tags": [
@@ -8056,6 +8310,189 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/BilanFaisabilitePrevisionsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/pieces-jointes": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — statuts, pièces jointes, export"
+        ],
+        "summary": "Pièces jointes de l'étude, la plus récente d'abord",
+        "description": "Pièces vivantes de l'étude ; une pièce supprimée logiquement ne compte plus pour un document exigé.",
+        "operationId": "pieces",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pièces vivantes (peut être vide).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PieceJointeDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PieceJointeDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PieceJointeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Études de faisabilité — statuts, pièces jointes, export"
+        ],
+        "summary": "Dépose une pièce jointe sur l'étude, avec son type de document",
+        "description": "Le `typeId` choisi au dépôt est celui que compte un document exigé par une transition. Étude bloquée → 409 (OMRAN\nmasque « Fichiers attachés » en verrouillé).",
+        "operationId": "ajouterPiece",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "description",
+            "in": "query",
+            "description": "Légende libre. Absent = nom de fichier d'origine (assaini).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Type de document (AdmAttachedFileType.PKey) : c'est lui qui satisfait un document exigé.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Contenu du fichier à déposer."
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Pièce jointe créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fichier absent ou vide, sans extension ou d'extension non admise.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue ou de société inactive, ou typeId inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Étude bloquée (« Étude bloquée »).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Fichier de plus de 50 Mo.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/PieceJointeDto"
                 }
               }
             }
@@ -8798,7 +9235,7 @@
           "Dossiers — liste"
         ],
         "summary": "Liste paginée des dossiers de vente",
-        "description": "Filtre optionnellement par statut (codes `StrStatus`, multi-sélection), commercial, projet, tranche(s), période sur une des 47 dates d'OMRAN (`GET /api/dossiers/champs-date`) et recherche libre.\n\n**Dossiers sortis exclus par défaut** : sans filtre `statut`, les dossiers dont le statut est une annulation ou une résiliation (`StrStatus.BoolField002` / `BoolField003`) n'apparaissent pas, comme dans OMRAN. `inclureSortis=true` les réintègre ; un `statut` explicite (par exemple `ANNULATION`) est toujours servi tel quel.\n\n**Lots libres** : `lignes=DOSSIERS_ET_LIBRES` ajoute, après les dossiers, une ligne par article racine sans dossier (`StkItem.ComFolderId` vide, hors annexes) ; `lignes=LIBRES` ne sert qu'eux. Sur ces lignes `libre = true` et `id` est l'id de l'article (à ouvrir sur la fiche article, pas sur la fiche dossier). Un article principal d'un dossier non sorti n'est jamais libre, même sans `StkItem.ComFolderId`. Le filtre commercial les écarte ; la période (`champDate`, `dateDebut`, `dateFin`, `dateVide`) ne les filtre pas, faute de date de dossier. La pagination court sur la concaténation dossiers puis lots libres.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seuls les dossiers et lots de ses projets affectés sont servis. Les dossiers dont le projet ne se résout pas restent visibles de tous.",
+        "description": "Filtre optionnellement par statut (codes `StrStatus`, multi-sélection, plus `sansStatut`), commercial, société, projet, tranche(s), période sur une des 47 dates d'OMRAN (`GET /api/dossiers/champs-date`), fourchette de total à payer (`totalMin` / `totalMax`) et recherche libre. Ces filtres sont les mêmes sur `/groupes`, `/totaux`, `/totaux-colonnes` et `/export`. Une borne de total exclut les lots libres (ils n'ont pas de total).\n\n**Dossiers sortis exclus par défaut** : sans filtre `statut`, les dossiers dont le statut est une annulation ou une résiliation (`StrStatus.BoolField002` / `BoolField003`) n'apparaissent pas, comme dans OMRAN. `inclureSortis=true` les réintègre ; un `statut` explicite (par exemple `ANNULATION`) est toujours servi tel quel.\n\n**Lots libres** : `lignes=DOSSIERS_ET_LIBRES` ajoute, après les dossiers, une ligne par article racine sans dossier (`StkItem.ComFolderId` vide, hors annexes) ; `lignes=LIBRES` ne sert qu'eux. Sur ces lignes `libre = true` et `id` est l'id de l'article (à ouvrir sur la fiche article, pas sur la fiche dossier). Un article principal d'un dossier non sorti n'est jamais libre, même sans `StkItem.ComFolderId`. Le filtre commercial les écarte ; la période (`champDate`, `dateDebut`, `dateFin`, `dateVide`) ne les filtre pas, faute de date de dossier. La pagination court sur la concaténation dossiers puis lots libres.\n\n**Périmètre commercial** : si l'appelant est restreint (`UtilisateurCourantDto.perimetreRestreint = true`), seuls les dossiers et lots de ses projets affectés sont servis. Les dossiers dont le projet ne se résout pas restent visibles de tous.",
         "operationId": "findAll_6",
         "parameters": [
           {
@@ -8973,6 +9410,47 @@
             "example": "DOSSIERS"
           },
           {
+            "name": "totalMin",
+            "in": "query",
+            "description": "Total à payer minimum (inclus, ≥ 0) ; un dossier sans total est alors exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100000
+          },
+          {
+            "name": "totalMax",
+            "in": "query",
+            "description": "Total à payer maximum (inclus, ≥ 0, ≥ totalMin) ; un dossier sans total est exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 2000000
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Id de la société (CfgCompany.id) du projet de l'article principal ; inconnue = vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sansStatut",
+            "in": "query",
+            "description": "Ajoute les dossiers sans statut au filtre statut ; seul, ne rend que ceux-là.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
             "name": "ordreOmran",
             "in": "query",
             "description": "Remplace le tri reçu par celui d'OMRAN : code de l'article principal, puis tranche, projet et entité. Faux par défaut : le `sort` reçu s'applique.",
@@ -9042,7 +9520,7 @@
         ],
         "responses": {
           "400": {
-            "description": "Colonne inconnue dans `colonnes`, valeur d'énumération invalide (`champDate`, `lignes`, `granularite`) ou `groupeColonne` non groupable."
+            "description": "Colonne inconnue dans `colonnes`, valeur d'énumération invalide (`champDate`, `lignes`, `granularite`), `groupeColonne` non groupable, `totalMin` / `totalMax` non numérique ou négatif, ou `totalMin > totalMax` (le détail nomme les deux champs)."
           }
         }
       },
@@ -11493,6 +11971,174 @@
           },
           "409": {
             "description": "Désistement non validé, rien à rembourser, ou montant au-delà du reste à rembourser."
+          }
+        }
+      }
+    },
+    "/api/config-faisabilite/transitions": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — configuration des statuts et transitions"
+        ],
+        "summary": "Transitions d'étude, par ordre",
+        "operationId": "transitions_1",
+        "responses": {
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Études de faisabilité — configuration des statuts et transitions"
+        ],
+        "summary": "Crée une transition d'étude",
+        "description": "`description`, `statutDepartId`, `statutArriveeId` obligatoires. Défauts : `sorting` 1, `noteObligatoire`,\n`avecNotification`, `envoyerEmail` faux (stockés sans effet). `champsObligatoires` : comme pour un statut (255 caractères\nau plus une fois stockés).",
+        "operationId": "creerTransition",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Transition créée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "« Le statut de départ et le statut d'arrivé doivent être différents! » (message OMRAN exact), champ obligatoire absent,\nstatut, rôle ou type de document inconnu (detail nomme le champ), nom de champ inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Une transition relie déjà ces deux statuts.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config-faisabilite/statuts": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — configuration des statuts et transitions"
+        ],
+        "summary": "Statuts d'étude, par ordre",
+        "operationId": "statuts",
+        "responses": {
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Études de faisabilité — configuration des statuts et transitions"
+        ],
+        "summary": "Crée un statut d'étude",
+        "description": "`code`, `description` et `typeEtatId` obligatoires (400 nommant le champ) ; `code` unique (409). Défauts : `sorting` 1,\n`delai` 0, `couleur` et `notes` vides. `champsObligatoires` : noms du catalogue `/champs-obligatoires` (nom inconnu →\n400), stockés au format OMRAN avec virgule initiale (« ,Code,Area »), vide si aucun. Plusieurs statuts « Nouveau » sont\npermis (le premier par ordre est le statut initial d'une étude). Documents stockés sans effet.",
+        "operationId": "creerStatut",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatutEtudeConfigDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Statut créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent, référence ou nom de champ inconnu (detail nomme le champ).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                }
+              }
+            }
           }
         }
       }
@@ -15426,6 +16072,340 @@
         }
       }
     },
+    "/api/config-faisabilite/transitions/{id}": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — configuration des statuts et transitions"
+        ],
+        "summary": "Une transition d'étude avec ses rôles et documents",
+        "operationId": "transition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la transition (StkFeasibilityStudyWorkFlow.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Transition.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transition inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Études de faisabilité — configuration des statuts et transitions"
+        ],
+        "summary": "Supprime une transition, ses rôles et ses documents",
+        "description": "Retire d'abord les rôles (comme OMRAN), puis les documents, puis la transition.",
+        "operationId": "supprimerTransition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la transition (StkFeasibilityStudyWorkFlow.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Transition supprimée."
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée."
+          },
+          "404": {
+            "description": "Transition inconnue."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Études de faisabilité — configuration des statuts et transitions"
+        ],
+        "summary": "Modifie une transition d'étude ; champ absent = inchangé, liste reçue = remplace",
+        "description": "Un champ absent ou null reste inchangé ; `roles`, `documents` ou `champsObligatoires` reçus remplacent l'existant\n(rôles en double dédoublonnés). Une transition à 0 rôle est permise : personne ne peut alors l'emprunter. Seuls les\nrôles lecteurs de l'étude (Administrateur, Direction Générale) comptent : un autre rôle listé est stocké sans effet.",
+        "operationId": "modifierTransition",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la transition (StkFeasibilityStudyWorkFlow.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Transition relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Mêmes refus que la création.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Transition inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Une transition relie déjà ces deux statuts.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionEtudeConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config-faisabilite/statuts/{id}": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — configuration des statuts et transitions"
+        ],
+        "summary": "Un statut d'étude avec ses documents",
+        "operationId": "statut",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du statut (StkFeasibilityStudyStatus.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Statut.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Statut inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Études de faisabilité — configuration des statuts et transitions"
+        ],
+        "summary": "Supprime un statut inutilisé, avec ses documents",
+        "description": "409 si une étude est à ce statut, si une transition part de lui ou y arrive, ou si l'historique d'une étude le cite.\nSes documents partent avec lui.",
+        "operationId": "supprimerStatut",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du statut (StkFeasibilityStudyStatus.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Statut supprimé."
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée."
+          },
+          "404": {
+            "description": "Statut inconnu."
+          },
+          "409": {
+            "description": "Statut porté par une étude, une transition ou l'historique."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Études de faisabilité — configuration des statuts et transitions"
+        ],
+        "summary": "Modifie un statut d'étude ; champ absent = inchangé",
+        "operationId": "modifierStatut",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du statut (StkFeasibilityStudyStatus.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatutEtudeConfigDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Statut relu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Champ obligatoire absent, référence ou nom de champ inconnu (detail nomme le champ).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Statut inconnu.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code déjà pris.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatutEtudeConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/articles/{id}": {
       "get": {
         "tags": [
@@ -17422,7 +18402,7 @@
           "Suivi des affectations"
         ],
         "summary": "Statuts de dossier de vente du filtre, tous, dans l'ordre du workflow",
-        "operationId": "statuts",
+        "operationId": "statuts_1",
         "responses": {
           "200": {
             "description": "OK",
@@ -21563,7 +22543,7 @@
         ],
         "summary": "Transitions sortantes du statut courant",
         "description": "Toutes les transitions sortantes du statut courant (`StrWorkFlow.StatusFromId`), sans filtre de rôle.",
-        "operationId": "transitions",
+        "operationId": "transitions_2",
         "parameters": [
           {
             "name": "id",
@@ -23123,6 +24103,63 @@
         }
       }
     },
+    "/api/import-patrimoine/{type}/modele": {
+      "get": {
+        "tags": [
+          "Import du patrimoine"
+        ],
+        "summary": "Classeur modèle pré-rempli avec les lignes de la tranche",
+        "description": "En-têtes OMRAN exacts (`ImportItems` / `ImportUnderItems`), une ligne par article (ou sous-article) existant de la\ntranche, puis une feuille d'aide par référentiel (Code, Libellé). Nom : `<code tranche>_STOCK_ARTICLES_<horodatage>.xlsx`\nou `…_STOCK_SOUS_ARTICLES_…`. Réimporter le modèle tel quel donne des lignes INCHANGEE.",
+        "operationId": "modele",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "description": "Type importé.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "articles",
+                "sous-articles"
+              ]
+            }
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranche visée (CfgTranche.PKey), obligatoire pour articles et sous-articles.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx : feuille de données puis feuilles d'aide.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "« Vous devez sélectionner une Tranche ! » (trancheId absent)."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Type inconnu, ou tranche inconnue ou d'une entité inactive."
+          }
+        }
+      }
+    },
     "/api/impayes": {
       "get": {
         "tags": [
@@ -23568,6 +24605,168 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/TresorerieFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/pieces-jointes/{pieceId}/fichier": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — statuts, pièces jointes, export"
+        ],
+        "summary": "Télécharge une pièce jointe de l'étude (redirection vers l'URL présignée)",
+        "operationId": "fichier_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pieceId",
+            "in": "path",
+            "description": "Id de la pièce jointe (AdmAttachedFile.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirection vers l'URL présignée du fichier."
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée."
+          },
+          "404": {
+            "description": "Étude inconnue ou masquée, pièce d'un autre porteur ou sans fichier."
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/historique": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — statuts, pièces jointes, export"
+        ],
+        "summary": "Historique des statuts de l'étude, par date",
+        "description": "Une ligne par changement de statut, création comprise : date, code, libellé et ordre du statut, utilisateur\n(`AdmUser.Description`).",
+        "operationId": "historique_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes par date croissante.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoriqueStatutEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoriqueStatutEtudeDto"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoriqueStatutEtudeDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/export.xlsx": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — statuts, pièces jointes, export"
+        ],
+        "summary": "Export Excel de l'étude en 11 feuilles (étude bloquée comprise)",
+        "description": "11 feuilles : Identité, Bilan, Terrain, Exécution, Délais, Financement, Données, Unités, Tranches, Unités par tranche,\nBilan détaillé. Valeurs du calcul partagé (bilan stocké, prévisions, trésorerie), jamais recalculées dans l'export.\nSans tranche, « Tranches » et « Unités par tranche » n'ont que leurs titres. Permis sur une étude bloquée.",
+        "operationId": "exporter_6",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur etude-<code>_<horodatage>.xlsx.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
                 }
               }
             }
@@ -24438,7 +25637,7 @@
           "État des ventes"
         ],
         "summary": "Export Excel de l'état des ventes, filtres et colonnes appliqués",
-        "operationId": "exporter_6",
+        "operationId": "exporter_7",
         "parameters": [
           {
             "name": "format",
@@ -26059,7 +27258,7 @@
         ],
         "summary": "Export Excel de la liste des encaissements, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/encaissements`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Encaissements », fichier `encaissements_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_7",
+        "operationId": "exporter_8",
         "parameters": [
           {
             "name": "format",
@@ -27553,6 +28752,47 @@
                 "LIBRES"
               ]
             }
+          },
+          {
+            "name": "totalMin",
+            "in": "query",
+            "description": "Total à payer minimum (inclus, ≥ 0) ; un dossier sans total est alors exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100000
+          },
+          {
+            "name": "totalMax",
+            "in": "query",
+            "description": "Total à payer maximum (inclus, ≥ 0, ≥ totalMin) ; un dossier sans total est exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 2000000
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Id de la société (CfgCompany.id) du projet de l'article principal ; inconnue = vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sansStatut",
+            "in": "query",
+            "description": "Ajoute les dossiers sans statut au filtre statut ; seul, ne rend que ceux-là.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
           }
         ],
         "responses": {
@@ -27567,7 +28807,7 @@
             }
           },
           "400": {
-            "description": "Valeur d'énumération invalide (`champDate`, `lignes`)."
+            "description": "Valeur d'énumération invalide (`champDate`, `lignes`), ou fourchette `totalMin` / `totalMax` invalide (négative ou inversée)."
           }
         }
       }
@@ -27757,6 +28997,47 @@
                 "LIBRES"
               ]
             }
+          },
+          {
+            "name": "totalMin",
+            "in": "query",
+            "description": "Total à payer minimum (inclus, ≥ 0) ; un dossier sans total est alors exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100000
+          },
+          {
+            "name": "totalMax",
+            "in": "query",
+            "description": "Total à payer maximum (inclus, ≥ 0, ≥ totalMin) ; un dossier sans total est exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 2000000
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Id de la société (CfgCompany.id) du projet de l'article principal ; inconnue = vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sansStatut",
+            "in": "query",
+            "description": "Ajoute les dossiers sans statut au filtre statut ; seul, ne rend que ceux-là.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
           }
         ],
         "responses": {
@@ -27783,7 +29064,7 @@
         ],
         "summary": "Statuts de dossier proposés au filtre de la liste",
         "description": "Statuts des dossiers de vente (`StrStatus` du workflow des dossiers) que l'appelant peut voir, triés comme dans OMRAN. `sortie = true` pour les annulations et résiliations, exclues de la liste sans `inclureSortis`. L'option « Libre » du filtre n'est pas un statut : elle se traduit par `lignes`.",
-        "operationId": "statuts_1",
+        "operationId": "statuts_2",
         "responses": {
           "200": {
             "description": "OK",
@@ -28024,6 +29305,47 @@
             "example": false
           },
           {
+            "name": "totalMin",
+            "in": "query",
+            "description": "Total à payer minimum (inclus, ≥ 0) ; un dossier sans total est alors exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100000
+          },
+          {
+            "name": "totalMax",
+            "in": "query",
+            "description": "Total à payer maximum (inclus, ≥ 0, ≥ totalMin) ; un dossier sans total est exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 2000000
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Id de la société (CfgCompany.id) du projet de l'article principal ; inconnue = vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sansStatut",
+            "in": "query",
+            "description": "Ajoute les dossiers sans statut au filtre statut ; seul, ne rend que ceux-là.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
             "name": "pageable",
             "in": "query",
             "required": true,
@@ -28056,7 +29378,7 @@
         ],
         "summary": "Export Excel de la liste des dossiers, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/dossiers`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Auteur du classeur = utilisateur connecté, titre « Dossiers de vente », fichier `dossiers_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_8",
+        "operationId": "exporter_9",
         "parameters": [
           {
             "name": "format",
@@ -28233,6 +29555,47 @@
             }
           },
           {
+            "name": "totalMin",
+            "in": "query",
+            "description": "Total à payer minimum (inclus, ≥ 0) ; un dossier sans total est alors exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 100000
+          },
+          {
+            "name": "totalMax",
+            "in": "query",
+            "description": "Total à payer maximum (inclus, ≥ 0, ≥ totalMin) ; un dossier sans total est exclu.",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "example": 2000000
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Id de la société (CfgCompany.id) du projet de l'article principal ; inconnue = vide.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sansStatut",
+            "in": "query",
+            "description": "Ajoute les dossiers sans statut au filtre statut ; seul, ne rend que ceux-là.",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "example": false
+          },
+          {
             "name": "ordreOmran",
             "in": "query",
             "required": false,
@@ -28280,7 +29643,7 @@
             }
           },
           "400": {
-            "description": "`format` autre que `xlsx`, ou colonne inconnue."
+            "description": "`format` autre que `xlsx`, colonne inconnue, ou fourchette `totalMin` / `totalMax` invalide."
           }
         }
       }
@@ -28801,6 +30164,54 @@
         }
       }
     },
+    "/api/config-faisabilite/choix/types-etat": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — configuration des statuts et transitions"
+        ],
+        "summary": "Types d'état (AdmWorkFlowStateType) : Nouveau, Intermédiaire, Terminé…, par ordre",
+        "operationId": "typesEtat",
+        "responses": {
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config-faisabilite/champs-obligatoires": {
+      "get": {
+        "tags": [
+          "Études de faisabilité — configuration des statuts et transitions"
+        ],
+        "summary": "Catalogue des champs cochables (nom OMRAN, champ du CRM, libellé)",
+        "operationId": "champsObligatoires",
+        "responses": {
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChampObligatoire"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/commerciaux": {
       "get": {
         "tags": [
@@ -29284,7 +30695,7 @@
         ],
         "summary": "Historique des statuts des dossiers de l'article",
         "description": "Lignes `StrFolderStatusHistory` dont `StkItemId` est l'article, plus celles d'un **transfert produit légalisé**\n(`ComSaleWithdrawalProduct.IsLegalized = 1`) dont l'article est l'ancien ou le nouveau. Tri par date décroissante (OMRAN\ntrie par date croissante ; le CRM garde l'ordre de l'historique du tiers). Une ligne d'un dossier de vente hors\npérimètre commercial est masquée ; une ligne sans dossier de vente (location, syndic) l'est si l'article est hors\npérimètre, comme dans l'onglet Dossiers. Origine : `ComFolderId` → VENTE, sinon `RntFolderId` → LOCATION, sinon `SynFolderId` →\nSYNDIC. Auteur : le compte de la ligne, sinon la ligne `StrHistory` jumelle du dossier de vente, sinon « Système ».",
-        "operationId": "historique_2",
+        "operationId": "historique_3",
         "parameters": [
           {
             "name": "id",
@@ -29795,6 +31206,51 @@
           },
           "404": {
             "description": "Note introuvable, ou d'un objet hors patrimoine."
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/pieces-jointes/{pieceId}": {
+      "delete": {
+        "tags": [
+          "Études de faisabilité — statuts, pièces jointes, export"
+        ],
+        "summary": "Supprime (logiquement) une pièce jointe de l'étude",
+        "operationId": "supprimerPiece",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "pieceId",
+            "in": "path",
+            "description": "Id de la pièce jointe (AdmAttachedFile.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Pièce retirée des listes ; elle ne compte plus pour un document exigé."
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée."
+          },
+          "404": {
+            "description": "Étude inconnue ou masquée, pièce d'un autre porteur ou déjà supprimée."
+          },
+          "409": {
+            "description": "Étude bloquée (« Étude bloquée »)."
           }
         }
       }
@@ -37982,6 +39438,99 @@
           }
         }
       },
+      "BilanImportDto": {
+        "type": "object",
+        "description": "Bilan d'un import de classeur, simulé ou réel : tout ou rien, une ligne par ligne de données.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Type importé (articles, sous-articles).",
+            "example": "articles"
+          },
+          "simulation": {
+            "type": "boolean",
+            "description": "Vrai si l'import était une simulation (« Vérifier les données »)."
+          },
+          "ecrit": {
+            "type": "boolean",
+            "description": "Vrai seulement si tout a été écrit : aucune erreur et pas de simulation."
+          },
+          "lignesLues": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Nombre de lignes de données lues."
+          },
+          "creations": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lignes en CREATION."
+          },
+          "misesAJour": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lignes en MISE_A_JOUR."
+          },
+          "inchangees": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lignes en INCHANGEE."
+          },
+          "erreurs": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Lignes en ERREUR ou NON_VERIFIEE ; > 0 = rien n'est écrit."
+          },
+          "avertissements": {
+            "type": "array",
+            "description": "Colonnes ignorées, TVA saisie en pourcentage… : n'empêchent pas l'import.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Une entrée par ligne de données, dans l'ordre du fichier.",
+            "items": {
+              "$ref": "#/components/schemas/LigneBilanDto"
+            }
+          }
+        }
+      },
+      "LigneBilanDto": {
+        "type": "object",
+        "description": "Résultat d'une ligne de données du classeur importé.",
+        "properties": {
+          "numero": {
+            "type": "integer",
+            "format": "int32",
+            "description": "N° de ligne Excel (1 = en-têtes, 2 = première donnée).",
+            "example": 2
+          },
+          "pivot": {
+            "type": "string",
+            "description": "Pivot lu (code de l'objet dans la tranche) ; null s'il manque."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code écrit (colonne Code, à défaut le pivot) ; null s'il manque."
+          },
+          "resultat": {
+            "type": "string",
+            "description": "Ce que la ligne a produit (ou produirait, en simulation).",
+            "enum": [
+              "CREATION",
+              "MISE_A_JOUR",
+              "INCHANGEE",
+              "ERREUR",
+              "NON_VERIFIEE"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "description": "Libellé OMRAN (« Création de l'article : X »…) suivi du détail des erreurs."
+          }
+        }
+      },
       "GroupeActionnairesEcritureDto": {
         "type": "object",
         "description": "Création ou modification d'un groupe ; en PATCH, absent ou null = inchangé (lignes comprises).",
@@ -38891,6 +40440,17 @@
             "items": {
               "$ref": "#/components/schemas/LigneTresorerieDto"
             }
+          }
+        }
+      },
+      "DemandeTransitionEtudeDto": {
+        "type": "object",
+        "description": "Transition à exécuter sur l'étude (pas de note : OMRAN n'en demande pas).",
+        "properties": {
+          "transitionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Transition (GET …/transitions), obligatoire."
           }
         }
       },
@@ -41223,6 +42783,161 @@
           "montant",
           "typeId"
         ]
+      },
+      "DocumentAJoindreDto": {
+        "type": "object",
+        "description": "Document à joindre d'un statut ou d'une transition d'étude.",
+        "properties": {
+          "typeDocumentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de document (AdmAttachedFileType.PKey, liste /api/referentiels/types-piece-jointe), obligatoire."
+          },
+          "typeDocumentLibelle": {
+            "type": "string",
+            "description": "Lecture : libellé du type de document."
+          },
+          "estObligatoire": {
+            "type": "boolean",
+            "description": "IsMandatory, stocké sans effet : toute ligne d'une transition est exigée."
+          },
+          "avecTitre": {
+            "type": "boolean",
+            "description": "WithTitle, stocké sans effet."
+          }
+        }
+      },
+      "TransitionEtudeConfigDto": {
+        "type": "object",
+        "description": "Transition d'étude (StkFeasibilityStudyWorkFlow) ; en PATCH, un champ absent ou null reste inchangé.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey (lecture ; ignorée en écriture)."
+          },
+          "sorting": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre d'affichage (Sorting), défaut 1."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé, obligatoire."
+          },
+          "statutDepartId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut de départ, obligatoire, différent de l'arrivée."
+          },
+          "statutDepartLibelle": {
+            "type": "string",
+            "description": "Lecture : libellé du statut de départ."
+          },
+          "statutArriveeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut d'arrivée, obligatoire."
+          },
+          "statutArriveeLibelle": {
+            "type": "string",
+            "description": "Lecture : libellé du statut d'arrivée."
+          },
+          "champsObligatoires": {
+            "type": "array",
+            "description": "Noms OMRAN des champs exigés pour l'emprunter (catalogue /champs-obligatoires).",
+            "items": {
+              "type": "string"
+            }
+          },
+          "noteObligatoire": {
+            "type": "boolean",
+            "description": "NotesMandatory, défaut faux, stocké sans effet."
+          },
+          "avecNotification": {
+            "type": "boolean",
+            "description": "WithNotification, défaut faux, stocké sans effet."
+          },
+          "envoyerEmail": {
+            "type": "boolean",
+            "description": "SendEmailToUsers, défaut faux, stocké sans effet (aucun e-mail)."
+          },
+          "roles": {
+            "type": "array",
+            "description": "Rôles autorisés (AdmRole.PKey, liste /api/referentiels/roles) ; doublons ignorés ; vide permis.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "documents": {
+            "type": "array",
+            "description": "Documents exigés : une pièce jointe de l'étude de chaque type ; une liste reçue remplace l'existante.",
+            "items": {
+              "$ref": "#/components/schemas/DocumentAJoindreDto"
+            }
+          }
+        }
+      },
+      "StatutEtudeConfigDto": {
+        "type": "object",
+        "description": "Statut d'étude (StkFeasibilityStudyStatus) ; en PATCH, un champ absent ou null reste inchangé.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey (lecture ; ignorée en écriture)."
+          },
+          "sorting": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre d'affichage (Sorting), défaut 1."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code, obligatoire et unique."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé, obligatoire."
+          },
+          "typeEtatId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type d'état (AdmWorkFlowStateType.PKey, liste /choix/types-etat), obligatoire."
+          },
+          "typeEtatLibelle": {
+            "type": "string",
+            "description": "Lecture : libellé du type d'état."
+          },
+          "delai": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de vie (Delay), défaut 0."
+          },
+          "couleur": {
+            "type": "string",
+            "description": "Couleur : nom de couleur .NET, défaut vide."
+          },
+          "notes": {
+            "type": "string",
+            "description": "Notes libres."
+          },
+          "champsObligatoires": {
+            "type": "array",
+            "description": "Noms OMRAN des champs obligatoires du statut (catalogue /champs-obligatoires).",
+            "items": {
+              "type": "string"
+            }
+          },
+          "documents": {
+            "type": "array",
+            "description": "Documents du statut, stockés sans effet ; une liste reçue remplace l'existante.",
+            "items": {
+              "$ref": "#/components/schemas/DocumentAJoindreDto"
+            }
+          }
+        }
       },
       "CreerCleApiRequest": {
         "type": "object",
@@ -46509,6 +48224,22 @@
             "type": "string",
             "description": "Co-acquéreurs (ComFolderCustomer), libellés séparés par des virgules."
           },
+          "clientEmail": {
+            "type": "string",
+            "description": "E-mail du client principal (CfgTier.EMail)."
+          },
+          "clientAdresse": {
+            "type": "string",
+            "description": "Adresse du client principal : Address, puis Address2 et Address3 s'ils sont remplis, séparés par « , »."
+          },
+          "clientVille": {
+            "type": "string",
+            "description": "Ville du client principal : celle du référentiel (AdmCityId), sinon City."
+          },
+          "clientPays": {
+            "type": "string",
+            "description": "Pays du client principal (AdmCountry.Description)."
+          },
           "dateFicheBancaire": {
             "type": "string",
             "format": "date-time",
@@ -46793,6 +48524,18 @@
           "fraisReste": {
             "type": "number",
             "description": "`frais − fraisRegles`."
+          },
+          "fraisSyndic": {
+            "type": "number",
+            "description": "Σ au crédit des échéances de la catégorie `AdmParamsGuid.DefaultSyndicFeeDocumentType` (frais syndic), sous-ensemble\nde `frais` ; 0 si le paramètre n'est pas défini."
+          },
+          "fraisSyndicRegles": {
+            "type": "number",
+            "description": "Réglé signé des échéances de frais syndic, hors règlements annulés (`CANCELED`)."
+          },
+          "fraisSyndicReste": {
+            "type": "number",
+            "description": "`fraisSyndic − fraisSyndicRegles`."
           },
           "modifications": {
             "type": "number",
@@ -48443,6 +50186,128 @@
           "rentabiliteFondsPropres": {
             "type": "number",
             "description": "Retour sur fonds propres ; null si fonds propres HT nuls."
+          }
+        }
+      },
+      "ChampTransitionDto": {
+        "type": "object",
+        "description": "Champ obligatoire d'une transition et son état sur l'étude.",
+        "properties": {
+          "champ": {
+            "type": "string",
+            "description": "Champ du CRM (nom de la fiche).",
+            "example": "superficie"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé OMRAN du champ."
+          },
+          "renseigne": {
+            "type": "boolean",
+            "description": "Faux si vide : texte vide, date absente ; un nombre (même 0) est toujours renseigné."
+          }
+        }
+      },
+      "DocumentTransitionDto": {
+        "type": "object",
+        "description": "Document à fournir pour une transition.",
+        "properties": {
+          "typeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Type de document (AdmAttachedFileType.PKey)."
+          },
+          "typeLibelle": {
+            "type": "string",
+            "description": "Libellé du type de document."
+          },
+          "fourni": {
+            "type": "boolean",
+            "description": "Vrai si l'étude a une pièce jointe vivante de ce type."
+          }
+        }
+      },
+      "TransitionPossibleDto": {
+        "type": "object",
+        "description": "Transition empruntable depuis le statut courant de l'étude par un rôle de l'appelant.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Transition (StkFeasibilityStudyWorkFlow.PKey)."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé de la transition."
+          },
+          "statutDepartId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut de départ (= statut courant)."
+          },
+          "statutDepartLibelle": {
+            "type": "string",
+            "description": "Libellé du statut de départ."
+          },
+          "statutArriveeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut d'arrivée."
+          },
+          "statutArriveeLibelle": {
+            "type": "string",
+            "description": "Libellé du statut d'arrivée."
+          },
+          "champsObligatoires": {
+            "type": "array",
+            "description": "Champs obligatoires de la transition, ordre du catalogue.",
+            "items": {
+              "$ref": "#/components/schemas/ChampTransitionDto"
+            }
+          },
+          "documentsRequis": {
+            "type": "array",
+            "description": "Documents exigés : une pièce jointe de l'étude de ce type pour chacun.",
+            "items": {
+              "$ref": "#/components/schemas/DocumentTransitionDto"
+            }
+          },
+          "possible": {
+            "type": "boolean",
+            "description": "Vrai si l'étude n'est pas bloquée, tous les champs renseignés et tous les documents fournis."
+          }
+        }
+      },
+      "HistoriqueStatutEtudeDto": {
+        "type": "object",
+        "description": "Ligne d'historique des statuts d'une étude (StkFeasibilityStudyStatusHistory).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de la ligne."
+          },
+          "date": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du changement."
+          },
+          "statutCode": {
+            "type": "string",
+            "description": "Code du statut atteint."
+          },
+          "statutLibelle": {
+            "type": "string",
+            "description": "Libellé du statut atteint."
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre du statut (Sorting)."
+          },
+          "utilisateur": {
+            "type": "string",
+            "description": "Utilisateur (AdmUser.Description) ; null si inconnu."
           }
         }
       },
@@ -50412,6 +52277,26 @@
             "format": "int64",
             "description": "**Dossiers écartés faute de date d'avance**, toutes années confondues. 232 sur 387 en base réelle —\n60 %. Ce compteur existe pour que ce trou d'assiette soit affichable : `nombreDossiers` ne couvre\npas tous les dossiers, et l'ignorer ferait croire à un effondrement des ventes.",
             "example": 232
+          }
+        }
+      },
+      "ChampObligatoire": {
+        "type": "object",
+        "description": "Champ cochable comme obligatoire d'un statut ou d'une transition d'étude.",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "description": "Nom OMRAN stocké dans MandatoryFields.",
+            "example": "Area"
+          },
+          "champ": {
+            "type": "string",
+            "description": "Champ du CRM (fiche de l'étude).",
+            "example": "superficie"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé OMRAN (DisplayName)."
           }
         }
       },

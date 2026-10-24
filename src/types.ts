@@ -1303,6 +1303,12 @@ export interface DossierListItemDto {
   clientMobileComplet?: string | null;
   clientTelephone?: string | null;
   autresClients?: string | null;
+  clientEmail?: string | null;
+  /** Address, puis Address2 et Address3 remplis, séparés par « , ». */
+  clientAdresse?: string | null;
+  /** Ville du référentiel (AdmCityId), sinon `City` ; non groupable. */
+  clientVille?: string | null;
+  clientPays?: string | null;
   datePromesseVente?: string | null;
   datePromesseVenteClient?: string | null;
   dateEnregistrementReservation?: string | null;
