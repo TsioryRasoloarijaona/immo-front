@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Pencil, Trash2 } from 'lucide-react';
 import PageShell from '../PageShell';
 import ActionAdmin from '../patrimoine/ActionAdmin';
+import BoutonImprimerFiche from '../patrimoine/BoutonImprimerFiche';
 import FicheSections from '../patrimoine/FicheSections';
 import PiedSaisie from '../patrimoine/PiedSaisie';
 import SectionsSaisie, { type ListesChoix } from '../patrimoine/SectionsSaisie';
@@ -15,6 +16,7 @@ import { libelleTrace } from '../../lib/format';
 import { lignesFil, rangeesDepuis, type ChampLigne, type LigneFil, type RangeeActionnaire } from '../../lib/lignesActionnaires';
 import { brouillonDepuis, champsDe, corpsDepuis, useSaisie, type Brouillon, type SectionSaisie } from '../../lib/saisiePatrimoine';
 import { useApi } from '../../lib/useApi';
+import type { RessourceFichePdf } from '../../types';
 
 type Corps = Record<string, unknown>;
 
@@ -55,6 +57,8 @@ export interface ConfigFiche<T extends Tracee> {
   apresChamp?: (nom: string, valeur: string | boolean, contexte: ContexteSaisie) => void;
   /** Champs grisés à la création (le groupe exige l'id de l'entité pour charger la répartition). */
   verrouillesCreation?: string[];
+  /** Présent : bouton « Imprimer » (PDF de la fiche) en tête. */
+  ressourceFichePdf?: RessourceFichePdf;
   /** Actions d'en-tête propres à l'écran (bascule Active de l'entité). */
   actions?: (fiche: T, recharger: () => void) => ReactNode;
   pied?: (fiche: T) => ReactNode;
@@ -103,6 +107,7 @@ function FicheExistante<T extends Tracee>({ id, config }: Readonly<{ id: string;
       icon={config.icon}
       actions={!edition && (
         <div className="flex flex-wrap gap-2">
+          {config.ressourceFichePdf && <BoutonImprimerFiche ressource={config.ressourceFichePdf} id={fiche.id} />}
           {config.actions?.(fiche, recharger)}
           <ActionAdmin onClick={() => void supprimer()} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
           <ActionAdmin onClick={() => setEdition(true)} libelle={config.libelleEdition} icone={<Pencil data-icon="inline-start" />} />

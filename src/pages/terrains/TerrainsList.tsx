@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Trees } from 'lucide-react';
+import BoutonExporter from '../../components/BoutonExporter';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import PageShell from '../../components/PageShell';
 import Pagination from '../../components/Pagination';
@@ -62,7 +63,13 @@ export default function TerrainsList({ liste = 'terrains' }: Readonly<{ liste?: 
       icon={<Trees />}
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
-      actions={lotissements ? undefined : <ActionAdmin to="/terrains/nouveau" libelle="Nouveau terrain" />}
+      actions={
+        <div className="flex gap-2">
+          <BoutonExporter pdf chemin={`/api/${liste}/export`} nomListe={liste}
+            params={{ search: debouncedSearch || undefined, entiteId: entiteId ?? undefined, colonnes: colonnes(lotissements).map((c) => c.nom) }} />
+          {!lotissements && <ActionAdmin to="/terrains/nouveau" libelle="Nouveau terrain" />}
+        </div>
+      }
       fullHeight
     >
       <div className="flex h-full min-h-0 flex-col gap-3 pt-1">

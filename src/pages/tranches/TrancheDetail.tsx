@@ -4,6 +4,7 @@ import { Building2, CalendarClock, Map, Pencil, Trash2, TrendingUp } from 'lucid
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import ArticlesTranche from '../../components/patrimoine/ArticlesTranche';
+import BoutonImprimerFiche from '../../components/patrimoine/BoutonImprimerFiche';
 import DialogueMiseAJourSchemas from '../../components/patrimoine/DialogueMiseAJourSchemas';
 import DialoguePrevisionsBase from '../../components/patrimoine/DialoguePrevisionsBase';
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
@@ -73,6 +74,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
           <Button type="button" size="sm" variant="outline" onClick={() => void navigate(`/tranches/${id}/plans`)}>
             <Map data-icon="inline-start" /> Plans
           </Button>
+          <BoutonImprimerFiche ressource="tranches" id={id} />
           <ActionAdmin onClick={() => setDialogue('previsions')} libelle="Prévisions de base" variant="outline"
             icone={<TrendingUp data-icon="inline-start" />} />
           <ActionAdmin onClick={() => setDialogue('schemas')} libelle="Mettre à jour les schémas de financement" variant="outline"
