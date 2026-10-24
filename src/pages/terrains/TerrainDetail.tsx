@@ -5,6 +5,7 @@ import CadreFiche from '../../components/CadreFiche';
 import FicheShell, { type OngletFiche } from '../../components/FicheShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
+import BoutonImprimerFiche from '../../components/patrimoine/BoutonImprimerFiche';
 import FraisTerrain from '../../components/patrimoine/FraisTerrain';
 import GrilleOnglet from '../../components/patrimoine/GrilleOnglet';
 import OngletAudit from '../../components/patrimoine/OngletAudit';
@@ -142,6 +143,7 @@ function FicheTerrain({ id }: Readonly<{ id: string }>) {
 function ActionsTerrain({ terrain, onSupprimer }: Readonly<{ terrain: TerrainDetailDto; onSupprimer: () => void }>) {
   return (
     <div className="flex flex-wrap gap-2">
+      <BoutonImprimerFiche ressource="terrains" id={terrain.id} />
       <ActionAdmin onClick={onSupprimer} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
       {terrain.sousTerrainsAutorises && (
         <ActionAdmin to={`/terrains/${terrain.id}/sous-terrains/nouveau`} libelle="Nouveau sous-terrain" variant="outline"

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MapPinned, Search } from 'lucide-react';
+import BoutonExporter from '../../components/BoutonExporter';
 import ColumnSelector from '../../components/ColumnSelector';
 import DataGrid from '../../components/DataGrid';
 import PageShell from '../../components/PageShell';
@@ -97,7 +98,13 @@ export default function ProspectionsTerrainList() {
       icon={<MapPinned />}
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
-      actions={<ActionAdmin to="/terrains-prospection/nouveau" libelle="Nouvelle prospection" />}
+      actions={
+        <div className="flex gap-2">
+          <BoutonExporter pdf chemin="/api/prospections-terrain/export" nomListe="prospections-terrain"
+            params={{ ...filtres, colonnes: colonnes.visibles }} />
+          <ActionAdmin to="/terrains-prospection/nouveau" libelle="Nouvelle prospection" />
+        </div>
+      }
       fullHeight
     >
       <div className="flex h-full min-h-0 flex-col gap-3 pt-1">

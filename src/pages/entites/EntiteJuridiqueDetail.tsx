@@ -66,6 +66,7 @@ export default function EntiteJuridiqueDetail() {
     },
     lignes: { cle: 'repartition', champ: 'nombreParts', titre: 'Répartition des actionnaires' },
     libelleEdition: 'Débloquer',
+    ressourceFichePdf: 'entites-juridiques',
     messageSuppression: "L'entité, ses compteurs, ses habilitations et sa répartition seront supprimés. Continuer ?",
     charger: getEntiteJuridique,
     creer: createEntiteJuridique,

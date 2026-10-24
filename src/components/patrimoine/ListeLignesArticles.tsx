@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { RotateCcw, Search } from 'lucide-react';
 import BarreFiltresArticles from './BarreFiltresArticles';
+import BoutonExporter from '../BoutonExporter';
 import ColumnSelector from '../ColumnSelector';
 import DataGrid from '../DataGrid';
 import EtatColonnes from '../EtatColonnes';
@@ -105,15 +106,24 @@ export default function ListeLignesArticles({ liste, onOuvrir }: Readonly<{
             <div className="text-body text-muted-foreground">
               {formatNumber(data.totalElements)} {nom}{data.totalElements > 1 ? 's' : ''}
             </div>
-            {colonnes.catalogueServi.length > 0 && (
-              <ColumnSelector
-                catalogue={colonnes.catalogueServi}
-                visibles={colonnes.visibles}
-                onBasculer={colonnes.basculer}
-                onReinitialiser={colonnes.reinitialiser}
-                estDefaut={colonnes.estDefaut}
+            <div className="flex items-center gap-2">
+              <BoutonExporter
+                pdf
+                chemin={`/api/${liste}/export`}
+                nomListe={liste}
+                disabled={colonnes.visibles.length === 0}
+                params={{ search: debouncedSearch || undefined, trancheId: trancheId.length > 0 ? trancheId : undefined, ...filtres.params, colonnes: colonnes.visibles }}
               />
-            )}
+              {colonnes.catalogueServi.length > 0 && (
+                <ColumnSelector
+                  catalogue={colonnes.catalogueServi}
+                  visibles={colonnes.visibles}
+                  onBasculer={colonnes.basculer}
+                  onReinitialiser={colonnes.reinitialiser}
+                  estDefaut={colonnes.estDefaut}
+                />
+              )}
+            </div>
           </div>
           {rows.length === 0 ? (
             <EmptyState
