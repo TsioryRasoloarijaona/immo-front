@@ -1,5 +1,5 @@
 import { lazy } from 'react';
-import { Building2, Grid2x2, Home, Landmark, Layers, LayoutGrid, MapPinned, Ruler, Settings2, Trees, UserRound, UsersRound } from 'lucide-react';
+import { Building2, FileBarChart, Grid2x2, Home, Landmark, Layers, LayoutGrid, MapPinned, Ruler, Settings2, Trees, UserRound, UsersRound } from 'lucide-react';
 import { estAdministrateur, estExempte } from '../../lib/roles';
 import type { ModuleApp } from '../types';
 
@@ -30,6 +30,8 @@ const GroupesActionnairesList = lazy(() => import('../../pages/entites/GroupesAc
 const GroupeActionnairesDetail = lazy(() => import('../../pages/entites/GroupeActionnairesDetail'));
 const EtudesFaisabiliteList = lazy(() => import('../../pages/faisabilite/EtudesFaisabiliteList'));
 const EtudeFaisabiliteDetail = lazy(() => import('../../pages/faisabilite/EtudeFaisabiliteDetail'));
+const ListeRapports = lazy(() => import('../../pages/rapports/ListeRapports'));
+const Rapport = lazy(() => import('../../pages/rapports/Rapport'));
 const ReferentielPage = lazy(() => import('../../pages/configuration/ReferentielPage'));
 
 const PROJET = 'var(--sec-projet)';
@@ -43,7 +45,7 @@ const patrimoine: ModuleApp = {
   path: '/tranches',
   prefixes: [
     '/tranches', '/articles', '/sous-articles', '/terrains', '/terrains-prospection', '/lotissements', '/projets', '/entites-juridiques',
-    '/actionnaires', '/groupes-actionnaires', '/etudes-faisabilite', '/configuration',
+    '/actionnaires', '/groupes-actionnaires', '/etudes-faisabilite', '/patrimoine-rapports', '/configuration',
   ],
   menu: {
     titre: 'Patrimoine',
@@ -59,6 +61,7 @@ const patrimoine: ModuleApp = {
       { to: '/actionnaires', libelle: 'Actionnaires', Icone: UserRound, couleur: PROJET, visible: estAdministrateur },
       { to: '/groupes-actionnaires', libelle: "Groupes d'actionnaires", Icone: UsersRound, couleur: PROJET, visible: estAdministrateur },
       { to: '/etudes-faisabilite', libelle: 'Études de faisabilité', Icone: Ruler, couleur: PROJET, visible: estExempte },
+      { to: '/patrimoine-rapports', libelle: 'Rapports', Icone: FileBarChart, couleur: PROJET },
       { to: '/configuration/referentiels', actif: '/configuration', libelle: 'Configuration', Icone: Settings2, couleur: PROJET },
     ],
   },
@@ -103,6 +106,8 @@ const patrimoine: ModuleApp = {
     { path: '/etudes-faisabilite', element: <EtudesFaisabiliteList /> },
     { path: '/etudes-faisabilite/nouveau', element: <EtudeFaisabiliteDetail /> },
     { path: '/etudes-faisabilite/:id', element: <EtudeFaisabiliteDetail /> },
+    { path: '/patrimoine-rapports', element: <ListeRapports module="patrimoine" /> },
+    { path: '/patrimoine-rapports/:code', element: <Rapport module="patrimoine" /> },
     { path: '/configuration/referentiels', element: <ReferentielPage /> },
     { path: '/configuration/referentiels/:slug', element: <ReferentielPage /> },
   ],

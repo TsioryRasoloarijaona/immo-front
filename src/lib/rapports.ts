@@ -2,7 +2,10 @@
 import { ApiError } from './api';
 import { formatCurrency, formatDate, formatNumber, formatPercentValue } from './format';
 import type { ValeursRapport } from './apiRapports';
-import type { ColonneRapportDto, ParametreRapportDto, ValeurRapport } from '../types/rapports';
+import type { ColonneRapportDto, ModuleRapport, ParametreRapportDto, ValeurRapport } from '../types/rapports';
+
+/** Route du hub des rapports d'un module (pas de préfixe `/rapports-` : `moduleForPath` le rattacherait à la Vente). */
+export const cheminRapports = (module: ModuleRapport) => (module === 'patrimoine' ? '/patrimoine-rapports' : '/rapports');
 
 /** Une date vide d'un paramètre qui a un défaut veut dire « sans borne » : le serveur remettrait le défaut. */
 const DATE_MIN = '1900-01-01';
