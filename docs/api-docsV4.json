@@ -17101,6 +17101,32 @@
         }
       }
     },
+    "/api/tranches/{id}/fiche.pdf": {
+      "get": {
+        "tags": [
+          "Tranches"
+        ],
+        "summary": "Fiche PDF de la tranche (inline), terrains et étages compris ; visibilité du détail",
+        "operationId": "fichePdf",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Tranche introuvable."
+          }
+        }
+      }
+    },
     "/api/tranches/{id}/articles": {
       "get": {
         "tags": [
@@ -17281,6 +17307,65 @@
         }
       }
     },
+    "/api/tranches/export": {
+      "get": {
+        "tags": [
+          "Tranches"
+        ],
+        "summary": "Export xlsx ou pdf de la liste des tranches, colonnes du catalogue",
+        "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
+        "operationId": "exporter",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "xlsx (défaut) ou pdf ; autre valeur = 400.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "pdf"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes du tableau dans l'ordre voulu ; absent = celles affichées par défaut.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,description"
+          },
+          {
+            "name": "projetId",
+            "in": "query",
+            "description": "Id du projet (Entité, CfgProject.id) pour ne renvoyer que ses tranches. Absent = toutes les tranches.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sans casse dans le code, le libellé, la ville et le code du programme.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Format inconnu, colonne inconnue, ou plus de 2 000 lignes en PDF."
+          }
+        }
+      }
+    },
     "/api/tranches/entites-finalisation": {
       "get": {
         "tags": [
@@ -17325,6 +17410,112 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/terrains/{id}/fiche.pdf": {
+      "get": {
+        "tags": [
+          "Terrains"
+        ],
+        "summary": "Fiche PDF du terrain (inline), mêmes droit et visibilité que le détail",
+        "operationId": "fichePdf_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du terrain (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Terrain inconnu, d'une autre nature, ou d'une société inactive."
+          }
+        }
+      }
+    },
+    "/api/terrains/export": {
+      "get": {
+        "tags": [
+          "Terrains"
+        ],
+        "summary": "Export xlsx ou pdf de la liste des terrains",
+        "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
+        "operationId": "exporter_1",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sans casse ni espaces : code, description, titre foncier, adresse, notes…",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TER-01"
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Société (CfgCompanyId).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statut (StrStatus).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vocationId",
+            "in": "query",
+            "description": "Vocation (StkVocation).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "xlsx (défaut) ou pdf ; autre valeur = 400.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "pdf"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes du tableau dans l'ordre voulu ; absent = celles affichées par défaut.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,description"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Format inconnu, colonne inconnue, ou plus de 2 000 lignes en PDF."
           }
         }
       }
@@ -17883,7 +18074,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Export Excel des interactions, filtres et colonnes appliqués",
-        "operationId": "exporter",
+        "operationId": "exporter_2",
         "parameters": [
           {
             "name": "format",
@@ -18657,7 +18848,7 @@
           "Suivi des affectations"
         ],
         "summary": "Export Excel du suivi des affectations, filtres et colonnes appliqués",
-        "operationId": "exporter_1",
+        "operationId": "exporter_3",
         "parameters": [
           {
             "name": "entiteId",
@@ -19187,7 +19378,7 @@
         ],
         "summary": "Export Excel du suivi des actions, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/suivi-actions`, sans pagination, même portée (un non-administrateur n'exporte que ses actions) et même périmètre commercial. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Suivi des actions », fichier `suivi-actions_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille ne sont pas transmis.",
-        "operationId": "exporter_2",
+        "operationId": "exporter_4",
         "parameters": [
           {
             "name": "format",
@@ -19313,6 +19504,208 @@
           },
           "400": {
             "description": "`format` autre que `xlsx`, ou colonne inconnue."
+          }
+        }
+      }
+    },
+    "/api/sous-articles/export": {
+      "get": {
+        "tags": [
+          "Sous-articles"
+        ],
+        "summary": "Export xlsx ou pdf de la liste des sous-articles, colonnes du catalogue",
+        "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
+        "operationId": "exporter_5",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sans casse ni espaces : code, description, code parent, tranche, N° dossier, notes…",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "A-204"
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de CfgTranche. Répétable, correspondance OR.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Disponibilité : dossier de vente ou de location de la ligne. Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DISPONIBLE",
+                "OCCUPE"
+              ]
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de StkItemType. Répétable, correspondance OR.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id de CfgCompany (entité juridique), parmi les entités actives.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "natureId",
+            "in": "query",
+            "description": "Id de StkKind (nature du bien).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vocationId",
+            "in": "query",
+            "description": "Id de StkVocation.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "etageId",
+            "in": "query",
+            "description": "Id de StkFloor (étage).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "prixDe",
+            "in": "query",
+            "description": "Borne basse (incluse) sur le prix de vente (StkItem.ComSalePrice).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "prixA",
+            "in": "query",
+            "description": "Borne haute (incluse) sur le prix de vente (StkItem.ComSalePrice).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "surfaceDe",
+            "in": "query",
+            "description": "Borne basse (incluse) sur la superficie (StkItem.Area).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "surfaceA",
+            "in": "query",
+            "description": "Borne haute (incluse) sur la superficie (StkItem.Area).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "codeParent",
+            "in": "query",
+            "description": "Sous-chaîne du code de l'article parent, espaces ignorés des deux côtés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "B 12"
+          },
+          {
+            "name": "etat",
+            "in": "query",
+            "description": "État OMRAN : dossier de vente ou de location de la ligne elle-même.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LIBRE",
+                "VENDU",
+                "LOUE"
+              ]
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "xlsx (défaut) ou pdf ; autre valeur = 400.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "pdf"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes du tableau dans l'ordre voulu ; absent = celles affichées par défaut.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,description"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Format inconnu, colonne inconnue, ou plus de 2 000 lignes en PDF."
           }
         }
       }
@@ -21381,7 +21774,7 @@
         ],
         "summary": "Export Excel d'un rapport : une feuille par section",
         "description": "Classeur `.xlsx` du même résultat, fichier `<code>_<aaaaMMjj_HHmmss>.xlsx` : une feuille par section (nom = titre sans\n`[]:*?/\\`, 31 caractères au plus, dédoublonné), en-tête en gras figé, colonnes reçues dans l'ordre, dernière ligne\n« Total » en gras quand la section a des totaux. Mêmes paramètres que `/resultat`.",
-        "operationId": "exporter_3",
+        "operationId": "exporter_6",
         "parameters": [
           {
             "name": "module",
@@ -21654,7 +22047,7 @@
         ],
         "summary": "Export Excel de la liste des prospects, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/prospects` (`search`, `type`), sans pagination. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Prospects », fichier `prospects_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_4",
+        "operationId": "exporter_7",
         "parameters": [
           {
             "name": "format",
@@ -22616,6 +23009,159 @@
         }
       }
     },
+    "/api/prospections-terrain/{id}/fiche.pdf": {
+      "get": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Fiche PDF de la prospection terrain (inline), mêmes droit et visibilité que le détail",
+        "operationId": "fichePdf_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la prospection terrain (LndLand.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Prospection terrain inconnue."
+          }
+        }
+      }
+    },
+    "/api/prospections-terrain/export": {
+      "get": {
+        "tags": [
+          "Prospections terrain"
+        ],
+        "summary": "Export xlsx ou pdf de la liste des prospections terrain",
+        "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
+        "operationId": "exporter_8",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Contient (sans casse) : code, description, ville, catégorie, type, vocation, niveau.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TERRAIN"
+          },
+          {
+            "name": "archivee",
+            "in": "query",
+            "description": "Archivées (true), non archivées (false), toutes si absent.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "transformee",
+            "in": "query",
+            "description": "Transformées en terrain (true) ou non (false).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statut (StrStatus).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vocationId",
+            "in": "query",
+            "description": "Vocation foncière (LndVocation).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "niveauId",
+            "in": "query",
+            "description": "Niveau (LndLevel).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Catégorie (StkItemCategory).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "villeId",
+            "in": "query",
+            "description": "Ville (AdmCity).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "amenage",
+            "in": "query",
+            "description": "Aménagé (true) ou Brut (false).",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "xlsx (défaut) ou pdf ; autre valeur = 400.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "pdf"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes du tableau dans l'ordre voulu ; absent = celles affichées par défaut.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,description"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Format inconnu, colonne inconnue, ou plus de 2 000 lignes en PDF."
+          }
+        }
+      }
+    },
     "/api/projets/{id}/tranches": {
       "get": {
         "tags": [
@@ -22653,6 +23199,81 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/projets/{id}/fiche.pdf": {
+      "get": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Fiche PDF du programme (inline), mêmes droit et visibilité que le détail",
+        "operationId": "fichePdf_3",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id du programme (CfgProject.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Programme introuvable ou de son entité inactive."
+          }
+        }
+      }
+    },
+    "/api/projets/export": {
+      "get": {
+        "tags": [
+          "Programmes"
+        ],
+        "summary": "Export xlsx ou pdf de la liste des programmes",
+        "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
+        "operationId": "exporter_9",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "xlsx (défaut) ou pdf ; autre valeur = 400.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "pdf"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes du tableau dans l'ordre voulu ; absent = celles affichées par défaut.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,description"
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sans casse dans le code, le libellé, la ville et l'entité.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Format inconnu, colonne inconnue, ou plus de 2 000 lignes en PDF."
           }
         }
       }
@@ -23918,6 +24539,86 @@
         }
       }
     },
+    "/api/lotissements/export": {
+      "get": {
+        "tags": [
+          "Lotissements"
+        ],
+        "summary": "Export xlsx ou pdf de la liste des lots de terrain",
+        "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
+        "operationId": "exporter_10",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sans casse ni espaces : code, description, titre foncier, adresse, notes…",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "TER-01"
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Société (CfgCompanyId).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statut (StrStatus).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vocationId",
+            "in": "query",
+            "description": "Vocation (StkVocation).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "xlsx (défaut) ou pdf ; autre valeur = 400.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "pdf"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes du tableau dans l'ordre voulu ; absent = celles affichées par défaut.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,description"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Format inconnu, colonne inconnue, ou plus de 2 000 lignes en PDF."
+          }
+        }
+      }
+    },
     "/api/kpi/commerciaux": {
       "get": {
         "tags": [
@@ -24327,7 +25028,7 @@
         ],
         "summary": "Export Excel de la liste des impayés, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres et même tri que `GET /api/impayes`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Fichier `impayes_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_5",
+        "operationId": "exporter_11",
         "parameters": [
           {
             "name": "format",
@@ -24724,7 +25425,7 @@
         ],
         "summary": "Export Excel de l'étude en 11 feuilles (étude bloquée comprise)",
         "description": "11 feuilles : Identité, Bilan, Terrain, Exécution, Délais, Financement, Données, Unités, Tranches, Unités par tranche,\nBilan détaillé. Valeurs du calcul partagé (bilan stocké, prévisions, trésorerie), jamais recalculées dans l'export.\nSans tranche, « Tranches » et « Unités par tranche » n'ont que leurs titres. Permis sur une étude bloquée.",
-        "operationId": "exporter_6",
+        "operationId": "exporter_12",
         "parameters": [
           {
             "name": "id",
@@ -24770,6 +25471,78 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/export": {
+      "get": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Export xlsx ou pdf de la liste des études, mêmes droits que la liste",
+        "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
+        "operationId": "exporter_13",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "xlsx (défaut) ou pdf ; autre valeur = 400.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "pdf"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes du tableau dans l'ordre voulu ; absent = celles affichées par défaut.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,description"
+          },
+          {
+            "name": "societeId",
+            "in": "query",
+            "description": "Société (CfgCompany.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statut (StkFeasibilityStudyStatus.PKey).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Sous-chaîne du code ou du libellé, casse ignorée.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Format inconnu, colonne inconnue, ou plus de 2 000 lignes en PDF."
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée."
           }
         }
       }
@@ -25637,7 +26410,7 @@
           "État des ventes"
         ],
         "summary": "Export Excel de l'état des ventes, filtres et colonnes appliqués",
-        "operationId": "exporter_7",
+        "operationId": "exporter_14",
         "parameters": [
           {
             "name": "format",
@@ -26240,6 +27013,90 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/entites-juridiques/{id}/fiche.pdf": {
+      "get": {
+        "tags": [
+          "Entités juridiques"
+        ],
+        "summary": "Fiche PDF de l'entité (inline), active ou non, avec sa répartition",
+        "operationId": "fichePdf_4",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'entité (CfgCompany.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Entité introuvable."
+          }
+        }
+      }
+    },
+    "/api/entites-juridiques/export": {
+      "get": {
+        "tags": [
+          "Entités juridiques"
+        ],
+        "summary": "Export xlsx ou pdf de la liste des entités (même droit que la liste)",
+        "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
+        "operationId": "exporter_15",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "xlsx (défaut) ou pdf ; autre valeur = 400.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "pdf"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes du tableau dans l'ordre voulu ; absent = celles affichées par défaut.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,description"
+          },
+          {
+            "name": "actif",
+            "in": "query",
+            "description": "true, false (inactives et jamais renseignées) ou tous (défaut).",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Code, libellé, matricule fiscal ou registre du commerce ; espaces et casse ignorés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Format inconnu, colonne inconnue, ou plus de 2 000 lignes en PDF."
           }
         }
       }
@@ -27258,7 +28115,7 @@
         ],
         "summary": "Export Excel de la liste des encaissements, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/encaissements`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Encaissements », fichier `encaissements_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_8",
+        "operationId": "exporter_16",
         "parameters": [
           {
             "name": "format",
@@ -29378,7 +30235,7 @@
         ],
         "summary": "Export Excel de la liste des dossiers, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/dossiers`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Auteur du classeur = utilisateur connecté, titre « Dossiers de vente », fichier `dossiers_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_9",
+        "operationId": "exporter_17",
         "parameters": [
           {
             "name": "format",
@@ -30738,6 +31595,32 @@
         }
       }
     },
+    "/api/articles/{id}/fiche.pdf": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Fiche PDF d'un article ou sous-article (inline), visibilité du détail",
+        "operationId": "fichePdf_5",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'article (StkItem.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Article introuvable."
+          }
+        }
+      }
+    },
     "/api/articles/{id}/dossiers": {
       "get": {
         "tags": [
@@ -30822,6 +31705,208 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/articles/export": {
+      "get": {
+        "tags": [
+          "Articles"
+        ],
+        "summary": "Export xlsx ou pdf du catalogue des articles, colonnes du catalogue",
+        "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
+        "operationId": "exporter_18",
+        "parameters": [
+          {
+            "name": "search",
+            "in": "query",
+            "description": "Recherche sans casse ni espaces : code, description, code parent, tranche, N° dossier, notes…",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "A-204"
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Id(s) de CfgTranche. Répétable, correspondance OR.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Disponibilité : dossier de vente ou de location de la ligne. Absent = tous.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "DISPONIBLE",
+                "OCCUPE"
+              ]
+            }
+          },
+          {
+            "name": "categorieId",
+            "in": "query",
+            "description": "Id(s) de StkItemCategory. Répétable, correspondance OR.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "description": "Id(s) de StkItemType. Répétable, correspondance OR.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "entiteId",
+            "in": "query",
+            "description": "Id de CfgCompany (entité juridique), parmi les entités actives.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "natureId",
+            "in": "query",
+            "description": "Id de StkKind (nature du bien).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vocationId",
+            "in": "query",
+            "description": "Id de StkVocation.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "etageId",
+            "in": "query",
+            "description": "Id de StkFloor (étage).",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "prixDe",
+            "in": "query",
+            "description": "Borne basse (incluse) sur le prix de vente (StkItem.ComSalePrice).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "prixA",
+            "in": "query",
+            "description": "Borne haute (incluse) sur le prix de vente (StkItem.ComSalePrice).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "surfaceDe",
+            "in": "query",
+            "description": "Borne basse (incluse) sur la superficie (StkItem.Area).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "surfaceA",
+            "in": "query",
+            "description": "Borne haute (incluse) sur la superficie (StkItem.Area).",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "codeParent",
+            "in": "query",
+            "description": "Sous-chaîne du code de l'article parent, espaces ignorés des deux côtés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "B 12"
+          },
+          {
+            "name": "etat",
+            "in": "query",
+            "description": "État OMRAN : dossier de vente ou de location de la ligne elle-même.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "LIBRE",
+                "VENDU",
+                "LOUE"
+              ]
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "description": "xlsx (défaut) ou pdf ; autre valeur = 400.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "example": "pdf"
+          },
+          {
+            "name": "colonnes",
+            "in": "query",
+            "description": "Colonnes du tableau dans l'ordre voulu ; absent = celles affichées par défaut.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "code,description"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Format inconnu, colonne inconnue, ou plus de 2 000 lignes en PDF."
           }
         }
       }

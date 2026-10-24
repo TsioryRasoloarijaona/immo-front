@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutGrid, Search } from 'lucide-react';
+import BoutonExporter from '../../components/BoutonExporter';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
@@ -70,7 +71,13 @@ export default function ProjetsList() {
       icon={<LayoutGrid />}
       accent="var(--sec-projet)"
       accentBg="var(--sec-projet-bg)"
-      actions={<ActionAdmin to="/projets/nouveau" libelle="Nouveau programme" />}
+      actions={
+        <div className="flex gap-2">
+          <BoutonExporter pdf chemin="/api/projets/export" nomListe="projets"
+            params={{ search: debouncedSearch || undefined, colonnes: colonnes.visibles }} />
+          <ActionAdmin to="/projets/nouveau" libelle="Nouveau programme" />
+        </div>
+      }
       fullHeight
     >
       <div className="flex h-full min-h-0 flex-col gap-3">

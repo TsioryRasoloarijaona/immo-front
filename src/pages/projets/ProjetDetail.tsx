@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, LayoutGrid, Pencil, Trash2 } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
+import BoutonImprimerFiche from '../../components/patrimoine/BoutonImprimerFiche';
 import FicheSections from '../../components/patrimoine/FicheSections';
 import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import PiecesJointesBloc from '../../components/patrimoine/PiecesJointesBloc';
@@ -64,6 +65,7 @@ function FicheProjet({ id }: Readonly<{ id: string }>) {
       accentBg="var(--sec-projet-bg)"
       actions={
         <div className="flex gap-2">
+          <BoutonImprimerFiche ressource="projets" id={id} />
           <ActionAdmin onClick={() => void supprimer()} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
           <ActionAdmin to={`/projets/${id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />
           <ActionAdmin to={`/tranches/nouveau?projetId=${id}`} libelle="Nouvelle tranche" />

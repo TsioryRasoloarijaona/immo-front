@@ -5,6 +5,7 @@ import CadreFiche, { type VarianteFiche } from '../../components/CadreFiche';
 import { usePreview } from '../../lib/previewContext';
 import ActionsFicheArticle, { BandeauRattache } from '../../components/patrimoine/ActionsFicheArticle';
 import FicheShell from '../../components/FicheShell';
+import BoutonImprimerFiche from '../../components/patrimoine/BoutonImprimerFiche';
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
 import GrilleOnglet from '../../components/patrimoine/GrilleOnglet';
 import OngletPlanArticle from '../../components/patrimoine/OngletPlanArticle';
@@ -100,8 +101,11 @@ export function FicheArticle({
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
       actions={
-        <ActionsFicheArticle article={a} ecranSousArticles={ecranSousArticles} onSupprimer={() => void supprimer()}
-          onModifie={() => void refetch()} />
+        <div className="flex flex-wrap gap-2">
+          <BoutonImprimerFiche ressource="articles" id={id} />
+          <ActionsFicheArticle article={a} ecranSousArticles={ecranSousArticles} onSupprimer={() => void supprimer()}
+            onModifie={() => void refetch()} />
+        </div>
       }
     >
       <FicheShell

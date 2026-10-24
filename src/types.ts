@@ -227,6 +227,12 @@ export type ModifierProspectRequest = CreerProspectRequest;
  * `TELEPHONE` sur les 9 derniers chiffres. */
 export type CritereDoublon = 'NOM' | 'TELEPHONE' | 'EMAIL';
 
+/** `?format=` des exports de liste patrimoine (`GET /api/<liste>/export`) ; absent = xlsx. */
+export type FormatExport = 'xlsx' | 'pdf';
+
+/** Ressources servant `GET /api/<ressource>/{id}/fiche.pdf` (fiche PDF inline). */
+export type RessourceFichePdf = 'projets' | 'tranches' | 'articles' | 'terrains' | 'prospections-terrain' | 'entites-juridiques';
+
 /** Un homonyme au contact différent est le cas courant : la liste sert à
  * laisser l'utilisateur trancher, pas à refuser. */
 export interface ProspectDoublonDto {

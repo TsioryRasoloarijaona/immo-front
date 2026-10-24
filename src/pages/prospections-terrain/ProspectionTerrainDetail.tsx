@@ -4,6 +4,7 @@ import { ArrowLeft, MapPinned, Pencil, Trash2 } from 'lucide-react';
 import CadreFiche from '../../components/CadreFiche';
 import FicheShell, { type OngletFiche } from '../../components/FicheShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
+import BoutonImprimerFiche from '../../components/patrimoine/BoutonImprimerFiche';
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
 import HistoriqueProspection from '../../components/patrimoine/HistoriqueProspection';
 import OngletAudit from '../../components/patrimoine/OngletAudit';
@@ -132,6 +133,7 @@ function FicheProspection({ id }: Readonly<{ id: string }>) {
       accentBg="var(--sec-tranche-bg)"
       actions={
         <div className="flex flex-wrap items-center gap-2">
+          <BoutonImprimerFiche ressource="prospections-terrain" id={p.id} />
           <TransitionsProspection id={p.id} statutId={p.statut?.id} onFait={relire} />
           <TransformerEnTerrain prospection={p} />
           <ActionAdmin onClick={() => void supprimer()} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Ruler, Search, Settings2 } from 'lucide-react';
+import BoutonExporter from '../../components/BoutonExporter';
 import type { ColonneGrille } from '../../components/DataGrid';
 import ListeAdmin from '../../components/entites/ListeAdmin';
 import ConfigWorkflowFaisabilite from '../../components/faisabilite/ConfigWorkflowFaisabilite';
@@ -77,9 +78,14 @@ function Contenu() {
       etat={etat}
       colonnes={COLONNES}
       outils={(
-        <Link to={`${LISTE}?vue=configuration`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
-          <Settings2 data-icon="inline-start" /> Statuts et transitions
-        </Link>
+        <div className="flex items-center gap-2">
+          <BoutonExporter pdf chemin="/api/etudes-faisabilite/export" nomListe="etudes-faisabilite"
+            params={{ search: recherche || undefined, societeId: societeId === TOUS ? undefined : societeId,
+              statutId: statutId === TOUS ? undefined : statutId, colonnes: COLONNES.map((c) => c.nom) }} />
+          <Link to={`${LISTE}?vue=configuration`} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+            <Settings2 data-icon="inline-start" /> Statuts et transitions
+          </Link>
+        </div>
       )}
       filtre={recherche !== '' || societeId !== TOUS || statutId !== TOUS}
       filtres={

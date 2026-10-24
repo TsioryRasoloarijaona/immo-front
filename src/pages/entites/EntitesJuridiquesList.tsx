@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Landmark, Search } from 'lucide-react';
+import BoutonExporter from '../../components/BoutonExporter';
 import ColumnSelector from '../../components/ColumnSelector';
 import ListeAdmin from '../../components/entites/ListeAdmin';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
@@ -102,8 +103,12 @@ export default function EntitesJuridiquesList() {
         </>
       }
       outils={
-        <ColumnSelector catalogue={colonnes.catalogueServi} visibles={colonnes.visibles} onBasculer={colonnes.basculer}
-          onReinitialiser={colonnes.reinitialiser} estDefaut={colonnes.estDefaut} />
+        <div className="flex items-center gap-2">
+          <BoutonExporter pdf chemin="/api/entites-juridiques/export" nomListe="entites-juridiques"
+            params={{ actif, search: recherche || undefined, colonnes: colonnes.visibles }} />
+          <ColumnSelector catalogue={colonnes.catalogueServi} visibles={colonnes.visibles} onBasculer={colonnes.basculer}
+            onReinitialiser={colonnes.reinitialiser} estDefaut={colonnes.estDefaut} />
+        </div>
       }
     />
   );
