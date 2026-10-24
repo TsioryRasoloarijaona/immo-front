@@ -6,7 +6,7 @@ import { Button } from '../../components/ui/button';
 import { EmptyState } from '../../components/ui';
 import { Skeleton } from '../../components/ui/skeleton';
 import { getDescripteurRapport } from '../../lib/apiRapports';
-import { enIssue } from '../../lib/rapports';
+import { cheminRapports, enIssue } from '../../lib/rapports';
 import { useApi } from '../../lib/useApi';
 import type { ModuleRapport } from '../../types/rapports';
 
@@ -15,10 +15,10 @@ export default function Rapport({ module }: Readonly<{ module: ModuleRapport }>)
   const { code = '' } = useParams();
   const { data, loading, error, refetch } = useApi(() => enIssue(getDescripteurRapport(module, code), [403, 404]), [module, code]);
 
-  if (data && 'statut' in data) return <AccesRapport statut={data.statut} titre="Rapport" />;
+  if (data && 'statut' in data) return <AccesRapport module={module} statut={data.statut} titre="Rapport" />;
   if (data) return <VisionneuseRapport key={`${module}/${code}`} descripteur={data.donnees} />;
   return (
-    <PageShell title="Rapport" crumbs={[{ label: 'Rapports', to: '/rapports' }]}>
+    <PageShell title="Rapport" crumbs={[{ label: 'Rapports', to: cheminRapports(module) }]}>
       {loading && !error && <Skeleton className="h-24 w-full" />}
       {error && (
         <EmptyState

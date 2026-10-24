@@ -6,10 +6,11 @@ import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
 import { Card, EmptyState } from '../../components/ui';
 import { listRapports } from '../../lib/apiRapports';
+import { cheminRapports } from '../../lib/rapports';
 import { useApi } from '../../lib/useApi';
 import type { GroupeRapportsDto, ModuleRapport } from '../../types/rapports';
 
-function GroupeReplie({ groupe, replie, onBasculer }: Readonly<{ groupe: GroupeRapportsDto; replie: boolean; onBasculer: () => void }>) {
+function GroupeReplie({ groupe, module, replie, onBasculer }: Readonly<{ groupe: GroupeRapportsDto; module: ModuleRapport; replie: boolean; onBasculer: () => void }>) {
   return (
     <Card padded={false}>
       <button
@@ -26,7 +27,7 @@ function GroupeReplie({ groupe, replie, onBasculer }: Readonly<{ groupe: GroupeR
         <ul className="border-t border-border">
           {groupe.rapports.map((r) => (
             <li key={r.code} className="border-b border-border/60 last:border-b-0">
-              <Link to={`/rapports/${encodeURIComponent(r.code)}`} className="flex items-center gap-2 px-4 py-2 text-body hover:bg-muted/40">
+              <Link to={`${cheminRapports(module)}/${encodeURIComponent(r.code)}`} className="flex items-center gap-2 px-4 py-2 text-body hover:bg-muted/40">
                 <FileBarChart aria-hidden className="size-4 shrink-0 text-muted-foreground" />
                 <span className="min-w-0 flex-1 truncate">{r.libelle}</span>
                 {r.avecParametres && <SlidersHorizontal aria-label="Avec filtres" className="size-3.5 shrink-0 text-muted-foreground" />}
@@ -78,7 +79,7 @@ export default function ListeRapports({ module }: Readonly<{ module: ModuleRappo
         {!error && data && groupes.length === 0 && <EmptyState title="Aucun rapport n'est disponible pour votre profil." />}
         {!error &&
           data &&
-          groupes.map((g) => <GroupeReplie key={g.nom} groupe={g} replie={replies.has(g.nom)} onBasculer={() => basculer(g.nom)} />)}
+          groupes.map((g) => <GroupeReplie key={g.nom} groupe={g} module={module} replie={replies.has(g.nom)} onBasculer={() => basculer(g.nom)} />)}
       </div>
     </PageShell>
   );

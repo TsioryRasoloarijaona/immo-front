@@ -9,7 +9,7 @@ import { Skeleton } from '../ui/skeleton';
 import { oublierLecturesRecentes } from '../../lib/api';
 import { cheminExportRapport, getResultatRapport } from '../../lib/apiRapports';
 import { formatDateTime } from '../../lib/format';
-import { enIssue, lireValeurs, valeursServeur, versRecherche } from '../../lib/rapports';
+import { cheminRapports, enIssue, lireValeurs, valeursServeur, versRecherche } from '../../lib/rapports';
 import { useApi } from '../../lib/useApi';
 import type { DescripteurRapportDto, ResultatRapportDto, SectionRapportDto } from '../../types/rapports';
 import AccesRapport from './AccesRapport';
@@ -53,11 +53,11 @@ export default function VisionneuseRapport({ descripteur }: Readonly<{ descripte
     if (cleEnvoi === JSON.stringify(valeursServeur(parametres, saisie))) void refetch();
   }
 
-  if (refus && refus.statut !== 400) return <AccesRapport statut={refus.statut} titre={descripteur.libelle} />;
+  if (refus && refus.statut !== 400) return <AccesRapport module={module} statut={refus.statut} titre={descripteur.libelle} />;
   return (
     <PageShell
       title={descripteur.libelle}
-      crumbs={[{ label: 'Rapports', to: '/rapports' }, { label: descripteur.libelle }]}
+      crumbs={[{ label: 'Rapports', to: cheminRapports(module) }, { label: descripteur.libelle }]}
       actions={<BoutonExporter chemin={cheminExportRapport(module, code)} params={envoi} nomListe={code} disabled={!issue} />}
     >
       <div className="flex flex-col gap-4">
