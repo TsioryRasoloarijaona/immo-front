@@ -40,6 +40,7 @@ const PlansAccueil = lazy(() => import('../../pages/tranches/PlansAccueil'));
 const Aide = lazy(() => import('../../pages/aide/Aide'));
 const ListeRapports = lazy(() => import('../../pages/rapports/ListeRapports'));
 const Rapport = lazy(() => import('../../pages/rapports/Rapport'));
+const SuiviPrevisions = lazy(() => import('../../pages/suiviPrevisions/SuiviPrevisions'));
 
 const vente: ModuleApp = {
   slug: 'vente',
@@ -53,6 +54,7 @@ const vente: ModuleApp = {
     '/etat-des-ventes', '/suivi-commerciaux', '/suivi-affectations', '/performances', '/equipe', '/journee', '/tri',
     '/prospections', '/pre-prospections', '/prospects', '/clients', '/dossiers', '/offres', '/encaissements',
     '/impayes', '/desistements', '/aide', '/rapports', '/historique-ventes',
+    '/suivi-previsions',
   ],
   Menu: NavVente,
   routes: [
@@ -71,6 +73,7 @@ const vente: ModuleApp = {
     { path: '/suivi-commerciaux', element: <SuiviCommerciaux /> },
     { path: '/suivi-affectations', element: <SuiviAffectations /> },
     { path: '/historique-ventes', element: <HistoriqueVentes /> },
+    { path: '/suivi-previsions', element: <SuiviPrevisions /> },
     { path: '/prospections', element: <ProspectionsList /> },
     // La saisie est une boîte, pas une page : la route rend la liste avec la boîte ouverte.
     { path: '/prospections/nouveau', element: <ProspectionsList nouveau /> },
