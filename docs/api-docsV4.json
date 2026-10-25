@@ -3890,6 +3890,81 @@
         }
       }
     },
+    "/api/tranches/{id}/charger-depuis/{sourceId}": {
+      "post": {
+        "tags": [
+          "Onglets de la tranche",
+          "Tranches"
+        ],
+        "summary": "Charge les paramètres et les listes d'une autre tranche dans la tranche (action OMRAN)",
+        "description": "Bouton OMRAN « Charger à partir d'une autre tranche ». La source écrase les paramètres de la cible, valeurs nulles\ncomprises : standing, niveau terrain, responsable SAV, coordonnées, règles 1, cadeaux, remises anciens clients, délais,\ndescription longue. `concretisationPercent` de la cible reprend son `advancePercent`.\n\nLes listes Étages, Plancher couvert, Frais de vente et Finalisations sont fusionnées par clé (niveau, catégorie\nd'article, catégorie de règlement, type de dossier) : ligne absente de la cible créée, ligne commune reprise de la\nsource, ligne propre à la cible conservée. Le TTC des frais est recalculé depuis le HT et la TVA ; `plancherCouvert`\nde la cible = somme de ses lignes après fusion.\n\nJamais copiés : code, description, programme, dates, indicateurs `isFor*`, terrains, commissions vendeur, prévisions,\nseuils de versement. Une seule transaction : un refus n'écrit rien.",
+        "operationId": "chargerDepuis",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche cible, qui reçoit les valeurs.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "sourceId",
+            "in": "path",
+            "description": "Id de la tranche source, lue seulement.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Fiche de la tranche cible, relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "La source est la tranche elle-même ; rien n'est écrit.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Tranche cible ou source introuvable ou de son entité inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrancheDetailDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/terrains": {
       "get": {
         "tags": [

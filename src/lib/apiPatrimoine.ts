@@ -81,6 +81,11 @@ export function updateTranche(id: UUID, body: TrancheEcritureDto): Promise<Tranc
   return request('PATCH', `/api/tranches/${id}`, { body });
 }
 
+/** Charge les paramètres et listes de la tranche `sourceId` dans `id` ; 400 si source = cible, 404 si l'une est masquée. */
+export function chargerDepuisTranche(id: UUID, sourceId: UUID): Promise<TrancheDetailDto> {
+  return request('POST', `/api/tranches/${id}/charger-depuis/${sourceId}`);
+}
+
 /** 409 : article, prospection, offre… référencent la tranche (le message les compte). */
 export function deleteTranche(id: UUID): Promise<void> {
   return request('DELETE', `/api/tranches/${id}`);

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Building2, CalendarClock, Map, Pencil, Trash2, TrendingUp } from 'lucide-react';
+import { Building2, CalendarClock, Download, Map, Pencil, Trash2, TrendingUp } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import ArticlesTranche from '../../components/patrimoine/ArticlesTranche';
 import BoutonImprimerFiche from '../../components/patrimoine/BoutonImprimerFiche';
+import DialogueChargerDepuisTranche from '../../components/patrimoine/DialogueChargerDepuisTranche';
 import DialogueMiseAJourSchemas from '../../components/patrimoine/DialogueMiseAJourSchemas';
 import DialoguePrevisionsBase from '../../components/patrimoine/DialoguePrevisionsBase';
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
@@ -31,7 +32,8 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const [erreurSuppression, setErreurSuppression] = useState<string | null>(null);
-  const [dialogue, setDialogue] = useState<'previsions' | 'schemas' | null>(null);
+  const [dialogue, setDialogue] = useState<'previsions' | 'schemas' | 'charger' | null>(null);
+  const [version, setVersion] = useState(0);
   const [onglet, setOnglet] = useState(SECTIONS_TRANCHE[0].titre);
   const ongletsTranche = useOngletsTranche(id, () => void refetch());
 
@@ -79,6 +81,8 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
             icone={<TrendingUp data-icon="inline-start" />} />
           <ActionAdmin onClick={() => setDialogue('schemas')} libelle="Mettre à jour les schémas de financement" variant="outline"
             icone={<CalendarClock data-icon="inline-start" />} />
+          <ActionAdmin onClick={() => setDialogue('charger')} libelle="Charger à partir d'une autre tranche" variant="outline"
+            icone={<Download data-icon="inline-start" />} />
           <ActionAdmin onClick={() => void supprimer()} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
           <ActionAdmin to={`/tranches/${id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />
           <ActionAdmin to={`/articles/nouveau?trancheId=${id}`} libelle="Nouvel article" />
@@ -86,6 +90,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
       }
     >
       <FicheShell
+        key={version}
         ongletActif={onglet}
         onOngletChange={setOnglet}
         rembourrer
@@ -125,6 +130,10 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
 
       {dialogue === 'previsions' && <DialoguePrevisionsBase trancheId={id} onClose={() => setDialogue(null)} />}
       {dialogue === 'schemas' && <DialogueMiseAJourSchemas trancheId={id} onClose={() => setDialogue(null)} />}
+      {dialogue === 'charger' && (
+        <DialogueChargerDepuisTranche trancheId={id} onClose={() => setDialogue(null)}
+          onCharge={() => { setVersion((v) => v + 1); void refetch(); }} />
+      )}
     </PageShell>
   );
 }
