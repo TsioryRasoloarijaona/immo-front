@@ -4,6 +4,7 @@ import { ArrowLeft, MapPinned, Pencil, Trash2 } from 'lucide-react';
 import CadreFiche from '../../components/CadreFiche';
 import FicheShell, { type OngletFiche } from '../../components/FicheShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
+import ChampsSpecifiques from '../../components/patrimoine/ChampsSpecifiques';
 import BoutonImprimerFiche from '../../components/patrimoine/BoutonImprimerFiche';
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
 import HistoriqueProspection from '../../components/patrimoine/HistoriqueProspection';
@@ -119,6 +120,7 @@ function FicheProspection({ id }: Readonly<{ id: string }>) {
     { id: 'historique', libelle: 'Historique', contenu: <HistoriqueProspection id={p.id} version={p.statut?.id} /> },
     { id: 'notes', libelle: 'Notes', contenu: <PanneauNotes porteur="prospection-terrain" id={p.id} /> },
     { id: 'pieces', libelle: 'Pièces jointes', contenu: <PiecesJointesBloc porteur="prospections-terrain" id={p.id} /> },
+    { id: 'champs', libelle: 'Champs spécifiques', contenu: <ChampsSpecifiques porteur="prospection-terrain" id={p.id} /> },
     { id: 'audit', libelle: 'Audit', contenu: <OngletAudit id={p.id} /> },
   ];
 

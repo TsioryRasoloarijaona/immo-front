@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FicheShell, { type OngletFiche } from '../FicheShell';
+import ChampsSpecifiques from '../patrimoine/ChampsSpecifiques';
 import FicheSections from '../patrimoine/FicheSections';
 import PiecesJointesBloc from '../patrimoine/PiecesJointesBloc';
 import PiedSaisie from '../patrimoine/PiedSaisie';
@@ -32,12 +33,15 @@ import type { EtudeFaisabiliteDto, SaisieEtudeDto } from '../../types/faisabilit
  * Onglets d'une étude : un seul brouillon pour Identité, Terrain et Phases (enregistré d'un coup), aperçu serveur
  * rafraîchi à chaque saisie, grilles enregistrées chacune à part. Sans `fiche` : création (les grilles viennent ensuite).
  */
-export default function OngletsEtude({ fiche, entete, recharger, onEnregistre }: Readonly<{
+export default function OngletsEtude({ fiche, entete, recharger, onEnregistre, ongletInitial = 'identite', onOngletChange }: Readonly<{
   fiche?: EtudeFaisabiliteDto;
   entete?: ReactNode;
   recharger: () => Promise<void>;
   /** Après un PATCH réussi : relire l'étude et repartir d'un brouillon propre. */
   onEnregistre: () => void;
+  /** Le parent garde l'onglet : ce composant est remonté à chaque rechargement de l'étude. */
+  ongletInitial?: string;
+  onOngletChange?: (id: string) => void;
 }>) {
   const navigate = useNavigate();
   const showToast = useToast();
@@ -46,7 +50,11 @@ export default function OngletsEtude({ fiche, entete, recharger, onEnregistre }:
   const lecture = !admin || fiche?.bloquee === true;
   const societes = useEntitesReferentiel();
   const terrains = useApi(() => (admin ? listTerrainsEtude() : Promise.resolve([])), [admin]);
-  const [onglet, setOnglet] = useState('identite');
+  const [onglet, setOngletLocal] = useState(ongletInitial);
+  const setOnglet = (id: string) => {
+    setOngletLocal(id);
+    onOngletChange?.(id);
+  };
   const [montantsPilotes, setMontantsPilotes] = useState<string[]>([]);
   const initial = useMemo(() => brouillonDepuis(CHAMPS_ETUDE, fiche && { ...fiche, ...fiche.valeurs }), [fiche]);
   const saisie = useSaisie(CHAMPS_ETUDE, initial);
@@ -104,6 +112,7 @@ export default function OngletsEtude({ fiche, entete, recharger, onEnregistre }:
       { id: 'donnees', libelle: 'Données', contenu: <OngletDonnees fiche={fiche} /> },
       { id: 'historique', libelle: 'Historique', contenu: <OngletHistorique etudeId={fiche.id} version={fiche.statutId} /> },
       { id: 'pieces', libelle: 'Pièces jointes', contenu: <PiecesJointesBloc porteur="etudes-faisabilite" id={fiche.id} lecture={fiche.bloquee} /> },
+      { id: 'champs', libelle: 'Champs spécifiques', contenu: <ChampsSpecifiques porteur="etude" id={fiche.id} /> },
       ...ongletsTransverses('etude', fiche.id),
     ] : []),
   ];

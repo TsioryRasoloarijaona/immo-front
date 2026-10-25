@@ -4,6 +4,7 @@ import { ArrowLeft, LayoutGrid, Pencil, Trash2 } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import BoutonImprimerFiche from '../../components/patrimoine/BoutonImprimerFiche';
+import ChampsSpecifiques from '../../components/patrimoine/ChampsSpecifiques';
 import FicheSections from '../../components/patrimoine/FicheSections';
 import OngletsTransverses from '../../components/patrimoine/OngletsTransverses';
 import PiecesJointesBloc from '../../components/patrimoine/PiecesJointesBloc';
@@ -117,6 +118,7 @@ function FicheProjet({ id }: Readonly<{ id: string }>) {
             />
           )}
         </Card>
+        <Card title="Champs spécifiques"><ChampsSpecifiques porteur="projet" id={id} /></Card>
         <PiecesJointesBloc porteur="projets" id={id} />
         <OngletsTransverses porteur="projet" id={id} />
       </div>

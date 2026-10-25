@@ -68,6 +68,10 @@
       "description": "Écran OMRAN « ENTITES JURIDIQUE » (CfgCompany) et répartition des parts ; écriture Administrateur."
     },
     {
+      "name": "Champs spécifiques",
+      "description": "Champs spécifiques d'OMRAN (GEN0007) : l'Administrateur définit des champs libres par porteur (`AdmSpecificField` rattaché\nà la ligne `AdmSpecificFieldEntity` du code de classe OMRAN, créée à la première définition), chaque objet porte ses\nvaleurs (`AdmSpecificFieldValue`, `NameSpaceId` = id de l'objet). Lecture pour tout compte qui voit l'objet (étude :\nAdministrateur et Direction Générale seulement, comme son audit) ; écritures réservées à l'Administrateur."
+    },
+    {
       "name": "Référentiels du patrimoine",
       "description": "Listes de choix des fiches programme, tranche et article."
     },
@@ -114,10 +118,6 @@
     {
       "name": "Devis",
       "description": "Offres de prix (\"devis\") faites aux prospects — vue globale tous prospections confondues. Voir aussi POST/GET /api/prospections/{id}/devis pour la vue nestée sur une seule prospection.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les devis dont la tranche relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un devis sans tranche reste visible."
-    },
-    {
-      "name": "Import du patrimoine",
-      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a). Chaque ligne\npasse par le service de l'écran (mêmes règles, même audit) ; Administrateur seul."
     },
     {
       "name": "Référentiels",
@@ -174,6 +174,10 @@
     {
       "name": "Dossiers — cadeaux",
       "description": "Onglet « Cadeaux » de la fiche dossier (`ComFolderGift`) : cadeau du catalogue, prix, livré, disponibilité, raison, date du bon d'achat, date de livraison, note. Aide OMRAN : « Si la case livré est coché, le champ date livraison devient obligatoire » (400 sinon). Choisir un cadeau reprend son prix et sa disponibilité (quantités reçues − cadeaux livrés > 0, `FolderGift.cs:SetPrice`). Ajouter et supprimer demandent le droit OMRAN « toolAddDeleteGifts », ouvert ici aux rôles Administrateur et Commercial Chef ; la modification est ouverte au périmètre, mais seul ce droit change la raison. Chaque écriture signe le dossier."
+    },
+    {
+      "name": "Import du patrimoine",
+      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a), types de\nprésentation, terrains et prévisions de base de la tranche (P9b). Chaque ligne passe par le service de l'écran (mêmes\nrègles, même audit) ; Administrateur seul."
     },
     {
       "name": "Suivi des prévisions",
@@ -250,6 +254,10 @@
     {
       "name": "Parcours commercial",
       "description": "Parcours du commercial : « Ma journée », Boîte de tri des pré-prospections et avancement d'une prospection\ndans le Kanban. « Mes lignes » = les prospections dont `ComProspection.CfgCommercialId` est l'employé du\ncompte appelant, dans son périmètre projet. Administrateur et Direction Générale voient leurs propres lignes ;\n`commercialId` leur permet, ainsi qu'à un chef pour un membre de son équipe, de consulter un autre commercial."
+    },
+    {
+      "name": "Premières relances",
+      "description": "Les trois routes partagent une seule sélection : dossiers de vente portés par un article **non sous-article** de la tranche\n(`StkItem.ComFolderId`), dont le statut n'est ni une annulation (`BoolField002`) ni un désistement (`BoolField003`) ; un\ndossier sans statut est exclu. Réservées à l'Administrateur (403 avant tout autre refus)."
     },
     {
       "name": "Encaissements",
@@ -2843,6 +2851,108 @@
         }
       }
     },
+    "/api/champs-specifiques/{porteur}/{id}": {
+      "get": {
+        "tags": [
+          "Champs spécifiques"
+        ],
+        "summary": "Champs spécifiques d'un objet et leurs valeurs, triés par groupe puis ordre",
+        "description": "Toutes les définitions du porteur, triées `CategorySorting`, `Category`, `Sorting`. `valeur` = valeur enregistrée pour\nl'objet, sinon la valeur par défaut de la définition.",
+        "operationId": "lire_2",
+        "parameters": [
+          {
+            "name": "porteur",
+            "in": "path",
+            "description": "projet, tranche, entite, article (sous-articles compris), terrain, prospection-terrain ou etude.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'objet porteur (PKey de sa table).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Porteur inconnu."
+          },
+          "404": {
+            "description": "Objet inconnu ou invisible pour l'appelant (entité inactive, étude hors rôle)."
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Champs spécifiques"
+        ],
+        "summary": "Enregistre des valeurs de champs spécifiques de l'objet (tout ou rien)",
+        "description": "Formats : date `aaaa-mm-jj`, décimal / montant au point (`1234.5`), entier, pourcentage **en fraction** (`0.2` pour 20 %),\nbooléen `true` / `false`, liste : un des choix. Écrit `Value` (texte) et la colonne typée (`DateValue`, `DecimalValue`,\n`IntValue`, `BoolValue`) ; une liste n'écrit que `Value`. Refus 400 nommant le champ : format invalide, choix hors liste,\nchamp obligatoire vide (« La valeur du champ [<libellé>] est obligatoire !! »), `champId` d'un autre porteur. Tout ou\nrien : une valeur refusée n'en écrit aucune.",
+        "operationId": "enregistrerValeurs",
+        "parameters": [
+          {
+            "name": "porteur",
+            "in": "path",
+            "description": "projet, tranche, entite, article (sous-articles compris), terrain, prospection-terrain ou etude.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'objet porteur (PKey de sa table).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EcritureValeursChampsDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Champs relus après écriture.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChampSpecifiqueDto"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Valeur refusée : le message nomme le champ."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Objet inconnu ou invisible pour l'appelant (entité inactive, étude hors rôle)."
+          }
+        }
+      }
+    },
     "/api/articles/{id}/contenances": {
       "get": {
         "tags": [
@@ -3574,6 +3684,39 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/premieres-relances": {
+      "post": {
+        "tags": [
+          "Premières relances"
+        ],
+        "summary": "Écrit les dates de 1re relance des dossiers et les alertes, en une transaction",
+        "description": "En une transaction (une erreur n'écrit rien) : pour chaque dossier de l'aperçu, l'alerte système « Titre foncier:\nEchéance de la notification de la 1ère relance du dossier de vente N° <code>, date échéance: <jj/mm/aaaa> » (type Note,\ncatégorie Réservation si le statut est celui du paramètre `DefaultComFolderStatusReservation`, Livraison sinon, + ligne\n`AdmAlertData`) quand `alerte` est vrai, puis `Revival1` = date de relance et `Revival1ValidityDate` = échéance. Relancer\navec la même date ne recrée pas d'alerte.",
+        "operationId": "executer",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Tranche sans Date de 1ère relance (« Vous devez saisir une Date de 1ère relance! »)."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Tranche inconnue ou d'une entité inactive."
           }
         }
       }
@@ -7958,7 +8101,7 @@
           "Import du patrimoine"
         ],
         "summary": "Importe un classeur .xlsx (simulation par défaut), tout ou rien",
-        "description": "Ligne 1 = en-têtes, puis une ligne de données par objet ; le **pivot** (code dans la tranche) choisit création ou mise à\njour. Colonne absente ou cellule vide = champ intact (l'import ne vide jamais un champ). Nombres en cellule numérique ou\nen texte (`1 234,56`, `1234.56`) ; dates en cellule date ou `jj/mm/aaaa` ; cases `Oui/Non`, `Vrai/Faux`, `1/0`, `X`.\nTVA supérieure à 1 lue en pourcentage (÷ 100, avertissement). Référentiels : Immeuble, Étage, Catégorie, Catégorie de\ncharge, Tranche, Nature par code **ou** libellé (casse ignorée) ; Vocation, Type, Type présentation, Orientation, Entité\nde gestion du syndic par code seul. En-tête inconnu = avertissement « colonne ignorée ».\n\nUne seule transaction : la moindre ligne en ERREUR, ou `simulation=true`, annule tout (`ecrit=false`, aucune trace\nd'audit). Les messages d'erreur métier sont ceux des écrans (`POST/PATCH /api/articles`, `/api/sous-articles`).\n\nRefus du fichier entier (400) : `trancheId` absent (« Vous devez sélectionner une Tranche ! »), format `.xls` (« enregistrez\nle fichier au format .xlsx »), contenu non ZIP, archive corrompue ou piégée (bombe, entrée géante, DTD), plus de 1 000\nlignes de données, aucune feuille, feuille demandée absente, aucune donnée, en-tête en double.",
+        "description": "Ligne 1 = en-têtes, puis une ligne de données par objet ; le **pivot** choisit création ou mise à jour (articles : code\ndans la tranche ; terrains : code du terrain dans l'entité de la ligne ; présentations : tranche + code). Colonne\nabsente ou cellule vide = champ intact (l'import ne vide jamais un champ, sauf une contenance de présentation à 0 ou\nvide, retirée). Nombres en cellule numérique ou en texte (`1 234,56`, `1234.56`) ; dates en cellule date ou\n`jj/mm/aaaa` ; cases `Oui/Non`, `Vrai/Faux`, `1/0`, `X`. TVA ou % de concrétisation supérieur à 1 lu en pourcentage\n(÷ 100, avertissement). Référentiels par code **ou** libellé (casse ignorée) sauf Orientation (code seul) et, pour les\narticles, Vocation, Type, Type présentation, Entité de gestion du syndic (code seul). Entité inactive = introuvable.\nEn-tête inconnu = avertissement « colonne ignorée ».\n\n`previsions` remplace toutes les lignes de la tranche en un seul appel (règles de `PUT /api/tranches/{id}/previsions-base`) :\nune ligne de bilan globale (pivot = code de la tranche) plus les erreurs de lecture par ligne ; l'en-tête existant est\ngardé, les colonnes facultatives de la première ligne le surchargent ; `Nombre d'articles` absent = valeur de la\ntranche si > 0, sinon stock de la tranche (avertissement).\n\nUne seule transaction : la moindre ligne en ERREUR, ou `simulation=true`, annule tout (`ecrit=false`, aucune trace\nd'audit). Les messages d'erreur métier sont ceux des écrans.\n\nRefus du fichier entier (400) : `trancheId` absent pour articles, sous-articles ou prévisions (« Vous devez sélectionner\nune Tranche ! »), format `.xls` (« enregistrez le fichier au format .xlsx »), contenu non ZIP, archive corrompue ou\npiégée (bombe, entrée géante, DTD), plus de 1 000 lignes de données, aucune feuille, feuille demandée absente, aucune\ndonnée, en-tête en double.",
         "operationId": "importer_2",
         "parameters": [
           {
@@ -7970,14 +8113,17 @@
               "type": "string",
               "enum": [
                 "articles",
-                "sous-articles"
+                "sous-articles",
+                "presentations",
+                "terrains",
+                "previsions"
               ]
             }
           },
           {
             "name": "trancheId",
             "in": "query",
-            "description": "Tranche visée (CfgTranche.PKey), obligatoire pour articles et sous-articles.",
+            "description": "Tranche visée (CfgTranche.PKey) : articles, sous-articles, prévisions ; ignorée sinon.",
             "required": false,
             "schema": {
               "type": "string",
@@ -12601,6 +12747,55 @@
         }
       }
     },
+    "/api/champs-specifiques/{porteur}/definitions": {
+      "post": {
+        "tags": [
+          "Champs spécifiques"
+        ],
+        "summary": "Crée une définition de champ pour tous les objets du porteur",
+        "description": "Le champ apparaît aussitôt sur tous les objets du porteur. Les choix d'une liste sont enregistrés séparés par « ; »\n(`ComboValue`).",
+        "operationId": "creerDefinition",
+        "parameters": [
+          {
+            "name": "porteur",
+            "in": "path",
+            "description": "projet, tranche, entite, article (sous-articles compris), terrain, prospection-terrain ou etude.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefinitionChampDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Définition créée (valeur = valeur par défaut).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChampSpecifiqueDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Porteur inconnu, libellé vide, type inconnu, liste sans choix ou choix avec « ; »."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          }
+        }
+      }
+    },
     "/api/boite-de-tri/{id}/injoignable": {
       "post": {
         "tags": [
@@ -13680,7 +13875,7 @@
         ],
         "summary": "Fiche terrain, coût total et coût unitaire final calculés à la lecture",
         "description": "`coutTotal` = Σ des montants de ses frais (validés ou non) et `coutUnitaireFinal` = `coutTotal` / surface définitive\n(0 si la surface est nulle) sont calculés à chaque lecture, jamais stockés. `sousTerrainsAutorises` reflète le statut\ndu terrain (case OMRAN « Créer un sous-terrain ») : aucun statut de production ne l'a aujourd'hui.",
-        "operationId": "lire_2",
+        "operationId": "lire_3",
         "parameters": [
           {
             "name": "id",
@@ -14564,7 +14759,7 @@
         ],
         "summary": "Fiche d'une prospection terrain, zones et terrain issu compris",
         "description": "`peutTransformer` = Administrateur, aucun terrain issu, statut courant avec la case « Transformer en terrain »\n(`BoolField001`) et superficie > 0 ; sinon `motifNonTransformable` donne le refus. `terrainId` / `terrainCode` : terrain\n(`StkItem.LndLandId`) créé depuis la prospection.",
-        "operationId": "lire_3",
+        "operationId": "lire_4",
         "parameters": [
           {
             "name": "id",
@@ -16007,7 +16202,7 @@
           "Dossiers — compteurs"
         ],
         "summary": "Compteurs de l'article principal du dossier",
-        "operationId": "lire_4",
+        "operationId": "lire_5",
         "parameters": [
           {
             "name": "id",
@@ -16702,6 +16897,97 @@
         }
       }
     },
+    "/api/champs-specifiques/{porteur}/definitions/{champId}": {
+      "delete": {
+        "tags": [
+          "Champs spécifiques"
+        ],
+        "summary": "Supprime une définition et ses valeurs sur tous les objets du porteur",
+        "description": "Supprime la définition **et ses valeurs sur tous les objets du porteur**, comme le bouton « Supprimer » d'OMRAN : le front\ndemande une confirmation explicite.",
+        "operationId": "supprimerDefinition",
+        "parameters": [
+          {
+            "name": "porteur",
+            "in": "path",
+            "description": "projet, tranche, entite, article (sous-articles compris), terrain, prospection-terrain ou etude.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "champId",
+            "in": "path",
+            "description": "Id de la définition (AdmSpecificField.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Définition et valeurs supprimées."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Définition inconnue pour ce porteur."
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Champs spécifiques"
+        ],
+        "summary": "Remplace une définition de champ (corps complet, comme la création)",
+        "operationId": "modifierDefinition",
+        "parameters": [
+          {
+            "name": "porteur",
+            "in": "path",
+            "description": "projet, tranche, entite, article (sous-articles compris), terrain, prospection-terrain ou etude.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "champId",
+            "in": "path",
+            "description": "Id de la définition (AdmSpecificField.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefinitionChampDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "Porteur inconnu, libellé vide, type inconnu, liste sans choix ou choix avec « ; »."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Définition inconnue pour ce porteur."
+          }
+        }
+      }
+    },
     "/api/articles/{id}": {
       "get": {
         "tags": [
@@ -17191,6 +17477,32 @@
         }
       }
     },
+    "/api/tranches/{id}/previsions-base/fiche.pdf": {
+      "get": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "Fiche prévision (PDF inline) : hypothèses et lignes mensuelles, visibilité des prévisions",
+        "operationId": "fichePrevisionsBase",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive."
+          }
+        }
+      }
+    },
     "/api/tranches/{id}/presentations": {
       "get": {
         "tags": [
@@ -17236,6 +17548,78 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/premieres-relances/apercu": {
+      "get": {
+        "tags": [
+          "Premières relances"
+        ],
+        "summary": "Aperçu des premières relances : dossiers retenus, nouvelle échéance, alertes à créer",
+        "description": "Ne lit que la base. Échéance = `Revival1Date` de la tranche + `AgreementFirstDelay` jours (absent = 0 jour, signalé dans\n`avertissement`). `alerte` est vrai quand l'échéance actuelle du dossier (`Revival1ValidityDate`) diffère de la nouvelle\n**et** que le dossier a une prospection : c'est exactement ce que le POST créera.",
+        "operationId": "apercu_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Tranche sans Date de 1ère relance (« Vous devez saisir une Date de 1ère relance! »)."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Tranche inconnue ou d'une entité inactive."
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/premieres-relances.pdf": {
+      "get": {
+        "tags": [
+          "Premières relances"
+        ],
+        "summary": "Lettres de 1re relance (PDF inline), une page par dossier relancé",
+        "description": "Une page par dossier de la sélection portant déjà `Revival1`, rendue par le modèle de document actif\n`RELANCE_TITRE_FONCIER / PREMIERE_RELANCE` (texte modifiable dans les modèles de documents). Restes dus prix, frais\n(échéances exclues du prix) et total : même calcul que l'onglet Montants du dossier, règlements annulés exclus. Refus :\ntranche sans date de 1re relance (400), aucun dossier relancé (400 « Aucun dossier à imprimer »).",
+        "operationId": "lettres",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF.",
+            "content": {
+              "application/pdf": {}
+            }
+          },
+          "400": {
+            "description": "Tranche sans Date de 1ère relance (« Vous devez saisir une Date de 1ère relance! »). Ou « Aucun dossier à imprimer »."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Tranche inconnue ou d'une entité inactive."
           }
         }
       }
@@ -25225,8 +25609,8 @@
         "tags": [
           "Import du patrimoine"
         ],
-        "summary": "Classeur modèle pré-rempli avec les lignes de la tranche",
-        "description": "En-têtes OMRAN exacts (`ImportItems` / `ImportUnderItems`), une ligne par article (ou sous-article) existant de la\ntranche, puis une feuille d'aide par référentiel (Code, Libellé). Nom : `<code tranche>_STOCK_ARTICLES_<horodatage>.xlsx`\nou `…_STOCK_SOUS_ARTICLES_…`. Réimporter le modèle tel quel donne des lignes INCHANGEE.",
+        "summary": "Classeur modèle pré-rempli (lignes de la tranche, terrains visibles ou présentations)",
+        "description": "En-têtes OMRAN exacts, une ligne par objet existant, puis une feuille d'aide par référentiel (Code, Libellé).\n`articles` / `sous-articles` : lignes de la tranche, nom `<code tranche>_STOCK_ARTICLES_<horodatage>.xlsx` ou\n`…_STOCK_SOUS_ARTICLES_…`. `presentations` : feuille `TYPES_PRESENTATION` (Tranche, Code, Description, une colonne par\ncontenance) des tranches visibles, feuille `PROJETS` ; sans `trancheId`. `terrains` : feuille `STOCK_TERRAINS`\npré-remplie avec les terrains visibles (au-delà de 1 000, en-têtes seuls), nom `STOCK_TERRAINS_<horodatage>.xlsx` ; sans\n`trancheId`. `previsions` : feuille `PREVISIONS` pré-remplie avec les lignes de la tranche (`trancheId` obligatoire).\nRéimporter le modèle tel quel donne des lignes INCHANGEE (prévisions : MISE_A_JOUR, les lignes étant toutes remplacées).",
         "operationId": "modele",
         "parameters": [
           {
@@ -25238,14 +25622,17 @@
               "type": "string",
               "enum": [
                 "articles",
-                "sous-articles"
+                "sous-articles",
+                "presentations",
+                "terrains",
+                "previsions"
               ]
             }
           },
           {
             "name": "trancheId",
             "in": "query",
-            "description": "Tranche visée (CfgTranche.PKey), obligatoire pour articles et sous-articles.",
+            "description": "Tranche visée (CfgTranche.PKey) : articles, sous-articles, prévisions ; ignorée sinon.",
             "required": false,
             "schema": {
               "type": "string",
@@ -25266,7 +25653,7 @@
             }
           },
           "400": {
-            "description": "« Vous devez sélectionner une Tranche ! » (trancheId absent)."
+            "description": "« Vous devez sélectionner une Tranche ! » (trancheId absent, type à tranche)."
           },
           "403": {
             "description": "L'appelant n'a pas le rôle Administrateur."
@@ -28935,7 +29322,7 @@
           "Dossiers — réinitialisation"
         ],
         "summary": "Aperçu de la réinitialisation depuis le stock (avant / après), sans rien écrire",
-        "operationId": "apercu_2",
+        "operationId": "apercu_3",
         "parameters": [
           {
             "name": "id",
@@ -31688,6 +32075,30 @@
               "*/*": {
                 "schema": {
                   "$ref": "#/components/schemas/PageDtoDossierListItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/champs-specifiques/types": {
+      "get": {
+        "tags": [
+          "Champs spécifiques"
+        ],
+        "summary": "Types de données d'un champ (AdmSpecificFieldDataType.Code), dans l'ordre OMRAN",
+        "operationId": "types",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -35258,6 +35669,92 @@
           "libelle": {
             "type": "string",
             "description": "« Tiers => Tranche => Article », libellé d'OMRAN (« Non affecté » sans tranche)."
+          }
+        }
+      },
+      "EcritureValeursChampsDto": {
+        "type": "object",
+        "description": "Valeurs à enregistrer pour un objet ; tout ou rien : une valeur refusée n'en écrit aucune.",
+        "properties": {
+          "valeurs": {
+            "type": "array",
+            "description": "Valeurs saisies ; un champ absent de la liste garde sa valeur.",
+            "items": {
+              "$ref": "#/components/schemas/ValeurChampDto"
+            }
+          }
+        }
+      },
+      "ValeurChampDto": {
+        "type": "object",
+        "description": "Valeur saisie pour un champ spécifique de l'objet.",
+        "properties": {
+          "champId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la définition (ChampSpecifiqueDto.champId), du même porteur."
+          },
+          "valeur": {
+            "type": "string",
+            "description": "Valeur en texte : date aaaa-mm-jj, décimale au point, pourcentage en fraction, true/false.",
+            "example": "1234.5"
+          }
+        }
+      },
+      "ChampSpecifiqueDto": {
+        "type": "object",
+        "description": "Champ spécifique (AdmSpecificField) d'un porteur, avec sa valeur pour l'objet lu.",
+        "properties": {
+          "champId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Id de la définition (AdmSpecificField.PKey), à renvoyer en champId au PUT."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Groupe d'affichage (Category).",
+            "example": "Juridique"
+          },
+          "ordreCategorie": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre du groupe (CategorySorting).",
+            "example": 1
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé du champ (Caption).",
+            "example": "N° du titre foncier"
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre du champ dans son groupe (Sorting).",
+            "example": 2
+          },
+          "typeDonnee": {
+            "type": "string",
+            "description": "Type : String, Date, Decimal, Money, Int, Percentage, Bit ou Drop down.",
+            "example": "String"
+          },
+          "valeurDefaut": {
+            "type": "string",
+            "description": "Valeur par défaut de la définition (DefaultValue), null si aucune."
+          },
+          "obligatoire": {
+            "type": "boolean",
+            "description": "Vrai si le champ ne peut pas être enregistré vide (Required)."
+          },
+          "choix": {
+            "type": "array",
+            "description": "Choix d'une liste déroulante (ComboValue découpée sur « ; ») ; vide pour les autres types.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "valeur": {
+            "type": "string",
+            "description": "Valeur de l'objet (Value), sinon la valeur par défaut ; formats du PUT (ISO, point, fraction)."
           }
         }
       },
@@ -44601,6 +45098,54 @@
           "revoquePar": {
             "type": "string",
             "description": "Administrateur ayant révoqué."
+          }
+        }
+      },
+      "DefinitionChampDto": {
+        "type": "object",
+        "description": "Définition d'un champ spécifique (création ou remplacement complet).",
+        "properties": {
+          "categorie": {
+            "type": "string",
+            "description": "Groupe d'affichage (Category).",
+            "example": "Juridique"
+          },
+          "ordreCategorie": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre du groupe (CategorySorting) ; absent = 0.",
+            "example": 1
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé du champ (Caption et Name), obligatoire.",
+            "example": "N° du titre foncier"
+          },
+          "ordre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Ordre du champ dans son groupe (Sorting) ; absent = 0.",
+            "example": 2
+          },
+          "typeDonnee": {
+            "type": "string",
+            "description": "Code d'un type de GET /api/champs-specifiques/types, obligatoire.",
+            "example": "String"
+          },
+          "valeurDefaut": {
+            "type": "string",
+            "description": "Valeur par défaut (DefaultValue), null si aucune."
+          },
+          "obligatoire": {
+            "type": "boolean",
+            "description": "Vrai si le champ ne peut pas être enregistré vide ; absent = faux."
+          },
+          "choix": {
+            "type": "array",
+            "description": "Choix d'une liste déroulante (au moins un, sans « ; ») ; ignorés pour les autres types.",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },

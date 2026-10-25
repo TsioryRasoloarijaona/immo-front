@@ -1,30 +1,57 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Building2, CalendarClock, Download, Map, Pencil, Trash2, TrendingUp } from 'lucide-react';
+import { Building2, CalendarClock, ChevronDown, Download, Map, Pencil, Printer, Trash2, TrendingUp } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import ArticlesTranche from '../../components/patrimoine/ArticlesTranche';
 import BoutonImprimerFiche from '../../components/patrimoine/BoutonImprimerFiche';
+import ChampsSpecifiques from '../../components/patrimoine/ChampsSpecifiques';
 import DialogueChargerDepuisTranche from '../../components/patrimoine/DialogueChargerDepuisTranche';
 import DialogueMiseAJourSchemas from '../../components/patrimoine/DialogueMiseAJourSchemas';
+import DialoguePremieresRelances from '../../components/patrimoine/DialoguePremieresRelances';
 import DialoguePrevisionsBase from '../../components/patrimoine/DialoguePrevisionsBase';
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
 import PiecesJointesBloc from '../../components/patrimoine/PiecesJointesBloc';
 import FicheShell from '../../components/FicheShell';
 import { Badge, ErrorState, Field, FieldGrid, LoadingState } from '../../components/ui';
-import { Button } from '../../components/ui/button';
+import { Button, buttonVariants } from '../../components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu';
 import { getTranche } from '../../lib/api';
 import { deleteTranche } from '../../lib/apiPatrimoine';
+import { useAuth } from '../../lib/auth';
 import { useConfirm } from '../../lib/confirmContext';
+import { estAdministrateur } from '../../lib/roles';
 import { useApi } from '../../lib/useApi';
 import { libelleTrace } from '../../lib/format';
 import { ongletsTransverses } from '../../lib/ongletsTransverses';
 import { SECTIONS_TRANCHE } from '../../lib/saisieTranche';
 import { useOngletsTranche } from '../../lib/useOngletsTranche';
 
+type DialogueTranche = 'previsions' | 'schemas' | 'charger' | 'relances';
+
 export default function TrancheDetail() {
   const { id = '' } = useParams();
   return <FicheTranche key={id} id={id} />;
+}
+
+/** Actions secondaires d'administration regroupées : la barre d'actions tient sur une ligne à 1 280 px. */
+function MenuAutresActions({ onDialogue, onSupprimer }: Readonly<{ onDialogue: (d: DialogueTranche) => void; onSupprimer: () => void }>) {
+  const { user } = useAuth();
+  if (!estAdministrateur(user)) return null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+        Plus <ChevronDown className="size-3" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-auto min-w-56">
+        <DropdownMenuItem onClick={() => onDialogue('previsions')}><TrendingUp /> Prévisions de base</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onDialogue('schemas')}><CalendarClock /> Mettre à jour les schémas de financement</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onDialogue('charger')}><Download /> Charger à partir d'une autre tranche</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => onDialogue('relances')}><Printer /> Imprimer les premières relances</DropdownMenuItem>
+        <DropdownMenuItem onClick={onSupprimer}><Trash2 /> Supprimer</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 function FicheTranche({ id }: Readonly<{ id: string }>) {
@@ -32,7 +59,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
   const navigate = useNavigate();
   const confirm = useConfirm();
   const [erreurSuppression, setErreurSuppression] = useState<string | null>(null);
-  const [dialogue, setDialogue] = useState<'previsions' | 'schemas' | 'charger' | null>(null);
+  const [dialogue, setDialogue] = useState<DialogueTranche | null>(null);
   const [version, setVersion] = useState(0);
   const [onglet, setOnglet] = useState(SECTIONS_TRANCHE[0].titre);
   const ongletsTranche = useOngletsTranche(id, () => void refetch());
@@ -77,13 +104,7 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
             <Map data-icon="inline-start" /> Plans
           </Button>
           <BoutonImprimerFiche ressource="tranches" id={id} />
-          <ActionAdmin onClick={() => setDialogue('previsions')} libelle="Prévisions de base" variant="outline"
-            icone={<TrendingUp data-icon="inline-start" />} />
-          <ActionAdmin onClick={() => setDialogue('schemas')} libelle="Mettre à jour les schémas de financement" variant="outline"
-            icone={<CalendarClock data-icon="inline-start" />} />
-          <ActionAdmin onClick={() => setDialogue('charger')} libelle="Charger à partir d'une autre tranche" variant="outline"
-            icone={<Download data-icon="inline-start" />} />
-          <ActionAdmin onClick={() => void supprimer()} libelle="Supprimer" variant="outline" icone={<Trash2 data-icon="inline-start" />} />
+          <MenuAutresActions onDialogue={setDialogue} onSupprimer={() => void supprimer()} />
           <ActionAdmin to={`/tranches/${id}/modifier`} libelle="Modifier" variant="outline" icone={<Pencil data-icon="inline-start" />} />
           <ActionAdmin to={`/articles/nouveau?trancheId=${id}`} libelle="Nouvel article" />
         </div>
@@ -124,12 +145,14 @@ function FicheTranche({ id }: Readonly<{ id: string }>) {
           { id: 'articles', libelle: 'Articles', contenu: <ArticlesTranche trancheId={id} /> },
           ...ongletsTranche,
           { id: 'pieces', libelle: 'Pièces jointes', contenu: <PiecesJointesBloc porteur="tranches" id={id} /> },
+          { id: 'champs', libelle: 'Champs spécifiques', contenu: <ChampsSpecifiques porteur="tranche" id={id} /> },
           ...ongletsTransverses('tranche', id),
         ]}
       />
 
       {dialogue === 'previsions' && <DialoguePrevisionsBase trancheId={id} onClose={() => setDialogue(null)} />}
       {dialogue === 'schemas' && <DialogueMiseAJourSchemas trancheId={id} onClose={() => setDialogue(null)} />}
+      {dialogue === 'relances' && <DialoguePremieresRelances trancheId={id} onClose={() => setDialogue(null)} />}
       {dialogue === 'charger' && (
         <DialogueChargerDepuisTranche trancheId={id} onClose={() => setDialogue(null)}
           onCharge={() => { setVersion((v) => v + 1); void refetch(); }} />
