@@ -21772,8 +21772,8 @@
         "tags": [
           "Rapports"
         ],
-        "summary": "Export Excel d'un rapport : une feuille par section",
-        "description": "Classeur `.xlsx` du même résultat, fichier `<code>_<aaaaMMjj_HHmmss>.xlsx` : une feuille par section (nom = titre sans\n`[]:*?/\\`, 31 caractères au plus, dédoublonné), en-tête en gras figé, colonnes reçues dans l'ordre, dernière ligne\n« Total » en gras quand la section a des totaux. Mêmes paramètres que `/resultat`.",
+        "summary": "Export Excel ou PDF d'un rapport : une feuille ou un tableau par section",
+        "description": "Classeur `.xlsx` du même résultat, fichier `<code>_<aaaaMMjj_HHmmss>.xlsx` : une feuille par section (nom = titre sans\n`[]:*?/\\`, 31 caractères au plus, dédoublonné), en-tête en gras figé, colonnes reçues dans l'ordre, dernière ligne\n« Total » en gras quand la section a des totaux. Mêmes paramètres que `/resultat`.\n\n`format=pdf` : mêmes sections et mêmes totaux, `application/pdf`, fichier `<code>_<aaaaMMjj_HHmmss>.pdf`, A4 paysage, un\ntableau par section (sous-titre si plusieurs), en-tête de colonnes répété, pied « Page n / m ». Sous le titre : « Édité le\njj/MM/aaaa par <utilisateur> », une ligne « libellé : valeurs » par paramètre appliqué (tranches et commerciaux réduits au\nvisible, libellés lisibles), puis une ligne « Avertissement : … » par avertissement du résultat.",
         "operationId": "exporter_6",
         "parameters": [
           {
@@ -21799,7 +21799,7 @@
           {
             "name": "format",
             "in": "query",
-            "description": "Seule valeur acceptée : `xlsx` (défaut).",
+            "description": "`xlsx` (défaut) ou `pdf`. Contrôlé après le droit : un rapport non visible répond 403 quel que soit le format.",
             "required": false,
             "schema": {
               "type": "string",
@@ -21810,9 +21810,15 @@
         ],
         "responses": {
           "200": {
-            "description": "Classeur .xlsx.",
+            "description": "Classeur .xlsx ou document PDF selon format.",
             "content": {
               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/pdf": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
@@ -21821,7 +21827,7 @@
             }
           },
           "400": {
-            "description": "`format` autre que `xlsx`, ou un paramètre refusé comme sur `/resultat`."
+            "description": "`format` autre que `xlsx` ou `pdf`, paramètre refusé comme sur `/resultat`, ou PDF de plus de 2 000 lignes (toutes\nsections cumulées) : exportez en `.xlsx`."
           },
           "403": {
             "description": "Rapport existant non visible par l'appelant."
@@ -48110,7 +48116,8 @@
             "type": "array",
             "description": "Formats d'export acceptés par /export.",
             "example": [
-              "xlsx"
+              "xlsx",
+              "pdf"
             ],
             "items": {
               "type": "string"
