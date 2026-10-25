@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import DataGrid, { type ColonneGrille } from '../DataGrid';
 import ActionAdmin from '../patrimoine/ActionAdmin';
 import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../ui';
@@ -82,7 +82,10 @@ export default function TableReferentiel({ descripteur }: Readonly<{ descripteur
         <Input className="w-64" value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="Rechercher…"
           aria-label={`Rechercher dans ${descripteur.libelle}`} />
         {descripteur.parTranche && <FiltreSeuils valeur={tranche} onChange={setTranche} tranches={choix[routeTranches ?? ''] ?? []} />}
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          {descripteur.slug === 'types-presentation' && (
+            <ActionAdmin to="/articles/import?type=presentations" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />
+          )}
           <ActionAdmin libelle="Nouvelle ligne" icone={<Plus data-icon="inline-start" />} onClick={() => setDialogue('creation')} />
         </div>
       </div>
