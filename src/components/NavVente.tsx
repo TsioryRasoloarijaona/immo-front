@@ -20,6 +20,7 @@ import {
   Phone,
   Sun,
   Target,
+  TrendingUp,
   Trophy,
   UserCheck,
   UserCircle,
@@ -130,6 +131,7 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
   const mesActions: Entree = { to: SUIVI_ACTIONS, libelle: 'Mes actions', icone: <ListChecks /> };
   // Ouvert à tous : le serveur restreint les tranches au périmètre de chacun.
   const tableauxDeBord: Entree[] = [
+    { to: '/suivi-previsions', libelle: 'Suivi des prévisions', icone: <TrendingUp /> },
     { to: '/etat-des-ventes', libelle: 'État des ventes', icone: <ChartNoAxesColumn /> },
     // Le serveur restreint aux commerciaux de la portée de chacun.
     { to: '/suivi-commerciaux', libelle: 'Suivi des commerciaux', icone: <Target /> },
