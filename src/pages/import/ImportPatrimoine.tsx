@@ -10,7 +10,7 @@ import { triggerBlobDownload } from '../../lib/api';
 import { importerPatrimoine, telechargerModeleImport } from '../../lib/apiImportPatrimoine';
 import { useAuth } from '../../lib/auth';
 import { formatNumber } from '../../lib/format';
-import { RESULTAT_IMPORT, typeImportDepuis } from '../../lib/importPatrimoine';
+import { CONFIG_IMPORT, RESULTAT_IMPORT, typeImportDepuis } from '../../lib/importPatrimoine';
 import { useTranchesReferentiel } from '../../lib/referentiels';
 import { estAdministrateur } from '../../lib/roles';
 import { errorMessage } from '../../lib/useApi';
@@ -45,6 +45,7 @@ function Compteurs({ bilan }: Readonly<{ bilan: BilanImportDto }>) {
 }
 
 function BilanCard({ bilan }: Readonly<{ bilan: BilanImportDto }>) {
+  const liste = CONFIG_IMPORT[bilan.type].liste;
   const [erreursSeules, setErreursSeules] = useState(false);
   const lignes = erreursSeules ? bilan.lignes.filter((l) => l.resultat === 'ERREUR' || l.resultat === 'NON_VERIFIEE') : bilan.lignes;
   const titre = bilan.ecrit ? 'Import terminé' : 'Bilan de la vérification';
@@ -55,7 +56,7 @@ function BilanCard({ bilan }: Readonly<{ bilan: BilanImportDto }>) {
         {bilan.ecrit && (
           <p className="text-body">
             Les données ont été écrites.{' '}
-            <Link className="underline" to={bilan.type === 'articles' ? '/articles' : '/sous-articles'}>Voir la liste</Link>
+            <Link className="underline" to={liste.to}>Voir la liste</Link>
           </p>
         )}
         {bilan.avertissements.length > 0 && (
@@ -79,10 +80,12 @@ function BilanCard({ bilan }: Readonly<{ bilan: BilanImportDto }>) {
 
 export default function ImportPatrimoine() {
   const { user } = useAuth();
-  const type = typeImportDepuis(useSearchParams()[0].get('type'));
-  const libelleType = type === 'articles' ? 'articles' : 'sous-articles';
+  const [params] = useSearchParams();
+  const type = typeImportDepuis(params.get('type'));
+  const { libelle: libelleType, liste, tranche: avecTranche, suffixe, aide } = CONFIG_IMPORT[type];
   const tranches = useTranchesReferentiel();
-  const [trancheId, setTrancheId] = useState<string | null>(null);
+  const [trancheId, setTrancheId] = useState<string | null>(params.get('trancheId'));
+  const pret = !avecTranche || !!trancheId;
   const [fichier, setFichier] = useState<File | null>(null);
   const [bilan, setBilan] = useState<BilanImportDto | null>(null);
   const [enCours, setEnCours] = useState(false);
@@ -103,11 +106,11 @@ export default function ImportPatrimoine() {
   }
 
   async function lancer(simulation: boolean) {
-    if (!trancheId || !fichier) return;
+    if (!pret || !fichier) return;
     setEnCours(true);
     setErreur(null);
     try {
-      setBilan(await importerPatrimoine({ type, trancheId, fichier, simulation }));
+      setBilan(await importerPatrimoine({ type, trancheId: avecTranche ? (trancheId ?? undefined) : undefined, fichier, simulation }));
     } catch (err) {
       setErreur(errorMessage(err));
     } finally {
@@ -116,10 +119,11 @@ export default function ImportPatrimoine() {
   }
 
   async function modele() {
-    if (!trancheId) return;
+    if (!pret) return;
     setErreur(null);
+    const prefixe = avecTranche ? (tranches.data.find((t) => t.id === trancheId)?.code ?? 'tranche') : 'PATRIMOINE';
     try {
-      triggerBlobDownload(await telechargerModeleImport(type, trancheId), `${tranches.data.find((t) => t.id === trancheId)?.code ?? 'tranche'}_STOCK_${type === 'articles' ? 'ARTICLES' : 'SOUS_ARTICLES'}.xlsx`);
+      triggerBlobDownload(await telechargerModeleImport(type, avecTranche ? (trancheId ?? undefined) : undefined), `${prefixe}_STOCK_${suffixe}.xlsx`);
     } catch (err) {
       setErreur(errorMessage(err));
     }
@@ -128,7 +132,7 @@ export default function ImportPatrimoine() {
   return (
     <PageShell
       title={`Import des ${libelleType}`}
-      crumbs={[{ label: 'Patrimoine' }, { label: type === 'articles' ? 'Articles' : 'Sous-articles', to: `/${type}` }, { label: 'Import' }]}
+      crumbs={[{ label: 'Patrimoine' }, { label: liste.libelle, to: liste.to }, { label: 'Import' }]}
       icon={<FileSpreadsheet />}
       accent="var(--sec-tranche)"
       accentBg="var(--sec-tranche-bg)"
@@ -137,30 +141,32 @@ export default function ImportPatrimoine() {
         <div className="flex flex-col gap-3">
           <Card title="Fichier à importer">
             <p className="mb-3 text-label text-muted-foreground">
-              Téléchargez le modèle de la tranche (pré-rempli avec ses {libelleType}), complétez-le, puis vérifiez-le avant de l'importer.
+              Téléchargez le modèle {aide}, complétez-le, puis vérifiez-le avant de l'importer.
               Une cellule vide laisse le champ inchangé.
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              <Select
-                items={itemsTranches}
-                value={trancheId}
-                onValueChange={(v) => {
-                  setTrancheId(v);
-                  setBilan(null);
-                }}
-              >
-                <SelectTrigger size="sm" className="w-60" aria-label="Tranche">
-                  <SelectValue placeholder={tranches.loading ? 'Chargement…' : 'Tranche'} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {itemsTranches.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <Button type="button" size="sm" variant="outline" disabled={!trancheId} onClick={() => void modele()}>
+              {avecTranche && (
+                <Select
+                  items={itemsTranches}
+                  value={trancheId}
+                  onValueChange={(v) => {
+                    setTrancheId(v);
+                    setBilan(null);
+                  }}
+                >
+                  <SelectTrigger size="sm" className="w-60" aria-label="Tranche">
+                    <SelectValue placeholder={tranches.loading ? 'Chargement…' : 'Tranche'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {itemsTranches.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              )}
+              <Button type="button" size="sm" variant="outline" disabled={!pret} onClick={() => void modele()}>
                 <Download data-icon="inline-start" /> Télécharger le modèle
               </Button>
             </div>
@@ -175,13 +181,13 @@ export default function ImportPatrimoine() {
               <input type="file" accept=".xlsx" className="hidden" onChange={(e) => choisir(e.target.files?.[0] ?? null)} />
             </label>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button type="button" size="sm" variant="outline" disabled={!trancheId || !fichier || enCours} onClick={() => void lancer(true)}>
+              <Button type="button" size="sm" variant="outline" disabled={!pret || !fichier || enCours} onClick={() => void lancer(true)}>
                 {enCours && !importable ? 'Traitement en cours…' : 'Vérifier les données'}
               </Button>
               <Button type="button" size="sm" disabled={!importable} onClick={() => void lancer(false)}>
                 Importer
               </Button>
-              {!trancheId && <span className="text-micro text-muted-foreground">Vous devez sélectionner une tranche.</span>}
+              {!pret && <span className="text-micro text-muted-foreground">Vous devez sélectionner une tranche.</span>}
             </div>
             {erreur && <p role="alert" className="mt-3 text-body text-destructive">{erreur}</p>}
           </Card>

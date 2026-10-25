@@ -155,6 +155,10 @@ type FormFiche = {
 // référentiel, c'est le texte que porte la vue légataire.
 const CATEGORIE_INTERACTION_ORDINAIRE = 'Prospection';
 
+const TITRE_BLOC = 'mb-2 text-micro font-semibold tracking-wide text-muted-foreground uppercase';
+// Plus étroit que `--fiche-col-min` : deux colonnes tiennent dans une moitié de fiche sur un portable.
+const COLONNES_BLOC = 'grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]';
+
 const PROSPECTION_DOC_LABELS: Record<ProspectionPdfDocKind, string> = {
   nda: 'NDA',
   fiche: 'Fiche',
@@ -710,21 +714,8 @@ export function FicheProspection({
   // `tempTel` devient le `telephone` du prospect créé : il s'affiche sous Téléphone, jamais sous Mobile.
   const telProspect = linkedProspect.data?.telephone;
   const telephone = !isPre && telProspect ? formatTelephone(telProspect, linkedProspect.data?.indicatifTelephone) : (p.tempTel ?? null);
-  const cellules = [
-    <ChampLecture
-      key="tranche"
-      label="Tranche"
-      valeur={tranche}
-      aide="Se modifie dans l'onglet « Choix article » — le serveur l'expose sur un endpoint distinct."
-    />,
-    !isPre && (
-      <ChampLecture
-        key="article"
-        label="Article"
-        valeur={p.articleCode ? [p.articleCode, p.articleDescription].filter(Boolean).join(' · ') : null}
-        aide="Se modifie dans l'onglet « Choix article »."
-      />
-    ),
+  // Deux blocs : ce que le commercial qualifie (modifiable), puis ce que la fiche porte (lecture seule).
+  const champsQualification = [
     <ChampRef
       key="etape"
       id="f-etape"
@@ -787,6 +778,22 @@ export function FicheProspection({
       items={referentielItems(vocations.data)}
       modifie={form.aChange('vocationId')}
     />,
+  ];
+  const champsFiche = [
+    <ChampLecture
+      key="tranche"
+      label="Tranche"
+      valeur={tranche}
+      aide="Se modifie dans l'onglet « Choix article » — le serveur l'expose sur un endpoint distinct."
+    />,
+    !isPre && (
+      <ChampLecture
+        key="article"
+        label="Article"
+        valeur={p.articleCode ? [p.articleCode, p.articleDescription].filter(Boolean).join(' · ') : null}
+        aide="Se modifie dans l'onglet « Choix article »."
+      />
+    ),
     <ChampLecture key="societe" label="Société" valeur={p.societeLibelle || p.societeCode} aide="Dérivée de la tranche, jamais saisie." />,
     !isPre && (
       <ChampLecture
@@ -942,9 +949,20 @@ export function FicheProspection({
         }
         formulaire={
           <Card padded={false}>
-            <div className="p-2.5">
-              <GrilleFiche>
-                {cellules}
+            <div className="@container p-3">
+              {/* Libellés au-dessus des valeurs : sur un écran de portable, la grille à libellé
+                  latéral tronquait l'email et la tranche. */}
+              <div className="grid gap-x-6 gap-y-3 @3xl:grid-cols-2">
+                <section aria-labelledby="titre-qualification" className="min-w-0">
+                  <h3 id="titre-qualification" className={TITRE_BLOC}>Qualification</h3>
+                  <GrilleFiche empilee className={COLONNES_BLOC}>{champsQualification}</GrilleFiche>
+                </section>
+                <section aria-labelledby="titre-fiche" className="min-w-0 @3xl:border-l @3xl:border-border @3xl:pl-6">
+                  <h3 id="titre-fiche" className={TITRE_BLOC}>Contact et rattachement</h3>
+                  <GrilleFiche empilee className={COLONNES_BLOC}>{champsFiche}</GrilleFiche>
+                </section>
+              </div>
+              <GrilleFiche empilee className="mt-3 border-t border-border pt-3">
                 <ChampNotes
                   id="f-notes"
                   label="Notes"

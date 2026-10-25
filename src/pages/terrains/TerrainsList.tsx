@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Trees } from 'lucide-react';
+import { Search, Trees, Upload } from 'lucide-react';
 import BoutonExporter from '../../components/BoutonExporter';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import PageShell from '../../components/PageShell';
@@ -67,6 +67,7 @@ export default function TerrainsList({ liste = 'terrains' }: Readonly<{ liste?: 
         <div className="flex gap-2">
           <BoutonExporter pdf chemin={`/api/${liste}/export`} nomListe={liste}
             params={{ search: debouncedSearch || undefined, entiteId: entiteId ?? undefined, colonnes: colonnes(lotissements).map((c) => c.nom) }} />
+          {!lotissements && <ActionAdmin to="/articles/import?type=terrains" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />}
           {!lotissements && <ActionAdmin to="/terrains/nouveau" libelle="Nouveau terrain" />}
         </div>
       }

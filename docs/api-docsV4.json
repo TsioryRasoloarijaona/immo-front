@@ -120,10 +120,6 @@
       "description": "Offres de prix (\"devis\") faites aux prospects — vue globale tous prospections confondues. Voir aussi POST/GET /api/prospections/{id}/devis pour la vue nestée sur une seule prospection.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les devis dont la tranche relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un devis sans tranche reste visible."
     },
     {
-      "name": "Import du patrimoine",
-      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a). Chaque ligne\npasse par le service de l'écran (mêmes règles, même audit) ; Administrateur seul."
-    },
-    {
       "name": "Référentiels",
       "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. Sans filtre `categorieId`, les **annexes** (`IsUnderItem` — parkings, terrasses, jardins, mêmes racines sans parent) sont écartées, comme dans l'écran Articles du logiciel de bureau ; cocher explicitement leur catégorie les fait réapparaître. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
     },
@@ -178,6 +174,10 @@
     {
       "name": "Dossiers — cadeaux",
       "description": "Onglet « Cadeaux » de la fiche dossier (`ComFolderGift`) : cadeau du catalogue, prix, livré, disponibilité, raison, date du bon d'achat, date de livraison, note. Aide OMRAN : « Si la case livré est coché, le champ date livraison devient obligatoire » (400 sinon). Choisir un cadeau reprend son prix et sa disponibilité (quantités reçues − cadeaux livrés > 0, `FolderGift.cs:SetPrice`). Ajouter et supprimer demandent le droit OMRAN « toolAddDeleteGifts », ouvert ici aux rôles Administrateur et Commercial Chef ; la modification est ouverte au périmètre, mais seul ce droit change la raison. Chaque écriture signe le dossier."
+    },
+    {
+      "name": "Import du patrimoine",
+      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a), types de\nprésentation, terrains et prévisions de base de la tranche (P9b). Chaque ligne passe par le service de l'écran (mêmes\nrègles, même audit) ; Administrateur seul."
     },
     {
       "name": "Prospections — export",
@@ -8097,7 +8097,7 @@
           "Import du patrimoine"
         ],
         "summary": "Importe un classeur .xlsx (simulation par défaut), tout ou rien",
-        "description": "Ligne 1 = en-têtes, puis une ligne de données par objet ; le **pivot** (code dans la tranche) choisit création ou mise à\njour. Colonne absente ou cellule vide = champ intact (l'import ne vide jamais un champ). Nombres en cellule numérique ou\nen texte (`1 234,56`, `1234.56`) ; dates en cellule date ou `jj/mm/aaaa` ; cases `Oui/Non`, `Vrai/Faux`, `1/0`, `X`.\nTVA supérieure à 1 lue en pourcentage (÷ 100, avertissement). Référentiels : Immeuble, Étage, Catégorie, Catégorie de\ncharge, Tranche, Nature par code **ou** libellé (casse ignorée) ; Vocation, Type, Type présentation, Orientation, Entité\nde gestion du syndic par code seul. En-tête inconnu = avertissement « colonne ignorée ».\n\nUne seule transaction : la moindre ligne en ERREUR, ou `simulation=true`, annule tout (`ecrit=false`, aucune trace\nd'audit). Les messages d'erreur métier sont ceux des écrans (`POST/PATCH /api/articles`, `/api/sous-articles`).\n\nRefus du fichier entier (400) : `trancheId` absent (« Vous devez sélectionner une Tranche ! »), format `.xls` (« enregistrez\nle fichier au format .xlsx »), contenu non ZIP, archive corrompue ou piégée (bombe, entrée géante, DTD), plus de 1 000\nlignes de données, aucune feuille, feuille demandée absente, aucune donnée, en-tête en double.",
+        "description": "Ligne 1 = en-têtes, puis une ligne de données par objet ; le **pivot** choisit création ou mise à jour (articles : code\ndans la tranche ; terrains : code du terrain dans l'entité de la ligne ; présentations : tranche + code). Colonne\nabsente ou cellule vide = champ intact (l'import ne vide jamais un champ, sauf une contenance de présentation à 0 ou\nvide, retirée). Nombres en cellule numérique ou en texte (`1 234,56`, `1234.56`) ; dates en cellule date ou\n`jj/mm/aaaa` ; cases `Oui/Non`, `Vrai/Faux`, `1/0`, `X`. TVA ou % de concrétisation supérieur à 1 lu en pourcentage\n(÷ 100, avertissement). Référentiels par code **ou** libellé (casse ignorée) sauf Orientation (code seul) et, pour les\narticles, Vocation, Type, Type présentation, Entité de gestion du syndic (code seul). Entité inactive = introuvable.\nEn-tête inconnu = avertissement « colonne ignorée ».\n\n`previsions` remplace toutes les lignes de la tranche en un seul appel (règles de `PUT /api/tranches/{id}/previsions-base`) :\nune ligne de bilan globale (pivot = code de la tranche) plus les erreurs de lecture par ligne ; l'en-tête existant est\ngardé, les colonnes facultatives de la première ligne le surchargent ; `Nombre d'articles` absent = valeur de la\ntranche si > 0, sinon stock de la tranche (avertissement).\n\nUne seule transaction : la moindre ligne en ERREUR, ou `simulation=true`, annule tout (`ecrit=false`, aucune trace\nd'audit). Les messages d'erreur métier sont ceux des écrans.\n\nRefus du fichier entier (400) : `trancheId` absent pour articles, sous-articles ou prévisions (« Vous devez sélectionner\nune Tranche ! »), format `.xls` (« enregistrez le fichier au format .xlsx »), contenu non ZIP, archive corrompue ou\npiégée (bombe, entrée géante, DTD), plus de 1 000 lignes de données, aucune feuille, feuille demandée absente, aucune\ndonnée, en-tête en double.",
         "operationId": "importer_2",
         "parameters": [
           {
@@ -8109,14 +8109,17 @@
               "type": "string",
               "enum": [
                 "articles",
-                "sous-articles"
+                "sous-articles",
+                "presentations",
+                "terrains",
+                "previsions"
               ]
             }
           },
           {
             "name": "trancheId",
             "in": "query",
-            "description": "Tranche visée (CfgTranche.PKey), obligatoire pour articles et sous-articles.",
+            "description": "Tranche visée (CfgTranche.PKey) : articles, sous-articles, prévisions ; ignorée sinon.",
             "required": false,
             "schema": {
               "type": "string",
@@ -17470,6 +17473,32 @@
         }
       }
     },
+    "/api/tranches/{id}/previsions-base/fiche.pdf": {
+      "get": {
+        "tags": [
+          "Règles de vente de la tranche"
+        ],
+        "summary": "Fiche prévision (PDF inline) : hypothèses et lignes mensuelles, visibilité des prévisions",
+        "operationId": "fichePrevisionsBase",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "Tranche introuvable ou de son entité inactive."
+          }
+        }
+      }
+    },
     "/api/tranches/{id}/presentations": {
       "get": {
         "tags": [
@@ -25462,8 +25491,8 @@
         "tags": [
           "Import du patrimoine"
         ],
-        "summary": "Classeur modèle pré-rempli avec les lignes de la tranche",
-        "description": "En-têtes OMRAN exacts (`ImportItems` / `ImportUnderItems`), une ligne par article (ou sous-article) existant de la\ntranche, puis une feuille d'aide par référentiel (Code, Libellé). Nom : `<code tranche>_STOCK_ARTICLES_<horodatage>.xlsx`\nou `…_STOCK_SOUS_ARTICLES_…`. Réimporter le modèle tel quel donne des lignes INCHANGEE.",
+        "summary": "Classeur modèle pré-rempli (lignes de la tranche, terrains visibles ou présentations)",
+        "description": "En-têtes OMRAN exacts, une ligne par objet existant, puis une feuille d'aide par référentiel (Code, Libellé).\n`articles` / `sous-articles` : lignes de la tranche, nom `<code tranche>_STOCK_ARTICLES_<horodatage>.xlsx` ou\n`…_STOCK_SOUS_ARTICLES_…`. `presentations` : feuille `TYPES_PRESENTATION` (Tranche, Code, Description, une colonne par\ncontenance) des tranches visibles, feuille `PROJETS` ; sans `trancheId`. `terrains` : feuille `STOCK_TERRAINS`\npré-remplie avec les terrains visibles (au-delà de 1 000, en-têtes seuls), nom `STOCK_TERRAINS_<horodatage>.xlsx` ; sans\n`trancheId`. `previsions` : feuille `PREVISIONS` pré-remplie avec les lignes de la tranche (`trancheId` obligatoire).\nRéimporter le modèle tel quel donne des lignes INCHANGEE (prévisions : MISE_A_JOUR, les lignes étant toutes remplacées).",
         "operationId": "modele",
         "parameters": [
           {
@@ -25475,14 +25504,17 @@
               "type": "string",
               "enum": [
                 "articles",
-                "sous-articles"
+                "sous-articles",
+                "presentations",
+                "terrains",
+                "previsions"
               ]
             }
           },
           {
             "name": "trancheId",
             "in": "query",
-            "description": "Tranche visée (CfgTranche.PKey), obligatoire pour articles et sous-articles.",
+            "description": "Tranche visée (CfgTranche.PKey) : articles, sous-articles, prévisions ; ignorée sinon.",
             "required": false,
             "schema": {
               "type": "string",
@@ -25503,7 +25535,7 @@
             }
           },
           "400": {
-            "description": "« Vous devez sélectionner une Tranche ! » (trancheId absent)."
+            "description": "« Vous devez sélectionner une Tranche ! » (trancheId absent, type à tranche)."
           },
           "403": {
             "description": "L'appelant n'a pas le rôle Administrateur."

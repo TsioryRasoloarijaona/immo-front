@@ -5,9 +5,10 @@ import type { BilanImportDto, DemandeImportPatrimoine, TypeImportPatrimoine } fr
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-/** Classeur modèle pré-rempli avec les lignes de la tranche, et ses feuilles d'aide des codes. */
-export function telechargerModeleImport(type: TypeImportPatrimoine, trancheId: UUID): Promise<Blob> {
-  return fetchByteEndpointBlob(`${API_BASE_URL}/api/import-patrimoine/${type}/modele?trancheId=${trancheId}`, XLSX);
+/** Classeur modèle pré-rempli, et ses feuilles d'aide des codes ; `trancheId` pour articles, sous-articles, prévisions. */
+export function telechargerModeleImport(type: TypeImportPatrimoine, trancheId?: UUID): Promise<Blob> {
+  const requete = trancheId ? `?trancheId=${trancheId}` : '';
+  return fetchByteEndpointBlob(`${API_BASE_URL}/api/import-patrimoine/${type}/modele${requete}`, XLSX);
 }
 
 /** Bilan dans tous les cas où le fichier est lu ; 400 = fichier refusé en entier (message dans `ApiError`), 413 > 10 Mo. */

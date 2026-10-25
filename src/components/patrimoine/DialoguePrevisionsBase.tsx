@@ -1,18 +1,21 @@
 import { useRef, useState } from 'react';
-import { Database, Plus, Sparkles } from 'lucide-react';
+import { Database, Plus, Printer, Sparkles, Upload } from 'lucide-react';
 import Modal from '../Modal';
 import { ErrorState, LoadingState } from '../ui';
 import { Button } from '../ui/button';
 import { DialogFooter } from '../ui/dialog';
+import ActionAdmin from './ActionAdmin';
 import SectionsSaisie from './SectionsSaisie';
 import TableLignes from './TableLignes';
+import { ouvrirBlobDansOnglet } from '../../lib/api';
+import { fichePrevisionsBase } from '../../lib/apiFichesPdf';
 import { genererPrevisionsBase, getPrevisionsBase, getStockTranche, putPrevisionsBase } from '../../lib/apiPatrimoine';
 import { COLONNES_PREVISIONS, SECTIONS_PREVISIONS, sansMontants } from '../../lib/champsPrevisionsBase';
 import { formatNumber } from '../../lib/format';
 import { changerRangee, somme, type Rangee } from '../../lib/ongletsTranche';
 import { brouillonDepuis, champsDe, corpsDepuis, useSaisie } from '../../lib/saisiePatrimoine';
 import { useToast } from '../../lib/toastContext';
-import { useApi } from '../../lib/useApi';
+import { errorMessage, useApi } from '../../lib/useApi';
 import type { LignePrevisionDto, PrevisionsBaseDto } from '../../types';
 
 const CHAMPS = champsDe(SECTIONS_PREVISIONS);
@@ -93,6 +96,11 @@ function SaisiePrevisions({ trancheId, initiales, onClose }: Readonly<{
         {erreur && <p role="alert" className="whitespace-pre-line text-micro text-destructive">{erreur}</p>}
       </div>
       <DialogFooter className="mt-4">
+        <ActionAdmin to={`/articles/import?type=previsions&trancheId=${trancheId}`} libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />
+        <Button type="button" variant="outline"
+          onClick={() => void ouvrirBlobDansOnglet(() => fichePrevisionsBase(trancheId)).catch((err: unknown) => showToast({ texte: errorMessage(err), variante: 'erreur' }))}>
+          <Printer data-icon="inline-start" /> Imprimer
+        </Button>
         <Button type="button" variant="outline" onClick={onClose}>Annuler</Button>
         <Button type="button" disabled={envoi} onClick={enregistrer}>Enregistrer</Button>
       </DialogFooter>
