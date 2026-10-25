@@ -176,6 +176,10 @@
       "description": "Onglet « Cadeaux » de la fiche dossier (`ComFolderGift`) : cadeau du catalogue, prix, livré, disponibilité, raison, date du bon d'achat, date de livraison, note. Aide OMRAN : « Si la case livré est coché, le champ date livraison devient obligatoire » (400 sinon). Choisir un cadeau reprend son prix et sa disponibilité (quantités reçues − cadeaux livrés > 0, `FolderGift.cs:SetPrice`). Ajouter et supprimer demandent le droit OMRAN « toolAddDeleteGifts », ouvert ici aux rôles Administrateur et Commercial Chef ; la modification est ouverte au périmètre, mais seul ce droit change la raison. Chaque écriture signe le dossier."
     },
     {
+      "name": "Suivi des prévisions",
+      "description": "Écran « Suivi des prévisions de vente » (Vente › Tableaux de bord, OMRAN F_0250). Ouvert à tout utilisateur connecté, sans\ndroit par rôle ; les données sont bornées aux tranches visibles de l'appelant (société active, périmètre commercial, tranche\nen vente). Aucune clé d'API n'a accès à ces routes (403 `HORS_PORTEE`). Voir `instructions/FEATURE-tdb-vente-previsions.md`.\n\n**Paramètres de requête** (ceux de `/parametres`) : `annee` (défaut : année courante, [1900 ; 2200]), `trancheId` répété\n(absent = toutes les tranches visibles ; un `trancheId` hors de ces tranches est ignoré, et si aucun n'est visible le\nrésultat est à zéro, jamais « toutes les tranches »), `frais` : `SANS` (défaut), `AVEC` ou `SEULS`.\n\n**Prévu** : aucune prévision n'est saisie aujourd'hui ; les colonnes `base`, `ancienPrevu`, `prevu` valent 0 et\nl'avertissement « Prévu non saisi… » est renvoyé. Un pourcentage dont le dénominateur vaut 0 est `null` (affiché « — »)."
+    },
+    {
       "name": "Prospections — export",
       "description": "Exports Excel des listes de prospections et de pré-prospections. Chaque export relit la liste avec ses propres filtres et le périmètre commercial de l'appelant : il ne rend jamais une ligne que la liste ne montrerait pas."
     },
@@ -17812,6 +17816,120 @@
         }
       }
     },
+    "/api/suivi-previsions": {
+      "get": {
+        "tags": [
+          "Suivi des prévisions"
+        ],
+        "summary": "Prévu et réel par mois : concrétisations nettes et encaissements",
+        "description": "Code `SuiviPrevisionsVente`, module `vente`, deux sections de douze lignes (une par mois, `mois` = « Janvier »…) :\n`quantites` (concrétisations nettes : dossiers ni annulés ni désistés, au mois de concrétisation) et `montants`\n(encaissements selon `frais`, à la date du mouvement ; colonne `schemaFinancement` = échéances dues des dossiers\nconcrétisés vivants, au mois de l'échéance). Colonnes communes : `base`, `ancienPrevu`, `prevu`, `reel` (totalisées),\n`cumulPrevu`, `cumulReel`, `pourcentageRealise` (= reel ÷ prevu × 100), `pourcentageCumule` (= cumulReel ÷ cumulPrevu ×\n100), `rentabilite` (= reel ÷ réel de l'année × 100). Cinq graphiques par section, catégorie `mois`.",
+        "operationId": "resultat",
+        "responses": {
+          "200": {
+            "description": "Deux sections de douze mois, totaux et graphiques compris.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatRapportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre inconnu, année hors [1900 ; 2200], `frais` hors options, identifiant non UUID, valeur répétée sur un paramètre\nnon multiple."
+          }
+        }
+      }
+    },
+    "/api/suivi-previsions/parametres": {
+      "get": {
+        "tags": [
+          "Suivi des prévisions"
+        ],
+        "summary": "Paramètres de l'écran : année, tranches visibles, frais",
+        "description": "`annee` (ANNEE), `trancheId` (TRANCHES, multiple, options = tranches visibles triées par libellé), `frais` (CHOIX : `SANS`\n« Sans frais », `AVEC` « Avec frais », `SEULS` « Seulement les frais »). `mois` n'y figure pas : il est propre à `/detail`.",
+        "operationId": "parametres",
+        "responses": {
+          "200": {
+            "description": "Trois paramètres, défauts et options compris.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ParametreRapportDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/suivi-previsions/export": {
+      "get": {
+        "tags": [
+          "Suivi des prévisions"
+        ],
+        "summary": "Export Excel de l'écran : une feuille par section",
+        "description": "Classeur `SuiviPrevisionsVente_<aaaaMMjj_HHmmss>.xlsx`, une feuille par section de `/suivi-previsions` (nom = titre sans\n`[]:*?/\\`, 31 caractères au plus), ligne « Total » en gras. Mêmes paramètres que `/suivi-previsions`.",
+        "operationId": "exporter_2",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "`xlsx` (défaut), seul format accepté.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "xlsx"
+            },
+            "example": "xlsx"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`format` autre que `xlsx`, ou un paramètre refusé comme sur `/suivi-previsions`."
+          }
+        }
+      }
+    },
+    "/api/suivi-previsions/detail": {
+      "get": {
+        "tags": [
+          "Suivi des prévisions"
+        ],
+        "summary": "Détail d'un mois : dossiers, mouvements et échéances qui font les cellules",
+        "description": "Code `SuiviPrevisionsVenteMois`, mêmes paramètres plus `mois` (1 à 12, obligatoire). Trois sections, triées par date\ndécroissante, faites des lignes sources exactes des cellules du mois : `dossiers` (projet, tranche, article, dossier,\ndateConcretisation, prixVente, regle, client ; leur nombre = `quantites.reel` du mois), `mouvements` (projet, tranche,\narticle, dateDossier, dateMouvement, categorie, montant, libelle, client ; Σ montant = `montants.reel`), `echeances`\n(client, date, categorie, montant, regle, reste ; Σ montant = `schemaFinancement`). `regle` d'une échéance = ses lignes\nde règlement comptées en encaissement, toutes dates ; `reste` = montant − regle.",
+        "operationId": "detail_2",
+        "responses": {
+          "200": {
+            "description": "Trois sections : dossiers, mouvements, echeances.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatRapportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`mois` absent ou hors [1 ; 12], ou un refus de `/suivi-previsions`."
+          }
+        }
+      }
+    },
     "/api/suivi-commerciaux": {
       "get": {
         "tags": [
@@ -18366,7 +18484,7 @@
           "Suivi des commerciaux"
         ],
         "summary": "Export Excel des interactions, filtres et colonnes appliqués",
-        "operationId": "exporter_2",
+        "operationId": "exporter_3",
         "parameters": [
           {
             "name": "format",
@@ -19140,7 +19258,7 @@
           "Suivi des affectations"
         ],
         "summary": "Export Excel du suivi des affectations, filtres et colonnes appliqués",
-        "operationId": "exporter_3",
+        "operationId": "exporter_4",
         "parameters": [
           {
             "name": "entiteId",
@@ -19670,7 +19788,7 @@
         ],
         "summary": "Export Excel du suivi des actions, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/suivi-actions`, sans pagination, même portée (un non-administrateur n'exporte que ses actions) et même périmètre commercial. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Suivi des actions », fichier `suivi-actions_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille ne sont pas transmis.",
-        "operationId": "exporter_4",
+        "operationId": "exporter_5",
         "parameters": [
           {
             "name": "format",
@@ -19807,7 +19925,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des sous-articles, colonnes du catalogue",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_5",
+        "operationId": "exporter_6",
         "parameters": [
           {
             "name": "search",
@@ -22013,7 +22131,7 @@
         ],
         "summary": "Exécute un rapport avec les paramètres de son descripteur",
         "description": "**Paramètres de requête** : ceux du descripteur, par leur `nom` ; un paramètre `multiple` se répète\n(`trancheId=…&trancheId=…`). Absent : `valeurParDefaut`. Dates `aaaa-MM-jj`.\n\n**Totaux** : `totaux` et `sousTotaux` sont calculés ici, en décimal exact, selon la `fonctionTotal` de chaque colonne ;\nle rapport peut imposer une valeur (ex. un taux global), qui l'emporte. Section sans ligne : `totaux` = null. Le client\nn'a rien à recalculer.",
-        "operationId": "resultat",
+        "operationId": "resultat_1",
         "parameters": [
           {
             "name": "module",
@@ -22066,7 +22184,7 @@
         ],
         "summary": "Export Excel ou PDF d'un rapport : une feuille ou un tableau par section",
         "description": "Classeur `.xlsx` du même résultat, fichier `<code>_<aaaaMMjj_HHmmss>.xlsx` : une feuille par section (nom = titre sans\n`[]:*?/\\`, 31 caractères au plus, dédoublonné), en-tête en gras figé, colonnes reçues dans l'ordre, dernière ligne\n« Total » en gras quand la section a des totaux. Mêmes paramètres que `/resultat`.\n\n`format=pdf` : mêmes sections et mêmes totaux, `application/pdf`, fichier `<code>_<aaaaMMjj_HHmmss>.pdf`, A4 paysage, un\ntableau par section (sous-titre si plusieurs), en-tête de colonnes répété, pied « Page n / m ». Sous le titre : « Édité le\njj/MM/aaaa par <utilisateur> », une ligne « libellé : valeurs » par paramètre appliqué (tranches et commerciaux réduits au\nvisible, libellés lisibles), puis une ligne « Avertissement : … » par avertissement du résultat.",
-        "operationId": "exporter_6",
+        "operationId": "exporter_7",
         "parameters": [
           {
             "name": "module",
@@ -22345,7 +22463,7 @@
         ],
         "summary": "Export Excel de la liste des prospects, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/prospects` (`search`, `type`), sans pagination. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Prospects », fichier `prospects_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_7",
+        "operationId": "exporter_8",
         "parameters": [
           {
             "name": "format",
@@ -23340,7 +23458,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des prospections terrain",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_8",
+        "operationId": "exporter_9",
         "parameters": [
           {
             "name": "search",
@@ -23534,7 +23652,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des programmes",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_9",
+        "operationId": "exporter_10",
         "parameters": [
           {
             "name": "format",
@@ -24844,7 +24962,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des lots de terrain",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_10",
+        "operationId": "exporter_11",
         "parameters": [
           {
             "name": "search",
@@ -25326,7 +25444,7 @@
         ],
         "summary": "Export Excel de la liste des impayés, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres et même tri que `GET /api/impayes`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Fichier `impayes_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_11",
+        "operationId": "exporter_12",
         "parameters": [
           {
             "name": "format",
@@ -25723,7 +25841,7 @@
         ],
         "summary": "Export Excel de l'étude en 11 feuilles (étude bloquée comprise)",
         "description": "11 feuilles : Identité, Bilan, Terrain, Exécution, Délais, Financement, Données, Unités, Tranches, Unités par tranche,\nBilan détaillé. Valeurs du calcul partagé (bilan stocké, prévisions, trésorerie), jamais recalculées dans l'export.\nSans tranche, « Tranches » et « Unités par tranche » n'ont que leurs titres. Permis sur une étude bloquée.",
-        "operationId": "exporter_12",
+        "operationId": "exporter_13",
         "parameters": [
           {
             "name": "id",
@@ -25780,7 +25898,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des études, mêmes droits que la liste",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_13",
+        "operationId": "exporter_14",
         "parameters": [
           {
             "name": "format",
@@ -26732,7 +26850,7 @@
           "État des ventes"
         ],
         "summary": "Export Excel de l'état des ventes, filtres et colonnes appliqués",
-        "operationId": "exporter_14",
+        "operationId": "exporter_15",
         "parameters": [
           {
             "name": "format",
@@ -27372,7 +27490,7 @@
         ],
         "summary": "Export xlsx ou pdf de la liste des entités (même droit que la liste)",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_15",
+        "operationId": "exporter_16",
         "parameters": [
           {
             "name": "format",
@@ -28437,7 +28555,7 @@
         ],
         "summary": "Export Excel de la liste des encaissements, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/encaissements`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants, nombres et booléens en cellules typées. Auteur du classeur = utilisateur connecté, titre « Encaissements », fichier `encaissements_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes. Les filtres de colonne de la grille (appliqués côté navigateur à la page chargée) ne sont pas transmis.",
-        "operationId": "exporter_16",
+        "operationId": "exporter_17",
         "parameters": [
           {
             "name": "format",
@@ -30557,7 +30675,7 @@
         ],
         "summary": "Export Excel de la liste des dossiers, filtres et colonnes appliqués",
         "description": "Classeur Excel (`.xlsx`) de la liste courante : mêmes filtres que `GET /api/dossiers`, sans pagination, périmètre commercial appliqué. Une feuille « DONNEES » ; en-têtes = libellés du catalogue de colonnes, dans l'ordre de `colonnes` ; dates, montants et nombres en cellules typées. Auteur du classeur = utilisateur connecté, titre « Dossiers de vente », fichier `dossiers_<aaaaMMjj_HHmmss>.xlsx`. Plafond : 20 000 lignes.",
-        "operationId": "exporter_17",
+        "operationId": "exporter_18",
         "parameters": [
           {
             "name": "format",
@@ -32038,7 +32156,7 @@
         ],
         "summary": "Export xlsx ou pdf du catalogue des articles, colonnes du catalogue",
         "description": "Lignes de la liste (mêmes filtres, même visibilité) en .xlsx (feuille DONNEES) ou .pdf A4 paysage.",
-        "operationId": "exporter_18",
+        "operationId": "exporter_19",
         "parameters": [
           {
             "name": "search",
@@ -46644,6 +46762,272 @@
           }
         }
       },
+      "ColonneRapportDto": {
+        "type": "object",
+        "description": "Colonne d'une section de rapport.",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "description": "Clé de la valeur dans chaque ligne.",
+            "example": "nbArticles"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "En-tête affiché.",
+            "example": "Articles"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type : alignement et format (POURCENTAGE vaut 0–100).",
+            "enum": [
+              "TEXTE",
+              "NOMBRE",
+              "MONTANT",
+              "POURCENTAGE",
+              "DATE",
+              "BOOLEEN"
+            ]
+          },
+          "groupe": {
+            "type": "string",
+            "description": "En-tête de groupe de colonnes, null si aucun.",
+            "example": "Surfaces"
+          },
+          "fonctionTotal": {
+            "type": "string",
+            "description": "Total calculé par le serveur (totaux, sousTotaux) ; AUCUNE sinon.",
+            "enum": [
+              "AUCUNE",
+              "SOMME",
+              "MOYENNE",
+              "MIN",
+              "MAX"
+            ]
+          },
+          "decimales": {
+            "type": "integer",
+            "format": "int32",
+            "description": "NOMBRE : décimales à afficher (0 par défaut).",
+            "example": 2
+          }
+        }
+      },
+      "GraphiqueRapportDto": {
+        "type": "object",
+        "description": "Graphique d'une section, tracé sur ses lignes.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "COLONNES (groupées), SECTEURS (une série) ou LIGNES.",
+            "enum": [
+              "COLONNES",
+              "SECTEURS",
+              "LIGNES"
+            ]
+          },
+          "titre": {
+            "type": "string",
+            "description": "Titre du graphique.",
+            "example": "Articles vendus et libres par tranche"
+          },
+          "colonneCategorie": {
+            "type": "string",
+            "description": "Colonne texte des catégories (axe ou secteurs).",
+            "example": "trancheCode"
+          },
+          "colonnesValeurs": {
+            "type": "array",
+            "description": "Colonnes numériques, une série chacune.",
+            "example": [
+              "nbVendus",
+              "nbLibres"
+            ],
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ResultatRapportDto": {
+        "type": "object",
+        "description": "Résultat d'un rapport : sections calculées, totaux compris.",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Code du rapport.",
+            "example": "ComTdbSalesMonitoringGlobal"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé du rapport.",
+            "example": "SUIVI GLOBAL DE VENTE*"
+          },
+          "module": {
+            "type": "string",
+            "description": "Slug du module.",
+            "example": "vente"
+          },
+          "parametres": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "Valeurs effectivement appliquées, par nom de paramètre, défauts compris."
+          },
+          "genereLe": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Heure de calcul (horloge du serveur, Casablanca)."
+          },
+          "avertissements": {
+            "type": "array",
+            "description": "Écarts assumés ou données manquantes, à afficher tels quels.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sections": {
+            "type": "array",
+            "description": "Sections, dans l'ordre d'affichage.",
+            "items": {
+              "$ref": "#/components/schemas/SectionRapportDto"
+            }
+          }
+        }
+      },
+      "SectionRapportDto": {
+        "type": "object",
+        "description": "Section d'un rapport : un tableau et ses graphiques.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Identifiant stable de la section ([a-z0-9-]).",
+            "example": "stock"
+          },
+          "titre": {
+            "type": "string",
+            "description": "Titre (aussi nom de feuille de l'export).",
+            "example": "Stock par tranche"
+          },
+          "colonnes": {
+            "type": "array",
+            "description": "Colonnes, dans l'ordre d'affichage ; propres à ce résultat.",
+            "items": {
+              "$ref": "#/components/schemas/ColonneRapportDto"
+            }
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Une ligne = un objet dont les clés sont les `nom` des `colonnes`. Nombres et montants en nombre JSON, pourcentages en\n0–100, dates `aaaa-MM-jj`, valeur absente = `null`.",
+            "items": {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          },
+          "groupePar": {
+            "type": "string",
+            "description": "Nom de la colonne de regroupement des lignes, null si aucun.",
+            "example": "trancheLibelle"
+          },
+          "totaux": {
+            "type": "object",
+            "additionalProperties": {},
+            "description": "Une clé par colonne ayant une `fonctionTotal` autre que `AUCUNE` ou une valeur imposée par le rapport (qui l'emporte sur\nle calcul). `null` quand la section n'a aucune ligne. À afficher tel quel en pied de tableau."
+          },
+          "sousTotaux": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {}
+            },
+            "description": "Seulement si `groupePar` est renseigné : une entrée par valeur de la colonne de regroupement, chacune avec les mêmes clés\nque `totaux` (sans valeur imposée). `null` sinon."
+          },
+          "graphiques": {
+            "type": "array",
+            "description": "Graphiques déclarés sur les lignes de la section.",
+            "items": {
+              "$ref": "#/components/schemas/GraphiqueRapportDto"
+            }
+          }
+        }
+      },
+      "OptionRapportDto": {
+        "type": "object",
+        "description": "Valeur proposée d'un paramètre de rapport.",
+        "properties": {
+          "valeur": {
+            "type": "string",
+            "description": "Valeur à envoyer (id de tranche ou de commercial, ou valeur du choix)."
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé à afficher."
+          }
+        }
+      },
+      "ParametreRapportDto": {
+        "type": "object",
+        "description": "Paramètre d'un rapport, à envoyer en paramètre de requête de /resultat et /export.",
+        "properties": {
+          "nom": {
+            "type": "string",
+            "description": "Nom du paramètre de requête.",
+            "example": "trancheId"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Libellé du champ.",
+            "example": "Tranches"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type : fixe le champ du formulaire et le contrôle de la valeur.",
+            "enum": [
+              "TRANCHES",
+              "COMMERCIAUX",
+              "DATE",
+              "ANNEE",
+              "ENTIER",
+              "TEXTE",
+              "CHOIX",
+              "BOOLEEN"
+            ]
+          },
+          "obligatoire": {
+            "type": "boolean",
+            "description": "Vrai si une valeur est exigée (400 sinon) et qu'aucun défaut n'existe."
+          },
+          "multiple": {
+            "type": "boolean",
+            "description": "Vrai si le paramètre se répète (trancheId=…&trancheId=…)."
+          },
+          "valeurParDefaut": {
+            "type": "string",
+            "description": "Défaut appliqué si absent (date aaaa-MM-jj), null si aucun.",
+            "example": "2026-01-01"
+          },
+          "options": {
+            "type": "array",
+            "description": "Valeurs proposées : CHOIX, TRANCHES et COMMERCIAUX (ces deux-là remplies par le serveur).",
+            "items": {
+              "$ref": "#/components/schemas/OptionRapportDto"
+            }
+          },
+          "min": {
+            "type": "integer",
+            "format": "int32",
+            "description": "ENTIER : borne basse incluse, null si aucune."
+          },
+          "max": {
+            "type": "integer",
+            "format": "int32",
+            "description": "ENTIER : borne haute incluse, null si aucune."
+          }
+        }
+      },
       "LigneSuiviCommerciauxDto": {
         "type": "object",
         "description": "Une interaction attribuée à son auteur ; seules les colonnes demandées par ?colonnes= sont présentes.",
@@ -48456,272 +48840,6 @@
             ],
             "items": {
               "type": "string"
-            }
-          }
-        }
-      },
-      "OptionRapportDto": {
-        "type": "object",
-        "description": "Valeur proposée d'un paramètre de rapport.",
-        "properties": {
-          "valeur": {
-            "type": "string",
-            "description": "Valeur à envoyer (id de tranche ou de commercial, ou valeur du choix)."
-          },
-          "libelle": {
-            "type": "string",
-            "description": "Libellé à afficher."
-          }
-        }
-      },
-      "ParametreRapportDto": {
-        "type": "object",
-        "description": "Paramètre d'un rapport, à envoyer en paramètre de requête de /resultat et /export.",
-        "properties": {
-          "nom": {
-            "type": "string",
-            "description": "Nom du paramètre de requête.",
-            "example": "trancheId"
-          },
-          "libelle": {
-            "type": "string",
-            "description": "Libellé du champ.",
-            "example": "Tranches"
-          },
-          "type": {
-            "type": "string",
-            "description": "Type : fixe le champ du formulaire et le contrôle de la valeur.",
-            "enum": [
-              "TRANCHES",
-              "COMMERCIAUX",
-              "DATE",
-              "ANNEE",
-              "ENTIER",
-              "TEXTE",
-              "CHOIX",
-              "BOOLEEN"
-            ]
-          },
-          "obligatoire": {
-            "type": "boolean",
-            "description": "Vrai si une valeur est exigée (400 sinon) et qu'aucun défaut n'existe."
-          },
-          "multiple": {
-            "type": "boolean",
-            "description": "Vrai si le paramètre se répète (trancheId=…&trancheId=…)."
-          },
-          "valeurParDefaut": {
-            "type": "string",
-            "description": "Défaut appliqué si absent (date aaaa-MM-jj), null si aucun.",
-            "example": "2026-01-01"
-          },
-          "options": {
-            "type": "array",
-            "description": "Valeurs proposées : CHOIX, TRANCHES et COMMERCIAUX (ces deux-là remplies par le serveur).",
-            "items": {
-              "$ref": "#/components/schemas/OptionRapportDto"
-            }
-          },
-          "min": {
-            "type": "integer",
-            "format": "int32",
-            "description": "ENTIER : borne basse incluse, null si aucune."
-          },
-          "max": {
-            "type": "integer",
-            "format": "int32",
-            "description": "ENTIER : borne haute incluse, null si aucune."
-          }
-        }
-      },
-      "ColonneRapportDto": {
-        "type": "object",
-        "description": "Colonne d'une section de rapport.",
-        "properties": {
-          "nom": {
-            "type": "string",
-            "description": "Clé de la valeur dans chaque ligne.",
-            "example": "nbArticles"
-          },
-          "libelle": {
-            "type": "string",
-            "description": "En-tête affiché.",
-            "example": "Articles"
-          },
-          "type": {
-            "type": "string",
-            "description": "Type : alignement et format (POURCENTAGE vaut 0–100).",
-            "enum": [
-              "TEXTE",
-              "NOMBRE",
-              "MONTANT",
-              "POURCENTAGE",
-              "DATE",
-              "BOOLEEN"
-            ]
-          },
-          "groupe": {
-            "type": "string",
-            "description": "En-tête de groupe de colonnes, null si aucun.",
-            "example": "Surfaces"
-          },
-          "fonctionTotal": {
-            "type": "string",
-            "description": "Total calculé par le serveur (totaux, sousTotaux) ; AUCUNE sinon.",
-            "enum": [
-              "AUCUNE",
-              "SOMME",
-              "MOYENNE",
-              "MIN",
-              "MAX"
-            ]
-          },
-          "decimales": {
-            "type": "integer",
-            "format": "int32",
-            "description": "NOMBRE : décimales à afficher (0 par défaut).",
-            "example": 2
-          }
-        }
-      },
-      "GraphiqueRapportDto": {
-        "type": "object",
-        "description": "Graphique d'une section, tracé sur ses lignes.",
-        "properties": {
-          "type": {
-            "type": "string",
-            "description": "COLONNES (groupées), SECTEURS (une série) ou LIGNES.",
-            "enum": [
-              "COLONNES",
-              "SECTEURS",
-              "LIGNES"
-            ]
-          },
-          "titre": {
-            "type": "string",
-            "description": "Titre du graphique.",
-            "example": "Articles vendus et libres par tranche"
-          },
-          "colonneCategorie": {
-            "type": "string",
-            "description": "Colonne texte des catégories (axe ou secteurs).",
-            "example": "trancheCode"
-          },
-          "colonnesValeurs": {
-            "type": "array",
-            "description": "Colonnes numériques, une série chacune.",
-            "example": [
-              "nbVendus",
-              "nbLibres"
-            ],
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "ResultatRapportDto": {
-        "type": "object",
-        "description": "Résultat d'un rapport : sections calculées, totaux compris.",
-        "properties": {
-          "code": {
-            "type": "string",
-            "description": "Code du rapport.",
-            "example": "ComTdbSalesMonitoringGlobal"
-          },
-          "libelle": {
-            "type": "string",
-            "description": "Libellé du rapport.",
-            "example": "SUIVI GLOBAL DE VENTE*"
-          },
-          "module": {
-            "type": "string",
-            "description": "Slug du module.",
-            "example": "vente"
-          },
-          "parametres": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "description": "Valeurs effectivement appliquées, par nom de paramètre, défauts compris."
-          },
-          "genereLe": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Heure de calcul (horloge du serveur, Casablanca)."
-          },
-          "avertissements": {
-            "type": "array",
-            "description": "Écarts assumés ou données manquantes, à afficher tels quels.",
-            "items": {
-              "type": "string"
-            }
-          },
-          "sections": {
-            "type": "array",
-            "description": "Sections, dans l'ordre d'affichage.",
-            "items": {
-              "$ref": "#/components/schemas/SectionRapportDto"
-            }
-          }
-        }
-      },
-      "SectionRapportDto": {
-        "type": "object",
-        "description": "Section d'un rapport : un tableau et ses graphiques.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Identifiant stable de la section ([a-z0-9-]).",
-            "example": "stock"
-          },
-          "titre": {
-            "type": "string",
-            "description": "Titre (aussi nom de feuille de l'export).",
-            "example": "Stock par tranche"
-          },
-          "colonnes": {
-            "type": "array",
-            "description": "Colonnes, dans l'ordre d'affichage ; propres à ce résultat.",
-            "items": {
-              "$ref": "#/components/schemas/ColonneRapportDto"
-            }
-          },
-          "lignes": {
-            "type": "array",
-            "description": "Une ligne = un objet dont les clés sont les `nom` des `colonnes`. Nombres et montants en nombre JSON, pourcentages en\n0–100, dates `aaaa-MM-jj`, valeur absente = `null`.",
-            "items": {
-              "type": "object",
-              "additionalProperties": {}
-            }
-          },
-          "groupePar": {
-            "type": "string",
-            "description": "Nom de la colonne de regroupement des lignes, null si aucun.",
-            "example": "trancheLibelle"
-          },
-          "totaux": {
-            "type": "object",
-            "additionalProperties": {},
-            "description": "Une clé par colonne ayant une `fonctionTotal` autre que `AUCUNE` ou une valeur imposée par le rapport (qui l'emporte sur\nle calcul). `null` quand la section n'a aucune ligne. À afficher tel quel en pied de tableau."
-          },
-          "sousTotaux": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "object",
-              "additionalProperties": {}
-            },
-            "description": "Seulement si `groupePar` est renseigné : une entrée par valeur de la colonne de regroupement, chacune avec les mêmes clés\nque `totaux` (sans valeur imposée). `null` sinon."
-          },
-          "graphiques": {
-            "type": "array",
-            "description": "Graphiques déclarés sur les lignes de la section.",
-            "items": {
-              "$ref": "#/components/schemas/GraphiqueRapportDto"
             }
           }
         }
