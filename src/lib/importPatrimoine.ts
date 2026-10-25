@@ -31,6 +31,10 @@ export const CONFIG_IMPORT: Record<TypeImportPatrimoine, ConfigImport> = {
     tranche: false, suffixe: 'TYPES_PRESENTATION', aide: '(pré-rempli avec les types existants)',
   },
   previsions: { libelle: 'prévisions de base', liste: { libelle: 'Tranches', to: '/tranches' }, tranche: true, suffixe: 'PREVISIONS', aide: 'de la tranche (pré-rempli avec ses prévisions)' },
+  'entites-juridiques': { libelle: 'entités juridiques', liste: { libelle: 'Entités juridiques', to: '/entites-juridiques' }, tranche: false, suffixe: 'ENTITES_JURIDIQUES', aide: '(en-têtes et feuilles d’aide)' },
+  projets: { libelle: 'programmes', liste: { libelle: 'Programmes', to: '/projets' }, tranche: false, suffixe: 'PROGRAMMES', aide: '(en-têtes et feuilles d’aide)' },
+  tranches: { libelle: 'tranches', liste: { libelle: 'Tranches', to: '/tranches' }, tranche: false, suffixe: 'TRANCHES', aide: '(en-têtes et feuilles d’aide)' },
+  'prospections-terrain': { libelle: 'prospections terrain', liste: { libelle: 'Prospections terrain', to: '/terrains-prospection' }, tranche: false, suffixe: 'PROSPECTIONS_TERRAIN', aide: '(en-têtes et feuilles d’aide)' },
 };
 
 export function typeImportDepuis(valeur: string | null): TypeImportPatrimoine {
