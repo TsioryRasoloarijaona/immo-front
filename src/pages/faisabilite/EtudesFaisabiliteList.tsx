@@ -27,6 +27,7 @@ const COLONNES: ColonneGrille<EtudeFaisabiliteListeDto>[] = [
   { nom: 'dateDocument', libelle: 'Date', type: 'DATE', largeur: 12 },
   { nom: 'societeLibelle', libelle: 'Société', largeur: 22 },
   { nom: 'terrainLibelle', libelle: 'Terrain', largeur: 22 },
+  { nom: 'prospectionTerrainDescription', libelle: 'Prospection', largeur: 20 },
   {
     nom: 'statutLibelle', libelle: 'Statut', largeur: 16,
     rendu: (r) => (r.statutLibelle ? <Badge tone={toneStatut(r.statutCouleur)}>{r.statutLibelle}</Badge> : null),

@@ -9,6 +9,7 @@ import ArbreBilan from './ArbreBilan';
 import ChronologiePhases from './ChronologiePhases';
 import GrilleTranchesEtude from './GrilleTranchesEtude';
 import GrilleUnitesEtude from './GrilleUnitesEtude';
+import LienProspectionEtude from './LienProspectionEtude';
 import MessagesVerif from './MessagesVerif';
 import OngletAnalyse from './OngletAnalyse';
 import OngletDonnees from './OngletDonnees';
@@ -19,6 +20,7 @@ import { useAuth } from '../../lib/auth';
 import {
   CHAMPS_ETUDE, SECTIONS_IDENTITE, SECTIONS_PHASES, SECTIONS_TERRAIN, nomsCalcules, pilotesApres, sansSuiveurs, useCalculEtude,
 } from '../../lib/faisabilite';
+import { ongletsTransverses } from '../../lib/ongletsTransverses';
 import { useEntitesReferentiel, referentielItems } from '../../lib/referentiels';
 import { estAdministrateur } from '../../lib/roles';
 import { brouillonDepuis, corpsDepuis, useSaisie, type SectionSaisie } from '../../lib/saisiePatrimoine';
@@ -83,7 +85,7 @@ export default function OngletsEtude({ fiche, entete, recharger, onEnregistre }:
       champErreur={saisie.champErreur} messageErreur={saisie.erreur} />);
   const onglets: OngletFiche[] = [
     { id: 'identite', libelle: 'Identité', contenu: <div className="flex flex-col gap-3">{sections(SECTIONS_IDENTITE)}</div> },
-    { id: 'terrain', libelle: 'Terrain', contenu: <div className="flex flex-col gap-3">{sections(SECTIONS_TERRAIN)}</div> },
+    { id: 'terrain', libelle: 'Terrain', contenu: <div className="flex flex-col gap-3">{fiche && <LienProspectionEtude fiche={fiche} lecture={lecture} recharger={onEnregistre} />}{sections(SECTIONS_TERRAIN)}</div> },
     {
       id: 'phases', libelle: 'Phases',
       contenu: (
@@ -102,6 +104,7 @@ export default function OngletsEtude({ fiche, entete, recharger, onEnregistre }:
       { id: 'donnees', libelle: 'Données', contenu: <OngletDonnees fiche={fiche} /> },
       { id: 'historique', libelle: 'Historique', contenu: <OngletHistorique etudeId={fiche.id} version={fiche.statutId} /> },
       { id: 'pieces', libelle: 'Pièces jointes', contenu: <PiecesJointesBloc porteur="etudes-faisabilite" id={fiche.id} lecture={fiche.bloquee} /> },
+      ...ongletsTransverses('etude', fiche.id),
     ] : []),
   ];
 

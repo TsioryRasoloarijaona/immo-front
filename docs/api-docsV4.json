@@ -68,10 +68,6 @@
       "description": "Écran OMRAN « ENTITES JURIDIQUE » (CfgCompany) et répartition des parts ; écriture Administrateur."
     },
     {
-      "name": "Audit",
-      "description": "Journal d'audit OMRAN (AdmWebHistorics) des programmes, tranches, articles et entités juridiques."
-    },
-    {
       "name": "Référentiels du patrimoine",
       "description": "Listes de choix des fiches programme, tranche et article."
     },
@@ -210,6 +206,10 @@
     {
       "name": "Lotissements",
       "description": "Écran OMRAN « LOTISSEMENTS » en lecture : lots de terrain, c'est-à-dire terrains rattachés à une tranche et de\nvocation autre que PROJET. La fiche d'un lot est celle du terrain (`/api/terrains/{id}`)."
+    },
+    {
+      "name": "Audit",
+      "description": "Journal d'audit OMRAN (AdmWebHistorics) : patrimoine, entités juridiques, prospections terrain, études."
     },
     {
       "name": "Mon équipe",
@@ -1835,6 +1835,150 @@
                   "items": {
                     "$ref": "#/components/schemas/LigneTrancheEtudeDto"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/prospection-terrain": {
+      "put": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Lie une prospection ; étude sans terrain : surfaces, coûts, code et libellé recopiés, puis recalcul",
+        "operationId": "lierProspection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LierProspectionEtudeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Étude enregistrée, fiche à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "prospectionTerrainId absent, ou message Verif OMRAN (detail).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue ou de société inactive, ou prospection inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Code de la prospection déjà pris par une autre étude, ou Étude bloquée (« Étude bloquée »).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Délie la prospection terrain, sans rien changer d'autre ; sans lien, répond 200 quand même",
+        "operationId": "delierProspection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Étude enregistrée, fiche à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue, ou de société inactive.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Étude bloquée (« Étude bloquée »).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
                 }
               }
             }
@@ -7251,13 +7395,13 @@
         "tags": [
           "Notes"
         ],
-        "summary": "Notes d'un programme, d'une tranche ou d'un article, plus récentes d'abord",
+        "summary": "Notes d'un objet du patrimoine, d'une prospection terrain ou d'une étude, plus récentes d'abord",
         "operationId": "lister_5",
         "parameters": [
           {
             "name": "porteur",
             "in": "query",
-            "description": "projet, tranche, article ou prospection-terrain.",
+            "description": "projet, tranche, article, prospection-terrain ou etude (étude de faisabilité).",
             "required": true,
             "schema": {
               "type": "string"
@@ -7290,7 +7434,7 @@
             }
           },
           "400": {
-            "description": "`porteur` absent ou hors projet, tranche, article, prospection-terrain.",
+            "description": "`porteur` absent ou hors projet, tranche, article, prospection-terrain, etude.",
             "content": {
               "*/*": {
                 "schema": {
@@ -8232,6 +8376,79 @@
           },
           "409": {
             "description": "Étude bloquée, ou transition non permise à l'appelant depuis le statut courant (propriété `transitionsAutorisees`).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/etudes-faisabilite/{id}/prospection-terrain/recopier": {
+      "post": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Recopie les valeurs de la prospection liée, puis détache le terrain (article TER) et recalcule",
+        "operationId": "recopierProspection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de l'étude (StkFeasibilityStudy.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Étude enregistrée, fiche à jour.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Message Verif OMRAN (detail).",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Étude inconnue ou de société inactive, ou prospection inconnue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/EtudeFaisabiliteDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Aucune prospection liée, code déjà pris, ou Étude bloquée (« Étude bloquée »).",
             "content": {
               "*/*": {
                 "schema": {
@@ -25613,6 +25830,30 @@
         }
       }
     },
+    "/api/etudes-faisabilite/choix/prospections": {
+      "get": {
+        "tags": [
+          "Études de faisabilité"
+        ],
+        "summary": "Prospections terrain liables à une étude, archivées comprises, par code",
+        "operationId": "prospections",
+        "responses": {
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReferentielItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/etudes-faisabilite/choix/categories-bilan": {
       "get": {
         "tags": [
@@ -31387,7 +31628,7 @@
           {
             "name": "objetId",
             "in": "query",
-            "description": "PKey de l'entité juridique (même inactive), du programme, de la tranche ou de l'article.",
+            "description": "PKey de l'entité (même inactive), du programme, de la tranche, de l'article, de la prospection ou de l'étude.",
             "required": true,
             "schema": {
               "type": "string",
@@ -31439,7 +31680,7 @@
             }
           },
           "404": {
-            "description": "Ni entité juridique, ni programme, tranche, article visible, ni prospection terrain.",
+            "description": "Aucun objet visible : entité, programme, tranche, article, prospection, étude (Admin / DG).",
             "content": {
               "*/*": {
                 "schema": {
@@ -31458,7 +31699,7 @@
         ],
         "summary": "Prospections portant l'article (pré-prospections exclues)",
         "description": "Équivalent de `ComSaleProspectionView WHERE StkItemId = id` d'OMRAN, recalculé sur `ComProspection` : prospections\ndont `StkItemId` est l'article, pré-prospections exclues, prospections sans tranche incluses. Périmètre commercial de\n`GET /api/prospections` (par la tranche de la prospection). Mêmes lignes que la liste des prospections, sans pagination.",
-        "operationId": "prospections",
+        "operationId": "prospections_1",
         "parameters": [
           {
             "name": "id",
@@ -33644,64 +33885,19 @@
           }
         }
       },
-      "GrilleEtudeDtoSaisiePrevisionDto": {
+      "LierProspectionEtudeDto": {
         "type": "object",
-        "description": "Liste complète des lignes : id connu = mise à jour, sans id = création, absente = suppression.",
+        "description": "Prospection terrain à lier à l'étude.",
         "properties": {
-          "lignes": {
-            "type": "array",
-            "description": "Lignes de la grille ; [] vide la grille.",
-            "items": {
-              "$ref": "#/components/schemas/SaisiePrevisionDto"
-            }
+          "prospectionTerrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Prospection terrain (LndLand.PKey), obligatoire."
           }
-        }
-      },
-      "SaisiePrevisionDto": {
-        "type": "object",
-        "description": "Ligne de prévision saisie (FSPrevision), clé = catégorie. Priorité ratio > montantHt > montant.",
-        "properties": {
-          "categorieId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Catégorie de trésorerie (StlCategory), obligatoire, hors « sans prévision »."
-          },
-          "uniteEtudeId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Mode par unité : ligne d'unité de l'étude ; base = sa quantité."
-          },
-          "categorieReferenceId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Mode pourcentage : catégorie de l'arbre ; base = son total HT, enfants compris."
-          },
-          "ratio": {
-            "type": "number",
-            "description": "Prix unitaire (unité) ou fraction (pourcentage), ≥ 0."
-          },
-          "montantHt": {
-            "type": "number",
-            "description": "Montant HT propre (≥ 0) ; recalcule le ratio si ratio absent."
-          },
-          "montant": {
-            "type": "number",
-            "description": "Montant TTC propre (≥ 0) ; utilisé si ratio et montantHt absents."
-          },
-          "tauxTva": {
-            "type": "number",
-            "description": "TVA (fraction 0-1) ; absente = TVA par défaut de l'étude."
-          },
-          "estPourProjet": {
-            "type": "boolean",
-            "description": "Visible dans le module Projet (vrai si absent)."
-          },
-          "dateApplication": {
-            "type": "string",
-            "format": "date-time",
-            "description": "« Traiter au début du projet » : la dépense est datée ce jour-là (indivise)."
-          }
-        }
+        },
+        "required": [
+          "prospectionTerrainId"
+        ]
       },
       "BilanEtudeDto": {
         "type": "object",
@@ -33794,6 +33990,515 @@
           "rentabiliteFondsPropres": {
             "type": "number",
             "description": "ProfitRatioByAutofinancementAmount : marge / fonds propres."
+          }
+        }
+      },
+      "EtudeFaisabiliteDto": {
+        "type": "object",
+        "description": "Fiche d'une étude de faisabilité (StkFeasibilityStudy) : identité, bloc A et phases calculés, grilles, bilan en lecture seule.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "PKey de l'étude."
+          },
+          "code": {
+            "type": "string",
+            "description": "Code unique."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé."
+          },
+          "dateDocument": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date du document."
+          },
+          "societeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Société (CfgCompany)."
+          },
+          "societeLibelle": {
+            "type": "string",
+            "description": "Libellé de la société."
+          },
+          "terrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Terrain (article TER), null si aucun."
+          },
+          "terrainLibelle": {
+            "type": "string",
+            "description": "Libellé du terrain."
+          },
+          "prospectionTerrainId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Prospection terrain liée (LndLandId), null si aucune ; se pose par PUT …/prospection-terrain."
+          },
+          "prospectionTerrainDescription": {
+            "type": "string",
+            "description": "Libellé de la prospection liée (LndLand.Description), null si aucune."
+          },
+          "descriptionTerrain": {
+            "type": "string",
+            "description": "Description du terrain."
+          },
+          "statutId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Statut, lecture seule (« En étude » à la création)."
+          },
+          "statutLibelle": {
+            "type": "string",
+            "description": "Libellé du statut."
+          },
+          "statutCouleur": {
+            "type": "string",
+            "description": "Couleur du statut (nom .NET), null si aucune."
+          },
+          "bloquee": {
+            "type": "boolean",
+            "description": "Étude bloquée : toute écriture répond 409 avant Débloquer."
+          },
+          "nombreArticlesAVendre": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Calculé : Σ quantités des unités à catégorie d'article (hors sous-article), non surface."
+          },
+          "proportionTerrainPourTva": {
+            "type": "boolean",
+            "description": "Quote-part du terrain utilisée pour la TVA."
+          },
+          "tauxTvaDefaut": {
+            "type": "number",
+            "description": "TVA par défaut (fraction)."
+          },
+          "tauxTvaInterets": {
+            "type": "number",
+            "description": "TVA sur intérêts (fraction)."
+          },
+          "ecartTypeTravaux": {
+            "type": "number",
+            "description": "Écart-type des travaux."
+          },
+          "ecartTypeConcretisation": {
+            "type": "number",
+            "description": "Écart-type de la concrétisation."
+          },
+          "ecartTypeFinalisation": {
+            "type": "number",
+            "description": "Écart-type de la finalisation."
+          },
+          "delaiRetourJours": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai de retour de la retenue de garantie (jours)."
+          },
+          "tauxRetenueGarantie": {
+            "type": "number",
+            "description": "Taux de retenue de garantie (fraction)."
+          },
+          "tauxApplicationRetenueGarantie": {
+            "type": "number",
+            "description": "Taux d'application de la retenue de garantie (fraction)."
+          },
+          "pourcentageConcretisation": {
+            "type": "number",
+            "description": "Part de la concrétisation dans le chiffre d'affaires (fraction)."
+          },
+          "tauxIs": {
+            "type": "number",
+            "description": "Taux de l'impôt sur les sociétés (fraction)."
+          },
+          "prixVenteM2": {
+            "type": "number",
+            "description": "Prix de vente du m² (UnitSalePrice)."
+          },
+          "valeurs": {
+            "$ref": "#/components/schemas/ValeursFaisabilite",
+            "description": "Bloc A et phases tels que stockés (recalculés à chaque écriture)."
+          },
+          "bilan": {
+            "$ref": "#/components/schemas/BilanEtudeDto",
+            "description": "Bilan recalculé à chaque écriture depuis les prévisions et le financement."
+          },
+          "unites": {
+            "type": "array",
+            "description": "Unités de base de l'étude, par ordre.",
+            "items": {
+              "$ref": "#/components/schemas/LigneUniteEtudeDto"
+            }
+          },
+          "tranches": {
+            "type": "array",
+            "description": "Tranches de l'étude et leurs ventilations, par ordre.",
+            "items": {
+              "$ref": "#/components/schemas/LigneTrancheEtudeDto"
+            }
+          },
+          "userCreate": {
+            "type": "string",
+            "description": "Créateur (UserCreate)."
+          },
+          "userCreateDateTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de création."
+          },
+          "userUpdate": {
+            "type": "string",
+            "description": "Dernier auteur (UserUpdate)."
+          },
+          "userUpdateDateTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Date de dernière modification."
+          }
+        }
+      },
+      "ValeursFaisabilite": {
+        "type": "object",
+        "description": "Surfaces, coûts et phases d'une étude, recalculés par le serveur (calcul partagé).",
+        "properties": {
+          "superficie": {
+            "type": "number",
+            "description": "Superficie du terrain (m², Area)."
+          },
+          "coefEquipements": {
+            "type": "number",
+            "description": "Coef équipements et voies d'aménagement = superficie équipements / superficie."
+          },
+          "superficieEquipements": {
+            "type": "number",
+            "description": "Superficie équipements et voies d'aménagement (m²)."
+          },
+          "superficieNette": {
+            "type": "number",
+            "description": "Calculé : superficie − superficie équipements (AreaNet)."
+          },
+          "coefEmprise": {
+            "type": "number",
+            "description": "Coef d'emprise au sol des bâtiments (COS)."
+          },
+          "empriseAuSol": {
+            "type": "number",
+            "description": "Emprise au sol des bâtiments (m²) = COS × superficie nette (Maroc) ou × superficie."
+          },
+          "cuf": {
+            "type": "number",
+            "description": "Coef de plancher couvert (CUF)."
+          },
+          "plancherCouvert": {
+            "type": "number",
+            "description": "Plancher couvert (m²) = superficie nette × CUF (Maroc), sinon superficie × COS × CUF."
+          },
+          "coefVendable": {
+            "type": "number",
+            "description": "Coef de superficie vendable."
+          },
+          "plancherVendable": {
+            "type": "number",
+            "description": "Plancher vendable (m²) = coef vendable × plancher couvert."
+          },
+          "surfaceNonBatie": {
+            "type": "number",
+            "description": "Calculé : superficie − emprise au sol (NoBuiltArea)."
+          },
+          "tauxTvaTerrain": {
+            "type": "number",
+            "description": "Taux de TVA du terrain (fraction, 0,2 = 20 %)."
+          },
+          "prixAchatM2": {
+            "type": "number",
+            "description": "Prix d'achat du m² TTC."
+          },
+          "prixAchatM2Ht": {
+            "type": "number",
+            "description": "Calculé : prix d'achat du m² / (1 + TVA terrain)."
+          },
+          "prixAchatM2Tva": {
+            "type": "number",
+            "description": "Calculé : TVA du prix d'achat du m²."
+          },
+          "prixTerrain": {
+            "type": "number",
+            "description": "Prix du terrain TTC = prix du m² × superficie."
+          },
+          "prixTerrainHt": {
+            "type": "number",
+            "description": "Calculé : prix du m² HT × superficie."
+          },
+          "prixTerrainTva": {
+            "type": "number",
+            "description": "Calculé : prix du terrain − prix HT."
+          },
+          "tauxFraisEnregistrement": {
+            "type": "number",
+            "description": "Coef des frais d'enregistrement (fraction du prix du terrain)."
+          },
+          "fraisEnregistrement": {
+            "type": "number",
+            "description": "Calculé : coef × prix du terrain."
+          },
+          "fraisEnregistrementHt": {
+            "type": "number",
+            "description": "Calculé : coef × prix du terrain HT."
+          },
+          "fraisEnregistrementTva": {
+            "type": "number",
+            "description": "Calculé : frais d'enregistrement − HT."
+          },
+          "tauxAutresFraisTerrain": {
+            "type": "number",
+            "description": "Coef des autres frais de terrain (fraction du prix du terrain)."
+          },
+          "autresFraisTerrain": {
+            "type": "number",
+            "description": "Calculé : coef × prix du terrain (OtherCostsLand)."
+          },
+          "autresFraisTerrainHt": {
+            "type": "number",
+            "description": "Calculé : coef × prix HT (colonne OMRAN OtherCostsExecutionHT)."
+          },
+          "autresFraisTerrainTva": {
+            "type": "number",
+            "description": "Calculé : autres frais − HT (colonne OMRAN OtherCostsExecutionVatAmount)."
+          },
+          "coutTotalTerrain": {
+            "type": "number",
+            "description": "Calculé : autres frais + prix du terrain + frais d'enregistrement (TTC)."
+          },
+          "coutTotalTerrainHt": {
+            "type": "number",
+            "description": "Calculé : mêmes termes en HT (non stocké)."
+          },
+          "coutConstructionM2Bati": {
+            "type": "number",
+            "description": "Coût de construction du m² bâti."
+          },
+          "coutBati": {
+            "type": "number",
+            "description": "Calculé : coût du m² bâti × plancher couvert."
+          },
+          "coutConstructionM2NonBati": {
+            "type": "number",
+            "description": "Coût de construction du m² non bâti."
+          },
+          "coutNonBati": {
+            "type": "number",
+            "description": "Calculé : coût du m² non bâti × surface non bâtie."
+          },
+          "tauxAutresFraisExecution": {
+            "type": "number",
+            "description": "Coef des autres frais d'exécution."
+          },
+          "autresFraisExecution": {
+            "type": "number",
+            "description": "Calculé : coef × (coût bâti + coût non bâti)."
+          },
+          "debutAchatTerrain": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Début de l'achat du terrain : départ de toutes les phases."
+          },
+          "dureeAchatTerrain": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de l'achat du terrain (mois)."
+          },
+          "finAchatTerrain": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiAchatTerrainPeriodeValidation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin d'achat → début de la période de validation (mois)."
+          },
+          "debutPeriodeValidation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : fin d'achat + délai."
+          },
+          "dureePeriodeValidation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la période de validation (mois)."
+          },
+          "finPeriodeValidation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiPeriodeValidationPermisBatir": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin de validation → début du permis de bâtir (mois)."
+          },
+          "debutPermisBatir": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : fin de validation + délai."
+          },
+          "dureePermisBatir": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée du permis de bâtir (mois)."
+          },
+          "finPermisBatir": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiPermisBatirEtudes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai début du permis → début des études (mois)."
+          },
+          "debutEtudes": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début du permis + délai."
+          },
+          "dureeEtudes": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée des études (mois)."
+          },
+          "finEtudes": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiPermisBatirTravaux": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin du permis → début des travaux (mois)."
+          },
+          "debutTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : fin du permis + délai."
+          },
+          "dureeTravaux": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée des travaux (mois)."
+          },
+          "finTravaux": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiTravauxConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai début des travaux → début de la concrétisation (mois)."
+          },
+          "debutConcretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début des travaux + délai."
+          },
+          "dureeConcretisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la concrétisation (mois)."
+          },
+          "finConcretisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "delaiTravauxFinalisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Délai fin des travaux → début de la finalisation (mois)."
+          },
+          "debutFinalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : fin des travaux + délai."
+          },
+          "dureeFinalisation": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Durée de la finalisation (mois)."
+          },
+          "finFinalisation": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Calculé : début + durée."
+          },
+          "erreurs": {
+            "type": "array",
+            "description": "Messages Verif OMRAN, dans l'ordre ; vide dans la fiche (Verif passe à chaque écriture).",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "GrilleEtudeDtoSaisiePrevisionDto": {
+        "type": "object",
+        "description": "Liste complète des lignes : id connu = mise à jour, sans id = création, absente = suppression.",
+        "properties": {
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de la grille ; [] vide la grille.",
+            "items": {
+              "$ref": "#/components/schemas/SaisiePrevisionDto"
+            }
+          }
+        }
+      },
+      "SaisiePrevisionDto": {
+        "type": "object",
+        "description": "Ligne de prévision saisie (FSPrevision), clé = catégorie. Priorité ratio > montantHt > montant.",
+        "properties": {
+          "categorieId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Catégorie de trésorerie (StlCategory), obligatoire, hors « sans prévision »."
+          },
+          "uniteEtudeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Mode par unité : ligne d'unité de l'étude ; base = sa quantité."
+          },
+          "categorieReferenceId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Mode pourcentage : catégorie de l'arbre ; base = son total HT, enfants compris."
+          },
+          "ratio": {
+            "type": "number",
+            "description": "Prix unitaire (unité) ou fraction (pourcentage), ≥ 0."
+          },
+          "montantHt": {
+            "type": "number",
+            "description": "Montant HT propre (≥ 0) ; recalcule le ratio si ratio absent."
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant TTC propre (≥ 0) ; utilisé si ratio et montantHt absents."
+          },
+          "tauxTva": {
+            "type": "number",
+            "description": "TVA (fraction 0-1) ; absente = TVA par défaut de l'étude."
+          },
+          "estPourProjet": {
+            "type": "boolean",
+            "description": "Visible dans le module Projet (vrai si absent)."
+          },
+          "dateApplication": {
+            "type": "string",
+            "format": "date-time",
+            "description": "« Traiter au début du projet » : la dépense est datée ce jour-là (indivise)."
           }
         }
       },
@@ -40327,13 +41032,14 @@
               "projet",
               "tranche",
               "article",
-              "prospection-terrain"
+              "prospection-terrain",
+              "etude"
             ]
           },
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "PKey du programme, de la tranche, de l'article ou de la prospection terrain."
+            "description": "PKey du programme, de la tranche, de l'article, de la prospection terrain ou de l'étude."
           },
           "texte": {
             "type": "string",
@@ -40353,7 +41059,7 @@
       },
       "NoteDto": {
         "type": "object",
-        "description": "Note d'un programme, d'une tranche, d'un article ou d'une prospection terrain (AdmMessage).",
+        "description": "Note d'un programme, d'une tranche, d'un article, d'une prospection terrain ou d'une étude (AdmMessage).",
         "properties": {
           "id": {
             "type": "string",
@@ -40943,452 +41649,6 @@
             "description": "POST /calcul seulement (ignoré ailleurs) : tranches et ventilations à contrôler par Verif.",
             "items": {
               "$ref": "#/components/schemas/LigneTrancheEtudeDto"
-            }
-          }
-        }
-      },
-      "EtudeFaisabiliteDto": {
-        "type": "object",
-        "description": "Fiche d'une étude de faisabilité (StkFeasibilityStudy) : identité, bloc A et phases calculés, grilles, bilan en lecture seule.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid",
-            "description": "PKey de l'étude."
-          },
-          "code": {
-            "type": "string",
-            "description": "Code unique."
-          },
-          "description": {
-            "type": "string",
-            "description": "Libellé."
-          },
-          "dateDocument": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date du document."
-          },
-          "societeId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Société (CfgCompany)."
-          },
-          "societeLibelle": {
-            "type": "string",
-            "description": "Libellé de la société."
-          },
-          "terrainId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Terrain (article TER), null si aucun."
-          },
-          "terrainLibelle": {
-            "type": "string",
-            "description": "Libellé du terrain."
-          },
-          "terrainFoncierId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "LndLandId : terrain foncier, lecture seule (écrit par le lot Terrains)."
-          },
-          "descriptionTerrain": {
-            "type": "string",
-            "description": "Description du terrain."
-          },
-          "statutId": {
-            "type": "string",
-            "format": "uuid",
-            "description": "Statut, lecture seule (« En étude » à la création)."
-          },
-          "statutLibelle": {
-            "type": "string",
-            "description": "Libellé du statut."
-          },
-          "statutCouleur": {
-            "type": "string",
-            "description": "Couleur du statut (nom .NET), null si aucune."
-          },
-          "bloquee": {
-            "type": "boolean",
-            "description": "Étude bloquée : toute écriture répond 409 avant Débloquer."
-          },
-          "nombreArticlesAVendre": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Calculé : Σ quantités des unités à catégorie d'article (hors sous-article), non surface."
-          },
-          "proportionTerrainPourTva": {
-            "type": "boolean",
-            "description": "Quote-part du terrain utilisée pour la TVA."
-          },
-          "tauxTvaDefaut": {
-            "type": "number",
-            "description": "TVA par défaut (fraction)."
-          },
-          "tauxTvaInterets": {
-            "type": "number",
-            "description": "TVA sur intérêts (fraction)."
-          },
-          "ecartTypeTravaux": {
-            "type": "number",
-            "description": "Écart-type des travaux."
-          },
-          "ecartTypeConcretisation": {
-            "type": "number",
-            "description": "Écart-type de la concrétisation."
-          },
-          "ecartTypeFinalisation": {
-            "type": "number",
-            "description": "Écart-type de la finalisation."
-          },
-          "delaiRetourJours": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Délai de retour de la retenue de garantie (jours)."
-          },
-          "tauxRetenueGarantie": {
-            "type": "number",
-            "description": "Taux de retenue de garantie (fraction)."
-          },
-          "tauxApplicationRetenueGarantie": {
-            "type": "number",
-            "description": "Taux d'application de la retenue de garantie (fraction)."
-          },
-          "pourcentageConcretisation": {
-            "type": "number",
-            "description": "Part de la concrétisation dans le chiffre d'affaires (fraction)."
-          },
-          "tauxIs": {
-            "type": "number",
-            "description": "Taux de l'impôt sur les sociétés (fraction)."
-          },
-          "prixVenteM2": {
-            "type": "number",
-            "description": "Prix de vente du m² (UnitSalePrice)."
-          },
-          "valeurs": {
-            "$ref": "#/components/schemas/ValeursFaisabilite",
-            "description": "Bloc A et phases tels que stockés (recalculés à chaque écriture)."
-          },
-          "bilan": {
-            "$ref": "#/components/schemas/BilanEtudeDto",
-            "description": "Bilan recalculé à chaque écriture depuis les prévisions et le financement."
-          },
-          "unites": {
-            "type": "array",
-            "description": "Unités de base de l'étude, par ordre.",
-            "items": {
-              "$ref": "#/components/schemas/LigneUniteEtudeDto"
-            }
-          },
-          "tranches": {
-            "type": "array",
-            "description": "Tranches de l'étude et leurs ventilations, par ordre.",
-            "items": {
-              "$ref": "#/components/schemas/LigneTrancheEtudeDto"
-            }
-          },
-          "userCreate": {
-            "type": "string",
-            "description": "Créateur (UserCreate)."
-          },
-          "userCreateDateTime": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de création."
-          },
-          "userUpdate": {
-            "type": "string",
-            "description": "Dernier auteur (UserUpdate)."
-          },
-          "userUpdateDateTime": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Date de dernière modification."
-          }
-        }
-      },
-      "ValeursFaisabilite": {
-        "type": "object",
-        "description": "Surfaces, coûts et phases d'une étude, recalculés par le serveur (calcul partagé).",
-        "properties": {
-          "superficie": {
-            "type": "number",
-            "description": "Superficie du terrain (m², Area)."
-          },
-          "coefEquipements": {
-            "type": "number",
-            "description": "Coef équipements et voies d'aménagement = superficie équipements / superficie."
-          },
-          "superficieEquipements": {
-            "type": "number",
-            "description": "Superficie équipements et voies d'aménagement (m²)."
-          },
-          "superficieNette": {
-            "type": "number",
-            "description": "Calculé : superficie − superficie équipements (AreaNet)."
-          },
-          "coefEmprise": {
-            "type": "number",
-            "description": "Coef d'emprise au sol des bâtiments (COS)."
-          },
-          "empriseAuSol": {
-            "type": "number",
-            "description": "Emprise au sol des bâtiments (m²) = COS × superficie nette (Maroc) ou × superficie."
-          },
-          "cuf": {
-            "type": "number",
-            "description": "Coef de plancher couvert (CUF)."
-          },
-          "plancherCouvert": {
-            "type": "number",
-            "description": "Plancher couvert (m²) = superficie nette × CUF (Maroc), sinon superficie × COS × CUF."
-          },
-          "coefVendable": {
-            "type": "number",
-            "description": "Coef de superficie vendable."
-          },
-          "plancherVendable": {
-            "type": "number",
-            "description": "Plancher vendable (m²) = coef vendable × plancher couvert."
-          },
-          "surfaceNonBatie": {
-            "type": "number",
-            "description": "Calculé : superficie − emprise au sol (NoBuiltArea)."
-          },
-          "tauxTvaTerrain": {
-            "type": "number",
-            "description": "Taux de TVA du terrain (fraction, 0,2 = 20 %)."
-          },
-          "prixAchatM2": {
-            "type": "number",
-            "description": "Prix d'achat du m² TTC."
-          },
-          "prixAchatM2Ht": {
-            "type": "number",
-            "description": "Calculé : prix d'achat du m² / (1 + TVA terrain)."
-          },
-          "prixAchatM2Tva": {
-            "type": "number",
-            "description": "Calculé : TVA du prix d'achat du m²."
-          },
-          "prixTerrain": {
-            "type": "number",
-            "description": "Prix du terrain TTC = prix du m² × superficie."
-          },
-          "prixTerrainHt": {
-            "type": "number",
-            "description": "Calculé : prix du m² HT × superficie."
-          },
-          "prixTerrainTva": {
-            "type": "number",
-            "description": "Calculé : prix du terrain − prix HT."
-          },
-          "tauxFraisEnregistrement": {
-            "type": "number",
-            "description": "Coef des frais d'enregistrement (fraction du prix du terrain)."
-          },
-          "fraisEnregistrement": {
-            "type": "number",
-            "description": "Calculé : coef × prix du terrain."
-          },
-          "fraisEnregistrementHt": {
-            "type": "number",
-            "description": "Calculé : coef × prix du terrain HT."
-          },
-          "fraisEnregistrementTva": {
-            "type": "number",
-            "description": "Calculé : frais d'enregistrement − HT."
-          },
-          "tauxAutresFraisTerrain": {
-            "type": "number",
-            "description": "Coef des autres frais de terrain (fraction du prix du terrain)."
-          },
-          "autresFraisTerrain": {
-            "type": "number",
-            "description": "Calculé : coef × prix du terrain (OtherCostsLand)."
-          },
-          "autresFraisTerrainHt": {
-            "type": "number",
-            "description": "Calculé : coef × prix HT (colonne OMRAN OtherCostsExecutionHT)."
-          },
-          "autresFraisTerrainTva": {
-            "type": "number",
-            "description": "Calculé : autres frais − HT (colonne OMRAN OtherCostsExecutionVatAmount)."
-          },
-          "coutTotalTerrain": {
-            "type": "number",
-            "description": "Calculé : autres frais + prix du terrain + frais d'enregistrement (TTC)."
-          },
-          "coutTotalTerrainHt": {
-            "type": "number",
-            "description": "Calculé : mêmes termes en HT (non stocké)."
-          },
-          "coutConstructionM2Bati": {
-            "type": "number",
-            "description": "Coût de construction du m² bâti."
-          },
-          "coutBati": {
-            "type": "number",
-            "description": "Calculé : coût du m² bâti × plancher couvert."
-          },
-          "coutConstructionM2NonBati": {
-            "type": "number",
-            "description": "Coût de construction du m² non bâti."
-          },
-          "coutNonBati": {
-            "type": "number",
-            "description": "Calculé : coût du m² non bâti × surface non bâtie."
-          },
-          "tauxAutresFraisExecution": {
-            "type": "number",
-            "description": "Coef des autres frais d'exécution."
-          },
-          "autresFraisExecution": {
-            "type": "number",
-            "description": "Calculé : coef × (coût bâti + coût non bâti)."
-          },
-          "debutAchatTerrain": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Début de l'achat du terrain : départ de toutes les phases."
-          },
-          "dureeAchatTerrain": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Durée de l'achat du terrain (mois)."
-          },
-          "finAchatTerrain": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : début + durée."
-          },
-          "delaiAchatTerrainPeriodeValidation": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Délai fin d'achat → début de la période de validation (mois)."
-          },
-          "debutPeriodeValidation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : fin d'achat + délai."
-          },
-          "dureePeriodeValidation": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Durée de la période de validation (mois)."
-          },
-          "finPeriodeValidation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : début + durée."
-          },
-          "delaiPeriodeValidationPermisBatir": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Délai fin de validation → début du permis de bâtir (mois)."
-          },
-          "debutPermisBatir": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : fin de validation + délai."
-          },
-          "dureePermisBatir": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Durée du permis de bâtir (mois)."
-          },
-          "finPermisBatir": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : début + durée."
-          },
-          "delaiPermisBatirEtudes": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Délai début du permis → début des études (mois)."
-          },
-          "debutEtudes": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : début du permis + délai."
-          },
-          "dureeEtudes": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Durée des études (mois)."
-          },
-          "finEtudes": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : début + durée."
-          },
-          "delaiPermisBatirTravaux": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Délai fin du permis → début des travaux (mois)."
-          },
-          "debutTravaux": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : fin du permis + délai."
-          },
-          "dureeTravaux": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Durée des travaux (mois)."
-          },
-          "finTravaux": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : début + durée."
-          },
-          "delaiTravauxConcretisation": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Délai début des travaux → début de la concrétisation (mois)."
-          },
-          "debutConcretisation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : début des travaux + délai."
-          },
-          "dureeConcretisation": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Durée de la concrétisation (mois)."
-          },
-          "finConcretisation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : début + durée."
-          },
-          "delaiTravauxFinalisation": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Délai fin des travaux → début de la finalisation (mois)."
-          },
-          "debutFinalisation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : fin des travaux + délai."
-          },
-          "dureeFinalisation": {
-            "type": "integer",
-            "format": "int32",
-            "description": "Durée de la finalisation (mois)."
-          },
-          "finFinalisation": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Calculé : début + durée."
-          },
-          "erreurs": {
-            "type": "array",
-            "description": "Messages Verif OMRAN, dans l'ordre ; vide dans la fiche (Verif passe à chaque écriture).",
-            "items": {
-              "type": "string"
             }
           }
         }
@@ -51213,6 +51473,10 @@
           "terrainLibelle": {
             "type": "string",
             "description": "Libellé du terrain (article TER), null si aucun."
+          },
+          "prospectionTerrainDescription": {
+            "type": "string",
+            "description": "Libellé de la prospection terrain liée (LndLand.Description), null si aucune."
           },
           "statutId": {
             "type": "string",
