@@ -48116,7 +48116,8 @@
             "type": "array",
             "description": "Formats d'export acceptés par /export.",
             "example": [
-              "xlsx"
+              "xlsx",
+              "pdf"
             ],
             "items": {
               "type": "string"
