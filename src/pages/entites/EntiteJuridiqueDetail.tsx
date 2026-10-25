@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 import { Landmark, Power } from 'lucide-react';
 import FicheEditable, { type ConfigFiche, type ContexteSaisie } from '../../components/entites/FicheEditable';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
+import ChampsSpecifiques from '../../components/patrimoine/ChampsSpecifiques';
 import OngletAudit from '../../components/patrimoine/OngletAudit';
 import { Badge, Card } from '../../components/ui';
 import {
@@ -84,7 +85,12 @@ export default function EntiteJuridiqueDetail() {
           libelle={entite.isActive ? 'Désactiver' : 'Activer'} icone={<Power data-icon="inline-start" />} />
       </>
     ),
-    pied: (entite) => <Card title="Audit"><OngletAudit id={entite.id} /></Card>,
+    pied: (entite) => (
+      <>
+        <Card title="Champs spécifiques"><ChampsSpecifiques porteur="entite" id={entite.id} /></Card>
+        <Card title="Audit"><OngletAudit id={entite.id} /></Card>
+      </>
+    ),
   };
 
   return <FicheEditable id={id} config={config} />;

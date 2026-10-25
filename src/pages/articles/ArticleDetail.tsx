@@ -20,6 +20,7 @@ import { deleteArticle } from '../../lib/apiPatrimoine';
 import { deleteSousArticle } from '../../lib/apiSousArticles';
 import { useConfirm } from '../../lib/confirmContext';
 import { grilleContenances, sourceContenances } from '../../lib/ongletsArticle';
+import ChampsSpecifiques from '../../components/patrimoine/ChampsSpecifiques';
 import { ongletsTransverses } from '../../lib/ongletsTransverses';
 import { useContenances } from '../../lib/referentiels';
 import { sectionsArticle, useListesFicheArticle } from '../../lib/saisieArticle';
@@ -175,6 +176,7 @@ export function FicheArticle({
           },
           { id: 'pieces', libelle: 'Pièces jointes', contenu: <PiecesJointesBloc porteur="articles" id={a.id} /> },
           { id: 'plan', libelle: 'Plan', contenu: <OngletPlanArticle articleId={a.id} /> },
+          { id: 'champs', libelle: 'Champs spécifiques', contenu: <ChampsSpecifiques porteur="article" id={a.id} /> },
           ...ongletsTransverses('article', a.id),
         ]}
       />
