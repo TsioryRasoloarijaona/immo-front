@@ -68,10 +68,6 @@
       "description": "Écran OMRAN « ENTITES JURIDIQUE » (CfgCompany) et répartition des parts ; écriture Administrateur."
     },
     {
-      "name": "Audit",
-      "description": "Journal d'audit OMRAN (AdmWebHistorics) des programmes, tranches, articles et entités juridiques."
-    },
-    {
       "name": "Référentiels du patrimoine",
       "description": "Listes de choix des fiches programme, tranche et article."
     },
@@ -210,6 +206,10 @@
     {
       "name": "Lotissements",
       "description": "Écran OMRAN « LOTISSEMENTS » en lecture : lots de terrain, c'est-à-dire terrains rattachés à une tranche et de\nvocation autre que PROJET. La fiche d'un lot est celle du terrain (`/api/terrains/{id}`)."
+    },
+    {
+      "name": "Audit",
+      "description": "Journal d'audit OMRAN (AdmWebHistorics) : patrimoine, entités juridiques, prospections terrain, études."
     },
     {
       "name": "Mon équipe",
@@ -7395,7 +7395,7 @@
         "tags": [
           "Notes"
         ],
-        "summary": "Notes d'un programme, d'une tranche ou d'un article, plus récentes d'abord",
+        "summary": "Notes d'un objet du patrimoine, d'une prospection terrain ou d'une étude, plus récentes d'abord",
         "operationId": "lister_5",
         "parameters": [
           {
@@ -31622,7 +31622,7 @@
           {
             "name": "objetId",
             "in": "query",
-            "description": "PKey de l'entité juridique (même inactive), du programme, de la tranche ou de l'article.",
+            "description": "PKey de l'entité (même inactive), du programme, de la tranche, de l'article, de la prospection ou de l'étude.",
             "required": true,
             "schema": {
               "type": "string",
@@ -31674,7 +31674,7 @@
             }
           },
           "404": {
-            "description": "Ni entité juridique, ni programme, tranche, article, étude visible, ni prospection terrain.",
+            "description": "Aucun objet visible : entité, programme, tranche, article, prospection, étude (Admin / DG).",
             "content": {
               "*/*": {
                 "schema": {
@@ -41033,7 +41033,7 @@
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "PKey du programme, de la tranche, de l'article ou de la prospection terrain."
+            "description": "PKey du programme, de la tranche, de l'article, de la prospection terrain ou de l'étude."
           },
           "texte": {
             "type": "string",
@@ -41053,7 +41053,7 @@
       },
       "NoteDto": {
         "type": "object",
-        "description": "Note d'un programme, d'une tranche, d'un article ou d'une prospection terrain (AdmMessage).",
+        "description": "Note d'un programme, d'une tranche, d'un article, d'une prospection terrain ou d'une étude (AdmMessage).",
         "properties": {
           "id": {
             "type": "string",
