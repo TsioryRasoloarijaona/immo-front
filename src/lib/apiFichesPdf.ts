@@ -5,3 +5,11 @@ import type { RessourceFichePdf } from '../types';
 export function fichePdf(ressource: RessourceFichePdf, id: string): Promise<Blob> {
   return fetchByteEndpointBlob(`${API_BASE_URL}/api/${ressource}/${encodeURIComponent(id)}/fiche.pdf`, 'application/pdf');
 }
+
+/** `GET /api/tranches/{id}/previsions-base/fiche.pdf` : visibilité des prévisions de base (404 sinon). */
+export function fichePrevisionsBase(trancheId: string): Promise<Blob> {
+  return fetchByteEndpointBlob(
+    `${API_BASE_URL}/api/tranches/${encodeURIComponent(trancheId)}/previsions-base/fiche.pdf`,
+    'application/pdf',
+  );
+}
