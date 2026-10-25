@@ -28,7 +28,7 @@ function Contenu({ descripteur, resultat, valeurs }: Readonly<{ descripteur: Des
   return <>{resultat.sections.map(rendreSection)}</>;
 }
 
-/** Filtres déduits du descripteur (valeurs dans l'URL), résultat du serveur, export Excel. */
+/** Filtres déduits du descripteur (valeurs dans l'URL), résultat du serveur, export Excel ou PDF. */
 export default function VisionneuseRapport({ descripteur }: Readonly<{ descripteur: DescripteurRapportDto }>) {
   const { module, code, parametres } = descripteur;
   const [recherche, setRecherche] = useSearchParams();
@@ -63,7 +63,7 @@ export default function VisionneuseRapport({ descripteur }: Readonly<{ descripte
     <PageShell
       title={titre}
       crumbs={[{ label: 'Rapports', to: cheminRapports(module) }, { label: titre }]}
-      actions={<BoutonExporter chemin={cheminExportRapport(module, code)} params={envoi} nomListe={code} disabled={!issue} />}
+      actions={<BoutonExporter chemin={cheminExportRapport(module, code)} params={envoi} nomListe={code} disabled={!issue} pdf={descripteur.formatsExport.includes('pdf')} />}
     >
       <div className="flex flex-col gap-4">
         <FiltresRapport
