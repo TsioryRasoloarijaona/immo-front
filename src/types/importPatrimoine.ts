@@ -1,7 +1,7 @@
-// DTO de FEATURE-patrimoine-import-export.md §1 (import Excel des articles / sous-articles), noms du fil.
+// DTO de FEATURE-patrimoine-import-export.md §1-§2 (import Excel du patrimoine), noms du fil.
 import type { UUID } from '../types';
 
-export type TypeImportPatrimoine = 'articles' | 'sous-articles';
+export type TypeImportPatrimoine = 'articles' | 'sous-articles' | 'presentations' | 'terrains' | 'previsions';
 
 export type ResultatImport = 'CREATION' | 'MISE_A_JOUR' | 'INCHANGEE' | 'ERREUR' | 'NON_VERIFIEE';
 
@@ -30,7 +30,8 @@ export interface BilanImportDto {
 
 export interface DemandeImportPatrimoine {
   type: TypeImportPatrimoine;
-  trancheId: UUID;
+  /** Obligatoire pour articles, sous-articles et prévisions (400 sinon) ; ignorée pour les autres types. */
+  trancheId?: UUID;
   fichier: File;
   /** Vrai = « Vérifier les données » : rien n'est écrit. */
   simulation: boolean;
