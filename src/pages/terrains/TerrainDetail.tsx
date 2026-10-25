@@ -4,6 +4,7 @@ import { ArrowLeft, Pencil, Plus, Trash2, Trees } from 'lucide-react';
 import CadreFiche from '../../components/CadreFiche';
 import FicheShell, { type OngletFiche } from '../../components/FicheShell';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
+import ChampsSpecifiques from '../../components/patrimoine/ChampsSpecifiques';
 import { SectionFiche } from '../../components/patrimoine/FicheSections';
 import BoutonImprimerFiche from '../../components/patrimoine/BoutonImprimerFiche';
 import FraisTerrain from '../../components/patrimoine/FraisTerrain';
@@ -99,6 +100,7 @@ function FicheTerrain({ id }: Readonly<{ id: string }>) {
     { id: 'notes', libelle: 'Notes', contenu: <PanneauNotes porteur="article" id={t.id} /> },
     { id: 'actions', libelle: 'Actions', contenu: <PanneauActions articleId={t.id} /> },
     { id: 'pieces', libelle: 'Pièces jointes', contenu: <PiecesJointesBloc porteur="articles" id={t.id} /> },
+    { id: 'champs', libelle: 'Champs spécifiques', contenu: <ChampsSpecifiques porteur="terrain" id={t.id} /> },
     { id: 'audit', libelle: 'Audit', contenu: <OngletAudit id={t.id} /> },
   ];
 

@@ -21,6 +21,7 @@ const RIEN = () => Promise.resolve();
 function EtudeExistante({ id }: Readonly<{ id: string }>) {
   const { data: fiche, error, refetch } = useApi(() => getEtudeFaisabilite(id), [id]);
   const [version, setVersion] = useState(0);
+  const [onglet, setOnglet] = useState('identite');
   const [erreurAction, setErreurAction] = useState<string | null>(null);
   const navigate = useNavigate();
   const confirm = useConfirm();
@@ -84,6 +85,7 @@ function EtudeExistante({ id }: Readonly<{ id: string }>) {
       )}
     >
       <OngletsEtude key={version} fiche={fiche} recharger={refetch} onEnregistre={() => void rafraichir()}
+        ongletInitial={onglet} onOngletChange={setOnglet}
         entete={erreurAction && <p role="alert" className="text-body text-destructive">{erreurAction}</p>} />
     </PageShell>
   );
