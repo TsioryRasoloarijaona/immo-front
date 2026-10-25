@@ -14,7 +14,8 @@ import type { EtudeFaisabiliteDto } from '../../types/faisabilite';
 export default function LienProspectionEtude({ fiche, lecture, recharger }: Readonly<{
   fiche: EtudeFaisabiliteDto;
   lecture: boolean;
-  recharger: () => Promise<void>;
+  /** Relit l'étude et repart d'un brouillon propre (les valeurs copiées remplacent la saisie). */
+  recharger: () => void;
 }>) {
   const confirm = useConfirm();
   const showToast = useToast();
@@ -32,7 +33,7 @@ export default function LienProspectionEtude({ fiche, lecture, recharger }: Read
       await appel();
       showToast(message);
       setChoix(null);
-      await recharger();
+      recharger();
     } catch (err) {
       setErreur(errorMessage(err));
     } finally {

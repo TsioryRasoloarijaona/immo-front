@@ -85,7 +85,7 @@ export default function OngletsEtude({ fiche, entete, recharger, onEnregistre }:
       champErreur={saisie.champErreur} messageErreur={saisie.erreur} />);
   const onglets: OngletFiche[] = [
     { id: 'identite', libelle: 'Identité', contenu: <div className="flex flex-col gap-3">{sections(SECTIONS_IDENTITE)}</div> },
-    { id: 'terrain', libelle: 'Terrain', contenu: <div className="flex flex-col gap-3">{fiche && <LienProspectionEtude fiche={fiche} lecture={lecture} recharger={recharger} />}{sections(SECTIONS_TERRAIN)}</div> },
+    { id: 'terrain', libelle: 'Terrain', contenu: <div className="flex flex-col gap-3">{fiche && <LienProspectionEtude fiche={fiche} lecture={lecture} recharger={onEnregistre} />}{sections(SECTIONS_TERRAIN)}</div> },
     {
       id: 'phases', libelle: 'Phases',
       contenu: (
