@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutGrid, Search } from 'lucide-react';
+import { LayoutGrid, Search, Upload } from 'lucide-react';
 import BoutonExporter from '../../components/BoutonExporter';
 import PageShell from '../../components/PageShell';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
@@ -75,6 +75,7 @@ export default function ProjetsList() {
         <div className="flex gap-2">
           <BoutonExporter pdf chemin="/api/projets/export" nomListe="projets"
             params={{ search: debouncedSearch || undefined, colonnes: colonnes.visibles }} />
+          <ActionAdmin to="/articles/import?type=projets" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />
           <ActionAdmin to="/projets/nouveau" libelle="Nouveau programme" />
         </div>
       }

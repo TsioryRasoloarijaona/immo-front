@@ -7,14 +7,17 @@ import { Badge, Card, EmptyState } from '../../components/ui';
 import { Button } from '../../components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { triggerBlobDownload } from '../../lib/api';
-import { importerPatrimoine, telechargerModeleImport } from '../../lib/apiImportPatrimoine';
+import { analyserImport, colonnesImport, importerPatrimoine, telechargerModeleImport } from '../../lib/apiImportPatrimoine';
 import { useAuth } from '../../lib/auth';
 import { formatNumber } from '../../lib/format';
-import { CONFIG_IMPORT, RESULTAT_IMPORT, typeImportDepuis } from '../../lib/importPatrimoine';
+import {
+  avecMapping, choixDepuisProposition, CONFIG_IMPORT, mappingDepuisChoix, pivotMappe, RESULTAT_IMPORT, typeImportDepuis, type ChoixMapping,
+} from '../../lib/importPatrimoine';
 import { useTranchesReferentiel } from '../../lib/referentiels';
 import { estAdministrateur } from '../../lib/roles';
 import { errorMessage } from '../../lib/useApi';
-import type { BilanImportDto, LigneBilanDto } from '../../types/importPatrimoine';
+import EtapeMapping from '../../components/import/EtapeMapping';
+import type { AnalyseImportDto, BilanImportDto, ColonneImportDto, LigneBilanDto } from '../../types/importPatrimoine';
 
 const COLONNES: ColonneLecture<LigneBilanDto>[] = [
   { titre: 'Ligne', rendu: (l) => formatNumber(l.numero), droite: true },
@@ -91,6 +94,13 @@ export default function ImportPatrimoine() {
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
+  const [analyse, setAnalyse] = useState<AnalyseImportDto | null>(null);
+  const [cibles, setCibles] = useState<ColonneImportDto[]>([]);
+  const [choix, setChoix] = useState<ChoixMapping>({});
+  const [feuille, setFeuille] = useState<string | undefined>(undefined);
+  const generique = avecMapping(type);
+  const mappingPret = !generique || (!!analyse && pivotMappe(cibles, choix));
+
   const itemsTranches = tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   const importable = !!bilan && bilan.simulation && bilan.erreurs === 0 && !enCours;
 
@@ -98,6 +108,31 @@ export default function ImportPatrimoine() {
     setFichier(f);
     setBilan(null);
     setErreur(null);
+    setAnalyse(null);
+    setFeuille(undefined);
+  }
+
+  async function analyser(feuilleChoisie?: string) {
+    if (!fichier || !avecMapping(type)) return;
+    setEnCours(true);
+    setErreur(null);
+    setBilan(null);
+    try {
+      const [a, colonnes] = await Promise.all([analyserImport(type, fichier, feuilleChoisie), colonnesImport(type)]);
+      setAnalyse(a);
+      setCibles(colonnes);
+      setChoix(choixDepuisProposition(a.mappingPropose));
+      setFeuille(a.feuille);
+    } catch (err) {
+      setErreur(errorMessage(err));
+    } finally {
+      setEnCours(false);
+    }
+  }
+
+  function choisirColonne(entete: string, rang: number) {
+    setChoix((c) => ({ ...c, [entete]: rang }));
+    setBilan(null);
   }
 
   function deposer(e: DragEvent<HTMLLabelElement>) {
@@ -110,7 +145,8 @@ export default function ImportPatrimoine() {
     setEnCours(true);
     setErreur(null);
     try {
-      setBilan(await importerPatrimoine({ type, trancheId: avecTranche ? (trancheId ?? undefined) : undefined, fichier, simulation }));
+      const mapping = generique ? mappingDepuisChoix(cibles, choix) : undefined;
+      setBilan(await importerPatrimoine({ type, trancheId: avecTranche ? (trancheId ?? undefined) : undefined, fichier, simulation, feuille, mapping }));
     } catch (err) {
       setErreur(errorMessage(err));
     } finally {
@@ -181,7 +217,22 @@ export default function ImportPatrimoine() {
               <input type="file" accept=".xlsx" className="hidden" onChange={(e) => choisir(e.target.files?.[0] ?? null)} />
             </label>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button type="button" size="sm" variant="outline" disabled={!pret || !fichier || enCours} onClick={() => void lancer(true)}>
+              {generique && (
+                <Button type="button" size="sm" variant="outline" disabled={!fichier || enCours} onClick={() => void analyser(feuille)}>
+                  Analyser le fichier
+                </Button>
+              )}
+              {analyse && analyse.feuilles.length > 1 && (
+                <Select items={analyse.feuilles.map((f) => ({ label: f, value: f }))} value={feuille ?? analyse.feuille} onValueChange={(v) => void analyser(v ?? undefined)}>
+                  <SelectTrigger size="sm" className="w-48" aria-label="Feuille"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {analyse.feuilles.map((f) => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              )}
+              <Button type="button" size="sm" variant="outline" disabled={!pret || !fichier || enCours || !mappingPret} onClick={() => void lancer(true)}>
                 {enCours && !importable ? 'Traitement en cours…' : 'Vérifier les données'}
               </Button>
               <Button type="button" size="sm" disabled={!importable} onClick={() => void lancer(false)}>
@@ -191,6 +242,7 @@ export default function ImportPatrimoine() {
             </div>
             {erreur && <p role="alert" className="mt-3 text-body text-destructive">{erreur}</p>}
           </Card>
+          {analyse && <EtapeMapping cibles={cibles} analyse={analyse} choix={choix} onChoix={choisirColonne} />}
           {bilan && <BilanCard key={`${bilan.simulation}-${bilan.lignesLues}`} bilan={bilan} />}
         </div>
       ) : (
