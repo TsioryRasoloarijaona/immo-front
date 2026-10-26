@@ -48,6 +48,10 @@
       "description": "Calendrier des visites techniques (bouton à gauche du champ « Visite technique / réception » de la fiche OMRAN). Une visite est un `AdmEvent` rattaché au dossier (`ComFolderId`) et à la tranche de son article (`CfgTrancheId`) ; les créneaux et le quota sont comptés par tranche."
     },
     {
+      "name": "Import du patrimoine",
+      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a), types de\nprésentation, terrains et prévisions de base de la tranche (P9b), et import générique avec mapping (P9e) des entités\njuridiques, programmes, tranches et prospections terrain. Chaque ligne passe par le service de l'écran (mêmes\nrègles, même audit) ; Administrateur seul."
+    },
+    {
       "name": "Études de faisabilité — bilan et trésorerie",
       "description": "Onglets « Bilan », « Analyse » et « Données » d'une étude. Le bilan est l'arbre des catégories de trésorerie\n(`StlCategory`) que l'utilisateur renseigne (`FSPrevision`) ; ses totaux donnent le coût global, le chiffre d'affaires,\nles marges et les retours de l'étude. Lecture et aperçus Administrateur + Direction Générale, écriture Administrateur ;\naucune clé d'API (403). Étude inconnue ou de société inactive → 404."
     },
@@ -174,10 +178,6 @@
     {
       "name": "Dossiers — cadeaux",
       "description": "Onglet « Cadeaux » de la fiche dossier (`ComFolderGift`) : cadeau du catalogue, prix, livré, disponibilité, raison, date du bon d'achat, date de livraison, note. Aide OMRAN : « Si la case livré est coché, le champ date livraison devient obligatoire » (400 sinon). Choisir un cadeau reprend son prix et sa disponibilité (quantités reçues − cadeaux livrés > 0, `FolderGift.cs:SetPrice`). Ajouter et supprimer demandent le droit OMRAN « toolAddDeleteGifts », ouvert ici aux rôles Administrateur et Commercial Chef ; la modification est ouverte au périmètre, mais seul ce droit change la raison. Chaque écriture signe le dossier."
-    },
-    {
-      "name": "Import du patrimoine",
-      "description": "Import Excel du patrimoine (« Importer » d'OMRAN, GEN0018) : articles et sous-articles d'une tranche (P9a), types de\nprésentation, terrains et prévisions de base de la tranche (P9b). Chaque ligne passe par le service de l'écran (mêmes\nrègles, même audit) ; Administrateur seul."
     },
     {
       "name": "Suivi des prévisions",
@@ -8101,7 +8101,7 @@
           "Import du patrimoine"
         ],
         "summary": "Importe un classeur .xlsx (simulation par défaut), tout ou rien",
-        "description": "Ligne 1 = en-têtes, puis une ligne de données par objet ; le **pivot** choisit création ou mise à jour (articles : code\ndans la tranche ; terrains : code du terrain dans l'entité de la ligne ; présentations : tranche + code). Colonne\nabsente ou cellule vide = champ intact (l'import ne vide jamais un champ, sauf une contenance de présentation à 0 ou\nvide, retirée). Nombres en cellule numérique ou en texte (`1 234,56`, `1234.56`) ; dates en cellule date ou\n`jj/mm/aaaa` ; cases `Oui/Non`, `Vrai/Faux`, `1/0`, `X`. TVA ou % de concrétisation supérieur à 1 lu en pourcentage\n(÷ 100, avertissement). Référentiels par code **ou** libellé (casse ignorée) sauf Orientation (code seul) et, pour les\narticles, Vocation, Type, Type présentation, Entité de gestion du syndic (code seul). Entité inactive = introuvable.\nEn-tête inconnu = avertissement « colonne ignorée ».\n\n`previsions` remplace toutes les lignes de la tranche en un seul appel (règles de `PUT /api/tranches/{id}/previsions-base`) :\nune ligne de bilan globale (pivot = code de la tranche) plus les erreurs de lecture par ligne ; l'en-tête existant est\ngardé, les colonnes facultatives de la première ligne le surchargent ; `Nombre d'articles` absent = valeur de la\ntranche si > 0, sinon stock de la tranche (avertissement).\n\nUne seule transaction : la moindre ligne en ERREUR, ou `simulation=true`, annule tout (`ecrit=false`, aucune trace\nd'audit). Les messages d'erreur métier sont ceux des écrans.\n\nRefus du fichier entier (400) : `trancheId` absent pour articles, sous-articles ou prévisions (« Vous devez sélectionner\nune Tranche ! »), format `.xls` (« enregistrez le fichier au format .xlsx »), contenu non ZIP, archive corrompue ou\npiégée (bombe, entrée géante, DTD), plus de 1 000 lignes de données, aucune feuille, feuille demandée absente, aucune\ndonnée, en-tête en double.",
+        "description": "Ligne 1 = en-têtes, puis une ligne de données par objet ; le **pivot** choisit création ou mise à jour (articles : code\ndans la tranche ; terrains : code du terrain dans l'entité de la ligne ; présentations : tranche + code). Colonne\nabsente ou cellule vide = champ intact (l'import ne vide jamais un champ, sauf une contenance de présentation à 0 ou\nvide, retirée). Nombres en cellule numérique ou en texte (`1 234,56`, `1234.56`) ; dates en cellule date ou\n`jj/mm/aaaa` ; cases `Oui/Non`, `Vrai/Faux`, `1/0`, `X`. TVA ou % de concrétisation supérieur à 1 lu en pourcentage\n(÷ 100, avertissement). Référentiels par code **ou** libellé (casse ignorée) sauf Orientation (code seul) et, pour les\narticles, Vocation, Type, Type présentation, Entité de gestion du syndic (code seul). Entité inactive = introuvable.\nEn-tête inconnu = avertissement « colonne ignorée ».\n\n`previsions` remplace toutes les lignes de la tranche en un seul appel (règles de `PUT /api/tranches/{id}/previsions-base`) :\nune ligne de bilan globale (pivot = code de la tranche) plus les erreurs de lecture par ligne ; l'en-tête existant est\ngardé, les colonnes facultatives de la première ligne le surchargent ; `Nombre d'articles` absent = valeur de la\ntranche si > 0, sinon stock de la tranche (avertissement).\n\nUne seule transaction : la moindre ligne en ERREUR, ou `simulation=true`, annule tout (`ecrit=false`, aucune trace\nd'audit). Les messages d'erreur métier sont ceux des écrans.\n\nRefus du fichier entier (400) : `trancheId` absent pour articles, sous-articles ou prévisions (« Vous devez sélectionner\nune Tranche ! »), format `.xls` (« enregistrez le fichier au format .xlsx »), contenu non ZIP, archive corrompue ou\npiégée (bombe, entrée géante, DTD), plus de 1 000 lignes de données, aucune feuille, feuille demandée absente, aucune\ndonnée, en-tête en double.\n\n**Types à mapping** (`entites-juridiques`, `projets`, `tranches`, `prospections-terrain`) : `mapping` (JSON\n`MappingImportDto`, tel que proposé par `/analyse` ou corrigé) dit quelle colonne du fichier alimente quelle cible ;\nabsent = mapping proposé par les en-têtes. Pivot = `code`, comparé sans casse : trouvé = mise à jour (seules les colonnes\nmappées non vides sont écrites), absent = création. Références par code ou libellé, sans casse, parmi les objets\nvisibles (une entité inactive, un programme d'entité inactive sont « inexistents ») ; code répété dans le fichier =\nseconde ligne en erreur ; une entité existante inactive n'est pas modifiée. Le programme d'une tranche existante ne\nchange pas (avertissement) ; une prospection terrain garde son statut et son archivage. 400 en plus : mapping illisible,\npivot non mappé (« Il faut définir les pivots et effectuer leurs mapping ! »), cible ou colonne inconnue, cible mappée\ndeux fois, plus de 100 colonnes mappées, colonne « Active » d'une entité mappée ou simplement présente dans le fichier\n(même vide, même non mappée), `mapping` envoyé pour un type sans mapping.",
         "operationId": "importer_2",
         "parameters": [
           {
@@ -8116,7 +8116,11 @@
                 "sous-articles",
                 "presentations",
                 "terrains",
-                "previsions"
+                "previsions",
+                "entites-juridiques",
+                "projets",
+                "tranches",
+                "prospections-terrain"
               ]
             }
           },
@@ -8144,6 +8148,15 @@
             "name": "feuille",
             "in": "query",
             "description": "Nom de la feuille à lire ; absent = la première.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mapping",
+            "in": "query",
+            "description": "Champ du formulaire : MappingImportDto en JSON (types à mapping) ; absent = en-têtes.",
             "required": false,
             "schema": {
               "type": "string"
@@ -8181,13 +8194,92 @@
             }
           },
           "400": {
-            "description": "Fichier refusé en entier (voir la description) ; rien n'est lu."
+            "description": "Fichier ou mapping refusé en entier (voir la description) ; rien n'est écrit."
           },
           "403": {
             "description": "L'appelant n'a pas le rôle Administrateur."
           },
           "404": {
             "description": "Type inconnu, ou tranche inconnue ou d'une entité inactive."
+          },
+          "413": {
+            "description": "Fichier de plus de 10 Mo."
+          }
+        }
+      }
+    },
+    "/api/import-patrimoine/{type}/analyse": {
+      "post": {
+        "tags": [
+          "Import du patrimoine"
+        ],
+        "summary": "Lit un classeur et propose un mapping, sans rien écrire",
+        "description": "Lit le classeur comme l'import (mêmes refus 400 / 413), sans rien écrire et sans garder d'état : feuilles, en-têtes,\nmapping proposé (en-tête = libellé cible après trim, sans casse), cinq premières lignes et avertissements (colonnes\nignorées, en-têtes inconnus). « Active » d'une entité n'est jamais proposée (indexColonne -1, avertissement) : le\nfichier qui la porte sera refusé à l'import, il faut retirer la colonne.",
+        "operationId": "analyser",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "description": "Type importé.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "entites-juridiques",
+                "projets",
+                "tranches",
+                "prospections-terrain"
+              ]
+            }
+          },
+          {
+            "name": "feuille",
+            "in": "query",
+            "description": "Nom de la feuille à lire ; absent = la première.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fichier": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Classeur .xlsx (10 Mo, 1 000 lignes de données au plus)."
+                  }
+                },
+                "required": [
+                  "fichier"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Feuilles, en-têtes, mapping proposé, aperçu, avertissements.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyseImportDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Fichier refusé en entier (mêmes motifs que l'import)."
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Type inconnu ou sans mapping (articles, sous-articles, présentations…)."
           },
           "413": {
             "description": "Fichier de plus de 10 Mo."
@@ -25610,7 +25702,7 @@
           "Import du patrimoine"
         ],
         "summary": "Classeur modèle pré-rempli (lignes de la tranche, terrains visibles ou présentations)",
-        "description": "En-têtes OMRAN exacts, une ligne par objet existant, puis une feuille d'aide par référentiel (Code, Libellé).\n`articles` / `sous-articles` : lignes de la tranche, nom `<code tranche>_STOCK_ARTICLES_<horodatage>.xlsx` ou\n`…_STOCK_SOUS_ARTICLES_…`. `presentations` : feuille `TYPES_PRESENTATION` (Tranche, Code, Description, une colonne par\ncontenance) des tranches visibles, feuille `PROJETS` ; sans `trancheId`. `terrains` : feuille `STOCK_TERRAINS`\npré-remplie avec les terrains visibles (au-delà de 1 000, en-têtes seuls), nom `STOCK_TERRAINS_<horodatage>.xlsx` ; sans\n`trancheId`. `previsions` : feuille `PREVISIONS` pré-remplie avec les lignes de la tranche (`trancheId` obligatoire).\nRéimporter le modèle tel quel donne des lignes INCHANGEE (prévisions : MISE_A_JOUR, les lignes étant toutes remplacées).",
+        "description": "En-têtes OMRAN exacts, une ligne par objet existant, puis une feuille d'aide par référentiel (Code, Libellé).\n`articles` / `sous-articles` : lignes de la tranche, nom `<code tranche>_STOCK_ARTICLES_<horodatage>.xlsx` ou\n`…_STOCK_SOUS_ARTICLES_…`. `presentations` : feuille `TYPES_PRESENTATION` (Tranche, Code, Description, une colonne par\ncontenance) des tranches visibles, feuille `PROJETS` ; sans `trancheId`. `terrains` : feuille `STOCK_TERRAINS`\npré-remplie avec les terrains visibles (au-delà de 1 000, en-têtes seuls), nom `STOCK_TERRAINS_<horodatage>.xlsx` ; sans\n`trancheId`. `previsions` : feuille `PREVISIONS` pré-remplie avec les lignes de la tranche (`trancheId` obligatoire).\nRéimporter le modèle tel quel donne des lignes INCHANGEE (prévisions : MISE_A_JOUR, les lignes étant toutes remplacées).\n`entites-juridiques`, `projets`, `tranches`, `prospections-terrain` : une ligne d'en-têtes (colonnes non ignorées du\ncatalogue `/colonnes`, sans « Active » pour les entités), aucune ligne pré-remplie, puis une feuille d'aide par\nréférentiel (entités actives seulement, programmes de ces entités) ; sans `trancheId`.",
         "operationId": "modele",
         "parameters": [
           {
@@ -25625,7 +25717,11 @@
                 "sous-articles",
                 "presentations",
                 "terrains",
-                "previsions"
+                "previsions",
+                "entites-juridiques",
+                "projets",
+                "tranches",
+                "prospections-terrain"
               ]
             }
           },
@@ -25660,6 +25756,54 @@
           },
           "404": {
             "description": "Type inconnu, ou tranche inconnue ou d'une entité inactive."
+          }
+        }
+      }
+    },
+    "/api/import-patrimoine/{type}/colonnes": {
+      "get": {
+        "tags": [
+          "Import du patrimoine"
+        ],
+        "summary": "Colonnes cibles d'un type à mapping (écran de mapping)",
+        "description": "Catalogue de l'écran de mapping : une ligne par colonne OMRAN exportable (`DisplayName`). `pivot` = la seule colonne de\nrapprochement (`code`) ; `ignoree` = colonne acceptée dans le fichier mais sans champ chez nous (avertissement à\nl'import) ; `reference` = référentiel lu par code ou libellé, sans casse. La colonne « Active » des entités figure au\ncatalogue mais est **refusée** à l'import (400) : elle masque ou rend visible tout le contenu de l'entité.",
+        "operationId": "colonnes_3",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "path",
+            "description": "Type importé.",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "entites-juridiques",
+                "projets",
+                "tranches",
+                "prospections-terrain"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Catalogue, dans l'ordre des colonnes OMRAN.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ColonneImportDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "L'appelant n'a pas le rôle Administrateur."
+          },
+          "404": {
+            "description": "Type inconnu ou sans mapping (articles, sous-articles, présentations…)."
           }
         }
       }
@@ -42018,6 +42162,91 @@
           }
         }
       },
+      "AnalyseImportDto": {
+        "type": "object",
+        "description": "Lecture d'un classeur avant import : rien n'est écrit, le serveur ne garde aucun état.",
+        "properties": {
+          "feuilles": {
+            "type": "array",
+            "description": "Noms des feuilles du classeur, dans l'ordre.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "feuille": {
+            "type": "string",
+            "description": "Feuille lue (demandée, sinon la première)."
+          },
+          "entetes": {
+            "type": "array",
+            "description": "En-têtes non vides de la feuille, dans l'ordre ; leur rang est l'indexColonne du mapping.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mappingPropose": {
+            "$ref": "#/components/schemas/MappingImportDto",
+            "description": "Mapping proposé : en-tête = libellé cible après trim, sans casse."
+          },
+          "apercu": {
+            "type": "array",
+            "description": "Cinq premières lignes de données, une valeur texte par en-tête (\"\" = cellule vide).",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "avertissements": {
+            "type": "array",
+            "description": "Colonnes ignorées ou refusées (« Active » d'une entité) : à lire avant d'importer.",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ColonneMappeeDto": {
+        "type": "object",
+        "description": "Colonne cible et colonne du fichier qui l'alimente.",
+        "properties": {
+          "entete": {
+            "type": "string",
+            "description": "Libellé de la colonne cible (ColonneImportDto.entete).",
+            "example": "Forme juridique"
+          },
+          "indexColonne": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Rang (0 = premier) de la colonne du fichier dans AnalyseImportDto.entetes ; -1 = non mappée.",
+            "example": 2
+          },
+          "propriete": {
+            "type": "string",
+            "description": "Propriété cible (ColonneImportDto.propriete).",
+            "example": "formeJuridique"
+          }
+        }
+      },
+      "MappingImportDto": {
+        "type": "object",
+        "description": "Mapping des colonnes du fichier vers les colonnes cibles, proposé par l'analyse puis renvoyé à l'import.",
+        "properties": {
+          "pivot": {
+            "type": "string",
+            "description": "Propriété pivot (rapprochement création / mise à jour) ; seule valeur admise : code.",
+            "example": "code"
+          },
+          "colonnes": {
+            "type": "array",
+            "description": "Une ligne par colonne cible ; 100 colonnes mappées au plus, une cible mappée une fois.",
+            "items": {
+              "$ref": "#/components/schemas/ColonneMappeeDto"
+            }
+          }
+        }
+      },
       "GroupeActionnairesEcritureDto": {
         "type": "object",
         "description": "Création ou modification d'un groupe ; en PATCH, absent ou null = inchangé (lignes comprises).",
@@ -51916,6 +52145,51 @@
             "type": "string",
             "description": "Résultat du dernier contact, qui dit l'intention (visite, rappel…).",
             "example": "Rendez vous pris"
+          }
+        }
+      },
+      "ColonneImportDto": {
+        "type": "object",
+        "description": "Colonne cible d'un import avec mapping (entités, programmes, tranches, prospections terrain).",
+        "properties": {
+          "propriete": {
+            "type": "string",
+            "description": "Champ du DTO d'écriture de l'écran ; null si la colonne est ignorée.",
+            "example": "formeJuridique"
+          },
+          "entete": {
+            "type": "string",
+            "description": "Libellé OMRAN de la colonne (DisplayName), en-tête attendu dans le fichier.",
+            "example": "Forme juridique"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type de la valeur lue.",
+            "enum": [
+              "TEXTE",
+              "ENTIER",
+              "DECIMAL",
+              "DATE",
+              "BOOLEEN",
+              "REFERENCE"
+            ]
+          },
+          "pivot": {
+            "type": "boolean",
+            "description": "Vrai pour la colonne de rapprochement (le code), qui doit être mappée."
+          },
+          "obligatoire": {
+            "type": "boolean",
+            "description": "Vrai si la colonne est exigée à la création (règle du service de l'écran)."
+          },
+          "ignoree": {
+            "type": "boolean",
+            "description": "Vrai : colonne OMRAN acceptée dans le fichier mais non gérée par l'écran (avertissement)."
+          },
+          "reference": {
+            "type": "string",
+            "description": "Référentiel d'une colonne REFERENCE (valeur lue par code ou libellé, sans casse) ; null sinon.",
+            "example": "PAYS"
           }
         }
       },

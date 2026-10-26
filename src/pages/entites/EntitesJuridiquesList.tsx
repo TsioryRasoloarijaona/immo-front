@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Landmark, Search } from 'lucide-react';
+import { Landmark, Search, Upload } from 'lucide-react';
 import BoutonExporter from '../../components/BoutonExporter';
+import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import ColumnSelector from '../../components/ColumnSelector';
 import ListeAdmin from '../../components/entites/ListeAdmin';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
@@ -82,6 +83,7 @@ export default function EntitesJuridiquesList() {
       icon={<Landmark />}
       chemin="/entites-juridiques"
       libelleNouveau="Nouvelle entité"
+      actionsPlus={<ActionAdmin to="/articles/import?type=entites-juridiques" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />}
       etat={etat}
       colonnes={grille}
       filtre={recherche !== '' || actif !== 'tous'}

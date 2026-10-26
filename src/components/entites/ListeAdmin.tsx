@@ -8,8 +8,10 @@ import type { ApiState } from '../../lib/useApi';
 
 /** Liste non paginée (entités, actionnaires, groupes) : création réservée à l'Administrateur. */
 export default function ListeAdmin<T extends { id: string; code?: string; description?: string }>({
-  titre, icon, chemin, libelleNouveau, etat, colonnes, filtres, outils, filtre = false,
+  titre, icon, chemin, libelleNouveau, etat, colonnes, filtres, outils, filtre = false, actionsPlus,
 }: Readonly<{
+  /** Boutons placés avant la création. */
+  actionsPlus?: ReactNode;
   titre: string;
   icon: ReactNode;
   /** `/actionnaires` : fiche `<chemin>/<id>`, création `<chemin>/nouveau`. */
@@ -26,7 +28,7 @@ export default function ListeAdmin<T extends { id: string; code?: string; descri
   const { data, loading, error } = etat;
   return (
     <PageShell title={titre} crumbs={[{ label: 'Patrimoine' }, { label: titre }]} icon={icon} fullHeight
-      actions={<ActionAdmin to={`${chemin}/nouveau`} libelle={libelleNouveau} />}>
+      actions={<div className="flex gap-2">{actionsPlus}<ActionAdmin to={`${chemin}/nouveau`} libelle={libelleNouveau} /></div>}>
       <div className="flex h-full min-h-0 flex-col gap-3">
         {filtres && <div className="flex shrink-0 flex-wrap items-center gap-2">{filtres}</div>}
         {loading && !data && <LoadingState />}

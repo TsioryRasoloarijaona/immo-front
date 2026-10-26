@@ -1,7 +1,57 @@
 // DTO de FEATURE-patrimoine-import-export.md §1-§2 (import Excel du patrimoine), noms du fil.
 import type { UUID } from '../types';
 
-export type TypeImportPatrimoine = 'articles' | 'sous-articles' | 'presentations' | 'terrains' | 'previsions';
+/** Types à mapping (FEATURE-patrimoine-import-generique.md) : `/colonnes`, `/analyse`, champ `mapping` de l'import. */
+export type TypeImportGenerique = 'entites-juridiques' | 'projets' | 'tranches' | 'prospections-terrain';
+
+export type TypeImportPatrimoine =
+  | 'articles'
+  | 'sous-articles'
+  | 'presentations'
+  | 'terrains'
+  | 'previsions'
+  | TypeImportGenerique;
+
+export type TypeColonneImport = 'TEXTE' | 'ENTIER' | 'DECIMAL' | 'DATE' | 'BOOLEEN' | 'REFERENCE';
+
+export interface ColonneImportDto {
+  /** Champ du DTO d'écriture ; null si la colonne est ignorée. */
+  propriete: string | null;
+  /** Libellé OMRAN, en-tête attendu dans le fichier. */
+  entete: string;
+  type: TypeColonneImport;
+  /** Vrai pour le code (seul pivot), qui doit être mappé. */
+  pivot: boolean;
+  obligatoire: boolean;
+  /** Colonne acceptée mais non gérée par l'écran (avertissement). */
+  ignoree: boolean;
+  /** Référentiel d'une colonne REFERENCE ; null sinon. */
+  reference: string | null;
+}
+
+export interface ColonneMappeeDto {
+  /** Libellé de la colonne cible. */
+  entete: string;
+  /** Rang dans `AnalyseImportDto.entetes` ; -1 = non mappée. */
+  indexColonne: number;
+  propriete: string | null;
+}
+
+export interface MappingImportDto {
+  /** Toujours `code`. */
+  pivot: string;
+  colonnes: ColonneMappeeDto[];
+}
+
+export interface AnalyseImportDto {
+  feuilles: string[];
+  feuille: string;
+  entetes: string[];
+  mappingPropose: MappingImportDto;
+  /** Cinq premières lignes, une valeur par en-tête ("" = vide). */
+  apercu: string[][];
+  avertissements: string[];
+}
 
 export type ResultatImport = 'CREATION' | 'MISE_A_JOUR' | 'INCHANGEE' | 'ERREUR' | 'NON_VERIFIEE';
 
@@ -36,4 +86,6 @@ export interface DemandeImportPatrimoine {
   /** Vrai = « Vérifier les données » : rien n'est écrit. */
   simulation: boolean;
   feuille?: string;
+  /** Types à mapping seulement ; absent = en-têtes du fichier = libellés cibles. */
+  mapping?: MappingImportDto;
 }

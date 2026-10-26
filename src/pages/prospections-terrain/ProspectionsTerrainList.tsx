@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapPinned, Search } from 'lucide-react';
+import { MapPinned, Search, Upload } from 'lucide-react';
 import BoutonExporter from '../../components/BoutonExporter';
 import ColumnSelector from '../../components/ColumnSelector';
 import DataGrid from '../../components/DataGrid';
@@ -102,6 +102,7 @@ export default function ProspectionsTerrainList() {
         <div className="flex gap-2">
           <BoutonExporter pdf chemin="/api/prospections-terrain/export" nomListe="prospections-terrain"
             params={{ ...filtres, colonnes: colonnes.visibles }} />
+          <ActionAdmin to="/articles/import?type=prospections-terrain" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />
           <ActionAdmin to="/terrains-prospection/nouveau" libelle="Nouvelle prospection" />
         </div>
       }

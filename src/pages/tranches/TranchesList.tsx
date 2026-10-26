@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Search } from 'lucide-react';
+import { Building2, Search, Upload } from 'lucide-react';
 import BoutonExporter from '../../components/BoutonExporter';
 import PageShell from '../../components/PageShell';
 import Pagination from '../../components/Pagination';
@@ -52,6 +52,7 @@ export default function TranchesList() {
         <div className="flex gap-2">
           <BoutonExporter pdf chemin="/api/tranches/export" nomListe="tranches" disabled={colonnes.visibles.length === 0}
             params={{ search: debouncedSearch || undefined, colonnes: colonnes.visibles }} />
+          <ActionAdmin to="/articles/import?type=tranches" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />
           <ActionAdmin to="/tranches/nouveau" libelle="Nouvelle tranche" />
         </div>
       }
