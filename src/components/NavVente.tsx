@@ -17,6 +17,7 @@ import {
   Link2,
   ListChecks,
   Map,
+  Percent,
   Phone,
   Sun,
   Target,
@@ -124,6 +125,7 @@ function groupesVente(user: Utilisateur, terrain: boolean): Groupe[] {
         { to: '/encaissements', libelle: 'Encaissements', icone: <Wallet style={{ color: 'var(--sec-dossier)' }} /> },
         { to: '/impayes', libelle: 'Impayés', icone: <CircleAlert style={{ color: 'var(--sec-dossier)' }} /> },
         { to: '/desistements', libelle: 'Désistements', icone: <FolderX style={{ color: 'var(--sec-dossier)' }} /> },
+        { to: '/commissions', libelle: 'Commissions', icone: <Percent style={{ color: 'var(--sec-dossier)' }} /> },
       ],
     },
   ];

@@ -24,6 +24,10 @@
       "description": "Onglet Contenances de l'article et types de présentation de sa tranche."
     },
     {
+      "name": "Commissions",
+      "description": "Commissions des vendeurs — l'écran « Commissions » d'OMRAN Estate (`F_0249`), par tranche. Une ligne de commission (`ComCommissionLine`) se calcule dossier par dossier depuis les règles de l'onglet « Commissions vendeur » de la tranche (`ComSalesCommission`, jamais modifiées ici). Voir `instructions/FEATURE-vente-commissions.md`.\n\n**Droits** : lus dans `AdmRight` à chaque appel (rôles de `AdmUserRole`, jamais le jeton). Lire exige `Yes.Com.Front.Commission.CommissionList` ; générer, modifier un montant et générer un document à payer exigent en plus `…CommissionList.toolNew` ; supprimer `…toolDelete` ; exporter `…toolPrint`. Un droit absent = 403. **Visibilité** : tranche d'une entité inactive ou hors périmètre commercial, et tout dossier ou ligne de cette tranche → 404."
+    },
+    {
       "name": "Dossiers — actions",
       "description": "Onglet « Actions » du dossier de vente (règle GEN0005 d'OMRAN) et instructions adressées au commercial du dossier. Les actions sont des `ComActionMessage` rattachées au dossier par `ComFolderId` ; leur catégorie est déduite du statut du dossier (Réservation → « Dossier de vente (Réservation) », Annulation ou Désistement → « Désistement et annulation », tout autre statut → « Dossier de vente (Livraison) »), comme `Sale.cs:AttachNotes`. Toute écriture signe le dossier (`UserUpdate`, `UserUpdateDateTime`)."
     },
@@ -2847,6 +2851,62 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/commissions/lignes/{ligneId}/montant": {
+      "put": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "Modifie le montant d'une ligne sans document à payer",
+        "description": "Le montant garde le signe du type : positif, négatif pour un désistement ; zéro refusé (400). Une ligne avec un document à payer est figée (409).",
+        "operationId": "modifierMontant",
+        "parameters": [
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "Id de la ligne de commission (ComCommissionLine).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModifierMontantCommissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "La ligne relue.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/LigneCommissionCalculeeDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Droit AdmRight absent pour l'action."
+          },
+          "404": {
+            "description": "Tranche, dossier ou ligne inconnu ou hors périmètre."
+          },
+          "409": {
+            "description": "Conflict"
           }
         }
       }
@@ -12673,6 +12733,140 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/commissions/tranches/{trancheId}/generation": {
+      "post": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "Génère un type de commission pour des dossiers de la tranche",
+        "description": "Calcule et écrit une ligne par dossier et par personne. Personne : commercial (concrétisation), gestionnaire (finalisation 1), gestionnaire 2 (finalisation 2). Règle : celle de la tranche, sans employé de support, dont la fenêtre `StartDate` / `EndDate` contient la date du fait (bornes incluses), la plus spécifique (commercial, action commerciale de la prospection, catégorie de l'article) ; à égalité, fenêtre à deux bornes, puis début seul, fin seule, aucune, puis la plus ancienne. Montant : fixe, ou pourcentage (ratio) × prix de vente TTC sans arrondi ; colonnes « Extern » pour un prestataire. Désistement : une reprise négative par ligne d'origine non encore reprise, datée de l'annulation. Un dossier sans personne, sans date, sans règle, à montant nul, déjà généré ou déjà désisté est **ignoré** (listé dans `ignores`), jamais doublé.",
+        "operationId": "genererLignes",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenererCommissionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Lignes créées et dossiers ignorés.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultatGenerationDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Type inconnu, plus de 500 dossiers, dossier d'une autre tranche, ou finalisation sans statut configuré dans la tranche (ou statut sans date) : rien n'est écrit, message OMRAN."
+          },
+          "403": {
+            "description": "Droit AdmRight absent pour l'action."
+          },
+          "404": {
+            "description": "Tranche, dossier ou ligne inconnu ou hors périmètre."
+          }
+        }
+      }
+    },
+    "/api/commissions/lignes/suppression": {
+      "post": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "Supprime des lignes de commission, tout ou rien",
+        "description": "Tout ou rien : une seule ligne avec un document à payer (409) ou hors périmètre (404) et rien n'est supprimé.",
+        "operationId": "supprimerLignes",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LignesCommissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Lignes supprimées."
+          },
+          "400": {
+            "description": "Plus de 500 lignes."
+          },
+          "403": {
+            "description": "Droit AdmRight absent pour l'action."
+          },
+          "404": {
+            "description": "Tranche, dossier ou ligne inconnu ou hors périmètre."
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/api/commissions/documents-a-payer": {
+      "post": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "Génère le document à payer d'un commercial pour les lignes choisies",
+        "description": "Un document `BuyDocument` (`INVOICE`, `SALE_COMMISSION`, entité `ComInvoiceDebitCommission`, module COM, code de la séquence « Facture fournisseur ») pour une seule personne : une ligne de document par ligne de commission, ventilation par projet de facturation (`CfgTranche.PrjProjectId`, « Projet de facturation des dépenses » de la tranche) au prorata des montants, historique de statut, puis `BuyDocumentId` posé sur chaque ligne. Tout est contrôlé avant la première écriture, dans une seule transaction.",
+        "operationId": "genererDocument",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LignesCommissionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Le document créé.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentCommissionDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Aucune ligne, une tranche sans projet de facturation, ou somme nulle."
+          },
+          "403": {
+            "description": "Droit AdmRight absent pour l'action."
+          },
+          "404": {
+            "description": "Tranche, dossier ou ligne inconnu ou hors périmètre."
+          },
+          "409": {
+            "description": "Lignes de plusieurs personnes, ou ligne déjà affectée à un document."
           }
         }
       }
@@ -32040,6 +32234,519 @@
         }
       }
     },
+    "/api/commissions/tranches": {
+      "get": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "Tranches visibles avec leurs soldes de commission",
+        "description": "Tranches en vente visibles de l'appelant. `recherche` : chaque mot (espaces ignorés) doit apparaître dans le code ou le libellé. Soldes (`montantGenere`, `montantRegle`, `montantReste`) : mêmes calculs que l'en-tête, les lignes et le rapport n° 34. Ventes (`vendus`, `restants`, `caStock`, `caRealise`, `caReste`) : calcul de valorisation des rapports de vente (articles VENTE, dossiers ni annulés ni désistés), pas la vue OMRAN `StkTrancheValorisation`.",
+        "operationId": "tranches_1",
+        "parameters": [
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Recherche multi-critère sur le code et le libellé, espaces ignorés.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tranches triées par code.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CommissionTrancheDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit AdmRight absent pour l'action."
+          }
+        }
+      }
+    },
+    "/api/commissions/tranches/{trancheId}": {
+      "get": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "En-tête d'une tranche : soldes de commission et ventes",
+        "operationId": "tranche",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "La tranche.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommissionTrancheDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit AdmRight absent pour l'action."
+          },
+          "404": {
+            "description": "Tranche, dossier ou ligne inconnu ou hors périmètre."
+          }
+        }
+      }
+    },
+    "/api/commissions/tranches/{trancheId}/lignes": {
+      "get": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "Lignes de commission de la tranche",
+        "description": "Lignes de la tranche ; `type` filtre le type stocké (variantes « (support) » non filtrables), `du` / `au` la date de la ligne, `commercialId` la personne, `dossier` le N° de dossier. `regle` d'une ligne documentée = réglé du document (règlements annulés exclus) × montant de la ligne / Σ des lignes du document.",
+        "operationId": "lignes_1",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Type : dossiers ayant la date du type, ou lignes du type.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CONCRETISATION",
+                "FINALISATION_1",
+                "FINALISATION_2",
+                "DESISTEMENT"
+              ]
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date du type (ou de la ligne) à partir de ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2024-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date du type (ou de la ligne) jusqu'à ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2024-12-31"
+          },
+          {
+            "name": "commercialId",
+            "in": "query",
+            "description": "Commercial, gestionnaire ou gestionnaire 2 du dossier ; pour une ligne, la personne.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "dossier",
+            "in": "query",
+            "description": "Partie du N° de dossier.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes triées par date puis dossier.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/LigneCommissionCalculeeDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit AdmRight absent pour l'action."
+          },
+          "404": {
+            "description": "Tranche, dossier ou ligne inconnu ou hors périmètre."
+          }
+        }
+      }
+    },
+    "/api/commissions/tranches/{trancheId}/lignes/export": {
+      "get": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "Export Excel des lignes de la tranche (mêmes filtres que la liste)",
+        "operationId": "exporterLignes",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Type : dossiers ayant la date du type, ou lignes du type.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CONCRETISATION",
+                "FINALISATION_1",
+                "FINALISATION_2",
+                "DESISTEMENT"
+              ]
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date du type (ou de la ligne) à partir de ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2024-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date du type (ou de la ligne) jusqu'à ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2024-12-31"
+          },
+          {
+            "name": "commercialId",
+            "in": "query",
+            "description": "Commercial, gestionnaire ou gestionnaire 2 du dossier ; pour une ligne, la personne.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "dossier",
+            "in": "query",
+            "description": "Partie du N° de dossier.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit AdmRight absent pour l'action."
+          },
+          "404": {
+            "description": "Tranche, dossier ou ligne inconnu ou hors périmètre."
+          }
+        }
+      }
+    },
+    "/api/commissions/tranches/{trancheId}/factures": {
+      "get": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "Documents à payer liés aux lignes de la tranche",
+        "operationId": "factures",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Documents triés par code.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentCommissionDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit AdmRight absent pour l'action."
+          },
+          "404": {
+            "description": "Tranche, dossier ou ligne inconnu ou hors périmètre."
+          }
+        }
+      }
+    },
+    "/api/commissions/tranches/{trancheId}/dossiers": {
+      "get": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "Dossiers de vente de la tranche et leurs commissions par type",
+        "description": "Tous les dossiers de vente de la tranche, sans statut compris. `type` garde les dossiers qui ont la date de ce type (concrétisation = `AdvanceDate`, finalisation 1 / 2 = colonne date du statut configuré dans la tranche, désistement = `CancelDate`) ; `du` / `au` bornent cette date (jours inclus). Sans `type`, `du` / `au` portent sur la date de concrétisation. `commercialId` : commercial, gestionnaire ou gestionnaire 2.",
+        "operationId": "dossiersDeLaTranche",
+        "parameters": [
+          {
+            "name": "trancheId",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Type : dossiers ayant la date du type, ou lignes du type.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CONCRETISATION",
+                "FINALISATION_1",
+                "FINALISATION_2",
+                "DESISTEMENT"
+              ]
+            }
+          },
+          {
+            "name": "du",
+            "in": "query",
+            "description": "Date du type (ou de la ligne) à partir de ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2024-01-01"
+          },
+          {
+            "name": "au",
+            "in": "query",
+            "description": "Date du type (ou de la ligne) jusqu'à ce jour inclus.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2024-12-31"
+          },
+          {
+            "name": "commercialId",
+            "in": "query",
+            "description": "Commercial, gestionnaire ou gestionnaire 2 du dossier ; pour une ligne, la personne.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "dossier",
+            "in": "query",
+            "description": "Partie du N° de dossier.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dossiers triés par N°.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DossierCommissionDto"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit AdmRight absent pour l'action."
+          },
+          "404": {
+            "description": "Tranche, dossier ou ligne inconnu ou hors périmètre."
+          }
+        }
+      }
+    },
+    "/api/commissions/tranches/export": {
+      "get": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "Export Excel de la liste des tranches",
+        "operationId": "exporterTranches",
+        "parameters": [
+          {
+            "name": "recherche",
+            "in": "query",
+            "description": "Recherche multi-critère, comme la liste.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Classeur .xlsx.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit AdmRight absent pour l'action."
+          }
+        }
+      }
+    },
+    "/api/commissions/lignes/{ligneId}/document-a-payer": {
+      "get": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "Document à payer d'une ligne",
+        "operationId": "documentDeLigne",
+        "parameters": [
+          {
+            "name": "ligneId",
+            "in": "path",
+            "description": "Id de la ligne de commission (ComCommissionLine).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Le document.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentCommissionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Droit AdmRight absent pour l'action."
+          },
+          "404": {
+            "description": "Ligne inconnue ou hors périmètre, ou « Cette ligne n'a pas encore un document à payer! »."
+          }
+        }
+      }
+    },
+    "/api/commissions/droits": {
+      "get": {
+        "tags": [
+          "Commissions"
+        ],
+        "summary": "Droits de l'appelant sur l'écran : écriture, suppression, impression",
+        "operationId": "droits_1",
+        "responses": {
+          "200": {
+            "description": "Trois booléens.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/DroitsCommissionDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Rôle sans l'écran Commissions."
+          }
+        }
+      }
+    },
     "/api/commerciaux": {
       "get": {
         "tags": [
@@ -35813,6 +36520,103 @@
           "libelle": {
             "type": "string",
             "description": "« Tiers => Tranche => Article », libellé d'OMRAN (« Non affecté » sans tranche)."
+          }
+        }
+      },
+      "ModifierMontantCommissionRequest": {
+        "type": "object",
+        "description": "Nouveau montant : positif, ou négatif pour un désistement ; zéro refusé.",
+        "properties": {
+          "montant": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "montant"
+        ]
+      },
+      "LigneCommissionCalculeeDto": {
+        "type": "object",
+        "description": "Ligne de commission calculée (ComCommissionLine).",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du fait (concrétisation, finalisation ou annulation)."
+          },
+          "type": {
+            "type": "string",
+            "description": "Libellé stocké : Concrétisation, Finalisation 1, Finalisation 2, Désistement, ou variante (support).",
+            "example": "Concrétisation"
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant ; négatif pour un désistement."
+          },
+          "modeCalcul": {
+            "type": "string",
+            "description": "Mode de calcul : « Montant » ou « 0.03 % du prix de vente TTC »."
+          },
+          "dossierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dossierCode": {
+            "type": "string"
+          },
+          "client": {
+            "type": "string"
+          },
+          "articleCode": {
+            "type": "string"
+          },
+          "article": {
+            "type": "string",
+            "description": "Libellé de l'article."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Catégorie de l'article."
+          },
+          "tranche": {
+            "type": "string",
+            "description": "Libellé de la tranche."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Statut actuel du dossier."
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Personne commissionnée (commercial ou gestionnaire)."
+          },
+          "commercial": {
+            "type": "string"
+          },
+          "regle": {
+            "type": "number",
+            "description": "Part réglée de la ligne : réglé du document au prorata du montant de ses lignes."
+          },
+          "reste": {
+            "type": "number",
+            "description": "montant − regle."
+          },
+          "documentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Document à payer ; null si aucun."
+          },
+          "documentCode": {
+            "type": "string"
+          },
+          "modifiable": {
+            "type": "boolean",
+            "description": "Faux si la ligne a un document à payer : montant et suppression refusés."
           }
         }
       },
@@ -45206,6 +46010,168 @@
             "items": {
               "$ref": "#/components/schemas/DocumentAJoindreDto"
             }
+          }
+        }
+      },
+      "GenererCommissionsRequest": {
+        "type": "object",
+        "description": "Génération d'un type de commission pour des dossiers de la tranche.",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "CONCRETISATION",
+              "FINALISATION_1",
+              "FINALISATION_2",
+              "DESISTEMENT"
+            ]
+          },
+          "dossierIds": {
+            "type": "array",
+            "description": "Dossiers de la tranche du chemin, 500 au plus.",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 500,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "dossierIds",
+          "type"
+        ]
+      },
+      "DossierIgnoreDto": {
+        "type": "object",
+        "description": "Dossier sans ligne générée ; ce n'est pas une erreur.",
+        "properties": {
+          "dossierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dossierCode": {
+            "type": "string"
+          },
+          "raison": {
+            "type": "string",
+            "enum": [
+              "SANS_PERSONNE",
+              "SANS_DATE",
+              "SANS_REGLE",
+              "MONTANT_NUL",
+              "DEJA_GENERE",
+              "DOSSIER_DESISTE",
+              "SANS_COMMISSION_A_REPRENDRE",
+              "NON_DESISTE"
+            ]
+          },
+          "libelle": {
+            "type": "string",
+            "description": "Raison en clair."
+          }
+        }
+      },
+      "ResultatGenerationDto": {
+        "type": "object",
+        "description": "Résultat d'une génération : lignes écrites et dossiers ignorés avec leur raison.",
+        "properties": {
+          "creees": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LigneCommissionCalculeeDto"
+            }
+          },
+          "ignores": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DossierIgnoreDto"
+            }
+          }
+        }
+      },
+      "LignesCommissionRequest": {
+        "type": "object",
+        "description": "Lignes de commission visées, 500 au plus.",
+        "properties": {
+          "ligneIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 500,
+            "minItems": 0
+          }
+        },
+        "required": [
+          "ligneIds"
+        ]
+      },
+      "DocumentCommissionDto": {
+        "type": "object",
+        "description": "Document à payer d'un commercial (BuyDocument SALE_COMMISSION) et ses lignes de commission.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "description": "Code du document (séquence « Facture fournisseur »).",
+            "example": "27/03014"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Tiers du document : la personne commissionnée."
+          },
+          "commercial": {
+            "type": "string"
+          },
+          "montant": {
+            "type": "number",
+            "description": "Montant TTC du document ; Σ des lignes visibles si une ligne est d'une tranche invisible."
+          },
+          "regle": {
+            "type": "number",
+            "description": "Réglé du document (annulés exclus) ; au prorata des lignes visibles si le document est partiel."
+          },
+          "reste": {
+            "type": "number",
+            "description": "montant − regle."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Statut du document."
+          },
+          "lignes": {
+            "type": "array",
+            "description": "Lignes de commission du document visibles de l'appelant.",
+            "items": {
+              "$ref": "#/components/schemas/LigneDocumentCommissionDto"
+            }
+          }
+        }
+      },
+      "LigneDocumentCommissionDto": {
+        "type": "object",
+        "description": "Ligne de commission portée par le document.",
+        "properties": {
+          "ligneId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "libelle": {
+            "type": "string",
+            "description": "« {type} du dossier N° {code} »."
+          },
+          "montant": {
+            "type": "number"
           }
         }
       },
@@ -54665,6 +55631,207 @@
           "libelle": {
             "type": "string",
             "description": "Libellé OMRAN (DisplayName)."
+          }
+        }
+      },
+      "CommissionTrancheDto": {
+        "type": "object",
+        "description": "Tranche de l'écran Commissions : ventes et soldes de commission.",
+        "properties": {
+          "trancheId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "description": "Code de la tranche."
+          },
+          "description": {
+            "type": "string",
+            "description": "Libellé de la tranche."
+          },
+          "vendus": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Vendu nombre : articles racines vendus (dossier ni annulé ni désisté)."
+          },
+          "restants": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Reste nombre : articles racines libres."
+          },
+          "montantGenere": {
+            "type": "number",
+            "description": "Somme des lignes de commission de la tranche, désistements (négatifs) compris."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Part réglée des documents à payer, au prorata des lignes (règlements annulés exclus)."
+          },
+          "montantReste": {
+            "type": "number",
+            "description": "montantGenere − montantRegle."
+          },
+          "caStock": {
+            "type": "number",
+            "description": "C.A. Stock : Σ prix de vente des articles VENTE de la tranche."
+          },
+          "caRealise": {
+            "type": "number",
+            "description": "C.A. Réalisé : Σ prix des dossiers ni annulés ni désistés."
+          },
+          "caReste": {
+            "type": "number",
+            "description": "C.A. Reste : caStock − caRealise."
+          }
+        }
+      },
+      "DossierCommissionDto": {
+        "type": "object",
+        "description": "Dossier de vente de l'onglet Dossiers, avec ses commissions par type.",
+        "properties": {
+          "dossierId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "description": "N° du dossier."
+          },
+          "statut": {
+            "type": "string",
+            "description": "Statut du dossier ; null si sans statut."
+          },
+          "articleCode": {
+            "type": "string"
+          },
+          "article": {
+            "type": "string",
+            "description": "Libellé de l'article."
+          },
+          "categorie": {
+            "type": "string",
+            "description": "Catégorie de l'article."
+          },
+          "client": {
+            "type": "string"
+          },
+          "commercialId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commercial": {
+            "type": "string"
+          },
+          "commercialExterne": {
+            "type": "boolean",
+            "description": "Le commercial est un prestataire (CfgTier.IsExtern)."
+          },
+          "gestionnaireId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gestionnaire": {
+            "type": "string"
+          },
+          "gestionnaireExterne": {
+            "type": "boolean",
+            "description": "Le gestionnaire est un prestataire."
+          },
+          "gestionnaire2Id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "gestionnaire2": {
+            "type": "string"
+          },
+          "gestionnaire2Externe": {
+            "type": "boolean",
+            "description": "Le gestionnaire 2 est un prestataire."
+          },
+          "prospection": {
+            "type": "string",
+            "description": "Code de la prospection du dossier."
+          },
+          "dateConcretisation": {
+            "type": "string",
+            "format": "date",
+            "description": "Date de concrétisation (AdvanceDate)."
+          },
+          "dateEnregistrementContrat": {
+            "type": "string",
+            "format": "date",
+            "description": "Date minute / Enregistrement du contrat (AgreementSavingDate)."
+          },
+          "dateEnvoiNotaire": {
+            "type": "string",
+            "format": "date",
+            "description": "Date envoi au notaire / avocat (AgreementDate)."
+          },
+          "dateAnnulation": {
+            "type": "string",
+            "format": "date",
+            "description": "Date annulation / résiliation (CancelDate)."
+          },
+          "dateFinalisation1": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du statut de finalisation 1 de la tranche ; null si non configurée."
+          },
+          "dateFinalisation2": {
+            "type": "string",
+            "format": "date",
+            "description": "Date du statut de finalisation 2 de la tranche ; null si non configurée."
+          },
+          "prixVenteTtc": {
+            "type": "number",
+            "description": "Prix de vente TTC (PriceAfterDiscount)."
+          },
+          "commissionConcretisation": {
+            "type": "number",
+            "description": "Σ des lignes Concrétisation."
+          },
+          "commissionFinalisation1": {
+            "type": "number",
+            "description": "Σ des lignes Finalisation 1."
+          },
+          "commissionFinalisation2": {
+            "type": "number",
+            "description": "Σ des lignes Finalisation 2."
+          },
+          "commissionDesistement": {
+            "type": "number",
+            "description": "Σ des lignes Désistement (négative)."
+          },
+          "montantRegle": {
+            "type": "number",
+            "description": "Part réglée des commissions du dossier."
+          },
+          "montantAPayer": {
+            "type": "number",
+            "description": "Σ de toutes les commissions du dossier."
+          },
+          "montantReste": {
+            "type": "number",
+            "description": "montantAPayer − montantRegle."
+          }
+        }
+      },
+      "DroitsCommissionDto": {
+        "type": "object",
+        "description": "Droits de l'appelant sur l'écran Commissions, lus dans AdmRight à l'appel.",
+        "properties": {
+          "ecriture": {
+            "type": "boolean",
+            "description": "Générer, modifier un montant, document à payer."
+          },
+          "suppression": {
+            "type": "boolean",
+            "description": "Supprimer des lignes."
+          },
+          "impression": {
+            "type": "boolean",
+            "description": "Exporter."
           }
         }
       },
