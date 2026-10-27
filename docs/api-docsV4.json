@@ -168,6 +168,10 @@
       "description": "Onglet « Financement » d'une étude (OMRAN « Déblocage de crédit » `FSFunding`, « Remboursement de crédit »\n`FSReimbursement`). Lecture Administrateur + Direction Générale, écriture et génération Administrateur ; aucune clé\nd'API (403 `HORS_PORTEE`). Étude inconnue ou de société inactive → 404 ; étude bloquée → 409 sur le PUT."
     },
     {
+      "name": "Impressions de la tranche",
+      "description": "Impressions du menu « Imprimer » de la fiche tranche propres à la tranche : la Relance 2 par statut (gabarit OMRAN\n`CfgTrancheFicheRelance2`). La « Fiche de réservation » de ce menu n'a pas de route ici : l'écran fait choisir un dossier\nde la tranche puis ouvre `GET /api/dossiers/{id}/documents/fiche-reservation`. Lecture seule : aucune écriture.\nRéservé à Administrateur et Direction Générale (403 avant tout autre refus) ; clé d'API : 403 `HORS_PORTEE`."
+    },
+    {
       "name": "Dossiers — réinitialisation",
       "description": "Bouton « Réinitialiser » de la fiche dossier : « Le système recharge les données de l'article et des sous articles à partir du module stock » (aide OMRAN). Pour l'article : superficie, taux de TVA et prix du m² HT ; pour chaque sous-article : superficie, TVA, prix avant remise HT et descriptifs (code, description, adresse, contenance, catégorie, type, étage, bâtiment…). Comme `Sale.cs:Reinitialise`, les sous-articles du stock (`StkItem.ParentId` = article) absents du dossier sont d'abord ajoutés (ligne `ComFolderItem`, sous-article affecté au dossier) et listés dans `sousArticlesAjoutes` ; un sous-article déjà affecté à un autre dossier n'est pas pris. Puis la remise est recalculée comme `Sale.cs:RecalcDiscount` : le montant de remise HT est conservé, le taux change (« Montant remise / Total HT »), et les prix après remise suivent. Le schéma de financement n'est pas modifié ; une valeur absente du stock laisse celle du dossier. Réservé au rôle Administrateur."
     },
@@ -17720,6 +17724,107 @@
         }
       }
     },
+    "/api/tranches/{id}/relances-2/apercu": {
+      "get": {
+        "tags": [
+          "Impressions de la tranche"
+        ],
+        "summary": "Aperçu de la Relance 2 par statut : lettres par acquéreur, montants, dossiers écartés",
+        "description": "Une seule sélection, partagée avec le PDF : dossiers dont l'**article** (sous-article compris) est dans la tranche, au\nstatut `CONCRETISATION`, `MEILLEURTAUX`, `ENVOI AU NOTAIRE`, `CREDIT EN COURS` ou `CREDIT ACCORDE` (ou au sous-ensemble\n`statut`), avec un client principal. Une lettre par acquéreur : le client principal, puis chaque co-acquéreur\n(`ComFolderCustomer`) par nom ; tous reçoivent les montants du dossier. Montants = onglet Montants du dossier\n(`prixVente`) : `prixRegle + reste = prixVente`. Un dossier au reste ≤ 0 n'a pas de lettre et va dans `ecartes`.\nOrdre des `lignes` = ordre des pages : code d'article (tri naturel), dossier, principal avant co-acquéreurs.\n`dossiers` et `parStatut[].dossiers` comptent les écartés ; `lettres` non.",
+        "operationId": "apercu_2",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Code de statut à retenir, répétable, parmi les 5 de la Relance 2 ; absent = les 5.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "CONCRETISATION"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "Un `statut` hors des 5 codes de la Relance 2."
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée."
+          },
+          "404": {
+            "description": "Tranche inconnue ou d'une entité inactive."
+          }
+        }
+      }
+    },
+    "/api/tranches/{id}/relances-2.pdf": {
+      "get": {
+        "tags": [
+          "Impressions de la tranche"
+        ],
+        "summary": "Lettres de Relance 2 (PDF inline), une page par acquéreur",
+        "description": "Une page par ligne de l'aperçu, rendue par le modèle de document actif `RELANCE_TITRE_FONCIER / RELANCE_2` (texte à\nrédiger dans les modèles de documents), sinon par le texte livré. Le reste imprimé est `reste.prix` (reste du prix de\nvente), jamais `reste.total`. Date de la lettre (`lettre.date`) = `Revival2` du dossier, sinon la date du jour.\nFichier `relance2_<codeTranche>_<aaaammjj>.pdf`.",
+        "operationId": "lettres",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Id de la tranche (CfgTranche.PKey).",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "statut",
+            "in": "query",
+            "description": "Code de statut à retenir, répétable, parmi les 5 de la Relance 2 ; absent = les 5.",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "example": "CONCRETISATION"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF.",
+            "content": {
+              "application/pdf": {}
+            }
+          },
+          "400": {
+            "description": "Un `statut` hors des 5 codes de la Relance 2."
+          },
+          "403": {
+            "description": "Rôle requis : Administrateur ou Direction Générale ; clé d'API : hors portée."
+          },
+          "404": {
+            "description": "Tranche inconnue ou d'une entité inactive."
+          },
+          "409": {
+            "description": "Aucun dossier de la tranche n'a un statut à relancer, ou tous les dossiers retenus ont un reste du prix ≤ 0."
+          }
+        }
+      }
+    },
     "/api/tranches/{id}/previsions-base/stock": {
       "get": {
         "tags": [
@@ -17845,7 +17950,7 @@
         ],
         "summary": "Aperçu des premières relances : dossiers retenus, nouvelle échéance, alertes à créer",
         "description": "Ne lit que la base. Échéance = `Revival1Date` de la tranche + `AgreementFirstDelay` jours (absent = 0 jour, signalé dans\n`avertissement`). `alerte` est vrai quand l'échéance actuelle du dossier (`Revival1ValidityDate`) diffère de la nouvelle\n**et** que le dossier a une prospection : c'est exactement ce que le POST créera.",
-        "operationId": "apercu_2",
+        "operationId": "apercu_3",
         "parameters": [
           {
             "name": "id",
@@ -17878,7 +17983,7 @@
         ],
         "summary": "Lettres de 1re relance (PDF inline), une page par dossier relancé",
         "description": "Une page par dossier de la sélection portant déjà `Revival1`, rendue par le modèle de document actif\n`RELANCE_TITRE_FONCIER / PREMIERE_RELANCE` (texte modifiable dans les modèles de documents). Restes dus prix, frais\n(échéances exclues du prix) et total : même calcul que l'onglet Montants du dossier, règlements annulés exclus. Refus :\ntranche sans date de 1re relance (400), aucun dossier relancé (400 « Aucun dossier à imprimer »).",
-        "operationId": "lettres",
+        "operationId": "lettres_1",
         "parameters": [
           {
             "name": "id",
@@ -29660,7 +29765,7 @@
           "Dossiers — réinitialisation"
         ],
         "summary": "Aperçu de la réinitialisation depuis le stock (avant / après), sans rien écrire",
-        "operationId": "apercu_3",
+        "operationId": "apercu_4",
         "parameters": [
           {
             "name": "id",
