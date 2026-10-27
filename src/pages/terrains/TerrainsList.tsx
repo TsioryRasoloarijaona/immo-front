@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Trees, Upload } from 'lucide-react';
+import { FileImage, Paperclip, Search, Trees, Upload } from 'lucide-react';
 import BoutonExporter from '../../components/BoutonExporter';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import PageShell from '../../components/PageShell';
 import Pagination from '../../components/Pagination';
 import ActionAdmin from '../../components/patrimoine/ActionAdmin';
+import ImportPlanDialog from '../../components/patrimoine/ImportPlanDialog';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { DEFAULT_PAGE_SIZE } from '../../lib/api';
 import { listTerrains } from '../../lib/apiTerrains';
 import { formatNumber, formatSurface } from '../../lib/format';
-import { referentielItems, useEntitesReferentiel } from '../../lib/referentiels';
+import { referentielItems, useEntitesReferentiel, useTranchesFiltre } from '../../lib/referentiels';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
 import type { ReferentielItemDto } from '../../types';
 import type { TerrainListeDto } from '../../types/terrains';
@@ -46,15 +47,21 @@ export default function TerrainsList({ liste = 'terrains' }: Readonly<{ liste?: 
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [entiteId, setEntiteId] = useState<string | null>(null);
+  const [trancheId, setTrancheId] = useState<string | null>(null);
+  const [planOuvert, setPlanOuvert] = useState(false);
   const debouncedSearch = useDebouncedValue(search);
   const entites = useEntitesReferentiel();
+  const tranches = useTranchesFiltre();
   const societes = [{ label: 'Toutes les sociétés', value: null }, ...referentielItems(entites.data)];
+  const itemsTranches = [{ label: 'Toutes les tranches', value: null }, ...referentielItems(tranches.data)];
+  const filtres = { search: debouncedSearch || undefined, entiteId: entiteId ?? undefined, trancheId: lotissements ? (trancheId ?? undefined) : undefined };
   const { data, loading, error } = useApi(
-    () => listTerrains(liste, { search: debouncedSearch || undefined, entiteId: entiteId ?? undefined }, { page, size: DEFAULT_PAGE_SIZE }),
-    [liste, debouncedSearch, entiteId, page],
+    () => listTerrains(liste, filtres, { page, size: DEFAULT_PAGE_SIZE }),
+    [liste, debouncedSearch, entiteId, trancheId, page],
   );
   const rows = data?.content ?? [];
-  const filtre = !!search || entiteId !== null;
+  const filtre = !!search || entiteId !== null || trancheId !== null;
+  const sansTranche = trancheId === null;
 
   return (
     <PageShell
@@ -66,9 +73,23 @@ export default function TerrainsList({ liste = 'terrains' }: Readonly<{ liste?: 
       actions={
         <div className="flex gap-2">
           <BoutonExporter pdf chemin={`/api/${liste}/export`} nomListe={liste}
-            params={{ search: debouncedSearch || undefined, entiteId: entiteId ?? undefined, colonnes: colonnes(lotissements).map((c) => c.nom) }} />
-          {!lotissements && <ActionAdmin to="/articles/import?type=terrains" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />}
-          {!lotissements && <ActionAdmin to="/terrains/nouveau" libelle="Nouveau terrain" />}
+            params={{ ...filtres, colonnes: colonnes(lotissements).map((c) => c.nom) }} />
+          {lotissements ? (
+            <>
+              <ActionAdmin to={`/articles/attachement-masse?trancheId=${trancheId}&nature=TER`} libelle="Fichiers attachés" variant="outline"
+                icone={<Paperclip data-icon="inline-start" />} disabled={sansTranche} />
+              <ActionAdmin onClick={() => setPlanOuvert(true)} libelle="Importer plans" variant="outline"
+                icone={<FileImage data-icon="inline-start" />} disabled={sansTranche} />
+              <ActionAdmin to={`/articles/import?type=lotissements&trancheId=${trancheId}`} libelle="Importer" variant="outline"
+                icone={<Upload data-icon="inline-start" />} disabled={sansTranche} />
+              <ActionAdmin to={trancheId ? `/lotissements/nouveau?trancheId=${trancheId}` : '/lotissements/nouveau'} libelle="Nouveau" />
+            </>
+          ) : (
+            <>
+              <ActionAdmin to="/articles/import?type=terrains" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />
+              <ActionAdmin to="/terrains/nouveau" libelle="Nouveau terrain" />
+            </>
+          )}
         </div>
       }
       fullHeight
@@ -100,7 +121,27 @@ export default function TerrainsList({ liste = 'terrains' }: Readonly<{ liste?: 
               </SelectGroup>
             </SelectContent>
           </Select>
+          {lotissements && (
+            <>
+              <Select items={itemsTranches} value={trancheId}
+                onValueChange={(v) => {
+                  setPage(0);
+                  setTrancheId(v);
+                }}>
+                <SelectTrigger aria-label="Tranche" className="w-56"><SelectValue placeholder="Toutes les tranches" /></SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {itemsTranches.map((t) => <SelectItem key={t.value ?? ''} value={t.value}>{t.label}</SelectItem>)}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              {sansTranche && <span className="text-label text-muted-foreground">Vous devez sélectionner une Tranche !</span>}
+            </>
+          )}
         </div>
+        {planOuvert && trancheId && (
+          <ImportPlanDialog trancheId={trancheId} onClose={() => setPlanOuvert(false)} onImporte={() => setPlanOuvert(false)} />
+        )}
 
         {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}
@@ -117,7 +158,7 @@ export default function TerrainsList({ liste = 'terrains' }: Readonly<{ liste?: 
                   cleOrdre={liste}
                   rows={rows}
                   colonnes={colonnes(lotissements)}
-                  onOuvrir={(id) => navigate(`/terrains/${id}`)}
+                  onOuvrir={(id) => navigate(`/${lotissements ? 'lotissements' : 'terrains'}/${id}`)}
                   libelleLigne={(t) => `Ouvrir la fiche de ${t.code ?? ''}`.trim()}
                 />
               </div>

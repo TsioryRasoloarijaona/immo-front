@@ -1,4 +1,5 @@
 import { useState, type DragEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Paperclip, Upload } from 'lucide-react';
 import PageShell from '../../components/PageShell';
 import SaisiePieceChamps from '../../components/patrimoine/SaisiePieceChamps';
@@ -30,7 +31,8 @@ const COLONNES_BILAN: ColonneLecture<BilanAttachementDto>[] = [
 export default function AttachementMasse() {
   const { user } = useAuth();
   const tranches = useTranchesReferentiel();
-  const [trancheId, setTrancheId] = useState<string | null>(null);
+  const [params] = useSearchParams();
+  const [trancheId, setTrancheId] = useState<string | null>(params.get('trancheId'));
   const [saisie, setSaisie] = useState<SaisiePieceJointe>({});
   const [fichiers, setFichiers] = useState<File[]>([]);
   const [bilan, setBilan] = useState<BilanAttachementDto[]>([]);

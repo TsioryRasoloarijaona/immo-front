@@ -26,6 +26,7 @@ export const CONFIG_IMPORT: Record<TypeImportPatrimoine, ConfigImport> = {
   articles: { libelle: 'articles', liste: { libelle: 'Articles', to: '/articles' }, tranche: true, suffixe: 'ARTICLES', aide: 'de la tranche (pré-rempli avec ses articles)' },
   'sous-articles': { libelle: 'sous-articles', liste: { libelle: 'Sous-articles', to: '/sous-articles' }, tranche: true, suffixe: 'SOUS_ARTICLES', aide: 'de la tranche (pré-rempli avec ses sous-articles)' },
   terrains: { libelle: 'terrains', liste: { libelle: 'Terrains', to: '/terrains' }, tranche: false, suffixe: 'TERRAINS', aide: '(pré-rempli avec les terrains visibles)' },
+  lotissements: { libelle: 'lotissements', liste: { libelle: 'Lotissements', to: '/lotissements' }, tranche: true, suffixe: 'LOTISSEMENTS', aide: 'de la tranche (pré-rempli avec ses lots)' },
   presentations: {
     libelle: 'types de présentation', liste: { libelle: 'Référentiels', to: '/configuration/referentiels/types-presentation' },
     tranche: false, suffixe: 'TYPES_PRESENTATION', aide: '(pré-rempli avec les types existants)',

@@ -74,7 +74,7 @@ const compteurs = ([fil, nom]: readonly [string, string]): ChampDef[] => [
 ];
 
 /** Sections de la fiche après l'identité (onglets OMRAN Superficies / Valorisation, foncier, Autres, Anomalie). */
-const SECTIONS_FICHE: SectionSaisie[] = [
+export const SECTIONS_FICHE: SectionSaisie[] = [
   {
     titre: 'Superficies',
     champs: [
