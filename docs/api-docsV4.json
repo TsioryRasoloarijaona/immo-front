@@ -46135,11 +46135,11 @@
           },
           "montant": {
             "type": "number",
-            "description": "Montant TTC du document."
+            "description": "Montant TTC du document ; Σ des lignes visibles si une ligne est d'une tranche invisible."
           },
           "regle": {
             "type": "number",
-            "description": "Σ des règlements du document, annulés exclus."
+            "description": "Réglé du document (annulés exclus) ; au prorata des lignes visibles si le document est partiel."
           },
           "reste": {
             "type": "number",
@@ -46151,7 +46151,7 @@
           },
           "lignes": {
             "type": "array",
-            "description": "Lignes de commission du document.",
+            "description": "Lignes de commission du document visibles de l'appelant.",
             "items": {
               "$ref": "#/components/schemas/LigneDocumentCommissionDto"
             }
