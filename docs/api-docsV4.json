@@ -43302,16 +43302,16 @@
           },
           "cpfImmatriculation": {
             "type": "string",
-            "description": "ImmatriculationCPF."
+            "description": "ImmatriculationCPF : C.P.F. de l'immatriculation."
           },
           "dateImmatriculation": {
             "type": "string",
             "format": "date-time",
-            "description": "ImmatriculationDate."
+            "description": "ImmatriculationDate : date d'immatriculation."
           },
           "titreFoncierMere": {
             "type": "string",
-            "description": "TitleNumberMother : titre foncier mère."
+            "description": "TitleNumberMother : n° du titre foncier mère."
           },
           "intituleTitreFoncier": {
             "type": "string",
@@ -43324,11 +43324,11 @@
           },
           "proprieteDite": {
             "type": "string",
-            "description": "PropertyCalled : propriété dite."
+            "description": "PropertyCalled : « propriété dite »."
           },
           "fractionDivise": {
             "type": "string",
-            "description": "FractionDivided : fraction divise."
+            "description": "FractionDivided : n° de fraction divise."
           },
           "fractionDiviseTerrain": {
             "type": "string",
@@ -43336,15 +43336,15 @@
           },
           "partiesDivises": {
             "type": "number",
-            "description": "DividedPart : parties divises, ≥ 0."
+            "description": "DividedPart : parties divises, positif ou nul."
           },
           "partiesIndivises": {
             "type": "number",
-            "description": "UndividedPart : parties indivises, ≥ 0."
+            "description": "UndividedPart : parties indivises, positif ou nul."
           },
           "quotaTerrainGroupe": {
             "type": "string",
-            "description": "GroupLandQuota : quota du terrain du groupe."
+            "description": "GroupLandQuota : quota du terrain de groupe."
           },
           "notesTitreFoncier": {
             "type": "string",
@@ -43352,51 +43352,51 @@
           },
           "referenceElectricite": {
             "type": "string",
-            "description": "ElectricityRef (50 caractères au plus, comme chaque compteur)."
+            "description": "ElectricityRef : référence du compteur d'électricité. Chaque champ de compteur fait 50 caractères au plus."
           },
           "policeElectricite": {
             "type": "string",
-            "description": "ElectricityMeterPolice."
+            "description": "ElectricityMeterPolice : n° de police électricité."
           },
           "compteurElectricite": {
             "type": "string",
-            "description": "ElectricityMeter."
+            "description": "ElectricityMeter : n° du compteur d'électricité."
           },
           "releveElectricite": {
             "type": "string",
-            "description": "ElectricityMeterIndex."
+            "description": "ElectricityMeterIndex : arrêté du compteur d'électricité."
           },
           "referenceEau": {
             "type": "string",
-            "description": "WaterRef."
+            "description": "WaterRef : référence du compteur d'eau."
           },
           "policeEau": {
             "type": "string",
-            "description": "WaterMeterPolice."
+            "description": "WaterMeterPolice : n° de police eau."
           },
           "compteurEau": {
             "type": "string",
-            "description": "WaterMeter."
+            "description": "WaterMeter : n° du compteur d'eau."
           },
           "releveEau": {
             "type": "string",
-            "description": "WaterMeterIndex."
+            "description": "WaterMeterIndex : arrêté du compteur d'eau."
           },
           "referenceGaz": {
             "type": "string",
-            "description": "GasRef."
+            "description": "GasRef : référence du compteur de gaz."
           },
           "policeGaz": {
             "type": "string",
-            "description": "GasMeterPolice."
+            "description": "GasMeterPolice : n° de police gaz."
           },
           "compteurGaz": {
             "type": "string",
-            "description": "GasMeter."
+            "description": "GasMeter : n° du compteur de gaz."
           },
           "releveGaz": {
             "type": "string",
-            "description": "GasMeterIndex."
+            "description": "GasMeterIndex : arrêté du compteur de gaz."
           },
           "cos": {
             "type": "number",
