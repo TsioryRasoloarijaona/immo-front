@@ -7,11 +7,12 @@ import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import BarreOutilsModele from './BarreOutilsModele';
 import PanneauChamps from './PanneauChamps';
-import PanneauMiseEnPage, { type Marges, type Proprietes } from './PanneauMiseEnPage';
+import PanneauMiseEnPage, { type FondDePage, type Marges, type Proprietes } from './PanneauMiseEnPage';
+import ProprietesBlocPositionne from './ProprietesBlocPositionne';
 import { DialogueCondition, DialogueRepetition } from './DialogueRegleModele';
 import DialogueApercuModele from './DialogueApercuModele';
 import DialogueHistoriqueModele from './DialogueHistoriqueModele';
-import { modifierModele, ouvrirApercuModele, restaurerVersionModele } from '../../lib/apiModeles';
+import { modifierModele, ouvrirApercuModele, restaurerVersionModele, urlImageModele } from '../../lib/apiModeles';
 import {
   appliquerCondition,
   appliquerRepetition,
@@ -19,16 +20,21 @@ import {
   insererChamp,
   listeCourante,
   nettoyerHtmlModele,
+  repeterPage,
 } from '../../lib/editeurModele/commandes';
 import { useEditeursModele } from '../../lib/editeurModele/useEditeursModele';
 import { useConfirmationSortie } from '../../lib/useConfirmationSortie';
 import { useToast } from '../../lib/toastContext';
 import type { CatalogueChampsDto, MiseEnPageDto, ModeleDocumentDetailDto } from '../../types/modeles';
 
-type Dialogue = 'condition' | 'repetition' | 'apercu' | 'historique' | null;
+type Dialogue = 'condition' | 'repetition' | 'repetitionPage' | 'apercu' | 'historique' | null;
 
 function margesDe(m: MiseEnPageDto): Marges {
   return { margeHaut: m.margeHaut ?? 15, margeBas: m.margeBas ?? 15, margeGauche: m.margeGauche ?? 15, margeDroite: m.margeDroite ?? 15 };
+}
+
+function fondDe(m: MiseEnPageDto): FondDePage {
+  return { fondImageId: m.fondImageId ?? null, fondPleinePage: m.fondPleinePage ?? true };
 }
 
 /** Éditeur monté une fois le modèle et le catalogue chargés (FEATURE-modeles-documents.md §9). */
@@ -39,6 +45,7 @@ export default function EditeurModeleCharge({
   const toast = useToast();
   const [modele, setModele] = useState(initial);
   const [marges, setMarges] = useState<Marges>(() => margesDe(initial.miseEnPage));
+  const [fond, setFond] = useState<FondDePage>(() => fondDe(initial.miseEnPage));
   const [proprietes, setProprietes] = useState<Proprietes>({ libelle: initial.libelle, ordre: initial.ordre, actif: initial.actif });
   const [dialogue, setDialogue] = useState<Dialogue>(null);
   const [selectionVide, setSelectionVide] = useState(true);
@@ -55,6 +62,7 @@ export default function EditeurModeleCharge({
     return {
       format: 'A4',
       ...marges,
+      ...fond,
       enTete: htmlOuNull(ed.enTete.getHTML()),
       piedDePage: htmlOuNull(ed.pied.getHTML()),
     };
@@ -67,6 +75,7 @@ export default function EditeurModeleCharge({
   function recharger(detail: ModeleDocumentDetailDto) {
     setModele(detail);
     setMarges(margesDe(detail.miseEnPage));
+    setFond(fondDe(detail.miseEnPage));
     setProprietes({ libelle: detail.libelle, ordre: detail.ordre, actif: detail.actif });
     ed.corps.commands.setContent(detail.contenu, { emitUpdate: false });
     ed.enTete.commands.setContent(detail.miseEnPage.enTete ?? '', { emitUpdate: false });
@@ -100,7 +109,7 @@ export default function EditeurModeleCharge({
     toast(`Version ${numero} restaurée en version ${detail.versionCourante ?? ''}.`);
   }
 
-  function ouvrirRegle(type: 'condition' | 'repetition') {
+  function ouvrirRegle(type: 'condition' | 'repetition' | 'repetitionPage') {
     setSelectionVide(actif.state.selection.empty);
     setDialogue(type);
   }
@@ -136,12 +145,22 @@ export default function EditeurModeleCharge({
               editor={actif}
               onCondition={() => ouvrirRegle('condition')}
               onRepeter={() => ouvrirRegle('repetition')}
+              onRepeterPage={() => ouvrirRegle('repetitionPage')}
+              blocsActifs={actif === ed.corps}
               onErreur={(message) => toast({ texte: message, variante: 'erreur' })}
             />
+            <ProprietesBlocPositionne editor={actif} />
             <div className="min-h-0 flex-1 overflow-auto rounded-lg bg-muted/50 p-3 sm:p-6">
               <div
                 className="editeur-modele-page mx-auto bg-white text-black shadow-sm"
-                style={{ padding: `${marges.margeHaut}mm ${marges.margeDroite}mm ${marges.margeBas}mm ${marges.margeGauche}mm` }}
+                style={{
+                  padding: `${marges.margeHaut}mm ${marges.margeDroite}mm ${marges.margeBas}mm ${marges.margeGauche}mm`,
+                  ...(fond.fondImageId && {
+                    backgroundImage: `url(${urlImageModele(fond.fondImageId)})`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: fond.fondPleinePage ? '100% 100%' : 'auto',
+                  }),
+                }}
               >
                 <EditorContent editor={ed.corps} />
               </div>
@@ -166,6 +185,11 @@ export default function EditeurModeleCharge({
                   marges={marges}
                   onMarges={(m) => {
                     setMarges(m);
+                    ed.marquer('miseEnPage');
+                  }}
+                  fond={fond}
+                  onFond={(f) => {
+                    setFond(f);
                     ed.marquer('miseEnPage');
                   }}
                   enTete={ed.enTete}
@@ -194,6 +218,16 @@ export default function EditeurModeleCharge({
           onClose={() => setDialogue(null)}
           onAppliquer={(liste) => {
             appliquerRepetition(actif, liste);
+            setDialogue(null);
+          }}
+        />
+      )}
+      {dialogue === 'repetitionPage' && (
+        <DialogueRepetition
+          catalogue={catalogue}
+          onClose={() => setDialogue(null)}
+          onAppliquer={(liste) => {
+            repeterPage(actif, liste);
             setDialogue(null);
           }}
         />

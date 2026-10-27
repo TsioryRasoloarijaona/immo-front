@@ -5,6 +5,7 @@ import { Card } from '../../ui';
 import { Button } from '../../ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../ui/dropdown-menu';
 import {
+  ApiError,
   downloadActeReservation,
   downloadDossierPdfOnlyDocument,
   downloadFicheReservation,
@@ -111,7 +112,8 @@ function GeneratedDocumentCard({
       if (action === 'view') await voir();
       else await telecharger(action);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de l'opération.");
+      if (err instanceof ApiError && err.status === 403) setError("Vous n'avez pas accès à ce formulaire");
+      else setError(err instanceof Error ? err.message : "Échec de l'opération.");
     } finally {
       setBusy(null);
     }
@@ -193,6 +195,8 @@ function GeneratedDocumentCard({
 
 /** Code du modèle livré qui remplace l'acte codé en dur : sa carte reste celle de l'acte. */
 const CODE_ACTE_RESERVATION = 'ACTE_RESERVATION';
+/** Formulaire pré-imprimé : PDF seulement (le serveur refuse le Word). */
+const CODE_FORMULAIRE_BARID = 'FORMULAIRE_BARID';
 
 export default function OngletDocumentsGeneres({ dossierId, code }: Readonly<{ dossierId: string; code?: string | null }>) {
   const modeles = useApi(() => listModelesActifs('DOSSIER_VENTE'), [], 'modeles-actifs-dossier');
@@ -230,7 +234,7 @@ export default function OngletDocumentsGeneres({ dossierId, code }: Readonly<{ d
                   title={m.libelle}
                   description="Modèle de document personnalisé (Administration › Modèles de documents)."
                   Icon={FileCode2}
-                  hasDocx
+                  hasDocx={m.code !== CODE_FORMULAIRE_BARID}
                   voir={() => voirDocumentModele(m.id, dossierId)}
                   telecharger={(format) => telechargerDocumentModele(m.id, dossierId, format, `${base}.${format}`)}
                 />

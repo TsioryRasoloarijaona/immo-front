@@ -41,6 +41,8 @@ export interface MiseEnPageDto {
   margeDroite?: number | null;
   enTete?: string | null;
   piedDePage?: string | null;
+  fondImageId?: UUID | null;
+  fondPleinePage?: boolean;
 }
 
 export interface ModeleDocumentResumeDto {
