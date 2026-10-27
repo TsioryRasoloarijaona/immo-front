@@ -128,6 +128,10 @@
       "description": "Offres de prix (\"devis\") faites aux prospects — vue globale tous prospections confondues. Voir aussi POST/GET /api/prospections/{id}/devis pour la vue nestée sur une seule prospection.\n\n**Entités juridiques en exploitation.** Ne sont renvoyés que les devis dont la tranche relève d'une entité juridique active (`CfgCompany.IsActive`) — aujourd'hui ADMOD et GHRIZA. Restriction globale et permanente, appliquée à tout appelant. Un devis sans tranche reste visible."
     },
     {
+      "name": "Modèles de documents",
+      "description": "Modèles de documents modifiables par un administrateur (FEATURE-modeles-documents.md). Un modèle appartient à une\n**catégorie** (type de fiche source, lot 1 : `DOSSIER_VENTE`) ; son contenu est un **HTML restreint** (liste blanche :\n`p`, `h1`–`h3`, `strong`, `em`, `u`, `br`, listes, `hr`, tableaux, images `<img data-image=\"<id>\" alt=\"…\">` **sans\n`src`**, l'id venant de `POST /api/modeles-documents/images`) où les valeurs de la fiche s'écrivent\n`<span data-champ=\"cle\">libellé</span>`, les lignes répétées `data-repeter=\"liste\"` (sur `tr`, `li`, `p`, `span`), les\nblocs conditionnels `data-si=\"cle\"` (+ `data-valeur` pour un booléen), les titres numérotés `<h2 data-numero>` et les\nsauts de page `<div data-saut-page></div>`, les pages répétées `<div data-repeter=\"liste\" data-saut-page>` (une page par\nélément) et les blocs positionnés `<div data-bloc data-x data-y data-l data-h [data-taille] [data-gras] [data-align]>`\n(centimètres décimaux depuis le coin haut gauche de la page A4, x + l ≤ 21 et y + h ≤ 29,7 ; taille 6 à 72 pt, Helvetica,\ngras si `data-gras=\"true\"` ; `data-align` left, center ou right ; texte et champs seulement, ni tableau ni image). Tout autre élément, attribut ou style → 400 qui nomme l'élément fautif ;\ntexte de la version (contenu, en-tête et pied) : 1 Mo au plus. Chaque enregistrement crée une version, jamais\nd'écrasement ; pas de suppression : `actif = false`. Concevoir = rôle `Administrateur` ; imprimer = accès à la fiche\n(404 hors périmètre)."
+    },
+    {
       "name": "Référentiels",
       "description": "Listes de référence pour peupler les dropdowns/cases à cocher des formulaires (Prospection, Dossier, Patrimoine...).\n\n**Guide d'implémentation front — sélection Article/Sous-article par Catégorie + Type**\nReproduit le formulaire legacy \"Tranche → Catégorie → Type → Article\" : l'utilisateur coche une catégorie (ex. \"APPARTEMENT\") et un type (ex. \"2 CHAMBRES + SALON\"), et voit apparaître les codes d'articles disponibles pour cette combinaison — pas l'inverse (on ne choisit jamais un article directement par son code dans une longue liste).\n1. `GET /api/referentiels/tranches?projetId=` → dropdown Tranche (ou `GET /api/referentiels/projets` d'abord si le Projet n'est pas encore choisi).\n2. `GET /api/referentiels/categories-bien` et `GET /api/referentiels/types-bien` → cases à cocher \"Catégorie\"/\"Type\", indépendantes de la tranche (affichées une fois pour toutes, pas rechargées à chaque tranche).\n3. `GET /api/referentiels/articles?trancheId=&categorieId=&typeId=` (les deux derniers répétables si plusieurs cases cochées) → la liste d'articles qui en résulte, chaque entrée exposant `code`, `description` (le nom), `statut` (DISPONIBLE/OCCUPE) et déjà sa catégorie/son type (`categorieLibelle`/`typeLibelle`) pour affichage sans appel supplémentaire. Sans filtre `categorieId`, les **annexes** (`IsUnderItem` — parkings, terrasses, jardins, mêmes racines sans parent) sont écartées, comme dans l'écran Articles du logiciel de bureau ; cocher explicitement leur catégorie les fait réapparaître. L'utilisateur choisit l'article dans **cette** liste filtrée, pas dans un dropdown de tous les articles de la tranche.\n4. Une fois l'article choisi, `GET /api/articles/{id}` donne le détail complet (tranche, catégorie/type, prix, `sousLots`). Si l'article a des sous-articles et que l'utilisateur doit en choisir un, `GET /api/referentiels/sous-articles?articleId=` (mêmes filtres `categorieId`/`typeId` optionnels) rejoue exactement la même mécanique à l'étage du dessous — chaque sous-article y est identifié par son `description` (son nom, ex. \"Place de parking sous-sol n°3\"), jamais par son seul `code`.\nTous ces appels par défaut ne renvoient que les éléments DISPONIBLE — passer `statut=OCCUPE` explicitement pour voir les indisponibles."
     },
@@ -250,10 +254,6 @@
     {
       "name": "Clés d'API (admin)",
       "description": "Clés d'API des clients machine (n8n, agents), réservées au rôle Administrateur. Une clé s'envoie dans l'en-tête `X-Api-Key` ; elle authentifie un compte de service et n'autorise que les routes de ses portées. Le secret n'est montré qu'à la création et à la régénération. Voir `FEATURE-cle-api-n8n.md`."
-    },
-    {
-      "name": "Modèles de documents",
-      "description": "Modèles de documents modifiables par un administrateur (FEATURE-modeles-documents.md). Un modèle appartient à une\n**catégorie** (type de fiche source, lot 1 : `DOSSIER_VENTE`) ; son contenu est un **HTML restreint** (liste blanche :\n`p`, `h1`–`h3`, `strong`, `em`, `u`, `br`, listes, `hr`, tableaux, images `<img data-image=\"<id>\" alt=\"…\">` **sans\n`src`**, l'id venant de `POST /api/modeles-documents/images`) où les valeurs de la fiche s'écrivent\n`<span data-champ=\"cle\">libellé</span>`, les lignes répétées `data-repeter=\"liste\"` (sur `tr`, `li`, `p`, `span`), les\nblocs conditionnels `data-si=\"cle\"` (+ `data-valeur` pour un booléen), les titres numérotés `<h2 data-numero>` et les\nsauts de page `<div data-saut-page></div>`. Tout autre élément, attribut ou style → 400 qui nomme l'élément fautif ;\ntexte de la version (contenu, en-tête et pied) : 1 Mo au plus. Chaque enregistrement crée une version, jamais\nd'écrasement ; pas de suppression : `actif = false`. Concevoir = rôle `Administrateur` ; imprimer = accès à la fiche\n(404 hors périmètre)."
     },
     {
       "name": "Parcours commercial",
@@ -22847,6 +22847,84 @@
         }
       }
     },
+    "/api/rapports/{module}/{code}/formulaires": {
+      "get": {
+        "tags": [
+          "Rapports"
+        ],
+        "summary": "Formulaires Barid Al-Maghrib du rapport n° 35 : un PDF, une page par destinataire",
+        "description": "Impression du rapport n° 35 « Formulaires de Barid Al-Maghrib » (FEATURE-vente-formulaire-barid.md) : le modèle de\ndocument `DOSSIER_VENTE` / `FORMULAIRE_BARID` rempli avec la liste `destinataires` de la section du hub. Un seul PDF, **une page par destinataire**, dans l'ordre de la section `destinataires` du résultat du hub avec les mêmes\nfiltres (nom du destinataire tous dossiers confondus, puis dossier, puis acquéreur avant co-acquéreurs) : le nombre de\npages est le nombre de lignes de la section. Un destinataire = l'acquéreur principal ou un co-acquéreur d'un dossier ni\nannulé ni désisté, d'une tranche visible de l'appelant (société active, périmètre commercial, en vente).\n\nMêmes droits et même visibilité que le hub : rôle libre (`WithReportRestriction = 0`) ou rôle lié au rapport dans\n`AdmReportDataRole`, relus à chaque appel. Un `trancheId` hors des tranches visibles est ignoré ; si aucun `trancheId`\ndonné n'est visible, aucune page (404). Un `statutId` donné exclut les dossiers sans statut. Ordre des contrôles :\nmodule (404), rapport (404), droit (403), paramètres (400), modèle (404), plafond (400), aucun destinataire (404).\nAucune clé d'API n'a accès à cette route (403 `HORS_PORTEE`).\n\nRéponse : `application/pdf` affiché en ligne, fichier `formulaires-barid_<aaaaMMjj_HHmmss>.pdf`,\n`Cache-Control: private, no-store` (noms et adresses de clients) ; le contenu n'est jamais journalisé.",
+        "operationId": "formulaires",
+        "parameters": [
+          {
+            "name": "module",
+            "in": "path",
+            "description": "Module : seul `vente` porte ce rapport.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "vente"
+          },
+          {
+            "name": "code",
+            "in": "path",
+            "description": "Code du rapport : seul `ComSaleFormulaireBaridMaroc`.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "ComSaleFormulaireBaridMaroc"
+          },
+          {
+            "name": "trancheId",
+            "in": "query",
+            "description": "Tranches (répétable) ; absent = toutes les tranches visibles.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          },
+          {
+            "name": "statutId",
+            "in": "query",
+            "description": "Statuts de dossier (répétable, options du descripteur) ; absent = tous.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF de toutes les pages, dans l'ordre de la section du hub.",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Paramètre inconnu, `trancheId` ou `statutId` non UUID, `statutId` hors des options du descripteur, ou plus de 600 pages :\n« Affinez les filtres : n pages (maximum 600). »"
+          },
+          "403": {
+            "description": "Rapport non visible par l'appelant, ou clé d'API."
+          },
+          "404": {
+            "description": "Module autre que `vente`, code autre que `ComSaleFormulaireBaridMaroc` ou rapport absent de `AdmReportData`, modèle\n`FORMULAIRE_BARID` absent ou inactif (« Le modèle FORMULAIRE_BARID est absent ou inactif »), ou aucune page à imprimer\n(« Aucun destinataire »)."
+          }
+        }
+      }
+    },
     "/api/rapports/{module}/{code}/export": {
       "get": {
         "tags": [
@@ -25273,7 +25351,7 @@
           "Modèles de documents"
         ],
         "summary": "Génère le document d'une fiche depuis un modèle actif",
-        "description": "Document du modèle **actif** rempli avec la fiche `ficheId` (pour `DOSSIER_VENTE` : contrôle de périmètre du dossier,\n404 hors périmètre). PDF affiché en ligne, DOCX en pièce jointe ; nom de fichier `<code-modele>-<code-fiche>` en\nminuscules (`_` → `-`). Le contenu est revalidé avant chaque génération ; chaque image citée est lue dans le stockage\nS3 ; une image absente du stockage → 500 « Image <id> introuvable dans le stockage », aucun document partiel.",
+        "description": "Document du modèle **actif** rempli avec la fiche `ficheId` (pour `DOSSIER_VENTE` : contrôle de périmètre du dossier,\n404 hors périmètre). PDF affiché en ligne, DOCX en pièce jointe ; nom de fichier `<code-modele>-<code-fiche>` en\nminuscules (`_` → `-`). Le contenu est revalidé avant chaque génération ; chaque image citée est lue dans le stockage\nS3 ; une image absente du stockage → 500 « Image <id> introuvable dans le stockage », aucun document partiel.\nRéponse `Cache-Control: private, no-store`.\n\nModèle à droits propres : `FORMULAIRE_BARID` ne s'imprime que pour les profils qui voient le rapport n° 35\n(`ComSaleFormulaireBaridMaroc`, rôle libre ou lié dans `AdmReportDataRole`) — 403 sinon, contrôlé avant l'état actif et\navant la fiche — et en PDF seulement (`format=docx` → 400 « Ce formulaire n'existe qu'en PDF. »). Il est absent de la\nliste des modèles actifs pour les autres profils.\n\nPages répétées (`<div data-repeter=\"liste\" data-saut-page>`) : une page par élément ; une liste vide qui laisse le\ndocument sans aucune page → 404 « Aucun destinataire ». Fond de page (`miseEnPage.fondImageId`) : PDF seulement,\nignoré en Word.",
         "operationId": "generer",
         "parameters": [
           {
@@ -25320,7 +25398,18 @@
             }
           },
           "400": {
-            "description": "`format` autre que `pdf` ou `docx`.",
+            "description": "`format` autre que `pdf` ou `docx`, ou `docx` d'un modèle PDF seul.",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "byte"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Modèle à droits propres (FORMULAIRE_BARID) non permis à l'appelant.",
             "content": {
               "*/*": {
                 "schema": {
@@ -25331,7 +25420,7 @@
             }
           },
           "404": {
-            "description": "Modèle introuvable ou inactif, ou fiche hors périmètre.",
+            "description": "Modèle introuvable ou inactif, fiche hors périmètre, ou aucune page.",
             "content": {
               "*/*": {
                 "schema": {
@@ -35085,6 +35174,15 @@
           "piedDePage": {
             "type": "string",
             "description": "Pied de chaque page, HTML restreint (mêmes règles que le contenu). Absent = aucun."
+          },
+          "fondImageId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Image de fond de chaque page (id d'une image déposée, PDF seulement). Absente = aucun fond."
+          },
+          "fondPleinePage": {
+            "type": "boolean",
+            "description": "Fond étiré à la page entière (vrai, défaut) ou à sa taille au coin haut gauche. Null sans fond."
           }
         }
       },
