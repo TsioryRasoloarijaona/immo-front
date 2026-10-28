@@ -23,13 +23,13 @@ export default function VuePlan({ plan, trancheId, surlignerArticleId }: Readonl
   const image = useImagePlan(plan.id);
   const { ouvrirFicheDossier, ouvrirFicheProspection } = usePreview();
   const [statutChoisi, setStatutChoisi] = useState<string | null>(null);
-  const [prospection, setProspection] = useState<string | null>(null);
+  const [prospection, setProspection] = useState<{ id: string; code: string } | null>(null);
   const [refus, setRefus] = useState(false);
 
   function choisir(t: TraceDto) {
     const action = actionTrace(t);
     setRefus(action === 'sous-article');
-    if (action === 'prospection') setProspection(t.articleId);
+    if (action === 'prospection') setProspection({ id: t.articleId, code: t.code ?? t.articleId });
     else if (action === 'dossier' && t.dossierId) ouvrirFicheDossier(t.dossierId);
   }
 

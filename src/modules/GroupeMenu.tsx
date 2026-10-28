@@ -5,7 +5,9 @@ import { useAuth } from '../lib/auth';
 import type { EntreeMenu } from './types';
 
 function estActive(pathname: string, e: EntreeMenu): boolean {
-  return e.exact ? pathname === e.to : pathname.startsWith(e.actif ?? e.to);
+  if (e.exact) return pathname === e.to;
+  const prefixe = e.actif ?? e.to;
+  return pathname === prefixe || pathname.startsWith(`${prefixe}/`);
 }
 
 /** Groupe de menu d'un module déclaré par données ; `children` s'ajoute après les entrées. */

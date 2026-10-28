@@ -217,7 +217,7 @@ export default function NouvelleProspectionDialog({
 }: Readonly<{
   /** Tranche et article pré-remplis (clic sur un tracé libre d'un plan) ; le projet se déduit de la tranche. */
   trancheInitiale?: string;
-  articleInitial?: string;
+  articleInitial?: { id: string; code: string };
   onClose: () => void;
   /** Prospect pré-sélectionné et verrouillé (mode « existant » forcé). */
   prospectInitial?: ProspectListItemDto;
@@ -237,7 +237,7 @@ export default function NouvelleProspectionDialog({
   const [projetChoisi, setProjetChoisi] = useState<string | null>(null);
   const projetId = projetChoisi ?? trancheDeDepart.data?.projetId ?? null;
   const [trancheId, setTrancheId] = useState<string | null>(trancheInitiale ?? null);
-  const [articleId, setArticleId] = useState<string | null>(articleInitial ?? null);
+  const [articleId, setArticleId] = useState<string | null>(articleInitial?.id ?? null);
   const projets = useApi(() => listProjets({ page: 0, size: 200 }), []);
   const tranches = useApi(
     () => (projetId ? listProjetTranches(projetId, { page: 0, size: 200 }) : Promise.resolve(null)),
@@ -250,6 +250,10 @@ export default function NouvelleProspectionDialog({
   const projetItems = (projets.data?.content ?? []).map((p) => ({ label: p.description || p.code || p.id, value: p.id }));
   const trancheItems = (tranches.data?.content ?? []).map((t) => ({ label: t.description || t.code || t.id, value: t.id }));
   const articleItems = (articles.data?.content ?? []).map((a) => ({ label: a.code || a.description || a.id, value: a.id }));
+  // Le plan peut dire libre un article que la liste (DISPONIBLE seulement) écarte : sans lui, le Select affiche l'UUID.
+  if (articleInitial && !articleItems.some((i) => i.value === articleInitial.id)) {
+    articleItems.unshift({ label: articleInitial.code, value: articleInitial.id });
+  }
 
   const [origineId, setOrigineId] = useState<string | null>(null);
   const [origineSupportId, setOrigineSupportId] = useState<string | null>(null);
