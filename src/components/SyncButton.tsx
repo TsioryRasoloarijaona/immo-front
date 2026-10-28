@@ -58,24 +58,21 @@ export default function SyncButton() {
   }
 
   return (
-    <>
-      <button
-        type="button"
-        title="Rapatrier les dernières écritures du logiciel de bureau"
-        aria-label="Synchroniser les données"
-        disabled={enCours}
-        onClick={() => void synchroniser()}
-        className={cn(
-          'flex h-8 w-full items-center justify-center gap-2 rounded-lg bg-foreground px-3',
-          'text-label font-medium text-background shadow-sm transition-opacity duration-200',
-          'hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand)',
-          'disabled:opacity-80',
-          'group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:self-center group-data-[collapsible=icon]:px-0',
-        )}
-      >
-        <RefreshCw className={cn('size-4 shrink-0', enCours && 'animate-spin')} />
-        <span className="group-data-[collapsible=icon]:hidden">{enCours ? 'Synchronisation…' : 'Synchroniser'}</span>
-      </button>
-    </>
+    <button
+      type="button"
+      title="Rapatrier les dernières écritures du logiciel de bureau"
+      aria-label="Synchroniser les données"
+      disabled={enCours}
+      onClick={() => void synchroniser()}
+      className={cn(
+        'flex h-7.5 items-center gap-1.5 rounded-md border border-border bg-card px-2.5',
+        'text-xs font-medium whitespace-nowrap text-foreground transition-colors duration-150',
+        'hover:bg-(--surface-hover) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--brand)',
+        'disabled:opacity-70',
+      )}
+    >
+      <RefreshCw className={cn('size-3.5 shrink-0', enCours && 'animate-spin')} />
+      {enCours ? 'Synchronisation…' : 'Synchroniser'}
+    </button>
   );
 }
