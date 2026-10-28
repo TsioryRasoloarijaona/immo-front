@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FolderX, RotateCcw } from 'lucide-react';
-import PageShell from '../../components/PageShell';
+import { RotateCcw } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import BandeTotauxDesistements from '../../components/desistement/BandeTotauxDesistements';
 import DesistementTable from '../../components/desistement/DesistementTable';
 import FiltresDesistementsPanneau from '../../components/desistement/FiltresDesistementsPanneau';
@@ -16,11 +19,14 @@ import {
   type FiltresDesistements,
 } from '../../lib/desistements';
 import { useTranchesFiltre } from '../../lib/referentiels';
-import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { pluriel } from '../../lib/format';
 
 export default function DesistementsList() {
   const navigate = useNavigate();
   const tranches = useTranchesFiltre();
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('desistements'));
   const [filtres, setFiltres] = useState<FiltresDesistements>(FILTRES_DESISTEMENTS_DEFAUT);
   const [page, setPage] = useState(0);
   const q = useDebouncedValue(filtres.q);
@@ -44,23 +50,21 @@ export default function DesistementsList() {
   const data = liste.data;
   const actifs = filtresDesistementsActifs(filtres);
 
-  return (
-    <PageShell
-      title="Désistements"
-      crumbs={[{ label: 'Ventes' }, { label: 'Désistements' }]}
-      fullHeight
-      icon={<FolderX />}
-      accent="var(--sec-dossier)"
-      accentBg="var(--sec-dossier-bg)"
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <FiltresDesistementsPanneau
-          filtres={filtres}
-          changer={changer}
-          reinitialiser={reinitialiser}
-          tranches={tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }))}
-        />
+  const decompte = data ? pluriel(data.total, 'désistement') : undefined;
 
+  return (
+    <PageListe titre="Désistements">
+      <EnteteListe titre="Désistements" lignes={decompte} />
+      <FiltresDesistementsPanneau
+        filtres={filtres}
+        changer={changer}
+        reinitialiser={reinitialiser}
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        tranches={tranches.data.map((t) => ({ label: t.description || t.code || t.id, value: t.id }))}
+      />
+
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
         {liste.loading && !data && <LoadingState />}
         {liste.error && (
           <div className="flex flex-col items-center gap-2">
@@ -96,6 +100,8 @@ export default function DesistementsList() {
           </ResultsRegion>
         )}
       </div>
-    </PageShell>
+      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" />
+      <BarreOutilsFlottante cle="desistements" ligneSelectionnee={false} actions={[{ id: 'rafraichir', onClick: refetchAllApis }]} />
+    </PageListe>
   );
 }

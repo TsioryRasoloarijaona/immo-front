@@ -1,9 +1,11 @@
 import { useRef, useState } from 'react';
-import { Target } from 'lucide-react';
-import PageShell from '../../components/PageShell';
-import MultiSelectDropdown from '../../components/MultiSelectDropdown';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import PanneauFiltresCoches from '../../components/liste/PanneauFiltresCoches';
+import BoiteFiltre from '../../components/liste/BoiteFiltre';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
-import { InputGroup, InputGroupInput } from '../../components/ui/input-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import SyntheseJour from '../../components/suiviCommerciaux/SyntheseJour';
 import ListeInteractions from '../../components/suiviCommerciaux/ListeInteractions';
@@ -12,6 +14,8 @@ import GrillesMensuelles from '../../components/suiviCommerciaux/GrillesMensuell
 import { getSyntheseSuiviCommerciaux, listCommerciauxEquipe } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { formatNumber } from '../../lib/format';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { puceSelection } from '../../lib/pucesFiltres';
 import { estAdministrateur, estChefOuExempte } from '../../lib/roles';
 import {
   choixCommerciauxSuivi,
@@ -24,10 +28,11 @@ import {
   type FiltresListeSuivi,
   type Periode,
 } from '../../lib/suiviCommerciaux';
-import { useApi } from '../../lib/useApi';
+import { refetchAllApis, useApi } from '../../lib/useApi';
 
 export default function SuiviCommerciaux() {
   const { user } = useAuth();
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('suivi-commerciaux'));
   const chef = estChefOuExempte(user);
   const [onglet, setOnglet] = useState('jour');
   const listeRef = useRef<HTMLDivElement>(null);
@@ -61,14 +66,23 @@ export default function SuiviCommerciaux() {
   }
 
   return (
-    <PageShell
-      title="Suivi des commerciaux"
-      crumbs={[{ label: 'Ventes' }, { label: 'Suivi des commerciaux' }]}
-      icon={<Target />}
-      accent="var(--sec-prospection)"
-      accentBg="var(--sec-prospection-bg)"
-    >
-      <Tabs value={onglet} onValueChange={(v) => setOnglet(String(v))}>
+    <PageListe titre="Suivi des commerciaux">
+      <EnteteListe titre="Suivi des commerciaux" />
+      <PanneauFiltresCoches
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        puces={puceSelection('Commercial', commerciaux, commercialIds)}
+        periode={{ debut: periode.du, fin: periode.au, onChange: (du, au) => setPeriode({ du, au }) }}
+        onReinitialiser={() => {
+          setPeriode(periodeDuJour());
+          setCommercialIds([]);
+        }}
+      >
+        {commerciaux.length > 0 && (
+          <BoiteFiltre titre="Commercial" mode="multiple" items={commerciaux} valeur={commercialIds} onChange={setCommercialIds} />
+        )}
+      </PanneauFiltresCoches>
+      <Tabs value={onglet} onValueChange={(v) => setOnglet(String(v))} className="min-h-0 flex-1 overflow-auto px-3 pt-2 pb-16">
         <TabsList>
           <TabsTrigger value="jour">Jour</TabsTrigger>
           <TabsTrigger value="mois">Mois / année</TabsTrigger>
@@ -76,15 +90,6 @@ export default function SuiviCommerciaux() {
         <TabsContent value="jour" className="flex flex-col gap-4 pt-3">
           <section aria-label="Synthèse par commercial et par jour" className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <InputGroup className="w-32.5">
-                <InputGroupInput type="date" aria-label="Du" value={periode.du} onChange={(e) => setPeriode((p) => ({ ...p, du: e.target.value }))} />
-              </InputGroup>
-              <InputGroup className="w-32.5">
-                <InputGroupInput type="date" aria-label="Au" value={periode.au} onChange={(e) => setPeriode((p) => ({ ...p, au: e.target.value }))} />
-              </InputGroup>
-              {commerciaux.length > 0 && (
-                <MultiSelectDropdown label="Commercial" placeholder="Tous" value={commercialIds} onChange={setCommercialIds} items={commerciaux} />
-              )}
               <span className="ml-auto text-body text-muted-foreground">
                 {synthese.data && `Objectif : ${formatNumber(synthese.data.objectif)} personnes jointes par jour`}
               </span>
@@ -125,6 +130,8 @@ export default function SuiviCommerciaux() {
           <GrillesMensuelles commerciaux={commerciaux} />
         </TabsContent>
       </Tabs>
-    </PageShell>
+      <BarreEtatListe lignes="—" selection="aucune" />
+      <BarreOutilsFlottante cle="suivi-commerciaux" ligneSelectionnee={false} actions={[{ id: 'rafraichir', onClick: refetchAllApis }]} />
+    </PageListe>
   );
 }

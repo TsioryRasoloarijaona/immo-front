@@ -1,11 +1,12 @@
-import { RotateCcw, Search } from 'lucide-react';
-import ChoixUnique from '../ChoixUnique';
-import MultiSelectDropdown from '../MultiSelectDropdown';
-import { Button } from '../ui/button';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group';
+import PanneauFiltresCoches from '../liste/PanneauFiltresCoches';
+import BoiteFiltre from '../liste/BoiteFiltre';
+import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
 import { ETAT_PIECE_ITEMS, SENS_ITEMS, type FiltresListeAffectations, type SensAffectation } from '../../lib/suiviAffectations';
 
 type Item = { label: string; value: string };
+
+/** « Tous » = aucune case cochée : les deux sens réels seulement. */
+const SENS_CHOISIS = SENS_ITEMS.filter((s) => s.value !== 'TOUS');
 
 export type ChoixFiltresAffectations = {
   entites: Item[];
@@ -21,60 +22,63 @@ export default function FiltresAffectationsPanneau({
   filtres,
   changer,
   reinitialiser,
+  ferme,
+  onBasculer,
   choix,
 }: Readonly<{
   filtres: FiltresListeAffectations;
   changer: <K extends keyof FiltresListeAffectations>(cle: K, valeur: FiltresListeAffectations[K]) => void;
   reinitialiser: () => void;
+  ferme: boolean;
+  onBasculer: () => void;
   choix: ChoixFiltresAffectations;
 }>) {
+  const puces = [
+    ...puceSelection('Entité', choix.entites, filtres.entiteId),
+    ...puceUnique(choix.projets, filtres.projetId),
+    ...puceSelection('Tranche', choix.tranches, filtres.trancheId),
+    ...puceSelection('Catégorie', choix.categories, filtres.categorieId),
+    ...puceSelection('Type', choix.types, filtres.typeId),
+    ...puceSelection('Statut', choix.statuts, filtres.statut),
+    ...puceSelection('État', ETAT_PIECE_ITEMS, filtres.etatPiece),
+    ...(filtres.sens === 'TOUS' ? [] : puceUnique(SENS_CHOISIS, filtres.sens)),
+    ...(filtres.search ? [`« ${filtres.search} »`] : []),
+  ];
+
   return (
-    <div className="flex shrink-0 flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <InputGroup className="min-w-55 flex-1">
-          <InputGroupAddon>
-            <Search />
-          </InputGroupAddon>
-          <InputGroupInput
-            placeholder="Recherche — tiers, dossier, article, pièce, banque, notes…"
-            value={filtres.search}
-            onChange={(e) => changer('search', e.target.value)}
-          />
-        </InputGroup>
-        <MultiSelectDropdown label="Entité" placeholder="Toutes" value={filtres.entiteId} onChange={(v) => changer('entiteId', v)} items={choix.entites} />
-        <ChoixUnique
-          items={choix.projets}
-          tous="Tous les projets"
-          value={filtres.projetId}
-          placeholder="Projet…"
-          largeur="w-44"
-          onChange={(v) => changer('projetId', v)}
-        />
-        <MultiSelectDropdown label="Tranche" placeholder="Toutes" value={filtres.trancheId} onChange={(v) => changer('trancheId', v)} items={choix.tranches} />
-        <Button type="button" variant="outline" size="sm" onClick={reinitialiser}>
-          <RotateCcw data-icon="inline-start" /> Réinitialiser
-        </Button>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <MultiSelectDropdown label="Catégorie" placeholder="Toutes" value={filtres.categorieId} onChange={(v) => changer('categorieId', v)} items={choix.categories} />
-        <MultiSelectDropdown label="Type de pièce" placeholder="Tous" value={filtres.typeId} onChange={(v) => changer('typeId', v)} items={choix.types} />
-        <MultiSelectDropdown label="Statut du dossier" placeholder="Tous" value={filtres.statut} onChange={(v) => changer('statut', v)} items={choix.statuts} />
-        <MultiSelectDropdown label="État de la pièce" placeholder="Tous" value={filtres.etatPiece} onChange={(v) => changer('etatPiece', v)} items={ETAT_PIECE_ITEMS} />
-        <ChoixUnique
-          items={SENS_ITEMS}
-          value={filtres.sens}
-          largeur="w-44"
-          onChange={(v) => changer('sens', (v ?? 'TOUS') as SensAffectation)}
-        />
-        <div className="flex items-center gap-1.5">
-          <InputGroup className="w-32.5">
-            <InputGroupInput type="date" aria-label="Du" value={filtres.du} onChange={(e) => changer('du', e.target.value)} />
-          </InputGroup>
-          <InputGroup className="w-32.5">
-            <InputGroupInput type="date" aria-label="Au" value={filtres.au} onChange={(e) => changer('au', e.target.value)} />
-          </InputGroup>
-        </div>
-      </div>
-    </div>
+    <PanneauFiltresCoches
+      ferme={ferme}
+      onBasculer={onBasculer}
+      puces={puces}
+      periode={{
+        debut: filtres.du,
+        fin: filtres.au,
+        onChange: (debut, fin) => {
+          changer('du', debut);
+          changer('au', fin);
+        },
+      }}
+      recherche={{
+        valeur: filtres.search,
+        onChange: (v) => changer('search', v),
+        placeholder: 'Tiers, dossier, article, pièce…',
+      }}
+      onReinitialiser={reinitialiser}
+    >
+      <BoiteFiltre titre="Entité" mode="multiple" items={choix.entites} valeur={filtres.entiteId} onChange={(v) => changer('entiteId', v)} />
+      <BoiteFiltre titre="Projet" mode="unique" items={choix.projets} valeur={filtres.projetId} onChange={(v) => changer('projetId', v)} />
+      <BoiteFiltre titre="Tranche" mode="multiple" items={choix.tranches} valeur={filtres.trancheId} onChange={(v) => changer('trancheId', v)} />
+      <BoiteFiltre titre="Catégorie" mode="multiple" items={choix.categories} valeur={filtres.categorieId} onChange={(v) => changer('categorieId', v)} />
+      <BoiteFiltre titre="Type de pièce" mode="multiple" items={choix.types} valeur={filtres.typeId} onChange={(v) => changer('typeId', v)} />
+      <BoiteFiltre titre="Statut du dossier" mode="multiple" items={choix.statuts} valeur={filtres.statut} onChange={(v) => changer('statut', v)} />
+      <BoiteFiltre titre="État de la pièce" mode="multiple" items={ETAT_PIECE_ITEMS} valeur={filtres.etatPiece} onChange={(v) => changer('etatPiece', v)} />
+      <BoiteFiltre
+        titre="Sens"
+        mode="unique"
+        items={SENS_CHOISIS}
+        valeur={filtres.sens === 'TOUS' ? null : filtres.sens}
+        onChange={(v) => changer('sens', (v ?? 'TOUS') as SensAffectation)}
+      />
+    </PanneauFiltresCoches>
   );
 }

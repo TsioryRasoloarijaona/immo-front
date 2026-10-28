@@ -1,14 +1,16 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { History, RefreshCw, RotateCcw } from 'lucide-react';
-import PageShell from '../../components/PageShell';
+import { RefreshCw, RotateCcw } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import DossierTable from '../../components/DossierTable';
 import BandeGroupement from '../../components/BandeGroupement';
-import BoutonExporter from '../../components/BoutonExporter';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import EtatColonnes from '../../components/EtatColonnes';
 import TotauxDossiers from '../../components/dossier/liste/TotauxDossiers';
 import FiltresHistoriqueVentes from '../../components/historiqueVentes/FiltresHistoriqueVentes';
@@ -20,7 +22,9 @@ import {
   listStatutsDossiers,
   totauxColonnes,
 } from '../../lib/api';
-import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { useExportListe } from '../../lib/useExportListe';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { groupesGrille, useGroupement, useLignesGroupes } from '../../lib/groupement';
 import { DISPOSITION_HISTORIQUE_VENTES } from '../../lib/dispositions';
@@ -53,6 +57,7 @@ export default function HistoriqueVentes() {
   const navigate = useNavigate();
   const { commerciaux } = useAppData();
   const { ouvrirFicheProspection } = usePreview();
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes(CLE));
   const [filtres, setFiltres] = useState<FiltresHistorique>(FILTRES_DEFAUT);
   const [page, setPage] = useState(0);
   const filtresServeur = versParams(useDebouncedValue(filtres));
@@ -124,21 +129,34 @@ export default function HistoriqueVentes() {
   const etat = enGroupes ? groupes : liste;
   const vide = (pageAffichee?.content.length ?? 0) === 0;
 
-  return (
-    <PageShell
-      title="Historique des ventes"
-      crumbs={[{ label: 'Ventes' }, { label: 'Tableaux de bord' }, { label: 'Historique des ventes' }]}
-      fullHeight
-      icon={<History />}
-      accent="var(--sec-dossier)"
-      accentBg="var(--sec-dossier-bg)"
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <div className="flex shrink-0 flex-wrap items-start gap-2">
-          <FiltresHistoriqueVentes filtres={filtres} onChange={changer} onReinitialiser={reinitialiser} options={options} />
-          <BoutonExporter chemin="/api/dossiers/export" params={{ ...filtresServeur, colonnes: colonnes.visibles, sort: TRI }} nomListe="historique-ventes" />
-        </div>
+  const exportListe = useExportListe('/api/dossiers/export', { ...filtresServeur, colonnes: colonnes.visibles, sort: TRI }, CLE);
+  const unite = enGroupes ? 'groupe' : 'dossier';
+  const decompte = pageAffichee ? pluriel(pageAffichee.totalElements, unite) : undefined;
 
+  return (
+    <PageListe titre="Historique des ventes">
+      <EnteteListe titre="Historique des ventes" lignes={decompte}>
+        {colonnes.catalogueServi.length > 0 && (
+          <ColumnSelector
+            compact
+            catalogue={colonnes.catalogueServi}
+            visibles={colonnes.visibles}
+            onBasculer={colonnes.basculer}
+            onReinitialiser={colonnes.reinitialiser}
+            estDefaut={colonnes.estDefaut}
+          />
+        )}
+      </EnteteListe>
+      <FiltresHistoriqueVentes
+        filtres={filtres}
+        onChange={changer}
+        onReinitialiser={reinitialiser}
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        options={options}
+      />
+
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
         {etat.loading && !pageAffichee && <LoadingState />}
         {etat.error && (
           <div className="flex flex-col items-center">
@@ -150,21 +168,7 @@ export default function HistoriqueVentes() {
         )}
         {!etat.error && pageAffichee && (
           <ResultsRegion loading={etat.loading}>
-            <div className="flex shrink-0 items-center justify-between gap-3">
-              <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
-                <span className="text-body text-muted-foreground">{pluriel(pageAffichee.totalElements, enGroupes ? 'groupe' : 'dossier')}</span>
-                <TotauxDossiers totaux={totaux.data} montants={totauxNature.data} colonnes={colonnes.colonnes} />
-              </div>
-              {colonnes.catalogueServi.length > 0 && (
-                <ColumnSelector
-                  catalogue={colonnes.catalogueServi}
-                  visibles={colonnes.visibles}
-                  onBasculer={colonnes.basculer}
-                  onReinitialiser={colonnes.reinitialiser}
-                  estDefaut={colonnes.estDefaut}
-                />
-              )}
-            </div>
+            <TotauxDossiers totaux={totaux.data} montants={totauxNature.data} colonnes={colonnes.colonnes} />
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} />
               {vide ? (
@@ -199,6 +203,15 @@ export default function HistoriqueVentes() {
           </ResultsRegion>
         )}
       </div>
-    </PageShell>
+      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" alerte={exportListe.erreur} />
+      <BarreOutilsFlottante
+        cle={CLE}
+        ligneSelectionnee={false}
+        actions={[
+          { id: 'rafraichir', onClick: refetchAllApis },
+          { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: exportListe.enCours },
+        ]}
+      />
+    </PageListe>
   );
 }

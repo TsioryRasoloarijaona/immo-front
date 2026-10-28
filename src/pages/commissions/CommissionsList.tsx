@@ -1,14 +1,19 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Percent, RotateCcw, Search } from 'lucide-react';
-import PageShell from '../../components/PageShell';
+import { RotateCcw } from 'lucide-react';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
-import BoutonExporter from '../../components/BoutonExporter';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import PanneauFiltresCoches from '../../components/liste/PanneauFiltresCoches';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import { Button } from '../../components/ui/button';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import { cheminExportCommissions, getCommissionTranches } from '../../lib/apiCommissions';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { useExportListe } from '../../lib/useExportListe';
+import { pluriel } from '../../lib/format';
 import type { CommissionTrancheDto } from '../../types/commissions';
 import { MESSAGE_ACCES_REFUSE, lire } from './lecture';
 
@@ -33,36 +38,22 @@ export default function CommissionsList() {
   const liste = useApi(() => lire(() => getCommissionTranches(q || undefined)), [q], 'commissions-tranches');
   const lignes = useMemo<Ligne[]>(() => (liste.data ?? []).map((t) => ({ ...t, id: t.trancheId })), [liste.data]);
   const refuse = liste.error === MESSAGE_ACCES_REFUSE;
-  const titre = liste.data ? `Commissions (${liste.data.length})` : 'Commissions';
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('commissions'));
+  const exportListe = useExportListe(cheminExportCommissions(), { recherche: q || undefined }, 'commissions');
+  const decompte = liste.data ? pluriel(liste.data.length, 'tranche') : undefined;
 
   return (
-    <PageShell
-      title={titre}
-      crumbs={[{ label: 'Ventes' }, { label: titre }]}
-      fullHeight
-      icon={<Percent />}
-      accent="var(--sec-dossier)"
-      accentBg="var(--sec-dossier-bg)"
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <InputGroup className="min-w-55 max-w-md flex-1">
-            <InputGroupAddon>
-              <Search />
-            </InputGroupAddon>
-            <InputGroupInput
-              aria-label="Recherche multi-critère"
-              placeholder="Recherche multi-critère"
-              value={recherche}
-              onChange={(e) => setRecherche(e.target.value)}
-            />
-          </InputGroup>
-          <Button type="button" variant="outline" size="sm" onClick={() => void liste.refetch()}>
-            <RotateCcw data-icon="inline-start" /> Rafraîchir
-          </Button>
-          <BoutonExporter chemin={cheminExportCommissions()} params={{ recherche: q || undefined }} nomListe="commissions" disabled={refuse} />
-        </div>
+    <PageListe titre="Commissions">
+      <EnteteListe titre="Commissions" lignes={decompte} />
+      <PanneauFiltresCoches
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        puces={recherche ? [`« ${recherche} »`] : []}
+        recherche={{ valeur: recherche, onChange: setRecherche, placeholder: 'Recherche multi-critère' }}
+        onReinitialiser={() => setRecherche('')}
+      />
 
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
         {liste.loading && !liste.data && !liste.error && <LoadingState />}
         {liste.error && refuse && <EmptyState title="Accès refusé" message={MESSAGE_ACCES_REFUSE} />}
         {liste.error && !refuse && (
@@ -92,6 +83,15 @@ export default function CommissionsList() {
           </ResultsRegion>
         )}
       </div>
-    </PageShell>
+      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" alerte={exportListe.erreur} />
+      <BarreOutilsFlottante
+        cle="commissions"
+        ligneSelectionnee={false}
+        actions={[
+          { id: 'rafraichir', onClick: () => void liste.refetch() },
+          { id: 'exporter', onClick: () => void exportListe.exporter('xlsx'), disabled: refuse || exportListe.enCours },
+        ]}
+      />
+    </PageListe>
   );
 }

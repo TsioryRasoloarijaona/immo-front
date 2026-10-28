@@ -1,76 +1,44 @@
 import { useState } from 'react';
-import { CalendarRange, FileText, Plus, RotateCcw, Search } from 'lucide-react';
-import PageShell from '../../components/PageShell';
-import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import { Search } from 'lucide-react';
+import { Badge, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import ColumnSelector from '../../components/ColumnSelector';
 import DevisFormSection from '../../components/DevisFormSection';
 import Modal from '../../components/Modal';
-import MultiSelectDropdown from '../../components/MultiSelectDropdown';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
 import { DialogFooter } from '../../components/ui/dialog';
 import { Field as FormField, FieldLabel } from '../../components/ui/field';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import DataGrid from '../../components/DataGrid';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import PanneauFiltresCoches from '../../components/liste/PanneauFiltresCoches';
+import BoiteFiltre from '../../components/liste/BoiteFiltre';
+import EtatVideListe from '../../components/liste/EtatVideListe';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import { creerDevis, DEFAULT_PAGE_SIZE, getProspection, listOffres, listProspections } from '../../lib/api';
 import { useColonnesVisibles } from '../../lib/colonnes';
 import { CATALOGUE_OFFRES, COLONNES_OFFRES, detailOffre, DISPOSITION_OFFRES } from '../../lib/offres';
 import { useTranchesFiltre } from '../../lib/referentiels';
-import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
 import { useAppData, commercialLabel } from '../../lib/appData';
-import { formatCurrency, jourISO } from '../../lib/format';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { puceSelection, puceUnique } from '../../lib/pucesFiltres';
+import { debutMoisISO, finMoisISO, formatCurrency, pluriel } from '../../lib/format';
 import { prospectionDisplayName } from '../../lib/domain';
 import type { CreerDevisRequest, ProspectionListItemDto } from '../../types';
 
-type PeriodePreset = 'custom' | 'mois-courant' | 'mois-dernier' | 'annee-courante';
-
-const PERIODE_ITEMS: { label: string; value: PeriodePreset }[] = [
-  { label: 'Toutes les périodes', value: 'custom' },
-  { label: 'Le mois en cours', value: 'mois-courant' },
-  { label: 'Le mois dernier', value: 'mois-dernier' },
-  { label: "L'année en cours", value: 'annee-courante' },
-];
-
-const PERIODE_DEFAUT: PeriodePreset = 'mois-courant';
-
-/* `jourISO` et non `toISOString()` : les bornes sont en heure locale, la
-   conversion UTC les ferait reculer d'un jour à l'est de Greenwich. */
-const isoDate = jourISO;
-
-function rangeForPreset(preset: PeriodePreset): { dateDebut: string; dateFin: string } {
-  const now = new Date();
-  if (preset === 'mois-courant') {
-    return {
-      dateDebut: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)),
-      dateFin: isoDate(new Date(now.getFullYear(), now.getMonth() + 1, 0)),
-    };
-  }
-  if (preset === 'mois-dernier') {
-    return {
-      dateDebut: isoDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
-      dateFin: isoDate(new Date(now.getFullYear(), now.getMonth(), 0)),
-    };
-  }
-  if (preset === 'annee-courante') {
-    return {
-      dateDebut: isoDate(new Date(now.getFullYear(), 0, 1)),
-      dateFin: isoDate(new Date(now.getFullYear(), 11, 31)),
-    };
-  }
-  return { dateDebut: '', dateFin: '' };
-}
-
 export default function OffresList() {
   const { commerciaux } = useAppData();
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('offres'));
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [trancheIds, setTrancheIds] = useState<string[]>([]);
-  const [commercial, setCommercial] = useState('all');
-  const [periode, setPeriode] = useState<PeriodePreset>(PERIODE_DEFAUT);
-  const [dateDebut, setDateDebut] = useState(() => rangeForPreset(PERIODE_DEFAUT).dateDebut);
-  const [dateFin, setDateFin] = useState(() => rangeForPreset(PERIODE_DEFAUT).dateFin);
+  const [commercial, setCommercial] = useState<string | null>(null);
+  const [dateDebut, setDateDebut] = useState(debutMoisISO);
+  const [dateFin, setDateFin] = useState(finMoisISO);
   const [page, setPage] = useState(0);
   // Pas de `onOuvrir` : la ligne déplie les montants ; le code de l'offre ouvre sa fiche.
   const [showCreate, setShowCreate] = useState(false);
@@ -81,7 +49,7 @@ export default function OffresList() {
         {
           search: debouncedSearch || undefined,
           trancheId: trancheIds.length > 0 ? trancheIds : undefined,
-          commercial: commercial !== 'all' ? commercial : undefined,
+          commercial: commercial || undefined,
           dateDebut: dateDebut ? `${dateDebut}T00:00:00` : undefined,
           dateFin: dateFin ? `${dateFin}T23:59:59` : undefined,
         },
@@ -104,156 +72,89 @@ export default function OffresList() {
     value: t.id,
   }));
 
-  const commercialItems = [
-    { label: 'Tous les commerciaux', value: 'all' },
-    ...commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id })),
-  ];
+  const commercialItems = commerciaux.map((c) => ({ label: commercialLabel(c), value: c.id }));
 
   function resetAndSet<T>(setter: (v: T) => void, v: T) {
     setPage(0);
     setter(v);
   }
 
-  function handlePeriodeChange(v: PeriodePreset) {
+  function periodeChangee(debut: string, fin: string) {
     setPage(0);
-    setPeriode(v);
-    const range = rangeForPreset(v);
-    setDateDebut(range.dateDebut);
-    setDateFin(range.dateFin);
+    setDateDebut(debut);
+    setDateFin(fin);
   }
 
   function resetFilters() {
     setPage(0);
     setSearch('');
     setTrancheIds([]);
-    setCommercial('all');
-    handlePeriodeChange(PERIODE_DEFAUT);
+    setCommercial(null);
+    setDateDebut(debutMoisISO());
+    setDateFin(finMoisISO());
   }
 
-  // Saisir une date repasse le préréglage à `custom` : le comparer au défaut couvre les deux champs.
+  function toutesLesPeriodes() {
+    periodeChangee('', '');
+  }
+
+  // Les dates se comparent au défaut (le mois courant), pas au vide.
   const hasActiveFilters =
-    !!search || trancheIds.length > 0 || commercial !== 'all' || periode !== PERIODE_DEFAUT;
+    !!search || trancheIds.length > 0 || !!commercial || dateDebut !== debutMoisISO() || dateFin !== finMoisISO();
+
+  const puces = [
+    ...puceSelection('Entité', trancheItems, trancheIds),
+    ...puceUnique(commercialItems, commercial),
+    ...(search ? [`« ${search} »`] : []),
+  ];
+  const decompte = data ? pluriel(data.totalElements, 'offre') : undefined;
 
   return (
-    <PageShell
-      title="Offres"
-      crumbs={[{ label: 'Ventes' }, { label: 'Offres' }]}
-      fullHeight
-      icon={<FileText />}
-      accent="var(--sec-offre)"
-      accentBg="var(--sec-offre-bg)"
-      actions={
-        <Button type="button" size="sm" onClick={() => setShowCreate(true)}>
-          <Plus data-icon="inline-start" /> Nouvelle offre
-        </Button>
-      }
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        {showCreate && <NouvelleOffreDialog onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); void refetch(); }} />}
+    <PageListe titre="Offres">
+      <EnteteListe titre="Offres" lignes={decompte}>
+        <ColumnSelector
+          compact
+          catalogue={colonnes.catalogueServi}
+          visibles={colonnes.visibles}
+          onBasculer={colonnes.basculer}
+          onReinitialiser={colonnes.reinitialiser}
+          estDefaut={colonnes.estDefaut}
+        />
+      </EnteteListe>
+      {showCreate && <NouvelleOffreDialog onClose={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); void refetch(); }} />}
+      <PanneauFiltresCoches
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        puces={puces}
+        periode={{ debut: dateDebut, fin: dateFin, onChange: periodeChangee }}
+        recherche={{
+          valeur: search,
+          onChange: (v) => resetAndSet(setSearch, v),
+          placeholder: 'Code, prospect, article…',
+        }}
+        onReinitialiser={resetFilters}
+      >
+        <BoiteFiltre titre="Entité" mode="multiple" items={trancheItems} valeur={trancheIds} onChange={(v) => resetAndSet(setTrancheIds, v)} />
+        <BoiteFiltre titre="Commercial" mode="unique" items={commercialItems} valeur={commercial} onChange={(v) => resetAndSet(setCommercial, v)} />
+      </PanneauFiltresCoches>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <InputGroup className="min-w-55 flex-1">
-              <InputGroupAddon>
-                <Search />
-              </InputGroupAddon>
-              <InputGroupInput
-                placeholder="Recherche multi-critère — code, prospect, article…"
-                value={search}
-                onChange={(e) => resetAndSet(setSearch, e.target.value)}
-              />
-            </InputGroup>
-            <MultiSelectDropdown
-              label="Entité"
-              placeholder="Toutes"
-              value={trancheIds}
-              onChange={(v) => resetAndSet(setTrancheIds, v)}
-              items={trancheItems}
-            />
-            <div className="flex items-center gap-1.5">
-              <Select items={PERIODE_ITEMS} value={periode} onValueChange={(v) => handlePeriodeChange(v as PeriodePreset)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {PERIODE_ITEMS.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-              <InputGroup className="w-32.5">
-                <InputGroupInput
-                  type="date"
-                  aria-label="Du"
-                  value={dateDebut}
-                  onChange={(e) => { resetAndSet(setDateDebut, e.target.value); setPeriode('custom'); }}
-                />
-              </InputGroup>
-              <InputGroup className="w-32.5">
-                <InputGroupInput
-                  type="date"
-                  aria-label="Au"
-                  value={dateFin}
-                  onChange={(e) => { resetAndSet(setDateFin, e.target.value); setPeriode('custom'); }}
-                />
-              </InputGroup>
-            </div>
-            <Select items={commercialItems} value={commercial} onValueChange={(v) => resetAndSet(setCommercial, v as string)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {commercialItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
-              <RotateCcw data-icon="inline-start" /> Réinitialiser
-            </Button>
-        </div>
-
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
         {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}
         {!error && data && (
           <ResultsRegion loading={loading}>
-            <div className="flex shrink-0 items-center justify-between text-body text-muted-foreground">
-              <span>{data.totalElements} offre{data.totalElements > 1 ? 's' : ''}</span>
-              <span className="flex items-center gap-3">
-                {offres.length > 0 && (
-                  <span>Total (page) <span className="font-semibold tabular-nums text-(--success)">{formatCurrency(totalPageTTC)}</span></span>
-                )}
-                <ColumnSelector
-                  catalogue={colonnes.catalogueServi}
-                  visibles={colonnes.visibles}
-                  onBasculer={colonnes.basculer}
-                  onReinitialiser={colonnes.reinitialiser}
-                  estDefaut={colonnes.estDefaut}
-                />
+            {offres.length > 0 && (
+              <span className="shrink-0 text-body text-muted-foreground">
+                Total (page) <span className="font-semibold tabular-nums text-(--success)">{formatCurrency(totalPageTTC)}</span>
               </span>
-            </div>
+            )}
             {offres.length === 0 ? (
-              <EmptyState
-                title={hasActiveFilters ? 'Aucun résultat' : 'Rien ce mois-ci'}
-                message={
-                  hasActiveFilters
-                    ? 'Aucune offre ne correspond aux filtres actifs.'
-                    : 'Aucune offre sur le mois en cours.'
-                }
-                action={
-                  hasActiveFilters ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => resetFilters()}>
-                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                    </Button>
-                  ) : (
-                    <Button type="button" variant="outline" size="sm" onClick={() => handlePeriodeChange('custom')}>
-                      <CalendarRange data-icon="inline-start" /> Toutes les périodes
-                    </Button>
-                  )
-                }
+              <EtatVideListe
+                filtresActifs={hasActiveFilters}
+                sujet="offre"
+                surMois="Aucune offre sur le mois en cours."
+                onReinitialiser={resetFilters}
+                onToutesPeriodes={toutesLesPeriodes}
               />
             ) : (
               <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
@@ -272,7 +173,14 @@ export default function OffresList() {
           </ResultsRegion>
         )}
       </div>
-    </PageShell>
+      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" />
+      <BarreOutilsFlottante
+        cle="offres"
+        ligneSelectionnee={false}
+        nouveau={{ libelle: 'Nouvelle offre', onClick: () => setShowCreate(true) }}
+        actions={[{ id: 'rafraichir', onClick: refetchAllApis }]}
+      />
+    </PageListe>
   );
 }
 

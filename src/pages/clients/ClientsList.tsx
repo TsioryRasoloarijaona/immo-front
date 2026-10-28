@@ -1,14 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RotateCcw, Search, UserCheck } from 'lucide-react';
-import PageShell from '../../components/PageShell';
+import { RotateCcw } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
 import Pagination from '../../components/Pagination';
 import { Button } from '../../components/ui/button';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
+import PageListe from '../../components/liste/PageListe';
+import EnteteListe from '../../components/liste/EnteteListe';
+import PanneauFiltresCoches from '../../components/liste/PanneauFiltresCoches';
+import BarreEtatListe from '../../components/liste/BarreEtatListe';
+import BarreOutilsFlottante from '../../components/liste/BarreOutilsFlottante';
 import { DEFAULT_PAGE_SIZE, listClients } from '../../lib/api';
-import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { refetchAllApis, useApi, useDebouncedValue } from '../../lib/useApi';
+import { cleFiltresFermes, useBooleenMemorise } from '../../lib/outilsListe';
+import { pluriel } from '../../lib/format';
 import type { ClientListItemDto } from '../../types';
 
 const COLONNES: ColonneGrille<ClientListItemDto>[] = [
@@ -26,6 +31,7 @@ const COLONNES: ColonneGrille<ClientListItemDto>[] = [
 
 export default function ClientsList() {
   const navigate = useNavigate();
+  const [filtresFermes, basculerFiltres] = useBooleenMemorise(cleFiltresFermes('clients'));
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search);
   const [page, setPage] = useState(0);
@@ -42,69 +48,68 @@ export default function ClientsList() {
     setter(v);
   }
 
-  return (
-    <PageShell
-      title="Clients"
-      crumbs={[{ label: 'Ventes' }, { label: 'Clients' }]}
-      icon={<UserCheck />}
-      accent="var(--sec-client)"
-      accentBg="var(--sec-client-bg)"
-      fullHeight
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <div className="flex shrink-0 flex-wrap items-center gap-2.5">
-          <InputGroup className="min-w-55 flex-1">
-            <InputGroupAddon>
-              <Search />
-            </InputGroupAddon>
-            <InputGroupInput
-              placeholder="Rechercher un nom, téléphone, email…"
-              value={search}
-              onChange={(e) => resetAndSet(setSearch, e.target.value)}
-            />
-          </InputGroup>
-        </div>
+  function resetFilters() {
+    setPage(0);
+    setSearch('');
+  }
 
+  const decompte = data ? pluriel(data.totalElements, 'client') : undefined;
+
+  return (
+    <PageListe titre="Clients">
+      <EnteteListe titre="Clients" lignes={decompte} />
+      <PanneauFiltresCoches
+        ferme={filtresFermes}
+        onBasculer={basculerFiltres}
+        puces={search ? [`« ${search} »`] : []}
+        recherche={{
+          valeur: search,
+          onChange: (v) => resetAndSet(setSearch, v),
+          placeholder: 'Nom, téléphone, email…',
+        }}
+        onReinitialiser={resetFilters}
+      />
+
+      <div className="flex min-h-0 flex-1 flex-col gap-2 px-3 pt-2">
         {loading && !data && <LoadingState />}
         {error && <ErrorState message={error} />}
         {!error && data && (
           <ResultsRegion loading={loading}>
-            <div className="shrink-0 text-body text-muted-foreground">
-              {data.totalElements} client{data.totalElements > 1 ? 's' : ''}
-            </div>
-          {rows.length === 0 ? (
-            <EmptyState
-              title={search ? 'Aucun résultat' : 'Rien à afficher'}
-              message={
-                search
-                  ? 'Aucun client ne correspond aux filtres actifs.'
-                  : "Aucun client n'est encore enregistré."
-              }
-              action={
-                search ? (
-                  <Button type="button" variant="outline" size="sm" onClick={() => { setPage(0); setSearch(''); }}>
-                    <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                  </Button>
-                ) : undefined
-              }
-            />
-          ) : (
-            <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-              <DataGrid
-                cleOrdre="clients"
-                rows={rows}
-                colonnes={COLONNES}
-                onOuvrir={(id) => navigate(`/clients/${id}`)}
-                libelleLigne={(r) => `Ouvrir la fiche de ${r.nomAffiche || r.code}`}
+            {rows.length === 0 ? (
+              <EmptyState
+                title={search ? 'Aucun résultat' : 'Rien à afficher'}
+                message={
+                  search
+                    ? 'Aucun client ne correspond aux filtres actifs.'
+                    : "Aucun client n'est encore enregistré."
+                }
+                action={
+                  search ? (
+                    <Button type="button" variant="outline" size="sm" onClick={resetFilters}>
+                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
+                    </Button>
+                  ) : undefined
+                }
               />
-            </div>
-          )}
+            ) : (
+              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
+                <DataGrid
+                  cleOrdre="clients"
+                  rows={rows}
+                  colonnes={COLONNES}
+                  onOuvrir={(id) => navigate(`/clients/${id}`)}
+                  libelleLigne={(r) => `Ouvrir la fiche de ${r.nomAffiche || r.code}`}
+                />
+              </div>
+            )}
             <div className="shrink-0">
               <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
             </div>
           </ResultsRegion>
         )}
       </div>
-    </PageShell>
+      <BarreEtatListe lignes={decompte ?? '—'} selection="aucune" />
+      <BarreOutilsFlottante cle="clients" ligneSelectionnee={false} actions={[{ id: 'rafraichir', onClick: refetchAllApis }]} />
+    </PageListe>
   );
 }
