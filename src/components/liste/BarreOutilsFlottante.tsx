@@ -32,7 +32,7 @@ export interface OutilPropre {
 const BOUTON =
   'relative grid size-8 place-items-center rounded-md text-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-(--brand) disabled:text-muted-foreground disabled:opacity-45 disabled:hover:bg-transparent';
 const INFOBULLE =
-  'hover:after:content-[attr(data-tip)] focus-visible:after:content-[attr(data-tip)] after:pointer-events-none after:absolute after:bottom-[calc(100%+8px)] after:left-1/2 after:z-30 after:-translate-x-1/2 after:rounded-sm after:bg-foreground after:px-2 after:py-0.5 after:text-micro after:font-medium after:whitespace-nowrap after:text-background';
+  'after:hidden hover:after:block focus-visible:after:block hover:after:content-[attr(data-tip)] focus-visible:after:content-[attr(data-tip)] after:pointer-events-none after:absolute after:bottom-[calc(100%+8px)] after:left-1/2 after:z-30 after:-translate-x-1/2 after:rounded-sm after:bg-foreground after:px-2 after:py-0.5 after:text-micro after:font-medium after:whitespace-nowrap after:text-background';
 
 const IMPRESSION_ABSENTE = "Impression indisponible sur cet écran";
 
@@ -66,7 +66,7 @@ function BoutonPropre({ outil }: Readonly<{ outil: OutilPropre }>) {
   return (
     <button
       type="button"
-      className={cn(BOUTON, INFOBULLE, 'w-auto gap-1.5 px-2 text-body font-medium whitespace-nowrap')}
+      className={cn(BOUTON, INFOBULLE, 'flex h-8 w-auto gap-1.5 px-2 text-body font-medium whitespace-nowrap')}
       aria-label={outil.libelle}
       data-tip={outil.libelle}
       disabled={outil.disabled}

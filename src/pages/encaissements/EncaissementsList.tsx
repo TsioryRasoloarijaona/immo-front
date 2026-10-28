@@ -325,6 +325,9 @@ export default function EncaissementsList() {
               <Info aria-hidden className="size-3 shrink-0" />
               Les règlements pas encore imputés à une échéance ne figurent pas dans cette liste.
             </span>
+            {/* Liste plate seulement : en groupes, chaque groupe porte déjà ses totaux serveur.
+                Au-dessus de la grille, comme les Σ de la maquette : la barre flottante ne la couvre pas. */}
+            {!enGroupes && <BandeTotalEncaissements filtres={filtresServeur} cle={clesFiltres.slice(0, -1).join('|')} />}
             {/* La bande reste hors du test « vide » : un groupe vide garde sa sortie. */}
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto rounded-xl border border-border bg-card">
               <BandeGroupement etat={groupement} />
@@ -350,8 +353,6 @@ export default function EncaissementsList() {
                 </EtatColonnes>
               )}
             </div>
-            {/* Liste plate seulement : en groupes, chaque groupe porte déjà ses totaux serveur. */}
-            {!enGroupes && <BandeTotalEncaissements filtres={filtresServeur} cle={clesFiltres.slice(0, -1).join('|')} />}
             {/* Sur `pageAffichee` : en mode groupes `liste.data` est nul et la pagination disparaîtrait. */}
             <div className="shrink-0">
               <Pagination
