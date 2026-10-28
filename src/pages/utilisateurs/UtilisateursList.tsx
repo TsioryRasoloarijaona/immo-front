@@ -1,18 +1,17 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, KeyRound, RotateCcw, Search, Users } from 'lucide-react';
-import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
-import Pagination from '../../components/Pagination';
+import { Building2, KeyRound } from 'lucide-react';
+import { Badge } from '../../components/ui';
 import { Button } from '../../components/ui/button';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import BoiteFiltre from '../../components/liste/BoiteFiltre';
+import CadreListe from '../../components/patrimoine/CadreListe';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import { DEFAULT_PAGE_SIZE, listUtilisateurs } from '../../lib/api';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
-import { formatDate, formatNumber } from '../../lib/format';
+import { formatDate, pluriel } from '../../lib/format';
+import { puceUnique } from '../../lib/pucesFiltres';
 import { estExempte } from '../../lib/roles';
 import type { UtilisateurListItemDto } from '../../types';
-import AdminGuard from './AdminGuard';
 import AffecterProjetsDialog from './AffecterProjetsDialog';
 import type { CompteAReinitialiser } from './ReinitialiserMotDePasse';
 
@@ -26,7 +25,6 @@ function perimetreBadge(count: number, roles?: string[]) {
 type DisabledFilter = 'all' | 'active' | 'disabled';
 
 const DISABLED_ITEMS: { label: string; value: DisabledFilter }[] = [
-  { label: 'Tous les comptes', value: 'all' },
   { label: 'Actifs', value: 'active' },
   { label: 'Désactivés', value: 'disabled' },
 ];
@@ -176,86 +174,45 @@ export default function UtilisateursList() {
     [navigate],
   );
 
+  const filtresActifs = !!search || disabledFilter !== 'all';
+  function resetFilters() {
+    setPage(0);
+    setSearch('');
+    setDisabledFilter('all');
+  }
+
   return (
-    <AdminGuard
-      title="Comptes utilisateurs"
-      crumbs={[{ label: 'Administration' }, { label: 'Comptes utilisateurs' }]}
-      icon={<Users />}
-      accent="var(--sec-accent)"
-      accentBg="var(--sec-accent-bg)"
-      fullHeight
-    >
-      <div className="flex h-full min-h-0 flex-col gap-3">
+    <CadreListe
+      titre="Comptes utilisateurs"
+      cle="utilisateurs"
+      reserveAdmin
+      lignes={data ? pluriel(data.totalElements, 'compte') : undefined}
+      panneau={{
+        puces: [...puceUnique(DISABLED_ITEMS, disabledFilter === 'all' ? null : disabledFilter), ...(search ? [`« ${search} »`] : [])],
+        recherche: { valeur: search, onChange: (v) => resetAndSet(setSearch, v), placeholder: 'Identifiant, description, email…' },
+        onReinitialiser: resetFilters,
+        children: (
+          <BoiteFiltre titre="Statut" mode="unique" items={DISABLED_ITEMS} valeur={disabledFilter === 'all' ? null : disabledFilter}
+            onChange={(v) => resetAndSet(setDisabledFilter, (v ?? 'all') as DisabledFilter)} />
+        ),
+      }}
+      etat={{ chargement: loading, erreur: error, pret: !!data }}
+      avant={
         <p className="shrink-0 text-body text-muted-foreground">
           Les comptes se créent dans Omran. Ici : ouvrir l'accès Arpent d'un compte (« Réinitialiser ») et affecter son périmètre.
         </p>
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <InputGroup className="min-w-55 flex-1">
-              <InputGroupAddon>
-                <Search />
-              </InputGroupAddon>
-              <InputGroupInput
-                placeholder="Recherche — identifiant, description, email…"
-                value={search}
-                onChange={(e) => resetAndSet(setSearch, e.target.value)}
-              />
-            </InputGroup>
-            <Select items={DISABLED_ITEMS} value={disabledFilter} onValueChange={(v) => resetAndSet(setDisabledFilter, v as DisabledFilter)}>
-              <SelectTrigger className="w-45">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {DISABLED_ITEMS.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-        </div>
-
-        {loading && !data && <LoadingState />}
-        {error && <ErrorState message={error} />}
-        {!error && data && (
-          <ResultsRegion loading={loading}>
-            <div className="shrink-0 text-body text-muted-foreground">
-              {formatNumber(data.totalElements)} compte{data.totalElements > 1 ? 's' : ''}
-            </div>
-            {rows.length === 0 ? (
-              <EmptyState
-                title={!!search || disabledFilter !== 'all' ? 'Aucun résultat' : 'Rien à afficher'}
-                message={
-                  !!search || disabledFilter !== 'all'
-                    ? 'Aucun compte ne correspond aux filtres actifs.'
-                    : "Aucun compte n'est encore enregistré."
-                }
-                action={
-                  !!search || disabledFilter !== 'all' ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => { setPage(0); setSearch(''); setDisabledFilter('all'); }}>
-                      <RotateCcw data-icon="inline-start" /> Réinitialiser les filtres
-                    </Button>
-                  ) : undefined
-                }
-              />
-            ) : (
-              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                <DataGrid rows={rows} colonnes={colonnes} cleOrdre="utilisateurs" />
-              </div>
-            )}
-            <div className="shrink-0">
-              <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPageChange={setPage} />
-            </div>
-          </ResultsRegion>
-        )}
-      </div>
-
-      {dialogUser && (
+      }
+      vide={rows.length === 0 ? { aucun: 'Aucun compte', filtresActifs, onReinitialiser: resetFilters } : null}
+      pagination={data ? { page: data.page, totalPages: data.totalPages, totalElements: data.totalElements, onPageChange: setPage } : undefined}
+      dialogues={dialogUser && (
         <AffecterProjetsDialog
           user={dialogUser}
           onClose={() => setDialogUser(null)}
           onSaved={refetch}
         />
       )}
-    </AdminGuard>
+    >
+      <DataGrid rows={rows} colonnes={colonnes} cleOrdre="utilisateurs" />
+    </CadreListe>
   );
 }

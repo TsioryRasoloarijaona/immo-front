@@ -1,14 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Landmark, Search, Upload } from 'lucide-react';
-import BoutonExporter from '../../components/BoutonExporter';
-import ActionAdmin from '../../components/patrimoine/ActionAdmin';
 import ColumnSelector from '../../components/ColumnSelector';
 import ListeAdmin from '../../components/entites/ListeAdmin';
-import { InputGroup, InputGroupAddon, InputGroupInput } from '../../components/ui/input-group';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import BoiteFiltre from '../../components/liste/BoiteFiltre';
 import { listEntitesJuridiques } from '../../lib/apiEntites';
 import { colonneLocale as colonne, grilleDepuisCatalogue, useColonnesVisibles, type DispositionColonnes } from '../../lib/colonnes';
+import { puceUnique } from '../../lib/pucesFiltres';
 import { useApi, useDebouncedValue } from '../../lib/useApi';
+import { useExportListe } from '../../lib/useExportListe';
 import type { ColonneDto, EntiteJuridiqueDto } from '../../types';
 
 /** Tableau Liste de la page ENTITES JURIDIQUE de l'aide OMRAN ; le choix des colonnes est local. */
@@ -59,12 +57,11 @@ const DISPOSITION: DispositionColonnes = {
 };
 
 const FILTRES_ACTIF = [
-  { label: 'Toutes', value: 'tous' },
   { label: 'Actives', value: 'true' },
   { label: 'Inactives', value: 'false' },
-] as const;
+];
 
-type FiltreActif = (typeof FILTRES_ACTIF)[number]['value'];
+type FiltreActif = 'tous' | 'true' | 'false';
 
 export default function EntitesJuridiquesList() {
   const [search, setSearch] = useState('');
@@ -77,41 +74,38 @@ export default function EntitesJuridiquesList() {
     [colonnes.colonnes],
   );
 
+  const exportListe = useExportListe('/api/entites-juridiques/export', { actif, search: recherche || undefined, colonnes: colonnes.visibles }, 'entites-juridiques');
+
+  function resetFilters() {
+    setSearch('');
+    setActif('tous');
+  }
+
   return (
     <ListeAdmin
       titre="Entités juridiques"
-      icon={<Landmark />}
       chemin="/entites-juridiques"
       libelleNouveau="Nouvelle entité"
-      actionsPlus={<ActionAdmin to="/articles/import?type=entites-juridiques" libelle="Importer" variant="outline" icone={<Upload data-icon="inline-start" />} />}
+      sujet="entité juridique"
+      aucun="Aucune entité juridique"
+      importer="/articles/import?type=entites-juridiques"
       etat={etat}
       colonnes={grille}
       filtre={recherche !== '' || actif !== 'tous'}
-      filtres={
-        <>
-          <InputGroup className="max-w-md">
-            <InputGroupAddon><Search /></InputGroupAddon>
-            <InputGroupInput placeholder="Rechercher un code, une description, un matricule fiscal, un RC…" value={search}
-              onChange={(e) => setSearch(e.target.value)} />
-          </InputGroup>
-          <Select items={[...FILTRES_ACTIF]} value={actif} onValueChange={(v) => setActif(v ?? 'tous')}>
-            <SelectTrigger aria-label="Filtre Active" className="w-36"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {FILTRES_ACTIF.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </>
+      selecteur={
+        <ColumnSelector compact catalogue={colonnes.catalogueServi} visibles={colonnes.visibles} onBasculer={colonnes.basculer}
+          onReinitialiser={colonnes.reinitialiser} estDefaut={colonnes.estDefaut} />
       }
-      outils={
-        <div className="flex items-center gap-2">
-          <BoutonExporter pdf chemin="/api/entites-juridiques/export" nomListe="entites-juridiques"
-            params={{ actif, search: recherche || undefined, colonnes: colonnes.visibles }} />
-          <ColumnSelector catalogue={colonnes.catalogueServi} visibles={colonnes.visibles} onBasculer={colonnes.basculer}
-            onReinitialiser={colonnes.reinitialiser} estDefaut={colonnes.estDefaut} />
-        </div>
-      }
+      exportListe={{ export: exportListe, pdf: true }}
+      panneau={{
+        puces: [...puceUnique(FILTRES_ACTIF, actif === 'tous' ? null : actif), ...(search ? [`« ${search} »`] : [])],
+        recherche: { valeur: search, onChange: setSearch, placeholder: 'Code, description, matricule fiscal, RC…' },
+        onReinitialiser: resetFilters,
+        children: (
+          <BoiteFiltre titre="Active" mode="unique" items={FILTRES_ACTIF} valeur={actif === 'tous' ? null : actif}
+            onChange={(v) => setActif((v ?? 'tous') as FiltreActif)} />
+        ),
+      }}
     />
   );
 }

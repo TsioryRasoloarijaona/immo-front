@@ -1,24 +1,24 @@
 import { useMemo, useState } from 'react';
-import { Ban, Bot, Plus, RefreshCw, RotateCcw } from 'lucide-react';
-import { Badge, EmptyState, ErrorState, LoadingState, ResultsRegion } from '../../components/ui';
+import { Ban, RefreshCw } from 'lucide-react';
+import { Badge } from '../../components/ui';
 import { Button } from '../../components/ui/button';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
+import BoiteFiltre from '../../components/liste/BoiteFiltre';
+import CadreListe from '../../components/patrimoine/CadreListe';
 import DataGrid, { type ColonneGrille } from '../../components/DataGrid';
 import { listClesApi, regenererCleApi, revoquerCleApi } from '../../lib/api';
 import { libellePortee } from '../../lib/clesApi';
 import { useConfirm } from '../../lib/confirmContext';
 import { useToast } from '../../lib/toastContext';
 import { useApi } from '../../lib/useApi';
-import { formatDateTime } from '../../lib/format';
+import { formatDateTime, pluriel } from '../../lib/format';
+import { puceUnique } from '../../lib/pucesFiltres';
 import type { CleApiCreeeDto, CleApiDto } from '../../types';
-import AdminGuard from './AdminGuard';
 import CreerCleApiDialog from './CreerCleApiDialog';
 import SecretCleApiDialog from './SecretCleApiDialog';
 
 type StatutFilter = 'all' | 'actives' | 'revoquees';
 
 const STATUT_ITEMS: { label: string; value: StatutFilter }[] = [
-  { label: 'Toutes les clés', value: 'all' },
   { label: 'Actives', value: 'actives' },
   { label: 'Révoquées', value: 'revoquees' },
 ];
@@ -204,88 +204,54 @@ export default function ClesApiList() {
 
   const nbActives = (data ?? []).filter((c) => c.actif !== false).length;
 
+  const decompteActives = statut === 'all' && (data?.length ?? 0) > 0 ? ` · ${pluriel(nbActives, 'active')}` : '';
+  const lignes = data ? pluriel(rows.length, 'clé') + decompteActives : undefined;
+
   return (
-    <AdminGuard
-      title="Clés d'API"
-      crumbs={[{ label: 'Administration' }, { label: "Clés d'API" }]}
-      icon={<Bot />}
-      accent="var(--sec-accent)"
-      accentBg="var(--sec-accent-bg)"
-      fullHeight
+    <CadreListe
+      titre="Clés d'API"
+      cle="cles-api"
+      reserveAdmin
+      lignes={lignes}
+      panneau={{
+        puces: puceUnique(STATUT_ITEMS, statut === 'all' ? null : statut),
+        onReinitialiser: () => setStatut('all'),
+        children: (
+          <BoiteFiltre titre="Statut" mode="unique" items={STATUT_ITEMS} valeur={statut === 'all' ? null : statut}
+            onChange={(v) => setStatut((v ?? 'all') as StatutFilter)} />
+        ),
+      }}
+      etat={{ chargement: loading, erreur: error, pret: !!data }}
+      avant={
+        <p className="shrink-0 text-micro text-muted-foreground">
+          Pour les clients machine (n8n, agents) — envoyée dans l'en-tête <code className="font-mono">X-Api-Key</code>. Le front, lui, reste sur le cookie.
+        </p>
+      }
+      vide={rows.length === 0 ? {
+        aucun: 'Aucune clé',
+        filtresActifs: statut !== 'all',
+        onReinitialiser: () => setStatut('all'),
+        message: "Aucune clé d'API n'existe encore. Créez-en une pour brancher n8n ou un agent.",
+      } : null}
+      admin={{ nouveau: { libelle: 'Nouvelle clé', onClick: () => setCreation(true) } }}
+      dialogues={
+        <>
+          {creation && (
+            <CreerCleApiDialog
+              onClose={() => setCreation(false)}
+              onCreated={(resultat) => {
+                // Le secret d'abord, la liste ensuite : rien ne doit s'intercaler avant la copie.
+                setCreation(false);
+                setSecret({ resultat, mode: 'creation' });
+                void refetch();
+              }}
+            />
+          )}
+          {secret && <SecretCleApiDialog resultat={secret.resultat} mode={secret.mode} onClose={() => setSecret(null)} />}
+        </>
+      }
     >
-      <div className="flex h-full min-h-0 flex-col gap-3">
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Select items={STATUT_ITEMS} value={statut} onValueChange={(v) => setStatut(v as StatutFilter)}>
-              <SelectTrigger className="w-45">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {STATUT_ITEMS.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <p className="text-micro text-muted-foreground">
-              Pour les clients machine (n8n, agents) — envoyée dans l'en-tête <code className="font-mono">X-Api-Key</code>. Le front, lui, reste sur le cookie.
-            </p>
-          </div>
-          <Button type="button" onClick={() => setCreation(true)}>
-            <Plus data-icon="inline-start" /> Nouvelle clé
-          </Button>
-        </div>
-
-        {loading && !data && <LoadingState />}
-        {error && <ErrorState message={error} />}
-        {!error && data && (
-          <ResultsRegion loading={loading}>
-            <div className="shrink-0 text-body text-muted-foreground">
-              {rows.length} clé{rows.length > 1 ? 's' : ''}
-              {statut === 'all' && data.length > 0 && ` · ${nbActives} active${nbActives > 1 ? 's' : ''}`}
-            </div>
-            {rows.length === 0 ? (
-              <EmptyState
-                title={statut !== 'all' ? 'Aucun résultat' : 'Aucune clé'}
-                message={
-                  statut !== 'all'
-                    ? 'Aucune clé ne correspond au filtre.'
-                    : "Aucune clé d'API n'existe encore. Créez-en une pour brancher n8n ou un agent."
-                }
-                action={
-                  statut !== 'all' ? (
-                    <Button type="button" variant="outline" size="sm" onClick={() => setStatut('all')}>
-                      <RotateCcw data-icon="inline-start" /> Toutes les clés
-                    </Button>
-                  ) : (
-                    <Button type="button" size="sm" onClick={() => setCreation(true)}>
-                      <Plus data-icon="inline-start" /> Nouvelle clé
-                    </Button>
-                  )
-                }
-              />
-            ) : (
-              <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-xl border border-border bg-card">
-                <DataGrid rows={rows} colonnes={colonnes} cleOrdre="cles-api" />
-              </div>
-            )}
-          </ResultsRegion>
-        )}
-      </div>
-
-      {creation && (
-        <CreerCleApiDialog
-          onClose={() => setCreation(false)}
-          onCreated={(resultat) => {
-            // Le secret d'abord, la liste ensuite : rien ne doit s'intercaler avant la copie.
-            setCreation(false);
-            setSecret({ resultat, mode: 'creation' });
-            void refetch();
-          }}
-        />
-      )}
-      {secret && <SecretCleApiDialog resultat={secret.resultat} mode={secret.mode} onClose={() => setSecret(null)} />}
-    </AdminGuard>
+      <DataGrid rows={rows} colonnes={colonnes} cleOrdre="cles-api" />
+    </CadreListe>
   );
 }

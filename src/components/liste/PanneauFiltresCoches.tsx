@@ -23,8 +23,9 @@ export default function PanneauFiltresCoches({
   /** Résumé des filtres actifs, affiché quand le panneau est replié. */
   puces: string[];
   champDate?: { items: { label: string; value: string }[]; valeur: string; onChange: (valeur: string) => void };
-  periode: { debut: string; fin: string; onChange: (debut: string, fin: string) => void };
-  recherche: { valeur: string; onChange: (valeur: string) => void; placeholder: string };
+  /** Absente pour une liste sans date (clients, tranches…). */
+  periode?: { debut: string; fin: string; onChange: (debut: string, fin: string) => void };
+  recherche?: { valeur: string; onChange: (valeur: string) => void; placeholder: string };
   onReinitialiser: () => void;
   champs?: ReactNode;
   children?: ReactNode;
@@ -71,9 +72,9 @@ export default function PanneauFiltresCoches({
             </Select>
           </span>
         )}
-        <PeriodeFiltre debut={periode.debut} fin={periode.fin} onChange={periode.onChange} />
+        {periode && <PeriodeFiltre debut={periode.debut} fin={periode.fin} onChange={periode.onChange} />}
         {champs}
-        <span className="relative">
+        {recherche && <span className="relative">
           <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="w-57.5 pl-7"
@@ -82,7 +83,7 @@ export default function PanneauFiltresCoches({
             value={recherche.valeur}
             onChange={(e) => recherche.onChange(e.target.value)}
           />
-        </span>
+        </span>}
         <Button type="button" variant="ghost" size="sm" onClick={onReinitialiser}>
           <RotateCcw data-icon="inline-start" /> Réinitialiser
         </Button>
