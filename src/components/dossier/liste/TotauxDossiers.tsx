@@ -7,7 +7,6 @@ import type { TotauxDossiersDto } from '../../../types/dossierListe';
 const LIBELLES: { cle: string; libelle: string }[] = [
   { cle: 'prixHt', libelle: 'Σ Prix HT' },
   { cle: 'prix', libelle: 'Σ Prix TTC' },
-  { cle: 'totalAPayer', libelle: 'Σ Total à payer' },
 ];
 
 const CLASSE_TON: Record<TonSomme, string> = {

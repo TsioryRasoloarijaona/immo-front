@@ -96,7 +96,7 @@ export default function DossiersList() {
   const [batchError, setBatchError] = useState<string | null>(null);
 
   const catalogue = useColonnesDossiers();
-  const colonnes = useColonnesVisibles('dossiers', catalogue.data, DISPOSITION_DOSSIERS);
+  const colonnes = useColonnesVisibles('dossiers-omran', catalogue.data, DISPOSITION_DOSSIERS);
   // Toujours explicite : les champs des icônes de ligne ne sont pas dans la sélection par défaut du serveur.
   const colonnesDemandees = colonnesListe(colonnes.demandees, catalogue.data, DISPOSITION_DOSSIERS.toujoursDemandees ?? []);
 
@@ -505,7 +505,7 @@ export default function DossiersList() {
               ) : (
                 <EtatColonnes pret={colonnes.colonnes.length > 0} erreur={catalogue.error}>
                   <DossierTable
-                    cleOrdre="dossiers"
+                    cleOrdre="dossiers-omran"
                     rows={enGroupes ? [] : dossiers}
                     colonnes={colonnes.colonnes}
                     // `enGroupes` et non `groupement.actif` : un filtre de statut bloque le groupement.

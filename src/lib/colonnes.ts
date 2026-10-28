@@ -74,6 +74,9 @@ export type DispositionColonnes = {
   /** Demandées quelle que soit la sélection, car la grille en a besoin sans les afficher. Sans effet sur les
    * défauts : aucun paramètre n'est alors envoyé, et le serveur les sert déjà en `parDefaut`. */
   toujoursDemandees?: string[];
+  /** Colonnes cochées à l'ouverture quand l'écran n'est pas le `parDefaut` du serveur : elles sont alors toujours
+   * demandées par `?colonnes=`, sinon la charge utile ne les contient pas. */
+  ouverture?: string[];
 };
 
 const POIDS_DEFAUT = 10;
@@ -222,9 +225,10 @@ export function useColonnesVisibles(
 
   const connus = new Set(catalogueServi.map((c) => c.nom));
   const retenues = (stockees ?? []).filter((n) => connus.has(n));
-  const selection = new Set(
-    retenues.length > 0 ? retenues : catalogueServi.filter((c) => c.parDefaut).map((c) => c.nom),
-  );
+  const parDefaut = disposition.ouverture
+    ? disposition.ouverture.filter((n) => connus.has(n))
+    : catalogueServi.filter((c) => c.parDefaut).map((c) => c.nom);
+  const selection = new Set(retenues.length > 0 ? retenues : parDefaut);
 
   const colonnes = catalogueServi
     .filter((c) => selection.has(c.nom))
@@ -245,14 +249,15 @@ export function useColonnesVisibles(
 
   const reinitialiser = useCallback(() => enregistrer(null), [enregistrer]);
 
-  const parDefaut = catalogueServi.filter((c) => c.parDefaut).map((c) => c.nom);
   const estDefaut =
     stockees === null || (visibles.length === parDefaut.length && parDefaut.every((n) => selection.has(n)));
+  // Avec `ouverture`, le défaut de l'écran n'est pas celui du serveur : il faut le demander.
+  const sansParametre = estDefaut && !disposition.ouverture;
 
   /* `undefined` sur les défauts, à ne pas casser : `estDefaut` est aussi vrai tant que le catalogue est vide,
      donc la clé de `useApi` ne change pas quand il arrive, et pas de seconde requête. */
   const nomsCatalogue = new Set(catalogueBrut.map((c) => c.nom));
-  const demandees = estDefaut
+  const demandees = sansParametre || catalogueBrut.length === 0
     ? undefined
     : [
         ...new Set([
