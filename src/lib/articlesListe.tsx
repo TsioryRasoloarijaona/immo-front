@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useEntitesReferentiel } from './referentiels';
 import { Badge } from '../components/ui';
 import type { ColonneGrille } from '../components/DataGrid';
 import type { ArticleListFilters } from './api';
@@ -118,6 +119,45 @@ export function useFiltresArticles(onChange: () => void) {
 
 export type FiltresArticles = ReturnType<typeof useFiltresArticles>;
 
+const CLE_ENTITE = 'arpent.articles.entite';
+
+function entiteMemorisee(): string | null {
+  try {
+    return globalThis.localStorage.getItem(CLE_ENTITE);
+  } catch {
+    return null;
+  }
+}
+
+/** Entité obligatoire de `/articles` : choisie d'office (dernière mémorisée, sinon première par code) et mémorisée.
+ * `aucune` : le référentiel est chargé et ne contient aucune entité. */
+export function useEntiteObligatoire(filtres: FiltresArticles, actif: boolean): { aucune: boolean; prete: boolean; seule: boolean } {
+  const entites = useEntitesReferentiel();
+  const choisie = filtres.valeurs.entiteId;
+  const choisir = filtres.modifier.entiteId;
+  const liste = entites.data;
+  useEffect(() => {
+    if (!actif || !choisie) return;
+    try {
+      globalThis.localStorage.setItem(CLE_ENTITE, choisie);
+    } catch {
+      // Sans stockage, l'entité n'est simplement pas retenue.
+    }
+  }, [actif, choisie]);
+  useEffect(() => {
+    if (!actif || choisie || liste.length === 0) return;
+    const memorisee = entiteMemorisee();
+    const premiere = [...liste].sort((a, b) => (a.code ?? '').localeCompare(b.code ?? ''))[0];
+    choisir(liste.find((e) => e.id === memorisee)?.id ?? premiere.id);
+  }, [actif, choisie, liste, choisir]);
+  return {
+    aucune: actif && !entites.loading && !entites.error && liste.length === 0,
+    // Sans entité choisie aucune requête ne part ; l'entité seule n'est pas un filtre « actif ».
+    prete: !actif || !!filtres.params.entiteId,
+    seule: actif && filtres.cle === JSON.stringify({ entiteId: choisie || undefined }),
+  };
+}
+
 // `valeur` de la colonne « État » : sans lui, tri et filtre compareraient le `statut` brut.
 function articleEtatLabel(a: Pick<ArticleListItemDto, 'statut' | 'dossierId' | 'dossierStatut'>): string {
   if (a.dossierId) return canonicalStatusLabel(a.dossierStatut) || '';
@@ -232,8 +272,11 @@ export function colonnesArticles(ouvrirDossier: (id: string) => void): ColonneGr
   ];
 }
 
-const DEFAUTS_ARTICLES = ['description', 'clientNom', 'etat', 'comSalePrice', 'tauxTVA', 'dossierCode', 'categorieLibelle',
-  'typeLibelle', 'presentationTypeCode', 'natureCode', 'etageCode', 'area', 'superficieSousArticles', 'code'];
+/** Ordre d'ouverture de `/articles` : celui de la liste OMRAN (26 colonnes). */
+const OUVERTURE_ARTICLES = ['etat', 'dossierCode', 'clientNom', 'trancheDescription', 'code', 'titreFoncier', 'categorieLibelle',
+  'area', 'superficieTitree', 'superficieTerrasse', 'tauxTVA', 'prixM2DefinitifTTC', 'prixSousArticlesTTC', 'comSalePrice',
+  'salePrice', 'resteARegler', 'parkingChoisi', 'facade', 'vues', 'loyerMensuelTTC', 'nombreCautions', 'superficieNette',
+  'dateEnregistrement', 'sousArticlesCodes', 'numeroEnregistrement', 'quotaTerrain'];
 const DEFAUTS_SOUS_ARTICLES = ['description', 'clientNom', 'etat', 'parentCode', 'parentOccupe', 'comSalePrice', 'tauxTVA',
   'dossierCode', 'categorieLibelle', 'typeLibelle', 'natureCode', 'etageCode', 'area', 'code'];
 
@@ -254,16 +297,18 @@ const COLONNES_TECHNIQUES = new Set(['id', 'lotParentId', 'immeubleId', 'etageId
 /** Disposition de `/articles` et `/sous-articles` ; le `parDefaut` du serveur est celui de l'ancienne liste fixe. */
 export function dispositionLignesArticles(sousArticles: boolean): DispositionColonnes {
   return {
-    ordre: sousArticles ? DEFAUTS_SOUS_ARTICLES : DEFAUTS_ARTICLES,
+    ordre: sousArticles ? DEFAUTS_SOUS_ARTICLES : OUVERTURE_ARTICLES,
     poids: {},
     masquees: COLONNES_TECHNIQUES,
     dependances: DEPENDANCES,
+    ouverture: sousArticles ? undefined : OUVERTURE_ARTICLES,
   };
 }
 
+/** `/articles` n'écrase pas le `parDefaut` du serveur : son `ouverture` le remplace. */
 export function catalogueLignesArticles(catalogue: ColonneDto[], sousArticles: boolean): ColonneDto[] {
-  const defauts = sousArticles ? DEFAUTS_SOUS_ARTICLES : DEFAUTS_ARTICLES;
-  return catalogue.map((c) => ({ ...c, parDefaut: defauts.includes(c.nom) }));
+  if (!sousArticles) return catalogue;
+  return catalogue.map((c) => ({ ...c, parDefaut: DEFAUTS_SOUS_ARTICLES.includes(c.nom) }));
 }
 
 const etatLigneBadge = (a: LigneArticleDto) => {

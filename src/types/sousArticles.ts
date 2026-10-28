@@ -71,6 +71,9 @@ export interface LigneArticleDto {
   presentationTypeLibelle?: string | null;
   orientationCode?: string | null;
   orientationLibelle?: string | null;
+  facade?: string | null;
+  /** Libellés des vues, séparés par « , ». */
+  vues?: string | null;
   categorieChargeCode?: string | null;
   categorieChargeLibelle?: string | null;
   adresse?: string | null;
@@ -87,10 +90,16 @@ export interface LigneArticleDto {
   dossierStatut?: string | null;
   clientId?: UUID | null;
   clientNom?: string | null;
+  /** prixReste du dossier dossierCode ; null sans dossier ou dossier annulé / désisté. */
+  resteARegler?: number | null;
+  /** Codes des parkings du dossier et des sous-articles PAR, séparés par « , ». */
+  parkingChoisi?: string | null;
   area?: number | null;
   surfaceProvisoire?: number | null;
   superficieNette?: number | null;
   superficieSousArticles?: number | null;
+  superficieTitree?: number | null;
+  superficieTerrasse?: number | null;
   tauxTVA?: number | null;
   remiseMax1?: number | null;
   remiseMax2?: number | null;
@@ -132,6 +141,7 @@ export interface LigneArticleDto {
   fractionDiviseTerrain?: string | null;
   partiesDivises?: number | null;
   partiesIndivises?: number | null;
+  quotaTerrain?: string | null;
   referenceElectricite?: string | null;
   policeElectricite?: string | null;
   compteurElectricite?: string | null;
