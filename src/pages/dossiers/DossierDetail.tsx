@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, BellDot, Folder, Phone } from 'lucide-react';
 import CadreFiche, { EnteteFiche, type VarianteFiche } from '../../components/CadreFiche';
 import { Badge, ErrorState, LoadingState } from '../../components/ui';
@@ -9,45 +9,19 @@ import ActionsFicheDossier from '../../components/dossier/ActionsFicheDossier';
 import BandeauxDossier from '../../components/dossier/BandeauxDossier';
 import FormulaireDossier from '../../components/dossier/FormulaireDossier';
 import PanneauDossier from '../../components/dossier/PanneauDossier';
-import OngletAcquereurs from '../../components/dossier/onglets/OngletAcquereurs';
-import OngletActions from '../../components/dossier/onglets/OngletActions';
+import MessageCreation from '../../components/dossier/fiche/MessageCreation';
+import useFicheDossier from '../../components/dossier/fiche/useFicheDossier';
+import ongletsDossier from '../../components/dossier/fiche/ongletsDossier';
 import OngletAnnulation from '../../components/dossier/onglets/OngletAnnulation';
-import OngletArticles from '../../components/dossier/onglets/OngletArticles';
 import OngletAutres from '../../components/dossier/onglets/OngletAutres';
 import OngletAutresMontants from '../../components/dossier/onglets/OngletAutresMontants';
-import OngletCadeaux from '../../components/dossier/onglets/OngletCadeaux';
 import OngletDates from '../../components/dossier/onglets/OngletDates';
 import OngletDatesAutres from '../../components/dossier/onglets/OngletDatesAutres';
-import OngletDocumentsGeneres from '../../components/dossier/onglets/OngletDocumentsGeneres';
-import OngletEcheancier from '../../components/dossier/onglets/OngletEcheancier';
-import OngletHistorique from '../../components/dossier/onglets/OngletHistorique';
-import OngletModifications from '../../components/dossier/onglets/OngletModifications';
-import OngletPiecesJointes from '../../components/dossier/onglets/OngletPiecesJointes';
-import OngletStatut from '../../components/dossier/onglets/OngletStatut';
-import { formatDate, formatPercent, toApiDateTime } from '../../lib/format';
+import { formatDate, formatPercent } from '../../lib/format';
 import { canonicalStatusLabel, toneForStatus } from '../../lib/dossierStatus';
-import {
-  changerStatutDossier,
-  getArticle,
-  getDossier,
-  getEtapesSuivantes,
-  getFicheDossier,
-  getMontantsDossier,
-  listActionsDossier,
-  listEcheances,
-  listHistoriqueDossier,
-  listPiecesJointes,
-} from '../../lib/api';
-import { useApi } from '../../lib/useApi';
 import { useToast } from '../../lib/toastContext';
 import { usePreview } from '../../lib/previewContext';
 import type { DossierDetailDto, DossierFicheDto } from '../../types';
-
-export default function DossierDetail() {
-  // La route `/dossiers/:id` garantit le paramètre.
-  const { id = '' } = useParams();
-  return <FicheDossier key={id} id={id} />;
-}
 
 function EnteteDossier({
   dossier: d,
@@ -83,17 +57,6 @@ function EnteteDossier({
   );
 }
 
-function MessageCreation({ vide }: Readonly<{ vide: boolean }>) {
-  if (vide) {
-    return (
-      <div className="rounded-lg border border-(--info-border) bg-(--info-bg) px-3 py-1.5 text-micro text-(--info)">
-        Dossier créé. Le schéma de financement est vide ; complétez-le dans l'onglet ci-dessous.
-      </div>
-    );
-  }
-  return <div className="rounded-lg border border-border bg-muted/40 px-3 py-1.5 text-micro text-muted-foreground">Dossier créé.</div>;
-}
-
 /** `?onglet=financier` ouvre l'échéancier (lien de la liste des impayés) ; en dialogue, l'URL est celle de derrière. */
 function ongletInitial(variante: VarianteFiche, onglet: string | null): string {
   return variante === 'page' && onglet === 'financier' ? 'financier' : 'statut';
@@ -104,24 +67,8 @@ export function FicheDossier({
   variante = 'page',
   onglet,
 }: Readonly<{ id: string; variante?: VarianteFiche; onglet?: string }>) {
-  const { data: d, loading, error, refetch } = useApi(() => getDossier(id), [id], 'dossier');
-  const fiche = useApi(() => getFicheDossier(id), [id], 'dossier-fiche');
-  // Ne pas supprimer : `ArticleCompactPreview` lit `statut`, `tranche*`, `salePrice*`, `titreFoncier`,
-  // `adresse`, absents d'`ArticleSummaryDto`. Un appel par article (N+1).
-  const articleIds = (d?.articles ?? []).map((a) => a.id).join(',');
-  const articleDetails = useApi(
-    () => (d?.articles && d.articles.length > 0 ? Promise.all(d.articles.map((a) => getArticle(a.id))) : Promise.resolve([])),
-    [articleIds],
-    'dossier-articles',
-  );
-  const nextSteps = useApi(() => getEtapesSuivantes(id), [id], 'dossier-etapes');
-  const montants = useApi(() => getMontantsDossier(id), [id], 'dossier-montants');
-  const [echeancesPage, setEcheancesPage] = useState(0);
-  const echeances = useApi(() => listEcheances(id, { page: echeancesPage, size: 20 }), [id, echeancesPage], 'dossier-echeances');
-  const pieces = useApi(() => listPiecesJointes(id), [id], 'dossier-pieces');
-  const [historiquePage, setHistoriquePage] = useState(0);
-  const historique = useApi(() => listHistoriqueDossier(id, { page: historiquePage, size: 20 }), [id, historiquePage], 'dossier-historique');
-  const actions = useApi(() => listActionsDossier(id), [id], 'dossier-actions');
+  const f = useFicheDossier(id);
+  const { dossier: d, fiche, montants, echeances } = f;
   const navigate = useNavigate();
   const showToast = useToast();
   const [searchParams] = useSearchParams();
@@ -130,18 +77,11 @@ export function FicheDossier({
   const [tab, setTab] = useState(() => onglet ?? ongletInitial(variante, searchParams.get('onglet')));
   const { ouvrirFicheProspection } = usePreview();
 
-  // Les `refetch` de useApi sont stables : la fonction l'est aussi (dépendance d'un effet d'OngletActions).
-  const relireActionsListe = actions.refetch;
-  const relireFiche = fiche.refetch;
-  const relireActions = useCallback(() => {
-    void relireActionsListe();
-    void relireFiche();
-  }, [relireActionsListe, relireFiche]);
-
-  // `!d` : avec une valeur en cache, on repeint le dossier connu et la revalidation se fait en fond.
-  if (loading && !d) return <CadreFiche variante={variante} title="Dossier de vente"><LoadingState /></CadreFiche>;
-  if (error) return <CadreFiche variante={variante} title="Dossier de vente"><ErrorState message={error} /></CadreFiche>;
-  if (!d) {
+  // `!d.data` : avec une valeur en cache, on repeint le dossier connu et la revalidation se fait en fond.
+  if (d.loading && !d.data) return <CadreFiche variante={variante} title="Dossier de vente"><LoadingState /></CadreFiche>;
+  if (d.error) return <CadreFiche variante={variante} title="Dossier de vente"><ErrorState message={d.error} /></CadreFiche>;
+  const dossier = d.data;
+  if (!dossier) {
     return (
       <CadreFiche variante={variante} title="Dossier introuvable" crumbs={[{ label: 'Dossiers', to: '/dossiers' }]}>
         <p>Ce dossier n'existe pas.</p>
@@ -149,56 +89,33 @@ export function FicheDossier({
     );
   }
 
-  async function relireTout() {
-    await Promise.all([refetch(), fiche.refetch(), montants.refetch(), echeances.refetch(), historique.refetch(), actions.refetch()]);
-  }
-
-  async function relireEcheancier() {
-    await Promise.all([echeances.refetch(), montants.refetch(), fiche.refetch()]);
-  }
-
-  // Sous-articles, acquéreurs et modifications changent prix, remise ou totaux du dossier.
-  async function relireDossierEtMontants() {
-    await Promise.all([refetch(), relireEcheancier()]);
-  }
-
-  const dossierId = d.id;
-
-  // Un refus (400 champs / pièces, 403 rôle, 409 seuil) remonte à l'onglet Statut qui l'affiche en entier.
-  async function changerStatut(newStatus: string, note: string, date?: string, ignorerSeuil?: boolean) {
-    await changerStatutDossier(dossierId, { statut: newStatus, note: note || undefined, date: toApiDateTime(date), ignorerSeuil });
-    await Promise.all([refetch(), nextSteps.refetch(), historique.refetch(), montants.refetch(), fiche.refetch()]);
-    // Une sortie libère le lot, une réactivation le réoccupe : sa disponibilité change.
-    await articleDetails.refetch();
-    showToast(`Statut changé : ${canonicalStatusLabel(newStatus)}.`);
-  }
-
   const echeancesVides = echeances.data?.totalElements === 0;
+  const o = ongletsDossier(f, dossier, fromCreation);
 
   return (
     <CadreFiche
       variante={variante}
-      title={d.clientNom || d.code || 'Dossier'}
+      title={dossier.clientNom || dossier.code || 'Dossier'}
       crumbs={[{ label: 'Dossiers', to: '/dossiers' }]}
       typeFiche="Dossier de vente"
       fullHeight
       icon={<Folder />}
       accent="var(--sec-dossier)"
       accentBg="var(--sec-dossier-bg)"
-      entete={<EnteteDossier dossier={d} fiche={fiche.data} sorti={!!montants.data?.dossierSorti} />}
+      entete={<EnteteDossier dossier={dossier} fiche={fiche.data} sorti={!!montants.data?.dossierSorti} />}
       actions={
         <div className="flex flex-wrap items-center justify-end gap-1.5">
-          <ActionsFicheDossier dossierId={d.id} commercialNom={d.commercialNom} onChanged={() => void relireTout()} />
+          <ActionsFicheDossier dossierId={dossier.id} commercialNom={dossier.commercialNom} onChanged={() => void f.relireTout()} />
           <Button variant="outline" size="sm" onClick={() => showToast('Intégration VOIP à venir.')}>
             <Phone data-icon="inline-start" /> Appeler
           </Button>
-          {d.prospectionId && (
-            <Button variant="outline" size="sm" onClick={() => d.prospectionId && ouvrirFicheProspection(d.prospectionId, false)}>
+          {dossier.prospectionId && (
+            <Button variant="outline" size="sm" onClick={() => dossier.prospectionId && ouvrirFicheProspection(dossier.prospectionId, false)}>
               <ArrowUpRight data-icon="inline-start" /> Prospection
             </Button>
           )}
-          {d.clientId && (
-            <Button variant="outline" size="sm" onClick={() => navigate(`/clients/${d.clientId}`)}>
+          {dossier.clientId && (
+            <Button variant="outline" size="sm" onClick={() => navigate(`/clients/${dossier.clientId}`)}>
               <ArrowUpRight data-icon="inline-start" /> Fiche client
             </Button>
           )}
@@ -215,67 +132,24 @@ export function FicheDossier({
           </div>
         }
         /* Lecture seule : les champs se modifient dans un autre lot ; ici statut, échéancier et actions. */
-        formulaire={<FormulaireDossier dossier={d} enTete={fiche.data?.enTete} />}
-        panneau={<PanneauDossier dossier={d} montants={montants} />}
+        formulaire={<FormulaireDossier dossier={dossier} enTete={fiche.data?.enTete} />}
+        panneau={<PanneauDossier dossier={dossier} montants={montants} />}
         onglets={[
-          {
-            id: 'statut',
-            libelle: 'Statut',
-            contenu: <OngletStatut dossier={d} fiche={fiche.data} etapesSuivantes={nextSteps.data ?? []} erreurEtapes={nextSteps.error} onConfirm={changerStatut} />,
-          },
-          {
-            id: 'financier',
-            libelle: 'Schéma de financement',
-            compteur: echeances.data?.totalElements ?? 0,
-            contenu: (
-              <OngletEcheancier
-                dossier={d}
-                echeances={echeances}
-                onPageChange={setEcheancesPage}
-                onChanged={relireEcheancier}
-                fromCreation={fromCreation}
-              />
-            ),
-          },
+          o.statut,
+          o.financier,
           { id: 'autres-montants', libelle: 'Autres montants', contenu: <OngletAutresMontants fiche={fiche} /> },
           { id: 'dates', libelle: 'Dates', contenu: <OngletDates fiche={fiche} /> },
           { id: 'dates-autres', libelle: 'Dates autres', contenu: <OngletDatesAutres fiche={fiche} /> },
-          { id: 'annulation', libelle: 'Annulation / Résiliation', contenu: <OngletAnnulation fiche={fiche} dossierId={d.id} /> },
+          { id: 'annulation', libelle: 'Annulation / Résiliation', contenu: <OngletAnnulation fiche={fiche} dossierId={dossier.id} /> },
           { id: 'autres', libelle: 'Autres', contenu: <OngletAutres fiche={fiche} /> },
-          {
-            id: 'articles',
-            libelle: 'Articles',
-            compteur: d.articles?.length ?? 0,
-            contenu: (
-              <OngletArticles dossierId={d.id} articles={d.articles} details={articleDetails} onChanged={relireDossierEtMontants} />
-            ),
-          },
-          { id: 'acquereurs', libelle: 'Acquéreurs', contenu: <OngletAcquereurs dossier={d} onChanged={relireDossierEtMontants} /> },
-          {
-            id: 'modifications',
-            libelle: 'Modifications',
-            contenu: <OngletModifications dossierId={d.id} onChanged={relireDossierEtMontants} />,
-          },
-          { id: 'cadeaux', libelle: 'Cadeaux', contenu: <OngletCadeaux dossierId={d.id} /> },
-          {
-            id: 'actions',
-            libelle: 'Actions',
-            compteur: actions.data?.actions.length ?? 0,
-            contenu: <OngletActions dossierId={d.id} actions={actions} onChanged={relireActions} />,
-          },
-          {
-            id: 'pieces',
-            libelle: 'Pièces jointes',
-            compteur: pieces.data?.length ?? 0,
-            contenu: <OngletPiecesJointes dossierId={d.id} pieces={pieces} />,
-          },
-          { id: 'documents', libelle: 'Documents générés', contenu: <OngletDocumentsGeneres dossierId={d.id} code={d.code} /> },
-          {
-            id: 'historique',
-            libelle: 'Historique',
-            compteur: historique.data?.totalElements ?? 0,
-            contenu: <OngletHistorique historique={historique} onPageChange={setHistoriquePage} />,
-          },
+          o.articles,
+          o.acquereurs,
+          o.modifications,
+          o.cadeaux,
+          o.actions,
+          o.pieces,
+          o.documents,
+          o.historique,
         ]}
       />
     </CadreFiche>
