@@ -50826,6 +50826,20 @@
             "type": "string",
             "description": "Libellé de l'orientation."
           },
+          "facade": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Libellé de la façade (StkItem.StkFacadeId → StkFacade)."
+          },
+          "vues": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Libellés des vues (StkItemVue → StkVue), séparés par « , » ; null si aucune."
+          },
           "categorieChargeCode": {
             "type": "string",
             "description": "Code de la catégorie de charge (StkCostCategory)."
@@ -50889,6 +50903,20 @@
             "type": "string",
             "description": "Nom affiché du client du dossier de vente."
           },
+          "resteARegler": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "prixReste du dossier dossierCode ; null sans dossier, ou dossier non visible, annulé ou désisté."
+          },
+          "parkingChoisi": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Codes PAR du dossier et des sous-articles rattachés, séparés par « , » ; null si aucun."
+          },
           "area": {
             "type": "number",
             "description": "StkItem.Area : superficie définitive, m²."
@@ -50904,6 +50932,14 @@
           "superficieSousArticles": {
             "type": "number",
             "description": "Somme des superficies des sous-articles rattachés, 0 si aucun."
+          },
+          "superficieTitree": {
+            "type": "number",
+            "description": "Surface si titré + surfaces des sous-articles rattachés titrés (calcul de la fiche)."
+          },
+          "superficieTerrasse": {
+            "type": "number",
+            "description": "Somme des superficies des sous-articles rattachés de catégorie TER, 0 si aucun."
           },
           "tauxTVA": {
             "type": "number",
@@ -51071,6 +51107,10 @@
           "partiesIndivises": {
             "type": "number",
             "description": "StkItem.UndividedPart."
+          },
+          "quotaTerrain": {
+            "type": "string",
+            "description": "StkItem.GroupLandQuota."
           },
           "referenceElectricite": {
             "type": "string",
