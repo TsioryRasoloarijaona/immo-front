@@ -384,6 +384,8 @@ table {
   --row-h: 24px;
   --row-h-head: 22px;
   --row-h-filter: 19px;
+  /* Barre du haut (onglets) : PageShell et les pages à hauteur fixe la retranchent. */
+  --hauteur-barre-haut: 2.75rem;
   --cell-px: 6px;
   --gutter-mark: 18px;
   --gutter-check: 22px;

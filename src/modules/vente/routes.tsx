@@ -1,8 +1,8 @@
 import { lazy } from 'react';
 import { Folder } from 'lucide-react';
-import NavVente from '../../components/NavVente';
 import type { ModuleApp } from '../types';
 import Accueil from './Accueil';
+import { arbreVente } from './arbre';
 
 const Dashboard = lazy(() => import('../../pages/Dashboard'));
 const MaJournee = lazy(() => import('../../pages/parcours/MaJournee'));
@@ -56,9 +56,9 @@ const vente: ModuleApp = {
     '/etat-des-ventes', '/suivi-commerciaux', '/suivi-affectations', '/performances', '/equipe', '/journee', '/tri',
     '/prospections', '/pre-prospections', '/prospects', '/clients', '/dossiers', '/offres', '/encaissements',
     '/impayes', '/desistements', '/aide', '/rapports', '/historique-ventes',
-    '/suivi-previsions', '/commissions',
+    '/suivi-previsions', '/commissions', '/plans',
   ],
-  Menu: NavVente,
+  arbre: arbreVente,
   routes: [
     { path: '/', element: <Accueil /> },
     { path: '/tableau-de-bord', element: <Dashboard /> },

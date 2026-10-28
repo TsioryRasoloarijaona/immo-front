@@ -17,7 +17,6 @@ import { Popover, PopoverClose, PopoverContent, PopoverTrigger } from './ui/popo
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Skeleton } from './ui/skeleton';
 import { Button } from './ui/button';
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from './ui/sidebar';
 import { listActionsRecentes } from '../lib/api';
 import { useApi } from '../lib/useApi';
 import { usePreview, type FicheCible } from '../lib/previewContext';
@@ -76,7 +75,6 @@ function ecrireOnglet(portee: PorteeActionsRecentes): void {
 export default function ActionsRecentes() {
   const [ouvert, setOuvert] = useState(false);
   const [portee, setPortee] = useState<PorteeActionsRecentes>(lireOnglet);
-  const { isMobile, setOpenMobile } = useSidebar();
   const { ouvrirFiche } = usePreview();
 
   const changerPortee = (valeur: PorteeActionsRecentes) => {
@@ -86,7 +84,6 @@ export default function ActionsRecentes() {
 
   const ouvrir = (cible: FicheCible) => {
     setOuvert(false);
-    setOpenMobile(false);
     // Popover fermé d'abord : deux pièges à focus ouverts en même temps se
     // disputent le focus. Le timer survit au démontage de la barre mobile.
     window.setTimeout(() => ouvrirFiche(cible), 0);
@@ -94,16 +91,13 @@ export default function ActionsRecentes() {
 
   return (
     <Popover open={ouvert} onOpenChange={setOuvert}>
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton render={<PopoverTrigger />} isActive={ouvert} tooltip="Actions récentes">
-            <History aria-hidden />
-            Actions récentes
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
+      <PopoverTrigger
+        render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Actions récentes" title="Actions récentes" />}
+      >
+        <History aria-hidden />
+      </PopoverTrigger>
       <PopoverContent
-        side={isMobile ? 'top' : 'right'}
+        side="bottom"
         align="end"
         aria-label="Actions récentes"
         className="flex max-h-[min(70vh,36rem)] w-[min(26rem,calc(100vw-2rem))] flex-col gap-0 p-0"

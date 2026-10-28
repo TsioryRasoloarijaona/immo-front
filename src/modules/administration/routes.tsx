@@ -1,6 +1,7 @@
 import { lazy } from 'react';
-import { Bot, FileCode2, KeyRound, Settings, Users } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import type { ModuleApp } from '../types';
+import { arbreAdministration } from './arbre';
 
 const UtilisateursList = lazy(() => import('../../pages/utilisateurs/UtilisateursList'));
 const ReinitialiserMotDePasse = lazy(() => import('../../pages/utilisateurs/ReinitialiserMotDePasse'));
@@ -16,15 +17,7 @@ const administration: ModuleApp = {
   path: '/utilisateurs',
   reserveAdmin: true,
   prefixes: ['/utilisateurs', '/cles-api', '/modeles-documents'],
-  menu: {
-    titre: 'Administration',
-    entrees: [
-      { to: '/utilisateurs', libelle: 'Comptes utilisateurs', Icone: Users, exact: true },
-      { to: '/utilisateurs/reinitialiser-mot-de-passe', libelle: 'Réinitialiser un mot de passe', Icone: KeyRound },
-      { to: '/cles-api', libelle: "Clés d'API", tooltip: "Clés d'API — clients machine (n8n, agents)", Icone: Bot },
-      { to: '/modeles-documents', libelle: 'Modèles de documents', tooltip: 'Modèles de documents — actes, lettres, fiches', Icone: FileCode2 },
-    ],
-  },
+  arbre: arbreAdministration,
   routes: [
     { path: '/utilisateurs', element: <UtilisateursList /> },
     { path: '/utilisateurs/reinitialiser-mot-de-passe', element: <ReinitialiserMotDePasse /> },
