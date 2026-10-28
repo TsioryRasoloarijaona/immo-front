@@ -35,7 +35,6 @@ const ProspectDetail = lazy(() => import('../../pages/prospects/ProspectDetail')
 const ClientsList = lazy(() => import('../../pages/clients/ClientsList'));
 const NewDossier = lazy(() => import('../../pages/dossiers/NewDossier'));
 const DossiersList = lazy(() => import('../../pages/dossiers/DossiersList'));
-const DossierDetail = lazy(() => import('../../pages/dossiers/DossierDetail'));
 const PlansAccueil = lazy(() => import('../../pages/tranches/PlansAccueil'));
 const CommissionsList = lazy(() => import('../../pages/commissions/CommissionsList'));
 const CommissionTranche = lazy(() => import('../../pages/commissions/CommissionTranche'));
@@ -97,8 +96,8 @@ const vente: ModuleApp = {
     { path: '/prospects/:id', element: <ProspectDetail /> },
     { path: '/clients', element: <ClientsList /> },
     { path: '/clients/:id', element: <ProspectDetail /> },
-    { path: '/dossiers', element: <DossiersList /> },
-    { path: '/dossiers/:id', element: <DossierDetail /> },
+    // Une seule route : `/dossiers/:id` garde la liste montée (filtres, page) avec la fiche ouverte en fenêtre.
+    { path: '/dossiers/:id?', element: <DossiersList /> },
     { path: '/commissions', element: <CommissionsList /> },
     { path: '/commissions/:trancheId', element: <CommissionTranche /> },
     { path: '/rapports', element: <ListeRapports module="vente" /> },
